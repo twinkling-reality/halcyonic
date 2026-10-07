@@ -100,9 +100,10 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? WhyFoldersUnread(Exception? error, string accessRefused) => error switch
         {
-            ControlPlaneRequestException { Code: "device_revoked" } => ConnectionText.PairingRefused,
-            ControlPlaneRequestException { Code: "unauthorized" } => accessRefused,
-            ControlPlaneRequestException { Code: "too_many_requests" } => FoldersTurnedAway,
+            // A code counts only with the status that carries it: a 500 naming device_revoked is no revoked pairing.
+            ControlPlaneRequestException { Code: "device_revoked", Status: 401 } => ConnectionText.PairingRefused,
+            ControlPlaneRequestException { Code: "unauthorized", Status: 401 } => accessRefused,
+            ControlPlaneRequestException { Code: "too_many_requests", Status: 429 } => FoldersTurnedAway,
             ControlPlaneRequestException { Code: null, InnerException: System.Net.Http.HttpRequestException } => FoldersUnanswered,
             _ => null,
         };
