@@ -136,6 +136,8 @@ public class ProjectsColumnTests
             // Something answered, with what isn't HTTP or too much of it, as the handlers wrap it: never "didn't answer".
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), null),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new FormatException(Leak))), null),
+            // A connection something took without setting up a secure one: something answered, so never "didn't answer".
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new HandshakeFailedException(Leak, null))), null),
             (new InvalidOperationException(Leak), null),
         };
         foreach (var (error, why) in cases)

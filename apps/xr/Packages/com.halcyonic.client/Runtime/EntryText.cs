@@ -112,6 +112,8 @@ namespace Halcyonic.Client
             // Something answered with what isn't HTTP, or too much of it (PinnedHttpHandler, LoopbackProofHandler):
             // never "didn't answer".
             _ when Within<System.IO.InvalidDataException>(error) != null || Within<FormatException>(error) != null || Within<OverflowException>(error) != null => null,
+            // Something took the connection and set up no secure one (PinnedConnection): never "didn't answer".
+            _ when Within<HandshakeFailedException>(error) != null => null,
             // A code counts only with the status that carries it: a 500 naming device_revoked is no revoked pairing.
             ControlPlaneRequestException { Code: "device_revoked", Status: 401 } => ConnectionText.PairingRefused,
             ControlPlaneRequestException { Code: "unauthorized", Status: 401 } => accessRefused,

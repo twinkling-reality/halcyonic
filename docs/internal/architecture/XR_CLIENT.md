@@ -873,7 +873,7 @@ the same definition names, as the JSON Schema document:
   reaches the computer, `ControlPlaneTarget.AccessRefused`, which it gives the session and
   `ControlPlaneApi` alike), as a computer that didn't answer only where nothing did (a socket error, a
   proof over USB that nothing answered, the headset's own timeout), or only as Try again, as for an
-  answer that isn't HTTP, never by the
+  answer that isn't HTTP or a TLS handshake something answered and never finished, never by the
   error's message, which is the control plane's own and can hold an address.
 - **`FolderConnect`**, **`FolderConnection`**, **`ConnectScreens`** and **`ConnectText`** are Connect
   a folder in the client core, not yet drawn on the headset: from `GET /api/locations` they offer
