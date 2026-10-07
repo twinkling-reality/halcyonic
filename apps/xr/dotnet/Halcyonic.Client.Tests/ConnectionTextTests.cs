@@ -37,7 +37,7 @@ public class ConnectionTextTests
         {
             Assert.That(line, Does.Not.Contain("control plane").And.Not.Contain("protocol").And.Not.Contain("client"));
         }
-        Assert.That(ConnectionText.Silent(TimeSpan.FromSeconds(1)), Is.EqualTo("Your computer sent nothing for 1 second."));
+        Assert.That(ConnectionText.Silent(TimeSpan.FromSeconds(1)), Is.EqualTo("Your computer sent nothing for 1 second. The headset tries again by itself."));
         Assert.That(ConnectionText.ClosedWith("1008 device revoked"), Is.EqualTo(ConnectionText.PairingRefused));
         Assert.That(ConnectionText.ClosedWith("1001 going away"), Is.EqualTo(ConnectionText.Closed));
         Assert.That(ConnectionText.ClosedWith(null), Is.EqualTo(ConnectionText.Closed));

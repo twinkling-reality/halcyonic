@@ -422,7 +422,11 @@ public class RealtimeSessionTests
         var first = await ConnectLiveAsync(Samples.Snapshot(1));
 
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the silent connection is abandoned");
-        Assert.That(session.Status.Detail, Does.Contain("sent nothing"));
+        // It answered before it went quiet, so the line stands alone, with its way on, never after "Can't reach".
+        const string silent = "Your computer sent nothing for 1 second. The headset tries again by itself.";
+        Assert.That((session.Status.Detail, session.Status.Answered), Is.EqualTo((silent, true)));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(silent));
+        Assert.That(ConnectionText.Retrying(session.Status), Is.EqualTo(silent));
         var second = await server.AcceptAsync();
         Assert.That(second, Is.Not.SameAs(first));
         Assert.That(first.Disposed, Is.True);
