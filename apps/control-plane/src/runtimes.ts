@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ClaudeAgentRuntimeAdapter } from '@halcyonic/integration-claude-code';
-import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
+import { CodexRuntimeAdapter, SIGN_IN_VARIABLES } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
@@ -21,6 +21,13 @@ export const CLAUDE_AGENT_PROCESS_RECORD = 'claude-agent-processes.json';
 
 /** The file in the data directory where the Codex app-server Halcyonic launched is recorded. */
 export const CODEX_SERVER_RECORD = 'codex-server.json';
+
+/**
+ * The folder in the data directory that is Codex's home, its `CODEX_HOME`, never the person's
+ * `~/.codex`: mode 700, made by the adapter when missing, its `config.toml` written by
+ * `pnpm mac-setup local-model` (local-models.md).
+ */
+export const CODEX_HOME_FOLDER = 'codex-home';
 
 export interface RuntimeDependencies {
   readonly mock: MockRuntimeAdapter;
@@ -69,9 +76,10 @@ export function createRuntimeAdapters(
     adapters.push(
       new CodexRuntimeAdapter({
         binaryPath: config.codexBinary,
+        codexHome: join(dependencies.dataDir, CODEX_HOME_FOLDER),
         serverRecordFile: join(dependencies.dataDir, CODEX_SERVER_RECORD),
         directoryPolicy: dependencies.directoryPolicy,
-        env: additions,
+        env: codexEnvironment(additions),
       }),
     );
   }
@@ -146,6 +154,17 @@ export function openCodeEnvironment(
 ): Record<string, string> {
   if (config.opencodeConfigHome === null) return additions;
   return { ...additions, XDG_CONFIG_HOME: config.opencodeConfigHome };
+}
+
+/**
+ * Codex's additions: the pass-through variables without the ones Codex signs in with. Through
+ * Halcyonic Codex runs only on models served on this Mac, never signed in, so a key passed for
+ * another runtime never reaches it.
+ */
+export function codexEnvironment(additions: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(additions).filter(([name]) => !SIGN_IN_VARIABLES.includes(name)),
+  );
 }
 
 /**

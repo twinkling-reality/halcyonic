@@ -14,7 +14,9 @@ import { type FakeProvider, type FakeProviderOptions, startFakeProvider } from '
  * connection; and a monitor of the sockets of every process running the binary under test.
  *
  * The switches, each verified against Codex 0.157.0 (source at rust-v0.157.0, and runs without
- * credentials that attributed every connection attempt):
+ * credentials that attributed every connection attempt), are in the home's configuration here for
+ * the bare app-server clients some tests start; the adapter passes them on every launch itself
+ * (`LOCAL_ONLY_SETTINGS`):
  * - `features.plugins = false`: plugin startup sync otherwise contacts chatgpt.com and GitHub;
  * - `analytics.enabled = false`: turns off the analytics events client, which is on unless this
  *   is false (codex-rs/core/src/session/session.rs), and the metrics exporter, which sends to
@@ -27,6 +29,8 @@ export interface CodexSandbox {
   /** A directory for threads to work in, as a real path. */
   readonly project: string;
   readonly recordFile: string;
+  /** Codex's home, given to the adapter as `codexHome`: mode 700, its configuration written here. */
+  readonly codexHome: string;
   /** Environment additions for the adapter. */
   readonly env: Readonly<Record<string, string>>;
   readonly provider: FakeProvider;
@@ -90,9 +94,9 @@ export async function createSandbox(
     root,
     project: path('project'),
     recordFile: path('halcyonic/codex-server.json'),
+    codexHome: path('codex-home'),
     env: {
       HOME: path('home'),
-      CODEX_HOME: path('codex-home'),
       XDG_CONFIG_HOME: path('config'),
       XDG_DATA_HOME: path('data'),
       XDG_STATE_HOME: path('state'),

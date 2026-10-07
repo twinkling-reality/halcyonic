@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -119,6 +119,7 @@ async function gone(pid: number, what: string): Promise<void> {
 function adapterFor(file: string): CodexRuntimeAdapter {
   return new CodexRuntimeAdapter({
     binaryPath: '/unused',
+    codexHome: join(dirname(file), 'codex-home'),
     serverRecordFile: file,
     directoryPolicy: () => ({
       ok: false,
@@ -254,6 +255,14 @@ describe('a Codex server left running by an earlier run', () => {
     assert.equal(runsAppServer('/opt/codex app-server', '/opt/codex'), true);
     assert.equal(runsAppServer('/opt/codex exec', '/opt/codex'), false);
     assert.equal(runsAppServer('/opt/codex-other app-server', '/opt/codex'), false);
+    // As launched since 2026-10-07, with its settings, and through an interpreter.
+    assert.equal(
+      runsAppServer('/opt/codex app-server -c features.plugins=false', '/opt/codex'),
+      true,
+    );
+    assert.equal(runsAppServer('node /opt/codex app-server -c a=1', '/opt/codex'), true);
+    assert.equal(runsAppServer('/opt/codex app-serverx', '/opt/codex'), false);
+    assert.equal(runsAppServer('/opt/codex exec app-server', '/opt/codex'), false);
     assert.equal(await readProcessIdentity(2 ** 22 + 12_345), null);
   });
 

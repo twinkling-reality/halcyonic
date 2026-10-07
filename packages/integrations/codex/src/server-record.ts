@@ -139,12 +139,16 @@ export function isRecordedProcess(identity: ProcessIdentity, record: ServerRecor
 }
 
 /**
- * True when a command line, as `ps` prints it, runs `<binary> app-server`. A script shows its
- * interpreter first, which the stand-in binary of the unit tests needs.
+ * True when a command line, as `ps` prints it, runs `<binary> app-server`, with or without the
+ * settings after it that the adapter passes since 2026-10-07 (a server an earlier build launched
+ * has none). A script shows its interpreter first, which the stand-in binary of the unit tests
+ * needs.
  */
 export function runsAppServer(command: string, binaryPath: string): boolean {
   const expected = `${binaryPath.trim().split(/\s+/).join(' ')} app-server`;
-  return command === expected || command.endsWith(` ${expected}`);
+  const runs = (text: string) => text === expected || text.startsWith(`${expected} `);
+  const after = command.indexOf(` ${expected}`);
+  return runs(command) || (after >= 0 && runs(command.slice(after + 1)));
 }
 
 /**

@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
@@ -25,11 +28,19 @@ import {
   type CodexRuntimeOptions,
 } from './codex-runtime.ts';
 import { APPROVAL_METHODS, METHODS_USED } from './protocol.ts';
-import { buildEnvironment, INHERITED_VARIABLES } from './server.ts';
+import {
+  APP_SERVER_ARGUMENTS,
+  buildEnvironment,
+  INHERITED_VARIABLES,
+  SIGN_IN_VARIABLES,
+} from './server.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 
 const FAKE_CODEX = fileURLToPath(new URL('./testing/fake-codex.mjs', import.meta.url));
+
+/** The configuration `pnpm mac-setup local-model` gives Codex's home: Ollama on this Mac. */
+const LOCAL_CONFIG = { model_provider: 'ollama', model: 'qwen3.6:35b-a3b-nvfp4' };
 
 function temporary(t: TestContext): string {
   // A real path, as the host binds a project's folder; macOS's temporary directory is a link.
@@ -48,6 +59,7 @@ function adapter(t: TestContext) {
   const directory = temporary(t);
   const runtime = new CodexRuntimeAdapter({
     binaryPath: '/nonexistent/codex',
+    codexHome: join(temporary(t), 'codex-home'),
     serverRecordFile: join(directory, 'server.json'),
     directoryPolicy: allowOnly(directory),
   });
@@ -65,14 +77,20 @@ function fake(
   const directory = temporary(t);
   const log = join(directory, 'received.jsonl');
   const recordFile = join(directory, 'server.json');
+  // Outside the project's folder, as the control plane keeps it in its data directory.
+  const codexHome = join(temporary(t), 'codex-home');
+  const launches = join(directory, 'launches.jsonl');
   const runtime = new CodexRuntimeAdapter({
     binaryPath: FAKE_CODEX,
+    codexHome,
     serverRecordFile: recordFile,
     directoryPolicy: allowOnly(directory),
     env: {
       PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
       FAKE_CODEX_MODE: mode.join(','),
       FAKE_CODEX_LOG: log,
+      FAKE_CODEX_LAUNCHES: launches,
+      FAKE_CODEX_CONFIG: JSON.stringify(LOCAL_CONFIG),
       ...env,
     },
     ...options,
@@ -95,7 +113,14 @@ function fake(
       directory,
       emit: (observation) => observations.push(observation),
     });
-  return { runtime, directory, recordFile, observations, received, start };
+  const launched = (): { argv: string[]; codexHome: string | null }[] =>
+    existsSync(launches)
+      ? readFileSync(launches, 'utf8')
+          .split('\n')
+          .filter((line) => line !== '')
+          .map((line) => JSON.parse(line) as { argv: string[]; codexHome: string | null })
+      : [];
+  return { runtime, directory, recordFile, codexHome, observations, received, launched, start };
 }
 
 async function until(condition: () => boolean, what: string, timeoutMs = 10_000): Promise<void> {
@@ -272,6 +297,7 @@ describe("Codex and the project's folder", () => {
     const runtime = new CodexRuntimeAdapter({
       binaryPath: '/nonexistent/codex',
       serverRecordFile: join(directory, 'server.json'),
+      codexHome: join(directory, 'codex-home'),
       directoryPolicy: () => {
         throw new Error('policy failure');
       },
@@ -311,7 +337,7 @@ describe('Codex start failures', () => {
 });
 
 describe('Codex server environment', () => {
-  test('inherits only the allowlist, keeps HOME and CODEX_HOME, and disables remote control', () => {
+  test("inherits only the allowlist, keeps HOME, gives Codex Halcyonic's home, and disables remote control", () => {
     const environment = buildEnvironment(
       {
         PATH: '/usr/bin',
@@ -322,16 +348,18 @@ describe('Codex server environment', () => {
         CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'someone else',
         NODE_OPTIONS: '--inspect',
       },
-      { CODEX_API_KEY: 'configured' },
+      { GIT_AUTHOR_NAME: 'configured' },
+      '/home/user/.halcyonic/codex-home',
     );
     assert.deepEqual(environment, {
       PATH: '/usr/bin',
       HOME: '/home/user',
-      CODEX_HOME: '/home/user/.codex',
-      CODEX_API_KEY: 'configured',
+      GIT_AUTHOR_NAME: 'configured',
+      CODEX_HOME: '/home/user/.halcyonic/codex-home',
       CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED: '1',
     });
     assert.ok(!INHERITED_VARIABLES.includes('SALIDIUM_INTERNAL'));
+    assert.ok(!INHERITED_VARIABLES.includes('CODEX_HOME'));
   });
 
   test('refuses a binary path that would be looked up on PATH', () => {
@@ -339,6 +367,7 @@ describe('Codex server environment', () => {
       () =>
         new CodexRuntimeAdapter({
           binaryPath: 'codex',
+          codexHome: join(tmpdir(), 'codex-home'),
           serverRecordFile: join(tmpdir(), 'unused.json'),
           directoryPolicy: allowOnly(tmpdir()),
         }),
@@ -346,17 +375,20 @@ describe('Codex server environment', () => {
     );
   });
 
-  test('refuses variables the adapter owns, including SALIDIUM_INTERNAL', (t) => {
+  test('refuses variables the adapter owns, including SALIDIUM_INTERNAL, CODEX_HOME and every sign-in', (t) => {
     for (const name of [
       'SALIDIUM_INTERNAL',
+      'CODEX_HOME',
       'CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED',
       'CODEX_INTERNAL_ORIGINATOR_OVERRIDE',
+      ...SIGN_IN_VARIABLES,
     ]) {
-      assert.throws(() => buildEnvironment({}, { [name]: 'x' }), new RegExp(name));
+      assert.throws(() => buildEnvironment({}, { [name]: 'x' }, '/home'), new RegExp(name));
       assert.throws(
         () =>
           new CodexRuntimeAdapter({
             binaryPath: '/nonexistent/codex',
+            codexHome: join(tmpdir(), 'codex-home'),
             serverRecordFile: join(temporary(t), 'server.json'),
             directoryPolicy: allowOnly(tmpdir()),
             env: { [name]: 'x' },
@@ -463,13 +495,15 @@ describe('Codex runtime against a stand-in binary', () => {
       approvalPolicy: 'on-request',
       approvalsReviewer: 'user',
       sandbox: 'workspace-write',
+      // The configured provider, once Codex's configuration shows it on this Mac, by name.
+      modelProvider: 'ollama',
       // The model may ask the person questions (ADR 0022).
       config: { 'features.default_mode_request_user_input': true },
       threadSource: 'halcyonic',
     });
     assert.deepEqual(
       sent.map((message) => message.method),
-      ['initialize', 'initialized', 'thread/start', 'turn/start'],
+      ['initialize', 'initialized', 'config/read', 'thread/start', 'turn/start'],
     );
     await until(() => observations.length === 4, 'the turn');
     assert.deepEqual(
@@ -483,7 +517,7 @@ describe('Codex runtime against a stand-in binary', () => {
     );
     assert.deepEqual(observations[0]?.payload, { native_id });
     // The model the thread got, as Codex reported it in its answer to thread/start.
-    assert.deepEqual(observations[1]?.payload, { model_ref: 'openai/gpt-5.5' });
+    assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
     assertValidObservations(observations);
   });
 
@@ -519,6 +553,158 @@ describe('Codex runtime against a stand-in binary', () => {
     });
     await until(() => observations.length === 4, 'the turn');
     assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
+  });
+
+  test("launches Codex in Halcyonic's own home, with every local-only setting above its configuration", async (t) => {
+    const { start, launched, codexHome } = fake(t);
+    await start('COMPLETE the work.');
+    assert.deepEqual(launched(), [{ argv: [...APP_SERVER_ARGUMENTS], codexHome }]);
+    assert.deepEqual(APP_SERVER_ARGUMENTS, [
+      'app-server',
+      '-c',
+      'features.plugins=false',
+      '-c',
+      'check_for_update_on_startup=false',
+      '-c',
+      'analytics.enabled=false',
+      '-c',
+      'web_search="disabled"',
+      '-c',
+      'cli_auth_credentials_store="file"',
+    ]);
+    // Made for Codex, closed to other users.
+    assert.equal(statSync(codexHome).mode & 0o777, 0o700);
+  });
+
+  test('refuses to launch Codex in a home that is a link, open to others, or holds a sign-in', async (t) => {
+    const cases: [string, (home: string) => void, RegExp][] = [
+      [
+        'open',
+        (home) => mkdirSync(home, { mode: 0o755 }),
+        /Other users can open Codex's home .* Run chmod 700 on it\./,
+      ],
+      [
+        'link',
+        (home) => {
+          const target = join(dirname(home), 'elsewhere');
+          mkdirSync(target, { mode: 0o700 });
+          symlinkSync(target, home);
+        },
+        /is not a folder, or is a link\./,
+      ],
+      [
+        'signed in',
+        (home) => {
+          mkdirSync(home, { mode: 0o700 });
+          writeFileSync(join(home, 'auth.json'), '{}', { mode: 0o600 });
+        },
+        /holds a sign-in \(auth\.json\)/,
+      ],
+    ];
+    for (const [what, prepare, why] of cases) {
+      const { start, launched, codexHome, observations } = fake(t);
+      prepare(codexHome);
+      chmodSync(codexHome, what === 'open' ? 0o755 : 0o700);
+      await assert.rejects(start('COMPLETE the work.'), (error: unknown) => {
+        assert.ok(actionError('runtime_unavailable')(error), what);
+        assert.match((error as Error).message, why, what);
+        return true;
+      });
+      assert.deepEqual(launched(), [], `${what}: Codex was launched`);
+      assert.deepEqual(observations, []);
+    }
+  });
+
+  test('starts a thread only on a provider served on this Mac, asked for by name', async (t) => {
+    const remote = [
+      [{}, {}, /the provider openai is a remote service/],
+      [LOCAL_CONFIG, { model_provider: 'openai' }, /the provider openai is a remote service/],
+      [{ model_provider: 'amazon-bedrock' }, {}, /the provider amazon-bedrock is a remote service/],
+      [
+        {
+          model_provider: 'gateway',
+          model_providers: { gateway: { base_url: 'https://gateway.example/v1' } },
+        },
+        {},
+        /the provider gateway is a remote service/,
+      ],
+      [{ model_provider: 'mystery' }, {}, /the provider mystery is not known to be on this Mac/],
+    ] as const;
+    for (const [config, options, why] of remote) {
+      const { runtime, received, directory, observations } = fake(
+        t,
+        [],
+        {},
+        {
+          FAKE_CODEX_CONFIG: JSON.stringify(config),
+        },
+      );
+      await assert.rejects(
+        runtime.startExecution({
+          execution: TEST_EXECUTION,
+          instruction: 'COMPLETE the work.',
+          options,
+          model_ref: null,
+          directory,
+          emit: (observation) => observations.push(observation),
+        }),
+        (error: unknown) => {
+          assert.ok(actionError('model_unavailable')(error), JSON.stringify(config));
+          assert.match((error as Error).message, why);
+          return true;
+        },
+      );
+      assert.ok(!received().some((message) => message.method === 'thread/start'));
+      assert.deepEqual(observations, []);
+    }
+    // A provider the configuration defines on loopback is on this Mac; the thread asks for it.
+    const gateway = {
+      model_provider: 'gateway',
+      model: 'local-model',
+      model_providers: { gateway: { base_url: 'http://127.0.0.1:8080/v1' } },
+    };
+    const { start, received } = fake(t, [], {}, { FAKE_CODEX_CONFIG: JSON.stringify(gateway) });
+    await start('COMPLETE the work.');
+    const threadStart = received().find((message) => message.method === 'thread/start');
+    const params = (threadStart?.params ?? {}) as { modelProvider?: unknown };
+    assert.equal(params.modelProvider, 'gateway');
+  });
+
+  test('refuses a model Ollama runs on its own remote service, chosen, configured or reported', async (t) => {
+    const { runtime } = adapter(t);
+    for (const [options, modelRef] of [
+      [{ model: 'gpt-oss:120b-cloud' }, null],
+      [{ model_provider: 'ollama', model: 'qwen3-coder:480b-cloud' }, null],
+      [{}, 'ollama/gpt-oss:120b-cloud'],
+      [{}, 'ollama/deepseek-v3.1:671b-cloud'],
+    ] as const) {
+      const validation = runtime.validateStartOptions(options, modelRef);
+      assert.equal(validation.ok, false, JSON.stringify([options, modelRef]));
+      assert.match(
+        validation.ok ? '' : validation.message,
+        /runs on Ollama's remote service, not on this Mac/,
+      );
+    }
+    const configured = fake(
+      t,
+      [],
+      {},
+      {
+        FAKE_CODEX_CONFIG: JSON.stringify({
+          model_provider: 'ollama',
+          model: 'gpt-oss:120b-cloud',
+        }),
+      },
+    );
+    await assert.rejects(configured.start('COMPLETE the work.'), (error: unknown) => {
+      assert.ok(actionError('runtime_refused')(error));
+      assert.match(
+        (error as Error).message,
+        /reports model "gpt-oss:120b-cloud" from provider "ollama"/,
+      );
+      return true;
+    });
+    assert.ok(!configured.received().some((message) => message.method === 'turn/start'));
   });
 
   test("refuses a thread Codex reports working in another folder than the project's", async (t) => {
@@ -603,20 +789,21 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.deepEqual(observations, []);
   });
 
-  test('lists the configured model and the catalog of the provider it belongs to', async (t) => {
+  test('lists only models served on this Mac: the configured local model, never a remote catalog', async (t) => {
     const catalog = [
       { id: 'gpt-5.5', model: 'gpt-5.5', displayName: 'GPT-5.5', hidden: false },
       { id: 'gpt-hidden', model: 'gpt-hidden', displayName: 'Hidden', hidden: true },
       { id: 'gpt-6-sol', model: 'gpt-6-sol', displayName: 'GPT-6-Sol', hidden: false },
     ];
-    const hosted = fake(t, [], {}, { FAKE_CODEX_CATALOG: JSON.stringify(catalog) });
-    assert.deepEqual(
-      (await hosted.runtime.listModels()).map((model) => [model.model_ref, model.served]),
-      [
-        ['openai/gpt-5.5', 'remote'],
-        ['openai/gpt-6-sol', 'remote'],
-      ],
+    // Configured for OpenAI, Codex's default: its catalog is OpenAI's, served remotely, and
+    // through Halcyonic Codex offers no remote model.
+    const hosted = fake(
+      t,
+      [],
+      {},
+      { FAKE_CODEX_CATALOG: JSON.stringify(catalog), FAKE_CODEX_CONFIG: '{}' },
     );
+    assert.deepEqual(await hosted.runtime.listModels(), []);
     // Every page was read, and only the stable methods were used.
     assert.deepEqual(
       hosted
@@ -650,6 +837,20 @@ describe('Codex runtime against a stand-in binary', () => {
         context_tokens: 65536,
       },
     ]);
+
+    // A model Ollama runs on its own remote service is not offered, although Ollama serves it.
+    const cloud = fake(
+      t,
+      [],
+      {},
+      {
+        FAKE_CODEX_CONFIG: JSON.stringify({
+          model_provider: 'ollama',
+          model: 'gpt-oss:120b-cloud',
+        }),
+      },
+    );
+    assert.deepEqual(await cloud.runtime.listModels(), []);
   });
 
   test('a start from the list runs on the chosen provider and model, checked again first', async (t) => {
@@ -999,6 +1200,7 @@ describe('Codex runtime against a stand-in binary', () => {
       'config',
       'cwd',
       'excludeTurns',
+      'modelProvider',
       'sandbox',
       'threadId',
     ]);

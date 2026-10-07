@@ -4,7 +4,7 @@
  * to check that neither the server it launched nor the command outlives it. It exits when its own
  * stdin ends, so it does not outlive its test either; its exit ends the server's input and the
  * watchdog's, as a kill does. Usage: `node crash-host.ts <json options>` with `binaryPath`,
- * `recordFile`, `env`, `directory` and `instruction`.
+ * `codexHome`, `recordFile`, `env`, `directory` and `instruction`.
  */
 import { CodexRuntimeAdapter } from '../codex-runtime.ts';
 import { allowOnly } from './directory-policy.ts';
@@ -19,6 +19,7 @@ process.stdin.resume();
 
 const options = JSON.parse(process.argv[2] ?? '{}') as {
   binaryPath: string;
+  codexHome: string;
   recordFile: string;
   env: Record<string, string>;
   directory: string;
@@ -26,6 +27,7 @@ const options = JSON.parse(process.argv[2] ?? '{}') as {
 };
 const runtime = new CodexRuntimeAdapter({
   binaryPath: options.binaryPath,
+  codexHome: options.codexHome,
   serverRecordFile: options.recordFile,
   directoryPolicy: allowOnly(options.directory),
   env: options.env,

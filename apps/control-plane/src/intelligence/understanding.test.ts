@@ -30,6 +30,19 @@ describe('Salidium as the understanding source', () => {
     ]);
   });
 
+  test("a Codex session, kept in Halcyonic's own Codex home, is not observed: no credential is read", async () => {
+    const { source, credentialPath } = setup('codex-home');
+    // A credential other users can read would be refused for any session Salidium is asked about.
+    writeFileSync(credentialPath, 'slc_example\n');
+    chmodSync(credentialPath, 0o644);
+    const result = await source.understand('codex', '019a0000-0000-7000-8000-000000000001');
+    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    assert.match(
+      result.availability === 'available' ? '' : result.reason.message,
+      /Halcyonic's own codex home/,
+    );
+  });
+
   test('without a credential file the answer says how to create one', async () => {
     const { source, credentialPath } = setup('missing');
     const result = await source.understand('claude-agent', '5f0c7f1e-0000-4000-8000-000000000001');
@@ -47,7 +60,7 @@ describe('Salidium as the understanding source', () => {
     const { source, credentialPath } = setup('exposed');
     writeFileSync(credentialPath, 'slc_example\n');
     chmodSync(credentialPath, 0o644);
-    assert.deepEqual(reason(await source.understand('codex', 'thread-1')), [
+    assert.deepEqual(reason(await source.understand('claude-agent', 'thread-1')), [
       'unauthorized',
       'credential_file_exposed',
     ]);
