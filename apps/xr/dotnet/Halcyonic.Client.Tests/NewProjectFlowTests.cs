@@ -795,6 +795,7 @@ public class NewProjectFlowTests
                 "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("internal_error")), "Press Try again."),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.BadGateway, Leak), "Press Try again."),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("device_revoked")), "Press Try again."),
         };
         foreach (var (fail, shown) in cases)
         {
