@@ -183,7 +183,10 @@ shimmer's sweep, then under Keep badges still) and `gallery-listening.png` (Hold
 three points of its pulse, then still), and fails if a wait's words do not move, are lifted too little
 to see, keep moving once the wait ends or under Keep badges still; if Hold to talk listening is not in the
 active tone, its microphone does not pulse, or pulses still once idle or under Keep badges still; if its
-words lean; or if sixty frames of either motion allocate anything or a wait adds a renderer.
+words lean; or if a wait adds a renderer, or any of sixty frames of either motion allocates in each of
+three tries. Unity's count of allocations takes in the editor's other threads, and this editor's Mono
+counts nothing for one thread alone, so only an allocation that comes again at the same frame is the
+motion's; the log gives the frames and the quietest try's bytes.
 
 The headset redesign's frames (ADR 0026) render the same way, **Halcyonic > Render the Redesign
 Directions**, or in batch mode:
