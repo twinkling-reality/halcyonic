@@ -192,7 +192,7 @@ namespace Halcyonic.Client
             switch (outcome)
             {
                 case LoopbackProofOutcome.Unproved:
-                    return "Something answers at " + at + " but can't prove it holds the access code, so the code was not sent. It may be another program listening while Halcyonic is stopped.";
+                    return "Something answers at " + at + " but can't prove it holds the access code, so the code was not sent. It may be another program listening while this app is stopped on " + HostText.Your + ".";
                 case LoopbackProofOutcome.NotLoopback:
                     return "The access code goes only to ws:// or http:// at 127.0.0.1 or [::1], so it was not sent to "
                         + uri.Scheme + "://" + uri.Authority + ". Name one of those instead.";

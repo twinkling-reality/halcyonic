@@ -52,5 +52,9 @@ public class HostTextTests
         Assert.That(EntryText.NoFolders, Is.EqualTo("Your computer doesn't allow any folder yet. Allow one on your computer, then press Try again."));
         Assert.That(EntryText.DemoCannotStart, Is.EqualTo("The demo can't start new work. Real work runs on your computer."));
         Assert.That(SettingsText.YourMac, Is.EqualTo("Your computer"));
+        // Our own words never name the product (the review, 2026-10-07).
+        var unproved = new TokenNotSentException(LoopbackProofOutcome.Unproved, new System.Uri("http://127.0.0.1:47800/")).Message;
+        Assert.That(new[] { VoiceText.NoMicrophone, unproved }, Has.None.Contains("Halcyonic"));
+        Assert.That(unproved, Does.EndWith("It may be another program listening while this app is stopped on your computer."));
     }
 }
