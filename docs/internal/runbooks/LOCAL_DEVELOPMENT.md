@@ -382,11 +382,12 @@ What `HALCYONIC_AGENT_ENV` passes to Codex, and what stops it:
 - `OPENAI_` variables, the proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and their
   lowercase forms) and the other variables Codex signs in with are left out of what Codex gets;
   other runtimes still get them.
-- Codex is not started, and its tasks can't start, when this Mac has any of `/etc/codex/config.toml`,
-  `/etc/codex/managed_config.toml`, `/etc/codex/requirements.toml` or a `com.openai.codex` file in
-  `/Library/Managed Preferences`, which apply whatever Halcyonic sets, or when Codex reports
-  managed requirements or a local-only setting turned back on. The refusal holds until Halcyonic
-  restarts.
+- Codex is not started, and its tasks can't start, while this Mac has a `/etc/codex` folder or a
+  `com.openai.codex` file in `/Library/Managed Preferences` (yours or the machine's), which apply
+  whatever Halcyonic sets; once it is gone, the next task starts Codex.
+- Codex is stopped, and stays refused until you restart Halcyonic, when it reports managed
+  requirements, a managed or device-profile configuration, system settings, or a local-only
+  setting turned back on.
 
 Each thread's rollout is written under that home's `sessions`, not where Salidium and Seorak read
 Codex sessions, so Understand and Checks say they don't follow those Codex tasks

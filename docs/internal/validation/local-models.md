@@ -437,11 +437,20 @@ fake provider on loopback unless said; all passed:
   Codex reports on another provider, model or approval setting than asked.
 - **A limit of that check, and its fix:** it runs after `initialize`, so under a managed file that
   turns plugins back on, Codex's startup connection could begin before the server is stopped.
-  Since 2026-10-07 the adapter also refuses before any launch when `/etc/codex/config.toml`,
-  `managed_config.toml`, `requirements.toml` or a `com.openai.codex` file under
-  `/Library/Managed Preferences` exists (a forced device profile's `config_toml_base64` and
-  `requirements_toml_base64`, `codex-rs/config/src/loader/macos.rs`), and remembers a refusal
-  after launch, so no list or start launches Codex again.
+  Since 2026-10-07 the adapter also refuses before any launch while `/etc/codex` exists (Codex
+  reads managed hooks, `hooks.json`, and skills there too: `codex-rs/hooks/src/engine/discovery.rs`
+  and `codex-rs/ext/skills/src/host_roots.rs`) or a `com.openai.codex` file under
+  `/Library/Managed Preferences`, machine-wide or for the user (a forced device profile's
+  `config_toml_base64` and `requirements_toml_base64`, `codex-rs/config/src/loader/macos.rs`);
+  refuses after launch when `config/read`'s layers include a device-profile, enterprise,
+  managed-file or non-empty system layer; and remembers only those after-launch refusals, so no
+  list or start launches Codex again under them, while a refusal before launch lifts once the
+  path is gone.
+- **Skills, which still load:** 0.157.0 discovers skills from an untrusted project
+  (`.codex/skills`, `.agents/skills`) and from `~/.agents/skills` (`codex-rs/config/src/state.rs`,
+  `codex-rs/ext/skills/src/host_roots.rs`), and its `skills` settings
+  (`codex-rs/config/src/skills_config.rs`: `bundled`, `include_instructions`,
+  `max_context_tokens`, per-skill rules) have none that turns discovery off.
 
 ## Speed and memory
 

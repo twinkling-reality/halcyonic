@@ -22,7 +22,10 @@
  * - `elicit`: every turn raises an `mcpServer/elicitation/request`;
  * - `managed`: a managed layer that outranks the launch's overrides turns plugins back on;
  * - `requirements`: `configRequirements/read` answers managed requirements that pin plugins on,
- *   which `config/read` does not show (otherwise null, none configured);
+ *   which `config/read` does not show (otherwise null, none configured), as it does whenever the
+ *   file FAKE_CODEX_REQUIREMENTS_FILE names exists, so requirements can appear while it runs;
+ * - FAKE_CODEX_FAIL_FILE, when that file exists: the next `config/read` fails as a configuration
+ *   error does, and the file is removed;
  * - `version-fails` and `startup-fails`: `--version`, or `app-server` before it answers anything,
  *   prints FAKE_CODEX_SECRET to its error output, as a configuration error can print a key, and
  *   exits with 3 or 1.
@@ -37,7 +40,7 @@
  * A turn runs until it is interrupted, unless its text contains COMPLETE. Every message received
  * is appended to FAKE_CODEX_LOG when it is set.
  */
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, existsSync, rmSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 
 const flags = new Set((process.env.FAKE_CODEX_MODE ?? '').split(',').filter(Boolean));
@@ -153,10 +156,20 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       return;
     case 'configRequirements/read':
       respond({
-        requirements: flags.has('requirements') ? { featureRequirements: { plugins: true } } : null,
+        requirements:
+          flags.has('requirements') ||
+          (process.env.FAKE_CODEX_REQUIREMENTS_FILE &&
+            existsSync(process.env.FAKE_CODEX_REQUIREMENTS_FILE))
+            ? { featureRequirements: { plugins: true } }
+            : null,
       });
       return;
     case 'config/read':
+      if (process.env.FAKE_CODEX_FAIL_FILE && existsSync(process.env.FAKE_CODEX_FAIL_FILE)) {
+        rmSync(process.env.FAKE_CODEX_FAIL_FILE);
+        refuse('failed to load configuration: config.toml:1:1: expected a value');
+        return;
+      }
       respond({
         config: configured,
         origins: {},
