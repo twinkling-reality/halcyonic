@@ -394,6 +394,40 @@ home's `config.toml`. A thread runs only on a provider served on this Mac.
   - The same gate ran the fake-provider suite at that commit, 22 tests, all passing: the switches
     and the local-only check hold against the real binary, which reported every setting in
     `config/read` and `{"requirements": null}`.
+  - **2026-10-07, at `160477a7`** (before Codex is registered on the owner's Mac), on
+    `qwen3:4b-instruct` again, in a project that is a git repository whose own
+    `.codex/config.toml` starts an MCP server that leaves a mark: passed in 76 s. 184 samples,
+    148 through startup and idle, nothing beyond loopback, one connection to Ollama during the
+    run; the turn completed; the MCP server never started and the home recorded no trust. This
+    time the rollout was written just after the start returned. The probe now also watches every
+    process running the binary, wherever it was started from.
+
+### Before Codex is registered on a Mac (2026-10-07)
+
+End to end tests on the pinned 0.157.0, in the suite, at `160477a7` and `77110f68`, with the
+fake provider on loopback unless said; all passed:
+
+- **E1, the settings applied:** in a fresh home with no configuration, launched with the adapter's
+  arguments, `config/read` reported every local-only setting and `configRequirements/read`
+  answered `{"requirements": null}`.
+- **E3, a control for the probe:** a bare app-server in a fresh home without the settings held an
+  established connection from `codex` to 104.18.32.47:443, a Cloudflare address, within half a
+  second, and the probe saw it. So a probe that sees nothing beyond loopback could have seen
+  something. Skipped when `github.com` does not resolve.
+- **E2, a project's own settings:** in a git repository whose `.codex/config.toml` starts an MCP
+  server that appends to a file, with the project trusted in the home, a bare app-server started
+  the server: the control shows the trap works. The same home, with the thread's overrides
+  marking the folder and every folder above it untrusted, never started it: a thread's overrides
+  outrank the home's trust. The adapter refused that home before any thread. With a home that
+  records nothing, a turn completed, the server never started, and no `trust_level = "trusted"`
+  was written.
+- **E4, a provider under a built-in id:** a home whose `config.toml` defines `[model_providers.openai]`
+  or `[model_providers.ollama]` with a loopback address is refused by Codex itself:
+  `thread/start` fails with "model_providers contains reserved built-in provider IDs: `openai`.
+  Built-in providers cannot be overridden." No request reached the address, nothing went through
+  the proxy trap, and no socket left loopback. So the security review's scenario cannot arise
+  from the home's file on 0.157.0; the adapter still judges `openai` by `openai_base_url` alone,
+  in case another layer or a later version takes such an entry.
 - **System configuration:** Codex reads `/etc/codex/config.toml`,
   `/etc/codex/managed_config.toml` and `/etc/codex/requirements.toml` whatever the home (named in
   the binary's text, and ranked as the source read above shows; no such file was run, since
