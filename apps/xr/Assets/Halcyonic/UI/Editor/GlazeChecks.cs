@@ -577,6 +577,41 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
+        /// What <paramref name="step"/> allocates, called for each of <paramref name="steps"/> steps in three
+        /// tries, each step counted on its own by Unity's count of allocations. That count takes in the
+        /// editor's other threads, which once counted bytes for a motion that allocates none, and this
+        /// editor's Mono counts nothing for one thread alone (both seen 2026-10-07), so only a step that
+        /// allocated in every try is the step's own: another thread's allocation does not come again at
+        /// the same step. Returns how many steps allocated in every try and in some, and the bytes of the
+        /// quietest try on every thread; null where this editor counts no allocation at all.
+        /// </summary>
+        public static (int Every, int Some, long Bytes)? Allocations(Action<int> step, int steps)
+        {
+            const int Tries = 3;
+            using var calls = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocation In Frame Count");
+            using var allocated = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocated In Frame");
+            var allocating = new int[steps];
+            for (var index = 0; index < 4; index++) step(index % steps);
+            var probe = calls.CurrentValue;
+            var kept = new byte[256];
+            GC.KeepAlive(kept);
+            if (calls.CurrentValue - probe < 1) return null;
+            var bytes = long.MaxValue;
+            for (var attempt = 0; attempt < Tries; attempt++)
+            {
+                var before = allocated.CurrentValue;
+                for (var index = 0; index < steps; index++)
+                {
+                    var count = calls.CurrentValue;
+                    step(index);
+                    if (calls.CurrentValue > count) allocating[index]++;
+                }
+                bytes = Math.Min(bytes, allocated.CurrentValue - before);
+            }
+            return (allocating.Count(tries => tries == Tries), allocating.Count(tries => tries > 0), bytes);
+        }
+
+        /// <summary>
         /// Runs a render at the standard text size and again with reading text a step larger
         /// (<see cref="Comfort.LargerTextScale"/>), as the person's comfort settings may ask, the second
         /// pass's renders in a folder of their own ("Larger"): every rule holds at both sizes.
