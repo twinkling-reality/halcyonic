@@ -354,15 +354,20 @@ namespace Halcyonic.Client
             "no_running_turn" => WhyRefused(RejectionCode.InvalidState),
             // One code covers a blip and an agent app's ended process or lost thread, where trying again can't succeed.
             "runtime_unreachable" or "runtime_closed" => StateLanguage.LostTouch
-                + (running ? " See what it's doing; if it can't go on, add the task again in Projects." : " Check that the agent app is running on " + HostText.Your + ", then try again."),
+                + (running ? " See what it's doing; if it can't go on, add the task again in Projects."
+                    : step ? " Check it's running there, then try again." : " Check that the agent app is running on " + HostText.Your + ", then try again."),
             "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
             "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
             "capability_unimplemented" => running ? WhyRefused(RejectionCode.CapabilityUnsupported)
                 : step ? "Its agent app doesn't support it. " + InHowItRuns : "Its agent app can't do that. " + WithAnotherAgentApp,
             // A start that would fail the same way again (the review's L5, settled by the coordinator, 2026-10-07).
-            "runtime_unavailable" when !running => "The agent app isn't available on " + HostText.Your + ". Check its setup there, then "
-                + (step ? "try again." : "add the task again in Projects."),
-            "runtime_version_unsupported" when !running => "This agent app's version on " + HostText.Your + " isn't supported yet. " + (step ? InHowItRuns : WithAnotherAgentApp),
+            // A step's lines are New project's, within its 110 characters (settled by the coordinator, 2026-10-07).
+            "runtime_unavailable" when !running => step
+                ? "The agent app isn't available on " + HostText.Your + ". Check its setup, then try again."
+                : "The agent app isn't available on " + HostText.Your + ". Check its setup there, then add the task again in Projects.",
+            "runtime_version_unsupported" when !running => step
+                ? "This agent app's version isn't supported yet. Choose another in How it runs."
+                : "This agent app's version on " + HostText.Your + " isn't supported yet. " + WithAnotherAgentApp,
             _ => EntryText.FolderProblem(null, code),
         };
 

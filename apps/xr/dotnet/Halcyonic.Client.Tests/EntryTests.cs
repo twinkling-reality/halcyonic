@@ -862,7 +862,15 @@ public class EntryWordsTests
         words.AddRange(Enum.GetValues<ModelServed>().SelectMany(served => new[] { EntryText.Served(served), EntryText.ServedShort(served), EntryText.ServedInSentence(served) }));
         words.AddRange(Enum.GetValues<ModelToolCalling>().Select(EntryText.Tools));
         words.AddRange(new CommandStatus?[] { null, CommandStatus.Accepted, CommandStatus.Completed, CommandStatus.Rejected, CommandStatus.Failed }.Select(EntryText.Recorded));
-        var brands = new[] { "Meta", "Quest", "Oculus", "Horizon", "Unity", "Claude", "Anthropic", "Codex", "OpenAI", "OpenCode", "Salidium", "Seorak", "Mac" };
+        // Composed, as New project draws them: every step line a shared code or a refusal can make (the review, 2026-10-07).
+        var codes = new[]
+        {
+            "approval_not_pending", "question_not_pending", "no_running_turn", "runtime_unreachable", "runtime_closed", "execution_unknown_to_runtime",
+            "model_unavailable", "capability_unimplemented", "runtime_unavailable", "runtime_version_unsupported", "location_missing", "location_not_allowed",
+            "location_exists", "location_required", "an_adapters_own",
+        };
+        words.AddRange(codes.Select(code => WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyFailed(code, running: false, step: true) ?? WorkspaceText.NothingChanged)));
+        var brands = new[] { "Meta", "Quest", "Oculus", "Horizon", "Unity", "Claude", "Anthropic", "Codex", "OpenAI", "OpenCode", "Salidium", "Seorak", "Mac", "Halcyonic" };
         foreach (var word in words)
         {
             foreach (var brand in brands)
@@ -870,8 +878,8 @@ public class EntryWordsTests
                 Assert.That(Regex.IsMatch(word, @"\b" + brand + @"\b"), Is.False, word + ": data may name a runtime; the app's own words do not");
             }
             Assert.That(word, Does.Not.Contain("\u2014"), "no em dash");
-            Assert.That(word.Length, Is.LessThanOrEqualTo(110), word);
         }
+        Assert.That(words.Where(word => word.Length > 110).Distinct(), Is.Empty, "two rows at the step's width");
         Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase)), Is.Empty,
             "the glossary's words: an agent app, a task, your computer");
         Assert.That(EntryText.GuideNote, Does.Contain("not an AI"));
