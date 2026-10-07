@@ -314,12 +314,12 @@ namespace Halcyonic.Client
                 if (stop.IsCancellationRequested) break;
                 if (ending.Refused)
                 {
-                    Publish(new ConnectionStatus(ConnectionPhase.Refused, ending.Reason, accessRefused: ending.AccessRefused));
+                    Publish(new ConnectionStatus(ConnectionPhase.Refused, ending.Reason, accessRefused: ending.AccessRefused, diagnostic: ending.Diagnostic));
                     return;
                 }
                 failures = ending.WasLive ? 1 : failures + 1;
                 var delay = RetryDelay(failures);
-                Publish(new ConnectionStatus(ConnectionPhase.WaitingToRetry, ending.Reason, delay, answered: ending.Answered));
+                Publish(new ConnectionStatus(ConnectionPhase.WaitingToRetry, ending.Reason, delay, answered: ending.Answered, diagnostic: ending.Diagnostic));
                 try
                 {
                     await Task.Delay(delay, stop).ConfigureAwait(false);
@@ -445,12 +445,20 @@ namespace Halcyonic.Client
             catch (UpgradeRefusedException refused)
             {
                 // Refused for another reason than the credential: said by its code, never the control plane's message.
-                return Ending.Failed(ConnectionText.UpgradeRefused(refused.Code, options.TurnedAway), live);
+                return Ending.Failed(ConnectionText.UpgradeRefused(refused.Code, options.TurnedAway), live,
+                    diagnostic: "upgrade refused: " + refused.Status.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + ConnectionText.CodeForLog(refused.Code));
+            }
+            catch (SilentException silent)
+            {
+                // Your computer answered, then went quiet: its words are Halcyonic's own.
+                return Ending.Failed(silent.Message, live);
             }
             catch (Exception error)
             {
                 // Any failure ends this connection and never the session: the next attempt resynchronizes.
-                return Ending.Failed(error.Message, live, answered: false);
+                // Never drawn by its message (TLS, DNS, an address): only a certificate other than the
+                // paired one is said, and the message goes to the device log alone.
+                return Ending.Failed(error is CertificateMismatchException ? ConnectionText.NotThePairedComputer : null, live, answered: false, diagnostic: error.Message);
             }
             finally
             {
@@ -479,7 +487,7 @@ namespace Halcyonic.Client
             }
             catch (Exception) when (idle.IsCancellationRequested && !connection.IsCancellationRequested)
             {
-                throw new TimeoutException(ConnectionText.Silent(options.IdleTimeout));
+                throw new SilentException(ConnectionText.Silent(options.IdleTimeout));
             }
         }
 
@@ -527,17 +535,27 @@ namespace Halcyonic.Client
             return TimeSpan.FromMilliseconds(ceiling * (0.8 + 0.2 * jitter.NextDouble()));
         }
 
+        /// <summary>A live connection your computer stopped sending on, in Halcyonic's own words.</summary>
+        private sealed class SilentException : TimeoutException
+        {
+            public SilentException(string words)
+                : base(words)
+            {
+            }
+        }
+
         private sealed class Ending
         {
             public static readonly Ending Stopped = new Ending(null, false, false);
 
-            private Ending(string? reason, bool wasLive, bool refused, bool accessRefused = false, bool answered = true)
+            private Ending(string? reason, bool wasLive, bool refused, bool accessRefused = false, bool answered = true, string? diagnostic = null)
             {
                 Reason = reason;
                 WasLive = wasLive;
                 Refused = refused;
                 AccessRefused = accessRefused;
                 Answered = answered;
+                Diagnostic = diagnostic;
             }
 
             public string? Reason { get; }
@@ -551,7 +569,11 @@ namespace Halcyonic.Client
             /// <summary>Your computer answered before the connection ended, so the reason stands alone.</summary>
             public bool Answered { get; }
 
-            public static Ending Failed(string reason, bool wasLive, bool answered = true) => new Ending(reason, wasLive, false, answered: answered);
+            /// <summary>For the device log only, never drawn.</summary>
+            public string? Diagnostic { get; }
+
+            public static Ending Failed(string? reason, bool wasLive, bool answered = true, string? diagnostic = null) =>
+                new Ending(reason, wasLive, false, answered: answered, diagnostic: diagnostic);
 
             public static Ending Refuse(string reason) => new Ending(reason, false, true);
 

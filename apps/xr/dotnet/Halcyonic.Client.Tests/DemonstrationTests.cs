@@ -833,8 +833,9 @@ public class DemonstrationFallbackTests
         Assert.That(fallback.Current, Is.SameAs(fallback.Demonstration));
         Assert.That(fallback.Line, Does.Contain("Nothing here is live").And.Contain(ConnectionText.Unreachable));
 
-        await Until(fallback, () => server.Attempts >= 3 && fallback.Line!.Contains("Connection refused"), "the control plane is tried again");
+        await Until(fallback, () => server.Attempts >= 3, "the control plane is tried again");
         Assert.That(fallback.Current, Is.SameAs(fallback.Demonstration));
+        Assert.That(fallback.Line, Does.Contain(ConnectionText.Unreachable).And.Not.Contain("Connection refused"), "the socket's words go to the device log, never drawn");
     }
 
     [Test]

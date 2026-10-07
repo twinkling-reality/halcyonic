@@ -140,15 +140,15 @@ namespace Halcyonic.XR
         }
 
         /// <summary>
-        /// On a headset the log (logcat, tag Unity) is the main diagnostic. It gets the phase and its
-        /// detail, as of the end of the frame, and nothing else: never the token, workstream titles,
-        /// instructions or agent text.
+        /// On a headset the log (logcat, tag Unity) is the main diagnostic. It gets the phase and what went
+        /// wrong (<see cref="ConnectionStatus.ForLog"/>), as of the end of the frame, and nothing else: never
+        /// the token, workstream titles, instructions or agent text.
         /// </summary>
         private void LogStatus(string session, RealtimeSession? shown, ref ConnectionStatus logged)
         {
             if (shown == null || ReferenceEquals(shown.Status, logged)) return;
             logged = shown.Status;
-            Log(session + " " + (logged.Detail == null ? logged.Phase.ToString() : logged.Phase + ": " + logged.Detail));
+            Log(session + " " + logged.ForLog);
         }
 
         /// <summary>Each start of the recording from its beginning, and each of its ends, with no content.</summary>

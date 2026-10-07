@@ -278,6 +278,58 @@ public class RealtimeSessionTests
         Assert.That(session.Status.Detail, Is.EqualTo(words));
         Assert.That(ConnectionText.WhyNotLive(session.Status), Does.Not.Contain("Host header").And.Not.Contain("control plane").And.Not.Contain("credentials"));
         Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(words), "your computer answered, so never after \"Can't reach\", a second way on and untrue (the review's L3)");
+        Assert.That(ConnectionText.Retrying(session.Status), Is.EqualTo(words), "the stage's line alike");
+        Assert.That(session.Status.ForLog, Is.EqualTo("WaitingToRetry: upgrade refused: " + status + " " + code), "the log tells a 403 from a 429 by status and code, never the message (the review's L4)");
+    }
+
+    private sealed class ThrowingTransport : IRealtimeTransport
+    {
+        private readonly Exception error;
+
+        public ThrowingTransport(Exception error)
+        {
+            this.error = error;
+        }
+
+        public string? CloseDescription => null;
+
+        public Task ConnectAsync(Uri endpoint, string accessToken, System.Threading.CancellationToken cancellationToken) => throw error;
+
+        public Task SendAsync(string message, System.Threading.CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<string?> ReceiveAsync(System.Threading.CancellationToken cancellationToken) => Task.FromResult<string?>(null);
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    /// A connection that fails before your computer answers is never drawn by the error's message, which
+    /// can hold an address or a TLS diagnostic; only a certificate other than the paired one is said, in
+    /// Halcyonic's words. The message goes to the device log alone (the review's LEAK 1).
+    /// </summary>
+    [Test]
+    public async Task AFailedConnectionIsNeverDrawnByItsMessage()
+    {
+        foreach (var (error, detail) in new (Exception, string?)[]
+        {
+            (new System.IO.IOException("Could not connect to 10.0.0.5:47801: Connection refused."), null),
+            (new System.IO.IOException("The TLS handshake failed: Authentication failed, see inner exception."), null),
+            (new CertificateMismatchException("ab"), ConnectionText.NotThePairedComputer),
+        })
+        {
+            session?.Dispose();
+            session = new RealtimeSession(Options(options => options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30)), () => new ThrowingTransport(error));
+            session.Start();
+            await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
+            Assert.That(session.Status.Detail, Is.EqualTo(detail));
+            var drawn = new[] { ConnectionText.WhyNotLive(session.Status), ConnectionText.Retrying(session.Status) };
+            Assert.That(drawn, Has.None.Contains("10.0.0.5").And.None.Contains("TLS").And.None.Contains("control plane"));
+            Assert.That(drawn[0], Does.StartWith(ConnectionText.Unreachable), "nothing that is your computer answered");
+            Assert.That(session.Status.ForLog, Is.EqualTo("WaitingToRetry: " + error.Message), "the device log keeps what it logged");
+        }
+        Assert.That(ConnectionText.CodeForLog("x\nHalcyonic: connection Live"), Is.EqualTo("no code"), "what answered can't write a log line of its own");
     }
 
     [Test]
@@ -351,7 +403,7 @@ public class RealtimeSessionTests
             },
             "five retries are scheduled");
 
-        Assert.That(session.Status.Detail, Does.Contain("Connection refused"));
+        Assert.That((session.Status.Detail, session.Status.ForLog), Is.EqualTo(((string?)null, "WaitingToRetry: Connection refused")), "the socket's words go to the device log, never drawn");
         Assert.That(delays.Max(), Is.LessThanOrEqualTo(TimeSpan.FromMilliseconds(200)));
         Assert.That(delays[^1], Is.GreaterThan(delays[0]));
     }
