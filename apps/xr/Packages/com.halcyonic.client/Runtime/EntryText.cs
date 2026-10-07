@@ -135,10 +135,10 @@ namespace Halcyonic.Client
         public static string? FolderProblem(RejectionCode? refusal, string? failure)
         {
             if (refusal == RejectionCode.LocationRequired || failure == "location_required")
-                return "This project has no folder on " + HostText.Your + " yet. Choose where its files live, then try again.";
+                return "This project has no folder yet. Choose where its files live, then try again.";
             if (refusal == RejectionCode.LocationMissing || failure == "location_missing")
                 // The host also answers this for a folder or place that is there but cannot be read.
-                return HostText.YourStart + " can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on " + HostText.Your + ".";
+                return HostText.YourStart + " can't use that folder now. Choose it again, or fix it on " + HostText.Your + ".";
             if (refusal == RejectionCode.LocationNotAllowed || failure == "location_not_allowed")
                 return HostText.YourStart + " doesn't let agents work there. Choose a folder it lists.";
             if (refusal == RejectionCode.LocationExists || failure == "location_exists")
@@ -298,6 +298,8 @@ namespace Halcyonic.Client
             BuildStepStatus.NotYet => "Not sent yet",
             BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Sent. Waiting for the agent…" : "Sent. Waiting for " + HostText.Your + "…",
             BuildStepStatus.Confirmed => "Confirmed",
+            // One sentence for a revoked pairing, alone, within the step's two rows (settled by the coordinator, 2026-10-07).
+            BuildStepStatus.Refused when step.Refusal == RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
             BuildStepStatus.Refused => WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyRefused(step.Refusal)),
             // A failure that may have had an effect is never put in words that say nothing happened.
             BuildStepStatus.Failed when step.EffectUnknown => NotSureItHappened,

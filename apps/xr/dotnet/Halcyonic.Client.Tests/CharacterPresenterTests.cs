@@ -178,7 +178,7 @@ public class CharacterPresenterTests
         Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "Tell it is offered after a failed round");
         Assert.That(Notes(Failed("location_missing", started: false)), Is.EqualTo(new[]
         {
-            "Couldn't start: your computer can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your computer.",
+            "Couldn't start: your computer can't use that folder now. Choose it again, or fix it on your computer.",
         }), "a folder's problem, by its code");
         Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Couldn't start. Add the task again in Projects to try again." }));
 

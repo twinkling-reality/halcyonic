@@ -118,7 +118,7 @@ The headset calls the Mac "your computer" ([WORDS.md](../product/WORDS.md)).
 | Your computer refused this headset's access code | Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect") |
 | Your computer no longer accepts this headset's pairing. | It was revoked: forget the computer on the headset, then `pnpm pair` |
 | Your computer doesn't allow any folder yet. | `pnpm mac-setup allow`, then restart Halcyonic |
-| Your computer can't use that folder right now | The folder moved or can't be read: put it back or choose another. If a folder you allowed is gone, Halcyonic won't start until it is back or you `pnpm mac-setup disallow` it |
+| Your computer can't use that folder now | The folder moved or can't be read: put it back or choose another. If a folder you allowed is gone, Halcyonic won't start until it is back or you `pnpm mac-setup disallow` it |
 | No agent app on your computer can start work right now. | `pnpm mac-setup agent-apps`, then restart Halcyonic |
 | Voice isn't set up on your computer. Type instead. | Step 4, or keep typing |
 | Usage left isn't set up on your computer yet. | Step 4; `pnpm mac-setup` says which part is missing |

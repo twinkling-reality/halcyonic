@@ -70,6 +70,7 @@ namespace Halcyonic.Client
             {
                 BuildStepStatus.Waiting => Connecting,
                 // Why, by its code, never the control plane's message.
+                BuildStepStatus.Refused when step.Refusal == Halcyonic.Contracts.RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
                 BuildStepStatus.Refused => WorkspaceText.Couldnt("Couldn't connect", WorkspaceText.WhyRefused(step.Refusal)),
                 // A failure that may have had an effect is never put in words that say nothing happened.
                 BuildStepStatus.Failed when !step.EffectUnknown => WorkspaceText.Couldnt("Couldn't connect", (EntryText.FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged),

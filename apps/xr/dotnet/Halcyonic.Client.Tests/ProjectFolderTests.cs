@@ -179,7 +179,7 @@ public class FolderRefusalTests
         var step = sequence.StoppedAt!;
         Assert.That(step.Refusal, Is.EqualTo(RejectionCode.LocationRequired));
         Assert.That(EntryText.AboutFolder(step), Is.True);
-        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: this project has no folder on your computer yet. Choose where its files live, then try again."),
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: this project has no folder yet. Choose where its files live, then try again."),
             "the next action comes from the code, not the message");
 
         var bind = sequence.Retry(Samples.Reviewed(sequence, folder: Folder("recipes")), folder: Folder("recipes"));
@@ -216,6 +216,7 @@ public class FolderRefusalTests
             var workstream = sequence.Begin(Samples.Reviewed(sequence));
             sequence.Advance(With(Refused(workstream, code, Leak)));
             Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), code.ToString());
+            Assert.That(EntryText.StepStatus(sequence.StoppedAt!).Length, Is.LessThanOrEqualTo(110), code + ": New project's two rows");
         }
         foreach (FailureEffect effect in Enum.GetValues(typeof(FailureEffect)))
         {
@@ -231,15 +232,15 @@ public class FolderRefusalTests
             Assert.That(EntryText.StepStatus(step), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), effect.ToString());
             if (effect == FailureEffect.None)
             {
-                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again."),
+                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: your computer lost touch with the agent app. Check it's running there, then try again."),
                     "a cause every adapter shares is said by its code, and with no task running, the way on is the computer");
             }
         }
         // A step's way on is what New project offers, never adding the task again from inside it (2026-10-07).
         foreach (var (code, words) in new[]
         {
-            ("runtime_unavailable", "Couldn't do that: the agent app isn't available on your computer. Check its setup there, then try again."),
-            ("runtime_version_unsupported", "Couldn't do that: this agent app's version on your computer isn't supported yet. Choose another agent app in How it runs, then try again."),
+            ("runtime_unavailable", "Couldn't do that: the agent app isn't available on your computer. Check its setup, then try again."),
+            ("runtime_version_unsupported", "Couldn't do that: this agent app's version isn't supported yet. Choose another in How it runs."),
             ("capability_unimplemented", "Couldn't do that: its agent app doesn't support it. Choose another agent app in How it runs, then try again."),
         })
         {
@@ -263,7 +264,7 @@ public class FolderRefusalTests
             Assert.That(EntryText.FolderProblem(code, null), Is.Not.Null, code.ToString());
         }
         Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("nothing was created"));
-        Assert.That(EntryText.FolderProblem(null, "location_missing"), Does.Contain("can't use that folder right now").And.Contain("can't be read"),
+        Assert.That(EntryText.FolderProblem(null, "location_missing"), Is.EqualTo("Your computer can't use that folder now. Choose it again, or fix it on your computer."),
             "the host also answers location_missing for a folder it cannot read, so the words never claim it is gone");
         Assert.That(EntryText.FolderProblem(RejectionCode.InvalidState, "other"), Is.Null);
 

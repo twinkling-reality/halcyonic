@@ -169,7 +169,7 @@ public class FolderConnectTests
         foreach (var (code, words) in new[]
         {
             ("internal_error", "Couldn't connect: nothing changed. Try again."),
-            ("runtime_unreachable", "Couldn't connect: your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again."),
+            ("runtime_unreachable", "Couldn't connect: your computer lost touch with the agent app. Check it's running there, then try again."),
             ("location_not_created", "Couldn't connect: your computer couldn't make that folder, so nothing was created. Choose another name or place."),
         })
         {
