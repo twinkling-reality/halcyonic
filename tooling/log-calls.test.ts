@@ -18,7 +18,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /** What a log call may not name outside a literal, unless reviewed. */
 const PRIVATE =
-  /\b(message|getmessage|getbaseexception|detail|credential|accesstoken|token|titles?|text|instructions?|answers?|transcript|transcription|reply|replies|summary|body|content|prompt|words|label|code|path|address|host|password|authorization|cookie|proof|challenge|snapshot|json|err|errors?|exceptions?)\b|\.\.\./i;
+  /\b(message|getmessage|getbaseexception|detail|credential|accesstoken|token|titles?|text|instructions?|answers?|transcript|transcription|reply|replies|summary|body|content|prompt|words|label|code|path|diagnostics?|forlog|address|host|password|authorization|cookie|proof|challenge|snapshot|json|err|errors?|exceptions?)\b|\.\.\./i;
 
 type Kind = 'ts' | 'cs' | 'java';
 
@@ -182,8 +182,8 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/xr/Assets/Halcyonic/Scripts/ControlPlaneConnection.cs',
-      args: 'session + "" + (logged.Detail == null ? logged.Phase.ToString() : logged.Phase + "" + logged.Detail)',
-      why: "the connection's phase and detail: fixed words, a socket's error, or a message it can't read named by type only (RealtimeSession)",
+      args: 'session + "" + logged.ForLog',
+      why: "the connection's phase, then its diagnostic or detail (ConnectionStatus.ForLog): fixed words, a refused upgrade's status and a code kept by its shape (ConnectionText.CodeForLog), or a transport exception's message, which names an address, a port or a TLS, DNS or socket error; a message that can't be read ends with no diagnostic, so its content never reaches it (RealtimeSession)",
     },
     {
       file: 'apps/xr/Assets/Halcyonic/Scripts/ControlPlaneConnection.cs',
@@ -520,6 +520,12 @@ describe('log calls', () => {
     );
     assert.equal(argumentsAt('Log("a (b" + /* the token */ c)', 3, 'cs'), '"" + c');
     assert.equal(PRIVATE.test(argumentsAt('Log(draft.Text)', 3, 'cs')), true);
+    assert.equal(
+      PRIVATE.test(argumentsAt('Log(session + " " + logged.ForLog)', 3, 'cs')),
+      true,
+      "a status's line for the log is reviewed",
+    );
+    assert.equal(PRIVATE.test(argumentsAt('Log(ending.Diagnostic)', 3, 'cs')), true);
     assert.equal(
       PRIVATE.test(argumentsAt("log.warn({ err: error }, 'x')", 8, 'ts')),
       true,
