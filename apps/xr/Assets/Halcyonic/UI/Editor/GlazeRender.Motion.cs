@@ -11,6 +11,12 @@ namespace Halcyonic.XR.UI.Editor
     public static partial class GlazeRender
     {
         /// <summary>
+        /// The motion strips' first row, in degrees up: below the gallery's top right, where this editor's render
+        /// draws words leaning though their mesh and transform stand upright (seen 2026-10-07, cause not found).
+        /// </summary>
+        private const float StripTop = 5f;
+
+        /// <summary>
         /// A footer's motion (ADR 0027), drawn as two strips. A wait's shimmer: Sent… and Hold to talk writing
         /// down, a third, a half and four fifths into the sweep, then under Keep badges still; its words, in the
         /// secondary tone so the lift shows, move while the prompt waits, stand in their own colours once it no
@@ -41,7 +47,7 @@ namespace Halcyonic.XR.UI.Editor
                 var footers = new List<FooterView>();
                 for (var row = 0; row <= phases.Length; row++)
                 {
-                    var holder = Holder("Motion " + row, 0f, 12f - row * 7f);
+                    var holder = Holder("Motion " + row, 0f, StripTop - row * 4.5f);
                     made.Add(holder);
                     var footer = FooterView.Create(holder, "Footer", 0);
                     footer.Show(waiting, -half, half, 0f);
@@ -117,18 +123,24 @@ namespace Halcyonic.XR.UI.Editor
                 var talks = new List<GlazeButton>();
                 for (var row = 0; row <= pulses.Length; row++)
                 {
-                    var holder = Holder("Listening " + row, 0f, 12f - row * 7f);
+                    var holder = Holder("Listening " + row, 0f, StripTop - row * 4.5f);
                     made.Add(holder);
                     var footer = FooterView.Create(holder, "Footer", 0);
                     footer.Show(listening, -half, half, 0f);
                     talks.Add(footer[PromptSlot.Secondary]!);
                 }
+                foreach (var each in talks) each.Label.ForceMeshUpdate();
                 GlazeMotion.Still = false;
                 for (var row = 0; row < pulses.Length; row++) talks[row].Pulse(pulses[row] * Glaze.ListeningPulseSeconds);
                 GlazeMotion.Still = true;
                 talks[pulses.Length].Pulse(0.5f * Glaze.ListeningPulseSeconds);
                 GlazeMotion.Still = false;
                 File.WriteAllBytes(Path.Combine(folder, "gallery-listening.png"), Render(camera, texture).EncodeToPNG());
+                foreach (var each in talks)
+                {
+                    // Halcyonic's own words never lean: only an agent's do.
+                    if (Mathf.Abs(Shear(each.Label)) > 0.05f) failures.Add("component render: Hold to talk listening leans " + Shear(each.Label) + "; Halcyonic's own words never lean.");
+                }
 
                 var held = talks[0];
                 var active = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Active).Foreground);
@@ -192,6 +204,22 @@ namespace Halcyonic.XR.UI.Editor
             if (bytes > 0) failures.Add("component render: sixty frames of " + what + " allocate " + bytes + " bytes; a frame of motion allocates nothing.");
             Debug.Log("Halcyonic: component render: sixty frames of " + what + " allocate " + bytes + " bytes.");
             return failures;
+        }
+
+        /// <summary>How far a label's first letter's top stands right of its foot, for each unit of its height, as its mesh is now.</summary>
+        private static float Shear(TMPro.TMP_Text label)
+        {
+            var info = label.textInfo;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+                var foot = vertices[character.vertexIndex];
+                var top = vertices[character.vertexIndex + 1];
+                return (top.x - foot.x) / Mathf.Max(top.y - foot.y, 1e-6f);
+            }
+            return 0f;
         }
 
         /// <summary>Two colours the same to the eye, alpha aside.</summary>
