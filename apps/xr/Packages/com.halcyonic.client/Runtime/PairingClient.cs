@@ -198,7 +198,7 @@ namespace Halcyonic.Client
     /// <summary>Pairing did not complete. Nothing was stored.</summary>
     public sealed class PairingException : Exception
     {
-        private static readonly Regex CodeShape = new Regex("^[a-z][a-z0-9_]{0,39}$", RegexOptions.CultureInvariant);
+        private static readonly Regex CodeShape = new Regex("^[a-z][a-z0-9_]{0,39}\\z", RegexOptions.CultureInvariant);
 
         public PairingException(string code, string message, long? attemptsLeft, Exception? inner = null)
             : base(message, inner)
