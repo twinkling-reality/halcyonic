@@ -28,7 +28,7 @@ public class ConnectionTextTests
     [TestCase("too_many_connections", "This headset already has too many connections open to your computer. Close the app, then open it again.")]
     [TestCase("invalid_message", "Your computer couldn't read what this app sent. Install the same version on both.")]
     [TestCase("hello_required", "Your computer couldn't read what this app sent. Install the same version on both.")]
-    [TestCase("a_code_from_later", "Your computer ended the connection.")]
+    [TestCase("a_code_from_later", "Your computer ended the connection. The headset tries again by itself.")]
     public void WhyTheConnectionEndedIsSaidByItsCode(string code, string words)
     {
         Assert.That(ConnectionText.Ended(code), Is.EqualTo(words));
@@ -41,5 +41,7 @@ public class ConnectionTextTests
         Assert.That(ConnectionText.ClosedWith("1008 device revoked"), Is.EqualTo(ConnectionText.PairingRefused));
         Assert.That(ConnectionText.ClosedWith("1001 going away"), Is.EqualTo(ConnectionText.Closed));
         Assert.That(ConnectionText.ClosedWith(null), Is.EqualTo(ConnectionText.Closed));
+        // Shown alone, as on the demonstration's banner, each says what happens next (the review, 2026-10-07).
+        Assert.That(ConnectionText.Closed, Is.EqualTo("Your computer closed the connection. The headset tries again by itself."));
     }
 }
