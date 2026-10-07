@@ -234,7 +234,8 @@ public class PairingLiveTests
         await StartAsync(networkPort);
         var target = ControlPlaneTarget.Paired(paired);
         Connect(target);
-        await Until(s => (s.Status.Detail ?? "").Contains("certificate other than the one this device paired with"), "the session refuses the certificate");
+        await Until(s => s.Status.Detail == ConnectionText.NotThePairedComputer, "the session refuses the certificate");
+        Assert.That(session!.Status.ForLog, Does.Contain("certificate other than the one this device paired with"), "the developer's words in the device log only");
         Assert.That(session!.Status.IsLive, Is.False);
         Assert.That(connections.SelectMany(connection => connection.Sent), Is.Empty, "nothing was sent to it");
     }

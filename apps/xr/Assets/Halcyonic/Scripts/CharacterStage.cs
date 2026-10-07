@@ -723,7 +723,7 @@ namespace Halcyonic.XR
                 case ConnectionPhase.Live:
                     return "Connected to " + HostText.Your + origin;
                 case ConnectionPhase.WaitingToRetry:
-                    return "Last known: can't reach " + HostText.Your + ". Trying again…" + (string.IsNullOrEmpty(status.Detail) ? "" : " " + status.Detail);
+                    return ConnectionText.Retrying(status);
                 case ConnectionPhase.Refused:
                     return ConnectionText.WhyNotLive(status);
                 default:
