@@ -151,6 +151,12 @@ public class PinnedTransportTests
             "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, restart this app on your computer.",
             "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, pair it again in Settings.")),
             "a turned-away connection's way on is true for how this headset reaches the computer");
+        var client = new Halcyonic.Contracts.ClientInfo { Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest" };
+        foreach (var target in new[] { local, paired })
+        {
+            var options = target.SessionOptions(client);
+            Assert.That((options.AccessRefused, options.TurnedAway), Is.EqualTo((target.AccessRefused, target.TurnedAway)), "the session says what the target does");
+        }
         Assert.Throws<ArgumentException>(() => ControlPlaneTarget.CheckPin("ABC"));
         Assert.Throws<ArgumentException>(() => ControlPlaneTarget.CheckPin(new string('C', 64)));
     }

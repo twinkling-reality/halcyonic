@@ -85,14 +85,15 @@ namespace Halcyonic.Client
         public IRealtimeTransport CreateTransport() =>
             Pairing == null ? (IRealtimeTransport)new LoopbackWebSocketTransport() : new PinnedWebSocketTransport(Pairing.CertificateSha256);
 
-        public RealtimeSession CreateSession(ClientInfo client) =>
-            new RealtimeSession(
-                new RealtimeSessionOptions(Endpoint, Credential, client)
-                {
-                    AccessRefused = AccessRefused,
-                    TurnedAway = TurnedAway,
-                },
-                CreateTransport);
+        public RealtimeSession CreateSession(ClientInfo client) => new RealtimeSession(SessionOptions(client), CreateTransport);
+
+        /// <summary>A session's options for this target: where, with what credential, and its words for a refusal.</summary>
+        public RealtimeSessionOptions SessionOptions(ClientInfo client) =>
+            new RealtimeSessionOptions(Endpoint, Credential, client)
+            {
+                AccessRefused = AccessRefused,
+                TurnedAway = TurnedAway,
+            };
 
         public ControlPlaneApi CreateApi()
         {

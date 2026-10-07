@@ -309,6 +309,51 @@ public class RealtimeSessionTests
     /// can hold an address or a TLS diagnostic; only a certificate other than the paired one is said, in
     /// Halcyonic's words. The message goes to the device log alone (the review's LEAK 1).
     /// </summary>
+    /// <summary>A refusal no code names reads in the session's own words for its target (the review's L2).</summary>
+    [Test]
+    public async Task ARefusalNoCodeNamesReadsInTheTargetsWords()
+    {
+        session = new RealtimeSession(Options(options =>
+        {
+            options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30);
+            options.TurnedAway = ConnectionText.TurnedAwayPaired;
+        }), () => new RefusingTransport(403, "forbidden"));
+        session.Start();
+        await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
+        Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.TurnedAwayPaired));
+    }
+
+    private sealed class HangingTransport : IRealtimeTransport
+    {
+        public string? CloseDescription => null;
+
+        public Task ConnectAsync(Uri endpoint, string accessToken, System.Threading.CancellationToken cancellationToken) =>
+            Task.Delay(System.Threading.Timeout.Infinite, cancellationToken);
+
+        public Task SendAsync(string message, System.Threading.CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<string?> ReceiveAsync(System.Threading.CancellationToken cancellationToken) => Task.FromResult<string?>(null);
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>A connection nothing answered in time is said after "Can't reach your computer", never alone (the review's L2).</summary>
+    [Test]
+    public async Task AConnectionNothingAnsweredInTimeReadsAsUnreachable()
+    {
+        session = new RealtimeSession(Options(options =>
+        {
+            options.ConnectTimeout = TimeSpan.FromMilliseconds(100);
+            options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30);
+        }), () => new HangingTransport());
+        session.Start();
+        await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
+        Assert.That(session.Status.Answered, Is.False);
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(ConnectionText.Unreachable + " (" + ConnectionText.NoAnswer(TimeSpan.FromMilliseconds(100)) + ")"));
+    }
+
     [Test]
     public async Task AFailedConnectionIsNeverDrawnByItsMessage()
     {
