@@ -170,7 +170,7 @@ public class FolderConnectTests
         {
             ("internal_error", "Couldn't connect: nothing changed. Try again."),
             ("runtime_unreachable", "Couldn't connect: your computer lost touch with the agent app. Check it's running there, then try again."),
-            ("location_not_created", "Couldn't connect: your computer couldn't make that folder, so nothing was created. Choose another name or place."),
+            ("location_not_created", "Couldn't connect: your computer couldn't make that folder, so nothing changed. Choose another name or place."),
         })
         {
             var connection = Begun(out var command);

@@ -263,7 +263,7 @@ public class FolderRefusalTests
         {
             Assert.That(EntryText.FolderProblem(code, null), Is.Not.Null, code.ToString());
         }
-        Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("nothing was created"));
+        Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("nothing changed"));
         Assert.That(EntryText.FolderProblem(null, "location_missing"), Is.EqualTo("Your computer can't use that folder now. Choose it again, or fix it on your computer."),
             "the host also answers location_missing for a folder it cannot read, so the words never claim it is gone");
         Assert.That(EntryText.FolderProblem(RejectionCode.InvalidState, "other"), Is.Null);
@@ -286,7 +286,7 @@ public class FolderRefusalTests
             Failure = new CommandFailure { Code = "location_not_created", Message = "Made, then unusable.", Effect = FailureEffect.Unknown },
         }));
         var step = sequence.StoppedAt!;
-        Assert.That(EntryText.StepStatus(step), Does.Not.Contain("nothing was created"));
+        Assert.That(EntryText.StepStatus(step), Does.Not.Contain("nothing changed"));
         Assert.That(EntryText.StepStatus(step), Is.EqualTo(EntryText.NotSureItHappened));
         Assert.That(EntryText.AboutFolder(step), Is.False);
         Assert.That(sequence.CanRetry, Is.False);
