@@ -27,7 +27,7 @@ namespace Halcyonic.Client
         /// </summary>
         public const string AccessTokenUnproved =
             "This headset's access code doesn't match " + HostText.Your + "'s, or something else is answering in its place, so the headset didn't send it. "
-            + "Put " + HostText.Your + "'s current access code on the headset, check that Halcyonic is running there, and restart the app.";
+            + "Put " + HostText.Your + "'s current access code on the headset, check that this app is running there, and restart the app.";
 
         /// <summary>A paired headset whose pairing the Mac no longer accepts, as after it was revoked.</summary>
         public const string PairingRefused = HostText.YourStart + " no longer accepts this headset's pairing. Forget the " + HostText.Noun + " on the headset and pair again.";
@@ -104,7 +104,7 @@ namespace Halcyonic.Client
             return seconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + (seconds == 1 ? " second" : " seconds");
         }
 
-        public const string Unreachable = "Can't reach " + HostText.Your + "; trying again. Check that Halcyonic is running there and this headset can reach it.";
+        public const string Unreachable = "Can't reach " + HostText.Your + "; trying again. Check that this app is running there and this headset can reach it.";
 
         /// <summary>
         /// Why the control plane is not shown: refused, with the next step; refused for another reason,
