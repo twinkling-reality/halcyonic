@@ -221,6 +221,13 @@ public class PinnedTransportTests
         Assert.That(refused!.Code, Is.EqualTo("refused"));
         Assert.That(new PairingException("wrong_code", "m", null).Code, Is.EqualTo("wrong_code"));
         Assert.That(new PairingException("refused_401", "m", null).Code, Is.EqualTo("refused_401"));
+        // A line break at the very end too, which .NET's $ lets through (the review's R5).
+        Assert.That(new PairingException("wrong_code\n", "m", null).Code, Is.EqualTo("refused"));
+        const string split = "{\"error\":{\"code\":\"wrong_code\\n\",\"message\":\"m\",\"issues\":[]}}";
+        await using var splitting = TlsTestServer.Answering(
+            "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: " + Encoding.UTF8.GetByteCount(split) + "\r\nConnection: close\r\n\r\n" + split);
+        var ended = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", splitting.Port, "12345678", "Quest 3"));
+        Assert.That(ended!.Code, Is.EqualTo("refused"));
     }
 
     /// <summary>

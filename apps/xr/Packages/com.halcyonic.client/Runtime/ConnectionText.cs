@@ -82,7 +82,7 @@ namespace Halcyonic.Client
 
         /// <summary>A code for the device log, kept only by its shape, so what answered can't write a line of its own.</summary>
         public static string CodeForLog(string? code) =>
-            code != null && System.Text.RegularExpressions.Regex.IsMatch(code, "^[a-z][a-z0-9_]{0,63}$") ? code : "no code";
+            code != null && System.Text.RegularExpressions.Regex.IsMatch(code, "^[a-z][a-z0-9_]{0,63}\\z") ? code : "no code";
 
         /// <summary>
         /// The stage's line while the headset waits to try again: "Last known: can't reach your computer"

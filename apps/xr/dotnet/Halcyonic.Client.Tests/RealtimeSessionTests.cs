@@ -387,6 +387,8 @@ public class RealtimeSessionTests
             Assert.That(session.Status.ForLog, Is.EqualTo("WaitingToRetry: " + error.Message), "the device log keeps what it logged");
         }
         Assert.That(ConnectionText.CodeForLog("x\nHalcyonic: connection Live"), Is.EqualTo("no code"), "what answered can't write a log line of its own");
+        Assert.That(ConnectionText.CodeForLog("forbidden\n"), Is.EqualTo("no code"), "a line break at the very end too, which .NET's $ lets through");
+        Assert.That(ConnectionText.CodeForLog("forbidden"), Is.EqualTo("forbidden"));
     }
 
     [Test]
