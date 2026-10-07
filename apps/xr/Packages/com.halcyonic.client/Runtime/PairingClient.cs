@@ -59,11 +59,7 @@ namespace Halcyonic.Client
                 }
                 catch (Exception error) when (!(error is PairingException) && !cancellationToken.IsCancellationRequested)
                 {
-                    throw new PairingException(
-                        timeout.IsCancellationRequested ? "timeout" : "protocol_error",
-                        timeout.IsCancellationRequested ? TookTooLong : ProtocolError,
-                        null,
-                        error);
+                    throw Broken(error, timeout.IsCancellationRequested);
                 }
             }
         }
@@ -156,8 +152,9 @@ namespace Halcyonic.Client
 
         private static async Task<PairingServerMessage> ReceiveAsync(WebSocket socket, byte[] buffer, CancellationToken cancellationToken)
         {
+            // Closed before the exchange finished: a connection lost, unless the exchange's time ran out (Broken).
             var text = await WebSocketUpgrade.ReceiveTextAsync(socket, buffer, 64 * 1024, cancellationToken).ConfigureAwait(false)
-                ?? throw new PairingException("protocol_error", ProtocolError, null);
+                ?? throw new EndOfStreamException("The pairing connection closed.");
             try
             {
                 return HalcyonicJson.Deserialize<PairingServerMessage>(text);
@@ -182,6 +179,23 @@ namespace Halcyonic.Client
             "timeout" => TookTooLong,
             _ => Refused,
         };
+
+        /// <summary>
+        /// How an exchange that broke for a reason no refusal names is said, never by the error's words:
+        /// the exchange's time ran out; the connection closed or failed (connection_lost); else what answered
+        /// broke the exchange (protocol_error).
+        /// </summary>
+        public static PairingException Broken(Exception error, bool timedOut)
+        {
+            if (timedOut) return new PairingException("timeout", TookTooLong, null, error);
+            return error is IOException || error is WebSocketException || error is ObjectDisposedException || error is System.Net.Sockets.SocketException
+                ? new PairingException("connection_lost", ConnectionLost, null, error)
+                : new PairingException("protocol_error", ProtocolError, null, error);
+        }
+
+        /// <summary>The connection closed or failed before pairing finished (settled by the coordinator, 2026-10-07).</summary>
+        public const string ConnectionLost = "The connection closed before pairing finished. Check the address and that pairing is open on "
+            + HostText.Your + ", then try again.";
 
         public const string Refused = HostText.YourStart + " refused to pair this headset. Open pairing there again, then try again.";
         public const string TookTooLong = "Pairing took too long; try again.";
@@ -211,8 +225,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Why: <c>wrong_code</c>, <c>pairing_closed</c>, <c>too_many_requests</c>, <c>busy</c>,
-        /// <c>timeout</c>, <c>unreachable</c>, <c>invalid_code</c>, <c>server_not_proven</c> or
-        /// <c>protocol_error</c>, among the control plane's codes.
+        /// <c>timeout</c>, <c>unreachable</c>, <c>invalid_code</c>, <c>server_not_proven</c>,
+        /// <c>connection_lost</c> or <c>protocol_error</c>, among the control plane's codes.
         /// </summary>
         public string Code { get; }
 
