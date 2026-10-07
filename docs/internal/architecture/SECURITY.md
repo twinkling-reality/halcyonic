@@ -68,10 +68,15 @@ launch, before anything is listed, and again at every start, the adapter checks 
 reports each of these settings, which catches the managed files, and that `configRequirements/read`
 reports no requirements at all (null, "no requirements are configured",
 `codex-rs/app-server-protocol/src/protocol/v2/config.rs`); otherwise it stops the server and
-refuses. `/etc/codex` does not exist on this Mac, and `configRequirements/read` answers null here. A limit,
-until a check before launch replaces it: since the check needs a running server, under a managed
-file that turns plugins back on Codex's startup connection can begin before the server is
-stopped, and each refused list or start launches Codex again.
+refuses. Before any launch, too, the adapter refuses when this Mac has any configuration Codex
+reads whatever its home: `/etc/codex/config.toml` (below the overrides, but able to add MCP
+servers or providers), `/etc/codex/managed_config.toml`, `/etc/codex/requirements.toml`, or a
+`com.openai.codex` managed-preferences file under `/Library/Managed Preferences`, where a device
+profile's forced `config_toml_base64` and `requirements_toml_base64` live
+(`codex-rs/config/src/loader/macos.rs`); only whether each exists is read, and one that can't be
+checked counts as present. So Codex never starts under a managed setting, and a refusal after a
+launch is remembered until the control plane restarts, so no list or start launches it again.
+`/etc/codex` does not exist on this Mac, and `configRequirements/read` answers null here.
 The proxy variables never reach Codex from the control plane, and the adapter sets `NO_PROXY` to
 `localhost,127.0.0.1,::1` after any additions, so a request to Ollama, the prompts and code with
 it, never goes through a proxy. No `CODEX_` or `OPENAI_` variable can be configured for Codex: the
@@ -98,17 +103,26 @@ settings, or another model or provider than asked. The end to end suite's networ
 the server's process tree through startup, idle and a full run on a local model, and is re-run on
 every Codex upgrade ([local-models.md](../validation/local-models.md)).
 
-A project's own Codex settings still apply. On `thread/start` for a folder whose trust the
-configuration does not record, and which is not projectless (it has a project root marker, `.git`
-by default, a checkout root, or a `.codex` configuration of its own; `codex-rs/config/src/loader/mod.rs`),
-Codex 0.157.0 writes `[projects."<folder, or its git root>"] trust_level = "trusted"` into the
-home's `config.toml` whenever the thread's sandbox can write the folder, as `workspace-write` can (`codex-rs/app-server/src/request_processors/thread_processor.rs`
-at rust-v0.157.0). The repository's `.codex/config.toml` then applies: MCP servers, the sandbox's
-network access, hooks and command rules. Above it hold only the launch's `-c` settings and the
-adapter's checks of what Codex reports for the thread (folder, sandbox, approval policy, provider
-and model). Whether Halcyonic keeps projects untrusted is open
-([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); the coordinator does not register Codex on
-the owner's Mac until it is settled in code.
+A project's own Codex settings never load. Left alone, on `thread/start` for a folder whose trust
+the configuration does not record, and which is not projectless (it has a project root marker,
+`.git` by default, a checkout root, or a `.codex` configuration of its own;
+`codex-rs/config/src/loader/mod.rs`), Codex 0.157.0 writes `[projects."<folder, or its git root>"]
+trust_level = "trusted"` into the home's `config.toml` whenever the thread's sandbox can write the
+folder, as `workspace-write` can
+(`codex-rs/app-server/src/request_processors/thread_processor.rs` at rust-v0.157.0), and the
+repository's `.codex/config.toml` then applies: MCP servers, the sandbox's network access, hooks
+and command rules. So every thread, started or resumed, marks its folder and every folder above
+it `untrusted` in its own overrides, as a nested `projects` object since paths hold dots. A
+thread's overrides join the launch's `-c` overrides at precedence 30, above the home, and Codex
+reads them before it decides trust (`codex-rs/app-server/src/config_manager.rs`,
+`load_with_cli_overrides`); it looks a folder up by itself, then its project root, then its repo
+root, and judges each `.codex` folder between them the same way
+(`codex-rs/config/src/config_toml.rs`, `get_active_project`, and `loader/mod.rs`), all of them
+the folder or above it, and writes trust only when none is known. `config/read` cannot see a
+thread's overrides, so before each start the adapter also reads it from the folder
+(`{cwd, includeLayers: true}`) and refuses when any project layer would load without a disabled
+reason, as when the home records the project as trusted. The end to end suite checks both with a
+project whose own settings start an MCP server that leaves a mark.
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
 `halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with
