@@ -745,7 +745,10 @@ the same definition names, as the JSON Schema document:
   them: the first press only says where it runs and that the person's code and instructions go
   there, and a second press in a row chooses it. It never builds a start without a model for a
   runtime that lists them; the control plane refuses one too (`model_required`, lane A). A runtime
-  whose `ModelChoice` is `None` leaves the choice to that runtime.
+  whose `ModelChoice` is `None` leaves the choice to that runtime. Models that couldn't be read are
+  said by the reason's code (`EntryText.ModelsUnread`), a request that failed or a computer not
+  connected in Halcyonic's own words, never by any message, which is the agent app's or the control
+  plane's own and can hold a path or an address.
 - **`NewWorkReview`** holds the full request as items, Halcyonic's own label and the value it names:
   the project, its folder (now and from now on for a move), the workstream title, runtime, model,
   where it runs, the model reference and the objective. Each value is given as it is, never already

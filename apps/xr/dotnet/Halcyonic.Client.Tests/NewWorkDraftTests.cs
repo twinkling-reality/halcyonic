@@ -137,10 +137,37 @@ public class NewWorkDraftTests
                 Reason = new ErrorInfo { Code = "timeout", Message = "The runtime did not answer." },
             },
         });
-        Assert.That(draft.Problem, Does.Contain("did not answer"));
+        Assert.That(draft.Problem, Is.EqualTo(EntryText.ModelsUnanswered));
         var sequence = new BuildSequence(draft, Commands, null);
         Assert.Throws<InvalidOperationException>(() => sequence.Begin(Samples.Reviewed(sequence)), "no model, no start");
         Assert.That(sequence.Current, Is.Null);
+    }
+
+    /// <summary>
+    /// Models the agent app couldn't list, for any reason code, are said by the code, never by the reason's
+    /// message, the agent app's or the control plane's own words, which can hold a path or an address.
+    /// </summary>
+    [Test]
+    public void ModelsThatCouldNotBeListedAreNeverSaidByTheirMessage()
+    {
+        const string Leak = "OpenCode's list of models could not be read: connect ECONNREFUSED 127.0.0.1:4096 (/Users/someone/project)";
+        var unanswered = new[] { "runtime_unreachable", "runtime_closed", "runtime_unavailable", "runtime_start_failed", "timeout" };
+        foreach (var code in unanswered.Concat(new[] { "runtime_protocol_error", "invalid_models", "adapter_error", "runtime_error", "opencode_own", "" }))
+        {
+            var draft = Draft();
+            draft.ChooseRuntime(Runtime("opencode"));
+            draft.SetModels(new RuntimeModelsResponse
+            {
+                RuntimeId = "opencode", Result = new UnavailableModels { Reason = new ErrorInfo { Code = code, Message = Leak } },
+            });
+            Assert.That(draft.Problem, Is.EqualTo(unanswered.Contains(code) ? EntryText.ModelsUnanswered : EntryText.ModelsUnreadable), code);
+        }
+        var failed = Draft();
+        failed.ChooseRuntime(Runtime("opencode"));
+        failed.ModelReadFailed(connected: true);
+        Assert.That(failed.Problem, Is.EqualTo(EntryText.ModelsUnreadable));
+        failed.ModelReadFailed(connected: false);
+        Assert.That(failed.Problem, Is.EqualTo(EntryText.ModelsNotConnected));
     }
 
     [Test]

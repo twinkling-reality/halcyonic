@@ -1465,7 +1465,7 @@ namespace Halcyonic.Client
                 modelsCancellation = new CancellationTokenSource();
                 modelsRead = api.GetRuntimeModelsAsync(runtime.RuntimeId, modelsCancellation.Token);
             }
-            else draft.ModelReadFailed(EntryText.WaitingForMac);
+            else draft.ModelReadFailed(connected: false);
         }
 
         private bool PollModels()
@@ -1473,7 +1473,7 @@ namespace Halcyonic.Client
             if (!(modelsRead is Task<RuntimeModelsResponse> read) || !read.IsCompleted) return false;
             modelsRead = null;
             if (draft.Runtime?.RuntimeId != modelsFor || read.IsCanceled) return false;
-            if (read.IsFaulted) draft.ModelReadFailed(read.Exception?.GetBaseException().Message ?? "No reason given.");
+            if (read.IsFaulted) draft.ModelReadFailed(connected: true);
             else draft.SetModels(read.Result);
             ChooseKeptModel();
             return true;

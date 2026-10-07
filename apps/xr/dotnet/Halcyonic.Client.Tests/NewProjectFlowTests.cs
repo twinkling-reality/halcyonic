@@ -1745,6 +1745,25 @@ public class NewProjectFlowTests
         Assert.That(models.Count(line => line.Action == NewProjectScreens.ChooseModel), Is.EqualTo(10), "every model once");
     }
 
+    /// <summary>
+    /// A request for the agent app's models that fails shows the step's own words, never the failure's
+    /// message, which names the control plane and can hold an address.
+    /// </summary>
+    [Test]
+    public void AFailedRequestForModelsNeverShowsItsMessage()
+    {
+        var local = Runtime("local", ModelChoice.Listed);
+        var host = new Host { State = WithRuntimes(Runtime("mock"), local) };
+        var routes = new Routes();
+        host.Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "local");
+        Until(flow, () => flow.Frame!.Lines.Any(line => line.Words == EntryText.ModelsUnreadable)).Wait();
+        Assert.That(flow.Frame!.Lines.Select(line => line.Words), Has.None.Contains("control plane").And.None.Contains("127.0.0.1"));
+    }
+
     [Test]
     public void StartingPagesItsStepsAtTheLargerSize()
     {
