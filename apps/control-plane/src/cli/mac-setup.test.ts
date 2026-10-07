@@ -578,6 +578,11 @@ describe('pnpm mac-setup', () => {
     assert.equal(statSync(home).mode & 0o777, 0o750, 'its mode was changed');
     assert.equal(existsSync(join(home, 'config.toml')), false);
 
+    chmodSync(home, 0o705);
+    assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 1);
+    assert.equal(statSync(home).mode & 0o777, 0o705, 'its mode was changed');
+    assert.equal(existsSync(join(home, 'config.toml')), false);
+
     chmodSync(home, 0o700);
     // Another user's folder: the folder's owner, as lstat reports it, is not this process's user.
     const lstat = fs.lstatSync;

@@ -21,6 +21,7 @@ export const METHODS_USED = [
   'turn/steer',
   'turn/interrupt',
   'config/read',
+  'configRequirements/read',
   'model/list',
 ] as const;
 
@@ -127,6 +128,14 @@ export interface TurnSteerParams extends TurnStartParams {
 export interface TurnInterruptParams {
   readonly threadId: string;
   readonly turnId: string;
+}
+
+/**
+ * `v2/ConfigRequirementsReadResponse.ts`: the managed requirements (`requirements.toml`, a device
+ * profile), null when none are configured. The request takes no parameters.
+ */
+export interface ConfigRequirementsReadResponse {
+  readonly requirements: Record<string, unknown> | null;
 }
 
 /** `v2/ConfigReadParams.ts`: the effective configuration, without its layers. */

@@ -212,6 +212,8 @@ describe('runtime composition', () => {
     assert.deepEqual(codexEnvironment({ ...proxies, GIT_AUTHOR_NAME: 'Someone' }), {
       GIT_AUTHOR_NAME: 'Someone',
     });
+    // An OPENAI_ variable may be set for another runtime: it never reaches Codex either.
+    assert.deepEqual(codexEnvironment({ OPENAI_BASE_URL: 'https://gateway.example/v1' }), {});
   });
 
   test('a Codex server recorded by an earlier run is stopped at startup, without launching anything', async (t) => {

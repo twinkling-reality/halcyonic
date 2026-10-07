@@ -157,15 +157,19 @@ export function openCodeEnvironment(
 }
 
 /**
- * Codex's additions: the pass-through variables without the ones Codex signs in with and the proxy
- * variables. Through Halcyonic Codex runs only on models served on this Mac, never signed in, so a
+ * Codex's additions: the pass-through variables without the ones Codex signs in with, the proxy
+ * variables and every `OPENAI_` variable, which may be set for another runtime. A `CODEX_` variable
+ * is for Codex alone, so it reaches the adapter, which refuses it. Through Halcyonic Codex runs only on models served on this Mac, never signed in, so a
  * key passed for another runtime never reaches it, and neither does a proxy, which would carry
  * its requests to Ollama, prompts and code with them, through another host.
  */
 export function codexEnvironment(additions: Record<string, string>): Record<string, string> {
   return Object.fromEntries(
     Object.entries(additions).filter(
-      ([name]) => !SIGN_IN_VARIABLES.includes(name) && !PROXY_VARIABLES.includes(name),
+      ([name]) =>
+        !SIGN_IN_VARIABLES.includes(name) &&
+        !PROXY_VARIABLES.includes(name) &&
+        !name.startsWith('OPENAI_'),
     ),
   );
 }

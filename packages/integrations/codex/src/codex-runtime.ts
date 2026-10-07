@@ -584,6 +584,43 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
   }
 
+  /**
+   * Codex's configuration, once it shows every local-only setting applied and no managed
+   * requirements, checked right after every launch and again at every start. A managed
+   * configuration outranks the launch's overrides, so they are checked, not assumed; managed
+   * requirements can pin a feature on, or add MCP servers, plugins or network settings, without
+   * `config/read` showing it, so any at all are refused.
+   */
+  async #localOnly(connection: Connection): Promise<Readonly<Record<string, unknown>>> {
+    const config = await this.#readConfig(connection);
+    const unapplied = unappliedSettings(config);
+    if (unapplied.length > 0) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        `Codex did not apply the settings that keep it on this Mac: ${unapplied.join(', ')}. A managed configuration, such as one under /etc/codex, may set them. Nothing was started.`,
+      );
+    }
+    const read = await send(
+      connection,
+      'configRequirements/read',
+      undefined,
+      this.#requestTimeoutMs,
+    );
+    if (!isRecord(read) || !('requirements' in read)) {
+      throw new RuntimeActionError(
+        'runtime_protocol_error',
+        'Codex answered configRequirements/read without saying whether requirements are configured.',
+      );
+    }
+    if (read.requirements !== null) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        'Codex has managed requirements configured on this Mac (requirements.toml or a device profile), which can turn its plugins and network features back on. Halcyonic runs Codex only without them. Nothing was started.',
+      );
+    }
+    return config;
+  }
+
   /** Codex's configuration, as `config/read` reports it with every layer applied. */
   async #readConfig(connection: Connection): Promise<Readonly<Record<string, unknown>>> {
     const params: ConfigReadParams = { includeLayers: false };
@@ -605,15 +642,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    * refuses a thread that Codex puts on another.
    */
   async #onThisMac(connection: Connection, options: StartOptions): Promise<StartOptions> {
-    const config = await this.#readConfig(connection);
-    // A managed configuration outranks the launch's overrides, so they are checked, not assumed.
-    const unapplied = unappliedSettings(config);
-    if (unapplied.length > 0) {
-      throw new RuntimeActionError(
-        'runtime_refused',
-        `Codex did not apply the settings that keep it on this Mac: ${unapplied.join(', ')}. A managed configuration, such as one under /etc/codex, may set them. Nothing was started.`,
-      );
-    }
+    const config = await this.#localOnly(connection);
     const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
     const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
     const served = servedBy(config, provider, this.#environment);
@@ -663,6 +692,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       throw closedError();
     }
     connection = { server, halted: new AbortController(), launchedAt: Date.now(), relaunch };
+    // Before anything is listed or started on it: a server that is not local-only is stopped.
+    try {
+      await this.#localOnly(connection);
+    } catch (error) {
+      connection.halted.abort();
+      await server.stop();
+      throw error;
+    }
     this.#current = connection;
     const launched = connection;
     void server.exited.then((status) => this.#onExit(launched, status));

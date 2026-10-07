@@ -76,6 +76,8 @@ export function modelsFromCodex(
  * (`merge_configured_model_providers`, codex-rs/model-provider-info/src/lib.rs at rust-v0.157.0),
  * so `openai` is judged by `openai_base_url` alone, and the built-in `ollama` and `lmstudio`
  * providers are on this machine unless `CODEX_OSS_BASE_URL` in Codex's environment says otherwise.
+ * Amazon Bedrock is always remote. "This Mac" means the three loopback names Codex reaches without
+ * a proxy (`NO_PROXY`): `localhost`, `127.0.0.1` and `::1`.
  */
 export function servedBy(
   config: Readonly<Record<string, unknown>>,
@@ -90,11 +92,10 @@ export function servedBy(
     const base = environment.CODEX_OSS_BASE_URL;
     return base === undefined || base === '' ? 'this_mac' : servedAt(base);
   }
+  // Codex signs in to Bedrock with AWS credentials, which its SSO and STS clients may fetch from
+  // AWS whatever address the models are sent to.
+  if (BEDROCK.has(provider)) return 'remote';
   const defined = definedProvider(config, provider);
-  if (BEDROCK.has(provider)) {
-    const base = nonBlank(defined?.base_url);
-    return base === null ? 'remote' : servedAt(base);
-  }
   if (defined !== null) return servedAt(nonBlank(defined.base_url));
   return 'unknown';
 }
@@ -107,9 +108,7 @@ function servedAt(baseUrl: string | null): ModelServed {
   } catch {
     return 'unknown';
   }
-  return host === 'localhost' || host === '::1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)
-    ? 'this_mac'
-    : 'remote';
+  return host === 'localhost' || host === '::1' || host === '127.0.0.1' ? 'this_mac' : 'remote';
 }
 
 /** The provider's entry in the configuration, as Codex applies it: none for a built-in it ignores. */
