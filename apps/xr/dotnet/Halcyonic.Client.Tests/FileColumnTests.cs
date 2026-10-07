@@ -1520,6 +1520,34 @@ public class FileColumnTests
         // Labels differing only in case are two answers to admission, which compares them as written.
         question.Prompts[0].Options[1].Label = "yes";
         Assert.That((WorkspaceText.OffersALabelTwice(question.Prompts[0]), WorkspaceText.Answerable(question)), Is.EqualTo((false, true)));
+
+        // Labels are compared as their rows show them: what a person can't see tells no two apart.
+        foreach (var (first, second) in new[]
+        {
+            ("Yes", "Yes "),
+            ("Keep it", "Keep\tit"),
+            ("Keep it", "Keep\n it"),
+            ("Caf\u00E9", "Cafe\u0301"),
+        })
+        {
+            question.Prompts[0].Options[0].Label = first;
+            question.Prompts[0].Options[1].Label = second;
+            Assert.That((WorkspaceText.OffersALabelTwice(question.Prompts[0]), WorkspaceText.Answerable(question)), Is.EqualTo((true, false)),
+                "\"" + first + "\" and \"" + second + "\" read the same");
+        }
+        // What shows differently stays two answers: case, width, a ligature, a character shown by its code point.
+        foreach (var (first, second) in new[]
+        {
+            ("Yes", "YES"),
+            ("Yes", "\uFF39es"),
+            ("file", "\uFB01le"),
+            ("Yes", "Ye\u200Bs"),
+        })
+        {
+            question.Prompts[0].Options[0].Label = first;
+            question.Prompts[0].Options[1].Label = second;
+            Assert.That(WorkspaceText.OffersALabelTwice(question.Prompts[0]), Is.False, "\"" + first + "\" and \"" + second + "\" show apart");
+        }
     }
 
     [Test]

@@ -572,9 +572,12 @@ the same definition names, as the JSON Schema document:
   take effect, Sent… in Approve's place and no Deny, so a second decision never races the first
   (`CommandSubmissions.ApprovalPending`, `WorkspacePresentation.ApprovalInFlight`); the agent's question with its answers as
   rows to choose, Send answer as the main action and Hold to talk beside it. A question with any
-  secret prompt, or with a prompt offering two answers by one label (`WorkspaceText.OffersALabelTwice`:
-  an answer names its choice by label alone, so either would send the label twice, which admission
-  refuses, and the agent could not tell which was meant), can't be answered here whatever its adapter
+  secret prompt, or with a prompt offering two answers whose labels read the same (`WorkspaceText.OffersALabelTwice`,
+  compared as their rows show them, `WorkspaceText.AsShown`: the NFC form of `LabelText.Plain`, ordinal, so
+  white space at the ends, a tab for a space and a letter composed or decomposed tell none apart; case,
+  width and ligatures do. An answer names its choice by label alone, so two labels written alike would
+  send the label twice, which admission refuses, and between two that only show alike a person can't
+  tell which they chose), can't be answered here whatever its adapter
   says (`WorkspaceText.Answerable`, asked by every place that offers or sends an answer): it shows why
   and the way on, Stop, with no Hold to talk; Sent… in its place, taking no press, while an answer sent may still take effect.
   The question shows a prompt at a time (`FileQuestion`). A question longer than two rows, or one
