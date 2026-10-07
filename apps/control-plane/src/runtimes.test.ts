@@ -203,6 +203,17 @@ describe('runtime composition', () => {
     );
   });
 
+  test('a proxy passed through for another runtime never reaches Codex, whose requests carry the code', () => {
+    const proxies = Object.fromEntries(
+      ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy'].map(
+        (name) => [name, 'http://proxy.example:3128'],
+      ),
+    );
+    assert.deepEqual(codexEnvironment({ ...proxies, GIT_AUTHOR_NAME: 'Someone' }), {
+      GIT_AUTHOR_NAME: 'Someone',
+    });
+  });
+
   test('a Codex server recorded by an earlier run is stopped at startup, without launching anything', async (t) => {
     const dataDir = mkdtempSync(join(base, 'codex-stale-'));
     // Plays a Codex app-server that outlived a crashed control plane, in its own process group.

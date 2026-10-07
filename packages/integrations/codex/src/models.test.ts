@@ -91,9 +91,24 @@ describe('Codex model list', () => {
     const defined = { model_providers: { remote: { base_url: 'https://llm.example.com/v1' } } };
     assert.equal(servedBy(defined, 'remote', {}), 'remote');
     assert.equal(servedBy({ model_providers: { quiet: {} } }, 'quiet', {}), 'unknown');
-    // A provider the configuration defines under a built-in name is judged by its own address.
+    // Codex ignores an entry under a built-in provider's id, except Bedrock's, so the entry says
+    // nothing: the built-in provider's own address decides.
     const overridden = { model_providers: { ollama: { base_url: 'http://gpu-box:11434/v1' } } };
-    assert.equal(servedBy(overridden, 'ollama', {}), 'remote');
+    assert.equal(servedBy(overridden, 'ollama', {}), 'this_mac');
+    const openai = {
+      model_provider: 'openai',
+      model_providers: { openai: { base_url: 'http://127.0.0.1:8080/v1' } },
+    };
+    assert.equal(servedBy(openai, 'openai', {}), 'remote');
+    assert.equal(
+      servedBy({ ...openai, openai_base_url: 'http://127.0.0.1:8080/v1' }, 'openai', {}),
+      'this_mac',
+    );
+    const bedrock = {
+      model_providers: { 'amazon-bedrock': { base_url: 'http://127.0.0.1:9000' } },
+    };
+    assert.equal(servedBy(bedrock, 'amazon-bedrock', {}), 'this_mac');
+    assert.equal(servedBy({}, 'amazon-bedrock-runtime', {}), 'remote');
   });
 
   test('names that cannot travel as a model_ref are left out, and duplicates are listed once', () => {

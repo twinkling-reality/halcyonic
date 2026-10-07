@@ -146,7 +146,7 @@ export function parseStartOptions(
  * this Mac either way, so only the name tells.
  */
 export function runsOnOllamasService(model: string): boolean {
-  return /[:-]cloud$/.test(model);
+  return /[:-]cloud$/i.test(model);
 }
 
 /** The adapter's `model_ref` for a model of a provider: `provider/model`. */

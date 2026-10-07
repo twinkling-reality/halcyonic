@@ -20,6 +20,7 @@
  *   `serverRequest/resolved`, as Codex does, except the first with `deaf-once`, which is ignored
  *   as Codex ignores a message it cannot read;
  * - `elicit`: every turn raises an `mcpServer/elicitation/request`;
+ * - `managed`: a managed layer that outranks the launch's overrides turns plugins back on;
  * - `version-fails` and `startup-fails`: `--version`, or `app-server` before it answers anything,
  *   prints FAKE_CODEX_SECRET to its error output, as a configuration error can print a key, and
  *   exits with 3 or 1.
@@ -58,6 +59,23 @@ if (process.env.FAKE_CODEX_LAUNCHES) {
   );
 }
 const configured = JSON.parse(process.env.FAKE_CODEX_CONFIG ?? '{}');
+// The launch's `-c key=value` overrides apply above the configuration, as Codex applies them,
+// unless `managed` plays a managed layer that outranks them and turns plugins back on.
+for (let index = 3; index < process.argv.length - 1; index += 1) {
+  if (process.argv[index] !== '-c') continue;
+  const setting = process.argv[index + 1] ?? '';
+  const equals = setting.indexOf('=');
+  const parts = setting.slice(0, equals).split('.');
+  let target = configured;
+  for (const part of parts.slice(0, -1)) {
+    target[part] ??= {};
+    target = target[part];
+  }
+  target[parts.at(-1)] = JSON.parse(setting.slice(equals + 1));
+}
+if (flags.has('managed')) {
+  configured.features = { ...configured.features, plugins: true };
+}
 if (flags.has('startup-fails')) {
   process.stderr.write(
     `ERROR config: experimental_bearer_token = "${process.env.FAKE_CODEX_SECRET ?? ''}"\n`,

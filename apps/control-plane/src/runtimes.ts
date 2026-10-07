@@ -1,7 +1,11 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ClaudeAgentRuntimeAdapter } from '@halcyonic/integration-claude-code';
-import { CodexRuntimeAdapter, SIGN_IN_VARIABLES } from '@halcyonic/integration-codex';
+import {
+  CodexRuntimeAdapter,
+  PROXY_VARIABLES,
+  SIGN_IN_VARIABLES,
+} from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
@@ -153,13 +157,16 @@ export function openCodeEnvironment(
 }
 
 /**
- * Codex's additions: the pass-through variables without the ones Codex signs in with. Through
- * Halcyonic Codex runs only on models served on this Mac, never signed in, so a key passed for
- * another runtime never reaches it.
+ * Codex's additions: the pass-through variables without the ones Codex signs in with and the proxy
+ * variables. Through Halcyonic Codex runs only on models served on this Mac, never signed in, so a
+ * key passed for another runtime never reaches it, and neither does a proxy, which would carry
+ * its requests to Ollama, prompts and code with them, through another host.
  */
 export function codexEnvironment(additions: Record<string, string>): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(additions).filter(([name]) => !SIGN_IN_VARIABLES.includes(name)),
+    Object.entries(additions).filter(
+      ([name]) => !SIGN_IN_VARIABLES.includes(name) && !PROXY_VARIABLES.includes(name),
+    ),
   );
 }
 

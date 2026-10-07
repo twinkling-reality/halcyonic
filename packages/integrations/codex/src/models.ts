@@ -13,6 +13,12 @@ const BUILT_IN_NAMES: Readonly<Record<string, string>> = {
 /** Codex's built-in providers for models served on this machine, by port unless configured. */
 const LOCAL_BUILT_INS: ReadonlySet<string> = new Set(['ollama', 'lmstudio']);
 
+/** The built-in providers whose configured entry Codex 0.157.0 applies: Amazon Bedrock's. */
+const BEDROCK: ReadonlySet<string> = new Set(['amazon-bedrock', 'amazon-bedrock-runtime']);
+
+/** The built-in providers whose configured entry Codex 0.157.0 ignores. */
+const NOT_OVERRIDABLE: ReadonlySet<string> = new Set(['openai', ...LOCAL_BUILT_INS]);
+
 /**
  * The models Codex can run a thread on, from what `config/read` and `model/list` report, as the
  * contract describes them (ADR 0016).
@@ -65,26 +71,31 @@ export function modelsFromCodex(
 
 /**
  * Where the provider serves its models: `this_mac` for a loopback address, `remote` for any other,
- * `unknown` when neither the configuration nor Codex's built-in defaults say. Codex's built-in
- * `ollama` and `lmstudio` providers are on this machine unless `CODEX_OSS_BASE_URL` in Codex's
- * environment says otherwise; its `openai` and `amazon-bedrock` providers are hosted.
+ * `unknown` when neither the configuration nor Codex's built-in defaults say. Codex 0.157.0 ignores
+ * a configured entry under a built-in provider's id, except Amazon Bedrock's
+ * (`merge_configured_model_providers`, codex-rs/model-provider-info/src/lib.rs at rust-v0.157.0),
+ * so `openai` is judged by `openai_base_url` alone, and the built-in `ollama` and `lmstudio`
+ * providers are on this machine unless `CODEX_OSS_BASE_URL` in Codex's environment says otherwise.
  */
 export function servedBy(
   config: Readonly<Record<string, unknown>>,
   provider: string,
   environment: Readonly<Record<string, string>>,
 ): ModelServed {
-  const defined = definedProvider(config, provider);
-  if (defined !== null) return servedAt(nonBlank(defined.base_url));
-  if (LOCAL_BUILT_INS.has(provider)) {
-    const base = environment.CODEX_OSS_BASE_URL;
-    return base === undefined || base === '' ? 'this_mac' : servedAt(base);
-  }
   if (provider === 'openai') {
     const base = nonBlank(config.openai_base_url);
     return base === null ? 'remote' : servedAt(base);
   }
-  if (provider === 'amazon-bedrock') return 'remote';
+  if (LOCAL_BUILT_INS.has(provider)) {
+    const base = environment.CODEX_OSS_BASE_URL;
+    return base === undefined || base === '' ? 'this_mac' : servedAt(base);
+  }
+  const defined = definedProvider(config, provider);
+  if (BEDROCK.has(provider)) {
+    const base = nonBlank(defined?.base_url);
+    return base === null ? 'remote' : servedAt(base);
+  }
+  if (defined !== null) return servedAt(nonBlank(defined.base_url));
   return 'unknown';
 }
 
@@ -101,10 +112,12 @@ function servedAt(baseUrl: string | null): ModelServed {
     : 'remote';
 }
 
+/** The provider's entry in the configuration, as Codex applies it: none for a built-in it ignores. */
 function definedProvider(
   config: Readonly<Record<string, unknown>>,
   provider: string,
 ): Readonly<Record<string, unknown>> | null {
+  if (NOT_OVERRIDABLE.has(provider)) return null;
   const providers = isRecord(config.model_providers) ? config.model_providers : {};
   const defined = providers[provider];
   return isRecord(defined) ? defined : null;
