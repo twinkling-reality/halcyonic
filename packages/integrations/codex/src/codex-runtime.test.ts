@@ -385,8 +385,18 @@ describe('Codex server environment', () => {
     ]) {
       assert.throws(() => buildEnvironment({}, { [name]: 'x' }, '/home'), new RegExp(name), name);
     }
-    // A variable that merely starts like one is not refused.
-    assert.doesNotThrow(() => buildEnvironment({}, { CODEX_EXEC: 'x' }, '/home'));
+    // Every CODEX_ and OPENAI_ variable is Codex's or its provider's: some write its data elsewhere.
+    for (const name of [
+      'CODEX_ROLLOUT_TRACE_ROOT',
+      'CODEX_EXEC',
+      'OPENAI_BASE_URL',
+      'OPENAI_ORG_ID',
+    ]) {
+      assert.throws(() => buildEnvironment({}, { [name]: 'x' }, '/home'), new RegExp(name), name);
+    }
+    assert.doesNotThrow(() =>
+      buildEnvironment({}, { MY_CODEX_NOTES: 'x', GIT_AUTHOR_NAME: 'x' }, '/home'),
+    );
   });
 
   test('refuses a binary path that would be looked up on PATH', () => {
@@ -530,7 +540,17 @@ describe('Codex runtime against a stand-in binary', () => {
     });
     assert.deepEqual(
       sent.map((message) => message.method),
-      ['initialize', 'initialized', 'config/read', 'thread/start', 'turn/start'],
+      // The local-only check right after the launch, then again at the start.
+      [
+        'initialize',
+        'initialized',
+        'config/read',
+        'configRequirements/read',
+        'config/read',
+        'configRequirements/read',
+        'thread/start',
+        'turn/start',
+      ],
     );
     await until(() => observations.length === 4, 'the turn');
     assert.deepEqual(
@@ -630,6 +650,11 @@ describe('Codex runtime against a stand-in binary', () => {
         [/Other users can open Codex's home/, moveAway],
       ],
       [
+        'open to others only',
+        (home) => mkdirSync(home, { mode: 0o705 }),
+        [/Other users can open Codex's home/, moveAway],
+      ],
+      [
         'writable by its group',
         (home) => mkdirSync(home, { mode: 0o770 }),
         [/Other users can open Codex's home/, moveAway],
@@ -662,7 +687,12 @@ describe('Codex runtime against a stand-in binary', () => {
       prepare(codexHome);
       // Modes as given, whatever the umask; the adapter never changes them.
       if (what.startsWith('open') || what.startsWith('writable')) {
-        chmodSync(codexHome, { 'open to all': 0o755, 'open to its group': 0o750 }[what] ?? 0o770);
+        chmodSync(
+          codexHome,
+          { 'open to all': 0o755, 'open to its group': 0o750, 'open to others only': 0o705 }[
+            what
+          ] ?? 0o770,
+        );
       }
       const before = what === 'a file' || what === 'a link' ? null : statSync(codexHome).mode;
       await assert.rejects(start('COMPLETE the work.'), (error: unknown) => {
@@ -709,6 +739,36 @@ describe('Codex runtime against a stand-in binary', () => {
     );
     assert.equal(received().filter((message) => message.method === 'thread/start').length, 1);
     assert.equal(launched().length, 1, 'the server was not relaunched');
+  });
+
+  test('stops a server with managed requirements before anything is listed or started on it', async (t) => {
+    for (const mode of ['requirements', 'managed']) {
+      const { runtime, start, received, launched } = fake(t, [mode]);
+      await assert.rejects(runtime.listModels(), (error: unknown) => {
+        assert.ok(actionError('runtime_refused')(error), mode);
+        assert.match(
+          (error as Error).message,
+          mode === 'requirements'
+            ? /managed requirements configured on this Mac/
+            : /features\.plugins/,
+        );
+        return true;
+      });
+      assert.equal(runtime.serverPid, null, `${mode}: the server was kept`);
+      assert.ok(!received().some((message) => message.method === 'model/list'), mode);
+      await assert.rejects(start('COMPLETE the work.'), actionError('runtime_refused'));
+      assert.ok(!received().some((message) => message.method === 'thread/start'), mode);
+      assert.equal(launched().length, 2, `${mode}: each attempt launches and stops a server`);
+    }
+    // Without requirements, the check reads the settings, then the requirements, after initialize.
+    const { runtime, received } = fake(t);
+    await runtime.listModels();
+    assert.deepEqual(
+      received()
+        .map((message) => message.method)
+        .slice(0, 4),
+      ['initialize', 'initialized', 'config/read', 'configRequirements/read'],
+    );
   });
 
   test('refuses to start when Codex does not report every local-only setting, as under a managed layer', async (t) => {
@@ -938,7 +998,8 @@ describe('Codex runtime against a stand-in binary', () => {
         .received()
         .map((message) => message.method)
         .filter((method) => method === 'config/read' || method === 'model/list'),
-      ['config/read', 'model/list', 'model/list', 'model/list'],
+      // The launch's local-only check, then the list's own read.
+      ['config/read', 'config/read', 'model/list', 'model/list', 'model/list'],
     );
 
     const local = fake(

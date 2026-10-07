@@ -21,6 +21,8 @@
  *   as Codex ignores a message it cannot read;
  * - `elicit`: every turn raises an `mcpServer/elicitation/request`;
  * - `managed`: a managed layer that outranks the launch's overrides turns plugins back on;
+ * - `requirements`: `configRequirements/read` answers managed requirements that pin plugins on,
+ *   which `config/read` does not show (otherwise null, none configured);
  * - `version-fails` and `startup-fails`: `--version`, or `app-server` before it answers anything,
  *   prints FAKE_CODEX_SECRET to its error output, as a configuration error can print a key, and
  *   exits with 3 or 1.
@@ -146,6 +148,11 @@ createInterface({ input: process.stdin }).on('line', (line) => {
         approvalPolicy: flags.has('never') ? 'never' : params.approvalPolicy,
         approvalsReviewer: params.approvalsReviewer,
         sandbox: { type: SANDBOX_TYPES[params.sandbox] },
+      });
+      return;
+    case 'configRequirements/read':
+      respond({
+        requirements: flags.has('requirements') ? { featureRequirements: { plugins: true } } : null,
       });
       return;
     case 'config/read':

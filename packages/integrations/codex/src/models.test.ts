@@ -104,10 +104,19 @@ describe('Codex model list', () => {
       servedBy({ ...openai, openai_base_url: 'http://127.0.0.1:8080/v1' }, 'openai', {}),
       'this_mac',
     );
+    // Bedrock signs in to AWS whatever address it is given, so it is remote even on loopback.
     const bedrock = {
       model_providers: { 'amazon-bedrock': { base_url: 'http://127.0.0.1:9000' } },
     };
-    assert.equal(servedBy(bedrock, 'amazon-bedrock', {}), 'this_mac');
+    assert.equal(servedBy(bedrock, 'amazon-bedrock', {}), 'remote');
+    // Only the loopback names Codex reaches without a proxy are this Mac.
+    const at = (base_url: string) =>
+      servedBy({ model_providers: { local: { base_url } } }, 'local', {});
+    assert.equal(at('http://127.0.0.1:8080/v1'), 'this_mac');
+    assert.equal(at('http://localhost:8080/v1'), 'this_mac');
+    assert.equal(at('http://[::1]:8080/v1'), 'this_mac');
+    assert.equal(at('http://127.0.0.2:8080/v1'), 'remote');
+    assert.equal(at('http://127.1.2.3:8080/v1'), 'remote');
     assert.equal(servedBy({}, 'amazon-bedrock-runtime', {}), 'remote');
   });
 

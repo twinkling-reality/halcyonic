@@ -108,7 +108,12 @@ const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
   'CODEX_SQLITE_HOME',
   ...SIGN_IN_VARIABLES,
 ]);
-const RESERVED_PREFIXES: readonly string[] = ['CODEX_EXEC_SERVER_'];
+/**
+ * Every `CODEX_` and `OPENAI_` variable is Codex's or its provider's to read, and some move its data
+ * elsewhere (`CODEX_ROLLOUT_TRACE_ROOT` writes prompts, responses and terminal output wherever it
+ * points), so configuration sets none: the adapter sets the two it needs itself.
+ */
+const RESERVED_PREFIXES: readonly string[] = ['CODEX_', 'OPENAI_'];
 
 function reserved(name: string): boolean {
   return (
@@ -141,9 +146,12 @@ const FEATURES_OFF: readonly string[] = [
 
 /**
  * The settings every launch passes as `-c` overrides, with the value `config/read` must then
- * report for each, checked at every start (`unappliedSettings`). An override outranks the home's
- * `config.toml`, so no edit there turns one back on; a managed layer under `/etc/codex` or a
- * device profile outranks an override, which the check catches. On 0.157.0
+ * report for each, checked after every launch and at every start (`unappliedSettings`). An
+ * override outranks the home's `config.toml`, so no edit there turns one back on. A managed
+ * configuration file (`/etc/codex/managed_config.toml`, a device profile) outranks an override,
+ * which this check catches; managed requirements (`requirements.toml`) can pin a feature on while
+ * `config/read` still reports it off, so the adapter also refuses any requirements at all
+ * (`configRequirements/read`). On 0.157.0
  * `features.plugins = false` is the one that stops the plugin sync connecting to GitHub at
  * startup; it is undocumented, so every Codex upgrade repeats the network probe of the end to end
  * tests (local-models.md). The rest turn off the other features above, the update check,
