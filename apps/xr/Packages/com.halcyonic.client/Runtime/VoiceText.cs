@@ -34,7 +34,7 @@ namespace Halcyonic.Client
         public const string Stopped = "Stopped listening, so nothing was sent.";
         public const string AllowMicrophone = "Allow the microphone when the headset asks, then hold again.";
         public const string MicrophoneAllowed = "The microphone is allowed. Hold again to talk.";
-        public const string NoMicrophone = "There's no microphone Halcyonic can listen with. Type instead.";
+        public const string NoMicrophone = "There's no microphone this app can listen with. Type instead.";
         public const string MicrophoneRefused = "Allow the microphone in the headset's settings, or type instead.";
         public const string Unreachable = HostText.YourStart + " can't be reached right now. Type instead, or try again.";
 
