@@ -361,16 +361,21 @@ A new, empty folder that is not a git repository works
 
 Codex runs only on models served on this Mac, in a home of its own, `CODEX_HOME` set to
 `~/.halcyonic/codex-home` (the data directory's `codex-home`), never your own `~/.codex`: your Codex
-settings, sign-in, plugins and MCP servers don't apply, and nothing signs Codex in. Hosted Codex
+settings, sign-in and plugins don't apply, and nothing signs Codex in. A project's own
+`.codex/config.toml` does apply, with its MCP servers, hooks and command rules: Codex marks a folder
+it may write as trusted when a thread starts there ([SECURITY.md](../architecture/SECURITY.md)). Hosted Codex
 models are not offered while it is open whether a ChatGPT sign-in may drive Codex
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). `pnpm mac-setup local-model <name>` writes the
 home's `config.toml`, mode 600: the `ollama` provider, the model, a context of 65,536 tokens and
 compaction at 52,000. Halcyonic makes the folder with mode 700 and won't start Codex in one that is
-a link, another user's, open to others, or holding a sign-in (`auth.json`). Every launch turns off
-plugins, the update check, analytics and web search with `-c` settings that outrank the file
+a link, another user's, open to others, or holding a sign-in (`auth.json`), and never changes its
+mode: move such a folder away and Halcyonic makes a new one. Every launch turns off
+plugins and Codex's other network features, the update check, analytics and web search with `-c`
+settings that outrank the file, and every start checks Codex applied them
 ([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of 2026-10-07). Variables
-Codex signs in with (`OPENAI_API_KEY`, `CODEX_API_KEY` and the like) are left out of what
-`HALCYONIC_AGENT_ENV` passes to Codex.
+Codex signs in with (`OPENAI_API_KEY`, `CODEX_API_KEY` and the like) and the proxy variables are
+left out of what `HALCYONIC_AGENT_ENV` passes to Codex, and `CODEX_EXEC_SERVER_*`,
+`CODEX_OSS_BASE_URL`, `CODEX_OSS_PORT` and `CODEX_SQLITE_HOME` are refused.
 
 Each thread's rollout is written under that home's `sessions`, not where Salidium and Seorak read
 Codex sessions, so Understand and Checks say they don't follow those Codex tasks
@@ -380,19 +385,14 @@ Codex sessions, so Understand and Checks say they don't follow those Codex tasks
 
 Codex reaches Ollama through its built-in `ollama` provider, on port 11434 of this Mac, over the
 Responses API. `GET /api/runtimes/codex/models` lists the model the home's `config.toml` names, and
-a start carries it as `"model_ref": "ollama/qwen3.6:35b-a3b-nvfp4"`. A start may instead name the
-model with options, and tell Codex another context than the file's:
+a start carries it as `"model_ref": "ollama/qwen3.6:35b-a3b-nvfp4"`: admission refuses a Codex start
+without one (`model_required`). Its options may tell Codex another context than the file's:
 
 ```json
-{
-  "model_provider": "ollama",
-  "model": "qwen3.6:35b-a3b-nvfp4",
-  "context_window": 65536,
-  "auto_compact_token_limit": 52000
-}
+{ "context_window": 65536, "auto_compact_token_limit": 52000 }
 ```
 
-The provider must serve its models on this Mac, and a model Ollama runs on its own remote service
+The provider must send its requests to loopback, and a model Ollama runs on its own remote service
 (`:cloud`, `-cloud`) is refused. The thread is refused if Codex reports another provider or model for
 it. Codex takes any model name without checking it: a name Ollama does not have fails the first
 turn. The runs, the rollouts and what reaches the network are in

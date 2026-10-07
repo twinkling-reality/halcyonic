@@ -13,7 +13,7 @@ const THREAD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 
 /**
  * Whether a session is one Halcyonic's Codex wrote in its own home, which neither Salidium nor
- * Seorak reads (understanding-and-evaluation.md): a Codex thread whose rollout,
+ * Seorak reads as installed (understanding-and-evaluation.md): a Codex thread whose rollout,
  * `rollout-<time>-<thread id>.jsonl`, is in the home's `sessions/YYYY/MM/DD` for the day the
  * execution started, the day before or the day after, by this Mac's local date, as Codex names the
  * folders. Decided by Codex's own record of the thread, since the journal does not say which home

@@ -79,11 +79,14 @@ offered for local models only, from a home of its own.**
   the folder with mode 700 and, before every launch, refuses a link, another user's folder, one
   others can open, or one holding a sign-in (`auth.json`). `CODEX_HOME` is no longer inherited,
   and configuring it, or a variable Codex signs in with, is refused.
-- Every launch passes `-c features.plugins=false`, `-c check_for_update_on_startup=false`,
-  `-c analytics.enabled=false`, `-c web_search="disabled"` and
-  `-c cli_auth_credentials_store="file"`, which outrank the home's `config.toml`. On 0.157.0 the
-  undocumented `features.plugins = false` was the only setting that stopped the startup connection
-  to GitHub ([local-models.md](../validation/local-models.md)).
+- Every launch passes as `-c` overrides, which outrank the home's `config.toml`:
+  `features.plugins=false` and the other network-reaching features 0.157.0 has on by default set
+  to false, the update check, analytics and web search off, and sign-in and MCP credentials kept
+  out of the keychain. On 0.157.0 the undocumented `features.plugins = false` was the only setting
+  that stopped the startup connection to GitHub ([local-models.md](../validation/local-models.md)).
+  A managed layer outranks the overrides, so every start checks in `config/read` that each is
+  applied, and refuses otherwise. Variables that move Codex's work or data off the Mac or out of
+  the home, and proxies, never reach it.
 - A thread runs only on a model provider served on this Mac (a loopback address in Codex's
   configuration; Ollama in practice), named on the thread; models Ollama runs on its own remote
   service are refused, and the model list holds only models served on this Mac. Hosted Codex
@@ -101,6 +104,8 @@ it as installed (each reads one Codex location, the person's,
 plane answers Understand and Checks as `runtime_not_observed`, without asking either, for a Codex
 execution whose rollout it finds in Halcyonic's home; one run in `~/.codex` before this change is
 asked about as before. Whether they should also read Halcyonic's home is their owners' question
-([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The person's own Codex settings, sign-in,
-plugins, MCP servers and saved rules no longer apply to Halcyonic's threads. The decision is
-otherwise unchanged.
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The person's own `~/.codex` settings, sign-in and plugins no
+longer apply to Halcyonic's threads. A project's own `.codex/config.toml` does, with its MCP
+servers, the sandbox's network access, hooks and command rules: on `thread/start` Codex records a
+folder it can write as trusted in the home's `config.toml`. Keeping projects untrusted is open
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The decision is otherwise unchanged.

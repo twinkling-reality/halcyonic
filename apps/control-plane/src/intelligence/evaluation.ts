@@ -52,7 +52,8 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
           availability: 'unavailable',
           reason: {
             code: 'runtime_not_observed',
-            message: "Seorak does not read Halcyonic's own Codex home, where this session is kept.",
+            message:
+              "Seorak, as installed, does not read Halcyonic's own Codex home, where this session is kept.",
           },
         };
       }
