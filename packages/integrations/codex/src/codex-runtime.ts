@@ -37,6 +37,7 @@ import {
   type ThreadState,
 } from './events.ts';
 import { prepareHome } from './home.ts';
+import { presentSystemConfiguration, systemConfigurationPaths } from './managed.ts';
 import { modelsFromCodex, servedBy } from './models.ts';
 import {
   parseStartOptions,
@@ -107,6 +108,11 @@ export interface CodexRuntimeOptions {
    * databases, logs and each thread's rollout there.
    */
   readonly codexHome: string;
+  /**
+   * Where Codex reads configuration whatever its home, checked before every launch; the paths of
+   * this Mac (`systemConfigurationPaths`) unless given, as tests do.
+   */
+  readonly systemConfiguration?: readonly string[];
   /**
    * File recording the pid and binary of the server while it runs, so a later start can stop a
    * server that outlived a crash. Use one file per runtime instance.
@@ -212,6 +218,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
   readonly #binaryPath: string;
   readonly #home: string;
+  readonly #systemConfiguration: readonly string[];
+  /** Why the last launched server was not local-only: kept, so no request launches another. */
+  #refusal: RuntimeActionError | null = null;
   readonly #recordFile: string;
   readonly #directoryPolicy: DirectoryPolicy;
   readonly #environment: Readonly<Record<string, string>>;
@@ -238,6 +247,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     this.#binaryPath = options.binaryPath;
     this.#home = options.codexHome;
+    this.#systemConfiguration = options.systemConfiguration ?? systemConfigurationPaths();
     this.#recordFile = options.serverRecordFile;
     this.#directoryPolicy = options.directoryPolicy;
     this.#environment = buildEnvironment(process.env, options.env ?? {}, options.codexHome);
@@ -696,6 +706,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   async #connection(relaunch = false): Promise<Connection> {
     if (this.#closing !== null) throw closedError();
+    if (this.#refusal !== null) throw this.#refusal;
     const current = this.#current;
     if (current !== null) return current;
     this.#launching ??= this.#launch(relaunch).finally(() => {
@@ -711,6 +722,15 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       throw new RuntimeActionError(
         'runtime_unavailable',
         `Could not check for a Codex server left running by an earlier run: ${message(error)}`,
+      );
+    }
+    // Checked before every launch, so Codex never starts under configuration that can turn its
+    // network features back on; only whether each exists is read.
+    const system = await presentSystemConfiguration(this.#systemConfiguration);
+    if (system.length > 0) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        `This Mac has Codex configuration that applies whatever Halcyonic sets: ${system.join(', ')}. Halcyonic runs Codex only without it, so Codex was not started.`,
       );
     }
     // Checked before every launch: the home may have changed since the last one.
@@ -735,6 +755,11 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     } catch (error) {
       connection.halted.abort();
       await server.stop();
+      // Remembered until the control plane restarts, so each list or start does not launch Codex
+      // again under the same configuration.
+      if (error instanceof RuntimeActionError && error.code === 'runtime_refused') {
+        this.#refusal = error;
+      }
       throw error;
     }
     this.#current = connection;
