@@ -206,14 +206,16 @@ namespace Halcyonic.XR.Pairing
             }
             catch (Exception error)
             {
-                return new Outcome(null, "error", "Pairing failed: " + error.Message, null);
+                // Never the exception's words on the banner.
+                return new Outcome(null, "error", PairingClient.Failed, null);
             }
         }
 
         /// <summary>
-        /// Says it on the stage's banner. A refusal can carry the words of whatever answered at the
-        /// typed address, and a failure an exception's: the banner shows them by its one rule for text
-        /// Halcyonic did not write.
+        /// Says it on the stage's banner. A refusal or a failure is said in Halcyonic's words by its code
+        /// (<see cref="PairingClient.WhyRefused"/>), never the words of whatever answered at the typed
+        /// address, which nothing has pinned yet, nor an exception's. The typed address it repeats is
+        /// shown by the banner's one rule for text Halcyonic did not write.
         /// </summary>
         private void Say(string text)
         {

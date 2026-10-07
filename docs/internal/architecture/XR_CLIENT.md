@@ -1147,7 +1147,10 @@ the same definition names, as the JSON Schema document:
   which it returns as the pin with the device id and credential in a `PairedControlPlane`. It
   keeps nothing unless the control plane proves it knew the code. `RevokeAsync` asks the control
   plane to stop accepting the credential, as forgetting it does. Refusals arrive as a
-  `PairingException` with the control plane's code and the attempts left.
+  `PairingException` with the control plane's code, kept by its shape, the attempts left, and words
+  chosen by that code (`PairingClient.WhyRefused`), never the refusal's message: nothing is pinned
+  yet, so whatever answers at the typed address writes it. A broken exchange reads as one that
+  doesn't pair the way the computer does (`ProtocolError`), never an exception's message.
 - **The pinned transports.** `PinnedConnection` opens TCP and TLS with `SslStream`, whose own
   validation callback compares the certificate's SHA-256 with the pin, so another certificate ends
   the handshake before anything is sent (`CertificateMismatchException`); without a pin, for
@@ -2145,8 +2148,10 @@ release build, such as the one judges run, offers no pairing
 - **Pairing.** "Pair with a computer" opens the system keyboard for the Mac's address, as `pnpm pair`
   prints it (the last one typed is offered, and the port may be left out), then the number pad for
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
-  left after a wrong code, and a refusal the app does not know, in the words of whatever answered
-  at that address, shows by the one rule for text Halcyonic did not write. On success the pairing
+  left after a wrong code; a refusal the app does not know reads "Your computer refused to pair
+  this headset. Open pairing there again, then try again.", never in the words of whatever answered
+  at that address, and anything else unexpected "Couldn't pair this headset. Check the address, then
+  try again.", never an exception's words. On success the pairing
   is saved through
   `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
   again, so it connects to the paired control plane as at startup.

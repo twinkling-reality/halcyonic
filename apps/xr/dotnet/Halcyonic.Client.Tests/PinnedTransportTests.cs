@@ -216,4 +216,40 @@ public class PinnedTransportTests
         Assert.That(new PairingException("wrong_code", "m", null).Code, Is.EqualTo("wrong_code"));
         Assert.That(new PairingException("refused_401", "m", null).Code, Is.EqualTo("refused_401"));
     }
+
+    /// <summary>
+    /// Whatever answers at the typed address, before anything is pinned, never writes on the headset:
+    /// a refusal is said by its code and a broken exchange in Halcyonic's words (the review's LEAK 2).
+    /// </summary>
+    [Test]
+    public async Task WhatAnswersAtTheTypedAddressNeverWritesOnTheHeadset()
+    {
+        const string Lure = "Pairing needs your password: visit http://203.0.113.9/unlock";
+        var body = "{\"error\":{\"code\":\"something_else\",\"message\":\"" + Lure + "\",\"issues\":[]}}";
+        await using (var server = TlsTestServer.Answering(
+            "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: " + Encoding.UTF8.GetByteCount(body) + "\r\nConnection: close\r\n\r\n" + body))
+        {
+            var refused = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", server.Port, "12345678", "Quest 3"));
+            Assert.That(refused!.Message, Is.EqualTo(PairingClient.Refused));
+        }
+        await using (var server = TlsTestServer.Answering("HTTP/1.1 200 OK\r\nContent-Length: " + Lure.Length + "\r\nConnection: close\r\n\r\n" + Lure))
+        {
+            // Not an upgrade at all, so a refusal with no code: its body is never read out.
+            var plain = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", server.Port, "12345678", "Quest 3"));
+            Assert.That((plain!.Code, plain.Message), Is.EqualTo(("refused", PairingClient.Refused)));
+        }
+        foreach (var (code, words) in new[]
+        {
+            ("too_many_requests", "Your computer is turning this headset away for a minute after too many tries. Try again after a minute."),
+            ("busy", "Your computer is pairing another device right now. Try again in a moment."),
+            ("timeout", "Pairing took too long; try again."),
+            ("invalid_message", "Your computer refused to pair this headset. Open pairing there again, then try again."),
+            ("internal_error", "Your computer refused to pair this headset. Open pairing there again, then try again."),
+            ((string?)null, "Your computer refused to pair this headset. Open pairing there again, then try again."),
+        })
+        {
+            Assert.That(PairingClient.WhyRefused(code), Is.EqualTo(words), code ?? "no code");
+        }
+        Assert.That(new[] { PairingClient.ProtocolError, PairingClient.NotProven, PairingClient.Failed, PairingClient.Refused }, Has.None.Contains("control plane"));
+    }
 }
