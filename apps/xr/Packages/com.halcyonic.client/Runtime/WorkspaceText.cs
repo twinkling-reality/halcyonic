@@ -159,7 +159,7 @@ namespace Halcyonic.Client
         public static string CannotAnswer(QuestionView question)
         {
             if (question.Prompts.Any(prompt => prompt.Secret)) return "It asks for something secret, which can't be sent from here. Press Stop to go on.";
-            if (question.Prompts.Any(OffersALabelTwice)) return SameAnswersTwice;
+            if (!question.Prompts.All(HasAWayToAnswer)) return SameAnswersTwice;
             if (question.Prompts.Any(prompt => IsCut(prompt.Header) || IsCut(prompt.Text) || prompt.Options.Any(option => IsCut(option.Label) || IsCut(option.Description))))
             {
                 return "This question is too long to show in full, so it can't be answered here. Press Stop to go on.";
@@ -169,12 +169,48 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether a question can be answered from the headset: the runtime says it can, no prompt asks for
-        /// something secret, whatever an adapter says, since what is typed or said here is journaled, and no
-        /// prompt offers two answers by one label. Every place that offers or sends an answer asks this,
-        /// never the flag alone.
+        /// something secret, whatever an adapter says, since what is typed or said here is journaled, and every
+        /// prompt still has a way to answer (<see cref="HasAWayToAnswer"/>). Every place that offers or sends an
+        /// answer asks this, never the flag alone.
         /// </summary>
         public static bool Answerable(QuestionView question) =>
-            question.Answerable && !question.Prompts.Any(prompt => prompt.Secret) && !question.Prompts.Any(OffersALabelTwice);
+            question.Answerable && !question.Prompts.Any(prompt => prompt.Secret) && question.Prompts.All(HasAWayToAnswer);
+
+        /// <summary>
+        /// A prompt still has a way to answer here, its answers that read alike aside (<see cref="ReadsAlike"/>):
+        /// it offers none that do, or it takes typed words, or it offers an answer that reads like no other.
+        /// </summary>
+        public static bool HasAWayToAnswer(QuestionPrompt prompt) =>
+            !OffersALabelTwice(prompt) || prompt.FreeText || Enumerable.Range(0, prompt.Options.Count).Any(option => !ReadsAlike(prompt, option));
+
+        /// <summary>
+        /// The answer reads the same as another of the prompt's (<see cref="AsShown"/>): its row shows, and
+        /// can't be chosen, since nobody could tell which of them they chose, nor the agent which was meant.
+        /// </summary>
+        public static bool ReadsAlike(QuestionPrompt prompt, int option)
+        {
+            var shown = AsShown(prompt.Options[option].Label);
+            return prompt.Options.Where((_, other) => other != option).Any(other => string.Equals(AsShown(other.Label), shown, StringComparison.Ordinal));
+        }
+
+        /// <summary>Words typed or heard for the prompt that read the same as one of its answers that can't be chosen.</summary>
+        public static bool ReadsLikeOneThatCantBeChosen(QuestionPrompt prompt, string words)
+        {
+            var shown = AsShown(words);
+            return Enumerable.Range(0, prompt.Options.Count)
+                .Any(option => ReadsAlike(prompt, option) && string.Equals(AsShown(prompt.Options[option].Label), shown, StringComparison.Ordinal));
+        }
+
+        /// <summary>
+        /// Said under a prompt's answers where some read the same, with Stop where the page offers it, as stopping
+        /// is the only way to the one meant (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public static string AlikeCantBeChosen(bool stop) =>
+            "Answers that read the same can't be chosen here." + (stop ? " Press Stop if you meant one of them." : "");
+
+        /// <summary>Why words typed or heard weren't taken, as a notice (settled by the coordinator, 2026-10-07).</summary>
+        public static string TypedReadsAlike(bool stop) =>
+            "Your answer reads the same as answers that can't be chosen here. " + (stop ? "Answer another way, or press Stop if you meant one of them." : "Answer another way.");
 
         /// <summary>
         /// The prompt offers two answers whose labels read the same (<see cref="AsShown"/>). An answer names
@@ -194,7 +230,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string AsShown(string? label) => LabelText.Plain(label).Normalize(NormalizationForm.FormC);
 
-        /// <summary>Why a question offering two answers by one label can't be answered here (settled by the coordinator, 2026-10-04).</summary>
+        /// <summary>Why a question with a prompt whose answers read alike and no other way to answer can't be answered here (settled by the coordinator, 2026-10-04).</summary>
         public const string SameAnswersTwice = "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.";
 
         /// <summary>The agent waits while nobody can answer here: said under a question Halcyonic cannot answer.</summary>

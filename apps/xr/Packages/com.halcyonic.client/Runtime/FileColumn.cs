@@ -85,6 +85,9 @@ namespace Halcyonic.Client
 
         public MenuFrame? Frame { get; private set; }
 
+        /// <summary>Whether the page drawn offers Stop, so a refusal of words says to press it only where it can be.</summary>
+        private bool StopOnPage => Frame?.Footer[PromptSlot.Rare]?.Id == FileScreens.Stop;
+
         public event Action? Changed;
 
         public event Action? Closed;
@@ -166,7 +169,7 @@ namespace Halcyonic.Client
                         if (typingFor != draft) return;
                         // An answer armed to send meanwhile is cancelled, if these words changed it: Yes was for the answer before them.
                         var before = typingFor.AnswersNow;
-                        var problem = typingFor.Type(typing, text);
+                        var problem = typingFor.Type(typing, text, StopOnPage);
                         var cancelled = QuestionDraft.SameAnswers(before, typingFor.AnswersNow) ? null : Steering.AnswerChanging();
                         if (problem != null) Notify(problem);
                         else if (cancelled != null) Notify(cancelled);
@@ -341,7 +344,7 @@ namespace Halcyonic.Client
                 {
                     // An answer armed to send meanwhile is cancelled, if these words changed it.
                     var before = draft.AnswersNow;
-                    var problem = draft.Type(answerPrompt, text);
+                    var problem = draft.Type(answerPrompt, text, StopOnPage);
                     var cancelled = QuestionDraft.SameAnswers(before, draft.AnswersNow) ? null : Steering.AnswerChanging();
                     Notify(problem ?? cancelled ?? VoiceText.HeardAnswer);
                 }

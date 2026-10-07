@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -126,7 +127,7 @@ namespace Halcyonic.Client
             var asked = draft.Prompts[prompt];
             if (asked.Options.Count == 0) return true;
             var several = draft.Prompts.Count > 1;
-            var room = page.Room - Head(headRows) - Below(asked.FreeText, several);
+            var room = page.Room - Head(headRows) - Below(asked.FreeText, several) - Alike(asked);
             if (page.Targets(Enumerable.Range(0, asked.Options.Count).Select(option => AnswerShows(prompt, option)).ToArray()) <= room + 1e-6f) return true;
             var least = Enumerable.Range(0, asked.Options.Count).Min(option => AnswerShows(prompt, option));
             return page.Target(least) + MoreRow(asked.FreeText, several) <= room + 1e-6f;
@@ -144,6 +145,16 @@ namespace Halcyonic.Client
         /// </summary>
         private float Below(bool typed, bool several) =>
             (typed || several ? page.Target() + page.TargetGap : 0f) + (several ? page.Reason : 0f);
+
+        /// <summary>The rows of the line under a prompt's answers where some read the same (<see cref="WorkspaceText.AlikeCantBeChosen"/>).</summary>
+        public const int AlikeRows = 2;
+
+        /// <summary>
+        /// That line and the gap before it, on every page of the prompt's answers; a gap counted as a target's,
+        /// the larger, wherever the line meets one.
+        /// </summary>
+        private float Alike(QuestionPrompt asked) =>
+            WorkspaceText.OffersALabelTwice(asked) ? page.Words(AlikeRows) + Math.Max(page.LineGap, page.TargetGap) : 0f;
 
         /// <summary>The row for more answers, where a page needs it: beside Type my answer it takes no row of its own.</summary>
         private float MoreRow(bool typed, bool several) => typed && !several ? 0f : page.Target() + page.TargetGap;
@@ -309,7 +320,7 @@ namespace Halcyonic.Client
             var asked = answering.Prompts[prompt];
             var options = Enumerable.Range(0, asked.Options.Count).ToList();
             var several = answering.Prompts.Count > 1;
-            var room = page.Room - Head(headRows) - Below(asked.FreeText, several);
+            var room = page.Room - Head(headRows) - Below(asked.FreeText, several) - Alike(asked);
             if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, several);
             var laid = new List<List<int>> { new List<int>() };
             var used = 0f;

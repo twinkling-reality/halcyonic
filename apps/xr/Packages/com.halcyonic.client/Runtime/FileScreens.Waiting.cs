@@ -106,11 +106,17 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Stop, on Waiting only where Halcyonic can't answer the question, as one asking for a secret or
-        /// marked unanswerable: stopping is then the way on (ADR 0022). Elsewhere Stop stands on Activity
-        /// (ADR 0026).
+        /// marked unanswerable, or where a prompt offers answers that read the same, which can't be chosen:
+        /// stopping is then the way on, or the only way to the one meant (ADR 0022; settled by the
+        /// coordinator, 2026-10-07). Elsewhere Stop stands on Activity (ADR 0026).
         /// </summary>
         private static Prompt? StopWhereUnanswerable(WorkspacePresentation workspace, QuestionView question) =>
-            workspace.Actions.Contains(WorkspaceAction.Interrupt) && !WorkspaceText.Answerable(question) ? Action(WorkspaceAction.Interrupt, Stop) : null;
+            StopsHere(workspace, question) ? Action(WorkspaceAction.Interrupt, Stop) : null;
+
+        /// <summary>Whether Waiting offers Stop under this question (<see cref="StopWhereUnanswerable"/>).</summary>
+        public static bool StopsHere(WorkspacePresentation workspace, QuestionView question) =>
+            workspace.Actions.Contains(WorkspaceAction.Interrupt)
+            && (!WorkspaceText.Answerable(question) || question.Prompts.Any(WorkspaceText.OffersALabelTwice));
 
         /// <summary>
         /// An approval's footer: Close, Deny beside Approve, and Approve as the main action, Stop standing
@@ -358,6 +364,11 @@ namespace Halcyonic.Client
             else
             {
                 foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
+                // Under its answers, where some read the same and can't be chosen, why, and the way to the one meant.
+                if (WorkspaceText.OffersALabelTwice(asked))
+                {
+                    lines.Add(new PageLine(WorkspaceText.AlikeCantBeChosen(StopsHere(workspace, draft.Question)), tone: LineTone.Secondary, rows: FileQuestion.AlikeRows));
+                }
                 var paging = question.Pages > 1 || draft.Prompts.Count > 1;
                 // Where no keyboard opens, a row that would only open it is left off; one holding words,
                 // as heard through Hold to talk, stays as their choice.
@@ -401,9 +412,10 @@ namespace Halcyonic.Client
         private static PageLine Answer(QuestionDraft draft, FileQuestion question, int prompt, int index)
         {
             var option = draft.Prompts[prompt].Options[index];
+            // One that reads the same as another shows, and can't be chosen.
             return new PageLine(AnswerWords(option), wordsAreData: true, action: Choose,
                 key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: draft.IsChosen(prompt, option.Label),
-                rows: question.AnswerShows(prompt, index));
+                available: !WorkspaceText.ReadsAlike(draft.Prompts[prompt], index), rows: question.AnswerShows(prompt, index));
         }
 
         /// <summary>A prompt's name on the person's answers: its header as the agent wrote it, else which question it is.</summary>

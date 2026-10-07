@@ -58,12 +58,15 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Chooses or unchooses an offered label. A prompt that takes one answer keeps only this
-        /// label, and drops any typed text; one that takes several toggles it.
+        /// label, and drops any typed text; one that takes several toggles it. A label that reads the same
+        /// as another answer's is never chosen (<see cref="WorkspaceText.ReadsAlike"/>).
         /// </summary>
         public void Choose(int prompt, string label)
         {
             var options = Prompts[prompt].Options;
-            if (!options.Any(option => option.Label == label)) throw new ArgumentException("Choose a label the prompt offers.", nameof(label));
+            var index = options.FindIndex(option => option.Label == label);
+            if (index < 0) throw new ArgumentException("Choose a label the prompt offers.", nameof(label));
+            if (WorkspaceText.ReadsAlike(Prompts[prompt], index)) return;
             var set = chosen[prompt];
             if (Prompts[prompt].Multiple)
             {
@@ -80,9 +83,10 @@ namespace Halcyonic.Client
         /// Takes typed text for a prompt that allows it; blank text clears it. A prompt that takes one
         /// answer drops its chosen label. Returns why the text was not taken, or null: text that is not
         /// whole characters (a lone surrogate) would be refused as an invalid command, so it is
-        /// refused here, in words.
+        /// refused here, in words; and words that read the same as an answer that can't be chosen, which
+        /// the agent could take for it, are refused, saying Stop where <paramref name="stopOnPage"/>.
         /// </summary>
-        public string? Type(int prompt, string? text)
+        public string? Type(int prompt, string? text, bool stopOnPage = false)
         {
             if (!Prompts[prompt].FreeText) return "This question takes only the answers shown. Choose one of them.";
             var trimmed = text?.Trim();
@@ -92,6 +96,7 @@ namespace Halcyonic.Client
                 return null;
             }
             if (!IsWhole(trimmed!)) return "The typed answer has a character that cannot be sent. Type it again.";
+            if (WorkspaceText.ReadsLikeOneThatCantBeChosen(Prompts[prompt], trimmed!)) return WorkspaceText.TypedReadsAlike(stopOnPage);
             typed[prompt] = trimmed;
             if (!Prompts[prompt].Multiple) chosen[prompt].Clear();
             return null;

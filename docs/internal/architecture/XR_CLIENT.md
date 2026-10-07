@@ -568,18 +568,24 @@ the same definition names, as the JSON Schema document:
   on while something waits, and it opens on Waiting then, else on Activity. **Waiting** reads only
   the work's own state, never an answer still being read: an approval's request with Approve as
   the main action and Deny beside it, Stop standing on Activity (and on Waiting only beside a
-  question Halcyonic can't answer, where stopping is the way on), and while a decision sent on it may still
+  question Halcyonic can't answer, where stopping is the way on, or one offering answers that read the
+  same, where it is the way to the one meant), and while a decision sent on it may still
   take effect, Sent… in Approve's place and no Deny, so a second decision never races the first
   (`CommandSubmissions.ApprovalPending`, `WorkspacePresentation.ApprovalInFlight`); the agent's question with its answers as
   rows to choose, Send answer as the main action and Hold to talk beside it. A question with any
-  secret prompt, or with a prompt offering two answers whose labels read the same (`WorkspaceText.OffersALabelTwice`,
+  secret prompt, or with a prompt offering two answers whose labels read the same and no other way to answer (`WorkspaceText.OffersALabelTwice`,
   compared as their rows show them, `WorkspaceText.AsShown`: the NFC form of `LabelText.Plain`, ordinal, so
   white space at the ends, a tab for a space and a letter composed or decomposed tell none apart; case,
   width and ligatures do. An answer names its choice by label alone, so two labels written alike would
   send the label twice, which admission refuses, and between two that only show alike a person can't
   tell which they chose), can't be answered here whatever its adapter
-  says (`WorkspaceText.Answerable`, asked by every place that offers or sends an answer): it shows why
-  and the way on, Stop, with no Hold to talk; Sent… in its place, taking no press, while an answer sent may still take effect.
+  says (`WorkspaceText.Answerable`, asked by every place that offers or sends an answer; a prompt's other
+  ways, `WorkspaceText.HasAWayToAnswer`, are typed words and an answer that reads like no other): it shows why and the way on, Stop, with no Hold to talk. Where a way is
+  left, the answers that read alike show as rows that can't be chosen (`WorkspaceText.ReadsAlike`;
+  `QuestionDraft.Choose` takes none of them), a line under the prompt's answers says why, counted in
+  every page of them (`FileQuestion.AlikeRows`), Stop stands on Waiting as the way to the one meant,
+  and words typed or heard that read the same as one of them are refused (`QuestionDraft.Type`), so no
+  path sends such a label; Sent… in its place, taking no press, while an answer sent may still take effect.
   The question shows a prompt at a time (`FileQuestion`). A question longer than two rows, or one
   whose own page leaves fewer pages in all (its answers' pages then holding more answers each),
   shows first on pages of its own, a part at a time, each ending in a row to the next and the last

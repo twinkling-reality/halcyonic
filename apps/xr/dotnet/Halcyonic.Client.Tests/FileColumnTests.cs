@@ -1490,6 +1490,8 @@ public class FileColumnTests
             new() { Label = "Yes", Description = "Keep the data" },
             new() { Label = "Yes", Description = "Delete the data" },
         };
+        // Nothing to type either, so no way to answer is left.
+        question.Prompts[0].FreeText = false;
         var work = new AskingWork(question);
         Assert.That(work.Present().Actions, Does.Not.Contain(WorkspaceAction.Answer), "no answer is offered");
 
@@ -1548,6 +1550,104 @@ public class FileColumnTests
             question.Prompts[0].Options[1].Label = second;
             Assert.That(WorkspaceText.OffersALabelTwice(question.Prompts[0]), Is.False, "\"" + first + "\" and \"" + second + "\" show apart");
         }
+    }
+
+    /// <summary>
+    /// Where only some of a prompt's answers read the same, those rows show and can't be chosen, a line under
+    /// them says so, and Stop stands on the page as the way to the one meant; the rest are answered as ever, and
+    /// nothing, pressed, typed or heard, sends a label that reads alike (the review's L2, settled 2026-10-07).
+    /// </summary>
+    [Test]
+    public void AnswersThatReadTheSameShowButCantBeChosenAndStopIsTheWayToTheOneMeant()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts.RemoveAt(1);
+        question.Prompts[0].Text = "The old table is in the way. What should I do with its data?";
+        question.Prompts[0].Options = new List<QuestionOption>
+        {
+            new() { Label = "Yes", Description = "Keep the data" },
+            new() { Label = "Yes ", Description = "Delete the data" },
+            new() { Label = "Ask me later", Description = null },
+        };
+        Assert.That(WorkspaceText.Answerable(question), Is.True, "an answer that reads like no other, and words to type, are ways to answer");
+        var work = new AskingWork(question);
+        var host = new FileMenuHost();
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
+        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        // Every page of its answers: those rows can't be chosen, a press on one chooses nothing, and the line stands under them.
+        const string alike = "Answers that read the same can't be chosen here. Press Stop if you meant one of them.";
+        var draft = column.Screen.Question.Draft!;
+        var rows = new List<(string Words, bool Available)>();
+        for (var page = 0; page < column.Screen.Question.Pages; page++)
+        {
+            if (page > 0)
+            {
+                column.Act(FileScreens.MoreAnswers, null);
+                Draw(host, column);
+            }
+            var shown = column.Frame!.Lines.ToList();
+            var answers = shown.Where(line => line.Action == FileScreens.Choose).ToList();
+            rows.AddRange(answers.Select(line => (line.Words, line.Available)));
+            Assert.That(shown[shown.FindLastIndex(line => line.Action == FileScreens.Choose) + 1].Words, Is.EqualTo(alike), "under its answers, page " + page);
+            Assert.That(column.Frame!.Footer[PromptSlot.Rare]?.Id, Is.EqualTo(FileScreens.Stop), "the way to the one meant");
+            Assert.That(column.Frame!.Footer[PromptSlot.Secondary]?.Id, Is.EqualTo(FileScreens.SpeakAnswer), "and still Hold to talk");
+            foreach (var row in answers.Where(line => !line.Available))
+            {
+                column.Act(FileScreens.Choose, row.Key);
+                Assert.That(draft.IsAnswered(0), Is.False, row.Words + " chooses nothing");
+            }
+        }
+        Assert.That(rows, Is.EqualTo(new[]
+        {
+            ("Yes · Keep the data", false),
+            ("Yes · Delete the data", false),
+            ("Ask me later", true),
+        }));
+        Assert.That(draft.Problem, Is.EqualTo("Choose or type an answer first."));
+        // Words typed or heard that read like one of them aren't taken, and say Stop since the page offers it.
+        const string typedAlike = "Your answer reads the same as answers that can't be chosen here. Answer another way, or press Stop if you meant one of them.";
+        column.Act(FileScreens.TypeAnswer, "3");
+        host.Keyboard!.Value.Done("Yes\t");
+        Assert.That((draft.Typed(0), column.Screen.Notice), Is.EqualTo(((string?)null, typedAlike)));
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        column.Heard(" Yes");
+        Assert.That(draft.Typed(0), Is.Null, "heard alike, the same");
+        Assert.That(draft.Type(0, "Yes", stopOnPage: false), Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."));
+        Assert.That(draft.Type(0, "Yes, but keep a copy"), Is.Null, "other words are an answer");
+        Assert.That(draft.Type(0, "yes"), Is.Null, "case tells answers apart");
+
+        // The answer that reads like no other is chosen and sent as ever.
+        draft.Type(0, null);
+        for (var turns = 0; turns < 5 && !column.Screen.Question.Answers.Contains(2); turns++)
+        {
+            column.Act(FileScreens.MoreAnswers, null);
+            Draw(host, column);
+        }
+        column.Act(FileScreens.Choose, "2");
+        Assert.That(draft.Build().Single().Selected, Is.EqualTo(new[] { "Ask me later" }));
+
+        // Without Stop to offer, the line and the refusal say only what can be done.
+        var other = new FileMenuHost();
+        var unstoppable = Column(other, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
+        for (var draw = 0; draw < 3; draw++) Draw(other, unstoppable);
+        Assert.That(unstoppable.Frame!.Lines.Select(line => line.Words), Does.Contain("Answers that read the same can't be chosen here."));
+        Assert.That(unstoppable.Frame!.Footer[PromptSlot.Rare], Is.Null);
+    }
+
+    /// <summary>A prompt whose every answer reads like another, with nothing to type, leaves no way to answer: as before L2.</summary>
+    [Test]
+    public void APromptLeftWithNoWayToAnswerKeepsTheQuestionUnanswerable()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts[0].Options = new List<QuestionOption> { new() { Label = "Yes" }, new() { Label = "Yes " } };
+        question.Prompts[0].FreeText = false;
+        Assert.That(WorkspaceText.HasAWayToAnswer(question.Prompts[0]), Is.False);
+        Assert.That((WorkspaceText.Answerable(question), WorkspaceText.CannotAnswer(question)), Is.EqualTo((false, WorkspaceText.SameAnswersTwice)));
+        question.Prompts[0].FreeText = true;
+        Assert.That(WorkspaceText.Answerable(question), Is.True, "typing is a way");
+        question.Prompts[0].FreeText = false;
+        question.Prompts[0].Options.Add(new QuestionOption { Label = "No" });
+        Assert.That(WorkspaceText.Answerable(question), Is.True, "an answer that reads like no other is a way");
     }
 
     [Test]
