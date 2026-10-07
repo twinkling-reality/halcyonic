@@ -58,7 +58,16 @@ namespace Halcyonic.Client
             Code = code;
         }
 
+        public ControlPlaneRequestException(string message, string? code, int status)
+            : this(message, code)
+        {
+            Status = status;
+        }
+
         /// <summary>The control plane's error code when it refused the request; null when it could not be reached or gave none.</summary>
         public string? Code { get; }
+
+        /// <summary>The HTTP status it refused with; null when it could not be reached.</summary>
+        public int? Status { get; }
     }
 }

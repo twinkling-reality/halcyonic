@@ -117,10 +117,13 @@ public class ProjectsColumnTests
         var cases = new (Exception Error, string? Why)[]
         {
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "It didn't answer. Check that this app is running there, then press Try again."),
-            (new ControlPlaneRequestException(Leak, "device_revoked"), ConnectionText.PairingRefused),
-            (new ControlPlaneRequestException(Leak, "unauthorized"), ConnectionText.AccessTokenRefused),
-            (new ControlPlaneRequestException(Leak, "too_many_requests"), "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."),
-            (new ControlPlaneRequestException(Leak, "internal_error"), null),
+            (new ControlPlaneRequestException(Leak, "device_revoked", 401), ConnectionText.PairingRefused),
+            (new ControlPlaneRequestException(Leak, "unauthorized", 401), ConnectionText.AccessTokenRefused),
+            (new ControlPlaneRequestException(Leak, "too_many_requests", 429), "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."),
+            (new ControlPlaneRequestException(Leak, "internal_error", 500), null),
+            // A code counts only with the status that carries it (the review's L6).
+            (new ControlPlaneRequestException(Leak, "device_revoked", 500), null),
+            (new ControlPlaneRequestException(Leak, "too_many_requests", 403), null),
             (new ControlPlaneRequestException(Leak, (string?)null), null),
             (new InvalidOperationException(Leak), null),
         };

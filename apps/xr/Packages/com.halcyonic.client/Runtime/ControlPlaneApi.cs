@@ -187,7 +187,7 @@ namespace Halcyonic.Client
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body), (int)response.StatusCode);
                 }
                 return HalcyonicJson.Deserialize<TranscriptionResponse>(body);
             }
@@ -251,7 +251,7 @@ namespace Halcyonic.Client
                 if (body == null) throw new ControlPlaneRequestException("The companion's answer is longer than one can be.", "companion_unreadable");
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body), (int)response.StatusCode);
                 }
                 return HalcyonicJson.Deserialize<CompanionReplyResponse>(body);
             }
@@ -299,7 +299,7 @@ namespace Halcyonic.Client
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body), (int)response.StatusCode);
                 }
                 return body;
             }
