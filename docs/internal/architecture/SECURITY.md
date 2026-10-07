@@ -46,22 +46,53 @@ sign-in (`auth.json`). It holds `config.toml`, mode 600, written by `pnpm mac-se
 (the `ollama` provider, the model, its context and compaction threshold), and what Codex writes
 itself: its SQLite databases (state, logs, goals, memories, queue), its installation id, a
 `skills` folder, temporary files, and each thread's rollout under `sessions`, which holds the
-conversation, commands and their output. Every launch passes, as `-c` overrides that outrank that
-file, `features.plugins=false` (on 0.157.0 the only setting that stops the plugin sync connecting
-to GitHub at startup; it is undocumented), `check_for_update_on_startup=false`,
+conversation, commands and their output, and the project trust entries Codex adds (below). Every
+launch passes, as `-c` overrides, `features.plugins=false` (on 0.157.0 the only setting that stops
+the plugin sync connecting to GitHub at startup; it is undocumented), the other features 0.157.0
+has on by default that reach the network or another app (`apps`, `remote_plugin`,
+`plugin_sharing`, `in_app_updates`, `image_generation`, `browser_use`, `browser_use_external`,
+`computer_use`, `skill_mcp_dependency_install`, `tool_suggest`, `daemon_auto_start`,
+`system_proxy_fallback`) set to false, `check_for_update_on_startup=false`,
 `analytics.enabled=false` (the analytics events client, and the metrics sent to ab.chatgpt.com),
-`web_search="disabled"` and `cli_auth_credentials_store="file"`, so no sign-in is read from the
-keychain. A thread's model provider must be one its configuration serves from a loopback address,
-Ollama on port 11434 in practice, and is named on the thread explicitly; a model Ollama runs on its
-own remote service (`:cloud`, `-cloud`) is refused, and the model list leaves out every model not
-served on this Mac. Halcyonic sets what keeps the person in control too: the working directory,
+`web_search="disabled"`, and `cli_auth_credentials_store="file"` and
+`mcp_oauth_credentials_store="file"`, so no credential is read from the keychain. Codex ranks its
+configuration layers: the home's `config.toml` and a trusted project's `.codex/config.toml` below
+the launch's `-c` overrides, and a managed layer above them, `/etc/codex/managed_config.toml` or a
+device management profile (precedence 30 for the overrides, 40 and 50 for the managed layers, as
+the security review read the rust-v0.157.0 source). So at every start the adapter checks that
+`config/read` reports each of these settings, and refuses the start when one is missing;
+`/etc/codex` does not exist on this Mac. The proxy variables never reach Codex from the control
+plane, and the adapter sets `NO_PROXY` to loopback after any additions, so a request to Ollama, the
+prompts and code with it, never goes through a proxy. Variables that move Codex's work or data
+elsewhere are refused: `CODEX_EXEC_SERVER_*` (commands on a remote exec server),
+`CODEX_OSS_BASE_URL` and `CODEX_OSS_PORT` (the local providers' address) and `CODEX_SQLITE_HOME`
+(the databases outside the home).
+
+"Served on this Mac" means sent to a loopback address. A thread's model provider must be one
+Codex sends to loopback, Ollama on port 11434 in practice, judged as Codex 0.157.0 judges it:
+`openai` by `openai_base_url` alone and `ollama` and `lmstudio` by their built-in address, since
+Codex ignores a configured entry under a built-in provider's id (except Amazon Bedrock's); the
+provider is named on the thread explicitly. A model Ollama runs on its own remote service
+(`:cloud`, `-cloud`, in any case) is refused, and the model list leaves out every model not served
+on this Mac. The home is checked again at every start, so a sign-in put there after the launch
+refuses the next start, and its mode is never changed: one others could open is refused, to be
+moved away. Halcyonic sets what keeps the person in control too: the working directory,
 the sandbox mode, an approval policy that asks (`on-request` or `untrusted`), and approvals routed
 to the person rather than to a reviewer agent; it refuses a thread for which Codex reports other
 settings, or another model or provider than asked. The end to end suite's network probe watches
 the server's process tree through startup, idle and a full run on a local model, and is re-run on
-every Codex upgrade ([local-models.md](../validation/local-models.md)). Codex may still read
-system configuration under `/etc/codex` whatever the home (named in the binary's text); none
-exists on this Mac.
+every Codex upgrade ([local-models.md](../validation/local-models.md)).
+
+A project's own Codex settings still apply. On `thread/start` for a folder whose trust the
+configuration does not record, Codex 0.157.0 writes `[projects."<folder, or its git root>"]
+trust_level = "trusted"` into the home's `config.toml` whenever the thread's sandbox can write the
+folder, as `workspace-write` can (`codex-rs/app-server/src/request_processors/thread_processor.rs`
+at rust-v0.157.0). The repository's `.codex/config.toml` then applies: MCP servers, the sandbox's
+network access, hooks and command rules. Above it hold only the launch's `-c` settings and the
+adapter's checks of what Codex reports for the thread (folder, sandbox, approval policy, provider
+and model). Whether Halcyonic keeps projects untrusted is open
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); the coordinator does not register Codex on
+the owner's Mac until it is settled in code.
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
 `halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with

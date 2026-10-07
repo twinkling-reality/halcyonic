@@ -47,7 +47,7 @@ export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): Un
           reason: {
             code: 'runtime_not_observed',
             message:
-              "Salidium does not read Halcyonic's own Codex home, where this session is kept.",
+              "Salidium, as installed, does not read Halcyonic's own Codex home, where this session is kept.",
           },
         };
       }
