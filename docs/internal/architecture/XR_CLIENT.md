@@ -534,7 +534,12 @@ the same definition names, as the JSON Schema document:
   file steps aside to the right with the menu's slide (`MenuPlane.FileAside`), and nothing on its
   last drawn frame counts, nor its draw as read, until it is back (`MenuNavigator.BesideAside`, as in
   the frames handed out last, so a hold on the details ends at the menu's place until the plane is
-  drawn again). The menu or the file coming back from aside takes no press as it slides in: every
+  drawn again). A column newly on the plane, opened or back from aside, takes no press, hold or
+  subject press until it has opened (`MenuPlane.OpeningSeconds`, today `Glaze.AppearSeconds`, the
+  one place its length is set), so nothing on it, Yes, Send answer or Clear among them, is acted on
+  before it shows whole; its frame still counts as drawn when laid, exactly as one that stood open
+  (`WorkspaceRender` presses each through the plane as the file opens, halfway and after). The
+  menu or the file coming back from aside takes no press as it slides in: every
   button it shows waits to settle again (`MenuFrameView.Unsettle`). A frame coming back from behind
   its own side panel in its place is not made to wait: only its buttons whose words changed do. The
   review of 2026-10-03 judged that harmless, since no Approve or Yes stands there. It places the composition as one panel of its size
