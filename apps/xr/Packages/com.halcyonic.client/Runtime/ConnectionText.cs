@@ -53,7 +53,7 @@ namespace Halcyonic.Client
             "device_revoked" => PairingRefused,
             "too_many_connections" => "This headset already has too many connections open to " + HostText.Your + ". Close the app, then open it again.",
             "invalid_message" or "hello_required" => HostText.YourStart + " couldn't read what this app sent. " + SameVersion,
-            _ => HostText.YourStart + " ended the connection.",
+            _ => HostText.YourStart + " ended the connection. " + TriesAgain + ".",
         };
 
         /// <summary>
@@ -110,7 +110,7 @@ namespace Halcyonic.Client
         public const string Unreadable = HostText.YourStart + " sent something this app can't read. " + SameVersion;
 
         /// <summary>Your computer closed the connection.</summary>
-        public const string Closed = HostText.YourStart + " closed the connection.";
+        public const string Closed = HostText.YourStart + " closed the connection. " + TriesAgain + ".";
 
         /// <summary>
         /// Why your computer closed the connection, from the close it sent ("1008 device revoked", as the
