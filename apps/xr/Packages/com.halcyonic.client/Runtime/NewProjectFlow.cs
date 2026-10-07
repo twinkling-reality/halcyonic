@@ -1415,9 +1415,11 @@ namespace Halcyonic.Client
         /// <summary>Reads the folders the computer lists, when the person opens where its files live or asks again; never on a timer.</summary>
         private void ReadFolders()
         {
+            // A read this page cancels is let go of, never polled: it would say your computer didn't answer.
             locationsCancellation?.Cancel();
             locationsCancellation?.Dispose();
             locationsCancellation = null;
+            locationsRead = null;
             locations = null;
             locationsProblem = null;
             if (host.Api is not ControlPlaneApi api || !Live)
@@ -1433,12 +1435,8 @@ namespace Halcyonic.Client
         {
             if (!(locationsRead is Task<LocationsResponse> read) || !read.IsCompleted) return false;
             locationsRead = null;
-            if (read.IsCanceled)
-            {
-                // Cancelled by its own deadline, not by this page: a request that didn't answer.
-                if (locationsCancellation?.IsCancellationRequested != false) return false;
-                locationsProblem = EntryText.FoldersUnanswered;
-            }
+            // Cancelled by its own deadline, since ReadFolders lets go of a read it cancels: a request that didn't answer.
+            if (read.IsCanceled) locationsProblem = EntryText.FoldersUnanswered;
             else if (read.IsFaulted) locationsProblem = EntryText.WhyFoldersUnread(read.Exception?.GetBaseException(), host.Api?.AccessRefused ?? ConnectionText.AccessRefused) ?? EntryText.PressTryAgain;
             else
             {

@@ -133,6 +133,27 @@ public class PinnedTransportTests
         Assert.That(DateTime.UtcNow - started, Is.LessThan(TimeSpan.FromSeconds(5)));
     }
 
+    /// <summary>
+    /// A request whose token was cancelled ends cancelled, whatever the runtime threw as its connection closed,
+    /// so a timeout reads as one on the headset too, where Mono may fault rather than cancel (the review's R6).
+    /// </summary>
+    [Test]
+    public void ARequestCancelledWhileItsConnectionFailedIsReportedAsCancelled()
+    {
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        foreach (var thrown in new Exception[] { new IOException("closed"), new ObjectDisposedException("SslStream"), new InvalidDataException("cut"), new System.Net.Sockets.SocketException(), new OperationCanceledException() })
+        {
+            var reported = PinnedHttpHandler.Reported(thrown, cancelled.Token);
+            Assert.That(reported, Is.InstanceOf<OperationCanceledException>(), thrown.GetType().Name);
+            Assert.That(((OperationCanceledException)reported!).CancellationToken, Is.EqualTo(cancelled.Token));
+        }
+        // While its token stands: a connection that failed, or an answer not HTTP, as other handlers report them.
+        Assert.That(PinnedHttpHandler.Reported(new IOException("closed"), CancellationToken.None), Is.InstanceOf<HttpRequestException>());
+        Assert.That(PinnedHttpHandler.Reported(new InvalidDataException("cut"), CancellationToken.None), Is.InstanceOf<HttpRequestException>());
+        Assert.That(PinnedHttpHandler.Reported(new ArgumentException("bug"), CancellationToken.None), Is.Null, "anything else as it was thrown");
+    }
+
     [Test]
     public void TargetsUseThePinnedTransportsOnlyForAPairing()
     {
