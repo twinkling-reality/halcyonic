@@ -4,22 +4,37 @@ using System.Collections.Generic;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The first visit (ADR 0026): connected to the person's computer rather than the demonstration,
-    /// with nothing open beside the menu, the menu opens by itself on Projects, once on this device.
-    /// The headset keeps whether it has, under the key the retired entry panel's welcome kept, so no one
-    /// welcomed before is welcomed again.
+    /// The first visit (ADR 0026): once the session is live, with nothing open beside the menu, the menu
+    /// opens by itself on Projects, once on this device for the recorded demonstration and once for the
+    /// person's computer, so someone who saw the demonstration first still finds Projects open on their
+    /// first visit to their own work. The headset keeps the computer's under the key the retired entry
+    /// panel's welcome kept, so no one welcomed before is welcomed again.
     /// </summary>
     public sealed class FirstVisit
     {
-        /// <param name="visited">The device has seen its first visit already.</param>
-        public FirstVisit(bool visited) => Visited = visited;
+        /// <param name="visited">The device has seen its first visit to the person's computer already.</param>
+        /// <param name="demonstrationVisited">The device has seen the demonstration's first visit already.</param>
+        public FirstVisit(bool visited, bool demonstrationVisited = false)
+        {
+            Visited = visited;
+            DemonstrationVisited = demonstrationVisited;
+        }
 
         public bool Visited { get; private set; }
 
-        /// <summary>Whether the menu opens on Projects now; once true, never again.</summary>
+        public bool DemonstrationVisited { get; private set; }
+
+        /// <summary>Whether the menu opens on Projects now; once true, never again for the same kind of session.</summary>
         public bool Due(bool live, bool demonstration, bool somethingOpen)
         {
-            if (Visited || !live || demonstration || somethingOpen) return false;
+            if (!live || somethingOpen) return false;
+            if (demonstration)
+            {
+                if (DemonstrationVisited) return false;
+                DemonstrationVisited = true;
+                return true;
+            }
+            if (Visited) return false;
             Visited = true;
             return true;
         }

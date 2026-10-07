@@ -32,4 +32,33 @@ namespace Halcyonic.Client
         /// </summary>
         public static string StillOpen(string panel) => "Still open: " + IntelligenceText.Truncate(panel, StillOpenLimit);
     }
+
+    /// <summary>Where the stage's banner stands (<see cref="BannerPlace"/>).</summary>
+    public enum BannerStand
+    {
+        /// <summary>Something else stands where it goes, so it steps aside.</summary>
+        Hidden,
+
+        /// <summary>In its own place: under the labels in front of the person, under a window's lane beside one, above the characters over a surface.</summary>
+        InPlace,
+
+        /// <summary>Above the stage, saying only that the demonstration plays, while the menu stands in its place.</summary>
+        AboveTheStage,
+    }
+
+    /// <summary>
+    /// Where the stage's banner stands while the menu, a panel or the peek may be where it goes. The peek
+    /// always hides it, and a panel, as the open menu, hides it in a live session, which the panel then
+    /// speaks for. In the recorded demonstration a panel raises it above the stage instead, since the
+    /// demonstration's lines stay in view whatever the menu shows (ADR 0012, ADR 0026).
+    /// </summary>
+    public static class BannerPlace
+    {
+        public static BannerStand Of(bool demonstration, bool panelCovers, bool peekCovers)
+        {
+            if (peekCovers) return BannerStand.Hidden;
+            if (!panelCovers) return BannerStand.InPlace;
+            return demonstration ? BannerStand.AboveTheStage : BannerStand.Hidden;
+        }
+    }
 }

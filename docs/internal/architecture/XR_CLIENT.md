@@ -488,8 +488,9 @@ the same definition names, as the JSON Schema document:
   frame of the pulse allocates nothing. It passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns
   what was read only while the person is there. While the menu is open or a file stands on the plane
-  it covers the stage's banner's place (`AmbientCover`, a panel), so the banner steps aside and a
-  peek goes above its character; the closed bar alone covers nothing. While another window keeps
+  it covers the stage's banner's place (`AmbientCover`, a panel), so the banner steps aside, or in
+  the demonstration rises above the stage, and a peek goes above its character; the closed bar alone
+  covers nothing. While another window keeps
   focus the plane folds away, as large panels do, and the banner names what is still open: the
   task whose file is open, New project, or the menu's place ("Still open: Tasks"); back, the plane
   is as it was. Folding ends a drag, as focus leaving does. `MenuVoice` (client core) keeps
@@ -1442,7 +1443,15 @@ scripts use only long-stable core Unity APIs:
   shown, its `DemonstrationLine`, with how many tasks wait for the person while another window has
   focus ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
   The banner steps aside while a foreground panel or the peek is where it goes (`AmbientCover`):
-  a panel says itself whether it is live, and the peek says it of its character. The arc is 2.4 m
+  a panel says itself whether it is live, and the peek says it of its character. In the
+  demonstration a panel, as the open menu, raises it instead (`BannerPlace`, in the client core): it
+  stands a little more than a degree over the highest a risen character reaches
+  (`CharacterStage.BannerBottomAbove`; beside a window, over the window's lane), as it stands over a
+  surface, and a little more than a degree over the open plane's top edge, which the plane gives as
+  laid (`MenuPlane.TopElevation`, `AmbientCover.PanelTop`) and which over a desk's lineup stands
+  where the banner would (`CharacterStage.RaisedBannerBottom`). It says the `DemonstrationLine`
+  alone, so the demonstration's lines stay in view whatever the menu shows (ADR 0026), and follows
+  the plane as it is laid anew. The peek still hides it. The arc is 2.4 m
   away, beyond the system windows, such as Virtual Display's screens, that open within about 2 m
   ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); the characters' centers
   0.17 m below the eyes, about 4 degrees, so their labels end about 14 degrees down (15 with a mark
@@ -1725,10 +1734,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   under), hands it to the stage before it places anyone, and counts every project and its work for
   Projects (`WorkOverview`). Hiding a project hides its characters only: its work is still listed
   in Tasks, and work brought forward from there leaves with its project (`ProjectShowing`, in the
-  client core). On the first visit, connected to the person's computer rather than the
-  demonstration and with nothing open, the director opens the menu on Projects by itself, once (ADR
-  0026, `FirstVisit`), under the key the retired entry panel's welcome kept, so no one welcomed
-  before is again.
+  client core). On the first visit, once the session is live with nothing open, the director opens
+  the menu on Projects by itself (ADR 0026, `FirstVisit`): once for the demonstration, kept under
+  `halcyonic.demo.welcomed`, and once for the person's computer, under the key the retired entry
+  panel's welcome kept, so no one welcomed before is again and a person who saw the demonstration
+  still finds Projects open on their first visit to their own work.
 - **Settings:** the menu's Settings (`SettingsColumn`, above): Your space, from `SpaceSettings`
   (the room shown and what it offers, given by the room's controls, where the characters stand, and
   the menu's Reset position, `MenuDirector.ResetPosition`), Comfort (`ComfortSettings`), and, in a

@@ -68,8 +68,11 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Which projects the stage shows, for each journal, kept on the device under the key the project rail kept it under.</summary>
         private const string VisibilityPreference = "halcyonic.stage.visibility";
 
-        /// <summary>Set once the menu has opened by itself on a first visit, under the key the entry panel's welcome kept, so no one welcomed before is again.</summary>
+        /// <summary>Set once the menu has opened by itself on the first visit to the person's computer, under the key the entry panel's welcome kept, so no one welcomed before is again.</summary>
         private const string VisitedPreference = "halcyonic.entry.welcomed";
+
+        /// <summary>Set once the menu has opened by itself on the demonstration's first visit.</summary>
+        private const string DemonstrationVisitedPreference = "halcyonic.demo.welcomed";
 
         private StageVisibility visibility = null!;
         private int savedVisibility;
@@ -107,7 +110,7 @@ namespace Halcyonic.XR.Workspace
             visibility = StageVisibility.Load(PlayerPrefs.GetString(VisibilityPreference, ""));
             savedVisibility = visibility.Version;
             stage.Visibility = visibility;
-            firstVisit = new FirstVisit(PlayerPrefs.GetInt(VisitedPreference, 0) == 1);
+            firstVisit = new FirstVisit(PlayerPrefs.GetInt(VisitedPreference, 0) == 1, PlayerPrefs.GetInt(DemonstrationVisitedPreference, 0) == 1);
             // The same client the session introduces itself as (ControlPlaneConnection).
             commands = new CommandFactory(new ClientInfo
             {
@@ -411,13 +414,14 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// The first visit, connected to the person's computer rather than the demonstration: the menu
-        /// opens by itself on Projects (ADR 0026), once, and never over work already open.
+        /// The first visit, to the demonstration or to the person's computer: the menu opens by itself on
+        /// Projects (ADR 0026), once for each, and never over work already open.
         /// </summary>
         private void OpenOnFirstVisit()
         {
-            if (menu == null || !firstVisit.Due(connection.Session?.Status.IsLive == true, connection.DemonstrationLine != null, OpenWorkstream != null)) return;
-            PlayerPrefs.SetInt(VisitedPreference, 1);
+            var demonstration = connection.DemonstrationLine != null;
+            if (menu == null || !firstVisit.Due(connection.Session?.Status.IsLive == true, demonstration, OpenWorkstream != null)) return;
+            PlayerPrefs.SetInt(demonstration ? DemonstrationVisitedPreference : VisitedPreference, 1);
             PlayerPrefs.Save();
             menu.Open(MenuPlace.Projects);
         }

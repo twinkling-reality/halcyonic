@@ -8,20 +8,33 @@ public class MenuStartTests
     [Test]
     public void TheFirstVisitOpensProjectsOnceConnectedToTheComputerWithNothingOpen()
     {
-        var visit = new FirstVisit(visited: false);
+        var visit = new FirstVisit(visited: false, demonstrationVisited: true);
         Assert.That(visit.Due(live: false, demonstration: false, somethingOpen: false), Is.False, "not before the computer is connected");
-        Assert.That(visit.Due(live: true, demonstration: true, somethingOpen: false), Is.False, "not in the demonstration");
         Assert.That(visit.Due(live: true, demonstration: false, somethingOpen: true), Is.False, "never over work already open");
         Assert.That(visit.Visited, Is.False, "none of those counts as the visit");
-        Assert.That(visit.Due(live: true, demonstration: false, somethingOpen: false), Is.True);
+        Assert.That(visit.Due(live: true, demonstration: false, somethingOpen: false), Is.True, "the demonstration seen before does not count");
         Assert.That(visit.Visited, Is.True);
         Assert.That(visit.Due(live: true, demonstration: false, somethingOpen: false), Is.False, "once only");
+    }
+
+    [Test]
+    public void TheDemonstrationsFirstVisitOpensProjectsOnceItPlaysWithNothingOpen()
+    {
+        var visit = new FirstVisit(visited: false);
+        Assert.That(visit.Due(live: false, demonstration: true, somethingOpen: false), Is.False, "not before the recording has welcomed the client");
+        Assert.That(visit.Due(live: true, demonstration: true, somethingOpen: true), Is.False, "never over work already open");
+        Assert.That(visit.DemonstrationVisited, Is.False, "none of those counts as the visit");
+        Assert.That(visit.Due(live: true, demonstration: true, somethingOpen: false), Is.True);
+        Assert.That((visit.DemonstrationVisited, visit.Visited), Is.EqualTo((true, false)), "the computer's first visit is still to come");
+        Assert.That(visit.Due(live: true, demonstration: true, somethingOpen: false), Is.False, "once only, though the recording starts again");
+        Assert.That(visit.Due(live: true, demonstration: false, somethingOpen: false), Is.True, "connected to the computer at last, Projects opens for its work");
     }
 
     [Test]
     public void ADeviceThatWasWelcomedBeforeIsNotOpenedOnAgain()
     {
         Assert.That(new FirstVisit(visited: true).Due(live: true, demonstration: false, somethingOpen: false), Is.False);
+        Assert.That(new FirstVisit(visited: false, demonstrationVisited: true).Due(live: true, demonstration: true, somethingOpen: false), Is.False);
     }
 
     private static ClientProjection State() => new Portfolio()
