@@ -4,7 +4,7 @@ import { RuntimeActionError } from '@halcyonic/runtime-core';
 
 /**
  * Makes sure Codex's home, the folder Halcyonic gives Codex as its `CODEX_HOME`, is Halcyonic's
- * own and holds no sign-in, before every launch. A missing home is made with mode 700; its parent
+ * own and holds no sign-in, before every launch and every start. Its mode is never changed. A missing home is made with mode 700; its parent
  * must exist. An existing one must be a real folder, not a link, owned by this user and closed to
  * others, with no `auth.json`: Codex keeps a sign-in there, and through Halcyonic it runs only on
  * models served on this Mac, with none. Codex writes the rest itself: its databases, logs,
@@ -26,14 +26,21 @@ export async function prepareHome(home: string): Promise<void> {
     stats = await lstatOrNull(home);
   }
   if (stats === null || !stats.isDirectory()) {
-    throw refused(`Codex's home ${home} is not a folder, or is a link.`);
+    throw refused(
+      `Codex's home ${home} is not a folder, or is a link. Move it away; Halcyonic makes a new one.`,
+    );
   }
   const uid = process.getuid?.();
   if (uid !== undefined && stats.uid !== uid) {
-    throw refused(`Codex's home ${home} belongs to another user.`);
+    throw refused(
+      `Codex's home ${home} belongs to another user. Move it away; Halcyonic makes a new one.`,
+    );
   }
   if ((stats.mode & 0o077) !== 0) {
-    throw refused(`Other users can open Codex's home ${home}. Run chmod 700 on it.`);
+    // Never made private again here: what others could reach while it was open can't be told.
+    throw refused(
+      `Other users can open Codex's home ${home}, so it may hold what they put there. Move it away; Halcyonic makes a new one.`,
+    );
   }
   if ((await lstatOrNull(join(home, 'auth.json'))) !== null) {
     throw refused(

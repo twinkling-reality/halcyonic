@@ -72,40 +72,118 @@ export const SIGN_IN_VARIABLES: readonly string[] = [
 ];
 
 /**
+ * The proxy variables, which would send Codex's requests, the ones to Ollama with the prompts and
+ * the code among them, through another host. The control plane passes none to Codex, and the
+ * adapter sets NO_PROXY to loopback whatever it is given.
+ */
+export const PROXY_VARIABLES: readonly string[] = [
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'ALL_PROXY',
+  'http_proxy',
+  'https_proxy',
+  'all_proxy',
+];
+
+/** Loopback, which Codex reaches without a proxy whatever the environment says. */
+const LOOPBACK_HOSTS = 'localhost,127.0.0.1,::1';
+
+/**
  * Variables configuration may not set: the home and the remote control switch the adapter owns,
  * the originator override that would replace Halcyonic's identity on its threads, Salidium's
  * internal marker, which makes Salidium drop a session's hooks and must never reach a launched
- * agent, and every sign-in.
+ * agent, every sign-in, and what moves Codex's work or data off the Mac or out of its home: the
+ * built-in local providers' address (`CODEX_OSS_BASE_URL`, `CODEX_OSS_PORT`), the state
+ * databases' folder (`CODEX_SQLITE_HOME`), and every `CODEX_EXEC_SERVER_` variable, with which
+ * commands run on a remote exec server (codex-rs/exec-server/src/environment_provider.rs at
+ * rust-v0.157.0).
  */
 const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
   'CODEX_HOME',
   REMOTE_CONTROL_DISABLED,
   'CODEX_INTERNAL_ORIGINATOR_OVERRIDE',
   'SALIDIUM_INTERNAL',
+  'CODEX_OSS_BASE_URL',
+  'CODEX_OSS_PORT',
+  'CODEX_SQLITE_HOME',
   ...SIGN_IN_VARIABLES,
 ]);
+const RESERVED_PREFIXES: readonly string[] = ['CODEX_EXEC_SERVER_'];
+
+function reserved(name: string): boolean {
+  return (
+    RESERVED_VARIABLES.has(name) || RESERVED_PREFIXES.some((prefix) => name.startsWith(prefix))
+  );
+}
 
 /**
- * The settings every launch passes as `-c` overrides, which outrank the home's `config.toml`, so
- * no edit there can turn them back on. On 0.157.0 `features.plugins = false` is the one that stops
- * the plugin sync connecting to GitHub at startup; it is undocumented, named only in the binary's
- * own text, so every Codex upgrade repeats the network probe of the end to end tests
- * (local-models.md). The others stop the update check, analytics and the metrics exporter, web
- * search, and any read of a sign-in from the keychain.
+ * The features of 0.157.0 that are on by default and reach the network or another app: plugins
+ * and their sync, apps, the remote plugin catalog and plugin sharing, in-app updates, image
+ * generation, browser and computer use, installing a skill's MCP dependencies, tool suggestions,
+ * starting the shared daemon, and retrying through the system proxy (codex-rs/features/src/lib.rs
+ * at rust-v0.157.0, each `default_enabled: true`).
  */
-export const LOCAL_ONLY_SETTINGS: readonly string[] = [
-  'features.plugins=false',
-  'check_for_update_on_startup=false',
-  'analytics.enabled=false',
-  'web_search="disabled"',
-  'cli_auth_credentials_store="file"',
+const FEATURES_OFF: readonly string[] = [
+  'plugins',
+  'apps',
+  'remote_plugin',
+  'plugin_sharing',
+  'in_app_updates',
+  'image_generation',
+  'browser_use',
+  'browser_use_external',
+  'computer_use',
+  'skill_mcp_dependency_install',
+  'tool_suggest',
+  'daemon_auto_start',
+  'system_proxy_fallback',
+];
+
+/**
+ * The settings every launch passes as `-c` overrides, with the value `config/read` must then
+ * report for each, checked at every start (`unappliedSettings`). An override outranks the home's
+ * `config.toml`, so no edit there turns one back on; a managed layer under `/etc/codex` or a
+ * device profile outranks an override, which the check catches. On 0.157.0
+ * `features.plugins = false` is the one that stops the plugin sync connecting to GitHub at
+ * startup; it is undocumented, so every Codex upgrade repeats the network probe of the end to end
+ * tests (local-models.md). The rest turn off the other features above, the update check,
+ * analytics and the metrics exporter, and web search, and keep sign-ins and MCP credentials out of
+ * the keychain.
+ */
+export const LOCAL_ONLY_SETTINGS: readonly {
+  readonly key: string;
+  readonly value: boolean | string;
+}[] = [
+  ...FEATURES_OFF.map((name) => ({ key: `features.${name}`, value: false })),
+  { key: 'check_for_update_on_startup', value: false },
+  { key: 'analytics.enabled', value: false },
+  { key: 'web_search', value: 'disabled' },
+  { key: 'cli_auth_credentials_store', value: 'file' },
+  { key: 'mcp_oauth_credentials_store', value: 'file' },
 ];
 
 /** The server's command line after the binary: app-server, then every local-only setting. */
 export const APP_SERVER_ARGUMENTS: readonly string[] = [
   'app-server',
-  ...LOCAL_ONLY_SETTINGS.flatMap((setting) => ['-c', setting]),
+  ...LOCAL_ONLY_SETTINGS.flatMap(({ key, value }) => [
+    '-c',
+    `${key}=${typeof value === 'string' ? JSON.stringify(value) : String(value)}`,
+  ]),
 ];
+
+/** The local-only settings Codex's configuration, as `config/read` reports it, does not hold. */
+export function unappliedSettings(config: Readonly<Record<string, unknown>>): string[] {
+  return LOCAL_ONLY_SETTINGS.filter(({ key, value }) => {
+    let found: unknown = config;
+    for (const part of key.split('.')) {
+      found =
+        typeof found === 'object' && found !== null
+          ? (found as Record<string, unknown>)[part]
+          : undefined;
+    }
+    return found !== value;
+  }).map(({ key }) => key);
+}
 
 /**
  * Builds the server's environment explicitly: the allowlist, then the configured additions, then
@@ -116,9 +194,9 @@ export function buildEnvironment(
   additions: Readonly<Record<string, string>>,
   home: string,
 ): Record<string, string> {
-  const reserved = Object.keys(additions).filter((name) => RESERVED_VARIABLES.has(name));
-  if (reserved.length > 0) {
-    throw new Error(`These variables cannot be configured for Codex: ${reserved.join(', ')}.`);
+  const refused = Object.keys(additions).filter(reserved);
+  if (refused.length > 0) {
+    throw new Error(`These variables cannot be configured for Codex: ${refused.join(', ')}.`);
   }
   const environment: Record<string, string> = {};
   for (const name of INHERITED_VARIABLES) {
@@ -126,6 +204,8 @@ export function buildEnvironment(
     if (value !== undefined) environment[name] = value;
   }
   Object.assign(environment, additions);
+  environment.NO_PROXY = LOOPBACK_HOSTS;
+  environment.no_proxy = LOOPBACK_HOSTS;
   environment.CODEX_HOME = home;
   environment[REMOTE_CONTROL_DISABLED] = '1';
   return environment;

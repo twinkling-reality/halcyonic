@@ -1131,8 +1131,10 @@ class MacSetup {
     chmodSync(folder, 0o700);
     writePrivate(join(home, OPENCODE_SETTINGS_PATH), `${JSON.stringify(document, null, 2)}\n`);
     const codexReplaced = existsSync(join(codexHome, 'config.toml'));
-    mkdirSync(codexHome, { recursive: true, mode: 0o700 });
-    chmodSync(codexHome, 0o700);
+    if (lstatOrNull(codexHome) === null) {
+      mkdirSync(this.#dataDir, { recursive: true, mode: 0o700 });
+      mkdirSync(codexHome, { mode: 0o700 });
+    }
     writePrivate(join(codexHome, 'config.toml'), codexConfig(model.name));
     const next = { ...settings, HALCYONIC_OPENCODE_CONFIG_HOME: home };
     this.#save(next);
@@ -1661,7 +1663,6 @@ function usageLeftProblem(code: string | null): string {
   }
 }
 
-/** Writes a file mode 600 through a new file renamed into place. */
 /**
  * Halcyonic's own Codex settings on an Ollama model of this Mac. The settings that keep Codex off
  * the network are not here: the Codex adapter passes them on every launch, above this file.
@@ -1681,7 +1682,8 @@ function codexConfig(model: string): string {
 
 /**
  * Why Halcyonic's Codex home can't take its settings, as the Codex adapter would refuse it, or
- * null when it can: a link or not a folder, another user's, or holding a sign-in.
+ * null when it can: a link or not a folder, another user's, one others can open, or holding a
+ * sign-in. Its mode is never changed: what others could reach while it was open can't be told.
  */
 function codexHomeProblem(home: string): string | null {
   const stats = lstatOrNull(home);
@@ -1690,6 +1692,8 @@ function codexHomeProblem(home: string): string | null {
     return `${home} is not a folder, or is a link. Move it away, then try again.`;
   if (stats.uid !== process.getuid?.())
     return `${home} belongs to another user. Move it away, then try again.`;
+  if ((stats.mode & 0o077) !== 0)
+    return `Other users can open ${home}, so it may hold what they put there. Move it away, then try again.`;
   if (lstatOrNull(join(home, 'auth.json')) !== null) {
     return `${join(home, 'auth.json')} is a Codex sign-in. Halcyonic runs Codex only on models this Mac serves, without one: move it away, then try again.`;
   }
@@ -1704,6 +1708,7 @@ function lstatOrNull(path: string): Stats | null {
   }
 }
 
+/** Writes a file mode 600 through a new file renamed into place. */
 function writePrivate(path: string, text: string): void {
   const temporary = `${path}.${process.pid}.tmp`;
   rmSync(temporary, { force: true });

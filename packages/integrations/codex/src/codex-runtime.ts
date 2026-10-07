@@ -65,6 +65,7 @@ import {
   describeExit,
   type ExitStatus,
   launchServer,
+  unappliedSettings,
 } from './server.ts';
 import {
   readServerRecord,
@@ -330,6 +331,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         );
       }
     }
+    // Checked at every start, not only at launch: a sign-in may have been put there since.
+    await prepareHome(this.#home);
     const connection = await this.#connection();
     const local = await this.#onThisMac(connection, options);
     // Asked again right before the folder is handed over: listing and launching wait.
@@ -596,13 +599,21 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
-   * The start options with the thread's model provider named, once its configuration shows it
-   * serves models on this Mac. Through Halcyonic Codex runs only on such a provider, so a thread
+   * The start options with the thread's model provider named, once Codex's configuration shows
+   * every local-only setting applied and a provider that serves models on this Mac. Through Halcyonic Codex runs only on such a provider, so a thread
    * never reaches a hosted model; the provider is asked for explicitly, and `checkSettings`
    * refuses a thread that Codex puts on another.
    */
   async #onThisMac(connection: Connection, options: StartOptions): Promise<StartOptions> {
     const config = await this.#readConfig(connection);
+    // A managed configuration outranks the launch's overrides, so they are checked, not assumed.
+    const unapplied = unappliedSettings(config);
+    if (unapplied.length > 0) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        `Codex did not apply the settings that keep it on this Mac: ${unapplied.join(', ')}. A managed configuration, such as one under /etc/codex, may set them. Nothing was started.`,
+      );
+    }
     const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
     const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
     const served = servedBy(config, provider, this.#environment);

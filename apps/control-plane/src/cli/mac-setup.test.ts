@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import {
+import fs, {
   chmodSync,
   existsSync,
   mkdirSync,
@@ -9,8 +9,10 @@ import {
   realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
@@ -547,6 +549,54 @@ describe('pnpm mac-setup', () => {
       /auth\.json is a Codex sign-in\. Halcyonic runs Codex only on models this Mac serves, without one/,
     );
     assert.equal(readFileSync(path, 'utf8'), settings);
+  });
+
+  test("local-model refuses a Codex home that is a link, another user's or open to others, and never changes its mode", async (t) => {
+    const machine = mac(t);
+    machine.install('codex');
+    await machine.run('agent-apps');
+    const home = join(machine.dataDir, 'codex-home');
+    const elsewhere = join(machine.dataDir, 'elsewhere');
+    mkdirSync(elsewhere, { mode: 0o700 });
+
+    symlinkSync(elsewhere, home);
+    assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 1);
+    assert.match(
+      text(machine),
+      /codex-home is not a folder, or is a link\. Move it away, then try again\./,
+    );
+    assert.equal(existsSync(join(elsewhere, 'config.toml')), false, 'the link was followed');
+    rmSync(home);
+
+    mkdirSync(home, { mode: 0o700 });
+    chmodSync(home, 0o750);
+    assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 1);
+    assert.match(
+      text(machine),
+      /Other users can open .*codex-home, so it may hold what they put there\. Move it away/,
+    );
+    assert.equal(statSync(home).mode & 0o777, 0o750, 'its mode was changed');
+    assert.equal(existsSync(join(home, 'config.toml')), false);
+
+    chmodSync(home, 0o700);
+    // Another user's folder: the folder's owner, as lstat reports it, is not this process's user.
+    const lstat = fs.lstatSync;
+    t.mock.method(fs, 'lstatSync', (path: string, options?: object) => {
+      const stats = lstat(path, options as never);
+      return path === home && stats !== undefined
+        ? Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, { uid: stats.uid + 1 })
+        : stats;
+    });
+    syncBuiltinESMExports();
+    assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 1);
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+    assert.match(
+      text(machine),
+      /codex-home belongs to another user\. Move it away, then try again\./,
+    );
+    assert.equal(existsSync(join(home, 'config.toml')), false);
+    assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 0);
   });
 
   test('voice records its files once their checksums match', async (t) => {

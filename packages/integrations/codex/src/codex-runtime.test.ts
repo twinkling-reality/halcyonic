@@ -355,11 +355,38 @@ describe('Codex server environment', () => {
       PATH: '/usr/bin',
       HOME: '/home/user',
       GIT_AUTHOR_NAME: 'configured',
+      NO_PROXY: 'localhost,127.0.0.1,::1',
+      no_proxy: 'localhost,127.0.0.1,::1',
       CODEX_HOME: '/home/user/.halcyonic/codex-home',
       CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED: '1',
     });
     assert.ok(!INHERITED_VARIABLES.includes('SALIDIUM_INTERNAL'));
     assert.ok(!INHERITED_VARIABLES.includes('CODEX_HOME'));
+  });
+
+  test('sets NO_PROXY to loopback after the additions, so a request to Ollama never goes through a proxy', () => {
+    const environment = buildEnvironment(
+      { PATH: '/usr/bin' },
+      { HTTPS_PROXY: 'http://proxy.example:3128', NO_PROXY: 'example.com', no_proxy: '' },
+      '/home/user/.halcyonic/codex-home',
+    );
+    assert.equal(environment.NO_PROXY, 'localhost,127.0.0.1,::1');
+    assert.equal(environment.no_proxy, 'localhost,127.0.0.1,::1');
+  });
+
+  test('refuses variables that move Codex work or data off the Mac or out of its home', () => {
+    for (const name of [
+      'CODEX_EXEC_SERVER_URL',
+      'CODEX_EXEC_SERVER_NOISE_REGISTRY_URL',
+      'CODEX_EXEC_SERVER_ANYTHING',
+      'CODEX_OSS_BASE_URL',
+      'CODEX_OSS_PORT',
+      'CODEX_SQLITE_HOME',
+    ]) {
+      assert.throws(() => buildEnvironment({}, { [name]: 'x' }, '/home'), new RegExp(name), name);
+    }
+    // A variable that merely starts like one is not refused.
+    assert.doesNotThrow(() => buildEnvironment({}, { CODEX_EXEC: 'x' }, '/home'));
   });
 
   test('refuses a binary path that would be looked up on PATH', () => {
@@ -559,38 +586,67 @@ describe('Codex runtime against a stand-in binary', () => {
     const { start, launched, codexHome } = fake(t);
     await start('COMPLETE the work.');
     assert.deepEqual(launched(), [{ argv: [...APP_SERVER_ARGUMENTS], codexHome }]);
-    assert.deepEqual(APP_SERVER_ARGUMENTS, [
-      'app-server',
-      '-c',
+    const settings = [];
+    for (let index = 1; index < APP_SERVER_ARGUMENTS.length; index += 2) {
+      assert.equal(APP_SERVER_ARGUMENTS[index], '-c');
+      settings.push(APP_SERVER_ARGUMENTS[index + 1]);
+    }
+    assert.equal(APP_SERVER_ARGUMENTS[0], 'app-server');
+    assert.deepEqual(settings, [
       'features.plugins=false',
-      '-c',
+      'features.apps=false',
+      'features.remote_plugin=false',
+      'features.plugin_sharing=false',
+      'features.in_app_updates=false',
+      'features.image_generation=false',
+      'features.browser_use=false',
+      'features.browser_use_external=false',
+      'features.computer_use=false',
+      'features.skill_mcp_dependency_install=false',
+      'features.tool_suggest=false',
+      'features.daemon_auto_start=false',
+      'features.system_proxy_fallback=false',
       'check_for_update_on_startup=false',
-      '-c',
       'analytics.enabled=false',
-      '-c',
       'web_search="disabled"',
-      '-c',
       'cli_auth_credentials_store="file"',
+      'mcp_oauth_credentials_store="file"',
     ]);
     // Made for Codex, closed to other users.
     assert.equal(statSync(codexHome).mode & 0o777, 0o700);
   });
 
-  test('refuses to launch Codex in a home that is a link, open to others, or holds a sign-in', async (t) => {
-    const cases: [string, (home: string) => void, RegExp][] = [
+  test("refuses to launch Codex in a home that is a link, a file, another user's, open to others, or holds a sign-in", async (t) => {
+    const moveAway = /Move it away; Halcyonic makes a new one\./;
+    const cases: [string, (home: string) => void, RegExp[]][] = [
       [
-        'open',
+        'open to all',
         (home) => mkdirSync(home, { mode: 0o755 }),
-        /Other users can open Codex's home .* Run chmod 700 on it\./,
+        [/Other users can open Codex's home/, moveAway],
       ],
       [
-        'link',
+        'open to its group',
+        (home) => mkdirSync(home, { mode: 0o750 }),
+        [/Other users can open Codex's home/, moveAway],
+      ],
+      [
+        'writable by its group',
+        (home) => mkdirSync(home, { mode: 0o770 }),
+        [/Other users can open Codex's home/, moveAway],
+      ],
+      [
+        'a link',
         (home) => {
           const target = join(dirname(home), 'elsewhere');
           mkdirSync(target, { mode: 0o700 });
           symlinkSync(target, home);
         },
-        /is not a folder, or is a link\./,
+        [/is not a folder, or is a link\./, moveAway],
+      ],
+      [
+        'a file',
+        (home) => writeFileSync(home, '', { mode: 0o600 }),
+        [/is not a folder, or is a link\./],
       ],
       [
         'signed in',
@@ -598,21 +654,75 @@ describe('Codex runtime against a stand-in binary', () => {
           mkdirSync(home, { mode: 0o700 });
           writeFileSync(join(home, 'auth.json'), '{}', { mode: 0o600 });
         },
-        /holds a sign-in \(auth\.json\)/,
+        [/holds a sign-in \(auth\.json\)/],
       ],
     ];
     for (const [what, prepare, why] of cases) {
       const { start, launched, codexHome, observations } = fake(t);
       prepare(codexHome);
-      chmodSync(codexHome, what === 'open' ? 0o755 : 0o700);
+      // Modes as given, whatever the umask; the adapter never changes them.
+      if (what.startsWith('open') || what.startsWith('writable')) {
+        chmodSync(codexHome, { 'open to all': 0o755, 'open to its group': 0o750 }[what] ?? 0o770);
+      }
+      const before = what === 'a file' || what === 'a link' ? null : statSync(codexHome).mode;
       await assert.rejects(start('COMPLETE the work.'), (error: unknown) => {
         assert.ok(actionError('runtime_unavailable')(error), what);
-        assert.match((error as Error).message, why, what);
+        for (const pattern of why) assert.match((error as Error).message, pattern, what);
         return true;
       });
       assert.deepEqual(launched(), [], `${what}: Codex was launched`);
       assert.deepEqual(observations, []);
+      if (before !== null)
+        assert.equal(statSync(codexHome).mode, before, `${what}: its mode changed`);
     }
+  });
+
+  test("refuses a home that belongs to another user, as root's own folder does", {
+    skip: process.getuid?.() === 0 || !existsSync('/private/var/root'),
+  }, async (t) => {
+    const { start, launched } = fake(t, [], { codexHome: '/private/var/root' });
+    await assert.rejects(start('COMPLETE the work.'), (error: unknown) => {
+      assert.ok(actionError('runtime_unavailable')(error));
+      assert.match((error as Error).message, /belongs to another user\. Move it away/);
+      return true;
+    });
+    assert.deepEqual(launched(), []);
+  });
+
+  test('a sign-in put in the home after the launch refuses the next start, before any thread', async (t) => {
+    const { runtime, start, received, codexHome, directory, launched } = fake(t);
+    await start('COMPLETE the work.');
+    writeFileSync(join(codexHome, 'auth.json'), '{}', { mode: 0o600 });
+    const other = { ...TEST_EXECUTION, execution_id: '01920000-0000-7000-8000-0000000000f2' };
+    await assert.rejects(
+      runtime.startExecution({
+        execution: other as typeof TEST_EXECUTION,
+        instruction: 'COMPLETE the work.',
+        options: {},
+        model_ref: null,
+        directory,
+        emit: () => undefined,
+      }),
+      (error: unknown) =>
+        actionError('runtime_unavailable')(error) &&
+        /holds a sign-in \(auth\.json\)/.test((error as Error).message),
+    );
+    assert.equal(received().filter((message) => message.method === 'thread/start').length, 1);
+    assert.equal(launched().length, 1, 'the server was not relaunched');
+  });
+
+  test('refuses to start when Codex does not report every local-only setting, as under a managed layer', async (t) => {
+    const { start, received, observations } = fake(t, ['managed']);
+    await assert.rejects(start('COMPLETE the work.'), (error: unknown) => {
+      assert.ok(actionError('runtime_refused')(error));
+      assert.match(
+        (error as Error).message,
+        /did not apply the settings that keep it on this Mac: features\.plugins\. A managed configuration/,
+      );
+      return true;
+    });
+    assert.ok(!received().some((message) => message.method === 'thread/start'));
+    assert.deepEqual(observations, []);
   });
 
   test('starts a thread only on a provider served on this Mac, asked for by name', async (t) => {
@@ -629,6 +739,21 @@ describe('Codex runtime against a stand-in binary', () => {
         /the provider gateway is a remote service/,
       ],
       [{ model_provider: 'mystery' }, {}, /the provider mystery is not known to be on this Mac/],
+      // Codex ignores an entry under a built-in provider's id, so this thread would reach OpenAI.
+      [
+        {
+          model_provider: 'openai',
+          model: 'gpt-5.5',
+          model_providers: { openai: { base_url: 'http://127.0.0.1:8080/v1' } },
+        },
+        {},
+        /the provider openai is a remote service/,
+      ],
+      [
+        { model_providers: { ollama: { base_url: 'http://127.0.0.1:11434/v1' } } },
+        { model_provider: 'openai' },
+        /the provider openai is a remote service/,
+      ],
     ] as const;
     for (const [config, options, why] of remote) {
       const { runtime, received, directory, observations } = fake(
@@ -674,6 +799,9 @@ describe('Codex runtime against a stand-in binary', () => {
     const { runtime } = adapter(t);
     for (const [options, modelRef] of [
       [{ model: 'gpt-oss:120b-cloud' }, null],
+      [{ model: 'qwen3-coder:cloud' }, null],
+      [{ model: 'gpt-oss:120B-CLOUD' }, null],
+      [{}, 'ollama/kimi-k2:Cloud'],
       [{ model_provider: 'ollama', model: 'qwen3-coder:480b-cloud' }, null],
       [{}, 'ollama/gpt-oss:120b-cloud'],
       [{}, 'ollama/deepseek-v3.1:671b-cloud'],
@@ -851,6 +979,22 @@ describe('Codex runtime against a stand-in binary', () => {
       },
     );
     assert.deepEqual(await cloud.runtime.listModels(), []);
+
+    // An entry under OpenAI's id that points at loopback is one Codex ignores: still OpenAI's.
+    const disguised = fake(
+      t,
+      [],
+      {},
+      {
+        FAKE_CODEX_CATALOG: JSON.stringify(catalog),
+        FAKE_CODEX_CONFIG: JSON.stringify({
+          model_provider: 'openai',
+          model: 'gpt-5.5',
+          model_providers: { openai: { base_url: 'http://127.0.0.1:8080/v1' } },
+        }),
+      },
+    );
+    assert.deepEqual(await disguised.runtime.listModels(), []);
   });
 
   test('a start from the list runs on the chosen provider and model, checked again first', async (t) => {
