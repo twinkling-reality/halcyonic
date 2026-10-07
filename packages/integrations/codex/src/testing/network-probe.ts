@@ -1,5 +1,11 @@
 import { execFile } from 'node:child_process';
-import { readDescendants, runsAppServer } from '../server-record.ts';
+import {
+  type ProcessIdentity,
+  readDescendants,
+  readProcessIdentity,
+  runsAppServer,
+} from '../server-record.ts';
+import { literalPattern } from './sandbox.ts';
 
 const PS_ENV = { PATH: '/bin:/usr/bin:/sbin:/usr/sbin', LC_ALL: 'C' };
 
@@ -23,7 +29,8 @@ export interface NetworkProbe {
 /**
  * Watches, every `intervalMs` from before anything is launched, the internet sockets of every
  * process below `root` (the test's own process): the Codex server the adapter launches, the
- * commands it runs in sessions of their own, the version check and the watchdog. Ollama's own
+ * commands it runs in sessions of their own, the version check and the watchdog; and of every
+ * process running the binary, with its descendants, wherever it was started from. Ollama's own
  * connections, and any other app's, are not below it, so they count neither way. A sample in which
  * lsof cannot see a server that is running, as without permission to inspect it, is recorded as
  * blind, so a probe that cannot see never passes for one that saw nothing.
@@ -41,7 +48,20 @@ export function probeNetwork(root: number, binaryPath: string, intervalMs = 200)
   const loop = (async () => {
     while (running) {
       try {
-        const tree = await readDescendants(root);
+        // Below the test, and any process running the binary with its own descendants, so one
+        // that left the tree (a daemon reparented to launchd) is watched too.
+        const running = (await run('pgrep', ['-f', `^${literalPattern(binaryPath)}( |$)`]))
+          .split('\n')
+          .map(Number)
+          .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+        const found = new Map<number, ProcessIdentity>();
+        for (const process of await readDescendants(root)) found.set(process.pid, process);
+        for (const pid of running) {
+          const identity = await readProcessIdentity(pid);
+          if (identity !== null) found.set(pid, { ...identity, pid });
+          for (const process of await readDescendants(pid)) found.set(process.pid, process);
+        }
+        const tree = [...found.values()];
         const server = tree.find((process) => runsAppServer(process.command, binaryPath));
         if (tree.length > 0) {
           const sockets = await run('lsof', [
