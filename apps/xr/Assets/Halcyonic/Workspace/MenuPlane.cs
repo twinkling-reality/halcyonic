@@ -12,16 +12,13 @@ namespace Halcyonic.XR.Workspace
     /// of one composition facing the eyes, arranged by <see cref="MenuColumns"/>, placed as one panel of
     /// its size by <see cref="WorkspacePlacement"/> beside the file's character, or where the person
     /// looks, and each part laid on the plane. When what shows changes, every part slides to its new
-    /// place over one short ease, so the plane re-centres as one piece and what was there shifts by half
-    /// the new column's width; the menu steps aside to the left the same way, leaving the plane, and
-    /// comes back from there. Closed with no file open, the menu is its bar. The light line joins the
+    /// place, easing in and out (ADR 0027), so the plane re-centres as one piece and what was there shifts
+    /// by half the new column's width; the menu steps aside to the left, easing in as what leaves does,
+    /// and comes back from there, easing out as what arrives does. Closed with no file open, the menu is its bar. The light line joins the
     /// file's character's label to the file's subject.
     /// </summary>
     public sealed class MenuPlane : MonoBehaviour
     {
-        /// <summary>How long a part takes to slide to its new place.</summary>
-        public const float SlideSeconds = 0.25f;
-
         private const float LineStart = 0.003f;
         private const float LineEnd = 0.0012f;
         private const float LineStartAlpha = 0.55f;
@@ -627,8 +624,8 @@ namespace Halcyonic.XR.Workspace
                 var part = pair.Key;
                 var slide = pair.Value;
                 if (part == null) continue;
-                slide.Progress = SlideSeconds <= 0f ? 1f : Mathf.Clamp01(slide.Progress + seconds / SlideSeconds);
-                var eased = Mathf.SmoothStep(0f, 1f, slide.Progress);
+                slide.Progress = slide.Seconds <= 0f ? 1f : Mathf.Clamp01(slide.Progress + seconds / slide.Seconds);
+                var eased = slide.Eased();
                 part.SetPositionAndRotation(Vector3.Lerp(slide.From, slide.To, eased), Quaternion.Slerp(slide.FromRotation, slide.ToRotation, eased));
                 part.localScale = Vector3.one * Mathf.Lerp(slide.FromScale, slide.ToScale, eased);
                 if (slide.Progress >= 1f && slide.HideAtEnd) part.parent.gameObject.SetActive(false);
@@ -678,7 +675,7 @@ namespace Halcyonic.XR.Workspace
             }
             slides[part] = immediately
                 ? new Slide(position, rotation, scale, position, rotation, scale) { Progress = 1f }
-                : new Slide(part.position, part.rotation, part.localScale.x, position, rotation, scale);
+                : new Slide(part.position, part.rotation, part.localScale.x, position, rotation, scale) { Arrives = from != null };
             if (immediately)
             {
                 part.SetPositionAndRotation(position, rotation);
@@ -849,8 +846,17 @@ namespace Halcyonic.XR.Workspace
 
             public float Progress { get; set; }
 
-            /// <summary>The part's column hides when the slide ends, as the menu stepping aside does.</summary>
+            /// <summary>The part's column hides when the slide ends, as the menu stepping aside does: it leaves.</summary>
             public bool HideAtEnd { get; set; }
+
+            /// <summary>The part comes onto the plane, as the menu back from stepping aside: it arrives.</summary>
+            public bool Arrives { get; set; }
+
+            /// <summary>How long the slide takes, by its kind (ADR 0027).</summary>
+            public float Seconds => HideAtEnd ? Glaze.LeaveSeconds : Arrives ? Glaze.AppearSeconds : Glaze.SlideSeconds;
+
+            /// <summary>How far along its way the part stands now, by its kind's easing: what leaves eases in, what arrives eases out, a move eases in and out.</summary>
+            public float Eased() => HideAtEnd ? Glaze.EaseIn(Progress) : Arrives ? Glaze.EaseOut(Progress) : Glaze.EaseInOut(Progress);
         }
     }
 }

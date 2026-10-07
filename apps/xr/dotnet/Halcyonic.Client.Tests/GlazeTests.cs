@@ -471,4 +471,12 @@ public class GlazeMotionTests
         for (var step = 0; step < 200; step++) Assert.That(Glaze.Loop(step * 0.037f, Glaze.ShimmerSeconds), Is.InRange(0f, 1f));
         Assert.That(Glaze.Loop(1f, 0f), Is.EqualTo(0f), "a loop of no length stands still");
     }
+
+    [Test]
+    public void WhatLeavesIsQuickerThanWhatArrivesAndASlideEndsEveryMove()
+    {
+        Assert.That(Glaze.LeaveSeconds, Is.LessThan(Glaze.AppearSeconds), "what leaves gets out of the way quicker than what arrives settles");
+        Assert.That(Glaze.AppearSeconds, Is.LessThanOrEqualTo(Glaze.SlideSeconds), "a draw at once steps the plane a slide's time, which must end an arrival");
+        Assert.That(Glaze.LeaveSeconds, Is.GreaterThan(0f), "a leave of no length would vanish, not move");
+    }
 }

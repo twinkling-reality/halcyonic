@@ -59,6 +59,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 // file's subject level with them, each label cleared where it stands, and as it was, at the corners.
                 if (!besideWindow) MeasureBeside(name, opened.Target, targets, eyes, looking, surface, text);
 
+                // The menu alone, then the waiting task's file opening beside it: the menu moves over to make
+                // room, easing in and out, seen a quarter of a slide's time in.
+                plane.Show(bar, menu, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
+                var alone = plane.Shown.Where(column => column.Kind == MenuColumn.Menu).Select(column => column.View.Parts[0].position).ToList();
+                plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                var moves = plane.Shown.Where(column => column.Kind == MenuColumn.Menu).Select(column => column.View).FirstOrDefault();
+                plane.Advance(Glaze.SlideSeconds / 4f);
+                var moveQuarter = moves != null ? moves.Parts[0].position : Vector3.zero;
+                plane.Advance(Glaze.SlideSeconds);
+                if (alone.Count > 0 && moves != null) failures.AddRange(EasedAlong(name + ": the menu moving over for a file", alone[0], moveQuarter, moves.Parts[0].position, Glaze.EaseInOut(0.25f)));
+                else Debug.Log("Halcyonic: workspace render " + name + ": the menu and a file do not stand together here, so the menu moving over goes unseen.");
+
                 // The menu on Tasks beside the waiting task's file.
                 plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
                 failures.AddRange(PlaneState(name + " menu and file", folder, camera, texture, plane, characters, eyes, window));
@@ -68,10 +80,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 var fileBefore = plane.Shown.First(column => column.Kind == MenuColumn.File).View.Subject.position;
                 if (besideWindow && plane.Shown.Count != 1) failures.Add(name + ": beside a window the menu and a file stand together; they stand one at a time.");
 
-                // A cut answer chosen: its side panel slides out, and the menu steps aside to the left.
+                // A cut answer chosen: its side panel slides out, and the menu steps aside to the left. Each move
+                // is seen a quarter of its own time in: the menu leaving eases in, the file moving eases in and out.
                 plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: true, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
-                plane.Advance(MenuPlane.SlideSeconds / 2f);
+                plane.Advance(Glaze.LeaveSeconds / 4f);
                 var menuView = plane.Shown.All(column => column.Kind != MenuColumn.Menu) ? FindView(plane, "Menu") : null;
+                var menuQuarter = menuView != null && menuView.Parts.Count > 0 ? menuView.Parts[0].position : (Vector3?)null;
+                plane.Advance(Glaze.SlideSeconds / 4f - Glaze.LeaveSeconds / 4f);
+                var fileQuarter = plane.Shown.Where(column => column.Kind == MenuColumn.File).Select(column => column.View.Subject.position).ToList();
+                plane.Advance(Glaze.SlideSeconds / 4f);
                 var fileHalf = plane.Shown.Where(column => column.Kind == MenuColumn.File).Select(column => column.View.Subject.position).ToList();
                 var right = PlaneLayout.Facing(plane.Direction) * Vector3.right;
                 if (!plane.MenuAside) failures.Add(name + ": the file's side panel opened beside the menu; the menu steps aside, never three columns.");
@@ -82,8 +99,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 // Beside its side panel the file moves left toward the centre; where the panel takes its place, it gives way.
                 if (fileHalf.Count > 0 && Vector3.Dot(fileHalf[0] - fileBefore, right) >= 0f) failures.Add(name + ": halfway through the slide, the file has not moved left toward the centre.");
-                plane.Advance(MenuPlane.SlideSeconds);
+                plane.Advance(Glaze.SlideSeconds);
                 if (menuView != null && menuView.gameObject.activeSelf) failures.Add(name + ": the menu still shows after stepping aside.");
+                if (menuView != null && menuView.Parts.Count > 0 && menuPlaced.Count > 0 && menuQuarter is Vector3 quarter)
+                {
+                    failures.AddRange(EasedAlong(name + ": the menu stepping aside", menuPlaced[0], quarter, menuView.Parts[0].position, Glaze.EaseIn(0.25f)));
+                }
+                if (fileQuarter.Count > 0 && fileHalf.Count > 0)
+                {
+                    var fileEnd = plane.Shown.First(column => column.Kind == MenuColumn.File).View.Subject.position;
+                    failures.AddRange(EasedAlong(name + ": the file moving toward the centre", fileBefore, fileQuarter[0], fileEnd, Glaze.EaseInOut(0.25f)));
+                }
                 if (plane.Shown.Count > 2) failures.Add(name + ": " + plane.Shown.Count + " columns stand on the plane; there are never three.");
                 if (plane.Shown.All(column => column.Kind != MenuColumn.Side)) failures.Add(name + ": the chosen answer's side panel does not show.");
                 if (GlazeText.Scale > 1f && plane.Shown.Count != 1) failures.Add(name + ": with larger text the side panel stands beside its file; it takes the file's place.");
@@ -95,10 +121,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (menuAside) SettleLongAgo(menuView!);
                 plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
                 if (menuAside && !plane.MenuAside) failures.AddRange(WaitsToSettle(name + " menu back", menuView!));
-                plane.Advance(MenuPlane.SlideSeconds / 2f);
+                // The menu coming back arrives, easing out: seen a quarter of its own time in.
+                var menuFrom = menuAside && !plane.MenuAside && menuView!.Parts.Count > 0 ? menuView.Parts[0].position : (Vector3?)null;
+                plane.Advance(Glaze.AppearSeconds / 4f);
+                var menuBackQuarter = menuFrom != null ? menuView!.Parts[0].position : Vector3.zero;
+                plane.Advance(Glaze.SlideSeconds / 2f - Glaze.AppearSeconds / 4f);
                 if (plane.MenuAside != (menuPlaced.Count == 0)) failures.Add(name + ": the side panel closed, and the menu stands " + (plane.MenuAside ? "aside" : "beside the file") + " where it stood the other way before.");
-                plane.Advance(MenuPlane.SlideSeconds);
+                plane.Advance(Glaze.SlideSeconds);
                 var back = plane.Shown.Where(column => column.Kind == MenuColumn.Menu).SelectMany(column => column.View.Parts).Select(part => part.position).ToList();
+                if (menuFrom is Vector3 aside && back.Count > 0) failures.AddRange(EasedAlong(name + ": the menu coming back", aside, menuBackQuarter, back[0], Glaze.EaseOut(0.25f)));
                 if (back.Count != menuPlaced.Count) failures.Add(name + ": the menu did not come back as it stood.");
                 for (var index = 0; index < Mathf.Min(back.Count, menuPlaced.Count); index++)
                 {
@@ -112,13 +143,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 var fileShown = plane.Shown.Where(column => column.Kind == MenuColumn.File).Select(column => column.View.Subject.position).ToList();
                 plane.Show(bar, SettingChosen(), WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
                     besideWindow: besideWindow);
-                plane.Advance(MenuPlane.SlideSeconds / 2f);
+                plane.Advance(Glaze.SlideSeconds / 2f);
                 var fileView = FindView(plane, "File");
                 if (fileShown.Count > 0 && fileView != null && fileView.gameObject.activeSelf && Vector3.Dot(fileView.Subject.position - fileShown[0], PlaneLayout.Facing(plane.Direction) * Vector3.right) <= 0f)
                 {
                     failures.Add(name + ": halfway through stepping aside for the menu's details, the file has not moved right.");
                 }
-                plane.Advance(MenuPlane.SlideSeconds);
+                plane.Advance(Glaze.SlideSeconds);
                 if (!plane.FileAside || plane.Shown.Any(column => column.Kind == MenuColumn.File)) failures.Add(name + ": a setting chosen beside a file, and the file still stands on the plane.");
                 if (fileView != null && fileView.gameObject.activeSelf) failures.Add(name + ": the file still shows after stepping aside.");
                 if (plane.Shown.All(column => column.Kind != MenuColumn.Side)) failures.Add(name + ": a setting chosen beside a file, and its details don't show.");
@@ -129,7 +160,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (fileAside) SettleLongAgo(fileView!);
                 plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
                 if (fileAside && !plane.FileAside) failures.AddRange(WaitsToSettle(name + " file back", fileView!));
-                plane.Advance(MenuPlane.SlideSeconds);
+                plane.Advance(Glaze.SlideSeconds);
                 if (plane.FileAside || plane.Shown.All(column => column.Kind != MenuColumn.File)) failures.Add(name + ": the menu's details closed, and the file did not come back.");
                 failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, window));
 
@@ -171,6 +202,23 @@ namespace Halcyonic.XR.Workspace.Editor
             Debug.Log("Halcyonic: workspace render " + name + ": the menu and a file side by side, " + GlazeChecks.Degrees(2f * beside.Size.HalfHeightDegrees)
                 + " degrees tall, stand with their top " + GlazeChecks.Degrees(top) + " degrees below eye level, each label cleared where it stands; cleared at the corners under the deepest label it would be "
                 + GlazeChecks.Degrees(corners) + ". They " + (fits ? "fit" : "do not fit") + " the field there.");
+        }
+
+        /// <summary>
+        /// A part seen a quarter of its move's own time in stands <paramref name="expected"/> of its way from
+        /// <paramref name="from"/> to <paramref name="to"/> (ADR 0027): its kind's time and easing, which a
+        /// straight line between the two shows exactly.
+        /// </summary>
+        private static IEnumerable<string> EasedAlong(string what, Vector3 from, Vector3 quarter, Vector3 to, float expected)
+        {
+            var way = Vector3.Distance(from, to);
+            if (way < 0.001f) yield break;
+            var along = Vector3.Distance(from, quarter) / way;
+            if (Mathf.Abs(along - expected) > 0.01f)
+            {
+                yield return what + " stood " + (along * 100f).ToString("0.0", CultureInfo.InvariantCulture) + " percent of its way a quarter of its time in, not "
+                    + (expected * 100f).ToString("0.0", CultureInfo.InvariantCulture) + " as its kind eases.";
+            }
         }
 
         /// <summary>A browser video window of a typical size, 1.4 by 0.79 m at 1.6 m, centred at eye level, as AmbientRender's.</summary>

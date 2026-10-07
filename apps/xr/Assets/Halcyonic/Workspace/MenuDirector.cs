@@ -338,7 +338,7 @@ namespace Halcyonic.XR.Workspace
             Follow();
             LetGoIfMoved();
             Draw(immediately: true);
-            plane.Advance(MenuPlane.SlideSeconds);
+            plane.Advance(Glaze.SlideSeconds);
         }
 
         private void OnDestroy() => FocusGuard.Left -= OnFocusLeft;

@@ -224,9 +224,17 @@ namespace Halcyonic.Client
         /// <summary>One turn of a busy icon (Starting, Working).</summary>
         public const float BusyTurnSeconds = 1.2f;
 
+        /// <summary>What arrives, as a column coming back from stepping aside, eases out (<see cref="EaseOut"/>) this long.</summary>
         public const float AppearSeconds = 0.2f;
 
+        /// <summary>What leaves, as a column stepping aside, eases in (<see cref="EaseIn"/>) this long: quicker than what arrives.</summary>
         public const float LeaveSeconds = 0.15f;
+
+        /// <summary>
+        /// A part moving between two places on the plane, as the plane re-centres, eases in and out
+        /// (<see cref="EaseInOut"/>) this long: the longest move, so a slide's time ends every move.
+        /// </summary>
+        public const float SlideSeconds = 0.25f;
 
         public const float PressSeconds = 0.08f;
 

@@ -533,9 +533,11 @@ the same definition names, as the JSON Schema document:
   review of 2026-10-03 judged that harmless, since no Approve or Yes stands there. It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks
   (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
-  (`PlaceAhead`), and slides every part to its new place over 0.25 s, so the plane re-centres as
-  one piece and the menu steps aside to the left and back (`Advance`, which the renders step
-  themselves). The light line leaves from under the file's character's label, below any mark, and
+  (`PlaceAhead`), and slides every part to its new place, so the plane re-centres as one piece and
+  the menu steps aside to the left and back (`Advance`, which the renders step themselves). Each move
+  takes its kind's time and easing from `Glaze` (ADR 0027): a re-centring `SlideSeconds` easing in and
+  out, a column stepping aside `LeaveSeconds` easing in, and one coming back `AppearSeconds` easing
+  out; `WorkspaceRender` sees each a quarter of its time in. The light line leaves from under the file's character's label, below any mark, and
   drops straight from the middle of their overlap to the subject's plate, else joins their nearer
   corners; over a desk, where the plane stands above the lineup, it rises from the top of the body
   to the file's bottom edge; beside a window there is none. Closed with no file open, the menu is
