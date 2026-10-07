@@ -27,8 +27,9 @@ namespace Halcyonic.Client
     {
         public static readonly ConnectionStatus Stopped = new ConnectionStatus(ConnectionPhase.Stopped);
 
-        public ConnectionStatus(ConnectionPhase phase, string? detail = null, TimeSpan? retryIn = null, bool accessRefused = false, bool answered = false)
+        public ConnectionStatus(ConnectionPhase phase, string? detail = null, TimeSpan? retryIn = null, bool accessRefused = false, bool answered = false, string? diagnostic = null)
         {
+            Diagnostic = diagnostic;
             Phase = phase;
             Detail = detail;
             RetryIn = retryIn;
@@ -53,6 +54,16 @@ namespace Halcyonic.Client
         /// <see cref="Detail"/> says why on its own, never after "Can't reach your computer".
         /// </summary>
         public bool Answered { get; }
+
+        /// <summary>
+        /// What went wrong as the device log needs it: an exception's own message, or a refused upgrade's
+        /// status and its code by its shape. Never drawn: it can hold an address or the control plane's
+        /// terms (the review's L4).
+        /// </summary>
+        public string? Diagnostic { get; }
+
+        /// <summary>The device log's line: the phase, then the diagnostic where there is one, else the detail.</summary>
+        public string ForLog => (Diagnostic ?? Detail) is string why ? Phase + ": " + why : Phase.ToString();
 
         /// <summary>How long until the next attempt, while waiting to retry.</summary>
         public TimeSpan? RetryIn { get; }

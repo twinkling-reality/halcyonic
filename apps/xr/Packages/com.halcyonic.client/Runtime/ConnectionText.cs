@@ -73,6 +73,25 @@ namespace Halcyonic.Client
 
         private const string TriesAgain = "The headset tries again by itself";
 
+        /// <summary>
+        /// Something answered with a certificate other than the one pinned when this headset paired, which
+        /// can mean something is answering in your computer's place (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public const string NotThePairedComputer = "What answered isn't the computer this headset paired with, so the headset sent nothing. "
+            + "If you set up " + HostText.Your + " again, forget it on the headset and pair again.";
+
+        /// <summary>A code for the device log, kept only by its shape, so what answered can't write a line of its own.</summary>
+        public static string CodeForLog(string? code) =>
+            code != null && System.Text.RegularExpressions.Regex.IsMatch(code, "^[a-z][a-z0-9_]{0,63}$") ? code : "no code";
+
+        /// <summary>
+        /// The stage's line while the headset waits to try again: "Last known: can't reach your computer"
+        /// only where nothing answered, else why your computer turned it away, closed it or ended it, alone.
+        /// </summary>
+        public static string Retrying(ConnectionStatus status) => status.Answered && status.Detail != null
+            ? status.Detail
+            : "Last known: can't reach " + HostText.Your + ". Trying again…" + (string.IsNullOrEmpty(status.Detail) ? "" : " " + status.Detail);
+
         /// <summary>A connection turned away for no reason a code names, where how this headset reaches the computer is not known.</summary>
         public const string TurnedAway = HostText.YourStart + " turned the connection away. " + TriesAgain + ".";
 

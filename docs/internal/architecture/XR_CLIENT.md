@@ -97,8 +97,11 @@ the same definition names, as the JSON Schema document:
   "Your computer refused this headset's access code: it doesn't match your computer's. Put your
   computer's current access code on the headset, then restart the app."; for a pairing, that the
   Mac no longer accepts it and to forget the Mac and pair again. Both transports perform the
-  upgrade themselves, so they read the 401 from the upgrade's own answer. A Mac that does not answer reads "Can't reach your computer; trying again", with the technical
-  reason after it. In the fifth headset session a stale token read as "Unable to connect to the
+  upgrade themselves, so they read the 401 from the upgrade's own answer. A Mac that does not answer reads "Can't reach your computer; trying again", with no
+  technical reason after it: the error's own message (a socket's, DNS's, TLS's) goes to the device log
+  only (`ConnectionStatus.Diagnostic`, `ForLog`, with a refused upgrade's status and its code by
+  shape), and only a certificate other than the paired one is said, in Halcyonic's words
+  (`ConnectionText.NotThePairedComputer`). The stage's retry line is `ConnectionText.Retrying`. In the fifth headset session a stale token read as "Unable to connect to the
   remote server" ([quest-3-device.md](../validation/quest-3-device.md)). Halcyonic's own reasons are
   said in `ConnectionText`'s words, never naming the control plane, a protocol or a client: no answer
   in time, a closed connection, something it can't read, falling behind, and a connection turned
