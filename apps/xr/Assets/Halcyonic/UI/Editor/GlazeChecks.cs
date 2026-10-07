@@ -847,6 +847,13 @@ namespace Halcyonic.XR.UI.Editor
             return (float)strongest;
         }
 
+        /// <summary>The WCAG 2 contrast between two sRGB colours, from 1 to 21.</summary>
+        public static float Contrast(Color a, Color b)
+        {
+            var (x, y) = (Luminance(a), Luminance(b));
+            return (float)((System.Math.Max(x, y) + 0.05) / (System.Math.Min(x, y) + 0.05));
+        }
+
         /// <summary>A colour drawn at an opacity over another, blended linearly as the project blends.</summary>
         public static Color Over(Color colour, float alpha, Color under)
         {

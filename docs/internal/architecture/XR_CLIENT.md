@@ -1750,7 +1750,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   only for labels made with it), while the badges' words, which stand where space is fixed, keep
   their size. Keep badges still is the one reduced-motion setting (`GlazeMotion.Still`, ADR 0027): it
   stops Starting's and Working's icons turning, Waiting for you breathing, every wait's shimmer and
-  Hold to talk's listening pulse, each state still told by colour, icon and words. One button steps the sounds from on to quieter
+  Hold to talk's listening pulse, each state still told by colour, icon and words. A badge changing
+  state cross-fades its pill's colours over `Glaze.StateSeconds` under it too: a change is not a loop.
+  Its word stays in whichever state's colour reads more clearly on the pill as drawn, never a blend,
+  which would sink into the pill mid-change (in the editor, which runs no frames, a badge changes at
+  once unless a render steps it). One button steps the sounds from on to quieter
   (half their amplitude, 6 dB down), to off and on again, named for the level it steps to
   (`AudioListener.volume`: Halcyonic's cues are the only sounds the app plays). Every render runs at
   both text sizes.

@@ -11,7 +11,10 @@ namespace Halcyonic.XR.UI
     /// without reading. Its height is fixed and its width follows the word. Where its icon would make
     /// it wider than its room (<see cref="MaxWidth"/>), as on a crowded stage, it shows its word alone;
     /// the word always shows. Starting and Working turn their icon slowly; Waiting for you breathes,
-    /// slowly; a state that is only the last one known is ghosted into dots and stands still.
+    /// slowly; a state that is only the last one known is ghosted into dots and stands still. Changing
+    /// state, its pill's colours cross-fade from the last state's over <see cref="Glaze.StateSeconds"/> (ADR 0027),
+    /// its word drawn throughout in whichever of the two states' colours reads more clearly on the pill as
+    /// it stands, never a blend that would sink into it; its words, icon and edge's pattern change at once.
     /// </summary>
     public sealed class StateBadgeView : MonoBehaviour
     {
@@ -30,6 +33,9 @@ namespace Halcyonic.XR.UI
         /// <summary>A soft badge with no edge of its own still has a faint one, so it holds its shape on a plate.</summary>
         private const float FaintEdge = 0.35f;
 
+        /// <summary>What a badge stands on, a label's plate or a panel, for choosing its word's colour mid-change.</summary>
+        private static readonly Color Under = GlazeTokens.ColorOf(Glaze.Panel);
+
         private Surface pill = null!;
         private TextMeshPro word = null!;
         private TextMeshPro icon = null!;
@@ -44,6 +50,12 @@ namespace Halcyonic.XR.UI
         private float halftone;
         private float breathing;
         private float opacity = 1f;
+        private Color text;
+        private Color fromFill;
+        private Color fromEdge;
+        private Color fromText;
+        private float changing = 1f;
+        private float breath;
 
         public static float Height => GlazeTokens.Units(HeightDegrees);
 
@@ -62,6 +74,18 @@ namespace Halcyonic.XR.UI
             get => GlazeMotion.Still;
             set => GlazeMotion.Still = value;
         }
+
+        /// <summary>
+        /// For the editor's renders, which run no frames: a state changing cross-fades as on the headset, stepped
+        /// by <see cref="Change"/>. Otherwise in the editor a badge takes its new state's colours at once.
+        /// </summary>
+        public static bool CrossFadesInEditor { get; set; }
+
+        /// <summary>The pill's fill as drawn now, for checks: between two states' while it cross-fades.</summary>
+        public Color DrawnFill => pill.Fill;
+
+        /// <summary>Whether it is cross-fading from one state's colours to another's.</summary>
+        public bool Changing => changing < 1f;
 
         /// <summary>The badge's width, in its parent's units, a pill's included.</summary>
         public float Width => size.x * transform.localScale.x;
@@ -115,9 +139,16 @@ namespace Halcyonic.XR.UI
         public void Show(StateBadge badge)
         {
             if (shown != null && shown.State == badge.State && shown.Text == badge.Text && shown.LastKnown == badge.LastKnown && shown.Icon == badge.Icon) return;
+            // From another state, its colours cross-fade from those drawn now; a badge's first state shows at once.
+            var fades = shown != null && (Application.isPlaying || CrossFadesInEditor);
+            if (fades)
+            {
+                (fromFill, fromEdge, fromText) = (pill.Fill, pill.Edge, word.color);
+                changing = 0f;
+            }
+            else changing = 1f;
             shown = badge;
             var tone = Glaze.Tone(badge.Tone);
-            Color text;
             edge = Color.clear;
             edgeWidth = 0f;
             dash = 0f;
@@ -168,8 +199,6 @@ namespace Halcyonic.XR.UI
                         break;
                 }
             }
-            word.color = new Color(text.r, text.g, text.b, opacity);
-            icon.color = word.color;
             GlazeText.SetLiteral(word, badge.Text);
             var (_, width) = GlazeText.Lay(word, GlazeTokens.Units(30f), 1);
             var padding = GlazeTokens.Units(PaddingDegrees);
@@ -200,6 +229,8 @@ namespace Halcyonic.XR.UI
         private void Update()
         {
             if (shown == null) return;
+            // Not a loop, so it plays under Keep badges still too: the change is the state the person reads.
+            if (changing < 1f) Change(Time.unscaledDeltaTime);
             if (Still)
             {
                 // Settled once where it stands at rest, then nothing each frame.
@@ -221,6 +252,14 @@ namespace Halcyonic.XR.UI
             Draw(Mathf.Sin(breathing * 2f * Mathf.PI / Glaze.AttentionBreathSeconds) * 0.5f + 0.5f);
         }
 
+        /// <summary>Moves a state change's cross-fade on by <paramref name="seconds"/>; the renders step it themselves.</summary>
+        public void Change(float seconds)
+        {
+            if (changing >= 1f) return;
+            changing = Glaze.StateSeconds <= 0f ? 1f : Mathf.Min(1f, changing + seconds / Glaze.StateSeconds);
+            Draw(breath);
+        }
+
         /// <summary>The badge as visible as <paramref name="value"/>, from 0 to 1, as when the peek it is on fades.</summary>
         public void Fade(float value)
         {
@@ -234,12 +273,37 @@ namespace Halcyonic.XR.UI
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Reset() => Still = false;
 
-        /// <summary>Draws the pill, brighter by <paramref name="breath"/>, from 0 to 1, of the breath's depth.</summary>
+        /// <summary>
+        /// Draws the pill, brighter by <paramref name="breath"/>, from 0 to 1, of the breath's depth, and its
+        /// colours as far from the last state's as its cross-fade has come, easing in and out.
+        /// </summary>
         private void Draw(float breath)
         {
+            this.breath = breath;
             var lift = 1f + Glaze.AttentionBreathDepth * breath;
             var breathed = new Color(Mathf.Min(1f, fill.r * lift), Mathf.Min(1f, fill.g * lift), Mathf.Min(1f, fill.b * lift), fill.a);
-            pill.Draw(size, size.y / 2f, breathed, edge, edgeWidth, dash, halftone);
+            var along = Glaze.EaseInOut(changing);
+            var drawn = Color.Lerp(fromFill, breathed, along);
+            pill.Draw(size, size.y / 2f, drawn, Color.Lerp(fromEdge, edge, along), edgeWidth, dash, halftone);
+            // Mid-change the two words' colours would blend toward the pill's and sink into it: the word takes
+            // whichever reads more clearly on the pill as drawn now, the new state's once it does as well.
+            var pillSeen = Color.Lerp(Under, drawn, drawn.a);
+            var words = changing >= 1f || Contrast(text, pillSeen) >= Contrast(fromText, pillSeen) ? text : fromText;
+            word.color = new Color(words.r, words.g, words.b, opacity);
+            icon.color = word.color;
+        }
+
+        /// <summary>The WCAG 2 contrast between two colours, from 1 to 21, by their relative luminance.</summary>
+        private static float Contrast(Color a, Color b)
+        {
+            var (x, y) = (Luminance(a), Luminance(b));
+            return (Mathf.Max(x, y) + 0.05f) / (Mathf.Min(x, y) + 0.05f);
+        }
+
+        private static float Luminance(Color colour)
+        {
+            var linear = colour.linear;
+            return 0.2126f * linear.r + 0.7152f * linear.g + 0.0722f * linear.b;
         }
     }
 }

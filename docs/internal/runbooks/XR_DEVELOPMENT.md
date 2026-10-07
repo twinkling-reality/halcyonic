@@ -180,11 +180,14 @@ shows on no badge, mark or button (`gallery-actions.png` shows every action's), 
 degree or has no words beside it, or a label of words draws from the icon atlas. It also draws ADR 0027's
 motion as two strips, `gallery-motion.png` (Sent… and Hold to talk writing down at three points of the
 shimmer's sweep, then under Keep badges still) and `gallery-listening.png` (Hold to talk listening at
-three points of its pulse, then still), and fails if a wait's words do not move, are lifted too little
+three points of its pulse, then still) and `gallery-state.png` (a badge changing from Working to Waiting
+for you at none, a quarter, half and all of its cross-fade, then half under Keep badges still), and fails if a wait's words do not move, are lifted too little
 to see, keep moving once the wait ends or under Keep badges still; if Hold to talk listening is not in the
 active tone, its microphone does not pulse, or pulses still once idle or under Keep badges still; if its
-words lean; or if a wait adds a renderer, or any of sixty frames of either motion allocates in each of
-three tries. Unity's count of allocations takes in the editor's other threads, and this editor's Mono
+words lean; if a changing badge's pill is not where easing in and out puts it, its word is in neither
+state's colour or drops under 3:1 on the pill at any twentieth of the change either way, it still changes
+once done, or in the editor it cross-fades without a render stepping it; or if a wait adds a renderer, or any of sixty frames of either motion allocates in each of
+three tries (a badge's change as well). Unity's count of allocations takes in the editor's other threads, and this editor's Mono
 counts nothing for one thread alone, so only an allocation that comes again at the same frame is the
 motion's; the log gives the frames and the quietest try's bytes.
 
