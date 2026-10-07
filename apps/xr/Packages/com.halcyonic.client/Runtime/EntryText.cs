@@ -300,7 +300,7 @@ namespace Halcyonic.Client
             BuildStepStatus.Refused => WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyRefused(step.Refusal)),
             // A failure that may have had an effect is never put in words that say nothing happened.
             BuildStepStatus.Failed when step.EffectUnknown => NotSureItHappened,
-            BuildStepStatus.Failed => WorkspaceText.Couldnt("Couldn't do that", (FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false)) ?? WorkspaceText.NothingChanged),
+            BuildStepStatus.Failed => WorkspaceText.Couldnt("Couldn't do that", (FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged),
             BuildStepStatus.Unknown => NotSureItHappened,
             BuildStepStatus.NotSent => "Couldn't send: " + HostText.Your + " isn't connected. Try again when it is.",
             _ => NotSureItHappened,

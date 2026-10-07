@@ -235,6 +235,24 @@ public class FolderRefusalTests
                     "a cause every adapter shares is said by its code, and with no task running, the way on is the computer");
             }
         }
+        // A step's way on is what New project offers, never adding the task again from inside it (2026-10-07).
+        foreach (var (code, words) in new[]
+        {
+            ("runtime_unavailable", "Couldn't do that: the agent app isn't available on your computer. Check its setup there, then try again."),
+            ("runtime_version_unsupported", "Couldn't do that: this agent app's version on your computer isn't supported yet. Choose another agent app in How it runs, then try again."),
+            ("capability_unimplemented", "Couldn't do that: its agent app doesn't support it. Choose another agent app in How it runs, then try again."),
+        })
+        {
+            var sequence = new BuildSequence(Draft("p1"), Commands, null);
+            var workstream = sequence.Begin(Samples.Reviewed(sequence));
+            var start = sequence.Advance(With(Done(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+            sequence.Advance(With(new CommandView
+            {
+                CommandId = start.CommandId, Status = CommandStatus.Failed,
+                Failure = new CommandFailure { Code = code, Message = Leak, Effect = FailureEffect.None },
+            }));
+            Assert.That(EntryText.StepStatus(sequence.Steps.Single(each => each.Kind == BuildStepKind.StartWork)), Is.EqualTo(words), code);
+        }
     }
 
     [Test]
