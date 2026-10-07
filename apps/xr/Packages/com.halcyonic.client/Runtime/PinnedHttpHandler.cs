@@ -44,13 +44,26 @@ namespace Halcyonic.Client
                 head = await Http1.ReadHeadAsync(connection.Stream, cancellationToken).ConfigureAwait(false);
                 content = await Http1.ReadBodyAsync(connection.Stream, head, maxResponseBytes, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception error) when ((error is IOException || error is InvalidDataException || error is FormatException || error is OverflowException) && !cancellationToken.IsCancellationRequested)
+            catch (Exception error) when (Reported(error, cancellationToken) is Exception reported)
             {
-                // As other handlers report a connection that failed, a certificate mismatch included,
-                // or an answer too large or not HTTP.
-                throw new HttpRequestException(error.Message, error);
+                throw reported;
             }
             return Http1.Response(request, head, content);
+        }
+
+        /// <summary>
+        /// How a failed exchange is reported, as <see cref="LoopbackProofHandler"/> reports one: cancelled once
+        /// its token is, whatever the runtime threw on the way, since closing the connection is how a cancelled
+        /// read ends and Mono may fault rather than cancel; else, as other handlers report them, a connection that
+        /// failed, a certificate mismatch included, or an answer too large or not HTTP; anything else, null, as
+        /// it was thrown.
+        /// </summary>
+        public static Exception? Reported(Exception error, CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested) return new OperationCanceledException(cancellationToken);
+            return error is IOException || error is InvalidDataException || error is FormatException || error is OverflowException
+                ? new HttpRequestException(error.Message, error)
+                : null;
         }
     }
 }
