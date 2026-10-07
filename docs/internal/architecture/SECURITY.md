@@ -59,9 +59,9 @@ the sandbox mode, an approval policy that asks (`on-request` or `untrusted`), an
 to the person rather than to a reviewer agent; it refuses a thread for which Codex reports other
 settings, or another model or provider than asked. The end to end suite's network probe watches
 the server's process tree through startup, idle and a full run on a local model, and is re-run on
-every Codex upgrade ([local-models.md](../validation/local-models.md)). What Codex does not get
-from Halcyonic's home it may still read from the system: managed configuration and requirements
-under `/etc/codex` were not checked.
+every Codex upgrade ([local-models.md](../validation/local-models.md)). Codex may still read
+system configuration under `/etc/codex` whatever the home (named in the binary's text); none
+exists on this Mac.
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
 `halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with
@@ -69,8 +69,10 @@ the installation id, the thread and session ids, the sandbox mode, whether analy
 for a workspace that is a git repository, its path, latest commit hash and whether it has
 uncommitted changes; the working directory also reaches the provider in the conversation's
 environment context. Codex writes each thread's rollout to Halcyonic's Codex home, tagged
-`halcyonic`, where neither Salidium nor Seorak reads it, so the control plane answers both as not
-observing those sessions, without asking them. The
+`halcyonic`, where neither Salidium nor Seorak reads it. The control plane answers both as not
+observing a Codex execution whose rollout it finds there, without asking them or reading their
+credentials: it checks only that a file of that name exists in the date folders around the
+execution's start, follows no link, and looks only for an id shaped as a thread id. The
 adapter writes no logs. The Codex and OpenCode adapters drain their server's error output without
 keeping it, as the Claude Code adapter does: it may hold secrets, such as a key that verbose
 logging or a configuration error prints, and a start failure is journaled and shown on every

@@ -156,10 +156,14 @@ export async function startTestServer(options: TestServerOptions = {}) {
       salidiumUnderstanding({
         home: join(dataDir, 'salidium'),
         credentialPath: join(dataDir, 'salidium-credential'),
+        codexHome: join(dataDir, 'codex-home'),
       }),
     evaluation:
       options.evaluation ??
-      seorakEvaluation({ credentialPath: join(dataDir, 'seorak-credential') }),
+      seorakEvaluation({
+        credentialPath: join(dataDir, 'seorak-credential'),
+        codexHome: join(dataDir, 'codex-home'),
+      }),
     ...(options.modelListTimeoutMs !== undefined && {
       modelListTimeoutMs: options.modelListTimeoutMs,
     }),

@@ -6,7 +6,7 @@ import type {
   UsageLimitsResponse,
 } from '@halcyonic/contracts';
 import { SEORAK_DEFAULT_PORT, SeorakClient, seorakAgentFor } from '@halcyonic/integration-seorak';
-import { KEPT_IN_HALCYONICS_HOME } from './understanding.ts';
+import { CODEX_HOME_FOLDER, inHalcyonicsCodexHome } from './codex-home.ts';
 
 /** The file in the control plane's data directory that holds the Seorak integration credential. */
 export const SEORAK_CREDENTIAL_FILE = 'seorak-credential';
@@ -16,7 +16,8 @@ export const SEORAK_CREDENTIAL_FILE = 'seorak-credential';
  * answer is read through on request and never journaled (ADR 0010).
  */
 export interface EvaluationSource {
-  evaluate(runtimeKind: string, nativeId: string): Promise<EvaluationResult>;
+  /** `startedAt` is when the execution started, as journaled, or when it was created. */
+  evaluate(runtimeKind: string, nativeId: string, startedAt: string): Promise<EvaluationResult>;
   usageLimits?(): Promise<UsageLimitsResponse>;
 }
 
@@ -25,6 +26,8 @@ export interface SeorakEvaluationOptions {
   readonly credentialPath: string;
   /** The port of Seorak's local plane on 127.0.0.1. Defaults to 4317. */
   readonly port?: number;
+  /** Halcyonic's own Codex home, whose sessions Seorak does not read. */
+  readonly codexHome: string;
 }
 
 /**
@@ -43,13 +46,13 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
         return { availability: 'unauthorized', reason: credential.reason };
       return client.usageLimits({ credential });
     },
-    async evaluate(runtimeKind, nativeId) {
-      if (KEPT_IN_HALCYONICS_HOME.has(runtimeKind)) {
+    async evaluate(runtimeKind, nativeId, startedAt) {
+      if (await inHalcyonicsCodexHome(options.codexHome, runtimeKind, nativeId, startedAt)) {
         return {
           availability: 'unavailable',
           reason: {
             code: 'runtime_not_observed',
-            message: `Seorak does not read Halcyonic's own ${runtimeKind} home, where this session is kept.`,
+            message: "Seorak does not read Halcyonic's own Codex home, where this session is kept.",
           },
         };
       }
@@ -65,7 +68,10 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
 
 /** Seorak's local plane on its default port, with the credential in the control plane's data directory. */
 export function seorakEvaluationFor(dataDir: string): EvaluationSource {
-  return seorakEvaluation({ credentialPath: join(dataDir, SEORAK_CREDENTIAL_FILE) });
+  return seorakEvaluation({
+    credentialPath: join(dataDir, SEORAK_CREDENTIAL_FILE),
+    codexHome: join(dataDir, CODEX_HOME_FOLDER),
+  });
 }
 
 function readCredential(path: string, origin: string): string | EvaluationFailure {

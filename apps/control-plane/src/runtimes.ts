@@ -7,6 +7,7 @@ import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
+import { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
 
@@ -22,12 +23,7 @@ export const CLAUDE_AGENT_PROCESS_RECORD = 'claude-agent-processes.json';
 /** The file in the data directory where the Codex app-server Halcyonic launched is recorded. */
 export const CODEX_SERVER_RECORD = 'codex-server.json';
 
-/**
- * The folder in the data directory that is Codex's home, its `CODEX_HOME`, never the person's
- * `~/.codex`: mode 700, made by the adapter when missing, its `config.toml` written by
- * `pnpm mac-setup local-model` (local-models.md).
- */
-export const CODEX_HOME_FOLDER = 'codex-home';
+export { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 
 export interface RuntimeDependencies {
   readonly mock: MockRuntimeAdapter;
