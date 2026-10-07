@@ -50,7 +50,8 @@ namespace Halcyonic.Client
         /// <summary>
         /// A project's small fact on its row: what matters most, what waits for the person first, as a
         /// short count that keeps its noun ("1 task waiting", "2 tasks running", "1 task to look at" for
-        /// work that failed, can't be told or failed its checks), after "Hidden · " when its work is not
+        /// work that failed, can't be told or failed its checks; at rest, "1 task paused" for work that ran,
+        /// else "3 tasks not started"), after "Hidden · " when its work is not
         /// on the stage, and after the look-alike mark when its name looks like another's. A long name
         /// shortens to make room, never this.
         /// </summary>
@@ -59,14 +60,17 @@ namespace Halcyonic.Client
             var most = project.NeedsYou > 0 ? Tasks(project.NeedsYou) + " waiting"
                 : project.Notice > 0 ? Tasks(project.Notice) + " to look at"
                 : project.Active > 0 ? Tasks(project.Active) + " running"
-                : project.Work == 0 ? "No work yet" : Tasks(project.Work) + " paused";
+                : project.Work == 0 ? "No work yet"
+                : project.Work > project.NotStarted ? Tasks(project.Work - project.NotStarted) + " paused"
+                : Tasks(project.NotStarted) + " not started";
             var fact = project.Shown ? most : Hidden + " · " + (project.Work == 0 ? "no work yet" : most);
             return looksAlike ? ConnectText.LooksLikeAnother + " · " + Lower(fact) : fact;
         }
 
         /// <summary>
         /// A project's work in full, for its side panel, what waits for the person first, naming tasks
-        /// once: "1 task waiting for you, 1 to look at, 2 running", or "No work yet", "3 tasks paused".
+        /// once: "1 task waiting for you, 1 to look at, 2 running", or "No work yet", "3 tasks paused",
+        /// "1 task paused, 2 not started", "3 tasks not started".
         /// </summary>
         public static string Work(ProjectSummary project)
         {
@@ -76,7 +80,11 @@ namespace Halcyonic.Client
             if (project.Notice > 0) parts.Add(Counted(project.Notice) + " to look at");
             if (project.Active > 0) parts.Add(Counted(project.Active) + " running");
             if (parts.Count > 0) return string.Join(", ", parts);
-            return project.Work == 0 ? "No work yet" : Tasks(project.Work) + " paused";
+            if (project.Work == 0) return "No work yet";
+            // All at rest: those that ran and rest, then those never started.
+            if (project.Work > project.NotStarted) parts.Add(Counted(project.Work - project.NotStarted) + " paused");
+            if (project.NotStarted > 0) parts.Add(Counted(project.NotStarted) + " not started");
+            return string.Join(", ", parts);
         }
 
         private static string Lower(string text) => text.Length == 0 ? text : char.ToLowerInvariant(text[0]) + text.Substring(1);

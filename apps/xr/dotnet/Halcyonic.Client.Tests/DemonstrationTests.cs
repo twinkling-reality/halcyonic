@@ -155,6 +155,16 @@ public class DemonstrationRecordingTests
     }
 
     [Test]
+    public void ARecordingThatRegistersARealRuntimeIsNeverPlayed()
+    {
+        var real = Demonstration.Edit(document => document["snapshot"]!["snapshot"]!["runtimes"]![0]!["synthetic"] = false);
+        var error = Assert.Throws<InvalidDataException>(() => DemonstrationRecording.Parse(real));
+        Assert.That(error!.Message, Does.Contain("not synthetic"));
+        Assert.That(Demonstration.Recording().Snapshot.Snapshot.Runtimes.All(runtime => runtime.Synthetic), Is.True,
+            "the bundled recording registers only practice agents, so a task not yet started reads Demo");
+    }
+
+    [Test]
     public void ALiveJournalIsNeverPlayedAsADemonstration()
     {
         var live = Demonstration.Edit(document =>

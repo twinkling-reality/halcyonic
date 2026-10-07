@@ -57,7 +57,9 @@ One word per state, the same on the badge, in the peek, in the workspace and in 
 | Halcyonic cannot see the work | Can't tell yet | Can't tell what it's doing right now. |
 
 The state badge also counts what waits when more than one thing does ("Waiting for you · 2"). In
-counts, "paused" covers tasks at rest that are neither running nor waiting for you.
+counts, "paused" covers tasks that ran and rest, neither running nor waiting for you; tasks never
+started are "not started", the badge's own word ("3 tasks not started", "1 task paused, 2 not
+started").
 
 ## The words a person sees
 
@@ -196,6 +198,7 @@ replaces the entry panel's screens. Routine wording, settled by the coordinator,
 | Tasks with no tasks | None: the entry panel listed no tasks of its own | "No tasks yet.", a quiet line on the page under the subject, which reads "Nothing is waiting for you." | 2026-10-02, by the coordinator |
 | Projects' subject | "Welcome", then "Show projects from your computer, or make a new one. Work already running keeps going." on a first visit; "Connect projects" otherwise | "What would you like to work on?" on every visit, the place's purpose under the lit place's word; it keeps to one line (21.9 of 29.2 degrees), so the fallback "What do you want to work on?" was not needed | 2026-10-02, by the coordinator, every visit by lane V; the stage shows that running work goes on |
 | A project's small fact on its row | "Hidden · 1 waiting", "1 task waiting" | "Hidden · 1 task waiting", "1 task waiting", "2 tasks running": a count keeps its noun, and a long name shortens first | 2026-10-02, by the coordinator |
+| A project's small fact on its row, and its work in its side panel, where tasks were never started | "3 tasks paused", every task at rest counted as paused | "3 tasks not started"; tasks that ran and rest first, as "1 task paused" on the row and "1 task paused, 2 not started" in the side panel, since a task never started has paused nothing and its label says Not started | 2026-10-07, by the coordinator |
 | Projects' folders | Connect a folder, its own screen | "Folders on your computer", a heading in Projects; a folder's row says "Repository · changed 3 days ago" | 2026-10-02, by lane V's brief |
 | Projects' prompts | Done, Show all, Add a task beside each project | "New project" with no row chosen; for a chosen project "Add a task" and "Hide from stage" or "Show on stage" (first "Hide from the stage", which needs 31.4 of the column's 30.3 degrees; "Hide from stage" needs 29.3, and says where the tasks go, since Tasks still lists them); for a chosen folder "Connect"; a list that pages "Next page", which on its last page reads "First page" and starts again; Close does what Done did | 2026-10-02, by the coordinator, as lane L proposed |
 | A side panel's facts in Projects | (none) | A project: "Its work", "On the stage" ("Shown", "Hidden"). A folder: "Place", "Repository" ("Yes", "No"), "Changed", "Its name" for a look-alike, then "Connecting", or "What happened" once sent; "Your computer can't look inside it" where it couldn't | 2026-10-02, by the coordinator, as lane L proposed |

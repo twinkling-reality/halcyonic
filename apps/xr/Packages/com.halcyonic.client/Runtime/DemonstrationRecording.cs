@@ -548,6 +548,11 @@ namespace Halcyonic.Client
             {
                 throw new InvalidDataException("The demonstration's " + which + " snapshot comes from another journal than its welcome.");
             }
+            // Only practice agents, so every task it shows, started or not, is labeled as simulated.
+            foreach (var runtime in snapshot.Snapshot.Runtimes)
+            {
+                if (!runtime.Synthetic) throw new InvalidDataException("The demonstration's " + which + " snapshot registers a runtime that is not synthetic.");
+            }
         }
 
         private static InvalidDataException Missing(string property) =>

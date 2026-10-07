@@ -80,7 +80,10 @@ namespace Halcyonic.Client
 
         public int PendingApprovals { get; }
 
-        /// <summary>The work is simulated (for example the mock runtime) and must be labeled as such.</summary>
+        /// <summary>
+        /// The work is simulated (for example the mock runtime) and must be labeled as such: its current
+        /// execution's runtime is, or, before it has any execution, every runtime that could run it is.
+        /// </summary>
         public bool Synthetic { get; }
 
         /// <summary>The state comes from a recorded fixture journal and must be labeled as development data.</summary>
@@ -112,10 +115,26 @@ namespace Halcyonic.Client
                 workstream.Attention.Level,
                 notes,
                 execution?.PendingApprovals.Count ?? 0,
-                execution?.Runtime.Synthetic ?? false,
+                execution?.Runtime.Synthetic ?? (workstream.ExecutionIds.Count == 0 && OnlyPractice(state)),
                 state.Journal?.Origin == JournalOrigin.Fixture,
                 !live,
                 details);
+        }
+
+        /// <summary>
+        /// Whether only simulated work can run here: the state registers at least one runtime and every one
+        /// is synthetic, so a task not yet started can only ever run on a practice agent. One real runtime,
+        /// or none, and nothing is claimed.
+        /// </summary>
+        public static bool OnlyPractice(ClientProjection state)
+        {
+            var runtimes = state.Runtimes;
+            if (runtimes.Count == 0) return false;
+            for (var index = 0; index < runtimes.Count; index++)
+            {
+                if (!runtimes[index].Synthetic) return false;
+            }
+            return true;
         }
 
         public static CharacterActivity ActivityOf(WorkstreamStatus status) => status switch

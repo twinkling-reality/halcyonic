@@ -232,6 +232,40 @@ public class CharacterPresenterTests
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Idle));
         Assert.That(character.Recorded, Is.True);
         Assert.That(character.Stale, Is.True);
-        Assert.That(character.Synthetic, Is.False, "no execution, so nothing simulated yet");
+        Assert.That(character.Synthetic, Is.True, "no execution yet, and only the mock runtime could run it");
+        Assert.That(StateLanguage.MarksOf(character).Single().Word, Is.EqualTo("Demo"), "the same mark it takes once it starts");
+    }
+
+    [Test]
+    public void ATaskNotYetStartedIsSimulatedOnlyWhenEveryRuntimeThatCouldRunItIs()
+    {
+        var workstream = Samples.Workstream("w1");
+        ClientProjection With(params RuntimeDescriptor[] runtimes)
+        {
+            var snapshot = Samples.Snapshot(1, new[] { workstream });
+            snapshot.Runtimes = runtimes.ToList();
+            var state = new ClientProjection();
+            state.ApplySnapshot(snapshot, new StateChanges());
+            return state;
+        }
+        var real = Samples.MockRuntime();
+        real.RuntimeId = "claude";
+        real.Kind = "claude-agent";
+        real.DisplayName = "Claude Code";
+        real.Synthetic = false;
+
+        Assert.That(CharacterPresenter.Present(workstream, With(Samples.MockRuntime()), live: true).Synthetic, Is.True);
+        var mixed = CharacterPresenter.Present(workstream, With(Samples.MockRuntime(), real), live: true);
+        Assert.That(mixed.Synthetic, Is.False, "a real runtime could run it, so nothing is claimed");
+        Assert.That(StateLanguage.MarksOf(mixed), Is.Empty);
+        var onlyReal = CharacterPresenter.Present(workstream, With(real), live: true);
+        Assert.That((onlyReal.Synthetic, StateLanguage.MarksOf(onlyReal).Count), Is.EqualTo((false, 0)), "a live computer with one real runtime marks nothing");
+        Assert.That(CharacterPresenter.Present(workstream, With(), live: true).Synthetic, Is.False, "with no runtime, nothing is known");
+
+        // Once it has run, its own execution decides, though only the mock runtime is registered.
+        var ran = Samples.Workstream("w1", WorkstreamStatus.Completed, "e1");
+        var state = new ClientProjection();
+        state.ApplySnapshot(Samples.Snapshot(1, new[] { ran }, new[] { Samples.Execution("e1", "w1", ExecutionStatus.Completed, synthetic: false) }), new StateChanges());
+        Assert.That(CharacterPresenter.Present(ran, state, live: true).Synthetic, Is.False);
     }
 }
