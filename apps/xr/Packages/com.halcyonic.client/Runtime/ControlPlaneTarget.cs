@@ -90,6 +90,7 @@ namespace Halcyonic.Client
                 new RealtimeSessionOptions(Endpoint, Credential, client)
                 {
                     AccessRefused = AccessRefused,
+                    TurnedAway = TurnedAway,
                 },
                 CreateTransport);
 
@@ -104,6 +105,9 @@ namespace Halcyonic.Client
 
         /// <summary>What a refused credential means here, the access code's line or the pairing's, said by the connection and every request alike.</summary>
         public string AccessRefused => Pairing == null ? ConnectionText.AccessTokenRefused : ConnectionText.PairingRefused;
+
+        /// <summary>What a connection turned away for no reason a code names means here, with its way on.</summary>
+        public string TurnedAway => Pairing == null ? ConnectionText.TurnedAwayUsb : ConnectionText.TurnedAwayPaired;
 
         /// <summary>
         /// Whether another target reaches the same endpoint with the same credential and pin, so a

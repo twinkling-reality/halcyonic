@@ -61,13 +61,26 @@ namespace Halcyonic.Client
         /// gave: never the refusal's message, which is the control plane's own and can name a header, a
         /// server or a credential.
         /// </summary>
-        public static string UpgradeRefused(string? code) => code switch
+        /// <param name="turnedAway">Any other refusal's words, with the way on for how this headset reaches the computer.</param>
+        public static string UpgradeRefused(string? code, string turnedAway) => code switch
         {
-            // Only the network listener refuses a Host name: over USB the headset dials 127.0.0.1 (settled by the coordinator, 2026-10-04).
-            "host_not_allowed" => HostText.YourStart + " refused the name this headset uses for it. Pair it again in Settings.",
-            "too_many_requests" => HostText.YourStart + " is turning this headset away for a minute after too many tries. It tries again by itself.",
-            _ => HostText.YourStart + " refused the connection. Restart the app, and pair it again in Settings if it happens again.",
+            // Only the network listener refuses a Host name, and a stored pairing passed it once, so the
+            // address may have changed there (settled by the coordinator, 2026-10-07).
+            "host_not_allowed" => HostText.YourStart + " turned away the address this headset uses for it, which may have changed there. " + TriesAgain + "; if this keeps happening, pair it again in Settings.",
+            "too_many_requests" => HostText.YourStart + " is turning this headset away for a minute after too many tries. " + TriesAgain + ".",
+            _ => turnedAway,
         };
+
+        private const string TriesAgain = "The headset tries again by itself";
+
+        /// <summary>A connection turned away for no reason a code names, where how this headset reaches the computer is not known.</summary>
+        public const string TurnedAway = HostText.YourStart + " turned the connection away. " + TriesAgain + ".";
+
+        /// <summary>The same, for a paired headset (settled by the coordinator, 2026-10-07).</summary>
+        public const string TurnedAwayPaired = HostText.YourStart + " turned the connection away. " + TriesAgain + "; if this keeps happening, pair it again in Settings.";
+
+        /// <summary>The same, over USB with the access code.</summary>
+        public const string TurnedAwayUsb = HostText.YourStart + " turned the connection away. " + TriesAgain + "; if this keeps happening, restart this app on " + HostText.Your + ".";
 
         /// <summary>Your computer speaks another version of the connection than this app.</summary>
         public const string OtherVersion = HostText.YourStart + " runs another version of this app. " + SameVersion;
@@ -117,6 +130,9 @@ namespace Halcyonic.Client
                 if (status.AccessRefused) return detail ?? AccessRefused;
                 return HostText.YourStart + " refused this app." + (detail == null ? "" : " " + detail);
             }
+            // Your computer answered and turned it away, closed it or ended it: that is why on its own, since
+            // "Can't reach" would be untrue and a second way on (the review's L3).
+            if (status != null && status.Answered && detail != null) return detail;
             return Unreachable + (detail == null ? "" : " (" + detail + ")");
         }
     }

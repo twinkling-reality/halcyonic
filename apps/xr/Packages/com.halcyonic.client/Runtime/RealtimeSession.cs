@@ -32,6 +32,12 @@ namespace Halcyonic.Client
         /// </summary>
         public string AccessRefused { get; set; } = ConnectionText.AccessRefused;
 
+        /// <summary>
+        /// What a connection turned away for no reason a code names means, with the way on for how this
+        /// device reaches the computer (<see cref="ControlPlaneTarget.TurnedAway"/>).
+        /// </summary>
+        public string TurnedAway { get; set; } = ConnectionText.TurnedAway;
+
         /// <summary>How often the session pings, so that a silently broken network is noticed.</summary>
         public TimeSpan PingInterval { get; set; } = TimeSpan.FromSeconds(10);
 
@@ -313,7 +319,7 @@ namespace Halcyonic.Client
                 }
                 failures = ending.WasLive ? 1 : failures + 1;
                 var delay = RetryDelay(failures);
-                Publish(new ConnectionStatus(ConnectionPhase.WaitingToRetry, ending.Reason, delay));
+                Publish(new ConnectionStatus(ConnectionPhase.WaitingToRetry, ending.Reason, delay, answered: ending.Answered));
                 try
                 {
                     await Task.Delay(delay, stop).ConfigureAwait(false);
@@ -345,7 +351,7 @@ namespace Halcyonic.Client
                     }
                     catch (Exception) when (connectTimeout.IsCancellationRequested && !stop.IsCancellationRequested)
                     {
-                        return Ending.Failed(ConnectionText.NoAnswer(options.ConnectTimeout), false);
+                        return Ending.Failed(ConnectionText.NoAnswer(options.ConnectTimeout), false, answered: false);
                     }
                 }
                 var hello = new HelloMessage { Client = options.Client, Resume = cursor };
@@ -439,12 +445,12 @@ namespace Halcyonic.Client
             catch (UpgradeRefusedException refused)
             {
                 // Refused for another reason than the credential: said by its code, never the control plane's message.
-                return Ending.Failed(ConnectionText.UpgradeRefused(refused.Code), live);
+                return Ending.Failed(ConnectionText.UpgradeRefused(refused.Code, options.TurnedAway), live);
             }
             catch (Exception error)
             {
                 // Any failure ends this connection and never the session: the next attempt resynchronizes.
-                return Ending.Failed(error.Message, live);
+                return Ending.Failed(error.Message, live, answered: false);
             }
             finally
             {
@@ -525,12 +531,13 @@ namespace Halcyonic.Client
         {
             public static readonly Ending Stopped = new Ending(null, false, false);
 
-            private Ending(string? reason, bool wasLive, bool refused, bool accessRefused = false)
+            private Ending(string? reason, bool wasLive, bool refused, bool accessRefused = false, bool answered = true)
             {
                 Reason = reason;
                 WasLive = wasLive;
                 Refused = refused;
                 AccessRefused = accessRefused;
+                Answered = answered;
             }
 
             public string? Reason { get; }
@@ -541,7 +548,10 @@ namespace Halcyonic.Client
 
             public bool AccessRefused { get; }
 
-            public static Ending Failed(string reason, bool wasLive) => new Ending(reason, wasLive, false);
+            /// <summary>Your computer answered before the connection ended, so the reason stands alone.</summary>
+            public bool Answered { get; }
+
+            public static Ending Failed(string reason, bool wasLive, bool answered = true) => new Ending(reason, wasLive, false, answered: answered);
 
             public static Ending Refuse(string reason) => new Ending(reason, false, true);
 
