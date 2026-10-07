@@ -110,17 +110,21 @@ namespace Halcyonic.Client
             }
             else if (response.Result is UnavailableModels unavailable)
             {
-                ModelProblem = "Couldn't read its models: " + unavailable.Reason.Message + " Choose the agent app again to retry.";
+                ModelProblem = EntryText.ModelsUnread(unavailable.Reason.Code);
             }
         }
 
-        public void ModelReadFailed(string reason)
+        /// <summary>
+        /// The models couldn't be asked for, <paramref name="connected"/> saying whether the computer was
+        /// connected to ask. Takes no words: a failed request's are the control plane's own.
+        /// </summary>
+        public void ModelReadFailed(bool connected)
         {
             models.Clear();
             Model = null;
             ModelPreselected = false;
             PendingModel = null;
-            ModelProblem = "Couldn't read its models: " + reason + " Choose the agent app again to retry.";
+            ModelProblem = connected ? EntryText.ModelsUnreadable : EntryText.ModelsNotConnected;
         }
 
         /// <summary>Focus went to another window: a first press on a model that runs elsewhere no longer counts.</summary>
