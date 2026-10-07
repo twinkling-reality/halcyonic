@@ -9,7 +9,6 @@ test('the probe watches a process running the binary that is not below its root'
   const server = createServer((socket) => socket.on('error', () => undefined));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
   const port = (server.address() as { port: number }).port;
-  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
   // The root has no descendants; the client runs the binary, started by this test, not by it.
   const root = spawn('/bin/sleep', ['60'], { stdio: 'ignore' });
   const client = spawn(
@@ -17,9 +16,10 @@ test('the probe watches a process running the binary that is not below its root'
     ['-e', `require('node:net').connect(${port}, '127.0.0.1'); setInterval(() => {}, 1000);`],
     { stdio: 'ignore' },
   );
-  t.after(() => {
+  t.after(async () => {
     root.kill();
     client.kill();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
   assert.ok(root.pid !== undefined);
   const probe = probeNetwork(root.pid, process.execPath, 100);

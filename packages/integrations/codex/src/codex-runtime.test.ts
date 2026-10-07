@@ -836,10 +836,13 @@ describe('Codex runtime against a stand-in binary', () => {
       const closed = join(directory, 'closed');
       mkdirSync(closed);
       chmodSync(closed, 0o000);
-      t.after(() => chmodSync(closed, 0o700));
-      const unreadable = fake(t, [], { systemConfiguration: [join(closed, 'codex')] });
-      await assert.rejects(unreadable.runtime.listModels(), actionError('runtime_refused'));
-      assert.deepEqual(unreadable.launched(), []);
+      try {
+        const unreadable = fake(t, [], { systemConfiguration: [join(closed, 'codex')] });
+        await assert.rejects(unreadable.runtime.listModels(), actionError('runtime_refused'));
+        assert.deepEqual(unreadable.launched(), []);
+      } finally {
+        chmodSync(closed, 0o700);
+      }
     }
   });
 
@@ -1551,7 +1554,7 @@ describe('Codex runtime against a stand-in binary', () => {
       .find(
         (message) =>
           message.method === 'config/read' &&
-          (message.params as { includeLayers?: unknown }).includeLayers === true,
+          typeof (message.params as { cwd?: unknown }).cwd === 'string',
       );
     assert.deepEqual(read?.params, { includeLayers: true, cwd: realpathSync(refused.directory) });
 
