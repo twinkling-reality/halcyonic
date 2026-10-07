@@ -1793,22 +1793,26 @@ public class NewProjectFlowTests
     }
 
     /// <summary>
-    /// A request for the agent app's models that fails shows the step's own words, never the failure's
-    /// message, which names the control plane and can hold an address.
+    /// A request for the agent app's models that fails, refused or never answered, shows the step's own
+    /// words, never the failure's message, which names the control plane and can hold an address.
     /// </summary>
     [Test]
     public void AFailedRequestForModelsNeverShowsItsMessage()
     {
-        var local = Runtime("local", ModelChoice.Listed);
-        var host = new Host { State = WithRuntimes(Runtime("mock"), local) };
-        var routes = new Routes();
-        host.Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
-        var flow = Recapped(host);
-        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
-        Press(flow, NewProjectScreens.MoreOptions, null);
-        Press(flow, NewProjectScreens.ChooseRuntime, "local");
-        Until(flow, () => flow.Frame!.Lines.Any(line => line.Words == EntryText.ModelsUnreadable)).Wait();
-        Assert.That(flow.Frame!.Lines.Select(line => line.Words), Has.None.Contains("control plane").And.None.Contains("127.0.0.1"));
+        foreach (var unreachable in new[] { false, true })
+        {
+            var local = Runtime("local", ModelChoice.Listed);
+            var host = new Host { State = WithRuntimes(Runtime("mock"), local) };
+            var routes = new Routes();
+            if (unreachable) routes.Unreachable["GET /api/runtimes/local/models"] = "connect ECONNREFUSED 192.168.1.20:47801";
+            host.Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+            var flow = Recapped(host);
+            Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+            Press(flow, NewProjectScreens.MoreOptions, null);
+            Press(flow, NewProjectScreens.ChooseRuntime, "local");
+            Until(flow, () => flow.Frame!.Lines.Any(line => line.Words == EntryText.ModelsUnreadable)).Wait();
+            Assert.That(flow.Frame!.Lines.Select(line => line.Words), Has.None.Contains("control plane").And.None.Contains("127.0.0.1").And.None.Contains("ECONNREFUSED"));
+        }
     }
 
     [Test]

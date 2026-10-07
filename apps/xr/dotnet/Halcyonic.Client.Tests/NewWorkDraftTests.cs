@@ -151,8 +151,8 @@ public class NewWorkDraftTests
     public void ModelsThatCouldNotBeListedAreNeverSaidByTheirMessage()
     {
         const string Leak = "OpenCode's list of models could not be read: connect ECONNREFUSED 127.0.0.1:4096 (/Users/someone/project)";
-        var unanswered = new[] { "runtime_unreachable", "runtime_closed", "runtime_unavailable", "runtime_start_failed", "timeout" };
-        foreach (var code in unanswered.Concat(new[] { "runtime_protocol_error", "invalid_models", "adapter_error", "runtime_error", "opencode_own", "" }))
+        var unanswered = new[] { "runtime_unreachable", "runtime_closed", "runtime_unavailable", "runtime_start_failed", "runtime_exited", "runtime_timeout", "timeout" };
+        foreach (var code in unanswered.Concat(new[] { "runtime_version_unsupported", "runtime_protocol_error", "invalid_models", "adapter_error", "runtime_error", "opencode_own", "" }))
         {
             var draft = Draft();
             draft.ChooseRuntime(Runtime("opencode"));
@@ -160,7 +160,8 @@ public class NewWorkDraftTests
             {
                 RuntimeId = "opencode", Result = new UnavailableModels { Reason = new ErrorInfo { Code = code, Message = Leak } },
             });
-            Assert.That(draft.Problem, Is.EqualTo(unanswered.Contains(code) ? EntryText.ModelsUnanswered : EntryText.ModelsUnreadable), code);
+            var said = unanswered.Contains(code) ? EntryText.ModelsUnanswered : code == "runtime_version_unsupported" ? EntryText.ModelsUnsupported : EntryText.ModelsUnreadable;
+            Assert.That(draft.Problem, Is.EqualTo(said), code);
         }
         var failed = Draft();
         failed.ChooseRuntime(Runtime("opencode"));
