@@ -534,15 +534,19 @@ the same definition names, as the JSON Schema document:
   file steps aside to the right with the menu's slide (`MenuPlane.FileAside`), and nothing on its
   last drawn frame counts, nor its draw as read, until it is back (`MenuNavigator.BesideAside`, as in
   the frames handed out last, so a hold on the details ends at the menu's place until the plane is
-  drawn again). A column newly on the plane, opened or back from aside, takes no press, hold or
-  subject press until it has opened (`MenuPlane.OpeningSeconds`, today `Glaze.AppearSeconds`, the
-  one place its length is set), so nothing on it, Yes, Send answer or Clear among them, is acted on
-  before it shows whole; its frame still counts as drawn when laid, exactly as one that stood open
-  (`WorkspaceRender` presses each through the plane as the file opens, halfway and after). The
-  menu or the file coming back from aside takes no press as it slides in: every
-  button it shows waits to settle again (`MenuFrameView.Unsettle`). A frame coming back from behind
-  its own side panel in its place is not made to wait: only its buttons whose words changed do. The
-  review of 2026-10-03 judged that harmless, since no Approve or Yes stands there. It places the composition as one panel of its size
+  drawn again). A column newly on the plane, opened, back from aside, or a frame back from behind
+  its own side panel in its place, takes no press, hold or subject press until it has opened
+  (`MenuPlane.OpeningSeconds`, today `Glaze.AppearSeconds`, the one place its length is set),
+  widening ADR 0026's amendment of 2026-10-03 to every column newly on the plane: every button it
+  shows and its subject plate wait to settle (`MenuFrameView.Unsettle`, `GlazeButton.SettleSeconds`,
+  never shorter than the opening), which drops a press before its flash, its sound or a hold's timer
+  starts, and the plane refuses whatever still reaches it until the opening ends. The frame it
+  opened in counts nothing toward the opening, and no frame counts more than a twentieth of a
+  second, so one long frame never opens a column before it is seen. Its frame still counts as
+  drawn when laid, exactly as one that stood open. `WorkspaceRender` presses every button of a
+  file opening with Send answer, Yes or Clear, of the menu opened from its bar and of a side panel
+  opening (carrying Yes in its file's place where it stands there) as a hand presses it, then
+  past the buttons as it opens and halfway, and once it has opened. It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks
   (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
   (`PlaceAhead`), and slides every part to its new place, so the plane re-centres as one piece and
