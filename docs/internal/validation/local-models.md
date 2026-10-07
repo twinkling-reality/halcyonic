@@ -213,8 +213,10 @@ never decreased, even across the three compactions; their `rate_limits` are all 
 - **Salidium** discovers rollouts under `$CODEX_HOME/sessions` and `archived_sessions` of its own
   environment (`~/.codex` by default), with no filter on `thread_source` or `originator`, takes the
   model from `turn_context` as any string and records compactions (its Codex rollout parser, read
-  at `e663354`). So it shows a Halcyonic thread on a local model once the thread is written to the
-  developer's `CODEX_HOME`, which the adapter keeps. Not run: these runs used a scratch `CODEX_HOME`.
+  at `e663354`). So it showed a Halcyonic thread on a local model once the thread was written to the
+  developer's `CODEX_HOME`, which the adapter kept until 2026-10-07; since then the adapter uses a
+  home of its own, which Salidium does not read (below). Not run: these runs used a scratch
+  `CODEX_HOME`.
 - **Seorak** before its commit `7934de5e` skipped every such thread (any `thread_source` other than
   `"user"`) and refused model ids with `:`. Its predicates at `7934de5e`, applied to these
   rollouts, capture them and keep the model.
@@ -305,8 +307,85 @@ stopping it at once on any socket beyond loopback:
   not off, probably made the same request; inferred, not captured. A fresh home whose `sessions`
   folder is all of the developer's history also first indexes that history into a state database
   (stderr: "state db backfill is running"), long enough that `initialize` was not answered in time.
-- Whether Halcyonic's adapter should start every local-model thread with these settings is open
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); the adapter is unchanged.
+- Whether Halcyonic's adapter should start every local-model thread with these settings was open
+  when this was recorded; the adapter now does, in a home of its own (2026-10-07, below).
+
+### Codex in a home of its own, local models only (2026-10-07)
+
+The decision ([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of
+2026-10-07): the adapter launches Codex with `CODEX_HOME` set to `<data dir>/codex-home`, mode
+700, never the person's `~/.codex`, refuses a home that is a link, another user's, open to others
+or holding `auth.json`, and passes the switches as `-c` overrides on every launch, above the
+home's `config.toml`. A thread runs only on a provider served on this Mac.
+
+- **The overrides take effect** (runtime test, the pinned 0.157.0 `codex app-server` over stdio, a
+  fresh scratch `CODEX_HOME` and `HOME` with no configuration and no sign-in, one `initialize`):
+  launched with `-c features.plugins=false -c check_for_update_on_startup=false
+  -c analytics.enabled=false -c web_search="disabled" -c cli_auth_credentials_store="file"`,
+  `config/read` reported `features.plugins: false`, `check_for_update_on_startup: false`,
+  `analytics.enabled: false`, `web_search: "disabled"` and `cli_auth_credentials_store: "file"`,
+  with `model_provider` and `model` null. Nothing reached stderr. lsof listed the server's internet
+  sockets every 200 ms for 30 s through startup and idle: none, and lsof could see the process in
+  all 149 samples. The home then held Codex's SQLite databases (`state_5`, `logs_2`, `goals_1`,
+  `memories_1`, `queue_1`), `installation_id`, a `skills` folder and `tmp`.
+- **The full set, after the security review** (the same scratch run, 2026-10-07): with every
+  feature of 0.157.0 that is on by default and reaches the network or another app set false by
+  `-c` (`plugins`, `apps`, `remote_plugin`, `in_app_updates`, `image_generation`, `browser_use`,
+  `browser_use_external`, `computer_use`, `skill_mcp_dependency_install`, `tool_suggest`,
+  `daemon_auto_start`; each `default_enabled: true` in `codex-rs/features/src/lib.rs` at
+  rust-v0.157.0, where `plugin_sharing` and `system_proxy_fallback` are too, and were added), and
+  `mcp_oauth_credentials_store="file"`, `config/read` reported each as set and nothing reached
+  stderr or the network in its short run. `config/read`'s `features` echoes any key it is given,
+  `zz_not_a_feature` included, so that each feature exists was read from the source, not from
+  the answer; an unknown top-level key is left out of the answer.
+- **`app-server` takes `-c`**, as its `--help` says: "Override a configuration value that would
+  otherwise be loaded from `~/.codex/config.toml`." `--disable <FEATURE>` is the same as
+  `-c features.<name>=false`.
+- **Sign-in:** the binary's text names `cli_auth_credentials_store` with `"file"`, and a keyring
+  store; with `"file"`, a sign-in can only come from `auth.json` in the home, which the adapter
+  refuses. It names `OPENAI_API_KEY`, `CODEX_API_KEY`, `CODEX_ACCESS_TOKEN`,
+  `OPENAI_IDENTITY_TOKEN_FILE`, `CODEX_CONNECTORS_TOKEN` and `CODEX_GITHUB_PERSONAL_ACCESS_TOKEN`
+  among the variables it reads; the adapter refuses them, and the control plane leaves them out of
+  what `HALCYONIC_AGENT_ENV` passes to Codex. Which of them app-server reads at startup was not
+  tested.
+- **Web search:** the binary's text names `web_search` with `disabled`, `cached`, `indexed` and
+  `live`, and says that when it is on "the native Responses `web_search` tool is available to the
+  model". It was turned off so no local model is offered a tool that a provider might run remotely;
+  whether Ollama's Responses API would run one was not tested.
+- **Codex's source, read for the security review's findings** (github.com/openai/codex at tag
+  `rust-v0.157.0`, 2026-10-07; read, not built):
+  - `codex-rs/features/src/lib.rs`: each feature turned off has `default_enabled: true`.
+  - `codex-rs/model-provider-info/src/lib.rs`, `merge_configured_model_providers`: a configured
+    entry under a built-in provider's id is ignored, except Amazon Bedrock's (`amazon-bedrock`,
+    `amazon-bedrock-runtime`); `create_oss_provider` reads `CODEX_OSS_PORT` and
+    `CODEX_OSS_BASE_URL`.
+  - `codex-rs/config/src/config_layer_source.rs`, `precedence()`: device profile 0, system
+    `config.toml` 10, enterprise-managed 15, the home 20 (21 with a profile), a project 25, `-c`
+    overrides 30, `managed_config.toml` 40 and its device-profile form 50.
+  - `codex-rs/core/src/config/managed_features.rs`, `normalize_candidate`: requirements' pinned
+    features are set over the configuration; `codex-rs/config/src/config_requirements.rs`,
+    `apply_exact_to_config`, projects only some requirement fields into `config/read`, not pinned
+    features.
+  - `codex-rs/app-server-protocol/src/protocol/common.rs` and `v2/config.rs`:
+    `configRequirements/read` takes no parameters and answers `requirements`, "Null if no
+    requirements are configured"; the method is in the pinned binary's stable method list
+    (`fixtures/methods-stable.json`). On this Mac it answered `{"requirements": null}` (runtime
+    test, a scratch home).
+  - `codex-rs/app-server/src/request_processors/thread_processor.rs`, `thread/start`: when a
+    folder's trust is unknown, it is not projectless and the thread's sandbox can write it, Codex
+    records the folder, or its git root, as trusted in the home's `config.toml`;
+    `codex-rs/config/src/loader/mod.rs` decides projectless (no root marker, `.git` by default, no
+    checkout root and no project layer).
+- **The network probe**, the check to re-run on every Codex upgrade, is the end to end test
+  "nothing leaves loopback through startup, idle and a full run on a local model"
+  (`packages/integrations/codex/src/codex-runtime.e2e.test.ts`). Its runs are recorded here as
+  they are made; none had run at this commit.
+- **System configuration:** the binary's text names `/etc/codex/config.toml`,
+  `/etc/codex/managed_config.toml` and `/etc/codex/requirements.toml`, which Codex would read
+  whatever the home (inferred from the text, not run). `/etc/codex` does not exist on this Mac
+  (2026-10-07). A managed setting that moved a thread to another provider or model, or changed its
+  approvals, would be refused by the adapter's check of what Codex reports for the thread; one that
+  turned plugins back on would be seen only by the probe.
 
 ## Speed and memory
 
@@ -338,6 +417,8 @@ tokens a second; the cause was not found.
   prompt processing of the other two. Long contexts are slow with every model, because the
   prefix cache rarely survives OpenCode's rewriting of earlier turns.
 - A client should expect the first turn on a model to take tens of seconds.
+- Through Halcyonic, Codex runs only on models served on this Mac, from a home of its own with
+  plugins, the update check, analytics and web search off on every launch (2026-10-07, above).
 - Codex runs local models through the adapter's new options, and compacts on time when told the
   window; without `context_window` it assumes 272,000 tokens. Its lists cannot tell which models a
   local provider serves, so a model list for Codex has to come from its configuration, not from

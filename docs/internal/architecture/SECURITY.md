@@ -55,24 +55,36 @@ has on by default that reach the network or another app (`apps`, `remote_plugin`
 `system_proxy_fallback`) set to false, `check_for_update_on_startup=false`,
 `analytics.enabled=false` (the analytics events client, and the metrics sent to ab.chatgpt.com),
 `web_search="disabled"`, and `cli_auth_credentials_store="file"` and
-`mcp_oauth_credentials_store="file"`, so no credential is read from the keychain. Codex ranks its
-configuration layers: the home's `config.toml` and a trusted project's `.codex/config.toml` below
-the launch's `-c` overrides, and a managed layer above them, `/etc/codex/managed_config.toml` or a
-device management profile (precedence 30 for the overrides, 40 and 50 for the managed layers, as
-the security review read the rust-v0.157.0 source). So at every start the adapter checks that
-`config/read` reports each of these settings, and refuses the start when one is missing;
-`/etc/codex` does not exist on this Mac. The proxy variables never reach Codex from the control
-plane, and the adapter sets `NO_PROXY` to loopback after any additions, so a request to Ollama, the
-prompts and code with it, never goes through a proxy. Variables that move Codex's work or data
-elsewhere are refused: `CODEX_EXEC_SERVER_*` (commands on a remote exec server),
-`CODEX_OSS_BASE_URL` and `CODEX_OSS_PORT` (the local providers' address) and `CODEX_SQLITE_HOME`
-(the databases outside the home).
+`mcp_oauth_credentials_store="file"`, so no credential is read from the keychain. Codex ranks
+its configuration layers by precedence (`codex-rs/config/src/config_layer_source.rs` at
+rust-v0.157.0): a device profile's settings 0, `/etc/codex/config.toml` 10, enterprise-managed
+settings 15, the home's `config.toml` 20, a project's `.codex/config.toml` 25, the launch's `-c`
+overrides 30, and above them `/etc/codex/managed_config.toml` 40 and its device-profile form 50.
+Managed requirements (`/etc/codex/requirements.toml` or a device profile) are not a layer: they can
+pin a feature on over the whole configuration (`codex-rs/core/src/config/managed_features.rs`)
+while `config/read` still reports it off, since only some of their fields are projected into it
+(`apply_exact_to_config`, `codex-rs/config/src/config_requirements.rs`). So right after every
+launch, before anything is listed, and again at every start, the adapter checks that `config/read`
+reports each of these settings, which catches the managed files, and that `configRequirements/read`
+reports no requirements at all (null, "no requirements are configured",
+`codex-rs/app-server-protocol/src/protocol/v2/config.rs`); otherwise it stops the server and
+refuses. `/etc/codex` does not exist on this Mac, and `configRequirements/read` answers null here.
+The proxy variables never reach Codex from the control plane, and the adapter sets `NO_PROXY` to
+`localhost,127.0.0.1,::1` after any additions, so a request to Ollama, the prompts and code with
+it, never goes through a proxy. No `CODEX_` or `OPENAI_` variable can be configured for Codex: the
+control plane leaves the `OPENAI_` ones it passes to other runtimes out, and the adapter refuses
+any, among them `CODEX_EXEC_SERVER_*` (commands on a remote exec server), `CODEX_OSS_BASE_URL`
+and `CODEX_OSS_PORT` (the local providers' address), `CODEX_SQLITE_HOME` (the databases outside
+the home) and `CODEX_ROLLOUT_TRACE_ROOT` (a trace of prompts, responses and terminal output
+wherever it points).
 
 "Served on this Mac" means sent to a loopback address. A thread's model provider must be one
-Codex sends to loopback, Ollama on port 11434 in practice, judged as Codex 0.157.0 judges it:
+Codex sends to `localhost`, `127.0.0.1` or `::1`, the names `NO_PROXY` covers, Ollama on port 11434 in practice, judged as Codex 0.157.0 judges it:
 `openai` by `openai_base_url` alone and `ollama` and `lmstudio` by their built-in address, since
 Codex ignores a configured entry under a built-in provider's id (except Amazon Bedrock's); the
-provider is named on the thread explicitly. A model Ollama runs on its own remote service
+provider is named on the thread explicitly. Amazon Bedrock is always remote: Codex signs in to it
+with AWS credentials, which its SSO and STS clients may fetch from AWS whatever address it is
+given. A model Ollama runs on its own remote service
 (`:cloud`, `-cloud`, in any case) is refused, and the model list leaves out every model not served
 on this Mac. The home is checked again at every start, so a sign-in put there after the launch
 refuses the next start, and its mode is never changed: one others could open is refused, to be
@@ -84,9 +96,10 @@ the server's process tree through startup, idle and a full run on a local model,
 every Codex upgrade ([local-models.md](../validation/local-models.md)).
 
 A project's own Codex settings still apply. On `thread/start` for a folder whose trust the
-configuration does not record, Codex 0.157.0 writes `[projects."<folder, or its git root>"]
-trust_level = "trusted"` into the home's `config.toml` whenever the thread's sandbox can write the
-folder, as `workspace-write` can (`codex-rs/app-server/src/request_processors/thread_processor.rs`
+configuration does not record, and which is not projectless (it has a project root marker, `.git`
+by default, a checkout root, or a `.codex` configuration of its own; `codex-rs/config/src/loader/mod.rs`),
+Codex 0.157.0 writes `[projects."<folder, or its git root>"] trust_level = "trusted"` into the
+home's `config.toml` whenever the thread's sandbox can write the folder, as `workspace-write` can (`codex-rs/app-server/src/request_processors/thread_processor.rs`
 at rust-v0.157.0). The repository's `.codex/config.toml` then applies: MCP servers, the sandbox's
 network access, hooks and command rules. Above it hold only the launch's `-c` settings and the
 adapter's checks of what Codex reports for the thread (folder, sandbox, approval policy, provider
