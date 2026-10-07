@@ -120,6 +120,42 @@ public class ActivityLogTests
         Assert.That(log.For(execution).Select(entry => entry.Text), Has.None.Contains("ECONNREFUSED").And.None.Contains("OpenCode").And.None.Contains("/Users/"));
     }
 
+    /// <summary>
+    /// A start that failed never ran, so it never says to see what it's doing: the log's command line, the
+    /// last-sent line and the character's note all point to your computer instead (the review, 2026-10-07).
+    /// </summary>
+    [Test]
+    public void AFailedStartNeverSaysToSeeWhatItsDoing()
+    {
+        var execution = "01a0dcf1-5e68-7034-8b08-109e41ae25e9";
+        const string LostTouch = "your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again.";
+        var log = new ActivityLog();
+        log.Record(new[]
+        {
+            Journaled(1, "command.failed", "{\"command_id\":\"01a0dcf1-6e6c-74af-93ca-dea260db9472\",\"command_type\":\"execution.start\","
+                + "\"failure\":{\"code\":\"runtime_unreachable\",\"message\":\"gone\",\"effect\":\"none\"}}", execution),
+        });
+        Assert.That(log.For(execution).Single().Text, Is.EqualTo("Couldn't start work: " + LostTouch));
+
+        var start = new CommandView
+        {
+            CommandId = Guid.NewGuid().ToString("D"), CommandType = CommandType.ExecutionStart, Status = CommandStatus.Failed,
+            ProjectId = Samples.ProjectId, WorkstreamId = "w1", ExecutionId = execution, IssuedAt = Samples.Time, UpdatedAt = Samples.Time,
+            Failure = new CommandFailure { Code = "runtime_unreachable", Message = "gone", Effect = FailureEffect.None },
+        };
+        Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Couldn't do that: " + LostTouch));
+        start.Failure.Code = "codex_other";
+        Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Couldn't do that: " + WorkspaceText.NothingChanged.Substring(0, 1).ToLowerInvariant() + WorkspaceText.NothingChanged.Substring(1)));
+
+        var never = Samples.Execution(execution, "w1", ExecutionStatus.Failed);
+        never.StartedAt = null;
+        never.TurnCount = 0;
+        never.StatusReason = new ErrorInfo { Code = "runtime_unreachable", Message = "gone" };
+        Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo("Couldn't start: " + LostTouch));
+
+        Assert.That(WorkspaceText.WhyRefused(RejectionCode.DeviceRevoked), Is.EqualTo(ConnectionText.PairingRefused), "one sentence for a revoked pairing");
+    }
+
     [Test]
     public void DescribesWhatWentWrong()
     {
