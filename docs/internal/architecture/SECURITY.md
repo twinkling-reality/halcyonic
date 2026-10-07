@@ -89,7 +89,9 @@ wherever it points).
 "Served on this Mac" means sent to a loopback address. A thread's model provider must be one
 Codex sends to `localhost`, `127.0.0.1` or `::1`, the names `NO_PROXY` covers, Ollama on port 11434 in practice, judged as Codex 0.157.0 judges it:
 `openai` by `openai_base_url` alone and `ollama` and `lmstudio` by their built-in address, since
-Codex ignores a configured entry under a built-in provider's id (except Amazon Bedrock's); the
+Codex never applies a configured entry under a built-in provider's id (except Amazon
+Bedrock's): it refuses a home whose `config.toml` defines one, and ignores one merged from another
+layer ([local-models.md](../validation/local-models.md)); the
 provider is named on the thread explicitly. Amazon Bedrock is always remote: Codex signs in to it
 with AWS credentials, which its SSO and STS clients may fetch from AWS whatever address it is
 given. A model Ollama runs on its own remote service
