@@ -145,6 +145,9 @@ namespace Halcyonic.XR.Workspace
         private bool dirty = true;
         private MenuBar? shownBar;
 
+        /// <summary>Where Hold to talk's one voice stood when the plane was last laid, so a change lays it again.</summary>
+        private (MenuColumn Kind, string Id, VoiceStage Stage)? drawnVoice;
+
         /// <summary>Focus was away, or the plane folded, last frame: what was drawn then counted for nothing, so it is drawn again on return.</summary>
         private bool away;
 
@@ -347,6 +350,8 @@ namespace Halcyonic.XR.Workspace
             var nowAway = Away;
             if (away && !nowAway) dirty = true;
             away = nowAway;
+            // Hold to talk shows where the voice stands: listening, writing down, or idle again (ADR 0027).
+            if (Voiced() != drawnVoice) dirty = true;
             LetGoIfMoved();
             // Mid-drag nothing is laid again under the hand; the plane is drawn where it was left once let go.
             if (drag != null) return;
@@ -423,9 +428,26 @@ namespace Halcyonic.XR.Workspace
             }
             var (eyes, looking) = anchor.Value;
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
+            drawnVoice = Voiced();
+            plane.Voice = drawnVoice;
             plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved);
             // Only as much of a drag as still holds for what is laid now; none, and Settings says so.
             moved = plane.Moved;
+        }
+
+        /// <summary>
+        /// Where Hold to talk's one voice stands for the column that held, as the plane draws it on that
+        /// column's held prompt; null while it is idle or that column is off the plane. Read every frame, it
+        /// allocates nothing.
+        /// </summary>
+        private (MenuColumn Kind, string Id, VoiceStage Stage)? Voiced()
+        {
+            if (voice?.Holding is not (IMenuColumn column, string id)) return null;
+            var stage = voice.Stage;
+            if (stage == VoiceStage.Idle) return null;
+            if (navigator.ColumnOf(MenuColumn.File) == column) return (MenuColumn.File, id, stage);
+            if (navigator.ColumnOf(MenuColumn.Menu) == column) return (MenuColumn.Menu, id, stage);
+            return null;
         }
 
         /// <summary>Two bars that read the same: a bar made again each frame draws nothing again.</summary>

@@ -103,6 +103,8 @@ namespace Halcyonic.XR.UI
         private bool on;
         private bool available = true;
         private bool done;
+        private bool waits;
+        private bool listens;
         private GlazeTone? detailTone;
         private Vector2 size;
         private float shownAt;
@@ -511,6 +513,53 @@ namespace Halcyonic.XR.UI
         /// <summary>A press on it is under way, for the editor's renders.</summary>
         public bool PressUnderWay => pressedAt >= 0f;
 
+        /// <summary>
+        /// A prompt whose words say what is under way (<see cref="Prompt.Waits"/>): its words in the secondary
+        /// tone, so the wait's shimmer, lifting them toward white, shows on them (ADR 0027).
+        /// </summary>
+        public bool Waits
+        {
+            get => waits;
+            set
+            {
+                if (waits == value) return;
+                waits = value;
+                paintedState = -1;
+            }
+        }
+
+        /// <summary>
+        /// A held prompt the voice records for (<see cref="Prompt.Listens"/>): its cap filled in the active
+        /// tone, its words in it, and its microphone pulsing every <see cref="Glaze.ListeningPulseSeconds"/>
+        /// unless motion is kept still (ADR 0027).
+        /// </summary>
+        public bool Listens
+        {
+            get => listens;
+            set
+            {
+                if (listens == value) return;
+                listens = value;
+                paintedState = -1;
+                if (!value) Pulse(0f);
+            }
+        }
+
+        /// <summary>How large its icon draws now, as a share of its own size: above 1 at a listening pulse's swell.</summary>
+        public float IconGrowth => icon != null ? icon.transform.localScale.x : 1f;
+
+        /// <summary>
+        /// Its icon at <paramref name="now"/>, in seconds: grown along the listening pulse, a sine that never
+        /// jerks, while it listens and motion may play, else at its own size. Called every frame, it allocates
+        /// nothing and moves nothing but the icon's size inside its cap; the renders call it at the times they draw.
+        /// </summary>
+        public void Pulse(float now)
+        {
+            if (icon == null) return;
+            var grow = listens && !GlazeMotion.Still ? 1f + Glaze.ListeningPulseDepth * Glaze.Loop(now, Glaze.ListeningPulseSeconds) : 1f;
+            if (!Mathf.Approximately(icon.transform.localScale.x, grow)) icon.transform.localScale = new Vector3(grow, grow, 1f);
+        }
+
         /// <summary>Whether what it asked for is done, as the runtime confirmed: shown in the success colours.</summary>
         public bool Done
         {
@@ -625,6 +674,7 @@ namespace Halcyonic.XR.UI
                 }
             }
             Paint();
+            if (listens) Pulse(Time.unscaledTime);
         }
 
         /// <summary>
@@ -680,19 +730,25 @@ namespace Halcyonic.XR.UI
             plate.Fade(opacity);
             if (role != ButtonRole.Prompt || cap == null) return;
 
-            // The prompt's cap: the main action's filled with the accent, any other an outline; it sinks when pressed.
+            // The prompt's cap: the main action's filled with the accent, a listening one's with the active tone,
+            // any other an outline; it sinks when pressed.
             var accent = Glaze.Tone(GlazeTone.Accent);
+            var active = Glaze.Tone(GlazeTone.Active);
             var main = on && available;
+            var listening = listens && available;
             var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed ? 0.92f : 1f);
             if (main) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(accent.Strong));
+            else if (listening) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(active.Strong));
             else cap.Draw(Vector2.one * capSize, capSize / 2f, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
             cap.Selection = main ? SurfaceSelection.MainCap : SurfaceSelection.None;
             cap.Fade(opacity);
-            var words = !available ? GlazeTokens.ColorOf(Glaze.Menu.QuietText) : main ? GlazeTokens.ColorOf(accent.Foreground) : GlazeTokens.Text;
+            // A wait's words in the secondary tone, so its shimmer's lift toward white shows even on Hold to talk's.
+            var words = !available ? GlazeTokens.ColorOf(Glaze.Menu.QuietText) : waits ? GlazeTokens.TextSecondary
+                : listening ? GlazeTokens.ColorOf(active.Foreground) : main ? GlazeTokens.ColorOf(accent.Foreground) : GlazeTokens.Text;
             label.color = new Color(words.r, words.g, words.b, opacity);
             if (icon != null)
             {
-                var glyph = main ? GlazeTokens.ColorOf(accent.OnStrong) : available ? white : GlazeTokens.ColorOf(Glaze.Menu.QuietText);
+                var glyph = main ? GlazeTokens.ColorOf(accent.OnStrong) : listening ? GlazeTokens.ColorOf(active.OnStrong) : available ? white : GlazeTokens.ColorOf(Glaze.Menu.QuietText);
                 icon.color = new Color(glyph.r, glyph.g, glyph.b, opacity);
             }
         }

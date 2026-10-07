@@ -1,7 +1,7 @@
 # ADR 0027: The headset moves only to answer the person or to show a wait
 
 - Status: Proposed
-- Date: 2026-10-04
+- Date: 2026-10-04, amended 2026-10-07 (Hold to talk drawn from the voice in every column; a wait's words in the secondary tone)
 
 ## Context
 
@@ -54,15 +54,44 @@ current pages before this is accepted.
    - Anything the person did not cause, beyond a wait's shimmer and Waiting for you's breath.
 4. **Hold to talk shows three states, centrally.** The menu's one voice (`MenuVoice.Stage`) says
    whether it is idle, listening (recording a hold) or writing down (waiting for the computer's words).
-   The plane draws the held prompt from that, so every column's Hold to talk looks the same:
+   The director passes it to the plane, which draws the held prompt of the column that held voiced
+   (`Footer.Voiced`, `Prompt.Voiced`), so every column's Hold to talk looks the same, New project's
+   included, and no column draws a state of its own:
    - pressed: the lit treatment every held prompt has from its press;
-   - listening: the active tone, its microphone pulsing, "Listening";
-   - writing down: the transcribe icon (speech becoming text), its words shimmering, "Writing down".
-5. **Reduced motion.** "Keep badges still" becomes the one reduced-motion setting. It stops every loop
+   - listening: "Listening", its cap filled and its words drawn in the active tone, its microphone
+     growing and shrinking along a sine (`ListeningPulseSeconds`, `ListeningPulseDepth`);
+   - writing down: the transcribe icon (speech becoming text) and "Writing down", its words shimmering.
+
+   It is laid at the widest of its three words, so it never changes width under the hand, and the
+   voice's own lines ("Listening. Let go when you're done.") add no line to any page.
+5. **A wait's words in the secondary tone.** The shimmer lifts the words toward white, which would not
+   show on near-white words such as Hold to talk's. A prompt that waits draws its words in the
+   secondary tone, so the lift reads the same on "Writing down" as on "Sent…" (decided by the
+   coordinator, 2026-10-05).
+6. **Reduced motion.** "Keep badges still" becomes the one reduced-motion setting. It stops every loop
    (the breath, the turning, the pulse and the shimmer), and the state each shows stays by colour,
    icon and words alone. Presses and slides keep their feedback, which the person caused.
-6. **Cost.** Every motion runs without allocating per frame, changes colours on meshes already built,
-   and adds no draw call: the shimmer recolours the words' own vertices.
+7. **Cost.** Every motion runs without allocating per frame, changes colours or a size on meshes
+   already built, and adds no draw call: the shimmer recolours the words' own vertices, and the pulse
+   scales the icon's own mesh.
+
+## Verification
+
+`GlazeRender` draws two strips and fails on any of these:
+
+- `gallery-motion.png`: Sent… and Hold to talk writing down a third, a half and four fifths into the
+  shimmer's sweep, then under Keep badges still. The words change between two points of the sweep,
+  the band lifts them by at least 30 of 255, they return to their own colours once the prompt no
+  longer waits, and every letter keeps its own colour under Keep badges still.
+- `gallery-listening.png`: Hold to talk listening at three points of its pulse, then under Keep badges
+  still. It reads "Listening" in the active tone, its microphone grows by the pulse's depth at the top
+  of the pulse, stands at its own size under Keep badges still and once the voice is idle.
+- Sixty frames of the shimmer, and of the pulse, allocate nothing, and a waiting footer draws as many
+  renderers as the same prompts not waiting.
+
+The workspace render drives the director's voice on a file's question: held, let go, the words come,
+then held and dropped; Hold to talk shows each stage, keeps its width and place, and the page never
+moves.
 
 ## Alternatives considered
 

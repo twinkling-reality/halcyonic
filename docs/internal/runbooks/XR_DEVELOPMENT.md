@@ -938,7 +938,8 @@ the virtual space:
    footer: the first hold asks for the microphone and records nothing, and a line on the page says
    to allow it and hold again. Allow it.
 2. **An idea.** Hold, say "A website for my bakery that shows the menu and the opening hours", let
-   go: a line on the page says "Listening", then "Writing down what you said.", then the sentence
+   go: Hold to talk itself reads "Listening" in the active tone, its microphone pulsing, then shows
+   the transcribe icon and "Writing down", shimmering, and no line is added to the page; then the sentence
    stands in Type my idea's row, chosen, with "This is what your computer heard. Check it before
    you go on." under it. Make the recap: the sentence is the first task, with a name from its first
    words. Nothing has been sent; note how long from letting go to the words.

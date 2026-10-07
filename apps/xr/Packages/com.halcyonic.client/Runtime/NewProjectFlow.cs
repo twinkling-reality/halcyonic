@@ -856,7 +856,9 @@ namespace Halcyonic.Client
 
         public void Said(string words)
         {
-            if (!IsOpen) return;
+            // Where the voice stands, listening or writing down, shows on Hold to talk itself, drawn by the plane
+            // from the menu's one voice (ADR 0027): a line for it would grow the page under the hand.
+            if (!IsOpen || words == VoiceText.Listening || words == VoiceText.Hearing) return;
             said = (step, words);
             Redraw();
         }

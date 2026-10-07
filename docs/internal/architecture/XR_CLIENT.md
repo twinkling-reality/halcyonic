@@ -161,7 +161,14 @@ the same definition names, as the JSON Schema document:
   red only for what went wrong, the cobalt accent only for what can be acted on), sizes as angles at
   the eye (one of Meta's dp is 0.0625 degrees; body text 1.125, nothing under the caption's 0.94),
   targets, radii, plate opacity and motion. Its tests hold every color to its contrast and the sizes
-  to Meta's minimums.
+  to Meta's minimums. Motion follows [ADR 0027](../decisions/0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md)
+  (Proposed): one set of durations, three easings that never overshoot (`EaseOut`, `EaseIn`,
+  `EaseInOut`) and a sine for loops (`Loop`). Only what answers the person or shows a wait moves.
+  A column marks a wait, never animates it: a page line (`PageLine.Waits`), a prompt (`Prompt.Waits`),
+  and the reason a waiting prompt gives (`Footer.ReasonWaits`); the XR layer sweeps one shimmer across
+  those words (`GlazeShimmer`), recolouring the vertices TextMeshPro already built, so it moves no
+  letter, adds no draw call and allocates nothing a frame. A waiting prompt's words draw in the
+  secondary tone so the shimmer's lift shows on them.
 - **`CharacterLabel`** is what a character's label shows, three parts kept apart: the title, the
   state badge and the marks. **`PeekCard`** is what the peek shows: the badge and marks, the first
   reason with more to say than the state, with how many more wait ("(+1 more)"), else what it did
@@ -467,9 +474,15 @@ the same definition names, as the JSON Schema document:
   where before its cap sank only once the hold had started. Painting changes nothing of when a hold
   starts or what it raises. It runs
   Hold to talk's one voice for any held
-  prompt (in a file, Hold to talk itself reads "Listening" while it records and "Writing down" while the
-  computer writes down what was said, laid at the widest of its three
-  words so it never changes width under the hand, `Prompt.AlsoReads`; no line grows the page for it), and passes presses and holds only while the app has focus. A draw while focus is away or
+  prompt, and shows where it stands on the held prompt itself, the same in every column (ADR 0027): the
+  director passes the voice's stage (`MenuVoice.Stage`) to the plane, which draws that column's held
+  prompt voiced (`Footer.Voiced`, `Prompt.Voiced`). Pressed, it takes the lit treatment; while it records
+  it reads "Listening" in the active tone, its cap filled with it and its microphone pulsing
+  (`Glaze.ListeningPulseSeconds`, `ListeningPulseDepth`); while the computer writes down what was said
+  it shows the transcribe icon and "Writing down", shimmering in the secondary tone. It is laid at the
+  widest of its three words so it never changes width under the hand (`Prompt.AlsoReads`, which Hold to
+  talk carries by default), and no line grows the page for it. A change of stage lays the plane again; a
+  frame of the pulse allocates nothing. It passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns
   what was read only while the person is there. While the menu is open or a file stands on the plane
   it covers the stage's banner's place (`AmbientCover`, a panel), so the banner steps aside and a
@@ -1722,8 +1735,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   under the titles; on the stage the titles, the peek and the banner, a step wider so its lines
   stay as many (`StageBanner.WidestDegrees`), take it (`GlazeText.Scale`,
   only for labels made with it), while the badges' words, which stand where space is fixed, keep
-  their size. Keep badges still stops Starting's and Working's icons turning and
-  Waiting for you breathing (`StateBadgeView.Still`). One button steps the sounds from on to quieter
+  their size. Keep badges still is the one reduced-motion setting (`GlazeMotion.Still`, ADR 0027): it
+  stops Starting's and Working's icons turning, Waiting for you breathing, every wait's shimmer and
+  Hold to talk's listening pulse, each state still told by colour, icon and words. One button steps the sounds from on to quieter
   (half their amplitude, 6 dB down), to off and on again, named for the level it steps to
   (`AudioListener.volume`: Halcyonic's cues are the only sounds the app plays). Every render runs at
   both text sizes.

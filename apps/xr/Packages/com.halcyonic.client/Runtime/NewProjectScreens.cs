@@ -469,8 +469,7 @@ namespace Halcyonic.Client
             if (exchange.WrittenHeard && exchange.Chosen == CompanionAnswerRow.Written) lines.Add(new PageLine(VoiceText.HeardAnswer, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var talk = voice && !recorded && answering
-                ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: quiet == null, reason: quiet, holds: true,
-                    waits: exchange.Waiting)
+                ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: quiet == null, reason: quiet, holds: true)
                 : null;
             // Beside Close and Hold to talk the whole words don't fit a file's footer (the workspace render: 0.657 of 0.618), so the shorter.
             if (withoutIt && exchange.Proposal == null)

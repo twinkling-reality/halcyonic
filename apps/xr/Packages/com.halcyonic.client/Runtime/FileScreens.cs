@@ -159,16 +159,8 @@ namespace Halcyonic.Client
         private static Prompt Action(WorkspaceAction action, string id, bool main = false) =>
             new Prompt(id, WorkspaceText.Label(action), WorkspaceText.IconOf(action), main: main);
 
-        private static Prompt Talk(FileScreen screen) => new Prompt(HoldToTalk, TalkWords(screen), TalkIcon(screen), holds: true, waits: TalkWaits(screen), alsoReads: VoiceText.TalkReads);
-
-        /// <summary>Hold to talk's words: where the voice stands while it listens or writes down, else its own.</summary>
-        internal static string TalkWords(FileScreen screen) => screen.Voice ?? VoiceText.HoldToTalk;
-
-        /// <summary>The microphone while it waits or listens; the pen on a note while what was said is written down.</summary>
-        internal static GlazeIcon TalkIcon(FileScreen screen) => screen.Voice == VoiceText.WritingDownWords ? GlazeIcon.WritingDown : GlazeIcon.HoldToTalk;
-
-        /// <summary>Hold to talk shimmers while what was said is written down, a wait; listening is the person talking, no wait.</summary>
-        internal static bool TalkWaits(FileScreen screen) => screen.Voice == VoiceText.WritingDownWords;
+        /// <summary>Hold to talk; where the voice stands, listening or writing down, the plane draws on it from the menu's one voice (<see cref="Prompt.Voiced"/>).</summary>
+        private static Prompt Talk => new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
 
         private static Prompt CancelChoice => new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close);
 
@@ -260,7 +252,7 @@ namespace Halcyonic.Client
             return new Footer(
                 CloseFile,
                 rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
-                secondary: tell != null && screen.Speak ? Talk(screen) : null,
+                secondary: tell != null && screen.Speak ? Talk : null,
                 farRight: tell);
         }
 

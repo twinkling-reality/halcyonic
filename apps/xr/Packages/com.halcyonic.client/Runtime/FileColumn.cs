@@ -321,17 +321,13 @@ namespace Halcyonic.Client
             answerDraft = draft;
         }
 
+        /// <summary>Where the voice stands after a hold shows on Hold to talk itself, drawn by the plane from the menu's one voice (ADR 0027).</summary>
         public void HoldEnded(string id, bool letGo)
         {
-            // Dropped, nothing is written down; let go, the voice says so as it starts.
-            if (letGo || Screen.Voice == null) return;
-            Screen.Voice = null;
-            Rebuild();
         }
 
         public void Heard(string text)
         {
-            Screen.Voice = null;
             if (answering)
             {
                 // What was heard becomes the typed answer, sent only by Send answer, and only for the very
@@ -357,15 +353,10 @@ namespace Halcyonic.Client
 
         public void Said(string words)
         {
-            // Where the voice stands, listening or writing down, shows on Hold to talk itself: a line for it
-            // would grow the page and move the very prompt held. Anything else it says is a notice.
-            if (words == VoiceText.Listening || words == VoiceText.Hearing)
-            {
-                Screen.Voice = words == VoiceText.Listening ? VoiceText.ListeningWords : VoiceText.WritingDownWords;
-                Rebuild();
-                return;
-            }
-            Screen.Voice = null;
+            // Where the voice stands, listening or writing down, shows on Hold to talk itself, drawn by the plane
+            // from the menu's one voice: a line for it would grow the page and move the very prompt held.
+            // Anything else it says is a notice.
+            if (words == VoiceText.Listening || words == VoiceText.Hearing) return;
             Notify(words);
             Rebuild();
         }
@@ -386,7 +377,6 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
-            Screen.Voice = null;
             var outcome = Steering.FocusLeft();
             if (outcome.Step == SteeringStep.Explain) Notify(outcome.Message!);
             Rebuild();

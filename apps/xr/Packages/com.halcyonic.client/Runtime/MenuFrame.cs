@@ -360,16 +360,22 @@ namespace Halcyonic.Client
         /// else is carried there but Close details, paging and Cancel (<see cref="Footer.InPlace"/>).
         /// </param>
         /// <param name="waits">What it says is under way, as Sent… or Hold to talk writing down: its words shimmer, and so does its reason drawn as the page's last line (ADR 0027).</param>
-        /// <param name="alsoReads">The words it shows in place of <paramref name="words"/> as its state changes, as Hold to talk's while the voice listens or writes down.</param>
+        /// <param name="listens">A held prompt the voice records for now: drawn in the active tone, its microphone pulsing (ADR 0027).</param>
+        /// <param name="alsoReads">
+        /// The words it shows in place of <paramref name="words"/> as its state changes; Hold to talk, the
+        /// microphone on a held prompt, also reads the voice's words (<see cref="VoiceText.TalkReads"/>) unless told otherwise.
+        /// </param>
         public Prompt(string id, string words, GlazeIcon icon, PromptKind kind = PromptKind.Action, bool main = false, bool available = true,
-            string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false, bool waits = false, IReadOnlyList<string>? alsoReads = null)
+            string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false, bool waits = false, bool listens = false,
+            IReadOnlyList<string>? alsoReads = null)
         {
-            Waits = waits;
             if (string.IsNullOrEmpty(id)) throw new ArgumentException("A prompt raises an id.", nameof(id));
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A prompt has its words.", nameof(words));
             if (icon == GlazeIcon.HoldToTalk && !holds) throw new ArgumentException("Only a held prompt shows the microphone.", nameof(icon));
             if (main && kind != PromptKind.Action) throw new ArgumentException("Only an action is ever the main action: never paging, Close or a confirmation.", nameof(main));
             if (holds && (main || kind != PromptKind.Action)) throw new ArgumentException("A held prompt is a plain action.", nameof(holds));
+            if (listens && !holds) throw new ArgumentException("Only a held prompt listens.", nameof(listens));
+            if (listens && waits) throw new ArgumentException("Listening is the person talking, no wait.", nameof(waits));
             if (!available && string.IsNullOrWhiteSpace(reason) && (kind == PromptKind.Action || kind == PromptKind.Yes))
             {
                 throw new ArgumentException("An action that can't be taken now says why, on the page's last content line; only paging is quiet without a reason.", nameof(reason));
@@ -384,7 +390,9 @@ namespace Halcyonic.Client
             Holds = holds;
             PageExplains = pageExplains;
             SafeInPlace = safeInPlace;
-            AlsoReads = alsoReads ?? Array.Empty<string>();
+            Waits = waits;
+            Listens = listens;
+            AlsoReads = alsoReads ?? (icon == GlazeIcon.HoldToTalk ? VoiceText.TalkReads : Array.Empty<string>());
             if (AlsoReads.Any(string.IsNullOrWhiteSpace)) throw new ArgumentException("Every word a prompt may read is words.", nameof(alsoReads));
         }
 
@@ -413,6 +421,9 @@ namespace Halcyonic.Client
         /// <summary>What it says is under way: its words shimmer, and so does its reason drawn as the page's last line, while it shows (ADR 0027).</summary>
         public bool Waits { get; }
 
+        /// <summary>A held prompt the voice records for now: the active tone, its microphone pulsing, unless motion is kept still (ADR 0027).</summary>
+        public bool Listens { get; }
+
         /// <summary>
         /// The words it shows in place of <see cref="Words"/> as its state changes; the view lays it at the
         /// widest of them all, so it never changes width under the hand.
@@ -421,6 +432,22 @@ namespace Halcyonic.Client
 
         /// <summary>Drawn as the main action: the accent on its cap and words. An unavailable main action keeps its place but is drawn quiet.</summary>
         public bool DrawnAsMain => Main && Available;
+
+        /// <summary>
+        /// This held prompt as Hold to talk's one voice at <paramref name="stage"/> shows it (ADR 0027), the
+        /// same in every column: listening, "Listening" with its microphone listening; writing down, the
+        /// transcribe icon and "Writing down", a wait; idle, or a prompt not held, as it is. It keeps every
+        /// word it may read, so it is laid at the same width whatever it shows.
+        /// </summary>
+        public Prompt Voiced(VoiceStage stage)
+        {
+            if (!Holds || stage == VoiceStage.Idle) return this;
+            var listening = stage == VoiceStage.Listening;
+            var words = listening ? VoiceText.ListeningWords : VoiceText.WritingDownWords;
+            var reads = AlsoReads.Where(each => each != words).Prepend(Words).ToArray();
+            return new Prompt(Id, words, listening ? GlazeIcon.HoldToTalk : GlazeIcon.WritingDown, Kind, Main, Available, Reason, holds: true,
+                pageExplains: PageExplains, safeInPlace: SafeInPlace, waits: !listening, listens: listening, alsoReads: reads);
+        }
     }
 
     /// <summary>
@@ -475,8 +502,15 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Reason => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
 
-        /// <summary>The reason drawn says what is under way, its prompt marked as a wait (<see cref="Prompt.Waits"/>).</summary>
-        public bool ReasonWaits => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Reason != null)?.Waits == true;
+        /// <summary>The reason drawn says what is under way: a prompt giving it is marked as a wait (<see cref="Prompt.Waits"/>), as Make the recap's beside a quiet Hold to talk with the same words.</summary>
+        public bool ReasonWaits
+        {
+            get
+            {
+                var reason = Reason;
+                return reason != null && All.Any(each => !each.Prompt.PageExplains && each.Prompt.Waits && each.Prompt.Reason == reason);
+            }
+        }
 
         /// <summary>
         /// This footer as <paramref name="side"/>, standing in its frame's place, carries it: Close details
@@ -503,6 +537,21 @@ namespace Halcyonic.Client
                 footer.slots[(int)PromptSlot.FarRight] = pager;
                 footer.slots[(int)PromptSlot.Secondary] = null;
             }
+            return footer;
+        }
+
+        /// <summary>
+        /// This footer as Hold to talk's one voice at <paramref name="stage"/> shows it (ADR 0027): the held
+        /// prompt <paramref name="id"/> in its place, voiced (<see cref="Prompt.Voiced"/>); itself while the
+        /// voice is idle or nothing here is that prompt.
+        /// </summary>
+        public Footer Voiced(string id, VoiceStage stage)
+        {
+            if (stage == VoiceStage.Idle) return this;
+            var index = Array.FindIndex(slots, prompt => prompt != null && prompt.Holds && prompt.Id == id);
+            if (index < 0) return this;
+            var footer = new Footer(this);
+            footer.slots[index] = slots[index]!.Voiced(stage);
             return footer;
         }
 

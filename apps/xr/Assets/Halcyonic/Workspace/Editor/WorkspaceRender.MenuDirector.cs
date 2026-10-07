@@ -520,39 +520,56 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 ReadQuestion();
 
-                // The voice says it listens, then writes down: on Hold to talk itself, so the page never grows and
-                // nothing under the hand moves; a press under way goes on, and let go, Hold to talk says so again.
+                // The voice listens, then writes down: shown on Hold to talk itself from the director's one voice
+                // (ADR 0027), so the page never grows and nothing under the hand moves; a press under way goes on,
+                // and once the words come, or the hold is dropped, Hold to talk reads as it did.
+                var (recording, writing) = (false, false);
+                var voice = new MenuVoice(() => recording || writing, () => recording = true, () => (recording, writing) = (false, true), () => (recording, writing) = (false, false));
+                director.VoiceForRender(voice);
                 director.DrawNow();
                 if (plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View is MenuFrameView page
-                    && page.Targets.FirstOrDefault(button => button.Label.text == VoiceText.HoldToTalk) is GlazeButton held)
+                    && page.Footer[PromptSlot.Secondary] is GlazeButton held && held.Label.text == VoiceText.HoldToTalk
+                    && page.Footer.Showing?[PromptSlot.Secondary] is Prompt talk)
                 {
                     var content = page.Parts[page.Parts.Count - 1].position;
                     // Laid at the widest of its words, Hold to talk keeps its width and its cap where the hand holds it.
                     var (wide, at) = (held.Width, held.transform.position);
-                    held.HoldPressForRender();
-                    file.HoldStarted(FileScreens.SpeakAnswer);
-                    foreach (var (said, shows) in new[] { (VoiceText.Listening, VoiceText.ListeningWords), (VoiceText.Hearing, VoiceText.WritingDownWords) })
+                    void Shows(string when, string words, GlazeIcon icon, bool listens, bool waits)
                     {
-                        file.Said(said);
                         director.DrawNow();
-                        if (held.Label.text != shows) failures.Add(name + ": the voice saying \"" + said + "\", Hold to talk read \"" + held.Label.text + "\", not \"" + shows + "\".");
+                        var shimmer = page.Footer.ShimmerOf(PromptSlot.Secondary);
+                        if (held.Label.text != words || page.Footer.Showing?[PromptSlot.Secondary]?.Icon != icon || held.Listens != listens || held.Waits != waits || shimmer?.Waits != waits)
+                        {
+                            failures.Add(name + ": " + when + ", Hold to talk read \"" + held.Label.text + "\" with " + page.Footer.Showing?[PromptSlot.Secondary]?.Icon + ", listening " + held.Listens
+                                + ", waiting " + held.Waits + " and shimmering " + shimmer?.Waits + "; not \"" + words + "\" with " + icon + ", listening " + listens + " and waiting " + waits + ".");
+                        }
                         if (Mathf.Abs(held.Width - wide) > 1e-4f || Vector3.Distance(held.transform.position, at) > 0.0005f)
                         {
-                            failures.Add(name + ": the voice saying \"" + said + "\", Hold to talk changed width by " + ((held.Width - wide) * Glaze.Menu.PlaneMeters * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                            failures.Add(name + ": " + when + ", Hold to talk changed width by " + ((held.Width - wide) * Glaze.Menu.PlaneMeters * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
                                 + " mm or moved " + (Vector3.Distance(held.transform.position, at) * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " mm under the hand.");
                         }
                         var drift = Vector3.Distance(content, page.Parts[page.Parts.Count - 1].position);
                         if (drift > 0.001f)
                         {
-                            failures.Add(name + ": the voice saying \"" + said + "\" moved the file's page " + (drift * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                            failures.Add(name + ": " + when + ", the file's page moved " + (drift * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
                                 + " mm, its lines \"" + string.Join(" / ", page.Frame?.Lines.Select(line => line.Words) ?? Enumerable.Empty<string>()) + "\".");
                         }
                     }
-                    if (!held.PressUnderWay) failures.Add(name + ": a press under way ended as the voice said where it stands.");
+                    director.Navigator.Drawn(MenuColumn.File, plane.Showing(MenuColumn.File), null);
+                    held.HoldPressForRender();
+                    director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
+                    if (!recording) failures.Add(name + ": held, Hold to talk started no voice.");
+                    Shows("held, the voice listening", VoiceText.ListeningWords, GlazeIcon.HoldToTalk, listens: true, waits: false);
+                    if (!held.PressUnderWay) failures.Add(name + ": a press under way ended as the voice began to listen.");
+                    voice.Ended(file, FileScreens.SpeakAnswer, letGo: true);
+                    Shows("let go, the computer writing it down", VoiceText.WritingDownWords, GlazeIcon.WritingDown, listens: false, waits: true);
+                    writing = false;
+                    Shows("the words come", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, listens: false, waits: false);
                     held.EndPressSince(float.MinValue);
-                    file.HoldEnded(FileScreens.SpeakAnswer, letGo: false);
-                    director.DrawNow();
-                    if (held.Label.text != VoiceText.HoldToTalk) failures.Add(name + ": the hold dropped, Hold to talk read \"" + held.Label.text + "\".");
+                    director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
+                    voice.Ended(file, FileScreens.SpeakAnswer, letGo: false);
+                    Shows("held, then dropped", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, listens: false, waits: false);
+                    director.VoiceForRender(new MenuVoice(() => false, () => { }, () => { }, () => { }));
                 }
                 else failures.Add(name + ": no Hold to talk on the question's page to watch as the voice speaks.");
                 Press(FileScreens.Choose, "0");

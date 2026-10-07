@@ -91,8 +91,11 @@ namespace Halcyonic.XR.UI
                     continue;
                 }
                 var button = Button(index);
-                // A prompt whose words say what is under way, as Sent… or Hold to talk writing down, shimmers.
+                // A prompt whose words say what is under way, as Sent… or Hold to talk writing down, shimmers in the
+                // secondary tone; Hold to talk listening takes the active tone, its microphone pulsing (ADR 0027).
                 shimmers[index]!.Waits = prompt.Waits;
+                button.Waits = prompt.Waits;
+                button.Listens = prompt.Listens;
                 button.Holds = prompt.Holds;
                 button.Available = prompt.Available;
                 // As wide as the widest words it may show, so a hold that changes them never moves its cap.
