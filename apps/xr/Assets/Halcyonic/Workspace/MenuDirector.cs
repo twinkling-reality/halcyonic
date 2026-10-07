@@ -313,6 +313,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>For the editor's renders: a held prompt, through the director's own handler.</summary>
         public void HoldPromptForRender(MenuColumn from, Prompt prompt, MenuFrame? frame, SidePanel? side) => OnHoldStarted(from, prompt, frame, side);
 
+        /// <summary>For the editor's renders: one frame, as the headset runs it, drawing only what changed.</summary>
+        public void UpdateForRender() => Update();
+
         /// <summary>For the editor's renders, which have no microphone: the voice the director's holds go to.</summary>
         public void VoiceForRender(MenuVoice voice) => this.voice = voice;
 
