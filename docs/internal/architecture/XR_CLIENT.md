@@ -162,7 +162,7 @@ the same definition names, as the JSON Schema document:
   the eye (one of Meta's dp is 0.0625 degrees; body text 1.125, nothing under the caption's 0.94),
   targets, radii, plate opacity and motion. Its tests hold every color to its contrast and the sizes
   to Meta's minimums. Motion follows [ADR 0027](../decisions/0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md)
-  (Proposed): one set of durations, three easings that never overshoot (`EaseOut`, `EaseIn`,
+  (Accepted): one set of durations, three easings that never overshoot (`EaseOut`, `EaseIn`,
   `EaseInOut`) and a sine for loops (`Loop`). Only what answers the person or shows a wait moves.
   A column marks a wait, never animates it: a page line (`PageLine.Waits`), a prompt (`Prompt.Waits`),
   and the reason a waiting prompt gives (`Footer.ReasonWaits`); the XR layer sweeps one shimmer across

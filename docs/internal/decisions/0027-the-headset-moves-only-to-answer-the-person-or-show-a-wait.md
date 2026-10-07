@@ -1,6 +1,6 @@
 # ADR 0027: The headset moves only to answer the person or to show a wait
 
-- Status: Proposed
+- Status: Accepted on 2026-10-07 by the owner.
 - Date: 2026-10-04, amended 2026-10-07 (Hold to talk drawn from the voice in every column; a wait's words in the secondary tone)
 
 ## Context
