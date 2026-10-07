@@ -265,6 +265,9 @@ public class RealtimeSessionTests
     [TestCase(403, "host_not_allowed", "Your computer refused the name this headset uses for it. Pair it again in Settings.")]
     [TestCase(429, "too_many_requests", "Your computer is turning this headset away for a minute after too many tries. It tries again by itself.")]
     [TestCase(403, "forbidden", "Your computer refused the connection. Restart the app, and pair it again in Settings if it happens again.")]
+    // Your computer refuses a revoked pairing with 401, which ends the session as a refused credential; a
+    // device_revoked by any other status is no pairing line, which would retry for ever (the review's L6).
+    [TestCase(403, "device_revoked", "Your computer refused the connection. Restart the app, and pair it again in Settings if it happens again.")]
     public async Task AnUpgradeRefusedForAnotherReasonIsSaidByItsCode(int status, string code, string words)
     {
         session = new RealtimeSession(Options(options => options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30)),
