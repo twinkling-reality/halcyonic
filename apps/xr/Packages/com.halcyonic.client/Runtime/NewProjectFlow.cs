@@ -1431,8 +1431,13 @@ namespace Halcyonic.Client
         {
             if (!(locationsRead is Task<LocationsResponse> read) || !read.IsCompleted) return false;
             locationsRead = null;
-            if (read.IsCanceled) return false;
-            if (read.IsFaulted) locationsProblem = EntryText.WhyFoldersUnread(read.Exception?.GetBaseException(), host.Api?.AccessRefused ?? ConnectionText.AccessRefused) ?? EntryText.PressTryAgain;
+            if (read.IsCanceled)
+            {
+                // Cancelled by its own deadline, not by this page: a request that didn't answer.
+                if (locationsCancellation?.IsCancellationRequested != false) return false;
+                locationsProblem = EntryText.FoldersUnanswered;
+            }
+            else if (read.IsFaulted) locationsProblem = EntryText.WhyFoldersUnread(read.Exception?.GetBaseException(), host.Api?.AccessRefused ?? ConnectionText.AccessRefused) ?? EntryText.PressTryAgain;
             else
             {
                 // Only a listing read marks a place gone, and every one reads the places again: one back is no longer gone.
@@ -1472,8 +1477,14 @@ namespace Halcyonic.Client
         {
             if (!(modelsRead is Task<RuntimeModelsResponse> read) || !read.IsCompleted) return false;
             modelsRead = null;
-            if (draft.Runtime?.RuntimeId != modelsFor || read.IsCanceled) return false;
-            if (read.IsFaulted) draft.ModelReadFailed(connected: true);
+            if (draft.Runtime?.RuntimeId != modelsFor) return false;
+            if (read.IsCanceled)
+            {
+                // Cancelled by its own deadline, not by this page: a request that didn't answer.
+                if (modelsCancellation?.IsCancellationRequested != false) return false;
+                draft.ModelReadFailed(connected: true, answered: false);
+            }
+            else if (read.IsFaulted) draft.ModelReadFailed(connected: true);
             else draft.SetModels(read.Result);
             ChooseKeptModel();
             return true;

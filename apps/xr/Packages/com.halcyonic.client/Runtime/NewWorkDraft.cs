@@ -116,15 +116,16 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The models couldn't be asked for, <paramref name="connected"/> saying whether the computer was
-        /// connected to ask. Takes no words: a failed request's are the control plane's own.
+        /// connected to ask, and <paramref name="answered"/> whether the request got any reply in time. Takes
+        /// no words: a failed request's are the control plane's own.
         /// </summary>
-        public void ModelReadFailed(bool connected)
+        public void ModelReadFailed(bool connected, bool answered = true)
         {
             models.Clear();
             Model = null;
             ModelPreselected = false;
             PendingModel = null;
-            ModelProblem = connected ? EntryText.ModelsUnreadable : EntryText.ModelsNotConnected;
+            ModelProblem = !connected ? EntryText.ModelsNotConnected : answered ? EntryText.ModelsUnreadable : EntryText.ModelsUnanswered;
         }
 
         /// <summary>Focus went to another window: a first press on a model that runs elsewhere no longer counts.</summary>

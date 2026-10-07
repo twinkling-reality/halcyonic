@@ -121,10 +121,19 @@ public class NewProjectFlowTests
         /// <summary>Paths whose request never gets a reply, failing with this socket error.</summary>
         public Dictionary<string, string> Unreachable { get; } = new();
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        /// <summary>Paths answered only after this long, unless the request gives up first.</summary>
+        public Dictionary<string, TimeSpan> Delays { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var key = request.Method.Method + " " + request.RequestUri!.AbsolutePath;
             Asked.Add(key);
+            if (Delays.TryGetValue(key, out var delay)) await Task.Delay(delay, cancellationToken);
+            return await Answer(key);
+        }
+
+        private Task<HttpResponseMessage> Answer(string key)
+        {
             if (Unreachable.TryGetValue(key, out var socket)) return Task.FromException<HttpResponseMessage>(new HttpRequestException(socket));
             if (Refusals.TryGetValue(key, out var refusal))
             {
@@ -801,6 +810,99 @@ public class NewProjectFlowTests
             Assert.That(words, Has.None.Contains("ECONNREFUSED").And.None.Contains("192.168").And.None.Contains("control plane"), shown);
             Assert.That(words, Does.Contain("Couldn't read your computer's folders.").And.Contain(shown), "the heading, then why");
         }
+    }
+
+    /// <summary>
+    /// A read of the folders or of the models that gets no reply before the headset gives up says it
+    /// didn't answer, never staying on Reading…; giving up is not the page's own cancel.
+    /// </summary>
+    [Test]
+    public async Task ARequestThatTimesOutSaysItDidntAnswer()
+    {
+        var local = Runtime("local", ModelChoice.Listed);
+        var host = new Host { State = WithRuntimes(Runtime("mock"), local) };
+        var routes = new Routes();
+        routes.Delays["GET /api/locations"] = TimeSpan.FromSeconds(30);
+        routes.Delays["GET /api/runtimes/local/models"] = TimeSpan.FromSeconds(30);
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes,
+            requestTimeout: TimeSpan.FromMilliseconds(100), modelsTimeout: TimeSpan.FromMilliseconds(200));
+        host.Api = api;
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Words == EntryText.FoldersUnanswered));
+        Assert.That(flow.Frame!.Lines.Select(line => line.Words), Does.Contain(EntryText.FoldersUnread).And.Not.Contain(EntryText.ReadingFolders));
+        var models = Recapped(host);
+        Press(models, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(models, NewProjectScreens.MoreOptions, null);
+        Press(models, NewProjectScreens.ChooseRuntime, "local");
+        await Until(models, () => models.Frame!.Lines.Any(line => line.Words == EntryText.ModelsUnanswered));
+    }
+
+    /// <summary>
+    /// The headset waits past the 30 s your computer gives an agent app to list its models, so your
+    /// computer's own reason reaches the step rather than the headset giving up first.
+    /// </summary>
+    [Test]
+    public async Task YourComputersOwnReasonForTheModelsArrivesBeforeTheHeadsetGivesUp()
+    {
+        Assert.That((ControlPlaneApi.RequestTimeout, ControlPlaneApi.ModelsTimeout > TimeSpan.FromSeconds(30)), Is.EqualTo((TimeSpan.FromSeconds(15), true)));
+        var local = Runtime("local", ModelChoice.Listed);
+        var host = new Host { State = WithRuntimes(Runtime("mock"), local) };
+        var routes = new Routes();
+        routes.Answers["GET /api/runtimes/local/models"] = () => HalcyonicJson.Serialize(new RuntimeModelsResponse
+        {
+            RuntimeId = "local", Result = new UnavailableModels { Reason = new ErrorInfo { Code = "runtime_version_unsupported", Message = "OpenCode 1.0 is too old." } },
+        });
+        // As 31 s against 15 and 40, scaled down: longer than any other request may take, within a models read's own deadline.
+        routes.Delays["GET /api/runtimes/local/models"] = TimeSpan.FromMilliseconds(310);
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes,
+            requestTimeout: TimeSpan.FromMilliseconds(150), modelsTimeout: TimeSpan.FromMilliseconds(1500));
+        host.Api = api;
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "local");
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Words == EntryText.ModelsUnsupported));
+    }
+
+    /// <summary>A read the page itself gives up, as when it reads again, is never said as one that didn't answer.</summary>
+    [Test]
+    public async Task AReadThePageCancelsNeverSaysItDidntAnswer()
+    {
+        var routes = new Routes();
+        var listing = new LocationsResponse
+        {
+            Roots = new List<LocationRoot>
+            {
+                new()
+                {
+                    Path = "/Users/person/Projects", Name = "Projects", Label = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+                    Folders = new List<LocationFolder> { new() { Name = "race-times", Path = "/Users/person/Projects/race-times" } },
+                },
+            },
+        };
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(listing);
+        routes.Delays["GET /api/locations"] = TimeSpan.FromSeconds(30);
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+        var host = new Host { Api = api };
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        flow.Tick();
+        routes.Delays.Remove("GET /api/locations");
+        Press(flow, NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        var said = new List<string>();
+        for (var tries = 0; tries < 200 && !said.Contains("race-times"); tries++)
+        {
+            await Task.Delay(10);
+            flow.Tick();
+            said.AddRange(flow.Frame!.Lines.Select(line => line.Words));
+        }
+        Assert.That(routes.Asked.Count(asked => asked == "GET /api/locations"), Is.GreaterThanOrEqualTo(2), "read again");
+        Assert.That(said, Has.None.EqualTo(EntryText.FoldersUnanswered).And.None.EqualTo(EntryText.FoldersUnread));
     }
 
     /// <summary>A build sent whose acknowledgement was lost: its outcome unknown, its id kept.</summary>
