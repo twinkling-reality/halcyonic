@@ -137,6 +137,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/xr/Assets/Halcyonic/Pairing/PairingPanel.cs',
+      args: 'LogType.Log, LogOption.NoStacktrace, null, "" , error.GetType().Name',
+      why: "an exception's type name: pairing failed for a reason PairingClient doesn't name",
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Pairing/PairingPanel.cs',
       args: 'LogType.Log, LogOption.NoStacktrace, this, "" , message',
       why: 'the Log helper passing on its own message; its callers are scanned',
     },

@@ -206,7 +206,8 @@ namespace Halcyonic.XR.Pairing
             }
             catch (Exception error)
             {
-                // Never the exception's words on the banner.
+                // Never the exception's words on the banner, and in the device log its type alone.
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null, "Halcyonic: pairing failed: {0}", error.GetType().Name);
                 return new Outcome(null, "error", PairingClient.Failed, null);
             }
         }
