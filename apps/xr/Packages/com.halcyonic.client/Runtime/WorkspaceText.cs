@@ -351,13 +351,19 @@ namespace Halcyonic.Client
             "approval_not_pending" => WhyRefused(RejectionCode.ApprovalNotFound),
             "question_not_pending" => WhyRefused(RejectionCode.QuestionNotFound),
             "no_running_turn" => WhyRefused(RejectionCode.InvalidState),
+            // One code covers a blip and an agent app's ended process or lost thread, where trying again can't succeed.
             "runtime_unreachable" or "runtime_closed" => StateLanguage.LostTouch
-                + (running ? " See what it's doing, then try again." : " Check that the agent app is running on " + HostText.Your + ", then try again."),
+                + (running ? " See what it's doing; if it can't go on, add the task again in Projects." : " Check that the agent app is running on " + HostText.Your + ", then try again."),
             "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
             "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
-            "capability_unimplemented" => WhyRefused(RejectionCode.CapabilityUnsupported),
+            "capability_unimplemented" => running ? WhyRefused(RejectionCode.CapabilityUnsupported) : "Its agent app can't do that. " + WithAnotherAgentApp,
+            // A start that would fail the same way again (the review's L5, settled by the coordinator, 2026-10-07).
+            "runtime_unavailable" when !running => "The agent app isn't available on " + HostText.Your + ". Check its setup there, then add the task again in Projects.",
+            "runtime_version_unsupported" when !running => "This agent app's version on " + HostText.Your + " isn't supported yet. " + WithAnotherAgentApp,
             _ => EntryText.FolderProblem(null, code),
         };
+
+        private const string WithAnotherAgentApp = "Add the task again in Projects with another agent app.";
 
         /// <summary>Said of a step of Start building or Connect that failed with no effect and no cause a person can act on.</summary>
         public const string NothingChanged = "Nothing changed. Try again.";

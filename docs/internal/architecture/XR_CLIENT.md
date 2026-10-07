@@ -134,10 +134,14 @@ the same definition names, as the JSON Schema document:
   the contract (`execution.state_unknown`'s two, and the projection's `runtime_connection_lost`), so
   no person-facing field is needed from the control plane. Why a task couldn't start or finish is
   said the same way (`StateLanguage.CouldNotFinish`), never by the reason's message, an agent app's
-  own error: a start refused over its folder by its code (`EntryText.FolderProblem`), any other
-  start and a failed round by the way on, Tell it where the runtime's capabilities offer it now,
-  else adding the task again in Projects. Failure codes are the adapters' own and open-ended, so a
-  cause the person could act on (a rate limit, missing credentials) is not said yet: that needs a
+  own error: a start refused over its folder by its code (`EntryText.FolderProblem`), a start that
+  failed with a code every agent app shares by `WorkspaceText.WhyFailed` with `running: false` (a lost
+  agent app, one not available, a version not supported, one that can't do that, each with a way on
+  that doesn't fail the same way again), any other start and a failed round by the way on, Tell it
+  where the runtime's capabilities offer it now, else adding the task again in Projects. A command's
+  failure is said the same way, a start's as one that never ran. Other failure codes are the
+  adapters' own and open-ended, so a cause only one adapter names (a rate limit, missing
+  credentials) is not said yet: that needs a
   closed cause in the contract, an open question.
 - **`StateLanguage`** ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md))
   is the one mapping from a task's state to what every surface says and shows: Not started,
@@ -794,7 +798,8 @@ the same definition names, as the JSON Schema document:
   `Unresolved` and offers no retry. Each step says how it went in words (`EntryText.StepStatus`):
   sent, waiting for the result, confirmed only by a completed record, effect unknown, not sent, or
   refused or failed: about a folder, what to do next, from the code and never from the control
-  plane's message; otherwise the control plane's reason by the one rule.
+  plane's message; otherwise by a refusal's code (`WorkspaceText.WhyRefused`) or a code every agent
+  app shares (`WorkspaceText.WhyFailed`), else that nothing changed, never any message.
 - **`ProjectFolder`** is where a project's files live, as the person chose it from what the host
   lists (`GET /api/locations`, [ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)):
   a folder in one of the host's project roots, the root itself, or a new folder the host makes

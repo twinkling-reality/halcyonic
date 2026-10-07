@@ -111,7 +111,7 @@ public class ActivityLogTests
         });
         Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
         {
-            "Couldn't send an instruction: your computer lost touch with the agent app. See what it's doing, then try again.",
+            "Couldn't send an instruction: your computer lost touch with the agent app. See what it's doing; if it can't go on, add the task again in Projects.",
             "Not sure the instruction reached it. Check its activity before you try again.",
             "Couldn't start: your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again.",
             "Couldn't start: your computer can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your computer.",
@@ -154,6 +154,18 @@ public class ActivityLogTests
         Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo("Couldn't start: " + LostTouch));
 
         Assert.That(WorkspaceText.WhyRefused(RejectionCode.DeviceRevoked), Is.EqualTo(ConnectionText.PairingRefused), "one sentence for a revoked pairing");
+
+        // A start that fails the same way again is never told just to try again (the review's L5).
+        foreach (var (code, words) in new[]
+        {
+            ("runtime_unavailable", "Couldn't start: the agent app isn't available on your computer. Check its setup there, then add the task again in Projects."),
+            ("runtime_version_unsupported", "Couldn't start: this agent app's version on your computer isn't supported yet. Add the task again in Projects with another agent app."),
+            ("capability_unimplemented", "Couldn't start: its agent app can't do that. Add the task again in Projects with another agent app."),
+        })
+        {
+            never.StatusReason.Code = code;
+            Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo(words), code);
+        }
     }
 
     [Test]
@@ -332,8 +344,8 @@ public class WorkspacePresenterTests
             ("approval_not_pending", "Couldn't do that: it no longer waits for that decision. See what it's doing now."),
             ("question_not_pending", "Couldn't do that: it's no longer waiting for this answer. See what it's doing now."),
             ("no_running_turn", "Couldn't do that: it can't take that right now. See what it's doing, then try again."),
-            ("runtime_unreachable", "Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
-            ("runtime_closed", "Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
+            ("runtime_unreachable", "Couldn't do that: your computer lost touch with the agent app. See what it's doing; if it can't go on, add the task again in Projects."),
+            ("runtime_closed", "Couldn't do that: your computer lost touch with the agent app. See what it's doing; if it can't go on, add the task again in Projects."),
             ("execution_unknown_to_runtime", "Couldn't do that: this work isn't on your computer any more. Add the task again in Projects to try again."),
             ("model_unavailable", "Couldn't do that: its agent app needs a model. Choose one, then try again."),
             ("capability_unimplemented", "Couldn't do that: its agent app can't do that. See what it's doing, then try something it offers."),
