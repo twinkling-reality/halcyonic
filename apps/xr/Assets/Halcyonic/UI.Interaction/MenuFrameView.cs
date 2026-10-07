@@ -345,6 +345,15 @@ namespace Halcyonic.XR.UI
             foreach (var button in GetComponentsInChildren<GlazeButton>()) button.EndPressSince(since);
         }
 
+        /// <summary>For the editor's renders: a press on <paramref name="action"/>, raised as its button's own press is, to whatever hears this column.</summary>
+        public void PressForRender(string action, string? key = null) => Acted?.Invoke(action, key);
+
+        /// <summary>For the editor's renders: a hold starting on <paramref name="prompt"/>, raised as a held prompt's is.</summary>
+        public void HoldForRender(Prompt prompt) => HoldStarted?.Invoke(prompt);
+
+        /// <summary>For the editor's renders: the subject plate pressed, raised as its own press is.</summary>
+        public void PressSubjectForRender() => SubjectPressed?.Invoke();
+
         /// <summary>How many times its buttons were made to wait to settle again, for the editor's renders.</summary>
         public int Unsettles { get; private set; }
 

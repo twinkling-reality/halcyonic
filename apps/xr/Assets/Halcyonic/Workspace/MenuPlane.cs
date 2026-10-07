@@ -28,11 +28,17 @@ namespace Halcyonic.XR.Workspace
         private const float MeasureSeconds = 0.5f;
 
         private readonly Dictionary<Transform, Slide> slides = new Dictionary<Transform, Slide>();
+
+        /// <summary>The seconds each column newly on the plane has left of its opening, taking nothing until they run out.</summary>
+        private readonly Dictionary<MenuFrameView, float> opening = new Dictionary<MenuFrameView, float>();
         private readonly List<BodyInView> scratch = new List<BodyInView>();
         private readonly List<(MenuColumn Kind, MenuFrameView View)> shown = new List<(MenuColumn, MenuFrameView)>();
         private MenuFrameView menu = null!;
         private MenuFrameView file = null!;
         private MenuFrameView side = null!;
+
+        /// <summary>The menu, the file and the side panel, made once, for stepping each frame without allocating.</summary>
+        private MenuFrameView[] columns = null!;
         private MenuBarView bar = null!;
         private LineRenderer line = null!;
 
@@ -182,6 +188,24 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The closed bar, while it shows.</summary>
         public MenuBarView? Bar => bar.gameObject.activeSelf ? bar : null;
 
+        /// <summary>
+        /// How long a column newly on the plane takes no press, hold or subject press (ADR 0027): as long as it
+        /// takes to appear, so nothing on it, Yes, Send answer or Clear among them, is acted on before it shows
+        /// whole. Its frame still counts as drawn when it is laid (<see cref="Drawn"/>), as before; only acting
+        /// on it waits. The one place the opening's length is set.
+        /// </summary>
+        public static float OpeningSeconds => Glaze.AppearSeconds;
+
+        /// <summary>Whether <paramref name="kind"/>'s column is on the plane and still opening, taking nothing yet.</summary>
+        public bool Opening(MenuColumn kind)
+        {
+            foreach (var (each, view) in shown)
+            {
+                if (each == kind) return opening.ContainsKey(view);
+            }
+            return false;
+        }
+
         /// <summary>Parts are still sliding to their places.</summary>
         public bool Sliding
         {
@@ -216,6 +240,7 @@ namespace Halcyonic.XR.Workspace
             // A file's subject drags the whole plane (ADR 0026).
             plane.file.EnableSubjectHold();
             plane.side = plane.View("Side panel", MenuColumn.Side);
+            plane.columns = new[] { plane.menu, plane.file, plane.side };
             plane.bar = MenuBarView.Create(go.transform, "Menu, closed");
             plane.bar.Acted += _ => plane.Opened?.Invoke();
             plane.bar.Hide();
@@ -236,27 +261,30 @@ namespace Halcyonic.XR.Workspace
             var view = MenuFrameView.Create(transform, name);
             view.Acted += (action, key) =>
             {
-                if (Contains(shown, view)) Acted?.Invoke(kind, action, key, view.Frame, view.Side);
+                if (Takes(view)) Acted?.Invoke(kind, action, key, view.Frame, view.Side);
             };
             view.Drawn += drawn => Drawn?.Invoke(kind, drawn);
             view.HoldStarted += prompt =>
             {
-                if (Contains(shown, view)) HoldStarted?.Invoke(kind, prompt, view.Frame, view.Side);
+                if (Takes(view)) HoldStarted?.Invoke(kind, prompt, view.Frame, view.Side);
             };
             view.HoldEnded += (prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
             view.SubjectHeld += point =>
             {
-                if (Contains(shown, view)) SubjectHeld?.Invoke(kind, view.Frame, point);
+                if (Takes(view)) SubjectHeld?.Invoke(kind, view.Frame, point);
             };
             view.SubjectPressed += () =>
             {
-                if (Contains(shown, view)) SubjectPressed?.Invoke(kind, view.Frame);
+                if (Takes(view)) SubjectPressed?.Invoke(kind, view.Frame);
             };
             view.SubjectDragged += point => SubjectDragged?.Invoke(point);
             view.SubjectLetGo += () => SubjectLetGo?.Invoke();
             view.Hide();
             return view;
         }
+
+        /// <summary>A column takes a press, a hold or a subject press only while it stands on the plane and has opened.</summary>
+        private bool Takes(MenuFrameView view) => Contains(shown, view) && !opening.ContainsKey(view);
 
         /// <summary>
         /// Shows the menu open on <paramref name="menuFrame"/>, or closed to <paramref name="menuBar"/>
@@ -404,6 +432,7 @@ namespace Halcyonic.XR.Workspace
                 cover.SetActive(false);
                 Composition = null;
                 foreach (var (_, view) in before) view.Hide();
+                opening.Clear();
                 bar.Show(menuBar, Glaze.Menu.MenuColumnDegrees);
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
                 Placed = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
@@ -444,6 +473,12 @@ namespace Halcyonic.XR.Workspace
                     if (index == parts.Count - 1) view.Settle(placed, zoom);
                     index++;
                 }
+                // Newly on the plane, as opened or back from stepping aside, it takes nothing until it has opened.
+                if (!WasShown(before, view)) opening[view] = OpeningSeconds;
+            }
+            foreach (var view in columns)
+            {
+                if (!Contains(shown, view)) opening.Remove(view);
             }
             foreach (var (kind, view) in before)
             {
@@ -644,9 +679,15 @@ namespace Halcyonic.XR.Workspace
             return direction.Above ? MenuPage.TopDegrees : -(direction.Elevation + size.HalfHeightDegrees);
         }
 
-        /// <summary>Moves every sliding part on by <paramref name="seconds"/>, and the light line with them; the renders step it themselves.</summary>
+        /// <summary>Moves every sliding part and every column's opening on by <paramref name="seconds"/>, and the light line with them; the renders step it themselves.</summary>
         public void Advance(float seconds)
         {
+            foreach (var view in columns)
+            {
+                if (!opening.TryGetValue(view, out var left)) continue;
+                if (left - seconds <= 0f) opening.Remove(view);
+                else opening[view] = left - seconds;
+            }
             foreach (var pair in slides)
             {
                 var part = pair.Key;

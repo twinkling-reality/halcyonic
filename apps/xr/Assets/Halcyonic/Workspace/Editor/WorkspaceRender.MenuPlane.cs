@@ -164,6 +164,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (plane.FileAside || plane.Shown.All(column => column.Kind != MenuColumn.File)) failures.Add(name + ": the menu's details closed, and the file did not come back.");
                 failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, window));
 
+                // A file opened takes nothing until it has opened, though it counts as drawn when laid.
+                var waitingNow = WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget);
+                failures.AddRange(OpeningTakesNothing(name, plane, waitingNow,
+                    (frame, now) => plane.Show(bar, menu, frame, frame != null ? opened.Target : null, targets, eyes, looking, surface, immediately: now, besideWindow: besideWindow)));
+
                 // Closed, with no file open: the bar alone.
                 plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
                 if (plane.Bar == null) failures.Add(name + ": the menu closed with no file open shows no bar.");
@@ -202,6 +207,96 @@ namespace Halcyonic.XR.Workspace.Editor
             Debug.Log("Halcyonic: workspace render " + name + ": the menu and a file side by side, " + GlazeChecks.Degrees(2f * beside.Size.HalfHeightDegrees)
                 + " degrees tall, stand with their top " + GlazeChecks.Degrees(top) + " degrees below eye level, each label cleared where it stands; cleared at the corners under the deepest label it would be "
                 + GlazeChecks.Degrees(corners) + ". They " + (fits ? "fit" : "do not fit") + " the field there.");
+        }
+
+        /// <summary>
+        /// A column newly on the plane takes nothing until it has opened (ADR 0027; <see cref="MenuPlane.OpeningSeconds"/>):
+        /// on a file opened beside the menu asking Send answer, then Yes, then Clear, that press, a hold on Hold to
+        /// talk and a press on its subject are refused as it opens and halfway through, and the press is taken
+        /// once it has opened. The file counts as drawn when laid, as it does when it stood open: what is
+        /// reported drawn is the same either way, so a page counted while faint is never acted on before it shows.
+        /// </summary>
+        private static IEnumerable<string> OpeningTakesNothing(string name, MenuPlane plane, MenuFrame waiting, System.Action<MenuFrame?, bool> show)
+        {
+            var failures = new List<string>();
+            var taken = new List<string>();
+            var drawn = new List<(MenuColumn Kind, MenuFrame? Frame)>();
+            System.Action<MenuColumn, string, string?, MenuFrame?, SidePanel?> acted = (kind, action, key, frame, side) =>
+            {
+                if (kind == MenuColumn.File) taken.Add(action);
+            };
+            System.Action<MenuColumn, Prompt, MenuFrame?, SidePanel?> held = (kind, prompt, frame, side) =>
+            {
+                if (kind == MenuColumn.File) taken.Add("a hold on " + prompt.Words);
+            };
+            System.Action<MenuColumn, MenuFrame?> subject = (kind, frame) =>
+            {
+                if (kind == MenuColumn.File) taken.Add("a press on its subject");
+            };
+            System.Action<MenuColumn, MenuFrameView> laid = (kind, view) => drawn.Add((kind, view.Frame));
+            plane.Acted += acted;
+            plane.HoldStarted += held;
+            plane.SubjectPressed += subject;
+            plane.Drawn += laid;
+            try
+            {
+                var clearing = new MenuFrame(waiting.Subject, new Footer(PlaneClose, farRight: new Prompt(NewProjectScreens.Clear, EntryText.Clear, GlazeIcon.Next, main: true)),
+                    waiting.SubjectIsData, waiting.Pill, waiting.Sections, waiting.Lines, waiting.Source, waiting.Side, waiting.SourceIsData, waiting.SubjectWaits);
+                var talk = new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
+                foreach (var (frame, asks, what) in new[] { (waiting, "send", "Send answer"), (Confirming(waiting), "yes", "Yes"), (clearing, NewProjectScreens.Clear, "Clear") })
+                {
+                    // Stood open: laid again, it reports what it draws and is not opening.
+                    show(null, true);
+                    plane.Advance(Glaze.SlideSeconds);
+                    show(frame, true);
+                    plane.Advance(Glaze.SlideSeconds);
+                    drawn.Clear();
+                    show(frame, false);
+                    var stoodOpen = drawn.ToList();
+                    if (plane.Opening(MenuColumn.File)) failures.Add(name + ": a file asking " + what + " that stood open is opening again, laid as it was.");
+
+                    // Opened now, from the menu alone.
+                    show(null, true);
+                    plane.Advance(Glaze.SlideSeconds);
+                    drawn.Clear();
+                    show(frame, false);
+                    var openedNow = drawn.ToList();
+                    var view = FindView(plane, "File");
+                    if (view == null || plane.Shown.All(column => column.Kind != MenuColumn.File))
+                    {
+                        failures.Add(name + ": a file asking " + what + " opened, and no file stands on the plane.");
+                        continue;
+                    }
+                    if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": a file asking " + what + " just opened is not opening, so it takes presses before it shows.");
+                    if (!openedNow.Contains((MenuColumn.File, frame))) failures.Add(name + ": a file asking " + what + " just opened was not counted drawn when laid.");
+                    if (!openedNow.SequenceEqual(stoodOpen))
+                    {
+                        failures.Add(name + ": a file asking " + what + " reported drawn " + string.Join(", ", openedNow.Select(each => each.Kind)) + " as it opened, not "
+                            + string.Join(", ", stoodOpen.Select(each => each.Kind)) + " as when it stood open.");
+                    }
+                    taken.Clear();
+                    view.PressForRender(asks);
+                    view.HoldForRender(talk);
+                    view.PressSubjectForRender();
+                    plane.Advance(MenuPlane.OpeningSeconds / 2f);
+                    view.PressForRender(asks);
+                    view.HoldForRender(talk);
+                    view.PressSubjectForRender();
+                    if (taken.Count > 0) failures.Add(name + ": a file asking " + what + " took " + string.Join(", ", taken) + " while it was still opening.");
+                    plane.Advance(MenuPlane.OpeningSeconds);
+                    taken.Clear();
+                    view.PressForRender(asks);
+                    if (!taken.SequenceEqual(new[] { asks })) failures.Add(name + ": a file asking " + what + " that has opened did not take " + what + ".");
+                }
+            }
+            finally
+            {
+                plane.Acted -= acted;
+                plane.HoldStarted -= held;
+                plane.SubjectPressed -= subject;
+                plane.Drawn -= laid;
+            }
+            return failures;
         }
 
         /// <summary>
