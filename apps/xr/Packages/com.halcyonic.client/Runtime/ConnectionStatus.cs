@@ -27,12 +27,13 @@ namespace Halcyonic.Client
     {
         public static readonly ConnectionStatus Stopped = new ConnectionStatus(ConnectionPhase.Stopped);
 
-        public ConnectionStatus(ConnectionPhase phase, string? detail = null, TimeSpan? retryIn = null, bool accessRefused = false)
+        public ConnectionStatus(ConnectionPhase phase, string? detail = null, TimeSpan? retryIn = null, bool accessRefused = false, bool answered = false)
         {
             Phase = phase;
             Detail = detail;
             RetryIn = retryIn;
             AccessRefused = accessRefused;
+            Answered = answered;
         }
 
         public ConnectionPhase Phase { get; }
@@ -46,6 +47,12 @@ namespace Halcyonic.Client
         /// plain words, what to do next.
         /// </summary>
         public bool AccessRefused { get; }
+
+        /// <summary>
+        /// Your computer answered before the last connection ended, as by turning it away or closing it, so
+        /// <see cref="Detail"/> says why on its own, never after "Can't reach your computer".
+        /// </summary>
+        public bool Answered { get; }
 
         /// <summary>How long until the next attempt, while waiting to retry.</summary>
         public TimeSpan? RetryIn { get; }

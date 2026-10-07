@@ -105,7 +105,11 @@ the same definition names, as the JSON Schema document:
   away by its code (`ConnectionText.Ended`: another version of this app, a revoked pairing, too many
   connections), never by the error's message, which is the control plane's own, for developers. An
   upgrade refused for another reason than the credential is said by its code too
-  (`ConnectionText.UpgradeRefused`: a Host name it refuses, too many tries, a revoked pairing).
+  (`ConnectionText.UpgradeRefused`: an address it turns away, too many tries, else the target's own
+  line, `ControlPlaneTarget.TurnedAway`, whose way on is pairing again or restarting the app on the
+  computer). Where the computer answered (turned away, closed, ended, unreadable, behind;
+  `ConnectionStatus.Answered`), that sentence stands alone, never after "Can't reach your computer",
+  which would be untrue.
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the
   calling thread and returns what changed, so the Unity main thread calls it once per frame and no
   state is shared across threads. A consumer that falls more than 10,000 messages behind is

@@ -147,6 +147,10 @@ public class PinnedTransportTests
         Assert.That(pairing.At("fe80::1", 47801).RealtimeEndpoint, Is.EqualTo(new Uri("wss://[fe80::1]:47801/realtime")));
         using (var api = local.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.AccessTokenRefused), "a refused request says what the connection says");
         using (var api = paired.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.PairingRefused));
+        Assert.That((local.TurnedAway, paired.TurnedAway), Is.EqualTo((
+            "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, restart this app on your computer.",
+            "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, pair it again in Settings.")),
+            "a turned-away connection's way on is true for how this headset reaches the computer");
         Assert.Throws<ArgumentException>(() => ControlPlaneTarget.CheckPin("ABC"));
         Assert.Throws<ArgumentException>(() => ControlPlaneTarget.CheckPin(new string('C', 64)));
     }

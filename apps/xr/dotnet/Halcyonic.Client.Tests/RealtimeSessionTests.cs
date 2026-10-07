@@ -262,12 +262,13 @@ public class RealtimeSessionTests
     /// the Host header or a 429 after too many credentials, is said by its code, never the control plane's
     /// message.
     /// </summary>
-    [TestCase(403, "host_not_allowed", "Your computer refused the name this headset uses for it. Pair it again in Settings.")]
-    [TestCase(429, "too_many_requests", "Your computer is turning this headset away for a minute after too many tries. It tries again by itself.")]
-    [TestCase(403, "forbidden", "Your computer refused the connection. Restart the app, and pair it again in Settings if it happens again.")]
+    [TestCase(403, "host_not_allowed",
+        "Your computer turned away the address this headset uses for it, which may have changed there. The headset tries again by itself; if this keeps happening, pair it again in Settings.")]
+    [TestCase(429, "too_many_requests", "Your computer is turning this headset away for a minute after too many tries. The headset tries again by itself.")]
+    [TestCase(403, "forbidden", "Your computer turned the connection away. The headset tries again by itself.")]
     // Your computer refuses a revoked pairing with 401, which ends the session as a refused credential; a
     // device_revoked by any other status is no pairing line, which would retry for ever (the review's L6).
-    [TestCase(403, "device_revoked", "Your computer refused the connection. Restart the app, and pair it again in Settings if it happens again.")]
+    [TestCase(403, "device_revoked", "Your computer turned the connection away. The headset tries again by itself.")]
     public async Task AnUpgradeRefusedForAnotherReasonIsSaidByItsCode(int status, string code, string words)
     {
         session = new RealtimeSession(Options(options => options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30)),
@@ -276,6 +277,7 @@ public class RealtimeSessionTests
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
         Assert.That(session.Status.Detail, Is.EqualTo(words));
         Assert.That(ConnectionText.WhyNotLive(session.Status), Does.Not.Contain("Host header").And.Not.Contain("control plane").And.Not.Contain("credentials"));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(words), "your computer answered, so never after \"Can't reach\", a second way on and untrue (the review's L3)");
     }
 
     [Test]
