@@ -109,7 +109,9 @@ plane answers Understand and Checks as `runtime_not_observed`, without asking ei
 execution whose rollout it finds in Halcyonic's home; one run in `~/.codex` before this change is
 asked about as before. Whether they should also read Halcyonic's home is their owners' question
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The person's own `~/.codex` settings, sign-in and plugins no
-longer apply to Halcyonic's threads. A project's own `.codex/config.toml` does, with its MCP
-servers, the sandbox's network access, hooks and command rules: on `thread/start` Codex records a
-folder it can write as trusted in the home's `config.toml`. Keeping projects untrusted is open
-([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The decision is otherwise unchanged.
+longer apply to Halcyonic's threads, and neither does a project's own `.codex/config.toml`:
+every thread marks its folder and every folder above it untrusted in its own overrides, which
+Codex reads before it would record a folder it can write as trusted, and a start is refused when
+`config/read` from the folder shows a project layer that would load. Codex is never launched when
+this Mac has system or managed Codex configuration (`/etc/codex`, a `com.openai.codex` device
+profile), and a refusal after a launch is remembered. The decision is otherwise unchanged.

@@ -361,9 +361,10 @@ A new, empty folder that is not a git repository works
 
 Codex runs only on models served on this Mac, in a home of its own, `CODEX_HOME` set to
 `~/.halcyonic/codex-home` (the data directory's `codex-home`), never your own `~/.codex`: your Codex
-settings, sign-in and plugins don't apply, and nothing signs Codex in. A project's own
-`.codex/config.toml` does apply, with its MCP servers, hooks and command rules: Codex marks a folder
-it may write as trusted when a thread starts there ([SECURITY.md](../architecture/SECURITY.md)). Hosted Codex
+settings, sign-in and plugins don't apply, and nothing signs Codex in. Neither does a project's own
+`.codex/config.toml`: every thread marks its folder untrusted, and a start is refused if Codex's
+configuration trusts the project anyway, for example through an entry in that home's `config.toml`;
+remove the entry ([SECURITY.md](../architecture/SECURITY.md)). Hosted Codex
 models are not offered while it is open whether a ChatGPT sign-in may drive Codex
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). `pnpm mac-setup local-model <name>` writes the
 home's `config.toml`, mode 600: the `ollama` provider, the model, a context of 65,536 tokens and
@@ -381,9 +382,11 @@ What `HALCYONIC_AGENT_ENV` passes to Codex, and what stops it:
 - `OPENAI_` variables, the proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and their
   lowercase forms) and the other variables Codex signs in with are left out of what Codex gets;
   other runtimes still get them.
-- Codex is refused, and its tasks can't start, when this Mac has managed Codex requirements
-  (`/etc/codex/requirements.toml` or a device profile), or a managed configuration that turns one
-  of its local-only settings back on.
+- Codex is not started, and its tasks can't start, when this Mac has any of `/etc/codex/config.toml`,
+  `/etc/codex/managed_config.toml`, `/etc/codex/requirements.toml` or a `com.openai.codex` file in
+  `/Library/Managed Preferences`, which apply whatever Halcyonic sets, or when Codex reports
+  managed requirements or a local-only setting turned back on. The refusal holds until Halcyonic
+  restarts.
 
 Each thread's rollout is written under that home's `sessions`, not where Salidium and Seorak read
 Codex sessions, so Understand and Checks say they don't follow those Codex tasks

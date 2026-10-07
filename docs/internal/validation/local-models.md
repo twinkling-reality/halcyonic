@@ -401,11 +401,13 @@ home's `config.toml`. A thread runs only on a provider served on this Mac.
   launch when `config/read` misses a local-only setting, as under a managed file that turns
   plugins back on, or `configRequirements/read` reports any requirements, and refuses a thread
   Codex reports on another provider, model or approval setting than asked.
-- **A limit of that check:** it runs after `initialize`, so under a managed file that turns
-  plugins back on, Codex's startup connection can begin before the server is stopped, and each
-  refused list or start launches Codex again. A check of `/etc/codex/managed_config.toml`,
-  `/etc/codex/requirements.toml` and a forced `com.openai.codex` device profile before launch,
-  with the refusal remembered, comes before Codex is registered on the owner's Mac.
+- **A limit of that check, and its fix:** it runs after `initialize`, so under a managed file that
+  turns plugins back on, Codex's startup connection could begin before the server is stopped.
+  Since 2026-10-07 the adapter also refuses before any launch when `/etc/codex/config.toml`,
+  `managed_config.toml`, `requirements.toml` or a `com.openai.codex` file under
+  `/Library/Managed Preferences` exists (a forced device profile's `config_toml_base64` and
+  `requirements_toml_base64`, `codex-rs/config/src/loader/macos.rs`), and remembers a refusal
+  after launch, so no list or start launches Codex again.
 
 ## Speed and memory
 
