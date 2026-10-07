@@ -344,9 +344,10 @@ namespace Halcyonic.Client
         /// says nothing a person can act on. Never the failure's message. <paramref name="running"/> says
         /// there is work to look at: where there may be none yet, as Start building's and Connect's steps or a
         /// start that never ran, a lost agent app points to the computer instead (settled by the coordinator,
-        /// 2026-10-04).
+        /// 2026-10-04). <paramref name="step"/> says it is Start building's or Connect's own step, whose ways
+        /// on are what that step offers, never adding the task again from inside New project (2026-10-07).
         /// </summary>
-        public static string? WhyFailed(string? code, bool running = true) => code switch
+        public static string? WhyFailed(string? code, bool running = true, bool step = false) => code switch
         {
             "approval_not_pending" => WhyRefused(RejectionCode.ApprovalNotFound),
             "question_not_pending" => WhyRefused(RejectionCode.QuestionNotFound),
@@ -356,14 +357,17 @@ namespace Halcyonic.Client
                 + (running ? " See what it's doing; if it can't go on, add the task again in Projects." : " Check that the agent app is running on " + HostText.Your + ", then try again."),
             "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
             "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
-            "capability_unimplemented" => running ? WhyRefused(RejectionCode.CapabilityUnsupported) : "Its agent app can't do that. " + WithAnotherAgentApp,
+            "capability_unimplemented" => running ? WhyRefused(RejectionCode.CapabilityUnsupported)
+                : step ? "Its agent app doesn't support it. " + InHowItRuns : "Its agent app can't do that. " + WithAnotherAgentApp,
             // A start that would fail the same way again (the review's L5, settled by the coordinator, 2026-10-07).
-            "runtime_unavailable" when !running => "The agent app isn't available on " + HostText.Your + ". Check its setup there, then add the task again in Projects.",
-            "runtime_version_unsupported" when !running => "This agent app's version on " + HostText.Your + " isn't supported yet. " + WithAnotherAgentApp,
+            "runtime_unavailable" when !running => "The agent app isn't available on " + HostText.Your + ". Check its setup there, then "
+                + (step ? "try again." : "add the task again in Projects."),
+            "runtime_version_unsupported" when !running => "This agent app's version on " + HostText.Your + " isn't supported yet. " + (step ? InHowItRuns : WithAnotherAgentApp),
             _ => EntryText.FolderProblem(null, code),
         };
 
         private const string WithAnotherAgentApp = "Add the task again in Projects with another agent app.";
+        private const string InHowItRuns = "Choose another agent app in How it runs, then try again.";
 
         /// <summary>Said of a step of Start building or Connect that failed with no effect and no cause a person can act on.</summary>
         public const string NothingChanged = "Nothing changed. Try again.";
