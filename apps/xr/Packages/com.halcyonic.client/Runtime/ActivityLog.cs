@@ -164,7 +164,9 @@ namespace Halcyonic.Client
                     // be ruled out is never said as "Couldn't", which says nothing happened.
                     if (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown) return Entry(ActivityKind.Command, WorkspaceText.NotSure(commandFailed.Payload.CommandType));
                     var failedTo = VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed";
-                    return Entry(ActivityKind.Command, WorkspaceText.WhyFailed(commandFailed.Payload.Failure.Code) is string because ? StateLanguage.Lead(failedTo, because) : failedTo);
+                    // A start that failed never ran, so there is no work to look at.
+                    var running = commandFailed.Payload.CommandType != CommandType.ExecutionStart;
+                    return Entry(ActivityKind.Command, WorkspaceText.WhyFailed(commandFailed.Payload.Failure.Code, running) is string because ? StateLanguage.Lead(failedTo, because) : failedTo);
                 default:
                     // Command completion adds nothing a person needs to read here,
                     // and the model a runtime reports using is on the execution itself.
