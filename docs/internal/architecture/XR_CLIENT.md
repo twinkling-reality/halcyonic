@@ -1091,7 +1091,11 @@ the same definition names, as the JSON Schema document:
   the main thread, when a source is read: when a section shows for an execution it holds no answer
   about, and when the person refreshes; the understanding is read again once the execution changed
   and two seconds have passed, the evaluation never by itself. The last answer stays while a new one
-  is read, and a failed read says why, "did not answer in time" for a timeout. Help me understand
+  is read, and a failed read says why by what failed, never the error's message
+  (`IntelligenceText.WhyUnread`: "your computer didn't answer in time" for a timeout, a refused
+  credential, pairing or certificate in the connection's own sentence), and a source that answered
+  without conclusions says why by its code, never its message (`IntelligenceText.Why`), the source
+  named only in the provenance line. Help me understand
   asks one of three questions at a time (`UnderstandPrompt`); What was checked? reads both sources.
   **`UnderstandingPresenter`**, **`CheckedPresenter`** and **`EvaluationPresenter`**
   (`WorkAnswers.cs`, `IntelligencePresentation.cs`) write every word, as a provenance line and lines
@@ -1400,7 +1404,7 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
   observe the mock runtime, read through `IIntelligenceReader` and said in the sections' words
-  ("Understanding unavailable: Salidium does not observe sessions of the mock runtime."), resuming
+  ("From Salidium · Understanding unavailable: it doesn't follow tasks this agent app runs."), resuming
   after a dropped connection without a snapshot, an approval
   and then an instruction steered from the workspace to results the runtime confirmed, and an
   execution in flight shown as stale during a control plane crash and as `unknown` after the

@@ -67,8 +67,8 @@ namespace Halcyonic.Client
             this.historyNote = historyNote;
             this.acted = acted;
             Steering = new WorkspaceSteering(commands, () => host.Clock);
-            understanding = new IntelligenceFeed<UnderstandingResponse>((id, cancel) => Reader().ReadUnderstandingAsync(id, cancel));
-            evaluation = new IntelligenceFeed<EvaluationResponse>((id, cancel) => Reader().ReadEvaluationAsync(id, cancel));
+            understanding = new IntelligenceFeed<UnderstandingResponse>((id, cancel) => Reader().ReadUnderstandingAsync(id, cancel), AccessRefused);
+            evaluation = new IntelligenceFeed<EvaluationResponse>((id, cancel) => Reader().ReadEvaluationAsync(id, cancel), AccessRefused);
             Screen.Zone = host.Zone;
             Screen.Speak = host.VoiceOffered;
             if (present() is WorkspacePresentation opening) Screen.Section = FileScreens.Opening(opening);
@@ -92,7 +92,10 @@ namespace Halcyonic.Client
 
         public event Action? Closed;
 
-        private IIntelligenceReader Reader() => reader() ?? throw new ControlPlaneRequestException("There is no control plane or demonstration to ask.");
+        /// <summary>A refused credential, as the connection says it for how this headset reaches the computer.</summary>
+        private string AccessRefused() => host.Api?.AccessRefused ?? ConnectionText.AccessRefused;
+
+        private IIntelligenceReader Reader() => reader() ?? throw new UnaskedReadException(IntelligenceText.NotConnected);
 
         public void Act(string id, string? key)
         {

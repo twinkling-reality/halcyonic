@@ -32,7 +32,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Read(recording.EvaluationAt(executionId, node, recording.Nodes[node].Events.Count));
 
             private static Task<IntelligenceRead<T>> Read<T>(RecordedAnswer<T>? answer) where T : class => answer == null
-                ? Task.FromException<IntelligenceRead<T>>(new ControlPlaneRequestException(DemonstrationReads.NothingRecorded))
+                ? Task.FromException<IntelligenceRead<T>>(new UnaskedReadException(DemonstrationReads.NothingRecorded))
                 : Task.FromResult(new IntelligenceRead<T>(answer.Response, answer.ReadAt, recorded: true));
         }
 

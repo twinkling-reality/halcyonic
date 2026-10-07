@@ -816,8 +816,8 @@ in the headset:
 - **Understanding and Evaluation.** Under the actions, three tabs: Activity, chosen, with a bar
   under it, then Understanding and Evaluation. Pinch Understanding, then poke Evaluation: each shows
   in place of the activity, with Refresh at the right. With the mock runtime they say, in words,
-  "Understanding unavailable: Salidium does not observe sessions of the mock runtime." and
-  "Evaluation unavailable: Seorak does not observe sessions of the mock runtime." Stop `pnpm dev`
+  "From Salidium · Understanding unavailable: it doesn't follow tasks this agent app runs." and
+  "From Seorak · Evaluation unavailable: it doesn't follow tasks this agent app runs." Stop `pnpm dev`
   and pinch Refresh: the line says the answer could not be read again, and why. Pinch Approve from a
   section: the whole request shows in its place; pinch Cancel, or confirm, and the details return to
   Activity, where the request shows. Every line readable, 2.4 m away (the workspace below the

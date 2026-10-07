@@ -41,8 +41,10 @@ namespace Halcyonic.XR.Workspace
             var sections = host.AddComponent<WorkspaceSections>();
             sections.presentation = presentation;
             sections.reader = reader;
-            sections.understanding = new IntelligenceFeed<UnderstandingResponse>((id, cancel) => sections.Reader().ReadUnderstandingAsync(id, cancel));
-            sections.evaluation = new IntelligenceFeed<EvaluationResponse>((id, cancel) => sections.Reader().ReadEvaluationAsync(id, cancel));
+            sections.understanding = new IntelligenceFeed<UnderstandingResponse>((id, cancel) => sections.Reader().ReadUnderstandingAsync(id, cancel),
+                () => (sections.reader() as ControlPlaneApi)?.AccessRefused ?? ConnectionText.AccessRefused);
+            sections.evaluation = new IntelligenceFeed<EvaluationResponse>((id, cancel) => sections.Reader().ReadEvaluationAsync(id, cancel),
+                () => (sections.reader() as ControlPlaneApi)?.AccessRefused ?? ConnectionText.AccessRefused);
             return sections;
         }
 
@@ -123,7 +125,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         private IIntelligenceReader Reader() =>
-            reader() ?? throw new ControlPlaneRequestException("There is no control plane or demonstration to ask.");
+            reader() ?? throw new UnaskedReadException(IntelligenceText.NotConnected);
 
         private void Update()
         {

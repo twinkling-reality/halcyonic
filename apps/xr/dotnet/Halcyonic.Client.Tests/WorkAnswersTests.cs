@@ -431,13 +431,13 @@ public class UnderstandingAnswersTests
         var cases = new Dictionary<string, (string Json, string Provenance)>
         {
             ["not_found"] = (Intelligence.Failure("not_found", "not_observed", "Salidium has not observed this session."),
-                "From Salidium · No understanding yet: Salidium has not observed this session."),
+                "From Salidium · No understanding yet: it hasn't seen this task yet. Press Refresh in a moment."),
             ["unavailable"] = (Intelligence.Failure("unavailable", "not_running", "Salidium is not running: it has not published its discovery file."),
-                "From Salidium · Understanding unavailable: Salidium is not running: it has not published its discovery file."),
+                "From Salidium · Understanding unavailable: it isn't running on your computer. Start it there, then press Refresh."),
             ["incompatible"] = (Intelligence.Failure("incompatible", "invalid_document", "The session report does not match Salidium consumer contract v1."),
-                "From Salidium · Understanding unreadable: The session report does not match Salidium consumer contract v1."),
+                "From Salidium · Understanding unreadable: its answer isn't one this app can read. Check its version on your computer."),
             ["unauthorized"] = (Intelligence.Failure("unauthorized", "credential_missing", "No Salidium credential is configured."),
-                "From Salidium · Understanding not allowed: No Salidium credential is configured."),
+                "From Salidium · Understanding not allowed: your computer has no credential set up for it. Set one up there."),
         };
         foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
         {
@@ -456,10 +456,10 @@ public class UnderstandingAnswersTests
     {
         var notAsked = Intelligence.Failure("not_found", "native_id_unknown", "The runtime has not reported its session id yet.");
         Assert.That(Answers.Understand(UnderstandPrompt.WhatChanged, notAsked).Provenance,
-            Is.EqualTo("No understanding yet: The runtime has not reported its session id yet."));
+            Is.EqualTo("No understanding yet: the agent app hasn't said which session this is yet. Press Refresh in a moment."));
         var section = Answers.Checked(notAsked, notAsked);
-        Assert.That(section.Provenance, Is.EqualTo("No understanding yet: The runtime has not reported its session id yet."));
-        Assert.That(section.Lines.Single(line => line.Source).Text, Is.EqualTo("No evaluation yet: The runtime has not reported its session id yet."));
+        Assert.That(section.Provenance, Is.EqualTo("No understanding yet: the agent app hasn't said which session this is yet. Press Refresh in a moment."));
+        Assert.That(section.Lines.Single(line => line.Source).Text, Is.EqualTo("No evaluation yet: the agent app hasn't said which session this is yet. Press Refresh in a moment."));
     }
 
     [Test]
@@ -470,16 +470,16 @@ public class UnderstandingAnswersTests
             Is.EqualTo("Nothing to understand until work starts."));
         Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhyChanged, Intelligence.ExecutionId, null, true, null, now, Intelligence.Utc).Provenance,
             Is.EqualTo("Asking what the understanding source concluded…"));
-        var failed = UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, Intelligence.ExecutionId, null, false, "The control plane could not be reached: refused",
+        var failed = UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, Intelligence.ExecutionId, null, false, "your computer didn't answer. Press Refresh to try again.",
             now, Intelligence.Utc);
-        Assert.That(failed.Provenance, Is.EqualTo("Could not read the understanding: The control plane could not be reached: refused"));
+        Assert.That(failed.Provenance, Is.EqualTo("Couldn't read the understanding: your computer didn't answer. Press Refresh to try again."));
         Assert.That(failed.ProvenanceTone, Is.EqualTo(SectionTone.Problem));
 
         var read = Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z");
         Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId, read, true, null, now, Intelligence.Utc).Provenance,
             Is.EqualTo("From Salidium 0.6.0, 2 minutes ago · reading again…"), "the last answer stays while a new one is read");
-        Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId, read, false, "timed out", now, Intelligence.Utc).Provenance,
-            Is.EqualTo("From Salidium 0.6.0, 2 minutes ago · could not read it again: timed out"));
+        Assert.That(UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, Intelligence.ExecutionId, read, false, "your computer didn't answer in time. Press Refresh to try again.", now, Intelligence.Utc).Provenance,
+            Is.EqualTo("From Salidium 0.6.0, 2 minutes ago · couldn't read it again: your computer didn't answer in time. Press Refresh to try again."));
     }
 
     [Test]
@@ -673,16 +673,16 @@ public class CheckedTests
     {
         var unobserved = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of the opencode runtime.");
         var section = Answers.Checked(unobserved, ControlPlaneApiTests.Available);
-        Assert.That(section.Provenance, Is.EqualTo("From Salidium · Understanding unavailable: Salidium does not observe sessions of the opencode runtime."));
+        Assert.That(section.Provenance, Is.EqualTo("From Salidium · Understanding unavailable: it doesn't follow tasks this agent app runs."));
         Assert.That(section.Lines[0].Text, Is.EqualTo("From Seorak, read 1 minute ago"));
         Assert.That(section.Lines.Count, Is.EqualTo(8), "the measurement stands whole");
 
         var cases = new Dictionary<string, string>
         {
-            ["not_found"] = "From Seorak · No evaluation yet: Seorak has not captured this session.",
-            ["unavailable"] = "From Seorak · Evaluation unavailable: Seorak has not captured this session.",
-            ["incompatible"] = "From Seorak · Evaluation unreadable: Seorak has not captured this session.",
-            ["unauthorized"] = "From Seorak · Evaluation not allowed: Seorak has not captured this session.",
+            ["not_found"] = "From Seorak · No evaluation yet: it didn't say why. Press Refresh to try again.",
+            ["unavailable"] = "From Seorak · Evaluation unavailable: it didn't say why. Press Refresh to try again.",
+            ["incompatible"] = "From Seorak · Evaluation unreadable: it didn't say why. Press Refresh to try again.",
+            ["unauthorized"] = "From Seorak · Evaluation not allowed: it didn't say why. Press Refresh to try again.",
         };
         foreach (var (availability, words) in cases)
         {
@@ -702,8 +702,8 @@ public class CheckedTests
         var asking = CheckedPresenter.Present(Intelligence.ExecutionId, null, true, null, null, true, null, now, Intelligence.Utc);
         Assert.That(asking.Provenance, Is.EqualTo("Asking what the understanding source concluded…"));
         Assert.That(Intelligence.Texts(asking), Is.EqualTo(new[] { "Asking what the evaluation source measured…" }));
-        var failed = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, null, null, false, "timed out", now, Intelligence.Utc);
-        Assert.That((failed.Lines[0].Text, failed.Lines[0].Tone), Is.EqualTo(("Could not read the evaluation: timed out", SectionTone.Problem)));
+        var failed = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, null, null, false, "something went wrong. Press Refresh to try again.", now, Intelligence.Utc);
+        Assert.That((failed.Lines[0].Text, failed.Lines[0].Tone), Is.EqualTo(("Couldn't read the evaluation: something went wrong. Press Refresh to try again.", SectionTone.Problem)));
         var notYet = CheckedPresenter.Present(Intelligence.ExecutionId, null, false, null, null, false, null, now, Intelligence.Utc);
         Assert.That(notYet.Provenance + " / " + notYet.Lines[0].Text, Is.EqualTo("Not read yet. / Not read yet."));
 
@@ -888,9 +888,9 @@ public class BriefAnswersTests
 
         var unobserved = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of the opencode runtime.");
         Assert.That(Brief(UnderstandPrompt.WhatChanged, unobserved).Provenance,
-            Is.EqualTo("From Salidium · Understanding unavailable: Salidium does not observe sessions of the opencode runtime."));
+            Is.EqualTo("From Salidium · Understanding unavailable: it doesn't follow tasks this agent app runs."));
         Assert.That(CheckedBrief(unobserved).Provenance,
-            Is.EqualTo("From Salidium · Understanding unavailable: Salidium does not observe sessions of the opencode runtime."));
+            Is.EqualTo("From Salidium · Understanding unavailable: it doesn't follow tasks this agent app runs."));
     }
 }
 
