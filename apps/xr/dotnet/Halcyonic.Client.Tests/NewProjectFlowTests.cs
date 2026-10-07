@@ -906,6 +906,35 @@ public class NewProjectFlowTests
         Assert.That(said, Has.None.EqualTo(EntryText.FoldersUnanswered).And.None.EqualTo(EntryText.FoldersUnread));
     }
 
+    /// <summary>
+    /// A read cancelled because your computer went away mid-read, the page reading again with nothing to
+    /// read from, says your computer isn't connected, never that it didn't answer (the review's L3).
+    /// </summary>
+    [Test]
+    public async Task AReadCancelledWhenYourComputerWentAwaySaysItIsntConnected()
+    {
+        var routes = new Routes();
+        routes.Delays["GET /api/locations"] = TimeSpan.FromSeconds(30);
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+        var host = new Host { Api = api };
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        flow.Tick();
+        host.Api = null;
+        Press(flow, NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        var said = new List<string>();
+        for (var tries = 0; tries < 30; tries++)
+        {
+            await Task.Delay(10);
+            flow.Tick();
+            said.AddRange(flow.Frame!.Lines.Select(line => line.Words));
+        }
+        Assert.That(said, Does.Contain(EntryText.FoldersNotConnected).And.None.EqualTo(EntryText.FoldersUnanswered));
+    }
+
     /// <summary>A build sent whose acknowledgement was lost: its outcome unknown, its id kept.</summary>
     private static NewProjectFlow Unknown(Host host, Kept kept)
     {
