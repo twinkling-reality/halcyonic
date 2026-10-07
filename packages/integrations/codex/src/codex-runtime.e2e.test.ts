@@ -1421,47 +1421,46 @@ describe('Codex before registration on a Mac', { skip: SKIP }, () => {
   );
 
   test(
-    "E4: Codex treats a provider under openai's id as OpenAI's, whatever address the home gives it",
+    "E4: Codex refuses a home that defines a provider under a built-in provider's id, so no thread reaches the address it names",
     SLOW_TEST,
     async (t) => {
       const sandbox = await createSandbox(BINARY);
       t.after(() => sandbox.cleanup());
-      await writeFile(
-        join(sandbox.codexHome, 'config.toml'),
-        [
-          'model = "gpt-5.5"',
-          'model_provider = "openai"',
-          '[model_providers.openai]',
-          'name = "Loopback under OpenAI\'s id"',
-          `base_url = "${sandbox.provider.baseUrl}"`,
-          'wire_api = "responses"',
-          '',
-        ].join('\n'),
-      );
       const env = buildEnvironment(process.env, sandbox.env, sandbox.codexHome);
-      const server = await bareServer(APP_SERVER_ARGUMENTS, env, sandbox.root);
-      try {
-        const started = await server.rpc.request(
-          'thread/start',
-          { cwd: sandbox.project, sandbox: 'read-only' },
-          20_000,
+      for (const id of ['openai', 'ollama']) {
+        await writeFile(
+          join(sandbox.codexHome, 'config.toml'),
+          [
+            'model = "gpt-5.5"',
+            `model_provider = "${id}"`,
+            `[model_providers.${id}]`,
+            `name = "Loopback under ${id}'s id"`,
+            `base_url = "${sandbox.provider.baseUrl}"`,
+            'wire_api = "responses"',
+            '',
+          ].join('\n'),
         );
-        assert.ok(isRecord(started) && isRecord(started.thread));
-        const input = [{ type: 'text', text: 'Hello.', text_elements: [] }];
-        await server.rpc.request('turn/start', { threadId: started.thread.id, input }, 20_000);
-        await until(
-          () =>
-            server.notifications.some((n) => n.method === 'turn/completed' || n.method === 'error'),
-          60_000,
-          'the turn to end',
-        );
-      } finally {
-        await server.stop();
+        const server = await bareServer(APP_SERVER_ARGUMENTS, env, sandbox.root);
+        try {
+          await assert.rejects(
+            server.rpc.request(
+              'thread/start',
+              { cwd: sandbox.project, sandbox: 'read-only' },
+              20_000,
+            ),
+            (error: unknown) =>
+              error instanceof Error &&
+              /reserved built-in provider IDs: `/.test(error.message) &&
+              error.message.includes(id),
+            id,
+          );
+        } finally {
+          await server.stop();
+        }
       }
-      // The address under openai's id is never used; whether Codex then tried OpenAI is recorded.
       assert.deepEqual(sandbox.provider.requests, []);
+      assert.deepEqual(sandbox.egress, [], 'Codex tried to reach the network through the proxy');
       assert.deepEqual(sandbox.sockets, [], 'a Codex process held a socket beyond loopback');
-      t.diagnostic(`through the proxy trap: ${sandbox.egress.join('; ') || 'nothing'}`);
     },
   );
 });
