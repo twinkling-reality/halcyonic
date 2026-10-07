@@ -1151,8 +1151,11 @@ the same definition names, as the JSON Schema document:
   plane to stop accepting the credential, as forgetting it does. Refusals arrive as a
   `PairingException` with the control plane's code, kept by its shape, the attempts left, and words
   chosen by that code (`PairingClient.WhyRefused`), never the refusal's message: nothing is pinned
-  yet, so whatever answers at the typed address writes it. A broken exchange reads as one that
-  doesn't pair the way the computer does (`ProtocolError`), never an exception's message.
+  yet, so whatever answers at the typed address writes it. An exchange that broke, never said by an
+  exception's message (`PairingClient.Broken`), took too long when its time ran out (`TookTooLong`);
+  lost its connection when that closed or failed partway (`connection_lost`, `ConnectionLost`: check
+  the address and that pairing is open); and otherwise reads as one that doesn't pair the way the
+  computer does (`protocol_error`, `ProtocolError`).
 - **The pinned transports.** `PinnedConnection` opens TCP and TLS with `SslStream`, whose own
   validation callback compares the certificate's SHA-256 with the pin, so another certificate ends
   the handshake before anything is sent (`CertificateMismatchException`); without a pin, for
@@ -2152,7 +2155,9 @@ release build, such as the one judges run, offers no pairing
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
   left after a wrong code; a refusal the app does not know reads "Your computer refused to pair
   this headset. Open pairing there again, then try again.", never in the words of whatever answered
-  at that address, and anything else unexpected "Couldn't pair this headset. Check the address, then
+  at that address; an exchange whose connection closed partway "The connection closed before
+  pairing finished. Check the address and that pairing is open on your computer, then try again.";
+  and anything else unexpected "Couldn't pair this headset. Check the address, then
   try again.", never an exception's words. On success the pairing
   is saved through
   `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
@@ -2179,7 +2184,8 @@ release build, such as the one judges run, offers no pairing
   taken, and no link is followed or pipe waited on. A pairing takes
   the place of the access token; forgetting it returns to the token.
 - **Logs.** `Halcyonic: pairing with the control plane at <address>`, `paired; connecting over the
-  network`, `pairing refused: <code>` and whether forgetting revoked the headset on the Mac, never
+  network`, `pairing refused: <code>`, `pairing failed: <the exception's type>` for a failure
+  `PairingClient` doesn't name, and whether forgetting revoked the headset on the Mac, never
   the code or the credential. The connection logs the paired address it connects to.
 
 ### Scene
