@@ -562,6 +562,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Shows("held, the voice listening", VoiceText.ListeningWords, GlazeIcon.HoldToTalk, listens: true, waits: false);
                     if (!held.PressUnderWay) failures.Add(name + ": a press under way ended as the voice began to listen.");
                     voice.Ended(file, FileScreens.SpeakAnswer, letGo: true);
+                    // A frame on the headset, not a draw on demand: the voice's stage changing alone lays the plane again.
+                    director.UpdateForRender();
+                    if (held.Label.text != VoiceText.WritingDownWords) failures.Add(name + ": let go, a frame later Hold to talk still read \"" + held.Label.text + "\": the voice's stage changing did not lay the plane again.");
                     Shows("let go, the computer writing it down", VoiceText.WritingDownWords, GlazeIcon.WritingDown, listens: false, waits: true);
                     writing = false;
                     Shows("the words come", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, listens: false, waits: false);
