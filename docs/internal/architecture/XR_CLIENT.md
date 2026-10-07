@@ -91,7 +91,7 @@ the same definition names, as the JSON Schema document:
   What answers without the proof stops the session with `AccessRefused`
   and "This headset's access code doesn't match your computer's, or something else is answering
   in its place, so the headset didn't send it. Put your computer's current access code on the
-  headset, check that Halcyonic is running there, and restart the app." A control plane that
+  headset, check that this app is running there, and restart the app." A control plane that
   answers the connection with 401 has refused the credential, so the session stops trying and its
   status says `AccessRefused`, with what to do in `ConnectionText`'s words: for the access token
   "Your computer refused this headset's access code: it doesn't match your computer's. Put your
