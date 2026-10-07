@@ -180,32 +180,45 @@ namespace Halcyonic.XR.UI.Editor
 
         /// <summary>
         /// A motion's frames allocate nothing (ADR 0027): <paramref name="draw"/> called at sixty frames' times,
-        /// the fewest bytes of three tries. It counts what this thread allocates, since the profiler's count for
-        /// the frame takes in the editor's other threads too, which once counted 184 bytes for a motion that
-        /// allocates none (2026-10-07); both are logged.
+        /// three tries, each frame counted on its own by Unity's count of allocations. That count takes in the
+        /// editor's other threads, which once counted bytes for a motion that allocates none, and this editor's
+        /// Mono counts nothing for one thread alone (both seen 2026-10-07). So a frame fails only where it
+        /// allocated in every try at the same time: what the motion allocates comes again, another thread's
+        /// allocation does not. The bytes of the quietest try, every thread's, are logged beside it.
         /// </summary>
         private static IEnumerable<string> MotionAllocatesNothing(string what, System.Action<float> draw)
         {
+            const int Frames = 60;
+            const int Tries = 3;
             var failures = new List<string>();
-            using var recorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame");
+            using var calls = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocation In Frame Count");
+            using var allocated = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame");
+            var allocating = new int[Frames];
             for (var frame = 0; frame < 4; frame++) draw(frame / 72f);
-            var probe = System.GC.GetAllocatedBytesForCurrentThread();
+            var probe = calls.CurrentValue;
             var kept = new byte[256];
-            if (System.GC.GetAllocatedBytesForCurrentThread() - probe < kept.Length)
+            System.GC.KeepAlive(kept);
+            if (calls.CurrentValue - probe < 1)
             {
                 failures.Add("component render: this editor cannot count allocations, so " + what + " cannot be checked.");
                 return failures;
             }
-            var (bytes, all) = (long.MaxValue, long.MaxValue);
-            for (var repeat = 0; repeat < 3; repeat++)
+            var bytes = long.MaxValue;
+            for (var attempt = 0; attempt < Tries; attempt++)
             {
-                var (before, beforeAll) = (System.GC.GetAllocatedBytesForCurrentThread(), recorder.CurrentValue);
-                for (var frame = 0; frame < 60; frame++) draw(frame / 72f);
-                bytes = System.Math.Min(bytes, System.GC.GetAllocatedBytesForCurrentThread() - before);
-                all = System.Math.Min(all, recorder.CurrentValue - beforeAll);
+                var before = allocated.CurrentValue;
+                for (var frame = 0; frame < Frames; frame++)
+                {
+                    var count = calls.CurrentValue;
+                    draw(frame / 72f);
+                    if (calls.CurrentValue > count) allocating[frame]++;
+                }
+                bytes = System.Math.Min(bytes, allocated.CurrentValue - before);
             }
-            if (bytes > 0) failures.Add("component render: sixty frames of " + what + " allocate " + bytes + " bytes; a frame of motion allocates nothing.");
-            Debug.Log("Halcyonic: component render: sixty frames of " + what + " allocate " + bytes + " bytes on this thread, " + all + " in the profiler's frame.");
+            var (every, some) = (allocating.Count(tries => tries == Tries), allocating.Count(tries => tries > 0));
+            if (every > 0) failures.Add("component render: " + every + " of sixty frames of " + what + " allocate in each of " + Tries + " tries; a frame of motion allocates nothing.");
+            Debug.Log("Halcyonic: component render: sixty frames of " + what + ": " + every + " allocate in every try, " + some + " in some; the quietest try counts "
+                + bytes + " bytes on every thread.");
             return failures;
         }
 
