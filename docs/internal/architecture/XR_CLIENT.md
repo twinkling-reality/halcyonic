@@ -854,7 +854,9 @@ the same definition names, as the JSON Schema document:
   New project's Where its files live alike, are said by `EntryText.WhyFoldersUnread`: by the
   refusal's code (a refused credential in the sentence the connection says for how this headset
   reaches the computer, `ControlPlaneTarget.AccessRefused`, which it gives the session and
-  `ControlPlaneApi` alike), as a computer that didn't answer, or only as Try again, never by the
+  `ControlPlaneApi` alike), as a computer that didn't answer only where nothing did (a socket error, a
+  proof over USB that nothing answered, the headset's own timeout), or only as Try again, as for an
+  answer that isn't HTTP, never by the
   error's message, which is the control plane's own and can hold an address.
 - **`FolderConnect`**, **`FolderConnection`**, **`ConnectScreens`** and **`ConnectText`** are Connect
   a folder in the client core, not yet drawn on the headset: from `GET /api/locations` they offer

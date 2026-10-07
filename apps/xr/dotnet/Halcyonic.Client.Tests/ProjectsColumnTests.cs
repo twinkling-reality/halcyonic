@@ -130,6 +130,12 @@ public class ProjectsColumnTests
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unproved, new Uri("http://127.0.0.1:47800/")))),
                 "What answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Try again."),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.NotLoopback, new Uri("http://localhost:47800/")))), null),
+            // Over USB, a proof nothing answered: nothing answered (the review's R3).
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unreachable, new Uri("http://127.0.0.1:47800/")))),
+                "It didn't answer. Check that this app is running there, then press Try again."),
+            // Something answered, with what isn't HTTP or too much of it, as the handlers wrap it: never "didn't answer".
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), null),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new FormatException(Leak))), null),
             (new InvalidOperationException(Leak), null),
         };
         foreach (var (error, why) in cases)

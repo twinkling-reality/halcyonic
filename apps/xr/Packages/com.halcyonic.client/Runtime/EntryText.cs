@@ -102,8 +102,16 @@ namespace Halcyonic.Client
         {
             // What answered isn't your computer, or didn't prove it: never "didn't answer" (the review's L5).
             _ when Within<CertificateMismatchException>(error) != null => ConnectionText.NotThePairedComputer,
-            _ when Within<TokenNotSentException>(error) is TokenNotSentException notSent
-                => notSent.Outcome == LoopbackProofOutcome.Unproved ? FoldersUnproved : null,
+            // Over USB, the proof that found nothing answering: nothing answered (WORDS.md's F1).
+            _ when Within<TokenNotSentException>(error) is TokenNotSentException notSent => notSent.Outcome switch
+            {
+                LoopbackProofOutcome.Unproved => FoldersUnproved,
+                LoopbackProofOutcome.Unreachable => FoldersUnanswered,
+                _ => null,
+            },
+            // Something answered with what isn't HTTP, or too much of it (PinnedHttpHandler, LoopbackProofHandler):
+            // never "didn't answer".
+            _ when Within<System.IO.InvalidDataException>(error) != null || Within<FormatException>(error) != null || Within<OverflowException>(error) != null => null,
             // A code counts only with the status that carries it: a 500 naming device_revoked is no revoked pairing.
             ControlPlaneRequestException { Code: "device_revoked", Status: 401 } => ConnectionText.PairingRefused,
             ControlPlaneRequestException { Code: "unauthorized", Status: 401 } => accessRefused,
