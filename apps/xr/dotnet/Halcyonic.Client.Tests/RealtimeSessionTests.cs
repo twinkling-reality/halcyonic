@@ -316,11 +316,6 @@ public class RealtimeSessionTests
         }
     }
 
-    /// <summary>
-    /// A connection that fails before your computer answers is never drawn by the error's message, which
-    /// can hold an address or a TLS diagnostic; only a certificate other than the paired one is said, in
-    /// Halcyonic's words. The message goes to the device log alone (the review's LEAK 1).
-    /// </summary>
     /// <summary>A refusal no code names reads in the session's own words for its target (the review's L2).</summary>
     [Test]
     public async Task ARefusalNoCodeNamesReadsInTheTargetsWords()
@@ -366,6 +361,11 @@ public class RealtimeSessionTests
         Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(ConnectionText.Unreachable + " (" + ConnectionText.NoAnswer(TimeSpan.FromMilliseconds(100)) + ")"));
     }
 
+    /// <summary>
+    /// A connection that fails before your computer answers is never drawn by the error's message, which
+    /// can hold an address or a TLS diagnostic; only a certificate other than the paired one is said, in
+    /// Halcyonic's words. The message goes to the device log alone (the review's LEAK 1).
+    /// </summary>
     [Test]
     public async Task AFailedConnectionIsNeverDrawnByItsMessage()
     {
