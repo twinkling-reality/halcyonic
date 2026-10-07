@@ -28,26 +28,49 @@ API key is sent and a tool that launches the control plane may set it for its ow
 gateway must be passed on purpose.
 
 When the Codex runtime is enabled, its app-server also gets an explicitly built environment: an
-allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, the locale variables, `TMPDIR`, `TZ`,
-`CODEX_HOME` and the XDG directories), plus the names listed in `HALCYONIC_AGENT_ENV`. Configuration
-may not set `SALIDIUM_INTERNAL`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, which would replace
-Halcyonic's identity on its threads, or `CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED`, which
-the adapter always sets so the server never enables remote control, a second control channel
-through chatgpt.com. Codex runs with the developer's own `CODEX_HOME`, so the developer's
-`config.toml` applies: sign-in and keys, model providers, the MCP servers configured there, plugins
-and their startup sync (chatgpt.com, github.com and api.github.com, observed without credentials), the
-analytics events client, which runs unless `analytics.enabled = false`, metrics sent to
-ab.chatgpt.com when `analytics.enabled = true`, and saved rules that let matching commands run
-without asking. Halcyonic sets only what keeps the person in control: the working directory, the
-sandbox mode, an approval policy that asks (`on-request` or `untrusted`), and approvals routed to
-the person rather than to a reviewer agent; it refuses a thread for which Codex reports other
-settings. When a start names a model provider or a model, a thread Codex reports running on
-another is refused too, so work meant for a local model never reaches a hosted one. Every request Codex sends to the model provider carries the originator `halcyonic`, a
-user agent with the Codex version and the operating system, and turn metadata with the
-installation id, the thread and session ids, the sandbox mode, whether analytics is on and, for a
-workspace that is a git repository, its path, latest commit hash and whether it has uncommitted
-changes; the working directory also reaches the provider in the conversation's environment
-context. Codex writes each thread's rollout to the developer's `CODEX_HOME`, tagged `halcyonic`. The
+allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, the locale variables, `TMPDIR`, `TZ` and
+the XDG directories), plus the names listed in `HALCYONIC_AGENT_ENV`, without the ones Codex signs
+in with (`OPENAI_API_KEY`, `CODEX_API_KEY`, `CODEX_ACCESS_TOKEN`, `OPENAI_IDENTITY_TOKEN_FILE`,
+`CODEX_CONNECTORS_TOKEN`, `CODEX_GITHUB_PERSONAL_ACCESS_TOKEN`), which the adapter also refuses.
+Configuration may not set `CODEX_HOME`, `SALIDIUM_INTERNAL`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`,
+which would replace Halcyonic's identity on its threads, or
+`CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED`, which the adapter always sets so the server
+never enables remote control, a second control channel through chatgpt.com.
+
+Codex runs only on models served on this Mac, in a home of its own, never the person's `~/.codex`
+([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of 2026-10-07). The control
+plane chooses the home, `<data dir>/codex-home` (`~/.halcyonic/codex-home`); it is not a setting.
+Before every launch the adapter makes it with mode 700 when it is missing, and refuses to launch
+when it is a link or not a folder, belongs to another user, can be opened by others, or holds a
+sign-in (`auth.json`). It holds `config.toml`, mode 600, written by `pnpm mac-setup local-model`
+(the `ollama` provider, the model, its context and compaction threshold), and what Codex writes
+itself: its SQLite databases (state, logs, goals, memories, queue), its installation id, a
+`skills` folder, temporary files, and each thread's rollout under `sessions`, which holds the
+conversation, commands and their output. Every launch passes, as `-c` overrides that outrank that
+file, `features.plugins=false` (on 0.157.0 the only setting that stops the plugin sync connecting
+to GitHub at startup; it is undocumented), `check_for_update_on_startup=false`,
+`analytics.enabled=false` (the analytics events client, and the metrics sent to ab.chatgpt.com),
+`web_search="disabled"` and `cli_auth_credentials_store="file"`, so no sign-in is read from the
+keychain. A thread's model provider must be one its configuration serves from a loopback address,
+Ollama on port 11434 in practice, and is named on the thread explicitly; a model Ollama runs on its
+own remote service (`:cloud`, `-cloud`) is refused, and the model list leaves out every model not
+served on this Mac. Halcyonic sets what keeps the person in control too: the working directory,
+the sandbox mode, an approval policy that asks (`on-request` or `untrusted`), and approvals routed
+to the person rather than to a reviewer agent; it refuses a thread for which Codex reports other
+settings, or another model or provider than asked. The end to end suite's network probe watches
+the server's process tree through startup, idle and a full run on a local model, and is re-run on
+every Codex upgrade ([local-models.md](../validation/local-models.md)). What Codex does not get
+from Halcyonic's home it may still read from the system: managed configuration and requirements
+under `/etc/codex` were not checked.
+
+Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
+`halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with
+the installation id, the thread and session ids, the sandbox mode, whether analytics is on and,
+for a workspace that is a git repository, its path, latest commit hash and whether it has
+uncommitted changes; the working directory also reaches the provider in the conversation's
+environment context. Codex writes each thread's rollout to Halcyonic's Codex home, tagged
+`halcyonic`, where neither Salidium nor Seorak reads it, so the control plane answers both as not
+observing those sessions, without asking them. The
 adapter writes no logs. The Codex and OpenCode adapters drain their server's error output without
 keeping it, as the Claude Code adapter does: it may hold secrets, such as a key that verbose
 logging or a configuration error prints, and a start failure is journaled and shown on every
@@ -367,10 +390,11 @@ What a client sees and can do about folders on the host
   public health check. With `--with-token` it reads the token and sends it only after the server
   proves it holds it (above), then asks on loopback which folders, agent apps and paired devices it
   has, as `pnpm devices` does.
-- **The person's own files.** With Codex set up, it reads the top-level `model_provider` line of
-  `$CODEX_HOME/config.toml` (`~/.codex` by default) and prints only a provider id that matches
-  `[A-Za-z0-9._-]{1,64}`; no other part of the file is parsed or shown. It never reads the person's
-  own OpenCode settings, which may hold provider keys.
+- **The person's own files.** It never reads the person's own Codex or OpenCode settings, which
+  may hold provider keys. Of Halcyonic's own Codex settings, `<data dir>/codex-home/config.toml`,
+  it reads only the top-level `model_provider` and `model` lines, and prints a model name only when
+  it matches the name pattern the Codex adapter takes. `local-model` writes that file and refuses a
+  Codex home that is a link, another user's, or holds a sign-in.
 - **Binaries and models.** It records the pinned OpenCode and Codex binaries and the voice models only
   when their SHA-256 matches the pins Halcyonic was checked with on Apple silicon; elsewhere it says
   it cannot check them. It downloads nothing: what needs a download it shows as a command.
