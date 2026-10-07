@@ -379,7 +379,21 @@ home's `config.toml`. A thread runs only on a provider served on this Mac.
 - **The network probe**, the check to re-run on every Codex upgrade, is the end to end test
   "nothing leaves loopback through startup, idle and a full run on a local model"
   (`packages/integrations/codex/src/codex-runtime.e2e.test.ts`). Its runs are recorded here as
-  they are made; none had run at this commit.
+  they are made.
+  - **2026-10-07, at `ae9df92c`**, on `qwen3:4b-instruct` (2.5 GB, the coordinator's choice for a
+    shared Mac; the sockets watched don't depend on the model), Ollama the macOS app as it ran,
+    1-minute load about 17, swap 12.7 of 13.3 GB in use from other work: passed in 84 s. The
+    probe watched every process below the test from before the launch, every 200 ms: 201 samples
+    with the server running, 148 of them through startup and the minute idle, lsof seeing the
+    server in all of them. No socket beyond loopback in any sample. No loopback socket while idle;
+    during the run, two connections from Codex to `127.0.0.1:11434` (Ollama), the probe's proof
+    that it sees sockets at all. The model answered and Codex ended the turn
+    (`runtime.turn.completed`). The thread's `rollout-*-<thread id>.jsonl` was already in the
+    home's local-date folder when the start returned, and the person's `HOME` gained no `.codex`.
+    The model was unloaded afterwards (`keep_alive` 0; Ollama's `/api/ps` listed nothing).
+  - The same gate ran the fake-provider suite at that commit, 22 tests, all passing: the switches
+    and the local-only check hold against the real binary, which reported every setting in
+    `config/read` and `{"requirements": null}`.
 - **System configuration:** Codex reads `/etc/codex/config.toml`,
   `/etc/codex/managed_config.toml` and `/etc/codex/requirements.toml` whatever the home (named in
   the binary's text, and ranked as the source read above shows; no such file was run, since

@@ -255,6 +255,8 @@ tasks this agent app runs". The line "it hasn't seen this task yet", with Refres
 way on, since a refresh can never find the session.
 
 Two residuals, accepted: in the first moments of a new execution, before Codex writes the
-thread's rollout, the sources are asked and answer that they haven't seen the task yet; and a
+thread's rollout, the sources are asked and answer that they haven't seen the task yet (on
+2026-10-07 the network probe found the rollout already written when the start returned, so the
+window closes by the time the start returns); and a
 rollout the person deleted from Halcyonic's home makes its execution read the same way, though
 neither source ever had it.
