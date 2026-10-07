@@ -7,6 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn, spawnSync } from 'node:child_process';
+import { lookup } from 'node:dns/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -29,10 +30,11 @@ import {
   CodexRuntimeAdapter,
   type CodexRuntimeOptions,
   QUESTION_FEATURE,
+  untrustedFrom,
 } from './codex-runtime.ts';
 import { isRecord } from './events.ts';
 import { RpcConnection } from './rpc.ts';
-import { APP_SERVER_ARGUMENTS, buildEnvironment } from './server.ts';
+import { APP_SERVER_ARGUMENTS, buildEnvironment, unappliedSettings } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_QUESTION, type FakeProviderOptions, PATCH_CONTENT } from './testing/fake-provider.ts';
@@ -1101,6 +1103,8 @@ describe('Codex network probe, re-run on every Codex upgrade', {
     for (const name of ['home', 'config', 'data', 'state', 'cache', 'tmp', 'project']) {
       await mkdir(path(name), { recursive: true, mode: 0o700 });
     }
+    // A git repository whose own Codex settings would start an MCP server (E2).
+    const marker = await projectWithItsOwnSettings(path('project'));
     // What `pnpm mac-setup local-model` writes, and nothing else: the switches come from the
     // adapter, as for the control plane.
     await mkdir(path('codex-home'), { mode: 0o700 });
@@ -1212,8 +1216,252 @@ describe('Codex network probe, re-run on every Codex upgrade', {
     // The rollout went to Halcyonic's home, and the person's home never gained a Codex folder.
     assert.ok(existsSync(path('codex-home/sessions')));
     assert.equal(existsSync(path('home/.codex')), false);
+    // The project's own settings never loaded, and Codex recorded no trust for it.
+    assert.equal(existsSync(marker), false, "the project's MCP server started");
+    assert.doesNotMatch(
+      readFileSync(path('codex-home/config.toml'), 'utf8'),
+      /trust_level\s*=\s*"trusted"/,
+    );
     t.diagnostic(
       `rollout ${rolloutAtStart ? 'there when the start returned' : 'written after the start returned'}; probe: ${probe.samples} samples, ${afterIdle} through startup and idle; loopback while idle ${idleLoopback.join(', ') || 'none'}, in all ${[...probe.loopback].join(', ')}`,
     );
   });
+});
+
+/** A bare app-server client, for what the adapter does not do itself. */
+async function bareServer(
+  args: readonly string[],
+  env: Readonly<Record<string, string>>,
+  cwd: string,
+): Promise<{
+  readonly rpc: RpcConnection;
+  readonly notifications: { method: string; params: unknown }[];
+  stop(): Promise<void>;
+}> {
+  const child = spawn(BINARY, [...args], { cwd, env, stdio: ['pipe', 'pipe', 'ignore'] });
+  const exited = new Promise((resolve) => child.once('exit', resolve));
+  assert.ok(child.stdout !== null && child.stdin !== null);
+  const notifications: { method: string; params: unknown }[] = [];
+  const rpc = new RpcConnection(child.stdout, child.stdin, {
+    onNotification: (method, params) => notifications.push({ method, params }),
+    onRequest: (id, _method, _params, connection) => connection.respondError(id, -32601, 'no'),
+  });
+  const clientInfo = { name: 'halcyonic_e2e_bare', title: null, version: '0.0.0' };
+  await rpc.request('initialize', { clientInfo, capabilities: null }, 20_000);
+  rpc.notify('initialized');
+  return {
+    rpc,
+    notifications,
+    stop: async () => {
+      rpc.end();
+      await exited;
+    },
+  };
+}
+
+/** A fresh home with no configuration and no sign-in, and the environment to run Codex in it. */
+async function freshHome(t: TestContext): Promise<{ root: string; env: Record<string, string> }> {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'halcyonic-codex-fresh-')));
+  for (const name of ['home', 'codex-home', 'tmp']) {
+    await mkdir(join(root, name), { mode: 0o700 });
+  }
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const env = buildEnvironment(
+    process.env,
+    { HOME: join(root, 'home'), TMPDIR: `${join(root, 'tmp')}/` },
+    join(root, 'codex-home'),
+  );
+  return { root, env };
+}
+
+/** A project, a git repository whose own Codex settings start an MCP server that leaves a mark. */
+async function projectWithItsOwnSettings(folder: string): Promise<string> {
+  execFileSync('git', ['init', '-q'], { cwd: folder, env: { PATH: '/usr/bin:/bin' } });
+  await mkdir(join(folder, '.codex'), { mode: 0o700 });
+  const marker = join(folder, 'mcp-started.log');
+  await writeFile(
+    join(folder, '.codex/config.toml'),
+    [
+      '[mcp_servers.trap]',
+      'command = "/bin/sh"',
+      `args = ["-c", ${JSON.stringify(`echo started >> '${marker}'`)}]`,
+      '',
+    ].join('\n'),
+  );
+  return marker;
+}
+
+const trusted = (folder: string) =>
+  `\n[projects.${JSON.stringify(folder)}]\ntrust_level = "trusted"\n`;
+
+/**
+ * What must hold before Codex is registered on a person's Mac, beyond the probe above: the
+ * settings Codex applies, a control that shows the probe sees traffic beyond loopback, a project's
+ * own settings never loading, and a provider id Codex treats as OpenAI's whatever it is given.
+ */
+describe('Codex before registration on a Mac', { skip: SKIP }, () => {
+  test(
+    'E1: Codex applies every local-only setting and has no managed requirements',
+    SLOW_TEST,
+    async (t) => {
+      const { root, env } = await freshHome(t);
+      const server = await bareServer(APP_SERVER_ARGUMENTS, env, root);
+      try {
+        const read = await server.rpc.request('config/read', { includeLayers: false }, 20_000);
+        assert.ok(isRecord(read) && isRecord(read.config));
+        assert.deepEqual(unappliedSettings(read.config), []);
+        assert.deepEqual(await server.rpc.request('configRequirements/read', undefined, 20_000), {
+          requirements: null,
+        });
+      } finally {
+        await server.stop();
+      }
+    },
+  );
+
+  test(
+    'E3: without its local-only settings Codex reaches beyond loopback at startup, and the probe sees it',
+    SLOW_TEST,
+    async (t) => {
+      try {
+        await lookup('github.com');
+      } catch {
+        t.skip('offline: github.com does not resolve, so the control cannot show anything');
+        return;
+      }
+      const { root, env } = await freshHome(t);
+      const probe = probeNetwork(process.pid, BINARY);
+      const server = await bareServer(['app-server'], env, root);
+      try {
+        await until(() => probe.beyondLoopback.length > 0, 30_000, 'a socket beyond loopback');
+      } finally {
+        await server.stop();
+        await probe.stop();
+      }
+      assert.deepEqual(probe.blind, []);
+      t.diagnostic(`seen: ${[...new Set(probe.beyondLoopback)].join('; ')}`);
+    },
+  );
+
+  test(
+    "E2: a project's own Codex settings never load and Codex records no trust; a home that trusts it is refused",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const marker = await projectWithItsOwnSettings(sandbox.project);
+      const settings = join(sandbox.codexHome, 'config.toml');
+      const plain = readFileSync(settings, 'utf8');
+
+      // The control: with the project trusted in the home, Codex starts the project's MCP server.
+      await writeFile(settings, plain + trusted(sandbox.project));
+      const env = buildEnvironment(process.env, sandbox.env, sandbox.codexHome);
+      const run = async (config: Record<string, unknown> | null) => {
+        const server = await bareServer(APP_SERVER_ARGUMENTS, env, sandbox.root);
+        try {
+          const started = await server.rpc.request(
+            'thread/start',
+            { cwd: sandbox.project, ...(config === null ? {} : { config }) },
+            20_000,
+          );
+          assert.ok(isRecord(started) && isRecord(started.thread));
+          const input = [{ type: 'text', text: 'Hello.', text_elements: [] }];
+          await server.rpc.request('turn/start', { threadId: started.thread.id, input }, 20_000);
+          await until(
+            () => server.notifications.some((n) => n.method === 'turn/completed'),
+            30_000,
+            'the turn to complete',
+          );
+        } finally {
+          await server.stop();
+        }
+      };
+      await run(null);
+      assert.ok(
+        existsSync(marker),
+        "a trusted project's MCP server did not start: the control shows nothing",
+      );
+      await rm(marker);
+
+      // The thread's own overrides outrank the home's trust: the same home, the server never starts.
+      await run({ projects: untrustedFrom(sandbox.project) });
+      assert.equal(
+        existsSync(marker),
+        false,
+        "the project's MCP server started despite the override",
+      );
+
+      // The adapter refuses a folder the home trusts, before any thread.
+      await assert.rejects(start('Hello.'), actionError('runtime_refused'));
+      assert.equal(existsSync(marker), false);
+
+      // A home that records nothing: the turn runs, no MCP server starts, and no trust is written.
+      await writeFile(settings, plain);
+      await runtime.close();
+      const fresh = new CodexRuntimeAdapter({
+        binaryPath: BINARY,
+        codexHome: sandbox.codexHome,
+        serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
+        env: sandbox.env,
+      });
+      t.after(() => fresh.close());
+      const execution = new Execution();
+      await fresh.startExecution({
+        execution: execution.context,
+        instruction: 'Hello.',
+        options: {},
+        directory: sandbox.project,
+        model_ref: null,
+        emit: execution.emit,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(existsSync(marker), false, "the project's MCP server started");
+      assert.doesNotMatch(readFileSync(settings, 'utf8'), /trust_level\s*=\s*"trusted"/);
+    },
+  );
+
+  test(
+    "E4: Codex treats a provider under openai's id as OpenAI's, whatever address the home gives it",
+    SLOW_TEST,
+    async (t) => {
+      const sandbox = await createSandbox(BINARY);
+      t.after(() => sandbox.cleanup());
+      await writeFile(
+        join(sandbox.codexHome, 'config.toml'),
+        [
+          'model = "gpt-5.5"',
+          'model_provider = "openai"',
+          '[model_providers.openai]',
+          'name = "Loopback under OpenAI\'s id"',
+          `base_url = "${sandbox.provider.baseUrl}"`,
+          'wire_api = "responses"',
+          '',
+        ].join('\n'),
+      );
+      const env = buildEnvironment(process.env, sandbox.env, sandbox.codexHome);
+      const server = await bareServer(APP_SERVER_ARGUMENTS, env, sandbox.root);
+      try {
+        const started = await server.rpc.request(
+          'thread/start',
+          { cwd: sandbox.project, sandbox: 'read-only' },
+          20_000,
+        );
+        assert.ok(isRecord(started) && isRecord(started.thread));
+        const input = [{ type: 'text', text: 'Hello.', text_elements: [] }];
+        await server.rpc.request('turn/start', { threadId: started.thread.id, input }, 20_000);
+        await until(
+          () =>
+            server.notifications.some((n) => n.method === 'turn/completed' || n.method === 'error'),
+          60_000,
+          'the turn to end',
+        );
+      } finally {
+        await server.stop();
+      }
+      // The address under openai's id is never used; whether Codex then tried OpenAI is recorded.
+      assert.deepEqual(sandbox.provider.requests, []);
+      assert.deepEqual(sandbox.sockets, [], 'a Codex process held a socket beyond loopback');
+      t.diagnostic(`through the proxy trap: ${sandbox.egress.join('; ') || 'nothing'}`);
+    },
+  );
 });
