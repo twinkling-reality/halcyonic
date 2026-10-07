@@ -68,7 +68,10 @@ launch, before anything is listed, and again at every start, the adapter checks 
 reports each of these settings, which catches the managed files, and that `configRequirements/read`
 reports no requirements at all (null, "no requirements are configured",
 `codex-rs/app-server-protocol/src/protocol/v2/config.rs`); otherwise it stops the server and
-refuses. `/etc/codex` does not exist on this Mac, and `configRequirements/read` answers null here.
+refuses. `/etc/codex` does not exist on this Mac, and `configRequirements/read` answers null here. A limit,
+until a check before launch replaces it: since the check needs a running server, under a managed
+file that turns plugins back on Codex's startup connection can begin before the server is
+stopped, and each refused list or start launches Codex again.
 The proxy variables never reach Codex from the control plane, and the adapter sets `NO_PROXY` to
 `localhost,127.0.0.1,::1` after any additions, so a request to Ollama, the prompts and code with
 it, never goes through a proxy. No `CODEX_` or `OPENAI_` variable can be configured for Codex: the
