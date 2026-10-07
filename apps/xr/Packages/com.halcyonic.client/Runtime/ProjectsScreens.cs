@@ -43,7 +43,10 @@ namespace Halcyonic.Client
             /// <summary>The host's folders, or null while they are read.</summary>
             public LocationsResponse? Listing { get; set; }
 
-            /// <summary>Why the folders could not be read, as it arrived.</summary>
+            /// <summary>
+            /// Why the folders could not be read, in Halcyonic's own words (<see cref="EntryText.WhyFoldersUnread"/>),
+            /// or <see cref="EntryText.PressTryAgain"/> where nothing more is known; never an error's message.
+            /// </summary>
             public string? ListingProblem { get; set; }
 
             /// <summary>Connected to a control plane, outside the demonstration.</summary>
@@ -233,7 +236,9 @@ namespace Halcyonic.Client
             else if (problemChosen)
             {
                 side = state.ListingProblem != null && state.Listing == null
-                    ? new SidePanel(problem!, facts: new[] { new SideFact(ProjectsText.WhatHappened, LabelText.Plain(state.ListingProblem), valueIsData: true) })
+                    ? state.ListingProblem == EntryText.PressTryAgain
+                        ? new SidePanel(problem!, lines: new[] { new PageLine(EntryText.PressTryAgain) })
+                        : new SidePanel(problem!, facts: new[] { new SideFact(ProjectsText.WhatHappened, state.ListingProblem) })
                     : new SidePanel(problem!, lines: new[] { new PageLine(ProjectsText.AllowAFolder, rows: 2) });
                 footer = new Footer(close, farRight: new Prompt(ReadAgain, EntryText.TryAgain, GlazeIcon.Refresh, main: true));
             }

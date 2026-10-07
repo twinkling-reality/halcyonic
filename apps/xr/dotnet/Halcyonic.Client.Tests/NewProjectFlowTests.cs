@@ -115,10 +115,21 @@ public class NewProjectFlowTests
 
         public List<string> Asked { get; } = new();
 
+        /// <summary>Paths refused with a status and the control plane's error body.</summary>
+        public Dictionary<string, (HttpStatusCode Status, string Body)> Refusals { get; } = new();
+
+        /// <summary>Paths whose request never gets a reply, failing with this socket error.</summary>
+        public Dictionary<string, string> Unreachable { get; } = new();
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var key = request.Method.Method + " " + request.RequestUri!.AbsolutePath;
             Asked.Add(key);
+            if (Unreachable.TryGetValue(key, out var socket)) return Task.FromException<HttpResponseMessage>(new HttpRequestException(socket));
+            if (Refusals.TryGetValue(key, out var refusal))
+            {
+                return Task.FromResult(new HttpResponseMessage(refusal.Status) { Content = new StringContent(refusal.Body, Encoding.UTF8, "application/json") });
+            }
             var found = Answers.TryGetValue(key, out var answer);
             return Task.FromResult(new HttpResponseMessage(found ? HttpStatusCode.OK : HttpStatusCode.NotFound)
             {
@@ -754,6 +765,42 @@ public class NewProjectFlowTests
         await Until(flow, () => !flow.Idea!.Folder!.PlaceGone);
         Assert.That(flow.Idea!.Folder!.Describe(), Is.EqualTo("race-times in Projects (person)"));
         Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True);
+    }
+
+    /// <summary>
+    /// Folders that couldn't be read are said by the refusal's code, a refused credential as this
+    /// headset's connection says it, or as a computer that didn't answer, never by the error's message,
+    /// the control plane's own words, which can hold an address.
+    /// </summary>
+    [Test]
+    public async Task FoldersThatCouldNotBeReadAreNeverSaidByTheirMessage()
+    {
+        const string Leak = "connect ECONNREFUSED 192.168.1.20:47801 (/Users/someone)";
+        static string Refusal(string code) => HalcyonicJson.Serialize(new ErrorResponse { Error = new ErrorBody { Code = code, Message = Leak } });
+        var cases = new (Action<Routes> Fail, string Shown)[]
+        {
+            (routes => routes.Unreachable["GET /api/locations"] = Leak, "It didn't answer. Check that this app is running there, then press Try again."),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.Unauthorized, Refusal("device_revoked")), ConnectionText.PairingRefused),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.Unauthorized, Refusal("unauthorized")), ConnectionText.AccessTokenRefused),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.TooManyRequests, Refusal("too_many_requests")),
+                "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("internal_error")), "Press Try again."),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.BadGateway, Leak), "Press Try again."),
+        };
+        foreach (var (fail, shown) in cases)
+        {
+            var routes = new Routes();
+            fail(routes);
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) { AccessRefused = ConnectionText.AccessTokenRefused };
+            var host = new Host { Api = api };
+            var flow = Recapped(host);
+            Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+            Press(flow, NewProjectScreens.ChooseWhere, null);
+            await Until(flow, () => flow.Frame!.Lines.All(line => line.Words != EntryText.ReadingFolders));
+            var words = flow.Frame!.Lines.Select(line => line.Words).ToList();
+            Assert.That(words, Has.None.Contains("ECONNREFUSED").And.None.Contains("192.168").And.None.Contains("control plane"), shown);
+            Assert.That(words, Does.Contain("Couldn't read your computer's folders.").And.Contain(shown), "the heading, then why");
+        }
     }
 
     /// <summary>A build sent whose acknowledgement was lost: its outcome unknown, its id kept.</summary>

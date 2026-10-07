@@ -89,14 +89,21 @@ namespace Halcyonic.Client
             new RealtimeSession(
                 new RealtimeSessionOptions(Endpoint, Credential, client)
                 {
-                    AccessRefused = Pairing == null ? ConnectionText.AccessTokenRefused : ConnectionText.PairingRefused,
+                    AccessRefused = AccessRefused,
                 },
                 CreateTransport);
 
-        public ControlPlaneApi CreateApi() =>
-            Pairing == null
+        public ControlPlaneApi CreateApi()
+        {
+            var api = Pairing == null
                 ? new ControlPlaneApi(ControlPlaneApi.BaseUriFor(Endpoint), Credential)
                 : new ControlPlaneApi(ControlPlaneApi.BaseUriFor(Endpoint), Credential, new PinnedHttpHandler(Pairing.CertificateSha256));
+            api.AccessRefused = AccessRefused;
+            return api;
+        }
+
+        /// <summary>What a refused credential means here, the access code's line or the pairing's, said by the connection and every request alike.</summary>
+        public string AccessRefused => Pairing == null ? ConnectionText.AccessTokenRefused : ConnectionText.PairingRefused;
 
         /// <summary>
         /// Whether another target reaches the same endpoint with the same credential and pin, so a

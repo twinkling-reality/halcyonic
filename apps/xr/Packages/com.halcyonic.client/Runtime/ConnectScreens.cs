@@ -27,7 +27,7 @@ namespace Halcyonic.Client
 
         /// <summary>The folders no project uses, the latest changed first, or why there are none to show.</summary>
         /// <param name="listing">The host's listing, or null while it is read.</param>
-        /// <param name="problem">Why it could not be read, as it arrived.</param>
+        /// <param name="problem">Why it could not be read, in Halcyonic's own words (<see cref="EntryText.WhyFoldersUnread"/>), shown under <see cref="EntryText.FoldersUnread"/>, or null while reading.</param>
         /// <param name="live">Connected to a control plane, outside the demonstration: only then can anything be connected.</param>
         public static PanelModel Folders(LocationsResponse? listing, string? problem, bool live, DateTimeOffset now, TimeZoneInfo zone)
         {
@@ -42,7 +42,8 @@ namespace Halcyonic.Client
             }
             if (listing == null)
             {
-                model.Rows.Add(Line(problem == null ? EntryText.ReadingFolders : EntryText.FoldersUnread(problem)));
+                if (problem != null) model.Rows.Add(Line(EntryText.FoldersUnread));
+                model.Rows.Add(Line(problem ?? EntryText.ReadingFolders));
                 model.Actions = new ActionSet(back, problem == null ? null : readAgain);
                 return model;
             }

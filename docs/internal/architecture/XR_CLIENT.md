@@ -821,7 +821,12 @@ the same definition names, as the JSON Schema document:
   open New project through `IMenuHost.OpenNewProject`. The folders already in use come from the
   projection (`ProjectView.location.path`). It draws again only when the projection, the connection,
   the reading size, the overview (the same object until something changes, compared by reference) or
-  the minute moves, without building a frame each tick.
+  the minute moves, without building a frame each tick. Folders that couldn't be read, here and on
+  New project's Where its files live alike, are said by `EntryText.WhyFoldersUnread`: by the
+  refusal's code (a refused credential in the sentence the connection says for how this headset
+  reaches the computer, `ControlPlaneTarget.AccessRefused`, which it gives the session and
+  `ControlPlaneApi` alike), as a computer that didn't answer, or only as Try again, never by the
+  error's message, which is the control plane's own and can hold an address.
 - **`FolderConnect`**, **`FolderConnection`**, **`ConnectScreens`** and **`ConnectText`** are Connect
   a folder in the client core, not yet drawn on the headset: from `GET /api/locations` they offer
   the folders directly inside the allowed roots that no project uses (`used_by` empty), and a root

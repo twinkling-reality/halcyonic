@@ -677,7 +677,7 @@ namespace Halcyonic.Client
         /// press. Choosing one makes it the folder, here on the headset, and Done goes back to the facts;
         /// nothing is sent. While the folders can't be read, why, and Try again.
         /// </summary>
-        /// <param name="problem">Why the folders couldn't be read, as it arrived, or null while reading.</param>
+        /// <param name="problem">Why the folders couldn't be read, in Halcyonic's own words (<see cref="EntryText.WhyFoldersUnread"/>), shown under <see cref="EntryText.FoldersUnread"/>, or null while reading.</param>
         /// <param name="notice">A line for this page only, such as why a new folder's name was refused.</param>
         /// <param name="words">Words can be given here, by the keyboard or Hold to talk; where neither is offered, no new folder is offered, since it could not be named.</param>
         public static MenuFrame RecapFolder(ProjectIdea idea, bool startReached, LocationsResponse? locations, string? problem, string? notice,
@@ -689,7 +689,12 @@ namespace Halcyonic.Client
             if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Problem, rows: 2));
             if (locations == null)
             {
-                lines.Add(new PageLine(problem == null ? EntryText.ReadingFolders : EntryText.FoldersUnread(problem), rows: 3));
+                if (problem == null) lines.Add(new PageLine(EntryText.ReadingFolders, rows: 3));
+                else
+                {
+                    lines.Add(new PageLine(EntryText.FoldersUnread, tone: LineTone.Problem));
+                    lines.Add(new PageLine(problem, rows: 3));
+                }
                 if (problem != null) main = tryAgain;
             }
             else if (locations.Roots.Count == 0)

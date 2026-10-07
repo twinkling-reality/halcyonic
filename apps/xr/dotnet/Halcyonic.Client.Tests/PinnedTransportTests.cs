@@ -145,6 +145,8 @@ public class PinnedTransportTests
         Assert.That(paired.Credential, Is.EqualTo(pairing.Credential));
         Assert.That(ControlPlaneApi.BaseUriFor(paired.Endpoint), Is.EqualTo(new Uri("https://192.168.1.23:47801/")));
         Assert.That(pairing.At("fe80::1", 47801).RealtimeEndpoint, Is.EqualTo(new Uri("wss://[fe80::1]:47801/realtime")));
+        using (var api = local.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.AccessTokenRefused), "a refused request says what the connection says");
+        using (var api = paired.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.PairingRefused));
         Assert.Throws<ArgumentException>(() => ControlPlaneTarget.CheckPin("ABC"));
         Assert.Throws<ArgumentException>(() => ControlPlaneTarget.CheckPin(new string('C', 64)));
     }
