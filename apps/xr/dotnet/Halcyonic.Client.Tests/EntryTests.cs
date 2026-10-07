@@ -843,7 +843,7 @@ public class EntryWordsTests
             EntryText.MoreOptions, EntryText.ProjectName, EntryText.FirstTask, EntryText.NotNamedYet, EntryText.HowItRuns, EntryText.NameTheProject,
             EntryText.WhatFirstTask, EntryText.FolderTitle, EntryText.FolderLine, EntryText.ReadingFolders, EntryText.NoFolders, EntryText.FoldersCut,
             EntryText.NewFolderPrompt, EntryText.NewFolderRule, EntryText.UseThatFolder, EntryText.ChooseAnotherFolder,
-            EntryText.RebindWarning, EntryText.FoldersUnread, EntryText.FoldersUnanswered, EntryText.FoldersTurnedAway, EntryText.PressTryAgain, EntryText.FoldersNotConnected, ConnectionText.PairingRefused, EntryText.ModelsUnanswered, EntryText.ModelsUnreadable, EntryText.ModelsNotConnected, EntryText.OptionsLine, EntryText.NoRuntimes,
+            EntryText.RebindWarning, EntryText.FoldersUnread, EntryText.FoldersUnanswered, EntryText.FoldersTurnedAway, EntryText.PressTryAgain, EntryText.FoldersNotConnected, ConnectionText.PairingRefused, EntryText.ModelsUnanswered, EntryText.ModelsUnreadable, EntryText.ModelsUnsupported, EntryText.ModelsNotConnected, EntryText.OptionsLine, EntryText.NoRuntimes,
             EntryText.ChangeAgentApp, EntryText.ListsModels, EntryText.ChoosesModel, EntryText.NoModels, EntryText.Practice, EntryText.PracticeRun,
             EntryText.PracticeDetail, EntryText.Done, EntryText.ReviewLine, EntryText.ConfirmStart, EntryText.Change,
             EntryText.ReadToPart(4), EntryText.Previous, EntryText.Next, EntryText.Page(0, 2), EntryText.Part(0, 2), EntryText.NextPage(0, 2), EntryText.NextPage(1, 2),

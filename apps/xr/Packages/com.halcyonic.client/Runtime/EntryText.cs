@@ -160,16 +160,19 @@ namespace Halcyonic.Client
         /// <summary>
         /// Why the agent app's models couldn't be read, by the reason's code, never its message, which is the
         /// agent app's or the control plane's own words: one that didn't start or answer points to its
-        /// setup, any other to choosing it again (settled by the coordinator, 2026-10-07).
+        /// setup, a version not supported to another agent app, any other to choosing it again (settled by
+        /// the coordinator, 2026-10-07).
         /// </summary>
         public static string ModelsUnread(string? code) => code switch
         {
-            "runtime_unreachable" or "runtime_closed" or "runtime_unavailable" or "runtime_start_failed" or "timeout" => ModelsUnanswered,
+            "runtime_unreachable" or "runtime_closed" or "runtime_unavailable" or "runtime_start_failed" or "runtime_exited" or "runtime_timeout" or "timeout" => ModelsUnanswered,
+            "runtime_version_unsupported" => ModelsUnsupported,
             _ => ModelsUnreadable,
         };
 
         public const string ModelsUnanswered = "Couldn't read its models: the agent app didn't answer. Check its setup on " + HostText.Your + ", then choose it again.";
         public const string ModelsUnreadable = "Couldn't read its models. Choose the agent app again to retry.";
+        public const string ModelsUnsupported = "Couldn't read its models: this agent app's version on " + HostText.Your + " isn't supported yet. Choose another.";
         public const string ModelsNotConnected = "Couldn't read its models: " + HostText.Your + " isn't connected. Choose the agent app again when it is.";
         public const string ChosenForYou = "Chosen for you";
 
