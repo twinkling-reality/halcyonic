@@ -246,6 +246,47 @@ public class PinnedTransportTests
             Throws.InstanceOf<HttpRequestException>(), "while its token stands, a connection that failed");
     }
 
+    /// <summary>
+    /// Pairing tells a connection something took from one nothing took: what answered without setting up a secure
+    /// connection, as a service that doesn't speak TLS or a listener turning away too many tries, says so; a name
+    /// that doesn't resolve, or a port nothing listens on, says nothing answered (settled by the coordinator, 2026-10-07).
+    /// </summary>
+    [Test]
+    public async Task APairingThatConnectedButSetUpNoSecureConnectionSaysSomethingAnswered()
+    {
+        foreach (var answer in new[] { "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n", "" })
+        {
+            var plain = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            plain.Start();
+            var port = ((System.Net.IPEndPoint)plain.LocalEndpoint).Port;
+            var serving = Task.Run(async () =>
+            {
+                using var client = await plain.AcceptTcpClientAsync();
+                var stream = client.GetStream();
+                if (answer.Length > 0) await stream.WriteAsync(Encoding.ASCII.GetBytes(answer));
+            });
+            try
+            {
+                var refused = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", port, "12345678", "Quest 3"));
+                Assert.That((refused!.Code, refused.Message), Is.EqualTo(("not_secure",
+                    "Something at 127.0.0.1:" + port + " answered but didn't set up a secure connection. Check the address and port; if they're right, try again in a minute.")),
+                    answer.Length > 0 ? "not TLS" : "closed at once");
+                await serving;
+            }
+            finally
+            {
+                plain.Stop();
+            }
+        }
+
+        var free = ControlPlaneProcess.FreePort();
+        var nothing = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", free, "12345678", "Quest 3"));
+        Assert.That((nothing!.Code, nothing.Message), Is.EqualTo(("unreachable",
+            "Nothing answered at 127.0.0.1:" + free + ". Check the address, and that your computer and this device share a network.")));
+        var unnamed = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("halcyonic-test.invalid", 47801, "12345678", "Quest 3"));
+        Assert.That(unnamed!.Code, Is.EqualTo("unreachable"), "a name that doesn't resolve");
+    }
+
     [Test]
     public void TargetsUseThePinnedTransportsOnlyForAPairing()
     {

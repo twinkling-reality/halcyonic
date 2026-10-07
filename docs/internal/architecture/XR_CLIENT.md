@@ -2189,7 +2189,12 @@ release build, such as the one judges run, offers no pairing
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
   left after a wrong code; a refusal the app does not know reads "Your computer refused to pair
   this headset. Open pairing there again, then try again.", never in the words of whatever answered
-  at that address; an exchange whose connection closed partway "The connection closed before
+  at that address; something at the address that answered but set up no secure connection, as a
+  service that doesn't speak TLS or a listener turning away too many tries
+  (`HandshakeFailedException`, `PairingClient.NotSecure`), "Something at {address} answered but
+  didn't set up a secure connection. Check the address and port; if they're right, try again in a
+  minute.", where a name that doesn't resolve or a port nothing takes says nothing answered; an
+  exchange whose connection closed partway "The connection closed before
   pairing finished. Check the address and that pairing is open on your computer, then try again.";
   and anything else unexpected "Couldn't pair this headset. Check the address, then
   try again.", never an exception's words. On success the pairing

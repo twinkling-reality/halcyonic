@@ -46,6 +46,11 @@ namespace Halcyonic.Client
             {
                 connection = await PinnedConnection.OpenAsync(WebSocketUpgrade.Host(endpoint), port, null, token).ConfigureAwait(false);
             }
+            catch (HandshakeFailedException error) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Something took the connection, so never "nothing answered".
+                throw new PairingException("not_secure", NotSecure(endpoint.Authority), null, error);
+            }
             catch (Exception error) when (!cancellationToken.IsCancellationRequested)
             {
                 throw new PairingException("unreachable", "Nothing answered at " + endpoint.Authority + ". Check the address, and that " + HostText.Your + " and this device share a network.", null, error);
@@ -193,6 +198,14 @@ namespace Halcyonic.Client
                 : new PairingException("protocol_error", ProtocolError, null, error);
         }
 
+        /// <summary>
+        /// Something answered at the typed address but set up no secure connection: a service that doesn't speak
+        /// TLS, or the computer's listener turning away too many tries from one address (settled by the
+        /// coordinator, 2026-10-07).
+        /// </summary>
+        public static string NotSecure(string address) =>
+            "Something at " + address + " answered but didn't set up a secure connection. Check the address and port; if they're right, try again in a minute.";
+
         /// <summary>The connection closed or failed before pairing finished (settled by the coordinator, 2026-10-07).</summary>
         public const string ConnectionLost = "The connection closed before pairing finished. Check the address and that pairing is open on "
             + HostText.Your + ", then try again.";
@@ -225,7 +238,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Why: <c>wrong_code</c>, <c>pairing_closed</c>, <c>too_many_requests</c>, <c>busy</c>,
-        /// <c>timeout</c>, <c>unreachable</c>, <c>invalid_code</c>, <c>server_not_proven</c>,
+        /// <c>timeout</c>, <c>unreachable</c>, <c>not_secure</c>, <c>invalid_code</c>, <c>server_not_proven</c>,
         /// <c>connection_lost</c> or <c>protocol_error</c>, among the control plane's codes.
         /// </summary>
         public string Code { get; }
