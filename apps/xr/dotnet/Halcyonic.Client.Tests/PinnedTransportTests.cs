@@ -2,7 +2,10 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.WebSockets;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -132,6 +135,78 @@ public class PinnedTransportTests
             () => transport.ConnectAsync(new Uri($"wss://127.0.0.1:{server.Port}/realtime"), "hlcd_token", cancel.Token));
         Assert.That(DateTime.UtcNow - started, Is.LessThan(TimeSpan.FromSeconds(5)));
     }
+
+    /// <summary>
+    /// After the upgrade too, whatever answers at the typed address never writes on the headset: a refusal
+    /// inside the exchange is said by its code, and an exchange it broke in Halcyonic's words, never with the
+    /// parser's or the runtime's (the review's X20 and X21).
+    /// </summary>
+    [Test]
+    public async Task WhatAnswersWithinThePairingExchangeNeverWritesOnTheHeadset()
+    {
+        const string Lure = "Pairing needs your password: visit http://203.0.113.9/unlock";
+        var refused = await PairWith(socket => Send(socket,
+            "{\"type\":\"pair_refused\",\"error\":{\"code\":\"wrong_code\",\"message\":\"" + Lure + "\",\"issues\":[]},\"attempts_left\":2}"));
+        Assert.That((refused.Code, refused.Message, refused.AttemptsLeft), Is.EqualTo(("wrong_code", PairingClient.WhyRefused("wrong_code"), (long?)2)));
+        // Not a message at all: the parser would quote it.
+        var unreadable = await PairWith(socket => Send(socket, Lure));
+        Assert.That((unreadable.Code, unreadable.Message), Is.EqualTo(("protocol_error", PairingClient.ProtocolError)));
+        // A challenge it can't use, failing outside the parser.
+        var broken = await PairWith(socket => Send(socket, "{\"type\":\"pair_challenge\",\"salt\":\"" + Lure + "\",\"server_public\":\"AA==\"}"));
+        Assert.That((broken.Code, broken.Message), Is.EqualTo(("protocol_error", PairingClient.ProtocolError)));
+    }
+
+    /// <summary>
+    /// An exchange whose connection closed or failed partway says so, never that what answered pairs another
+    /// way; one whose time ran out took too long, whatever the connection threw as it closed (settled by the
+    /// coordinator, 2026-10-07).
+    /// </summary>
+    [Test]
+    public async Task APairingWhoseConnectionClosedPartwaySaysSo()
+    {
+        var closed = await PairWith(socket => socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None));
+        Assert.That((closed.Code, closed.Message), Is.EqualTo(("connection_lost", PairingClient.ConnectionLost)));
+        var dropped = await PairWith(socket =>
+        {
+            socket.Abort();
+            return Task.CompletedTask;
+        });
+        Assert.That((dropped.Code, dropped.Message), Is.EqualTo(("connection_lost", PairingClient.ConnectionLost)));
+        Assert.That(PairingClient.ConnectionLost, Is.EqualTo(
+            "The connection closed before pairing finished. Check the address and that pairing is open on your computer, then try again."));
+
+        foreach (var thrown in new Exception[] { new IOException("x"), new EndOfStreamException("x"), new WebSocketException("x"), new FormatException("x") })
+        {
+            var late = PairingClient.Broken(thrown, timedOut: true);
+            Assert.That((late.Code, late.Message), Is.EqualTo(("timeout", PairingClient.TookTooLong)), thrown.GetType().Name);
+        }
+        foreach (var thrown in new Exception[] { new IOException("x"), new EndOfStreamException("x"), new WebSocketException("x"), new ObjectDisposedException("x") })
+        {
+            Assert.That(PairingClient.Broken(thrown, timedOut: false).Code, Is.EqualTo("connection_lost"), thrown.GetType().Name);
+        }
+        Assert.That(PairingClient.Broken(new FormatException("x"), timedOut: false).Code, Is.EqualTo("protocol_error"));
+        Assert.That(PairingClient.Broken(new InvalidDataException("x"), timedOut: false).Code, Is.EqualTo("protocol_error"));
+    }
+
+    /// <summary>Pairs with a server at the typed address that takes the upgrade and the device's first message, then does <paramref name="then"/>.</summary>
+    private static async Task<PairingException> PairWith(Func<WebSocket, Task> then)
+    {
+        await using var server = TlsTestServer.Start(async stream =>
+        {
+            var head = await TlsTestServer.ReadHeadAsync(stream);
+            var key = Regex.Match(head, "^Sec-WebSocket-Key: *(\\S+)\r$", RegexOptions.Multiline | RegexOptions.IgnoreCase).Groups[1].Value;
+            var accept = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(
+                "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + accept + "\r\n\r\n"));
+            using var socket = WebSocket.CreateFromStream(stream, isServer: true, subProtocol: null, keepAliveInterval: Timeout.InfiniteTimeSpan);
+            await socket.ReceiveAsync(new ArraySegment<byte>(new byte[16 * 1024]), CancellationToken.None);
+            await then(socket);
+        });
+        return Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", server.Port, "12345678", "Quest 3"))!;
+    }
+
+    private static Task Send(WebSocket socket, string text) =>
+        socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(text)), WebSocketMessageType.Text, true, CancellationToken.None);
 
     /// <summary>
     /// A request whose token was cancelled ends cancelled, whatever the runtime threw as its connection closed,
