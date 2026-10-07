@@ -20,15 +20,22 @@ The interface already moves in a few places, each with its own timing:
 
 Settings' "Keep badges still" (`Comfort.Still`) stops the breath and the turning.
 
-References, from public guidance as summarised in ADR 0026's research. They are to be checked against the
-current pages before this is accepted.
+References, checked against the current pages on 2026-10-07
+([headset-motion-guidance.md](../validation/headset-motion-guidance.md)):
 
-- Meta's Horizon OS guidance on comfort: nothing the person did not cause should move large content in
-  their view, since unexpected motion causes discomfort; feedback should come at once on every press.
-- Apple's visionOS guidance on motion: motion is brief, eases rather than bounces, explains a change of
-  state, and gives way to the system's Reduce Motion setting.
-- Destiny 2, from ADR 0026's research: a held prompt fills as it is held, so the person sees the hold
-  take before it acts; waits show a quiet, steady sign of progress, never a blank.
+- Meta's Horizon OS design guidance: content anchored in space rather than following the person,
+  little motion while the person is immersed, large objects revealed with a fade, and on every press a
+  visual change (a highlight or a compressing movement) with a sound. Meta gives no timings.
+- Apple's Human Interface Guidelines on motion: motion only with a purpose, never the only way to say
+  something, feedback brief and precise, none at the edges of the field of view, nothing large carried
+  across it. Under Reduce Motion, ongoing motion stops, and motion that carries status becomes a
+  dissolve, a highlight fade or a colour shift. Apple says nothing about easing or bouncing.
+- Destiny 2, from ADR 0026's research (an observation, not a document): a held prompt fills as it is
+  held, so the person sees the hold take before it acts; waits show a quiet, steady sign of progress,
+  never a blank.
+
+What this ADR adds of its own, beyond those pages: nothing overshoots or bounces, a press answers at
+once, and the token values.
 
 ## Decision
 
