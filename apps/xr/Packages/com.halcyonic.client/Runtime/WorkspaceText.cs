@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -176,13 +177,22 @@ namespace Halcyonic.Client
             question.Answerable && !question.Prompts.Any(prompt => prompt.Secret) && !question.Prompts.Any(OffersALabelTwice);
 
         /// <summary>
-        /// The prompt offers two answers with the same label, character for character. An answer names
-        /// what it chooses by its label alone, so choosing either sends that label twice, which the control
-        /// plane refuses ("An answer chooses the same option twice"), and the agent could not tell which was
-        /// meant: a "Yes" that keeps the data from a "Yes" that deletes it.
+        /// The prompt offers two answers whose labels read the same (<see cref="AsShown"/>). An answer names
+        /// what it chooses by its label alone, so choosing one of two labels written alike sends that label
+        /// twice, which the control plane refuses ("An answer chooses the same option twice"), and between
+        /// two that only show alike a person can't tell which they chose: a "Yes" that keeps the data from a
+        /// "Yes " that deletes it.
         /// </summary>
         public static bool OffersALabelTwice(QuestionPrompt prompt) =>
-            prompt.Options.Select(option => option.Label).Distinct(StringComparer.Ordinal).Count() != prompt.Options.Count;
+            prompt.Options.Select(option => AsShown(option.Label)).Distinct(StringComparer.Ordinal).Count() != prompt.Options.Count;
+
+        /// <summary>
+        /// A label as its row shows it, for telling answers apart: <see cref="LabelText.Plain"/>, then in
+        /// Unicode's composed form (NFC), compared character for character. White space at the ends or as a
+        /// tab, and one letter written composed or decomposed, read the same; case, width, ligatures and
+        /// letters of other scripts that only look alike do not (OPEN_QUESTIONS.md).
+        /// </summary>
+        public static string AsShown(string? label) => LabelText.Plain(label).Normalize(NormalizationForm.FormC);
 
         /// <summary>Why a question offering two answers by one label can't be answered here (settled by the coordinator, 2026-10-04).</summary>
         public const string SameAnswersTwice = "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.";
