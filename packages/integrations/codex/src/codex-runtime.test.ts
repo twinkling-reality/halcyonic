@@ -26,6 +26,7 @@ import {
   CODEX_CAPABILITIES,
   CodexRuntimeAdapter,
   type CodexRuntimeOptions,
+  untrustedFrom,
 } from './codex-runtime.ts';
 import { APPROVAL_METHODS, METHODS_USED } from './protocol.ts';
 import {
@@ -535,7 +536,11 @@ describe('Codex runtime against a stand-in binary', () => {
       // The configured provider, once Codex's configuration shows it on this Mac, by name.
       modelProvider: 'ollama',
       // The model may ask the person questions (ADR 0022).
-      config: { 'features.default_mode_request_user_input': true },
+      config: {
+        'features.default_mode_request_user_input': true,
+        // The folder and every folder above it, untrusted, so a project's own settings never load.
+        projects: untrustedFrom(realpathSync(directory)),
+      },
       threadSource: 'halcyonic',
     });
     assert.deepEqual(
@@ -548,6 +553,7 @@ describe('Codex runtime against a stand-in binary', () => {
         'configRequirements/read',
         'config/read',
         'configRequirements/read',
+        'config/read',
         'thread/start',
         'turn/start',
       ],
@@ -595,6 +601,7 @@ describe('Codex runtime against a stand-in binary', () => {
         model_context_window: 65536,
         model_auto_compact_token_limit: 52000,
         'features.default_mode_request_user_input': true,
+        projects: untrustedFrom(realpathSync(directory)),
       },
       threadSource: 'halcyonic',
     });
@@ -1340,12 +1347,59 @@ describe('Codex runtime against a stand-in binary', () => {
   });
 
   test('with questions switched off, threads leave the feature off and declare no answers', async (t) => {
-    const { runtime, start, received } = fake(t, [], { answerQuestions: false });
+    const { runtime, start, received, directory } = fake(t, [], { answerQuestions: false });
     assert.equal(runtime.descriptor.capabilities.answer_question, false);
     await start();
     const threadStart = received().find((message) => message.method === 'thread/start');
     assert.ok(threadStart !== undefined);
-    assert.equal((threadStart.params as { config?: unknown }).config, undefined);
+    assert.deepEqual((threadStart.params as { config?: unknown }).config, {
+      projects: untrustedFrom(realpathSync(directory)),
+    });
+  });
+
+  test('marks the folder and every folder above it untrusted, by path, never as a dotted key', () => {
+    assert.deepEqual(untrustedFrom('/Users/someone/Halcyonic.Projects/app.v2'), {
+      '/Users/someone/Halcyonic.Projects/app.v2': { trust_level: 'untrusted' },
+      '/Users/someone/Halcyonic.Projects': { trust_level: 'untrusted' },
+      '/Users/someone': { trust_level: 'untrusted' },
+      '/Users': { trust_level: 'untrusted' },
+      '/': { trust_level: 'untrusted' },
+    });
+  });
+
+  test('refuses a folder whose own Codex settings Codex would load, before any thread', async (t) => {
+    const loaded = [
+      { name: { type: 'user', file: '/h/config.toml', profile: null }, version: '1', config: {} },
+      { name: { type: 'project', dotCodexFolder: '/p/.codex' }, version: '1', config: {} },
+    ];
+    const refused = fake(t, [], {}, { FAKE_CODEX_LAYERS: JSON.stringify(loaded) });
+    await assert.rejects(refused.start('COMPLETE the work.'), (error: unknown) => {
+      assert.ok(actionError('runtime_refused')(error));
+      assert.match((error as Error).message, /own Codex settings from \/p\/\.codex/);
+      return true;
+    });
+    assert.ok(!refused.received().some((message) => message.method === 'thread/start'));
+    const read = refused
+      .received()
+      .find(
+        (message) =>
+          message.method === 'config/read' &&
+          (message.params as { includeLayers?: unknown }).includeLayers === true,
+      );
+    assert.deepEqual(read?.params, { includeLayers: true, cwd: realpathSync(refused.directory) });
+
+    // A project layer Codex reports with a reason it is disabled is not loaded: the start goes on.
+    const disabled = [
+      {
+        name: { type: 'project', dotCodexFolder: '/p/.codex' },
+        version: '1',
+        config: {},
+        disabledReason: '/p is marked as untrusted in the effective configuration.',
+      },
+    ];
+    const allowed = fake(t, [], {}, { FAKE_CODEX_LAYERS: JSON.stringify(disabled) });
+    await allowed.start('COMPLETE the work.');
+    assert.ok(allowed.received().some((message) => message.method === 'thread/start'));
   });
 
   test('after a restart, a thread another Codex process holds is refused clearly', async (t) => {

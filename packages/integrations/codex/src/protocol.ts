@@ -65,6 +65,13 @@ export interface ThreadConfigOverrides {
    * Codex 0.157.0 refuses otherwise. An under-development feature (ADR 0022).
    */
   readonly 'features.default_mode_request_user_input'?: boolean;
+  /**
+   * Trust levels by folder, as a nested object since paths hold dots. A thread's overrides join
+   * the launch's `-c` overrides (precedence 30), above the home's `config.toml`, and Codex reads
+   * them before it decides a project's trust (codex-rs/app-server/src/config_manager.rs,
+   * `load_with_cli_overrides`, and codex-rs/config/src/loader/mod.rs at rust-v0.157.0).
+   */
+  readonly projects?: Readonly<Record<string, { readonly trust_level: 'untrusted' }>>;
 }
 
 /** `v2/ThreadStartParams.ts`. */
@@ -138,9 +145,13 @@ export interface ConfigRequirementsReadResponse {
   readonly requirements: Record<string, unknown> | null;
 }
 
-/** `v2/ConfigReadParams.ts`: the effective configuration, without its layers. */
+/**
+ * `v2/ConfigReadParams.ts`: the effective configuration, and with `includeLayers` its layers, as
+ * seen from `cwd` when given (with the project layers between it and its project or repo root).
+ */
 export interface ConfigReadParams {
-  readonly includeLayers: false;
+  readonly includeLayers: boolean;
+  readonly cwd?: string;
 }
 
 /**

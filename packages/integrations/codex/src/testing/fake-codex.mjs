@@ -27,7 +27,8 @@
  *   prints FAKE_CODEX_SECRET to its error output, as a configuration error can print a key, and
  *   exits with 3 or 1.
  *
- * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default), and
+ * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default) and, when
+ * asked for its layers, those in FAKE_CODEX_LAYERS, and
  * `model/list` the catalog in FAKE_CODEX_CATALOG (a JSON array), one model a page. A thread that
  * asks for no model or provider runs on the configuration's, as Codex's do, or `gpt-5.5` from
  * `openai`. Each launch of `app-server` appends its arguments and CODEX_HOME to
@@ -159,7 +160,8 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       respond({
         config: configured,
         origins: {},
-        layers: null,
+        // FAKE_CODEX_LAYERS (a JSON array) plays the layers Codex reports from a folder.
+        layers: params.includeLayers ? JSON.parse(process.env.FAKE_CODEX_LAYERS ?? '[]') : null,
       });
       return;
     case 'model/list': {

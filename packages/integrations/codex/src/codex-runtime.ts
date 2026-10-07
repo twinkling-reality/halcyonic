@@ -1,5 +1,5 @@
 import { tmpdir } from 'node:os';
-import { isAbsolute } from 'node:path';
+import { dirname, isAbsolute } from 'node:path';
 import type {
   ApprovalDecision,
   QuestionAnswer,
@@ -621,6 +621,42 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     return config;
   }
 
+  /**
+   * Refuses a folder whose own Codex settings Codex would load: a `.codex` folder between it and
+   * its project or repo root that the home's configuration trusts. Every thread marks its folder
+   * untrusted in its own overrides (`threadSettings`), which `config/read` cannot see, so this
+   * catches a trust that outranks or slips past them, such as one recorded in the home.
+   */
+  async #noProjectSettings(connection: Connection, cwd: string): Promise<void> {
+    const params: ConfigReadParams = { includeLayers: true, cwd };
+    const read = await send(connection, 'config/read', params, this.#requestTimeoutMs);
+    const layers = isRecord(read) && Array.isArray(read.layers) ? read.layers : null;
+    if (layers === null) {
+      throw new RuntimeActionError(
+        'runtime_protocol_error',
+        "Codex answered config/read without the layers of the project's folder.",
+      );
+    }
+    const loaded = layers.filter(
+      (layer) =>
+        isRecord(layer) &&
+        isRecord(layer.name) &&
+        layer.name.type === 'project' &&
+        (typeof layer.disabledReason !== 'string' || layer.disabledReason === ''),
+    );
+    if (loaded.length > 0) {
+      const folders = loaded.map((layer) =>
+        isRecord(layer) && isRecord(layer.name) && typeof layer.name.dotCodexFolder === 'string'
+          ? layer.name.dotCodexFolder
+          : 'a .codex folder',
+      );
+      throw new RuntimeActionError(
+        'runtime_refused',
+        `Codex would load the project's own Codex settings from ${folders.join(', ')}, which can add MCP servers, hooks and network access, because Codex's configuration trusts the project, as an entry in Halcyonic's Codex home config.toml can. Remove that entry. Nothing was started.`,
+      );
+    }
+  }
+
   /** Codex's configuration, as `config/read` reports it with every layer applied. */
   async #readConfig(connection: Connection): Promise<Readonly<Record<string, unknown>>> {
     const params: ConfigReadParams = { includeLayers: false };
@@ -643,6 +679,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    */
   async #onThisMac(connection: Connection, options: StartOptions): Promise<StartOptions> {
     const config = await this.#localOnly(connection);
+    await this.#noProjectSettings(connection, options.cwd);
     const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
     const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
     const served = servedBy(config, provider, this.#environment);
@@ -1000,6 +1037,25 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
 // Helpers ----------------------------------------------------------------------------------------
 
+/**
+ * The thread's folder and every folder above it, each marked untrusted. Codex looks up a folder's
+ * trust by the folder itself, then its project root, then its repo root, and judges each `.codex`
+ * folder between them the same way (codex-rs/config/src/loader/mod.rs and config_toml.rs at
+ * rust-v0.157.0); all of them are the folder or above it, so a project's own settings never load,
+ * and Codex never records the project as trusted (thread_processor.rs, which writes trust only
+ * when none is known).
+ */
+export function untrustedFrom(
+  folder: string,
+): Record<string, { readonly trust_level: 'untrusted' }> {
+  const projects: Record<string, { readonly trust_level: 'untrusted' }> = {};
+  for (let current = folder; ; current = dirname(current)) {
+    projects[current] = { trust_level: 'untrusted' };
+    if (dirname(current) === current) break;
+  }
+  return projects;
+}
+
 /** The settings every thread is started and resumed with. */
 function threadSettings(
   options: StartOptions,
@@ -1011,6 +1067,7 @@ function threadSettings(
       model_auto_compact_token_limit: options.autoCompactTokenLimit,
     }),
     ...(askQuestions && { [QUESTION_FEATURE]: true }),
+    projects: untrustedFrom(options.cwd),
   };
   return {
     cwd: options.cwd,
