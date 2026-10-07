@@ -177,7 +177,13 @@ fill (`Halcyonic: component render ...`). It fails if a word is too small or cut
 small, a label short of 4.5:1 on its fill, a badge's word wrong, or a meter filled other than to its
 share, or at all while waiting; and if the icon atlas lacks an icon the client core names, an icon
 shows on no badge, mark or button (`gallery-actions.png` shows every action's), an icon is under a
-degree or has no words beside it, or a label of words draws from the icon atlas.
+degree or has no words beside it, or a label of words draws from the icon atlas. It also draws ADR 0027's
+motion as two strips, `gallery-motion.png` (Sent… and Hold to talk writing down at three points of the
+shimmer's sweep, then under Keep badges still) and `gallery-listening.png` (Hold to talk listening at
+three points of its pulse, then still), and fails if a wait's words do not move, are lifted too little
+to see, keep moving once the wait ends or under Keep badges still; if Hold to talk listening is not in the
+active tone, its microphone does not pulse, or pulses still once idle or under Keep badges still; if its
+words lean; or if sixty frames of either motion allocate anything or a wait adds a renderer.
 
 The headset redesign's frames (ADR 0026) render the same way, **Halcyonic > Render the Redesign
 Directions**, or in batch mode:
