@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Halcyonic.Client;
+using Halcyonic.Contracts;
 using UnityEngine;
 
 namespace Halcyonic.XR.UI.Editor
@@ -16,13 +17,14 @@ namespace Halcyonic.XR.UI.Editor
         private const float StripTop = 5f;
 
         /// <summary>
-        /// A footer's motion (ADR 0027), drawn as two strips. A wait's shimmer: Sent… and Hold to talk writing
+        /// Motion (ADR 0027), drawn as three strips. A wait's shimmer: Sent… and Hold to talk writing
         /// down, a third, a half and four fifths into the sweep, then under Keep badges still; its words, in the
         /// secondary tone so the lift shows, move while the prompt waits, stand in their own colours once it no
         /// longer does, and stand still under Keep badges still. Hold to talk listening: the active tone, its
         /// microphone at three points of its pulse, then under Keep badges still; it grows and shrinks while it
         /// listens, stands at its own size once the voice is idle, and stands still under Keep badges still.
-        /// Neither allocates a frame, nor adds a renderer, so neither adds a draw call.
+        /// A badge changing state: its colours cross-fade over a state's time, easing in and out, under Keep
+        /// badges still too. None allocates a frame, nor adds a renderer, so none adds a draw call.
         /// </summary>
         private static IEnumerable<string> Motion(string folder, Camera camera, RenderTexture texture)
         {
@@ -167,9 +169,79 @@ namespace Halcyonic.XR.UI.Editor
                 {
                     failures.Add("component render: the voice idle, Hold to talk still listened, its microphone at " + held.IconGrowth + " of its size.");
                 }
+
+                // A badge changing from Working to Waiting for you: its colours cross-fade over a state's time, easing
+                // in and out, at none, a quarter, half and all of it, then half under Keep badges still, since a change is no loop.
+                foreach (var holder in made) holder.gameObject.SetActive(false);
+                var working = StateLanguage.BadgeOf(Character(CharacterActivity.Working, AttentionLevel.None));
+                var steps = new[] { 0f, 0.25f, 0.5f, 1f, 0.5f };
+                var badges = new List<StateBadgeView>();
+                for (var row = 0; row < steps.Length; row++)
+                {
+                    var holder = Holder("State " + row, 0f, StripTop - row * 4.5f);
+                    made.Add(holder);
+                    var each = StateBadgeView.Create(holder, "Badge", 1);
+                    each.Show(working);
+                    badges.Add(each);
+                }
+                var (workingFill, workingWord) = (badges[0].DrawnFill, badges[0].Word.color);
+                // The editor runs no frames, so there a badge takes its new state at once unless a render steps it.
+                badges[0].Show(Waiting);
+                if (badges[0].Changing) failures.Add("component render: in the editor a badge shown another state is still cross-fading, which no frame would end.");
+                var (waitingFill, waitingWord) = (badges[0].DrawnFill, badges[0].Word.color);
+                if (Near(workingFill, waitingFill)) failures.Add("component render: Working and Waiting for you fill alike, so a badge's change shows nothing.");
+                badges[0].Show(working);
+                StateBadgeView.CrossFadesInEditor = true;
+                for (var row = 0; row < steps.Length; row++)
+                {
+                    GlazeMotion.Still = row == steps.Length - 1;
+                    badges[row].Show(Waiting);
+                    badges[row].Change(steps[row] * Glaze.StateSeconds);
+                }
+                GlazeMotion.Still = false;
+                File.WriteAllBytes(Path.Combine(folder, "gallery-state.png"), Render(camera, texture).EncodeToPNG());
+                for (var row = 0; row < steps.Length; row++)
+                {
+                    var along = Glaze.EaseInOut(steps[row]);
+                    var when = (steps[row] * 100f).ToString("0") + " percent through its change" + (row == steps.Length - 1 ? " under Keep badges still" : "");
+                    if (!Near(badges[row].DrawnFill, Color.Lerp(workingFill, waitingFill, along)))
+                    {
+                        failures.Add("component render: a badge changing from Working to Waiting for you, " + when + ", does not draw its pill "
+                            + (along * 100f).ToString("0") + " percent of the way.");
+                    }
+                    if (!Near(badges[row].Word.color, workingWord) && !Near(badges[row].Word.color, waitingWord))
+                    {
+                        failures.Add("component render: a badge changing from Working to Waiting for you, " + when + ", draws its word in neither state's colour.");
+                    }
+                    if (badges[row].Changing != steps[row] < 1f) failures.Add("component render: a badge " + when + " is " + (badges[row].Changing ? "still" : "no longer") + " changing.");
+                }
+                // Each way, at every twentieth of the change, the word reads on the pill as drawn over a plate:
+                // at least 3:1, as large text must, for the quarter second it lasts.
+                var plate = GlazeTokens.ColorOf(Glaze.Panel);
+                foreach (var (from, to, way) in new[] { (working, Waiting, "Working to Waiting for you"), (Waiting, working, "Waiting for you to Working") })
+                {
+                    var probe = badges[1];
+                    StateBadgeView.CrossFadesInEditor = false;
+                    probe.Show(from);
+                    StateBadgeView.CrossFadesInEditor = true;
+                    probe.Show(to);
+                    var faintest = float.MaxValue;
+                    for (var step = 0; step <= 20; step++)
+                    {
+                        if (step > 0) probe.Change(Glaze.StateSeconds / 20f);
+                        var fill = probe.DrawnFill;
+                        faintest = Mathf.Min(faintest, GlazeChecks.Contrast(probe.Word.color, GlazeChecks.Over(new Color(fill.r, fill.g, fill.b), fill.a, plate)));
+                    }
+                    if (faintest < 3f) failures.Add("component render: a badge changing from " + way + " drops its word to " + faintest.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + ":1 on its pill; it holds 3:1 throughout.");
+                    Debug.Log("Halcyonic: component render: a badge changing from " + way + " keeps its word at " + faintest.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + ":1 or more on its pill.");
+                }
+                badges[1].Show(working);
+                badges[1].Show(Waiting);
+                failures.AddRange(MotionAllocatesNothing("a badge's change", _ => badges[1].Change(Glaze.StateSeconds / 1000f)));
             }
             finally
             {
+                StateBadgeView.CrossFadesInEditor = false;
                 GlazeMotion.Still = still;
                 foreach (var holder in made) Object.DestroyImmediate(holder.gameObject);
                 foreach (var holder in hidden) holder.gameObject.SetActive(true);
