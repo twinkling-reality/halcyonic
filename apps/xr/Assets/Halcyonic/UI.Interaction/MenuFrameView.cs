@@ -128,6 +128,12 @@ namespace Halcyonic.XR.UI
         /// <summary>The footer, for the renders' checks.</summary>
         public FooterView Footer => footer;
 
+        /// <summary>
+        /// Where Hold to talk's one voice stands for this view's column, as its next laying draws it (ADR 0027):
+        /// the held prompt's id and stage; null while the voice is idle or another column's.
+        /// </summary>
+        public (string Id, VoiceStage Stage)? Voice { get; set; }
+
         /// <summary>Labels showing text from outside, which may end in an ellipsis where it doesn't fit; Halcyonic's own words never do.</summary>
         public IEnumerable<TMP_Text> MayCut
         {
@@ -712,7 +718,9 @@ namespace Halcyonic.XR.UI
             }
 
             var footerMiddle = -top + U(1f) + FooterView.Height / 2f;
-            footer.Show(frame?.Footer ?? carried ?? SidePanel.Footer, left, right, footerMiddle);
+            // Hold to talk shows where the voice stands, the same in every column (Footer.Voiced).
+            var prompts = frame?.Footer ?? carried ?? SidePanel.Footer;
+            footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle);
             // A faint line between the page and its footer, too faint to mark anything.
             footerLine.Draw(new Vector2(width - 2f * U(1f), U(0.05f)), 0f, new Color(1f, 1f, 1f, 0.09f));
             footerLine.transform.localPosition = new Vector3(0f, footerMiddle + FooterView.Height / 2f + TargetGap / 2f, -U(0.02f));

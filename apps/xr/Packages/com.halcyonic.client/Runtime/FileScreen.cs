@@ -92,13 +92,6 @@ namespace Halcyonic.Client
         /// <summary>What something the person just did came to, for a few seconds; null when nothing.</summary>
         public string? Notice { get; set; }
 
-        /// <summary>
-        /// Hold to talk's words while the voice listens or writes down (<see cref="VoiceText.ListeningWords"/>,
-        /// <see cref="VoiceText.WritingDownWords"/>), said on the prompt itself so the page never grows for
-        /// them; null while it waits to be held.
-        /// </summary>
-        public string? Voice { get; set; }
-
         /// <summary>The system keyboard can open here; where it can't, no row whose only job is to open it shows.</summary>
         public bool KeyboardOffered { get; set; } = true;
 

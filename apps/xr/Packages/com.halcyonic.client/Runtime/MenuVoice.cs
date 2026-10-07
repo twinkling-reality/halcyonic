@@ -3,14 +3,6 @@ using System;
 
 namespace Halcyonic.Client
 {
-    /// <summary>
-    /// Hold to talk's one voice for the menu's columns (ADR 0021, ADR 0026), engine-free, for the menu's
-    /// director to run: what the voice says and hears goes only to the column that held, which learns its
-    /// hold started only once the voice records. A hold while the voice still records, or waits for the
-    /// computer's answer, starts nothing, so one column's words never land in another's draft; only the
-    /// hold that started a recording ends it. The column that held leaving the plane, or the app losing
-    /// focus, drops what the voice records or awaits.
-    /// </summary>
     /// <summary>Where Hold to talk's one voice stands, which the held prompt shows (ADR 0027).</summary>
     public enum VoiceStage
     {
@@ -24,6 +16,14 @@ namespace Halcyonic.Client
         WritingDown,
     }
 
+    /// <summary>
+    /// Hold to talk's one voice for the menu's columns (ADR 0021, ADR 0026), engine-free, for the menu's
+    /// director to run: what the voice says and hears goes only to the column that held, which learns its
+    /// hold started only once the voice records. A hold while the voice still records, or waits for the
+    /// computer's answer, starts nothing, so one column's words never land in another's draft; only the
+    /// hold that started a recording ends it. The column that held leaving the plane, or the app losing
+    /// focus, drops what the voice records or awaits.
+    /// </summary>
     public sealed class MenuVoice
     {
         private readonly Func<bool> busy;
@@ -51,8 +51,8 @@ namespace Halcyonic.Client
         /// </summary>
         public VoiceStage Stage => held != null ? VoiceStage.Listening : Speaking != null && busy() ? VoiceStage.WritingDown : VoiceStage.Idle;
 
-        /// <summary>The prompt held now, or last held while its words are written down: its column and id.</summary>
-        public (IMenuColumn Column, string Id)? Holding => held ?? lastHeld;
+        /// <summary>The prompt held now, or last held while its words are written down: its column and id; null while the voice is idle.</summary>
+        public (IMenuColumn Column, string Id)? Holding => held ?? (Speaking != null && busy() ? lastHeld : null);
 
         /// <summary>The column the voice's words go to: the one that held last, until it leaves the plane.</summary>
         public IMenuColumn? Speaking { get; private set; }

@@ -33,9 +33,45 @@ public class MenuFrameTests
     public void APromptKeepsTheOtherWordsItMayShowAndRefusesBlankOnes()
     {
         Assert.That(Action("plain").AlsoReads, Is.Empty);
-        var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true, alsoReads: VoiceText.TalkReads);
-        Assert.That(talk.AlsoReads, Is.EqualTo(new[] { VoiceText.ListeningWords, VoiceText.WritingDownWords }));
+        var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
+        Assert.That(talk.AlsoReads, Is.EqualTo(new[] { VoiceText.ListeningWords, VoiceText.WritingDownWords }), "Hold to talk also reads the voice's words, in every column");
         Assert.Throws<ArgumentException>(() => _ = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true, alsoReads: new[] { " " }));
+    }
+
+    [Test]
+    public void HoldToTalkShowsWhereTheVoiceStandsTheSameInEveryColumnAtOneWidth()
+    {
+        var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
+        Assert.That(talk.Voiced(VoiceStage.Idle), Is.SameAs(talk));
+        Assert.That(Action("plain").Voiced(VoiceStage.Listening).Words, Is.EqualTo("plain"), "only a held prompt shows the voice");
+
+        var listening = talk.Voiced(VoiceStage.Listening);
+        Assert.That((listening.Id, listening.Words, listening.Icon, listening.Holds), Is.EqualTo(("talk", VoiceText.ListeningWords, GlazeIcon.HoldToTalk, true)));
+        Assert.That((listening.Listens, listening.Waits), Is.EqualTo((true, false)), "listening is the person talking: the active tone and the pulse, no wait");
+
+        var writing = talk.Voiced(VoiceStage.WritingDown);
+        Assert.That((writing.Words, writing.Icon), Is.EqualTo((VoiceText.WritingDownWords, GlazeIcon.WritingDown)));
+        Assert.That((writing.Listens, writing.Waits), Is.EqualTo((false, true)), "writing down is under way, so it shimmers");
+
+        foreach (var shown in new[] { talk, listening, writing })
+        {
+            Assert.That(shown.AlsoReads.Prepend(shown.Words), Is.EquivalentTo(new[] { VoiceText.HoldToTalk, VoiceText.ListeningWords, VoiceText.WritingDownWords }),
+                "laid at the widest of the same words whatever it shows, so it never changes width under the hand");
+        }
+        Assert.Throws<ArgumentException>(() => _ = new Prompt("plain", "Plain", GlazeIcon.Next, listens: true), "only a held prompt listens");
+    }
+
+    [Test]
+    public void AFooterVoicesOnlyTheHeldPromptTheVoiceRecordsFor()
+    {
+        var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
+        var footer = new Footer(Close, secondary: talk, farRight: Action("send", main: true));
+        Assert.That(footer.Voiced("talk", VoiceStage.Idle), Is.SameAs(footer));
+        Assert.That(footer.Voiced("other", VoiceStage.Listening), Is.SameAs(footer), "another column's hold changes nothing here");
+        var voiced = footer.Voiced("talk", VoiceStage.WritingDown);
+        Assert.That(voiced[PromptSlot.Secondary]!.Words, Is.EqualTo(VoiceText.WritingDownWords));
+        Assert.That(voiced.All.Select(each => (each.Slot, each.Prompt.Id)), Is.EqualTo(footer.All.Select(each => (each.Slot, each.Prompt.Id))), "every prompt keeps its place");
+        Assert.That(footer[PromptSlot.Secondary], Is.SameAs(talk), "the footer the column gave is untouched");
     }
 
     [Test]

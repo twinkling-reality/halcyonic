@@ -93,6 +93,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The frame in front as laid last, the file's where one stands, else the menu's: its side panel is the one shown.</summary>
         public MenuFrame? Front { get; private set; }
 
+        /// <summary>
+        /// Where Hold to talk's one voice stands, as the next <see cref="Show"/> draws it (ADR 0027): the column
+        /// whose prompt was held, that prompt's id and the stage; null while the voice is idle.
+        /// </summary>
+        public (MenuColumn Kind, string Id, VoiceStage Stage)? Voice { get; set; }
+
         /// <summary>The menu is open but stands aside for the file.</summary>
         public bool MenuAside { get; private set; }
 
@@ -246,6 +252,8 @@ namespace Halcyonic.XR.Workspace
         {
             eyes = at;
             surfaceDrop = surfaceHeight.HasValue ? at.y - surfaceHeight.Value : (float?)null;
+            menu.Voice = Voice is (MenuColumn.Menu, string menuHeld, VoiceStage menuStage) ? (menuHeld, menuStage) : null;
+            file.Voice = Voice is (MenuColumn.File, string fileHeld, VoiceStage fileStage) ? (fileHeld, fileStage) : null;
             // The menu's details take the front over a file beside it: laid as if no file stood there, the
             // file stepping aside until they close, so what the person just chose is what they see.
             var wasFileAside = FileAside;

@@ -1074,45 +1074,29 @@ public class FileColumnTests
     }
 
     [Test]
-    public void WhereTheVoiceStandsShowsOnHoldToTalkItselfAndNeverGrowsThePage()
+    public void WhereTheVoiceStandsNeverGrowsThePageAndOnlyOtherWordsAreNotices()
     {
+        // Listening and writing down show on Hold to talk itself, drawn by the plane from the menu's one voice (Prompt.Voiced).
         var host = new FileMenuHost();
         var showing = new AskingWork(Questioned("question-1", 1));
         var column = Column(host, () => FileScreensTests.Offering(showing.Present(), WorkspaceAction.Answer));
         Draw(host, column);
         Prompt? Held() => column.Frame!.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Id == FileScreens.SpeakAnswer);
-        string? Talk() => Held()?.Words;
-        bool? TalkWaits() => Held()?.Waits;
         var lines = column.Frame!.Lines.Select(line => line.Words).ToList();
-        Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk));
-        var reads = column.Frame!.Footer.All.Select(each => each.Prompt).First(prompt => prompt.Id == FileScreens.SpeakAnswer).AlsoReads;
-        Assert.That(reads, Is.EquivalentTo(new[] { VoiceText.ListeningWords, VoiceText.WritingDownWords }), "laid at the widest of every word it shows, so its width never changes under the hand");
+        Assert.That(Held()?.Words, Is.EqualTo(VoiceText.HoldToTalk));
+        Assert.That(Held()!.AlsoReads, Is.EquivalentTo(new[] { VoiceText.ListeningWords, VoiceText.WritingDownWords }), "laid at the widest of every word it shows, so its width never changes under the hand");
 
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.Said(VoiceText.Listening);
-        Assert.That(Talk(), Is.EqualTo(VoiceText.ListeningWords));
-        Assert.That(TalkWaits(), Is.False, "listening is no wait: the person is talking");
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(lines), "no line for it: the page stays as it was");
-
         column.HoldEnded(FileScreens.SpeakAnswer, letGo: true);
         column.Said(VoiceText.Hearing);
-        Assert.That(Talk(), Is.EqualTo(VoiceText.WritingDownWords));
-        Assert.That(TalkWaits(), Is.True, "writing down is under way, so Hold to talk shimmers");
-        Assert.That(Held()!.Icon, Is.EqualTo(GlazeIcon.WritingDown));
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(lines));
+        Assert.That(column.Screen.Notice, Is.Null);
+        Assert.That(Held()?.Words, Is.EqualTo(VoiceText.HoldToTalk), "the column's own footer keeps Hold to talk; the plane voices it");
 
-        column.Heard("Ten minutes");
-        Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk), "the words came, so it waits to be held again");
-        Assert.That(TalkWaits(), Is.False, "and stops shimmering");
-        Assert.That(Held()!.Icon, Is.EqualTo(GlazeIcon.HoldToTalk));
-
-        // Held, then dropped: back to Hold to talk; what the voice says otherwise is a notice.
-        column.HoldStarted(FileScreens.SpeakAnswer);
-        column.Said(VoiceText.Listening);
-        column.HoldEnded(FileScreens.SpeakAnswer, letGo: false);
-        Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk));
         column.Said(VoiceText.NothingHeard);
-        Assert.That(column.Frame!.Lines.Any(line => line.Words == VoiceText.NothingHeard), Is.True);
+        Assert.That(column.Frame!.Lines.Any(line => line.Words == VoiceText.NothingHeard), Is.True, "what the voice says otherwise is a notice");
     }
 
     [Test]

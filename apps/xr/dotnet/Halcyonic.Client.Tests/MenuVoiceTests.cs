@@ -107,7 +107,7 @@ public class MenuVoiceTests
         voice.Menu.Ended(file, "speak", letGo: true);
         Assert.That((voice.Menu.Stage, voice.Menu.Holding?.Id), Is.EqualTo((VoiceStage.WritingDown, (string?)"speak")), "let go, the computer writes it down");
         voice.Answer("ship it");
-        Assert.That(voice.Menu.Stage, Is.EqualTo(VoiceStage.Idle), "the words came");
+        Assert.That((voice.Menu.Stage, voice.Menu.Holding), Is.EqualTo((VoiceStage.Idle, ((IMenuColumn, string)?)null)), "the words came, so no prompt shows the voice");
 
         // Let go off the prompt, or refused for want of a microphone: nothing to write down.
         voice.Menu.Hold(file, "speak");
