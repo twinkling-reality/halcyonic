@@ -87,8 +87,9 @@ offered for local models only, from a home of its own.**
   A managed configuration file outranks the overrides, so right after every launch and at every
   start the adapter checks in `config/read` that each is applied, and refuses Codex with any
   managed requirements (`configRequirements/read`), which can pin a feature on without
-  `config/read` showing it. No proxy, and no `CODEX_` or `OPENAI_` variable, can be configured for
-  Codex; the adapter sets the two it needs.
+  `config/read` showing it. No proxy is passed to Codex: the control plane drops them, and the
+  adapter sets `NO_PROXY` to loopback over one passed directly. No `CODEX_` or `OPENAI_` variable
+  can be configured for Codex; the adapter sets the two it needs.
 - A thread runs only on a model provider served on this Mac (`localhost`, `127.0.0.1` or `::1` in
   Codex's configuration, judged as Codex judges built-in providers; Ollama in practice; never
   Bedrock), named on the thread; models Ollama runs on its own remote

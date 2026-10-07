@@ -372,10 +372,18 @@ a link, another user's, open to others, or holding a sign-in (`auth.json`), and 
 mode: move such a folder away and Halcyonic makes a new one. Every launch turns off
 plugins and Codex's other network features, the update check, analytics and web search with `-c`
 settings that outrank the file, and every start checks Codex applied them
-([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of 2026-10-07). Variables
-Codex signs in with (`OPENAI_API_KEY`, `CODEX_API_KEY` and the like) and the proxy variables are
-left out of what `HALCYONIC_AGENT_ENV` passes to Codex, and `CODEX_EXEC_SERVER_*`,
-`CODEX_OSS_BASE_URL`, `CODEX_OSS_PORT` and `CODEX_SQLITE_HOME` are refused.
+([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of 2026-10-07).
+
+What `HALCYONIC_AGENT_ENV` passes to Codex, and what stops it:
+
+- Any `CODEX_` variable stops the control plane at startup, with a message naming it: take it out
+  of `HALCYONIC_AGENT_ENV`.
+- `OPENAI_` variables, the proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and their
+  lowercase forms) and the other variables Codex signs in with are left out of what Codex gets;
+  other runtimes still get them.
+- Codex is refused, and its tasks can't start, when this Mac has managed Codex requirements
+  (`/etc/codex/requirements.toml` or a device profile), or a managed configuration that turns one
+  of its local-only settings back on.
 
 Each thread's rollout is written under that home's `sessions`, not where Salidium and Seorak read
 Codex sessions, so Understand and Checks say they don't follow those Codex tasks

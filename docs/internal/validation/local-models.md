@@ -380,12 +380,18 @@ home's `config.toml`. A thread runs only on a provider served on this Mac.
   "nothing leaves loopback through startup, idle and a full run on a local model"
   (`packages/integrations/codex/src/codex-runtime.e2e.test.ts`). Its runs are recorded here as
   they are made; none had run at this commit.
-- **System configuration:** the binary's text names `/etc/codex/config.toml`,
-  `/etc/codex/managed_config.toml` and `/etc/codex/requirements.toml`, which Codex would read
-  whatever the home (inferred from the text, not run). `/etc/codex` does not exist on this Mac
-  (2026-10-07). A managed setting that moved a thread to another provider or model, or changed its
-  approvals, would be refused by the adapter's check of what Codex reports for the thread; one that
-  turned plugins back on would be seen only by the probe.
+- **System configuration:** Codex reads `/etc/codex/config.toml`,
+  `/etc/codex/managed_config.toml` and `/etc/codex/requirements.toml` whatever the home (named in
+  the binary's text, and ranked as the source read above shows; no such file was run, since
+  `/etc/codex` does not exist on this Mac, 2026-10-07). The adapter refuses Codex right after
+  launch when `config/read` misses a local-only setting, as under a managed file that turns
+  plugins back on, or `configRequirements/read` reports any requirements, and refuses a thread
+  Codex reports on another provider, model or approval setting than asked.
+- **A limit of that check:** it runs after `initialize`, so under a managed file that turns
+  plugins back on, Codex's startup connection can begin before the server is stopped, and each
+  refused list or start launches Codex again. A check of `/etc/codex/managed_config.toml`,
+  `/etc/codex/requirements.toml` and a forced `com.openai.codex` device profile before launch,
+  with the refusal remembered, comes before Codex is registered on the owner's Mac.
 
 ## Speed and memory
 
