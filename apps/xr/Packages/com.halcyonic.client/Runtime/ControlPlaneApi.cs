@@ -23,8 +23,18 @@ namespace Halcyonic.Client
         /// </summary>
         public static readonly TimeSpan CompanionTimeout = TimeSpan.FromSeconds(55);
 
+        /// <summary>How long any other request may take.</summary>
+        public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
+
+        /// <summary>
+        /// How long a read of an agent app's models may take: past the 30 s your computer gives the agent
+        /// app to list them, which may first start it, so your computer's own reason arrives first.
+        /// </summary>
+        public static readonly TimeSpan ModelsTimeout = TimeSpan.FromSeconds(40);
+
         private readonly HttpClient http;
         private readonly HttpClient companion;
+        private readonly HttpClient models;
         private readonly HttpMessageHandler handler;
         private readonly Uri baseUri;
 
@@ -39,19 +49,22 @@ namespace Halcyonic.Client
         /// <paramref name="handler"/> it is on loopback, and each request carries the access token only
         /// after the control plane proves, just before, that it holds it (<see cref="LoopbackProofHandler"/>);
         /// otherwise the handler answers for who receives the token, as a pinned one does for a paired
-        /// control plane.
+        /// control plane. <paramref name="requestTimeout"/> and <paramref name="modelsTimeout"/> stand in for
+        /// <see cref="RequestTimeout"/> and <see cref="ModelsTimeout"/>, as a test's shorter ones.
         /// </summary>
-        public ControlPlaneApi(Uri baseUri, string accessToken, HttpMessageHandler? handler = null)
+        public ControlPlaneApi(Uri baseUri, string accessToken, HttpMessageHandler? handler = null, TimeSpan? requestTimeout = null, TimeSpan? modelsTimeout = null)
         {
             this.baseUri = baseUri;
-            // Both clients share the handler, which this object disposes once.
+            // Every client shares the handler, which this object disposes once.
             this.handler = handler ?? new LoopbackProofHandler(accessToken);
-            http = new HttpClient(this.handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(15) };
+            http = new HttpClient(this.handler, disposeHandler: false) { Timeout = requestTimeout ?? RequestTimeout };
             companion = new HttpClient(this.handler, disposeHandler: false) { Timeout = CompanionTimeout };
+            models = new HttpClient(this.handler, disposeHandler: false) { Timeout = modelsTimeout ?? ModelsTimeout };
             if (handler != null)
             {
                 http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
                 companion.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                models.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             }
         }
 
@@ -128,7 +141,7 @@ namespace Halcyonic.Client
         /// </summary>
         public async Task<RuntimeModelsResponse> GetRuntimeModelsAsync(string runtimeId, CancellationToken cancellationToken = default)
         {
-            var body = await GetAsync("api/runtimes/" + Uri.EscapeDataString(runtimeId) + "/models", cancellationToken)
+            var body = await GetAsync("api/runtimes/" + Uri.EscapeDataString(runtimeId) + "/models", cancellationToken, models)
                 .ConfigureAwait(false);
             return HalcyonicJson.Deserialize<RuntimeModelsResponse>(body);
         }
@@ -266,15 +279,16 @@ namespace Halcyonic.Client
         {
             http.Dispose();
             companion.Dispose();
+            models.Dispose();
             handler.Dispose();
         }
 
-        private async Task<string> GetAsync(string path, CancellationToken cancellationToken)
+        private async Task<string> GetAsync(string path, CancellationToken cancellationToken, HttpClient? client = null)
         {
             HttpResponseMessage response;
             try
             {
-                response = await http.GetAsync(new Uri(baseUri, path), cancellationToken).ConfigureAwait(false);
+                response = await (client ?? http).GetAsync(new Uri(baseUri, path), cancellationToken).ConfigureAwait(false);
             }
             catch (HttpRequestException error)
             {

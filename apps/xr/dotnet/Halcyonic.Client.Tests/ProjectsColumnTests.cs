@@ -140,6 +140,17 @@ public class ProjectsColumnTests
         }
     }
 
+    /// <summary>A read of the folders that the headset gave up on, not the column, says your computer didn't answer.</summary>
+    [Test]
+    public void AReadThatTimedOutSaysItDidntAnswer()
+    {
+        var column = new ProjectsColumn(new Host(), Commands, new ProjectsMemory(), () => WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false),
+            (_, _) => { }, _ => Task.FromCanceled<LocationsResponse>(new CancellationToken(canceled: true)));
+        column.Tick();
+        column.Act(ProjectsScreens.ChooseProblem, column.Frame!.Lines.Single(line => line.Action == ProjectsScreens.ChooseProblem).Key);
+        Assert.That(column.Frame!.Side!.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(new[] { (ProjectsText.WhatHappened, EntryText.FoldersUnanswered) }));
+    }
+
     [Test]
     public void ConnectSendsOneProjectCreateThroughTheHostAndNeverASecond()
     {

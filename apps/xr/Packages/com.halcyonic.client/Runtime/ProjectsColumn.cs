@@ -196,7 +196,16 @@ namespace Halcyonic.Client
             if (read != null && read.IsCompleted)
             {
                 reading = null;
-                if (!read.IsCanceled)
+                if (read.IsCanceled)
+                {
+                    // Cancelled by its own deadline, not by this column: a request that didn't answer.
+                    if (cancel?.IsCancellationRequested == false)
+                    {
+                        listingProblem = EntryText.FoldersUnanswered;
+                        changed = true;
+                    }
+                }
+                else
                 {
                     if (read.IsFaulted) listingProblem = EntryText.WhyFoldersUnread(read.Exception?.GetBaseException(), host.Api?.AccessRefused ?? ConnectionText.AccessRefused) ?? EntryText.PressTryAgain;
                     else listing = read.Result;

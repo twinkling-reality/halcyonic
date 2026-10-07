@@ -756,7 +756,11 @@ the same definition names, as the JSON Schema document:
   whose `ModelChoice` is `None` leaves the choice to that runtime. Models that couldn't be read are
   said by the reason's code (`EntryText.ModelsUnread`), a request that failed or a computer not
   connected in Halcyonic's own words, never by any message, which is the agent app's or the control
-  plane's own and can hold a path or an address.
+  plane's own and can hold a path or an address. The read waits `ControlPlaneApi.ModelsTimeout` (40 s),
+  past the 30 s the computer gives the agent app, so the computer's own reason arrives first; other
+  requests wait `RequestTimeout` (15 s). A read the headset gave up on, which HttpClient reports as a
+  cancelled task, says the agent app or the computer didn't answer, here and for the folders alike;
+  only a read the page itself cancelled is a cancel.
 - **`NewWorkReview`** holds the full request as items, Halcyonic's own label and the value it names:
   the project, its folder (now and from now on for a move), the workstream title, runtime, model,
   where it runs, the model reference and the objective. Each value is given as it is, never already
