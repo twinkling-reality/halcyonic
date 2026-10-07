@@ -1394,29 +1394,35 @@ describe('Codex before registration on a Mac', { skip: SKIP }, () => {
       await assert.rejects(start('Hello.'), actionError('runtime_refused'));
       assert.equal(existsSync(marker), false);
 
-      // A home that records nothing: the turn runs, no MCP server starts, and no trust is written.
+      // A home that records nothing: the turn runs, no MCP server starts, and no trust is written,
+      // from the repository's root and from a folder below it.
       await writeFile(settings, plain);
       await runtime.close();
-      const fresh = new CodexRuntimeAdapter({
-        binaryPath: BINARY,
-        codexHome: sandbox.codexHome,
-        serverRecordFile: sandbox.recordFile,
-        directoryPolicy: allowOnly(sandbox.project),
-        env: sandbox.env,
-      });
-      t.after(() => fresh.close());
-      const execution = new Execution();
-      await fresh.startExecution({
-        execution: execution.context,
-        instruction: 'Hello.',
-        options: {},
-        directory: sandbox.project,
-        model_ref: null,
-        emit: execution.emit,
-      });
-      await execution.next('runtime.turn.completed');
-      assert.equal(existsSync(marker), false, "the project's MCP server started");
-      assert.doesNotMatch(readFileSync(settings, 'utf8'), /trust_level\s*=\s*"trusted"/);
+      const below = join(sandbox.project, 'src');
+      await mkdir(below);
+      for (const folder of [sandbox.project, below]) {
+        const fresh = new CodexRuntimeAdapter({
+          binaryPath: BINARY,
+          codexHome: sandbox.codexHome,
+          serverRecordFile: sandbox.recordFile,
+          directoryPolicy: allowOnly(folder),
+          env: sandbox.env,
+        });
+        t.after(() => fresh.close());
+        const execution = new Execution();
+        await fresh.startExecution({
+          execution: execution.context,
+          instruction: 'Hello.',
+          options: {},
+          directory: folder,
+          model_ref: null,
+          emit: execution.emit,
+        });
+        await execution.next('runtime.turn.completed');
+        await fresh.close();
+        assert.equal(existsSync(marker), false, `the project's MCP server started from ${folder}`);
+        assert.doesNotMatch(readFileSync(settings, 'utf8'), /trust_level\s*=\s*"trusted"/);
+      }
     },
   );
 

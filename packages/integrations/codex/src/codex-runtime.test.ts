@@ -11,7 +11,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, userInfo } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -26,8 +26,10 @@ import {
   CODEX_CAPABILITIES,
   CodexRuntimeAdapter,
   type CodexRuntimeOptions,
+  NOT_LOCAL_ONLY,
   untrustedFrom,
 } from './codex-runtime.ts';
+import { systemConfigurationPaths } from './managed.ts';
 import { APPROVAL_METHODS, METHODS_USED } from './protocol.ts';
 import {
   APP_SERVER_ARGUMENTS,
@@ -754,7 +756,7 @@ describe('Codex runtime against a stand-in binary', () => {
     for (const mode of ['requirements', 'managed']) {
       const { runtime, start, received, launched } = fake(t, [mode]);
       await assert.rejects(runtime.listModels(), (error: unknown) => {
-        assert.ok(actionError('runtime_refused')(error), mode);
+        assert.ok(actionError(NOT_LOCAL_ONLY)(error), mode);
         assert.match(
           (error as Error).message,
           mode === 'requirements'
@@ -765,7 +767,7 @@ describe('Codex runtime against a stand-in binary', () => {
       });
       assert.equal(runtime.serverPid, null, `${mode}: the server was kept`);
       assert.ok(!received().some((message) => message.method === 'model/list'), mode);
-      await assert.rejects(start('COMPLETE the work.'), actionError('runtime_refused'));
+      await assert.rejects(start('COMPLETE the work.'), actionError(NOT_LOCAL_ONLY));
       assert.ok(!received().some((message) => message.method === 'thread/start'), mode);
       assert.equal(launched().length, 1, `${mode}: the refusal is remembered, nothing relaunches`);
     }
@@ -815,10 +817,138 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.equal(clear.launched().length, 1);
   });
 
+  test('a refusal before launch lifts once the configuration is gone; a path that cannot be checked counts', async (t) => {
+    const directory = temporary(t);
+    const present = join(directory, 'codex');
+    mkdirSync(present);
+    const { runtime, launched } = fake(t, [], { systemConfiguration: [present] });
+    await assert.rejects(runtime.listModels(), (error: unknown) => {
+      assert.ok(actionError('runtime_refused')(error));
+      assert.match((error as Error).message, /has, or Halcyonic can't check, Codex configuration/);
+      assert.match((error as Error).message, /Remove it, then try again\./);
+      return true;
+    });
+    rmSync(present, { recursive: true });
+    await runtime.listModels();
+    assert.equal(launched().length, 1);
+
+    if (process.getuid?.() !== 0) {
+      const closed = join(directory, 'closed');
+      mkdirSync(closed);
+      chmodSync(closed, 0o000);
+      t.after(() => chmodSync(closed, 0o700));
+      const unreadable = fake(t, [], { systemConfiguration: [join(closed, 'codex')] });
+      await assert.rejects(unreadable.runtime.listModels(), actionError('runtime_refused'));
+      assert.deepEqual(unreadable.launched(), []);
+    }
+  });
+
+  test('checks /etc/codex itself and both device-profile paths before every launch', () => {
+    const paths = systemConfigurationPaths();
+    assert.ok(paths.includes('/etc/codex'));
+    assert.ok(paths.includes('/Library/Managed Preferences/com.openai.codex.plist'));
+    assert.ok(
+      paths.includes(`/Library/Managed Preferences/${userInfo().username}/com.openai.codex.plist`),
+    );
+  });
+
+  test('refuses a configuration layer that applies whatever Halcyonic sets, and a system file with content', async (t) => {
+    const layer = (name: Record<string, unknown>, config: Record<string, unknown> = {}) => ({
+      name,
+      version: '1',
+      config,
+    });
+    for (const [what, layers] of [
+      [
+        'a device profile',
+        [layer({ type: 'mdm', domain: 'com.openai.codex', key: 'config_toml_base64' })],
+      ],
+      ['an enterprise', [layer({ type: 'enterpriseManaged', id: 'x', name: 'Org' })]],
+      [
+        'a managed file',
+        [
+          layer({
+            type: 'legacyManagedConfigTomlFromFile',
+            file: '/etc/codex/managed_config.toml',
+          }),
+        ],
+      ],
+      ['a managed profile file', [layer({ type: 'legacyManagedConfigTomlFromMdm' })]],
+      [
+        'a system file with content',
+        [layer({ type: 'system', file: '/etc/codex/config.toml' }, { mcp_servers: {} })],
+      ],
+    ] as const) {
+      const { runtime, launched } = fake(t, [], {}, { FAKE_CODEX_LAYERS: JSON.stringify(layers) });
+      await assert.rejects(runtime.listModels(), actionError(NOT_LOCAL_ONLY), what);
+      await assert.rejects(runtime.listModels(), actionError(NOT_LOCAL_ONLY), what);
+      assert.equal(launched().length, 1, `${what}: relaunched`);
+    }
+    // Codex reports the system layer whether or not the file exists: empty, it is no refusal.
+    const empty = [
+      layer({ type: 'system', file: '/etc/codex/config.toml' }),
+      layer({ type: 'user', file: '/h/config.toml' }),
+    ];
+    const { runtime } = fake(t, [], {}, { FAKE_CODEX_LAYERS: JSON.stringify(empty) });
+    await runtime.listModels();
+  });
+
+  test('only a refusal is remembered: a configuration error is tried again by the next request', async (t) => {
+    const directory = temporary(t);
+    const fail = join(directory, 'fail-once');
+    writeFileSync(fail, '');
+    const { runtime, launched } = fake(t, [], {}, { FAKE_CODEX_FAIL_FILE: fail });
+    await assert.rejects(runtime.listModels(), (error: unknown) => {
+      assert.ok(error instanceof RuntimeActionError && error.code !== NOT_LOCAL_ONLY);
+      return true;
+    });
+    await runtime.listModels();
+    assert.equal(launched().length, 2);
+  });
+
+  test('requirements that appear while Codex runs stop it at the next start, and its threads are lost', async (t) => {
+    const directory = temporary(t);
+    const requirements = join(directory, 'requirements');
+    const {
+      runtime,
+      start,
+      observations,
+      launched,
+      directory: project,
+    } = fake(
+      t,
+      [],
+      {},
+      {
+        FAKE_CODEX_REQUIREMENTS_FILE: requirements,
+      },
+    );
+    await start();
+    const pid = runtime.serverPid;
+    assert.ok(pid !== null);
+    writeFileSync(requirements, '');
+    const other = { ...TEST_EXECUTION, execution_id: '01920000-0000-7000-8000-0000000000f3' };
+    const attempt = () =>
+      runtime.startExecution({
+        execution: other as typeof TEST_EXECUTION,
+        instruction: 'COMPLETE the work.',
+        options: {},
+        model_ref: null,
+        directory: project,
+        emit: () => undefined,
+      });
+    await assert.rejects(attempt(), actionError(NOT_LOCAL_ONLY));
+    await until(() => !alive(pid), 'the server to stop');
+    assert.equal(runtime.serverPid, null);
+    assert.ok(observations.some((item) => item.type === 'runtime.connection.lost'));
+    await assert.rejects(runtime.listModels(), actionError(NOT_LOCAL_ONLY));
+    assert.equal(launched().length, 1, 'Codex was launched again');
+  });
+
   test('refuses to start when Codex does not report every local-only setting, as under a managed layer', async (t) => {
     const { start, received, observations } = fake(t, ['managed']);
     await assert.rejects(start('COMPLETE the work.'), (error: unknown) => {
-      assert.ok(actionError('runtime_refused')(error));
+      assert.ok(actionError(NOT_LOCAL_ONLY)(error));
       assert.match(
         (error as Error).message,
         /did not apply the settings that keep it on this Mac: features\.plugins\. A managed configuration/,

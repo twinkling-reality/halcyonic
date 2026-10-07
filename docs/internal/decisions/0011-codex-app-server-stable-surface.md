@@ -112,6 +112,9 @@ asked about as before. Whether they should also read Halcyonic's home is their o
 longer apply to Halcyonic's threads, and neither does a project's own `.codex/config.toml`:
 every thread marks its folder and every folder above it untrusted in its own overrides, which
 Codex reads before it would record a folder it can write as trusted, and a start is refused when
-`config/read` from the folder shows a project layer that would load. Codex is never launched when
-this Mac has system or managed Codex configuration (`/etc/codex`, a `com.openai.codex` device
-profile), and a refusal after a launch is remembered. The decision is otherwise unchanged.
+`config/read` from the folder shows a project layer that would load. Codex is never launched while
+`/etc/codex` or a `com.openai.codex` managed-preferences file exists, and is refused when
+`config/read` shows a device-profile, enterprise, managed-file or non-empty system layer; a refusal
+after a launch is remembered until the control plane restarts. Skills from a project or the
+person's `~/.agents/skills` still load: 0.157.0 has no setting to stop them. The decision is
+otherwise unchanged.

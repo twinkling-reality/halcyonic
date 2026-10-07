@@ -602,30 +602,43 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    * `config/read` showing it, so any at all are refused.
    */
   async #localOnly(connection: Connection): Promise<Readonly<Record<string, unknown>>> {
-    const config = await this.#readConfig(connection);
-    const unapplied = unappliedSettings(config);
-    if (unapplied.length > 0) {
+    const params: ConfigReadParams = { includeLayers: true };
+    const read = await send(connection, 'config/read', params, this.#requestTimeoutMs);
+    const config = isRecord(read) && isRecord(read.config) ? read.config : null;
+    const layers = isRecord(read) && Array.isArray(read.layers) ? read.layers : null;
+    if (config === null || layers === null) {
       throw new RuntimeActionError(
-        'runtime_refused',
-        `Codex did not apply the settings that keep it on this Mac: ${unapplied.join(', ')}. A managed configuration, such as one under /etc/codex, may set them. Nothing was started.`,
+        'runtime_protocol_error',
+        'Codex answered config/read without its configuration and layers.',
       );
     }
-    const read = await send(
+    const unapplied = unappliedSettings(config);
+    if (unapplied.length > 0) {
+      throw notLocalOnly(
+        `Codex did not apply the settings that keep it on this Mac: ${unapplied.join(', ')}. A managed configuration, such as one under /etc/codex, may set them.`,
+      );
+    }
+    const managed = layers.flatMap(managedLayer);
+    if (managed.length > 0) {
+      throw notLocalOnly(
+        `Codex reads configuration on this Mac that applies whatever Halcyonic sets: ${managed.join(', ')}.`,
+      );
+    }
+    const answer = await send(
       connection,
       'configRequirements/read',
       undefined,
       this.#requestTimeoutMs,
     );
-    if (!isRecord(read) || !('requirements' in read)) {
+    if (!isRecord(answer) || !('requirements' in answer)) {
       throw new RuntimeActionError(
         'runtime_protocol_error',
         'Codex answered configRequirements/read without saying whether requirements are configured.',
       );
     }
-    if (read.requirements !== null) {
-      throw new RuntimeActionError(
-        'runtime_refused',
-        'Codex has managed requirements configured on this Mac (requirements.toml or a device profile), which can turn its plugins and network features back on. Halcyonic runs Codex only without them. Nothing was started.',
+    if (answer.requirements !== null) {
+      throw notLocalOnly(
+        'Codex has managed requirements configured on this Mac (requirements.toml or a device profile), which can turn its plugins and network features back on.',
       );
     }
     return config;
@@ -688,7 +701,16 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    * refuses a thread that Codex puts on another.
    */
   async #onThisMac(connection: Connection, options: StartOptions): Promise<StartOptions> {
-    const config = await this.#localOnly(connection);
+    let config: Readonly<Record<string, unknown>>;
+    try {
+      config = await this.#localOnly(connection);
+    } catch (error) {
+      // Configuration that appeared while Codex ran: the server is stopped and the refusal kept.
+      if (error instanceof RuntimeActionError && error.code === NOT_LOCAL_ONLY) {
+        this.#refuseRunning(connection, error);
+      }
+      throw error;
+    }
     await this.#noProjectSettings(connection, options.cwd);
     const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
     const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
@@ -728,9 +750,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // network features back on; only whether each exists is read.
     const system = await presentSystemConfiguration(this.#systemConfiguration);
     if (system.length > 0) {
+      // Not kept: once it is gone, the next request launches Codex.
       throw new RuntimeActionError(
         'runtime_refused',
-        `This Mac has Codex configuration that applies whatever Halcyonic sets: ${system.join(', ')}. Halcyonic runs Codex only without it, so Codex was not started.`,
+        `This Mac has, or Halcyonic can't check, Codex configuration that applies whatever Halcyonic sets: ${system.join(', ')}. Halcyonic runs Codex only without it, so Codex was not started. Remove it, then try again.`,
       );
     }
     // Checked before every launch: the home may have changed since the last one.
@@ -756,8 +779,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       connection.halted.abort();
       await server.stop();
       // Remembered until the control plane restarts, so each list or start does not launch Codex
-      // again under the same configuration.
-      if (error instanceof RuntimeActionError && error.code === 'runtime_refused') {
+      // again under the same configuration. Only this check's refusals: any other failure, such
+      // as a configuration Codex can't read yet, is tried again by the next request.
+      if (error instanceof RuntimeActionError && error.code === NOT_LOCAL_ONLY) {
         this.#refusal = error;
       }
       throw error;
@@ -906,6 +930,16 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   /** Stops using a server: its messages are ignored and actions on it are refused. */
+  /** Stops a server that no longer runs local-only, losing its threads, and keeps the refusal. */
+  #refuseRunning(connection: Connection, refusal: RuntimeActionError): void {
+    this.#refusal = refusal;
+    for (const thread of this.#threads.values()) {
+      if (thread.connection === connection && !thread.lost) this.#lose(thread, refusal.message);
+    }
+    this.#halt(connection);
+    void connection.server.stop();
+  }
+
   #halt(connection: Connection): void {
     connection.halted.abort();
     if (this.#current === connection) this.#current = null;
@@ -1079,6 +1113,44 @@ export function untrustedFrom(
     if (dirname(current) === current) break;
   }
   return projects;
+}
+
+/**
+ * The code of a refusal because Codex does not run local-only on this Mac, the one refusal the
+ * adapter keeps until the control plane restarts.
+ */
+export const NOT_LOCAL_ONLY = 'runtime_not_local_only';
+
+function notLocalOnly(reason: string): RuntimeActionError {
+  return new RuntimeActionError(
+    NOT_LOCAL_ONLY,
+    `${reason} Halcyonic runs Codex only without it, so nothing was started. Restart Halcyonic on your computer to try again.`,
+  );
+}
+
+/** The kinds of configuration layer that apply whatever Halcyonic sets, as `config/read` names them. */
+const MANAGED_LAYERS: ReadonlySet<string> = new Set([
+  'mdm',
+  'enterpriseManaged',
+  'legacyManagedConfigTomlFromFile',
+  'legacyManagedConfigTomlFromMdm',
+]);
+
+/**
+ * A layer that applies whatever Halcyonic sets, as its kind and where it comes from, or nothing: a
+ * device profile's, an enterprise's, the managed files', and the system `config.toml` when it holds
+ * anything (Codex reports that layer whether or not the file exists;
+ * codex-rs/config/src/loader/mod.rs at rust-v0.157.0).
+ */
+function managedLayer(layer: unknown): string[] {
+  if (!isRecord(layer) || !isRecord(layer.name) || typeof layer.name.type !== 'string') return [];
+  const { type, file } = layer.name;
+  const where = typeof file === 'string' ? `${type} (${file})` : type;
+  if (MANAGED_LAYERS.has(type)) return [where];
+  if (type === 'system' && (!isRecord(layer.config) || Object.keys(layer.config).length > 0)) {
+    return [where];
+  }
+  return [];
 }
 
 /** The settings every thread is started and resumed with. */

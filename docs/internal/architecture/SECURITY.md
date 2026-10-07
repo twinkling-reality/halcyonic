@@ -68,15 +68,22 @@ launch, before anything is listed, and again at every start, the adapter checks 
 reports each of these settings, which catches the managed files, and that `configRequirements/read`
 reports no requirements at all (null, "no requirements are configured",
 `codex-rs/app-server-protocol/src/protocol/v2/config.rs`); otherwise it stops the server and
-refuses. Before any launch, too, the adapter refuses when this Mac has any configuration Codex
-reads whatever its home: `/etc/codex/config.toml` (below the overrides, but able to add MCP
-servers or providers), `/etc/codex/managed_config.toml`, `/etc/codex/requirements.toml`, or a
-`com.openai.codex` managed-preferences file under `/Library/Managed Preferences`, where a device
-profile's forced `config_toml_base64` and `requirements_toml_base64` live
-(`codex-rs/config/src/loader/macos.rs`); only whether each exists is read, and one that can't be
-checked counts as present. So Codex never starts under a managed setting, and a refusal after a
-launch is remembered until the control plane restarts, so no list or start launches it again.
-`/etc/codex` does not exist on this Mac, and `configRequirements/read` answers null here.
+refuses. The same check refuses when `config/read`'s layers include one that applies whatever
+Halcyonic sets: a device profile's (`mdm`), an enterprise's, a managed file's, or the system
+layer when it holds anything (Codex reports that layer whether or not `/etc/codex/config.toml`
+exists). Before any launch, too, the adapter refuses when `/etc/codex` exists at all, where Codex
+reads `config.toml` (below the overrides, but able to add MCP servers or providers),
+`managed_config.toml`, `requirements.toml`, managed hooks (`hooks.json`,
+`codex-rs/hooks/src/engine/discovery.rs`; hooks are on by default) and skills (`skills`,
+`codex-rs/ext/skills/src/host_roots.rs`), or a `com.openai.codex` managed-preferences file under
+`/Library/Managed Preferences`, machine-wide or for this user, where a device profile's forced
+`config_toml_base64` and `requirements_toml_base64` live (`codex-rs/config/src/loader/macos.rs`).
+Only whether each exists is read, and one that can't be checked counts as present; that refusal
+lifts once the path is gone. A refusal by the check after a launch, or at a start, which also
+stops a running server and reports its threads lost, is remembered until the control plane
+restarts, so no list or start launches Codex again; any other failure, such as a `config.toml`
+Codex can't read yet, is tried again by the next request. `/etc/codex` does not exist on this Mac,
+and `configRequirements/read` answers null here.
 The proxy variables never reach Codex from the control plane, and the adapter sets `NO_PROXY` to
 `localhost,127.0.0.1,::1` after any additions, so a request to Ollama, the prompts and code with
 it, never goes through a proxy. No `CODEX_` or `OPENAI_` variable can be configured for Codex: the
@@ -90,8 +97,9 @@ wherever it points).
 Codex sends to `localhost`, `127.0.0.1` or `::1`, the names `NO_PROXY` covers, Ollama on port 11434 in practice, judged as Codex 0.157.0 judges it:
 `openai` by `openai_base_url` alone and `ollama` and `lmstudio` by their built-in address, since
 Codex never applies a configured entry under a built-in provider's id (except Amazon
-Bedrock's): it refuses a home whose `config.toml` defines one, and ignores one merged from another
-layer ([local-models.md](../validation/local-models.md)); the
+Bedrock's): it refuses the configuration when any merged layer defines one
+(`validate_reserved_model_provider_ids`, `codex-rs/config/src/config_toml.rs`;
+[local-models.md](../validation/local-models.md)); the
 provider is named on the thread explicitly. Amazon Bedrock is always remote: Codex signs in to it
 with AWS credentials, which its SSO and STS clients may fetch from AWS whatever address it is
 given. A model Ollama runs on its own remote service
@@ -124,7 +132,16 @@ the folder or above it, and writes trust only when none is known. `config/read` 
 thread's overrides, so before each start the adapter also reads it from the folder
 (`{cwd, includeLayers: true}`) and refuses when any project layer would load without a disabled
 reason, as when the home records the project as trusted. The end to end suite checks both with a
-project whose own settings start an MCP server that leaves a mark.
+project whose own settings start an MCP server that leaves a mark, from the repository's root and
+from a folder below it.
+
+Skills are the exception: Codex 0.157.0 discovers them from an untrusted project too
+(`.codex/skills`, `.agents/skills`) and from `~/.agents/skills` in the person's home
+(`codex-rs/config/src/state.rs` and `codex-rs/ext/skills/src/host_roots.rs`), and has no setting
+that turns discovery off (`skills` takes only `bundled`, `include_instructions`,
+`max_context_tokens` and per-skill rules, `codex-rs/config/src/skills_config.rs`). A skill is
+instructions the model may follow, so what it asks for still goes through the thread's sandbox and
+approvals.
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
 `halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with
