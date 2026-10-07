@@ -569,7 +569,27 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
                     voice.Ended(file, FileScreens.SpeakAnswer, letGo: false);
                     Shows("held, then dropped", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, listens: false, waits: false);
+
+                    // Held and let go, then the same task's file opened afresh while the words are written down: the
+                    // voice is the file's that held, not its kind's or its prompt's, so the new file's Hold to talk shows
+                    // nothing of it. This voice is never told the old file left, so only the director's own key holds.
+                    director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
+                    voice.Ended(file, FileScreens.SpeakAnswer, letGo: true);
+                    director.DrawNow();
+                    if (voice.Stage != VoiceStage.WritingDown) failures.Add(name + ": held and let go again, the voice is " + voice.Stage + ", so opening another file checks nothing.");
+                    var heldOn = file;
+                    director.OpenFile(work.Workstream.WorkstreamId);
+                    director.DrawNow();
+                    if (file == heldOn) failures.Add(name + ": opening the file again made no new file, so where the voice shows is not checked.");
+                    else if (plane.Voice != null || page.Footer[PromptSlot.Secondary] is GlazeButton fresh && (fresh.Label.text != VoiceText.HoldToTalk || fresh.Waits || fresh.Listens))
+                    {
+                        failures.Add(name + ": the words written down for one file, another file showed them on its Hold to talk: \""
+                            + page.Footer[PromptSlot.Secondary]?.Label.text + "\".");
+                    }
+                    writing = false;
                     director.VoiceForRender(new MenuVoice(() => false, () => { }, () => { }, () => { }));
+                    director.DrawNow();
+                    ReadQuestion();
                 }
                 else failures.Add(name + ": no Hold to talk on the question's page to watch as the voice speaks.");
                 Press(FileScreens.Choose, "0");

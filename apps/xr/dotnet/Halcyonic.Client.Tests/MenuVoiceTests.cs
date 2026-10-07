@@ -81,10 +81,13 @@ public class MenuVoiceTests
             Menu.Said("Hearing");
         }
 
+        /// <summary>The computer's answer can't be called back: dropping stops a recording, but the words already sent are still worked on.</summary>
+        public bool KeepsWorking { get; set; }
+
         private void Drop()
         {
             Recording = false;
-            Waiting = false;
+            Waiting &= KeepsWorking;
             Dropped++;
         }
 
@@ -171,6 +174,21 @@ public class MenuVoiceTests
         voice.Menu.Ended(a, "speak", letGo: false);
         Assert.That((voice.Recording, voice.Waiting, voice.Dropped), Is.EqualTo((false, false, 1)), "dropped, not sent");
         Assert.That(a.Got.Last(), Is.EqualTo("ended speak False"));
+    }
+
+    [Test]
+    public void AColumnThatLeftWhileItsWordsWereWrittenDownShowsTheVoiceNowhere()
+    {
+        // Another file opened while the computer still works on what was said: the file that held left the plane,
+        // so no Hold to talk shows Writing down for words spoken elsewhere, even while the computer still works.
+        var voice = new Voice { KeepsWorking = true };
+        var a = new Column();
+        voice.Menu.Hold(a, "speak");
+        voice.Menu.Ended(a, "speak", letGo: true);
+        Assert.That(voice.Menu.Stage, Is.EqualTo(VoiceStage.WritingDown));
+        voice.Menu.Left(a);
+        Assert.That(voice.Waiting, Is.True, "the computer still works on the words");
+        Assert.That((voice.Menu.Stage, voice.Menu.Holding), Is.EqualTo((VoiceStage.Idle, ((IMenuColumn, string)?)null)));
     }
 
     [Test]
