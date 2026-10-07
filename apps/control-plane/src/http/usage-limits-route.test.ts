@@ -25,7 +25,11 @@ describe('usage limits read through a stub Seorak', () => {
     writeFileSync(credentialPath, `${seorak.token}\n`);
     chmodSync(credentialPath, 0o600);
     server = await startTestServer({
-      evaluation: seorakEvaluation({ credentialPath, port: seorak.port }),
+      evaluation: seorakEvaluation({
+        credentialPath,
+        port: seorak.port,
+        codexHome: join(dir, 'codex-home'),
+      }),
     });
   });
   afterEach(() => {

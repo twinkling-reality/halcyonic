@@ -240,11 +240,21 @@ in place of the person's own, which would stop it reading their Codex sessions, 
 changed: their settings are the owner's call, and a second watched folder is a change to each
 product ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
-What the control plane does about it: for an execution of the `codex` runtime, Understand and
-Checks answer `unavailable` with `runtime_not_observed` at once, without asking Salidium or Seorak
-and without reading either credential (`intelligence/understanding.ts`, `KEPT_IN_HALCYONICS_HOME`,
-with a test for each source). Lane W's headset line for that code is "it doesn't follow tasks this
-agent app runs". The line "it hasn't seen this task yet", with Refresh, would be a false way on,
-since a refresh can never find the session. Codex executions started before this change were
-written to `~/.codex` and may be known to both sources, but they get the same answer now
-(inference: there is no record in the journal of which home an execution used).
+What the control plane does about it: nothing journaled says which home a Codex execution used, so
+it decides by Codex's own record of the thread. When the thread's rollout,
+`rollout-<time>-<thread id>.jsonl`, is in Halcyonic's Codex home, in `sessions/YYYY/MM/DD` for the
+local date the execution started, the day before or the day after, Understand and Checks answer
+`unavailable` with `runtime_not_observed` at once, without asking Salidium or Seorak and without
+reading either credential (`intelligence/codex-home.ts`). Only names are read, never a file's
+contents; no link is followed at any level; the native id must be a thread id (a UUID) before it
+reaches a path. A Codex execution whose rollout is not there, as for a thread run in `~/.codex`
+before this change, is asked about as before. Tests cover each case: a rollout there, none, an id
+that is not a UUID (no filesystem call at all), and a link in place of the home, `sessions`, each
+date folder or the rollout. Lane W's headset line for `runtime_not_observed` is "it doesn't follow
+tasks this agent app runs". The line "it hasn't seen this task yet", with Refresh, would be a false
+way on, since a refresh can never find the session.
+
+Two residuals, accepted: in the first moments of a new execution, before Codex writes the
+thread's rollout, the sources are asked and answer that they haven't seen the task yet; and a
+rollout the person deleted from Halcyonic's home makes its execution read the same way, though
+neither source ever had it.

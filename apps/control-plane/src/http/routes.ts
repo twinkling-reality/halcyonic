@@ -227,7 +227,11 @@ export function registerRoutes(
               message: 'The runtime has not reported its session id yet.',
             },
           }
-        : await sources.understanding.understand(execution.runtime.kind, execution.native_id);
+        : await sources.understanding.understand(
+            execution.runtime.kind,
+            execution.native_id,
+            execution.started_at ?? execution.created_at,
+          );
     const body = { execution_id: execution.execution_id, result };
     if (validateUnderstandingResponse(body).ok) return body;
     request.log.warn({ execution_id: executionId }, 'understanding does not match the contract');
@@ -266,7 +270,11 @@ export function registerRoutes(
               message: 'The runtime has not reported its session id yet.',
             },
           }
-        : await sources.evaluation.evaluate(execution.runtime.kind, execution.native_id);
+        : await sources.evaluation.evaluate(
+            execution.runtime.kind,
+            execution.native_id,
+            execution.started_at ?? execution.created_at,
+          );
     const body = { execution_id: execution.execution_id, result };
     if (validateEvaluationResponse(body).ok) {
       return { ...body, result: evaluationWithoutCredentials(result, controlPlane.redaction) };

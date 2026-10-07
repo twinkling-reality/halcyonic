@@ -373,7 +373,7 @@ Codex signs in with (`OPENAI_API_KEY`, `CODEX_API_KEY` and the like) are left ou
 `HALCYONIC_AGENT_ENV` passes to Codex.
 
 Each thread's rollout is written under that home's `sessions`, not where Salidium and Seorak read
-Codex sessions, so Understand and Checks say they don't follow Codex tasks
+Codex sessions, so Understand and Checks say they don't follow those Codex tasks
 ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md)).
 
 #### Local models through Ollama
