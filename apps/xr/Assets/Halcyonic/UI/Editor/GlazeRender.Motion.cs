@@ -180,29 +180,32 @@ namespace Halcyonic.XR.UI.Editor
 
         /// <summary>
         /// A motion's frames allocate nothing (ADR 0027): <paramref name="draw"/> called at sixty frames' times,
-        /// the fewest bytes of three tries, as the drag's check counts them.
+        /// the fewest bytes of three tries. It counts what this thread allocates, since the profiler's count for
+        /// the frame takes in the editor's other threads too, which once counted 184 bytes for a motion that
+        /// allocates none (2026-10-07); both are logged.
         /// </summary>
         private static IEnumerable<string> MotionAllocatesNothing(string what, System.Action<float> draw)
         {
             var failures = new List<string>();
             using var recorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame");
             for (var frame = 0; frame < 4; frame++) draw(frame / 72f);
-            var probe = recorder.CurrentValue;
+            var probe = System.GC.GetAllocatedBytesForCurrentThread();
             var kept = new byte[256];
-            if (recorder.CurrentValue - probe < kept.Length)
+            if (System.GC.GetAllocatedBytesForCurrentThread() - probe < kept.Length)
             {
                 failures.Add("component render: this editor cannot count allocations, so " + what + " cannot be checked.");
                 return failures;
             }
-            var bytes = long.MaxValue;
+            var (bytes, all) = (long.MaxValue, long.MaxValue);
             for (var repeat = 0; repeat < 3; repeat++)
             {
-                var before = recorder.CurrentValue;
+                var (before, beforeAll) = (System.GC.GetAllocatedBytesForCurrentThread(), recorder.CurrentValue);
                 for (var frame = 0; frame < 60; frame++) draw(frame / 72f);
-                bytes = System.Math.Min(bytes, recorder.CurrentValue - before);
+                bytes = System.Math.Min(bytes, System.GC.GetAllocatedBytesForCurrentThread() - before);
+                all = System.Math.Min(all, recorder.CurrentValue - beforeAll);
             }
             if (bytes > 0) failures.Add("component render: sixty frames of " + what + " allocate " + bytes + " bytes; a frame of motion allocates nothing.");
-            Debug.Log("Halcyonic: component render: sixty frames of " + what + " allocate " + bytes + " bytes.");
+            Debug.Log("Halcyonic: component render: sixty frames of " + what + " allocate " + bytes + " bytes on this thread, " + all + " in the profiler's frame.");
             return failures;
         }
 
