@@ -61,7 +61,7 @@ namespace Halcyonic.Client
                 {
                     throw new PairingException(
                         timeout.IsCancellationRequested ? "timeout" : "protocol_error",
-                        timeout.IsCancellationRequested ? "Pairing took too long; try again." : "Pairing failed: " + error.Message,
+                        timeout.IsCancellationRequested ? TookTooLong : ProtocolError,
                         null,
                         error);
                 }
@@ -103,7 +103,7 @@ namespace Halcyonic.Client
             }
             catch (UpgradeRefusedException refused)
             {
-                throw new PairingException(refused.Code ?? "refused", Explain(refused.Code, refused.Message), null, refused);
+                throw new PairingException(refused.Code ?? "refused", WhyRefused(refused.Code), null, refused);
             }
             using (socket)
             {
@@ -115,7 +115,7 @@ namespace Halcyonic.Client
                 var serverPublic = Srp6a.FromBytes(Convert.FromBase64String(challenge.ServerPublic));
                 var client = SrpClient.Create(SrpGroup.Pairing, Srp6a.PairingIdentity, PairingCrypto.CodePassword(code));
                 var key = client.SessionKey(salt, serverPublic)
-                    ?? throw new PairingException("protocol_error", "The control plane sent an invalid challenge.", null);
+                    ?? throw new PairingException("protocol_error", ProtocolError, null);
                 var certificate = PairingCrypto.FromHex(connection.CertificateSha256);
                 var transcript = PairingCrypto.Transcript(deviceLabel, salt, client.A, serverPublic, certificate);
                 var proof = PairingCrypto.ClientProof(key, transcript);
@@ -131,7 +131,7 @@ namespace Halcyonic.Client
                 if (!PairingCrypto.SameMac(expected, Convert.FromBase64String(accepted.Proof)))
                 {
                     // Only a control plane that knew the code can prove it; nothing is kept.
-                    throw new PairingException("server_not_proven", "The control plane could not prove it knew the code; nothing was paired.", null);
+                    throw new PairingException("server_not_proven", NotProven, null);
                 }
                 var credential = PairingCrypto.CredentialFromBytes(PairingCrypto.Seal(sealedCredential, key, transcript));
                 return new PairedControlPlane(WebSocketUpgrade.Host(endpoint), endpoint.Port, connection.CertificateSha256, accepted.DeviceId, credential);
@@ -143,9 +143,9 @@ namespace Halcyonic.Client
             if (message is T expected) return expected;
             if (message is PairRefusedMessage refused)
             {
-                throw new PairingException(refused.Error.Code, Explain(refused.Error.Code, refused.Error.Message), refused.AttemptsLeft);
+                throw new PairingException(refused.Error.Code, WhyRefused(refused.Error.Code), refused.AttemptsLeft);
             }
-            throw new PairingException("protocol_error", "The control plane answered out of order.", null);
+            throw new PairingException("protocol_error", ProtocolError, null);
         }
 
         private static async Task SendAsync(WebSocket socket, PairingClientMessage message, CancellationToken cancellationToken)
@@ -157,24 +157,42 @@ namespace Halcyonic.Client
         private static async Task<PairingServerMessage> ReceiveAsync(WebSocket socket, byte[] buffer, CancellationToken cancellationToken)
         {
             var text = await WebSocketUpgrade.ReceiveTextAsync(socket, buffer, 64 * 1024, cancellationToken).ConfigureAwait(false)
-                ?? throw new PairingException("protocol_error", "The control plane closed the connection before answering.", null);
+                ?? throw new PairingException("protocol_error", ProtocolError, null);
             try
             {
                 return HalcyonicJson.Deserialize<PairingServerMessage>(text);
             }
             catch (JsonException error)
             {
-                throw new PairingException("protocol_error", "The control plane's answer does not match the pairing contract.", null, error);
+                throw new PairingException("protocol_error", ProtocolError, null, error);
             }
         }
 
-        /// <summary>The control plane's words, with what the person can do where it helps.</summary>
-        private static string Explain(string? code, string message) => code switch
+        /// <summary>
+        /// Why pairing was refused, by its code, never the refusal's message: before anything is pinned,
+        /// whatever answers at the typed address writes that message, so anyone on the network could put
+        /// their own words on the headset (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public static string WhyRefused(string? code) => code switch
         {
             "pairing_closed" => "Pairing is not open on " + HostText.Your + ". Run pnpm pair there, then try again.",
             "wrong_code" => "The code was not accepted. Check it on " + HostText.Your + " and type it again.",
-            _ => message,
+            "too_many_requests" => HostText.YourStart + " is turning this headset away for a minute after too many tries. Try again after a minute.",
+            "busy" => HostText.YourStart + " is pairing another device right now. Try again in a moment.",
+            "timeout" => TookTooLong,
+            _ => Refused,
         };
+
+        public const string Refused = HostText.YourStart + " refused to pair this headset. Open pairing there again, then try again.";
+        public const string TookTooLong = "Pairing took too long; try again.";
+
+        /// <summary>What answered broke the exchange, or answered in a way the computer never does.</summary>
+        public const string ProtocolError = "What answered at that address doesn't pair the way " + HostText.Your + " does. Check the address, then try again.";
+
+        /// <summary>Pairing failed in a way none of these says, as an address that can't be read (settled by the coordinator, 2026-10-07).</summary>
+        public const string Failed = "Couldn't pair this headset. Check the address, then try again.";
+
+        public const string NotProven = "What answered couldn't prove it knew the code, so nothing was paired. Check the address, then try again.";
     }
 
     /// <summary>Pairing did not complete. Nothing was stored.</summary>
