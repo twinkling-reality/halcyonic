@@ -102,8 +102,20 @@ public class RealtimeSessionTests
         connection.SendRaw("{\"type\":\"error\",\"error\":\"PRIVATE: the agent said to rotate the key\",\"fatal\":false}");
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
         Assert.That(session.Status.Detail, Is.EqualTo("Your computer sent something this app can't read. Install the same version on both."));
-        Assert.That(session.Status.ToString(), Does.Not.Contain("PRIVATE"));
-        Assert.That(session.Status.ToString(), Does.Not.Contain("rotate"));
+        // The line the device log writes (ControlPlaneConnection's LogStatus), not only the one drawn.
+        foreach (var line in new[] { session.Status.ToString(), session.Status.ForLog })
+        {
+            Assert.That(line, Does.Not.Contain("PRIVATE"));
+            Assert.That(line, Does.Not.Contain("rotate"));
+        }
+    }
+
+    [Test]
+    public void TheLinesLoggedForAStatusAreOneLineWhateverAnExceptionQuotes()
+    {
+        var status = new ConnectionStatus(ConnectionPhase.WaitingToRetry, diagnostic: "refused\nWaitingToRetry: forged\r\n\u001B[2J\u2028end\u0085.");
+        Assert.That(status.ForLog, Is.EqualTo("WaitingToRetry: refused WaitingToRetry: forged [2J end ."));
+        Assert.That(new ConnectionStatus(ConnectionPhase.Refused, "Two\nlines").ForLog, Is.EqualTo("Refused: Two lines"));
     }
 
     [Test]

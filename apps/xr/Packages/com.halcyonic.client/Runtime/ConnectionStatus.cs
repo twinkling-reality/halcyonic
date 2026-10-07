@@ -62,8 +62,30 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Diagnostic { get; }
 
-        /// <summary>The device log's line: the phase, then the diagnostic where there is one, else the detail.</summary>
-        public string ForLog => (Diagnostic ?? Detail) is string why ? Phase + ": " + why : Phase.ToString();
+        /// <summary>
+        /// The device log's line: the phase, then the diagnostic where there is one, else the detail, each run
+        /// of control characters and line or paragraph separators as one space, so what an exception quotes
+        /// can never start a line of its own in the log.
+        /// </summary>
+        public string ForLog => (Diagnostic ?? Detail) is string why ? Phase + ": " + OneLogLine(why) : Phase.ToString();
+
+        private static string OneLogLine(string text)
+        {
+            var line = new System.Text.StringBuilder(text.Length);
+            var broken = false;
+            foreach (var unit in text)
+            {
+                if (char.IsControl(unit) || unit == '\u2028' || unit == '\u2029')
+                {
+                    if (!broken) line.Append(' ');
+                    broken = true;
+                    continue;
+                }
+                line.Append(unit);
+                broken = false;
+            }
+            return line.ToString();
+        }
 
         /// <summary>How long until the next attempt, while waiting to retry.</summary>
         public TimeSpan? RetryIn { get; }
