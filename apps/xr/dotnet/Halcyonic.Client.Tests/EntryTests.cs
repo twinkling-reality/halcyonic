@@ -867,7 +867,7 @@ public class EntryWordsTests
         {
             "approval_not_pending", "question_not_pending", "no_running_turn", "runtime_unreachable", "runtime_closed", "execution_unknown_to_runtime",
             "model_unavailable", "capability_unimplemented", "runtime_unavailable", "runtime_version_unsupported", "location_missing", "location_not_allowed",
-            "location_exists", "location_required", "an_adapters_own",
+            "location_exists", "location_required", "location_not_created", "an_adapters_own",
         };
         words.AddRange(codes.Select(code => WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyFailed(code, running: false, step: true) ?? WorkspaceText.NothingChanged)));
         var brands = new[] { "Meta", "Quest", "Oculus", "Horizon", "Unity", "Claude", "Anthropic", "Codex", "OpenAI", "OpenCode", "Salidium", "Seorak", "Mac", "Halcyonic" };

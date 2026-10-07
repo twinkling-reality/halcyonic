@@ -169,7 +169,7 @@ namespace Halcyonic.Client
             if (refusal == RejectionCode.LocationExists || failure == "location_exists")
                 return "There's already a folder with that name. Use that folder, or choose another name.";
             if (failure == "location_not_created")
-                return HostText.YourStart + " couldn't make that folder, so nothing was created. Choose another name or place.";
+                return HostText.YourStart + " couldn't make that folder, so nothing changed. Choose another name or place.";
             return null;
         }
 
