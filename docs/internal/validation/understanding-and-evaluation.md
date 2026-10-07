@@ -36,7 +36,8 @@
   (`runtime_not_observed`) for a mock execution. The C# live test reads both through
   `ControlPlaneApi` as an `IIntelligenceReader`, and the sections say "Understanding unavailable:
   Salidium does not observe sessions of the mock runtime." and "Evaluation unavailable: Seorak does
-  not observe sessions of the mock runtime."
+  not observe sessions of the mock runtime." Since 2026-10-07 the sections say why by the reason's
+  code, never its message: "it doesn't follow tasks this agent app runs." after each lead.
 
 ### A real execution end to end
 

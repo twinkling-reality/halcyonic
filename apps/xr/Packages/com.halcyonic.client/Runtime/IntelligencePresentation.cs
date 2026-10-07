@@ -221,7 +221,7 @@ namespace Halcyonic.Client
                 return new[]
                 {
                     loading ? Source("Asking what the evaluation source measured…", SectionTone.Secondary)
-                    : error != null ? Source("Could not read the evaluation: " + IntelligenceText.Plain(error), SectionTone.Problem)
+                    : error != null ? Source("Couldn't read the evaluation: " + error, SectionTone.Problem)
                     : Source("Not read yet.", SectionTone.Secondary),
                 };
             }
@@ -241,15 +241,15 @@ namespace Halcyonic.Client
                 case NotFoundEvaluation notFound:
                     return new[]
                     {
-                        Source(IntelligenceText.From(IntelligenceText.FromSeorak, notFound.Reason) + "No evaluation yet: " + IntelligenceText.Plain(notFound.Reason.Message) + status,
+                        Source(IntelligenceText.From(IntelligenceText.FromSeorak, notFound.Reason) + "No evaluation yet: " + IntelligenceText.Why(notFound.Reason) + status,
                             SectionTone.Secondary),
                     };
                 case UnavailableEvaluation unavailable:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unavailable: " + IntelligenceText.Plain(unavailable.Reason.Message) + status, SectionTone.Secondary) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unavailable: " + IntelligenceText.Why(unavailable.Reason) + status, SectionTone.Secondary) };
                 case IncompatibleEvaluation incompatible:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unreadable: " + IntelligenceText.Plain(incompatible.Reason.Message) + status, SectionTone.Problem) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unreadable: " + IntelligenceText.Why(incompatible.Reason) + status, SectionTone.Problem) };
                 case UnauthorizedEvaluation unauthorized:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation not allowed: " + IntelligenceText.Plain(unauthorized.Reason.Message) + status, SectionTone.Secondary) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation not allowed: " + IntelligenceText.Why(unauthorized.Reason) + status, SectionTone.Secondary) };
                 default:
                     return new[] { Source("The evaluation came back in a form this app does not know.", SectionTone.Secondary) };
             }
@@ -441,6 +441,89 @@ namespace Halcyonic.Client
     public static class IntelligenceText
     {
         /// <summary>
+        /// Why a source answered without conclusions, by its code, after the lead ("Evaluation unavailable: "),
+        /// never the reason's message, which is the source's or the reader's own and can hold an address, a path
+        /// or the source's words. The source is named only by the provenance line before it, so the why says
+        /// "it" (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public static string Why(ErrorInfo reason) => reason.Code switch
+        {
+            "not_running" => "it isn't running on " + HostText.Your + ". Start it there, then press Refresh.",
+            "unreachable" or "timed_out" => "it didn't answer on " + HostText.Your + ". Press Refresh in a moment.",
+            "temporarily_unavailable" or "server_error" => "it couldn't answer just now. Press Refresh in a moment.",
+            "rate_limited" => "it asked for a pause after too many requests. Press Refresh a little later.",
+            "credential_missing" => HostText.Your + " has no credential set up for it. Set one up there.",
+            // Neither reader sends a credential that isn't one of its kind (their tests: no request with it).
+            "credential_malformed" => "the credential set up for it on " + HostText.Your + " isn't the right kind, so it wasn't sent. Set up another there.",
+            "credential_rejected" => "it turned down the credential set up on " + HostText.Your + ". Set up a new one there.",
+            "credential_forbidden" or "insufficient_scope" => "the credential set up on " + HostText.Your + " can't read this. Set up one that can.",
+            "outside_credential_restriction" => "the credential set up on " + HostText.Your + " covers other projects or dates. Set up one that covers this task.",
+            "not_captured" or "not_observed" => "it hasn't seen this task yet. Press Refresh in a moment.",
+            "not_yet_computed" => "it hasn't worked this task out yet. Press Refresh in a moment.",
+            "not_retained" => "it no longer keeps this task, so there's nothing more to read.",
+            "runtime_not_observed" => "it doesn't follow tasks this agent app runs.",
+            "not_resolvable" or "not_observable" => "it can't look up this task by the name its agent app gave it.",
+            "result_limit" => "it stopped at a limit before it found this task. Press Refresh to try again.",
+            "invalid_document" or "unexpected_status" or "unsupported_contract" or "answer_too_large" or "invalid_understanding" or "invalid_evaluation"
+                => "its answer isn't one this app can read. Check its version on " + HostText.Your + ".",
+            "host_not_allowed" or "origin_not_allowed" => "it turned the request away on " + HostText.Your + ". Check its setup there.",
+            // Salidium's reader asks the port who it is before any credential goes, but that question is sent.
+            "instance_mismatch" => "what answered isn't it. Check its setup on " + HostText.Your + ".",
+            "discovery_unreadable" => "its setup on " + HostText.Your + " can't be read. Check it there.",
+            NotAsked => "the agent app hasn't said which session this is yet. Press Refresh in a moment.",
+            _ => "it didn't say why. Press Refresh to try again.",
+        };
+
+        /// <summary>
+        /// Why this headset's own read of a section failed, after "Couldn't read the evaluation: " or
+        /// " · couldn't read it again: ", by what failed and never the error's message, which is the control
+        /// plane's or the runtime's and can hold an address: one line per cause, as the folders say it, a
+        /// refused credential as <paramref name="accessRefused"/> says it for how this headset reaches the
+        /// computer (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public static string WhyUnread(Exception? error, string accessRefused) => error switch
+        {
+            OperationCanceledException => "your computer didn't answer in time. Press Refresh to try again.",
+            _ when Within<UnaskedReadException>(error) is UnaskedReadException unasked => AfterColon(unasked.Message),
+            _ when Within<CertificateMismatchException>(error) != null => AfterColon(ConnectionText.NotThePairedComputer),
+            _ when Within<TokenNotSentException>(error) is TokenNotSentException notSent && notSent.Outcome == LoopbackProofOutcome.Unproved
+                => "what answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Refresh.",
+            _ when Within<TokenNotSentException>(error) is TokenNotSentException notSent && notSent.Outcome == LoopbackProofOutcome.Unreachable => DidntAnswer,
+            ControlPlaneRequestException { Code: "device_revoked", Status: 401 } => AfterColon(ConnectionText.PairingRefused),
+            ControlPlaneRequestException { Code: "unauthorized", Status: 401 } => AfterColon(accessRefused),
+            ControlPlaneRequestException { Code: "too_many_requests", Status: 429 }
+                => "your computer is turning this headset away for a minute after too many tries. Press Refresh after a minute.",
+            _ when Within<Newtonsoft.Json.JsonException>(error) != null => AfterColon(ConnectionText.Unreadable),
+            // Something answered, with what isn't HTTP or too much of it: never "didn't answer".
+            _ when Within<System.IO.InvalidDataException>(error) != null || Within<FormatException>(error) != null || Within<OverflowException>(error) != null
+                => SomethingWentWrong,
+            ControlPlaneRequestException { Code: null, InnerException: System.Net.Http.HttpRequestException } => DidntAnswer,
+            _ => SomethingWentWrong,
+        };
+
+        private const string DidntAnswer = "your computer didn't answer. Press Refresh to try again.";
+        private const string SomethingWentWrong = "something went wrong. Press Refresh to try again.";
+
+        /// <summary>The headset's read when there is nothing to ask (settled by the coordinator, 2026-10-07).</summary>
+        public const string NotConnected = HostText.YourStart + " isn't connected. Press Refresh when it is.";
+
+        /// <summary>
+        /// One of the app's own sentences, reused after a colon: its first letter lowered, the rest as it is
+        /// ("Couldn't read the evaluation: your computer sent something this app can't read. ...").
+        /// </summary>
+        public static string AfterColon(string sentence) =>
+            sentence.Length == 0 ? sentence : char.ToLowerInvariant(sentence[0]).ToString() + sentence.Substring(1);
+
+        private static T? Within<T>(Exception? error) where T : Exception
+        {
+            for (var each = error; each != null; each = each.InnerException)
+            {
+                if (each is T found) return found;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Text from a source, made plain by the one rule for text Halcyonic did not write
         /// (<see cref="LabelText.Plain"/>): one line of exactly what it says, with every character
         /// that would not show as itself, such as a bidirectional override or a zero width space,
@@ -503,7 +586,7 @@ namespace Halcyonic.Client
         }
 
         internal static string ReadingStatus(bool loading, string? error) =>
-            loading ? " · reading again…" : error != null ? " · could not read it again: " + Plain(error) : "";
+            loading ? " · reading again…" : error != null ? " · couldn't read it again: " + error : "";
 
         internal static SectionPresentation Empty(SectionKind kind, string text) =>
             new SectionPresentation(kind, text, SectionTone.Secondary, Array.Empty<SectionLine>(), simulated: false);
@@ -514,7 +597,7 @@ namespace Halcyonic.Client
             if (loading) return Empty(kind, "Asking what the understanding source concluded…");
             if (error != null)
             {
-                return new SectionPresentation(kind, "Could not read the understanding: " + Plain(error), SectionTone.Problem, Array.Empty<SectionLine>(), simulated: false);
+                return new SectionPresentation(kind, "Couldn't read the understanding: " + error, SectionTone.Problem, Array.Empty<SectionLine>(), simulated: false);
             }
             return Empty(kind, "Not read yet.");
         }
@@ -524,7 +607,7 @@ namespace Halcyonic.Client
         /// as it does for an answer, then says why there is none, in words.
         /// </summary>
         internal static SectionPresentation Failure(SectionKind kind, string source, string lead, ErrorInfo reason, SectionTone tone, string status) =>
-            new SectionPresentation(kind, From(source, reason) + lead + Plain(reason.Message) + status, tone, Array.Empty<SectionLine>(), simulated: false);
+            new SectionPresentation(kind, From(source, reason) + lead + Why(reason) + status, tone, Array.Empty<SectionLine>(), simulated: false);
 
         /// <summary>
         /// The control plane's own answer before it asks any source: the runtime has not said which

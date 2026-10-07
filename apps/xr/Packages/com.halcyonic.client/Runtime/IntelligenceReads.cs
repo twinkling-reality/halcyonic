@@ -52,13 +52,16 @@ namespace Halcyonic.Client
     public sealed class IntelligenceFeed<T> where T : class
     {
         private readonly Func<string, CancellationToken, Task<IntelligenceRead<T>>> read;
+        private readonly Func<string> accessRefused;
         private Task<IntelligenceRead<T>>? pending;
         private CancellationTokenSource? cancel;
         private string? askedMark;
 
-        public IntelligenceFeed(Func<string, CancellationToken, Task<IntelligenceRead<T>>> read)
+        /// <param name="accessRefused">How a refused credential is said for how this headset reaches the computer (<see cref="ControlPlaneApi.AccessRefused"/>).</param>
+        public IntelligenceFeed(Func<string, CancellationToken, Task<IntelligenceRead<T>>> read, Func<string>? accessRefused = null)
         {
             this.read = read;
+            this.accessRefused = accessRefused ?? (() => ConnectionText.AccessRefused);
         }
 
         /// <summary>The execution the section is about, or null while the work has none.</summary>
@@ -69,7 +72,7 @@ namespace Halcyonic.Client
 
         public bool Loading => pending != null;
 
-        /// <summary>Why the latest read failed, or null.</summary>
+        /// <summary>Why the latest read failed, in Halcyonic's words after a colon (<see cref="IntelligenceText.WhyUnread"/>), or null.</summary>
         public string? Error { get; private set; }
 
         /// <summary>When it last asked, by the caller's clock.</summary>
@@ -125,7 +128,7 @@ namespace Halcyonic.Client
             else
             {
                 // A read this feed abandoned is never polled, so a cancelled one timed out.
-                Error = task.IsCanceled ? "The control plane did not answer in time." : task.Exception?.GetBaseException().Message ?? "No reason was given.";
+                Error = IntelligenceText.WhyUnread(task.IsCanceled ? new OperationCanceledException() : task.Exception?.GetBaseException(), accessRefused());
             }
             Version++;
             return true;
@@ -182,6 +185,9 @@ namespace Halcyonic.Client
         /// <summary>Why there is no answer where the playback stands.</summary>
         public const string NothingRecorded = "The demonstration recorded no answer about this work here.";
 
+        /// <summary>Why there is no answer before the recording is read.</summary>
+        public const string StillBeingRead = "The demonstration is still being read.";
+
         private readonly DemonstrationPlayer player;
 
         internal DemonstrationReads(DemonstrationPlayer player)
@@ -200,13 +206,25 @@ namespace Halcyonic.Client
             var recording = player.Recording;
             if (recording == null)
             {
-                return Task.FromException<IntelligenceRead<T>>(new ControlPlaneRequestException("The demonstration is still being read."));
+                return Task.FromException<IntelligenceRead<T>>(new UnaskedReadException(StillBeingRead));
             }
             var (node, played) = player.Where;
             var answer = find(recording, node, played);
             return answer == null
-                ? Task.FromException<IntelligenceRead<T>>(new ControlPlaneRequestException(NothingRecorded))
+                ? Task.FromException<IntelligenceRead<T>>(new UnaskedReadException(NothingRecorded))
                 : Task.FromResult(new IntelligenceRead<T>(answer.Response, answer.ReadAt, recorded: true));
+        }
+    }
+
+    /// <summary>
+    /// A read with nobody to ask, said in Halcyonic's own sentence, its message: nothing connected
+    /// (<see cref="IntelligenceText.NotConnected"/>), or a demonstration with no answer recorded there.
+    /// </summary>
+    public sealed class UnaskedReadException : Exception
+    {
+        public UnaskedReadException(string words)
+            : base(words)
+        {
         }
     }
 }

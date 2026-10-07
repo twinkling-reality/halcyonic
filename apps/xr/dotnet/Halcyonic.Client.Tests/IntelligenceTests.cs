@@ -469,21 +469,109 @@ public class IntelligenceFeedTests
         var reads = new Reads();
         var feed = new IntelligenceFeed<UnderstandingResponse>(reads.Read);
         feed.Show(Intelligence.ExecutionId, null, Start);
-        reads.Asked[0].Answer.SetException(new ControlPlaneRequestException("The control plane could not be reached: refused"));
+        reads.Asked[0].Answer.SetException(new ControlPlaneRequestException("The control plane could not be reached: refused", new System.Net.Http.HttpRequestException("refused")));
         feed.Poll();
-        Assert.That(feed.Error, Is.EqualTo("The control plane could not be reached: refused"));
+        Assert.That(feed.Error, Is.EqualTo("your computer didn't answer. Press Refresh to try again."));
         feed.Show(Intelligence.ExecutionId, null, Start.AddMinutes(1));
         Assert.That(reads.Asked, Has.Count.EqualTo(1));
 
         feed.Refresh(null, Start.AddMinutes(1));
         reads.Asked[1].Answer.SetCanceled();
         feed.Poll();
-        Assert.That(feed.Error, Is.EqualTo("The control plane did not answer in time."));
+        Assert.That(feed.Error, Is.EqualTo("your computer didn't answer in time. Press Refresh to try again."));
 
         var throwing = new IntelligenceFeed<UnderstandingResponse>((_, _) => throw new InvalidOperationException("no reader"));
         throwing.Show(Intelligence.ExecutionId, null, Start);
         throwing.Poll();
-        Assert.That(throwing.Error, Is.EqualTo("no reader"));
+        Assert.That(throwing.Error, Is.EqualTo("something went wrong. Press Refresh to try again."));
+        var unasked = new IntelligenceFeed<UnderstandingResponse>((_, _) => throw new UnaskedReadException(IntelligenceText.NotConnected));
+        unasked.Show(Intelligence.ExecutionId, null, Start);
+        unasked.Poll();
+        Assert.That(unasked.Error, Is.EqualTo("your computer isn't connected. Press Refresh when it is."));
+    }
+
+    /// <summary>
+    /// A failed read is said by what failed, never the error's message, which is the control plane's or the
+    /// runtime's own and can hold an address (the review's leak 3, settled by the coordinator, 2026-10-07).
+    /// </summary>
+    [Test]
+    public void AFailedReadIsNeverSaidByItsMessage()
+    {
+        const string Leak = "The control plane refused the request: 401 Unauthorized (http://192.168.1.20:47801/api/executions/x/evaluation)";
+        const string Paired = "Your computer refused this headset's pairing.";
+        var cases = new (Exception Error, string Why)[]
+        {
+            (new OperationCanceledException(Leak), "your computer didn't answer in time. Press Refresh to try again."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "your computer didn't answer. Press Refresh to try again."),
+            (new UnaskedReadException(IntelligenceText.NotConnected), "your computer isn't connected. Press Refresh when it is."),
+            (new ControlPlaneRequestException(Leak, "too_many_requests", 429),
+                "your computer is turning this headset away for a minute after too many tries. Press Refresh after a minute."),
+            (new ControlPlaneRequestException(Leak, "device_revoked", 401), IntelligenceText.AfterColon(ConnectionText.PairingRefused)),
+            (new ControlPlaneRequestException(Leak, "unauthorized", 401), IntelligenceText.AfterColon(Paired)),
+            // A code counts only with the status that carries it.
+            (new ControlPlaneRequestException(Leak, "device_revoked", 500), "something went wrong. Press Refresh to try again."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new CertificateMismatchException("ab"))),
+                IntelligenceText.AfterColon(ConnectionText.NotThePairedComputer)),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unproved, new Uri("http://127.0.0.1:47800/")))),
+                "what answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Refresh."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unreachable, new Uri("http://127.0.0.1:47800/")))),
+                "your computer didn't answer. Press Refresh to try again."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), "something went wrong. Press Refresh to try again."),
+            (new Newtonsoft.Json.JsonReaderException(Leak), IntelligenceText.AfterColon(ConnectionText.Unreadable)),
+            (new InvalidOperationException(Leak), "something went wrong. Press Refresh to try again."),
+        };
+        foreach (var (error, why) in cases)
+        {
+            var reads = new Reads();
+            var feed = new IntelligenceFeed<UnderstandingResponse>(reads.Read, () => Paired);
+            feed.Show(Intelligence.ExecutionId, null, Start);
+            reads.Asked[0].Answer.SetException(error);
+            feed.Poll();
+            Assert.That(feed.Error, Is.EqualTo(why), error.GetType().Name);
+            Assert.That(feed.Error, Does.Not.Contain("192.168").And.Not.Contain("401").And.Not.Contain("control plane"));
+        }
+    }
+
+    [Test]
+    public void ASentenceReusedAfterAColonLowersOnlyItsFirstLetter()
+    {
+        Assert.That(IntelligenceText.AfterColon(ConnectionText.Unreadable), Is.EqualTo("your computer sent something this app can't read. Install the same version on both."));
+        Assert.That(IntelligenceText.AfterColon("What answered isn't it."), Is.EqualTo("what answered isn't it."));
+        Assert.That(IntelligenceText.AfterColon(""), Is.EqualTo(""));
+    }
+
+    /// <summary>
+    /// A source that answered without conclusions is said by its code, never its message, which is the source's
+    /// or its reader's and can hold an address, a path or the source's own words (the review's leak 3).
+    /// </summary>
+    [Test]
+    public void ASourcesReasonIsSaidByItsCodeNeverItsMessage()
+    {
+        const string Leak = "Seorak at http://127.0.0.1:7600 refused: visit http://203.0.113.9/unlock";
+        foreach (var (code, why) in new[]
+        {
+            ("not_running", "it isn't running on your computer. Start it there, then press Refresh."),
+            ("timed_out", "it didn't answer on your computer. Press Refresh in a moment."),
+            ("rate_limited", "it asked for a pause after too many requests. Press Refresh a little later."),
+            ("credential_malformed", "the credential set up for it on your computer isn't the right kind, so it wasn't sent. Set up another there."),
+            ("insufficient_scope", "the credential set up on your computer can't read this. Set up one that can."),
+            ("result_limit", "it stopped at a limit before it found this task. Press Refresh to try again."),
+            ("instance_mismatch", "what answered isn't it. Check its setup on your computer."),
+            ("invalid_evaluation", "its answer isn't one this app can read. Check its version on your computer."),
+            ("native_id_unknown", "the agent app hasn't said which session this is yet. Press Refresh in a moment."),
+            ("something_new", "it didn't say why. Press Refresh to try again."),
+        })
+        {
+            Assert.That(IntelligenceText.Why(new ErrorInfo { Code = code, Message = Leak }), Is.EqualTo(why), code);
+        }
+        var now = Intelligence.At(Answers.Now);
+        var unavailable = new IntelligenceRead<EvaluationResponse>(new EvaluationResponse
+        {
+            ExecutionId = Intelligence.ExecutionId,
+            Result = new UnavailableEvaluation { Reason = new ErrorInfo { Code = "not_running", Message = Leak } },
+        }, now, recorded: false);
+        var line = EvaluationPresenter.Measurement(unavailable, false, null, now, Intelligence.Utc).Single().Text;
+        Assert.That(line, Is.EqualTo("From Seorak · Evaluation unavailable: it isn't running on your computer. Start it there, then press Refresh."));
     }
 }
 
@@ -631,7 +719,7 @@ public class DemonstrationReadsTests
         session = player.Session;
         IIntelligenceReader reads = player.Reads;
         var early = await AssertNothingRecorded(reads, Demonstration.AtApproval(DemonstrationAnswerKind.Approve).Answer.ExecutionId);
-        Assert.That(early, Is.EqualTo("The demonstration is still being read.").Or.EqualTo(DemonstrationReads.NothingRecorded));
+        Assert.That(early, Is.EqualTo(DemonstrationReads.StillBeingRead).Or.EqualTo(DemonstrationReads.NothingRecorded));
 
         session.Start();
         await Demonstration.ToTheApprovalAsync(session);
@@ -702,7 +790,7 @@ public class DemonstrationReadsTests
         {
             await reads.ReadUnderstandingAsync(executionId, CancellationToken.None);
         }
-        catch (ControlPlaneRequestException error)
+        catch (UnaskedReadException error)
         {
             return error.Message;
         }
