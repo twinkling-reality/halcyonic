@@ -284,6 +284,31 @@ public class ProjectsScreensTests
     }
 
     [Test]
+    public void TasksNeverStartedAreNotStartedAndOnlyTasksThatRanArePaused()
+    {
+        ProjectSummary Of(params WorkstreamStatus[] statuses)
+        {
+            var portfolio = new Portfolio().Project("p", "Storefront API");
+            for (var index = 0; index < statuses.Length; index++) portfolio.Work("w" + index, "p", statuses[index]);
+            return WorkOverview.Of(portfolio.Apply(), new StageVisibility(), _ => true).Projects.Single();
+        }
+        var fresh = Of(WorkstreamStatus.Created, WorkstreamStatus.Created, WorkstreamStatus.Created);
+        Assert.That(fresh.NotStarted, Is.EqualTo(3));
+        Assert.That((ProjectsText.ProjectFact(fresh), ProjectsText.Work(fresh)), Is.EqualTo(("3 tasks not started", "3 tasks not started")));
+        var mixed = Of(WorkstreamStatus.Completed, WorkstreamStatus.Created, WorkstreamStatus.Created);
+        Assert.That((ProjectsText.ProjectFact(mixed), ProjectsText.Work(mixed)), Is.EqualTo(("1 task paused", "1 task paused, 2 not started")),
+            "what ran and rests first; the side panel names both");
+        var rested = Of(WorkstreamStatus.Completed, WorkstreamStatus.Interrupted);
+        Assert.That((ProjectsText.ProjectFact(rested), ProjectsText.Work(rested)), Is.EqualTo(("2 tasks paused", "2 tasks paused")));
+        var one = Of(WorkstreamStatus.Created);
+        Assert.That((ProjectsText.ProjectFact(one), ProjectsText.Work(one)), Is.EqualTo(("1 task not started", "1 task not started")));
+        Assert.That(ProjectsText.ProjectFact(Of(WorkstreamStatus.Running, WorkstreamStatus.Created)), Is.EqualTo("1 task running"), "running still comes first");
+        var single = Of(WorkstreamStatus.Created);
+        Assert.That(ProjectsText.ProjectFact(new ProjectSummary("p", "Storefront API", shown: false, single.Work, 0, 0, 0, 0, single.NotStarted)),
+            Is.EqualTo("Hidden · 1 task not started"));
+    }
+
+    [Test]
     public void FactsKeepTheirNounAndNeverReadAsFragments()
     {
         foreach (var project in Overview().Projects)

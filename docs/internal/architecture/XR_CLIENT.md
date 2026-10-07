@@ -160,6 +160,11 @@ the same definition names, as the JSON Schema document:
   one whose checks failed. A finished round reads "Finished this round", because completion says
   nothing about correctness. Practice, Demo and Recorded are marks beside the state, never in its
   word, and a state that is only the last one known keeps its word, is ghosted and stands still.
+  Work is simulated by its current execution's runtime; a task not yet started is simulated only
+  when the state registers at least one runtime and every one is synthetic, so it can only ever run
+  on a practice agent (`CharacterPresenter.OnlyPractice`), and one real runtime marks nothing. The
+  demonstration's recording registers only synthetic runtimes, which `DemonstrationRecording`
+  checks of every snapshot, so its tasks read Demo before they start as after.
 - **`Glaze`** holds the interface's tokens, once: colors as roles (amber only for waiting for you,
   red only for what went wrong, the cobalt accent only for what can be acted on), sizes as angles at
   the eye (one of Meta's dp is 0.0625 degrees; body text 1.125, nothing under the caption's 0.94),

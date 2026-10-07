@@ -9,8 +9,9 @@ namespace Halcyonic.Client
     /// <summary>One project as the rail and Connect projects show it: its name and what its work is doing.</summary>
     public sealed class ProjectSummary
     {
-        public ProjectSummary(string projectId, string name, bool shown, int work, int active, int needsYou, int notice, int offStage)
+        public ProjectSummary(string projectId, string name, bool shown, int work, int active, int needsYou, int notice, int offStage, int notStarted)
         {
+            NotStarted = notStarted;
             ProjectId = projectId;
             Name = name;
             Shown = shown;
@@ -40,6 +41,9 @@ namespace Halcyonic.Client
 
         /// <summary>Failed, unknown, or finished with failing tests.</summary>
         public int Notice { get; }
+
+        /// <summary>At rest and never started: created, with nothing to look at. The rest at rest ran and are paused.</summary>
+        public int NotStarted { get; }
 
         /// <summary>Its workstreams without a character on the stage, hidden or beyond its slots.</summary>
         public int OffStage { get; }
@@ -131,7 +135,8 @@ namespace Halcyonic.Client
                         work.Count(workstream => CharacterLineup.TierOf(workstream) == LineupTier.Active),
                         work.Count(workstream => CharacterLineup.TierOf(workstream) == LineupTier.NeedsYou),
                         work.Count(workstream => CharacterLineup.TierOf(workstream) == LineupTier.Notice),
-                        work.Count(workstream => !onStage(workstream.WorkstreamId)));
+                        work.Count(workstream => !onStage(workstream.WorkstreamId)),
+                        work.Count(workstream => workstream.Status == WorkstreamStatus.Created && CharacterLineup.TierOf(workstream) == LineupTier.AtRest));
                 })
                 .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(project => project.Name, StringComparer.Ordinal)

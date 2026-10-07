@@ -245,6 +245,18 @@ public class JudgeMenuWalkTests
         var projects = player.Session.State.Projects.Values.Select(project => project.Name).ToList();
         Assert.That(menu.Lines.Where(line => line.Action == ProjectsScreens.ChooseProject).Select(line => line.Words), Is.EquivalentTo(projects),
             "the demonstration's own projects");
+        // As the recording begins, before its first event, whatever the fast playback has reached by now:
+        // nothing has run, as the labels say, and every label already carries the mark it keeps once it runs.
+        var beginning = new ClientProjection();
+        beginning.ApplyWelcome(Demonstration.Recording().Welcome);
+        beginning.ApplySnapshot(Demonstration.Recording().Snapshot.Snapshot, new StateChanges());
+        Assert.That(WorkOverview.Of(beginning, new StageVisibility(), _ => true).Projects.Select(project => ProjectsText.ProjectFact(project)),
+            Is.All.EqualTo("3 tasks not started"));
+        foreach (var task in beginning.Workstreams.Values)
+        {
+            var character = CharacterPresenter.Present(task, beginning, live: true);
+            Assert.That((character.StatusLabel, StateLanguage.MarksOf(character).Single().Word), Is.EqualTo(("Not started", "Demo")));
+        }
         Assert.That(menu.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
         Assert.That(menu.Footer[PromptSlot.FarRight]!.Available, Is.True, "New project plays the companion's recording");
         Assert.That(visit.Due(host.Connected, host.Demonstration, somethingOpen: false), Is.False, "once only");
