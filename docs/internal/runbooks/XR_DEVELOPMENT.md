@@ -133,6 +133,16 @@ recorded instructions; if a recorded limit's Account does not say it is part of 
 if New project's companion is not quoted as its own, or its recap offers a start or lacks the note
 that the companion is an AI.
 
+Then the demonstration's first visit, on the far and desk stages with the 3S's field:
+`far-3s-demo-welcome-1-projects` and `-2-a-task-waits`, and the same for `desk-3s`, at each text
+size. The menu stands open on Projects as the recording begins, then once its directed task waits,
+with the stage's banner where the stage stands it then, raised above the characters with the
+demonstration's lines alone. It fails if the demonstration's lines would be missing with the menu
+open, or a live session's banner would show or rise; if the lines come within a degree of a
+character's highest reach, risen and moving, of a label or of the plane; if they leave the field
+while the menu is read; if they reach more than 20 degrees above eye level; or if Tasks does not take
+the amber dot when the task waits. The log says from how high to how high the lines stand.
+
 The stage beside a window renders the same way, **Halcyonic > Render the Stage Beside a Window**,
 or in batch mode:
 
@@ -989,7 +999,14 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
 
 - **The line.** Above the stage: "Demo: recorded work played on this headset. Nothing here is
   live." and "It follows your answers. Nothing reaches an agent." Every character carries the Demo
-  mark.
+  mark. While the menu is open the line rises over the characters, a degree above the highest a
+  risen one reaches, and the peek still hides it.
+- **The welcome.** On the demonstration's first visit on this headset the menu opens by itself on
+  Projects, under "What would you like to work on?", with the recording's projects and New project
+  (`demo-welcome-1-projects`). It opens once: to see it again, clear the app's data. A visit to
+  your computer has its own first visit, so pairing afterwards opens Projects once more. Close it
+  to follow the walk below from the closed bar; left open, Projects stays while the task below
+  comes to wait, and Tasks takes the amber dot (`demo-welcome-2-a-task-waits`).
 - **Beside the story.** Of three characters, "Paginate the order history endpoint" and "Send an
   order confirmation email" work for about five seconds and then finish.
 - **The bar.** "Add rate limiting to the sign-in endpoint" starts at about 6 seconds and, at about

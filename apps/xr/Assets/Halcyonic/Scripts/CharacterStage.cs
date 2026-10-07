@@ -145,7 +145,12 @@ namespace Halcyonic.XR
         private string? shownNotice;
         private string? shownNotShown;
         private string? shownStillOpen;
+        private bool shownRaised;
+        private float? shownPanelTop;
         private int shownScale = -1;
+
+        /// <summary>Where the banner stands now: in its place, stepped aside, or above the stage in the demonstration.</summary>
+        private BannerStand bannerStand = BannerStand.InPlace;
         private string? notice;
         private float noticeUntil;
         private StageVisibility visibility = new StageVisibility();
@@ -297,7 +302,7 @@ namespace Halcyonic.XR
             if (notice != null && Time.unscaledTime >= noticeUntil)
             {
                 notice = null;
-                ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen);
+                ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised);
             }
             var preferred = source?.Preferred;
             var decision = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
@@ -325,6 +330,8 @@ namespace Halcyonic.XR
                     break;
             }
             Glide();
+            // Raised, the banner follows the panel in its place as it is laid anew, as a page that grows.
+            if (shownRaised && AmbientCover.PanelTop != shownPanelTop) PlaceBanner();
         }
 
         /// <summary>
@@ -427,6 +434,12 @@ namespace Halcyonic.XR
         private void ShowLine(RealtimeSession? session)
         {
             var demonstration = connection.DemonstrationLine;
+            // Raised above the stage while the menu stands in its place, it says only that the demonstration plays.
+            if (StandBanner() && demonstration != null)
+            {
+                ShowBanner(demonstration, BannerKind.Practice, null, null, null, raised: true);
+                return;
+            }
             var folded = FocusGuard.Folded && session != null;
             var waiting = folded ? AmbientText.NeedsYouLine(AmbientText.NeedsYou(session!.State)) : null;
             var notShown = folded && BesideAWindow ? AmbientText.NotShown(session!.State.Workstreams.Count - views.Count) : null;
@@ -434,7 +447,7 @@ namespace Halcyonic.XR
             ShowBanner(
                 demonstration ?? (session == null ? connection.SetupProblem ?? NotConnected : Describe(session)),
                 demonstration != null ? BannerKind.Practice : session != null && session.Status.IsLive ? BannerKind.Live : BannerKind.NotLive,
-                waiting, notShown, stillOpen);
+                waiting, notShown, stillOpen, raised: false);
         }
 
         /// <summary>
@@ -639,16 +652,17 @@ namespace Halcyonic.XR
         {
             notice = text;
             noticeUntil = Time.unscaledTime + NoticeSeconds;
-            ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen);
+            ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised);
         }
 
         /// <param name="waiting">What needs the person, said on a line of its own and in the attention color, or null.</param>
         /// <param name="notShown">Beside a window, how many more tasks have no character, or null.</param>
         /// <param name="stillOpen">The panel kept while another window has focus, or null.</param>
-        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, string? stillOpen)
+        /// <param name="raised">Above the stage, saying <paramref name="text"/> alone, with no notice under it.</param>
+        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, string? stillOpen, bool raised)
         {
             if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice
-                && notShown == shownNotShown && stillOpen == shownStillOpen && shownScale == GlazeText.Version) return;
+                && notShown == shownNotShown && stillOpen == shownStillOpen && raised == shownRaised && shownScale == GlazeText.Version) return;
             // The text's size changes the banner and how deep the labels above it reach.
             shownScale = GlazeText.Version;
             shownBanner = text;
@@ -657,10 +671,11 @@ namespace Halcyonic.XR
             shownNotice = notice;
             shownNotShown = notShown;
             shownStillOpen = stillOpen;
+            shownRaised = raised;
             // A connection's detail, a setup problem or a notice can carry a server's or an exception's
             // words, and the panel kept a task's title; the banner shows them by the one rule for text
             // Halcyonic did not write.
-            banner.Show(text, kind, waiting, notice, notShown, stillOpen);
+            banner.Show(text, kind, waiting, raised ? null : notice, notShown, stillOpen);
             PlaceBanner();
         }
 
@@ -668,17 +683,57 @@ namespace Halcyonic.XR
         /// In front of the person, the banner hangs under the lowest a label reaches, where the ambient
         /// strip goes, or beside a window, under the window's lane; over a surface, it stands above the
         /// highest a character reaches, risen included, since the lineup puts what waits for the person
-        /// in its middle.
+        /// in its middle. Raised in the demonstration while the menu stands in its place, it stands above
+        /// the highest a character reaches in front of the person too, and beside a window above its lane.
         /// </summary>
         private void PlaceBanner()
         {
             var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
-            var top = onSurface ? BannerBottomOnSurface(radius, eyesAbove) : BesideAWindow ? BannerTopBesideWindow(radius) : BannerTop(radius, heightFromEyes);
+            var top = onSurface ? BannerBottomOnSurface(radius, eyesAbove)
+                : shownRaised ? BesideAWindow ? BannerBottomAboveWindow(radius) : BannerBottomAbove(radius, heightFromEyes)
+                : BesideAWindow ? BannerTopBesideWindow(radius) : BannerTop(radius, heightFromEyes);
+            // Raised, it also clears the panel in its place, as the menu over a desk's lineup stands where the banner would.
+            shownPanelTop = shownRaised ? AmbientCover.PanelTop : null;
+            if (shownRaised) top = RaisedBannerBottom(radius, top - eyesAbove, shownPanelTop) + eyesAbove;
             bannerRoot.localPosition = new Vector3(0f, top, radius);
             bannerRoot.localScale = Vector3.one * radius;
-            // The banner hangs from its top edge; on a surface it stands on its bottom edge instead.
-            banner.transform.localPosition = new Vector3(0f, onSurface ? banner.Height : 0f, 0f);
+            // The banner hangs from its top edge; on a surface or raised it stands on its bottom edge instead.
+            banner.transform.localPosition = new Vector3(0f, onSurface || shownRaised ? banner.Height : 0f, 0f);
         }
+
+        /// <summary>
+        /// The height of the banner's bottom edge from the eyes when it is raised in front of the person,
+        /// in meters, with the characters <paramref name="radius"/> away and their centers
+        /// <paramref name="heightFromEyes"/> from the eyes: a little more than a degree over the highest a
+        /// character reaches, risen and moving, all along it. The banner is flat, so its ends are farther
+        /// than its middle and look lower; it starts higher by as much as its widest ends would sink.
+        /// </summary>
+        public static float BannerBottomAbove(float radius, float heightFromEyes) =>
+            (heightFromEyes + CharacterView.HighestReach * Mathf.Sqrt(radius * radius + heightFromEyes * heightFromEyes)
+                + GlazeTokens.Units(BannerGapDegrees) * radius)
+            / Mathf.Cos(StageBanner.WidestDegrees / 2f * Mathf.Deg2Rad);
+
+        /// <summary>
+        /// The height of the raised banner's bottom edge from the eyes, in meters, <paramref name="radius"/>
+        /// ahead: <paramref name="overCharacters"/>, where it clears the characters, or higher, a little more
+        /// than a degree over a panel whose top edge stands <paramref name="panelTop"/> degrees from eye
+        /// level, all along it.
+        /// </summary>
+        public static float RaisedBannerBottom(float radius, float overCharacters, float? panelTop)
+        {
+            if (panelTop == null) return overCharacters;
+            var over = Mathf.Tan((panelTop.Value + BannerGapDegrees) * Mathf.Deg2Rad) * radius;
+            // Over eye level its flat ends look lower than its middle, as BannerBottomAbove allows for.
+            if (over > 0f) over /= Mathf.Cos(StageBanner.WidestDegrees / 2f * Mathf.Deg2Rad);
+            return Mathf.Max(overCharacters, over);
+        }
+
+        /// <summary>
+        /// The height of the banner's bottom edge from the eyes when it is raised beside a window, in
+        /// meters, with it <paramref name="radius"/> away: a little more than a degree over the window's
+        /// lane, all along it, as it hangs as far under the lane otherwise.
+        /// </summary>
+        public static float BannerBottomAboveWindow(float radius) => -BannerTopBesideWindow(radius);
 
         /// <summary>
         /// The height of the banner's bottom edge over a surface, in meters, with the characters
@@ -690,8 +745,24 @@ namespace Halcyonic.XR
             (SurfaceClearance - CharacterLabelView.DeepestBottom + CharacterView.HighestReach + GlazeTokens.Units(BannerGapDegrees))
             * Mathf.Sqrt(radius * radius + eyesAbove * eyesAbove);
 
-        /// <summary>The banner shows unless a panel or the peek is where it goes (<see cref="AmbientCover"/>).</summary>
-        private void ShowBannerUncovered() => banner.gameObject.SetActive(!AmbientCover.Any);
+        /// <summary>
+        /// The banner shows unless a panel or the peek is where it goes (<see cref="AmbientCover"/>); in the
+        /// demonstration a panel raises it above the stage instead (<see cref="BannerPlace"/>), which says
+        /// its line again.
+        /// </summary>
+        private void ShowBannerUncovered()
+        {
+            var wasRaised = bannerStand == BannerStand.AboveTheStage;
+            if (StandBanner() != wasRaised) ShowLine(connection.Session);
+        }
+
+        /// <summary>Where the banner stands now, showing it or not; true when it is raised above the stage.</summary>
+        private bool StandBanner()
+        {
+            bannerStand = BannerPlace.Of(connection.DemonstrationLine != null, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
+            banner.gameObject.SetActive(bannerStand != BannerStand.Hidden);
+            return bannerStand == BannerStand.AboveTheStage;
+        }
 
         private const string NotConnected = "Not connected to " + HostText.Your;
 

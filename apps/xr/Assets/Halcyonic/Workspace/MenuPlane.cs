@@ -74,6 +74,34 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The composition as laid, or null while only the bar shows.</summary>
         public PlaneComposition? Composition { get; private set; }
 
+        /// <summary>
+        /// The highest the composition's parts reach as laid, in degrees from eye level, the edges of
+        /// their top sides; null while it covers nothing, as with the closed bar alone. From the layout,
+        /// not the parts as they slide, so it holds still while they move.
+        /// </summary>
+        public float? TopElevation
+        {
+            get
+            {
+                if (Composition == null || !cover.activeSelf) return null;
+                var top = float.MinValue;
+                var parts = Composition.Parts;
+                for (var p = 0; p < parts.Count; p++)
+                {
+                    var part = parts[p];
+                    top = Mathf.Max(top, ElevationOf(PlaneLayout.PointOf(eyes, Direction, part.Left, part.Top)),
+                        ElevationOf(PlaneLayout.PointOf(eyes, Direction, part.Right + part.Width / 2f, part.Top)));
+                }
+                return top;
+            }
+        }
+
+        private float ElevationOf(Vector3 point)
+        {
+            var toward = point - eyes;
+            return Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
+        }
+
         /// <summary>The columns that stand on the plane, left to right, with their views.</summary>
         public IReadOnlyList<(MenuColumn Kind, MenuFrameView View)> Shown => shown;
 
@@ -181,7 +209,7 @@ namespace Halcyonic.XR.Workspace
             var plane = go.AddComponent<MenuPlane>();
             plane.cover = new GameObject("Covers the banner");
             plane.cover.transform.SetParent(go.transform, false);
-            AmbientCover.Add(plane.cover, panel: true, openAs);
+            AmbientCover.Add(plane.cover, panel: true, openAs, () => plane.TopElevation);
             plane.cover.SetActive(false);
             plane.menu = plane.View("Menu", MenuColumn.Menu);
             plane.file = plane.View("File", MenuColumn.File);

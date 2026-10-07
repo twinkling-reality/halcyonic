@@ -21,6 +21,7 @@ namespace Halcyonic.XR
         private static readonly List<AmbientCover> every = new List<AmbientCover>();
 
         private Func<string?>? openAs;
+        private Func<float?>? top;
 
         /// <summary>A foreground panel, rather than the peek.</summary>
         public bool Panel { get; private set; }
@@ -38,6 +39,37 @@ namespace Halcyonic.XR
                     if (cover.Panel) return true;
                 }
                 return false;
+            }
+        }
+
+        /// <summary>Whether the peek, or anything else not a panel, shows where the banner goes now.</summary>
+        public static bool PeekShowing
+        {
+            get
+            {
+                foreach (var cover in active)
+                {
+                    if (!cover.Panel) return true;
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The highest a panel showing now reaches, in degrees from eye level, as the panels that say it
+        /// give it; null while none does. The demonstration's raised banner stands clear above it.
+        /// </summary>
+        public static float? PanelTop
+        {
+            get
+            {
+                float? highest = null;
+                foreach (var cover in active)
+                {
+                    if (!cover.Panel || cover.top?.Invoke() is not float reaches) continue;
+                    if (highest == null || reaches > highest.Value) highest = reaches;
+                }
+                return highest;
             }
         }
 
@@ -63,13 +95,15 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// Marks <paramref name="owner"/> as covering the banner's place while it is active. A panel
-        /// gives <paramref name="openAs"/>, its name while it is open, folded or not, and null while it is closed.
+        /// gives <paramref name="openAs"/>, its name while it is open, folded or not, and null while it is closed,
+        /// and may give <paramref name="top"/>, the highest it reaches in degrees from eye level (<see cref="PanelTop"/>).
         /// </summary>
-        public static AmbientCover Add(GameObject owner, bool panel, Func<string?>? openAs = null)
+        public static AmbientCover Add(GameObject owner, bool panel, Func<string?>? openAs = null, Func<float?>? top = null)
         {
             var cover = owner.AddComponent<AmbientCover>();
             cover.Panel = panel;
             cover.openAs = openAs;
+            cover.top = top;
             every.Add(cover);
             return cover;
         }

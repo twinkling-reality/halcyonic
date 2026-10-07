@@ -208,12 +208,22 @@ coordinator's first-visit words:
   project's row of steps is the way back; there is no Back prompt.
 - **The first visit opens the menu on Projects.** Its subject asks "What would you like to work on?",
   and New project is its main prompt. While New project is open, the Tasks place keeps its amber dot
-  and the waiting character its badge, and nothing interrupts the steps.
+  and the waiting character its badge, and nothing interrupts the steps. The demonstration has a
+  first visit of its own (the owner, 2026-10-07): once it plays, the menu opens on Projects there
+  too, with the demonstration's projects and New project's recorded companion, and a task that comes
+  to wait meanwhile takes Tasks' amber dot without moving the menu. The headset keeps each first visit
+  apart, so a person who saw the demonstration still finds Projects open on their first visit to their
+  own computer.
 - **Closed, the menu is one rounded shape** on the plane's top line: its subject at 18 dp, saying what
   waits or that nothing is waiting, and an Open prompt at its right. Pressing it opens Tasks when
   something waits, else the place last open.
 - **The demonstration's two lines stay on the line above the stage**, which the menu does not touch
-  (ADR 0012).
+  (ADR 0012). The stage's banner that carries them hangs under the labels, where the open menu
+  stands, and steps aside for it in a live session. In the demonstration it rises instead, while the
+  menu or a file is open: it stands a little more than a degree over the highest a risen character
+  reaches, as it stands over a surface, and over the open plane's top edge, which over a desk's
+  lineup stands where it would; it says the demonstration's lines alone, since the menu says what
+  waits (the coordinator, 2026-10-07). The peek still takes its place.
 - **The stage keeps its own sizes**, its labels' 20 dp titles and 16 dp badges, sized for its
   distances and held to text as the eyes see it; the three sizes govern the menu's plane.
 - **A subject's line holds about 36 characters** at 24 dp in the menu's 32 degree column; a longer
