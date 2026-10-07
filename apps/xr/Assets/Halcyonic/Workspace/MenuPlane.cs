@@ -29,8 +29,17 @@ namespace Halcyonic.XR.Workspace
 
         private readonly Dictionary<Transform, Slide> slides = new Dictionary<Transform, Slide>();
 
-        /// <summary>The seconds each column newly on the plane has left of its opening, taking nothing until they run out.</summary>
-        private readonly Dictionary<MenuFrameView, float> opening = new Dictionary<MenuFrameView, float>();
+        /// <summary>
+        /// The seconds each column newly on the plane has left of its opening, taking nothing until they run
+        /// out, and the frame it opened in, which counts nothing toward it.
+        /// </summary>
+        private readonly Dictionary<MenuFrameView, (float Left, int Frame)> opening = new Dictionary<MenuFrameView, (float, int)>();
+
+        /// <summary>The most one frame counts toward a column's opening, so one long frame never opens it before it is seen.</summary>
+        private const float OpeningFrameSeconds = 0.05f;
+
+        /// <summary>The frames stepped so far, to know the frame a column opened in.</summary>
+        private int frames;
         private readonly List<BodyInView> scratch = new List<BodyInView>();
         private readonly List<(MenuColumn Kind, MenuFrameView View)> shown = new List<(MenuColumn, MenuFrameView)>();
         private MenuFrameView menu = null!;
@@ -38,7 +47,7 @@ namespace Halcyonic.XR.Workspace
         private MenuFrameView side = null!;
 
         /// <summary>The menu, the file and the side panel, made once, for stepping each frame without allocating.</summary>
-        private MenuFrameView[] columns = null!;
+        private MenuFrameView[] frameViews = null!;
         private MenuBarView bar = null!;
         private LineRenderer line = null!;
 
@@ -189,10 +198,13 @@ namespace Halcyonic.XR.Workspace
         public MenuBarView? Bar => bar.gameObject.activeSelf ? bar : null;
 
         /// <summary>
-        /// How long a column newly on the plane takes no press, hold or subject press (ADR 0027): as long as it
-        /// takes to appear, so nothing on it, Yes, Send answer or Clear among them, is acted on before it shows
-        /// whole. Its frame still counts as drawn when it is laid (<see cref="Drawn"/>), as before; only acting
-        /// on it waits. The one place the opening's length is set.
+        /// How long a column newly on the plane takes no press, hold or subject press: as long as it takes to
+        /// appear (ADR 0027), so nothing on it, Yes, Send answer or Clear among them, is acted on before it
+        /// shows whole. It widens ADR 0026's amendment of 2026-10-03, which held a column back from stepping
+        /// aside, to every column newly on the plane. Its buttons and subject plate wait to settle
+        /// (<see cref="MenuFrameView.Unsettle"/>), which drops a press before its flash, sound or hold timer,
+        /// and must last at least this long; this plane refuses what still reaches it. Its frame still counts
+        /// as drawn when it is laid (<see cref="Drawn"/>), as before. The one place the opening's length is set.
         /// </summary>
         public static float OpeningSeconds => Glaze.AppearSeconds;
 
@@ -240,7 +252,7 @@ namespace Halcyonic.XR.Workspace
             // A file's subject drags the whole plane (ADR 0026).
             plane.file.EnableSubjectHold();
             plane.side = plane.View("Side panel", MenuColumn.Side);
-            plane.columns = new[] { plane.menu, plane.file, plane.side };
+            plane.frameViews = new[] { plane.menu, plane.file, plane.side };
             plane.bar = MenuBarView.Create(go.transform, "Menu, closed");
             plane.bar.Acted += _ => plane.Opened?.Invoke();
             plane.bar.Hide();
@@ -473,10 +485,15 @@ namespace Halcyonic.XR.Workspace
                     if (index == parts.Count - 1) view.Settle(placed, zoom);
                     index++;
                 }
-                // Newly on the plane, as opened or back from stepping aside, it takes nothing until it has opened.
-                if (!WasShown(before, view)) opening[view] = OpeningSeconds;
+                // Newly on the plane, as opened or back from stepping aside, it takes nothing until it has opened:
+                // its buttons and subject drop a press themselves, and this plane refuses what reaches it.
+                if (!WasShown(before, view))
+                {
+                    opening[view] = (OpeningSeconds, frames);
+                    view.Unsettle(subjectToo: true);
+                }
             }
-            foreach (var view in columns)
+            foreach (var view in frameViews)
             {
                 if (!Contains(shown, view)) opening.Remove(view);
             }
@@ -680,14 +697,27 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Moves every sliding part and every column's opening on by <paramref name="seconds"/>, and the light line with them; the renders step it themselves.</summary>
-        public void Advance(float seconds)
+        public void Advance(float seconds) => Step(seconds, frame: false);
+
+#if UNITY_EDITOR
+        /// <summary>For the editor's renders: one frame of <paramref name="seconds"/>, as the headset steps it.</summary>
+        public void FrameForRender(float seconds) => Step(seconds, frame: true);
+#endif
+
+        /// <summary>
+        /// Moves the plane on by <paramref name="seconds"/>. A <paramref name="frame"/> of the headset's skips a
+        /// column that opened in it and counts at most <see cref="OpeningFrameSeconds"/> toward an opening.
+        /// </summary>
+        private void Step(float seconds, bool frame)
         {
-            foreach (var view in columns)
+            var toward = frame ? Mathf.Min(seconds, OpeningFrameSeconds) : seconds;
+            foreach (var view in frameViews)
             {
-                if (!opening.TryGetValue(view, out var left)) continue;
-                if (left - seconds <= 0f) opening.Remove(view);
-                else opening[view] = left - seconds;
+                if (!opening.TryGetValue(view, out var open) || (frame && open.Frame == frames)) continue;
+                if (open.Left - toward <= 0f) opening.Remove(view);
+                else opening[view] = (open.Left - toward, open.Frame);
             }
+            if (frame) frames++;
             foreach (var pair in slides)
             {
                 var part = pair.Key;
@@ -702,7 +732,7 @@ namespace Halcyonic.XR.Workspace
             UpdateLightLine();
         }
 
-        private void LateUpdate() => Advance(Time.unscaledDeltaTime);
+        private void LateUpdate() => Step(Time.unscaledDeltaTime, frame: true);
 
         private static PlaneColumn ColumnOf(MenuFrameView view) => new PlaneColumn(view.Width, ToArray(view.Heights));
 

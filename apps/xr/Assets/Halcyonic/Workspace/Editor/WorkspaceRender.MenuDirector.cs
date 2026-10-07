@@ -180,6 +180,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 director.DrawNow();
                 if (file == null || director.Navigator.Beside != file) failures.Add(name + ": pressing the waiting task's row opened no file beside the menu.");
+                // A draw at once leaves no column opening, however long an opening is, or the renders' presses would go nowhere.
+                foreach (var kind in new[] { MenuColumn.Menu, MenuColumn.File, MenuColumn.Side })
+                {
+                    if (director.Plane.Opening(kind)) failures.Add(name + ": a draw at once left the " + kind + " column still opening.");
+                }
                 var expected = MenuPage.Height(comfort.Text, 1, MenuPlane.TopLine(opened.Target, targets, eyes, looking, surface, besideWindow), ViewField.Current);
                 if (made is not float height || Mathf.Abs(height - expected) > 1e-5f)
                 {
@@ -906,6 +911,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     var at = subject.Subject.position;
                     director.ResetPosition();
                     director.DrawNow();
+                    // Opened again, the file's subject waits to settle as a new one does; a hand finds it a moment later.
+                    subject.SettleSubjectForRender();
                     hand.PointerForRender(1, Oculus.Interaction.PointerEventType.Select, at);
                     // As the first hand's hold matures.
                     director.MatureHoldForRender(at);

@@ -164,10 +164,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (plane.FileAside || plane.Shown.All(column => column.Kind != MenuColumn.File)) failures.Add(name + ": the menu's details closed, and the file did not come back.");
                 failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, window));
 
-                // A file opened takes nothing until it has opened, though it counts as drawn when laid.
-                var waitingNow = WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget);
-                failures.AddRange(OpeningTakesNothing(name, plane, waitingNow,
-                    (frame, now) => plane.Show(bar, menu, frame, frame != null ? opened.Target : null, targets, eyes, looking, surface, immediately: now, besideWindow: besideWindow)));
+                // A column opened takes nothing until it has opened, though it counts as drawn when laid.
+                failures.AddRange(OpeningTakesNothing(name, plane, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget),
+                    WaitingFile(opened.View.Presentation!.Title, badge, chosen: true, budget),
+                    (frame, now) => plane.Show(bar, menu, frame, frame != null ? opened.Target : null, targets, eyes, looking, surface, immediately: now, besideWindow: besideWindow),
+                    () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow)));
 
                 // Closed, with no file open: the bar alone.
                 plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
@@ -210,34 +211,98 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// A column newly on the plane takes nothing until it has opened (ADR 0027; <see cref="MenuPlane.OpeningSeconds"/>):
-        /// on a file opened beside the menu asking Send answer, then Yes, then Clear, that press, a hold on Hold to
-        /// talk and a press on its subject are refused as it opens and halfway through, and the press is taken
-        /// once it has opened. The file counts as drawn when laid, as it does when it stood open: what is
-        /// reported drawn is the same either way, so a page counted while faint is never acted on before it shows.
+        /// A column newly on the plane takes nothing until it has opened (<see cref="MenuPlane.OpeningSeconds"/>).
+        /// On a file opened beside the menu asking Send answer, then Yes, then Clear: every button waits to settle,
+        /// and pressed as a hand presses it drops the press before its flash, sound or hold's timer; the subject
+        /// plate waits too; the frame it opened in and one long frame never end its opening; what still reaches
+        /// the plane past the buttons, a press, a hold, a subject press or hold, is refused as it opens and
+        /// halfway; and once it has opened and settled, the press is taken. The menu opened from its bar and a
+        /// side panel opening, in its file's place carrying Yes where it stands there, take nothing either until
+        /// they have opened. The file counts as drawn when laid, as it does when it stood open, so a page counted
+        /// while faint is never acted on before it shows.
         /// </summary>
-        private static IEnumerable<string> OpeningTakesNothing(string name, MenuPlane plane, MenuFrame waiting, System.Action<MenuFrame?, bool> show)
+        private static IEnumerable<string> OpeningTakesNothing(string name, MenuPlane plane, MenuFrame waiting, MenuFrame chosen, System.Action<MenuFrame?, bool> show,
+            System.Action closed)
         {
             var failures = new List<string>();
+            // A long typed answer's side panel marks the answer read when laid, freeing the file's Send answer,
+            // which sends in one press: only its buttons' settling holds it back while the panel opens.
+            if (GlazeButton.SettleSeconds < MenuPlane.OpeningSeconds)
+            {
+                failures.Add(name + ": a button settles in " + GlazeButton.SettleSeconds + " s, less than a column's " + MenuPlane.OpeningSeconds
+                    + " s opening, so a long answer's Send answer could be pressed while its side panel still opens.");
+            }
             var taken = new List<string>();
+            var pressed = new List<string>();
             var drawn = new List<(MenuColumn Kind, MenuFrame? Frame)>();
-            System.Action<MenuColumn, string, string?, MenuFrame?, SidePanel?> acted = (kind, action, key, frame, side) =>
-            {
-                if (kind == MenuColumn.File) taken.Add(action);
-            };
-            System.Action<MenuColumn, Prompt, MenuFrame?, SidePanel?> held = (kind, prompt, frame, side) =>
-            {
-                if (kind == MenuColumn.File) taken.Add("a hold on " + prompt.Words);
-            };
-            System.Action<MenuColumn, MenuFrame?> subject = (kind, frame) =>
-            {
-                if (kind == MenuColumn.File) taken.Add("a press on its subject");
-            };
+            System.Action<MenuColumn, string, string?, MenuFrame?, SidePanel?> acted = (kind, action, key, frame, side) => taken.Add(kind + " " + action);
+            System.Action<MenuColumn, Prompt, MenuFrame?, SidePanel?> held = (kind, prompt, frame, side) => taken.Add(kind + " a hold on " + prompt.Words);
+            System.Action<MenuColumn, MenuFrame?> subject = (kind, frame) => taken.Add(kind + " a press on its subject");
+            System.Action<MenuColumn, MenuFrame?, Vector3> subjectHeld = (kind, frame, point) => taken.Add(kind + " a hold on its subject");
             System.Action<MenuColumn, MenuFrameView> laid = (kind, view) => drawn.Add((kind, view.Frame));
+            System.Action<GlazeButton> anyPressed = button => pressed.Add(button.Label.text);
             plane.Acted += acted;
             plane.HoldStarted += held;
             plane.SubjectPressed += subject;
+            plane.SubjectHeld += subjectHeld;
             plane.Drawn += laid;
+            GlazeButton.AnyPressed += anyPressed;
+            var ended = Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds);
+            // Every button the column shows, pressed as a hand presses it, is dropped before its flash, sound and hold timer.
+            void NothingTaken(string what, MenuFrameView view, float since)
+            {
+                if (UnityEngine.Time.unscaledTime - since > GlazeButton.SettleSeconds / 2f)
+                {
+                    failures.Add(what + ": the render took too long to press it while its buttons settle, so nothing was checked.");
+                    return;
+                }
+                taken.Clear();
+                pressed.Clear();
+                foreach (var button in view.GetComponentsInChildren<GlazeButton>())
+                {
+                    var at = button.transform.position;
+                    button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Select, at);
+                    if (button.PressUnderWay) failures.Add(what + ": " + button.Label.text + " started a hold's timer while its column opens.");
+                    button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Unselect, at);
+                    button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Unhover, at);
+                }
+                // Its subject plate, pressed as a hand presses it, is dropped by the plate itself, before the plane.
+                if (view.SubjectHoldForRender is PointerTarget plate)
+                {
+                    var subjectPresses = 0;
+                    void Counted() => subjectPresses++;
+                    view.SubjectPressed += Counted;
+                    var on = view.Subject.position;
+                    plate.PointerForRender(8, Oculus.Interaction.PointerEventType.Select, on);
+                    plate.PointerForRender(8, Oculus.Interaction.PointerEventType.Unselect, on);
+                    plate.PointerForRender(8, Oculus.Interaction.PointerEventType.Unhover, on);
+                    view.SubjectPressed -= Counted;
+                    if (subjectPresses > 0) failures.Add(what + ": its subject plate, pressed as a hand presses it, took the press while the column opens.");
+                }
+                if (pressed.Count > 0) failures.Add(what + ": pressed as a hand presses them, " + string.Join(", ", pressed) + " flashed and sounded taken while the column opens.");
+                if (taken.Count > 0) failures.Add(what + ": " + string.Join(", ", taken) + " reached the plane while the column opens.");
+            }
+            // Settled and opened, the press on <paramref name="button"/> as a hand presses it is taken.
+            void Taken(string what, MenuFrameView view, GlazeButton? button, MenuColumn kind)
+            {
+                plane.Advance(ended);
+                SettleLongAgo(view);
+                taken.Clear();
+                pressed.Clear();
+                if (button == null)
+                {
+                    failures.Add(what + ": no button to press once it has opened.");
+                    return;
+                }
+                var at = button.transform.position;
+                button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Select, at);
+                button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Unselect, at);
+                button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Unhover, at);
+                if (!taken.Any(each => each.StartsWith(kind + " ", System.StringComparison.Ordinal)))
+                {
+                    failures.Add(what + ": once it has opened and settled, " + button.Label.text + " pressed was not taken.");
+                }
+            }
             try
             {
                 var clearing = new MenuFrame(waiting.Subject, new Footer(PlaneClose, farRight: new Prompt(NewProjectScreens.Clear, EntryText.Clear, GlazeIcon.Next, main: true)),
@@ -245,58 +310,130 @@ namespace Halcyonic.XR.Workspace.Editor
                 var talk = new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
                 foreach (var (frame, asks, what) in new[] { (waiting, "send", "Send answer"), (Confirming(waiting), "yes", "Yes"), (clearing, NewProjectScreens.Clear, "Clear") })
                 {
+                    var asking = name + ": a file asking " + what;
                     // Stood open: laid again, it reports what it draws and is not opening.
                     show(null, true);
-                    plane.Advance(Glaze.SlideSeconds);
+                    plane.Advance(ended);
                     show(frame, true);
-                    plane.Advance(Glaze.SlideSeconds);
+                    plane.Advance(ended);
                     drawn.Clear();
                     show(frame, false);
                     var stoodOpen = drawn.ToList();
-                    if (plane.Opening(MenuColumn.File)) failures.Add(name + ": a file asking " + what + " that stood open is opening again, laid as it was.");
+                    if (plane.Opening(MenuColumn.File)) failures.Add(asking + " that stood open is opening again, laid as it was.");
 
-                    // Opened now, from the menu alone.
+                    // Opened now, from the menu alone, its buttons and subject settled long before.
                     show(null, true);
-                    plane.Advance(Glaze.SlideSeconds);
+                    plane.Advance(ended);
+                    var view = FindView(plane, "File");
+                    if (view != null)
+                    {
+                        SettleLongAgo(view);
+                        view.SettleSubjectForRender();
+                    }
                     drawn.Clear();
                     show(frame, false);
+                    var since = UnityEngine.Time.unscaledTime;
                     var openedNow = drawn.ToList();
-                    var view = FindView(plane, "File");
                     if (view == null || plane.Shown.All(column => column.Kind != MenuColumn.File))
                     {
-                        failures.Add(name + ": a file asking " + what + " opened, and no file stands on the plane.");
+                        failures.Add(asking + " opened, and no file stands on the plane.");
                         continue;
                     }
-                    if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": a file asking " + what + " just opened is not opening, so it takes presses before it shows.");
-                    if (!openedNow.Contains((MenuColumn.File, frame))) failures.Add(name + ": a file asking " + what + " just opened was not counted drawn when laid.");
+                    if (!plane.Opening(MenuColumn.File)) failures.Add(asking + " just opened is not opening, so it takes presses before it shows.");
+                    failures.AddRange(WaitsToSettle(asking + " just opened", view));
+                    if (!view.SubjectSettling) failures.Add(asking + " just opened: its subject plate takes a press before it has settled.");
+                    if (!openedNow.Contains((MenuColumn.File, frame))) failures.Add(asking + " just opened was not counted drawn when laid.");
                     if (!openedNow.SequenceEqual(stoodOpen))
                     {
-                        failures.Add(name + ": a file asking " + what + " reported drawn " + string.Join(", ", openedNow.Select(each => each.Kind)) + " as it opened, not "
+                        failures.Add(asking + " reported drawn " + string.Join(", ", openedNow.Select(each => each.Kind)) + " as it opened, not "
                             + string.Join(", ", stoodOpen.Select(each => each.Kind)) + " as when it stood open.");
                     }
+                    NothingTaken(asking + " just opened", view, since);
+
+                    // What reaches the plane past its buttons is refused while it opens, at once and halfway.
+                    foreach (var when in new[] { "as it opens", "halfway through its opening" })
+                    {
+                        if (when != "as it opens") plane.Advance(MenuPlane.OpeningSeconds / 2f);
+                        if (!plane.Opening(MenuColumn.File)) failures.Add(asking + " is no longer opening " + when + ".");
+                        taken.Clear();
+                        view.PressForRender(asks);
+                        view.HoldForRender(talk);
+                        view.PressSubjectForRender();
+                        view.HoldSubjectForRender(view.Subject.position);
+                        if (taken.Count > 0) failures.Add(asking + " took " + string.Join(", ", taken) + " " + when + ".");
+                    }
+                    Taken(asking + " that has opened", view, ButtonFor(view, asks), MenuColumn.File);
+                    view.SettleSubjectForRender();
                     taken.Clear();
-                    view.PressForRender(asks);
-                    view.HoldForRender(talk);
-                    view.PressSubjectForRender();
-                    plane.Advance(MenuPlane.OpeningSeconds / 2f);
-                    view.PressForRender(asks);
-                    view.HoldForRender(talk);
-                    view.PressSubjectForRender();
-                    if (taken.Count > 0) failures.Add(name + ": a file asking " + what + " took " + string.Join(", ", taken) + " while it was still opening.");
-                    plane.Advance(MenuPlane.OpeningSeconds);
-                    taken.Clear();
-                    view.PressForRender(asks);
-                    if (!taken.SequenceEqual(new[] { asks })) failures.Add(name + ": a file asking " + what + " that has opened did not take " + what + ".");
+                    view.HoldSubjectForRender(view.Subject.position);
+                    if (taken.Count == 0) failures.Add(asking + " that has opened took no hold on its subject.");
                 }
+
+                // Frame by frame, as the headset steps it: the frame a file opened in counts nothing toward its opening,
+                // a long frame counts at most a twentieth of a second, and the opening still ends.
+                show(null, true);
+                plane.Advance(ended);
+                show(waiting, false);
+                plane.FrameForRender(0.25f);
+                if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": the frame a file opened in ended its opening.");
+                plane.FrameForRender(0.25f);
+                if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": one long frame ended a file's opening before it was seen.");
+                plane.Advance(MenuPlane.OpeningSeconds - 0.05f - 0.01f);
+                if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": the frame a file opened in counted toward its opening.");
+                plane.Advance(0.02f);
+                if (plane.Opening(MenuColumn.File)) failures.Add(name + ": a file's opening outlasted its time, locking it out.");
+
+                // The menu opened from its bar alone: its rows take nothing until it has opened.
+                closed();
+                show(null, false);
+                var menuView = FindView(plane, "Menu");
+                if (menuView != null && plane.Shown.Any(column => column.Kind == MenuColumn.Menu))
+                {
+                    var since = UnityEngine.Time.unscaledTime;
+                    if (!plane.Opening(MenuColumn.Menu)) failures.Add(name + ": the menu just opened is not opening.");
+                    NothingTaken(name + ": the menu just opened", menuView, since);
+                    Taken(name + ": the menu that has opened", menuView,
+                        menuView.GetComponentsInChildren<GlazeButton>().FirstOrDefault(button => !button.Static && button.Available && menuView.Footer.Shown.All(slot => slot.Button != button)), MenuColumn.Menu);
+                }
+                else failures.Add(name + ": the menu opened from its bar does not stand on the plane.");
+
+                // A side panel opening, in its file's place carrying Yes where it stands there, takes nothing until it has opened.
+                show(Confirming(waiting), true);
+                plane.Advance(ended);
+                show(Confirming(chosen), false);
+                var sideView = FindView(plane, "Side panel");
+                if (sideView != null && plane.Shown.Any(column => column.Kind == MenuColumn.Side))
+                {
+                    var since = UnityEngine.Time.unscaledTime;
+                    var carries = ButtonFor(sideView, "yes");
+                    var what = name + ": a side panel just opened" + (carries != null ? ", carrying Yes," : "");
+                    if (!plane.Opening(MenuColumn.Side)) failures.Add(what + " is not opening.");
+                    failures.AddRange(WaitsToSettle(what, sideView));
+                    NothingTaken(what, sideView, since);
+                    Taken(name + ": a side panel that has opened", sideView, carries ?? sideView.Footer.Shown.Select(slot => slot.Button).FirstOrDefault(), MenuColumn.Side);
+                }
+                else failures.Add(name + ": a chosen answer's side panel does not stand on the plane.");
             }
             finally
             {
                 plane.Acted -= acted;
                 plane.HoldStarted -= held;
                 plane.SubjectPressed -= subject;
+                plane.SubjectHeld -= subjectHeld;
                 plane.Drawn -= laid;
+                GlazeButton.AnyPressed -= anyPressed;
             }
             return failures;
+        }
+
+        /// <summary>The button <paramref name="view"/>'s footer shows for the prompt <paramref name="id"/>, if it shows one.</summary>
+        private static GlazeButton? ButtonFor(MenuFrameView view, string id)
+        {
+            foreach (var (slot, button) in view.Footer.Shown)
+            {
+                if (view.Footer.Showing?[slot]?.Id == id) return button;
+            }
+            return null;
         }
 
         /// <summary>

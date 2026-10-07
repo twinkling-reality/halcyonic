@@ -77,6 +77,9 @@ namespace Halcyonic.XR.UI
         private float subjectPressedAt = -1f;
         private bool subjectHolding;
 
+        /// <summary>When the subject plate was last made to wait to settle, as a column newly on the plane does.</summary>
+        private float subjectUnsettledAt = float.NegativeInfinity;
+
         /// <summary>The subject plate's cue while it can be held: the pointed frame, or the lit treatment from the press until let go.</summary>
         private Surface? subjectCue;
         private int subjectCuePainted = -1;
@@ -331,13 +334,19 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// Back on the plane from stepping aside: every button it shows waits to settle again, its prompts,
-        /// rows and all, so nothing takes a press begun as it slides back, however like before it reads.
+        /// rows and all, so nothing takes a press begun as it slides back, however like before it reads. A
+        /// button that waits drops a press before its flash, its sound or a hold's timer starts. Newly on the
+        /// plane, <paramref name="subjectToo"/>: its subject plate waits as well, its cue unlit.
         /// </summary>
-        public void Unsettle()
+        public void Unsettle(bool subjectToo = false)
         {
             Unsettles++;
             foreach (var button in GetComponentsInChildren<GlazeButton>()) button.Unsettle();
+            if (subjectToo) subjectUnsettledAt = Time.unscaledTime;
         }
+
+        /// <summary>The subject plate is still waiting to settle, taking no press, as a button that waits.</summary>
+        public bool SubjectSettling => Time.unscaledTime - subjectUnsettledAt < GlazeButton.SettleSeconds;
 
         /// <summary>Every press on it begun at <paramref name="since"/> or later ends, as presses begun under a plane a drag moved.</summary>
         public void EndPressesSince(float since)
@@ -345,14 +354,22 @@ namespace Halcyonic.XR.UI
             foreach (var button in GetComponentsInChildren<GlazeButton>()) button.EndPressSince(since);
         }
 
-        /// <summary>For the editor's renders: a press on <paramref name="action"/>, raised as its button's own press is, to whatever hears this column.</summary>
+#if UNITY_EDITOR
+        /// <summary>For the editor's renders: a press on <paramref name="action"/>, raised past its button to whatever hears this column.</summary>
         public void PressForRender(string action, string? key = null) => Acted?.Invoke(action, key);
 
-        /// <summary>For the editor's renders: a hold starting on <paramref name="prompt"/>, raised as a held prompt's is.</summary>
+        /// <summary>For the editor's renders: a hold starting on <paramref name="prompt"/>, raised past its button.</summary>
         public void HoldForRender(Prompt prompt) => HoldStarted?.Invoke(prompt);
 
-        /// <summary>For the editor's renders: the subject plate pressed, raised as its own press is.</summary>
+        /// <summary>For the editor's renders: the subject plate pressed, raised past its own settling.</summary>
         public void PressSubjectForRender() => SubjectPressed?.Invoke();
+
+        /// <summary>For the editor's renders: the subject plate held at <paramref name="point"/>, raised past its own timing.</summary>
+        public void HoldSubjectForRender(Vector3 point) => SubjectHeld?.Invoke(point);
+
+        /// <summary>For the editor's renders, whose clock barely moves: the subject plate settled long ago.</summary>
+        public void SettleSubjectForRender() => subjectUnsettledAt = float.NegativeInfinity;
+#endif
 
         /// <summary>How many times its buttons were made to wait to settle again, for the editor's renders.</summary>
         public int Unsettles { get; private set; }
@@ -500,8 +517,14 @@ namespace Halcyonic.XR.UI
             {
                 // A hold that ends lets go, whatever ends it.
                 if (subjectHolding) SubjectLetGo?.Invoke();
-                subjectPressedAt = Time.unscaledTime;
                 subjectHolding = false;
+                // Still settling, as a column newly on the plane: the press is dropped, its cue never lit.
+                if (SubjectSettling)
+                {
+                    subjectPressedAt = -1f;
+                    return;
+                }
+                subjectPressedAt = Time.unscaledTime;
                 SubjectPressed?.Invoke();
             };
             subjectHold.Dragged += point =>
