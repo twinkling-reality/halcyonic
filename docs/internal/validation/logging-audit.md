@@ -112,8 +112,13 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
 **The headset: the client core, Unity scripts and the glance.**
 - The client core logs nothing; messages that echo a response's body go to the screen only.
 - Every `Debug.Log` outside `Editor/`: fixed words, numbers, enums, workstream ids, exception type
-  names, the typed or paired address, and the connection status. The status's detail is fixed
-  words or a socket's error, and now never a parser's quote (fixed). The pairing store's inner
+  names, the typed or paired address, and the connection status's line for the log
+  (`ConnectionStatus.ForLog`). That line is the phase, then the diagnostic where there is one, else
+  the detail: the diagnostic is a transport exception's message, which names an address, a port or
+  a TLS, DNS or socket error, or a refused upgrade's status and a code kept by its shape; the detail
+  is fixed words, and since 2026-10-07 never an exception's message. A message the app
+  can't read leaves no diagnostic, so never a parser's quote (fixed). The scan flags `ForLog` and
+  `Diagnostic` by name, so a new call that logs either is reviewed. The pairing store's inner
   exception, which could quote the pairing file, is never logged. Voice and companion failures are
   codes only. OK.
 - No type that holds a secret or private text overrides `ToString`, so logging one prints only its
