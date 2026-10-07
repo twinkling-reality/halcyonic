@@ -100,6 +100,10 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? WhyFoldersUnread(Exception? error, string accessRefused) => error switch
         {
+            // What answered isn't your computer, or didn't prove it: never "didn't answer" (the review's L5).
+            _ when Within<CertificateMismatchException>(error) != null => ConnectionText.NotThePairedComputer,
+            _ when Within<TokenNotSentException>(error) is TokenNotSentException notSent
+                => notSent.Outcome == LoopbackProofOutcome.Unproved ? FoldersUnproved : null,
             // A code counts only with the status that carries it: a 500 naming device_revoked is no revoked pairing.
             ControlPlaneRequestException { Code: "device_revoked", Status: 401 } => ConnectionText.PairingRefused,
             ControlPlaneRequestException { Code: "unauthorized", Status: 401 } => accessRefused,
@@ -107,6 +111,19 @@ namespace Halcyonic.Client
             ControlPlaneRequestException { Code: null, InnerException: System.Net.Http.HttpRequestException } => FoldersUnanswered,
             _ => null,
         };
+
+        /// <summary>The folders' why when what answered couldn't prove it holds the access code (settled by the coordinator, 2026-10-07).</summary>
+        public const string FoldersUnproved = "What answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Try again.";
+
+        /// <summary>The first exception of this kind in the chain of inner ones, or null.</summary>
+        private static T? Within<T>(Exception? error) where T : Exception
+        {
+            for (var each = error; each != null; each = each.InnerException)
+            {
+                if (each is T found) return found;
+            }
+            return null;
+        }
 
         public const string FoldersUnanswered = "It didn't answer. Check that this app is running there, then press Try again.";
         public const string FoldersTurnedAway = HostText.YourStart + " is turning this headset away for a minute after too many tries. Press Try again after a minute.";
@@ -172,6 +189,8 @@ namespace Halcyonic.Client
         };
 
         public const string ModelsUnanswered = "Couldn't read its models: the agent app didn't answer. Check its setup on " + HostText.Your + ", then choose it again.";
+        /// <summary>The headset gave up waiting for your computer, past the 40 s a models read may take (settled by the coordinator, 2026-10-07).</summary>
+        public const string ModelsComputerSilent = "Couldn't read its models: " + HostText.Your + " didn't answer in time. Choose the agent app again to retry.";
         public const string ModelsUnreadable = "Couldn't read its models. Choose the agent app again to retry.";
         public const string ModelsUnsupported = "Couldn't read its models: this agent app's version on " + HostText.Your + " isn't supported yet. Choose another.";
         public const string ModelsNotConnected = "Couldn't read its models: " + HostText.Your + " isn't connected. Choose the agent app again when it is.";

@@ -837,7 +837,7 @@ public class NewProjectFlowTests
         Press(models, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
         Press(models, NewProjectScreens.MoreOptions, null);
         Press(models, NewProjectScreens.ChooseRuntime, "local");
-        await Until(models, () => models.Frame!.Lines.Any(line => line.Words == EntryText.ModelsUnanswered));
+        await Until(models, () => models.Frame!.Lines.Any(line => line.Words == EntryText.ModelsComputerSilent));
     }
 
     /// <summary>

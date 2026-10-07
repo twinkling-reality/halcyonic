@@ -125,7 +125,7 @@ namespace Halcyonic.Client
             Model = null;
             ModelPreselected = false;
             PendingModel = null;
-            ModelProblem = !connected ? EntryText.ModelsNotConnected : answered ? EntryText.ModelsUnreadable : EntryText.ModelsUnanswered;
+            ModelProblem = !connected ? EntryText.ModelsNotConnected : answered ? EntryText.ModelsUnreadable : EntryText.ModelsComputerSilent;
         }
 
         /// <summary>Focus went to another window: a first press on a model that runs elsewhere no longer counts.</summary>

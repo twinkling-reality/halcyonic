@@ -125,6 +125,11 @@ public class ProjectsColumnTests
             (new ControlPlaneRequestException(Leak, "device_revoked", 500), null),
             (new ControlPlaneRequestException(Leak, "too_many_requests", 403), null),
             (new ControlPlaneRequestException(Leak, (string?)null), null),
+            // Not "didn't answer" where something did (the review's L5).
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new CertificateMismatchException("ab"))), ConnectionText.NotThePairedComputer),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unproved, new Uri("http://127.0.0.1:47800/")))),
+                "What answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Try again."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.NotLoopback, new Uri("http://localhost:47800/")))), null),
             (new InvalidOperationException(Leak), null),
         };
         foreach (var (error, why) in cases)
