@@ -84,6 +84,8 @@ function fake(
   const runtime = new CodexRuntimeAdapter({
     binaryPath: FAKE_CODEX,
     codexHome,
+    // None, whatever this Mac has; the tests that need some give their own.
+    systemConfiguration: [],
     serverRecordFile: recordFile,
     directoryPolicy: allowOnly(directory),
     env: {
@@ -765,7 +767,7 @@ describe('Codex runtime against a stand-in binary', () => {
       assert.ok(!received().some((message) => message.method === 'model/list'), mode);
       await assert.rejects(start('COMPLETE the work.'), actionError('runtime_refused'));
       assert.ok(!received().some((message) => message.method === 'thread/start'), mode);
-      assert.equal(launched().length, 2, `${mode}: each attempt launches and stops a server`);
+      assert.equal(launched().length, 1, `${mode}: the refusal is remembered, nothing relaunches`);
     }
     // Without requirements, the check reads the settings, then the requirements, after initialize.
     const { runtime, received } = fake(t);
@@ -776,6 +778,41 @@ describe('Codex runtime against a stand-in binary', () => {
         .slice(0, 4),
       ['initialize', 'initialized', 'config/read', 'configRequirements/read'],
     );
+  });
+
+  test('never launches Codex when this Mac has system or managed Codex configuration', async (t) => {
+    const directory = temporary(t);
+    const absent = join(directory, 'absent.toml');
+    const present = join(directory, 'managed_config.toml');
+    writeFileSync(present, '');
+    const refused = fake(t, [], { systemConfiguration: [absent, present] });
+    for (const attempt of [
+      () => refused.runtime.listModels(),
+      () => refused.start('COMPLETE the work.'),
+    ]) {
+      await assert.rejects(attempt(), (error: unknown) => {
+        assert.ok(actionError('runtime_refused')(error));
+        assert.ok(
+          (error as Error).message.includes(
+            `configuration that applies whatever Halcyonic sets: ${present}.`,
+          ),
+        );
+        assert.doesNotMatch((error as Error).message, /absent\.toml/);
+        return true;
+      });
+    }
+    assert.deepEqual(refused.launched(), []);
+    // A link counts, as does a path that cannot be checked; a missing one does not.
+    const link = join(directory, 'requirements.toml');
+    symlinkSync(join(directory, 'nowhere'), link);
+    const linked = fake(t, [], { systemConfiguration: [absent, link] });
+    await assert.rejects(linked.runtime.listModels(), actionError('runtime_refused'));
+    assert.deepEqual(linked.launched(), []);
+    const clear = fake(t, [], {
+      systemConfiguration: [absent, join(present, 'under-a-file.toml')],
+    });
+    await clear.runtime.listModels();
+    assert.equal(clear.launched().length, 1);
   });
 
   test('refuses to start when Codex does not report every local-only setting, as under a managed layer', async (t) => {
