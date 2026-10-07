@@ -84,11 +84,14 @@ offered for local models only, from a home of its own.**
   to false, the update check, analytics and web search off, and sign-in and MCP credentials kept
   out of the keychain. On 0.157.0 the undocumented `features.plugins = false` was the only setting
   that stopped the startup connection to GitHub ([local-models.md](../validation/local-models.md)).
-  A managed layer outranks the overrides, so every start checks in `config/read` that each is
-  applied, and refuses otherwise. Variables that move Codex's work or data off the Mac or out of
-  the home, and proxies, never reach it.
-- A thread runs only on a model provider served on this Mac (a loopback address in Codex's
-  configuration; Ollama in practice), named on the thread; models Ollama runs on its own remote
+  A managed configuration file outranks the overrides, so right after every launch and at every
+  start the adapter checks in `config/read` that each is applied, and refuses Codex with any
+  managed requirements (`configRequirements/read`), which can pin a feature on without
+  `config/read` showing it. No proxy, and no `CODEX_` or `OPENAI_` variable, can be configured for
+  Codex; the adapter sets the two it needs.
+- A thread runs only on a model provider served on this Mac (`localhost`, `127.0.0.1` or `::1` in
+  Codex's configuration, judged as Codex judges built-in providers; Ollama in practice; never
+  Bedrock), named on the thread; models Ollama runs on its own remote
   service are refused, and the model list holds only models served on this Mac. Hosted Codex
   models are not offered while the question of the ChatGPT sign-in stays open
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
