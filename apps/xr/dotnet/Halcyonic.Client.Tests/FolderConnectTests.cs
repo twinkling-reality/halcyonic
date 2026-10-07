@@ -250,7 +250,7 @@ public class FolderConnectTests
         var reading = ConnectScreens.Folders(null, null, live: true, Now, zone);
         Assert.That(reading.Rows.Single().Title, Is.EqualTo(EntryText.ReadingFolders));
         Assert.That(reading.Actions.Primary, Is.Null, "nothing to press while it reads");
-        var unread = ConnectScreens.Folders(null, "timed out", live: true, Now, zone);
+        var unread = ConnectScreens.Folders(null, EntryText.PressTryAgain, live: true, Now, zone);
         Assert.That(unread.Actions.Primary!.Id, Is.EqualTo(ConnectScreens.ReadAgain));
         Assert.That(ConnectScreens.Folders(Listing(), null, live: true, Now, zone).Rows.Single().Title, Is.EqualTo(EntryText.NoFolders));
         var allUsed = ConnectScreens.Folders(Listing(Root("Projects", Folder("shop", true, "2026-10-01T00:00:00.000Z", ProjectA))), null, live: true, Now, zone);

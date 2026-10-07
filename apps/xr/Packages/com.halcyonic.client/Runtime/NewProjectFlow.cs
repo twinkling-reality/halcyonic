@@ -1420,7 +1420,7 @@ namespace Halcyonic.Client
             locationsProblem = null;
             if (host.Api is not ControlPlaneApi api || !Live)
             {
-                locationsProblem = EntryText.WaitingForMac;
+                locationsProblem = EntryText.FoldersNotConnected;
                 return;
             }
             locationsCancellation = new CancellationTokenSource();
@@ -1432,7 +1432,7 @@ namespace Halcyonic.Client
             if (!(locationsRead is Task<LocationsResponse> read) || !read.IsCompleted) return false;
             locationsRead = null;
             if (read.IsCanceled) return false;
-            if (read.IsFaulted) locationsProblem = read.Exception?.GetBaseException().Message ?? "No reason given.";
+            if (read.IsFaulted) locationsProblem = EntryText.WhyFoldersUnread(read.Exception?.GetBaseException(), host.Api?.AccessRefused ?? ConnectionText.AccessRefused) ?? EntryText.PressTryAgain;
             else
             {
                 // Only a listing read marks a place gone, and every one reads the places again: one back is no longer gone.

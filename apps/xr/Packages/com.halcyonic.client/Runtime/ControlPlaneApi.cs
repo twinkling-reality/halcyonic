@@ -29,6 +29,12 @@ namespace Halcyonic.Client
         private readonly Uri baseUri;
 
         /// <summary>
+        /// What a refused credential means for how this headset reaches the computer, the sentence its
+        /// connection says too (<see cref="ControlPlaneTarget.AccessRefused"/>).
+        /// </summary>
+        public string AccessRefused { get; set; } = ConnectionText.AccessRefused;
+
+        /// <summary>
         /// A client for the control plane at <paramref name="baseUri"/>. Without a
         /// <paramref name="handler"/> it is on loopback, and each request carries the access token only
         /// after the control plane proves, just before, that it holds it (<see cref="LoopbackProofHandler"/>);
@@ -279,7 +285,7 @@ namespace Halcyonic.Client
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body));
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
                 }
                 return body;
             }

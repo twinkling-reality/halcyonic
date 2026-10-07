@@ -198,7 +198,7 @@ namespace Halcyonic.Client
                 reading = null;
                 if (!read.IsCanceled)
                 {
-                    if (read.IsFaulted) listingProblem = read.Exception?.GetBaseException().Message ?? "No reason given.";
+                    if (read.IsFaulted) listingProblem = EntryText.WhyFoldersUnread(read.Exception?.GetBaseException(), host.Api?.AccessRefused ?? ConnectionText.AccessRefused) ?? EntryText.PressTryAgain;
                     else listing = read.Result;
                     changed = true;
                 }
@@ -246,7 +246,7 @@ namespace Halcyonic.Client
             var read = readLocations ?? (host.Api is ControlPlaneApi api ? api.GetLocationsAsync : (Func<CancellationToken, Task<LocationsResponse>>?)null);
             if (read == null || host.Demonstration)
             {
-                listingProblem = host.Demonstration ? null : ConnectText.NotConnectedYet;
+                listingProblem = host.Demonstration ? null : EntryText.FoldersNotConnected;
                 return;
             }
             cancel = new CancellationTokenSource();

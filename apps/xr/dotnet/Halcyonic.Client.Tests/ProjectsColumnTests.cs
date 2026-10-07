@@ -24,7 +24,7 @@ public class ProjectsColumnTests
         public TimeZoneInfo Zone => TimeZoneInfo.Utc;
         public TextSize TextSize { get; set; }
         public bool VoiceOffered => false;
-        public ControlPlaneApi? Api => null;
+        public ControlPlaneApi? Api { get; set; }
         public List<CommandEnvelope> Sent { get; } = new();
         public List<(string? Project, string? Name)> Opened { get; } = new();
         public TaskCompletionSource<CommandAckMessage>? Ack { get; set; }
@@ -104,6 +104,40 @@ public class ProjectsColumnTests
         Assert.That(reads[0], Is.EqualTo(1));
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Does.Contain("shop"));
         Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
+    }
+
+    /// <summary>
+    /// Folders that couldn't be read are said by the refusal's code, a refused credential as this headset's
+    /// connection says it, or as a computer that didn't answer, never by the error's message, the control plane's own words, which can hold an address.
+    /// </summary>
+    [Test]
+    public void FoldersThatCouldNotBeReadAreNeverSaidByTheirMessage()
+    {
+        const string Leak = "The control plane refused the request: 401 Unauthorized (http://192.168.1.20:47801/api/locations)";
+        var cases = new (Exception Error, string? Why)[]
+        {
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "It didn't answer. Check that this app is running there, then press Try again."),
+            (new ControlPlaneRequestException(Leak, "device_revoked"), ConnectionText.PairingRefused),
+            (new ControlPlaneRequestException(Leak, "unauthorized"), ConnectionText.AccessTokenRefused),
+            (new ControlPlaneRequestException(Leak, "too_many_requests"), "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."),
+            (new ControlPlaneRequestException(Leak, "internal_error"), null),
+            (new ControlPlaneRequestException(Leak, (string?)null), null),
+            (new InvalidOperationException(Leak), null),
+        };
+        foreach (var (error, why) in cases)
+        {
+            using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token") { AccessRefused = ConnectionText.AccessTokenRefused };
+            var column = new ProjectsColumn(new Host { Api = api }, Commands, new ProjectsMemory(), () => WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false),
+                (_, _) => { }, _ => Task.FromException<LocationsResponse>(error));
+            column.Tick();
+            column.Act(ProjectsScreens.ChooseProblem, column.Frame!.Lines.Single(line => line.Action == ProjectsScreens.ChooseProblem).Key);
+            var side = column.Frame!.Side!;
+            var shown = column.Frame.Lines.Select(line => line.Words).Concat(side.Facts.Select(fact => fact.Value)).Concat(side.Lines.Select(line => line.Words)).ToList();
+            Assert.That(shown, Has.None.Contains("control plane").And.None.Contains("192.168").And.None.Contains("401"), error.GetType().Name);
+            Assert.That(side.Subject, Is.EqualTo(ProjectsText.FoldersUnread));
+            if (why == null) Assert.That(side.Lines.Select(line => line.Words), Is.EqualTo(new[] { EntryText.PressTryAgain }));
+            else Assert.That(side.Facts.Select(fact => (fact.Name, fact.Value, fact.ValueIsData)), Is.EqualTo(new[] { (ProjectsText.WhatHappened, why, false) }));
+        }
     }
 
     [Test]

@@ -212,7 +212,7 @@ public class ProjectsScreensTests
         var state = State(overview: WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false));
         state.Listing = null;
         Assert.That(ProjectsScreens.Projects(state).Lines.Last().Words, Is.EqualTo(EntryText.ReadingFolders));
-        state.ListingProblem = "timed out";
+        state.ListingProblem = ConnectionText.PairingRefused;
         var unread = ProjectsScreens.Projects(state).Lines.Last();
         Assert.That((unread.Words, unread.Action, unread.Opens, unread.Tone), Is.EqualTo(("Couldn't read your computer's folders", (string?)ProjectsScreens.ChooseProblem, true, LineTone.Problem)),
             "a row only opens its side panel; Try again stands in the footer");
@@ -220,7 +220,12 @@ public class ProjectsScreensTests
         state.ChosenProblem = true;
         var why = ProjectsScreens.Projects(state);
         Assert.That(why.Side!.Subject, Is.EqualTo("Couldn't read your computer's folders"));
-        Assert.That(why.Side.Facts.Select(fact => (fact.Name, fact.Value, fact.ValueIsData)), Is.EqualTo(new[] { (ProjectsText.WhatHappened, "timed out", true) }));
+        Assert.That(why.Side.Facts.Select(fact => (fact.Name, fact.Value, fact.ValueIsData)), Is.EqualTo(new[] { (ProjectsText.WhatHappened, ConnectionText.PairingRefused, false) }),
+            "the why in Halcyonic's own words, never data");
+        state.ListingProblem = EntryText.PressTryAgain;
+        var unknown = ProjectsScreens.Projects(state).Side!;
+        Assert.That((unknown.Facts.Count, unknown.Lines.Single().Words), Is.EqualTo((0, EntryText.PressTryAgain)), "where nothing more is known, only what to do");
+        state.ListingProblem = ConnectionText.PairingRefused;
         Assert.That(why.Footer.All.Select(each => (each.Slot, each.Prompt.Id, each.Prompt.Words)), Is.EqualTo(new[]
         {
             (PromptSlot.Close, Footer.Close, ProjectsText.Close), (PromptSlot.FarRight, ProjectsScreens.ReadAgain, "Try again"),

@@ -555,8 +555,11 @@ public class NewProjectRecapTests
             ("New folder in Projects", false, true), ("Directly in Projects", false, true), ("shop", true, true), ("Old", false, false),
         }));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Done));
-        var unread = NewProjectScreens.RecapFolder(idea, startReached: false, null, problem: "timeout", notice: null);
-        Assert.That(unread.Lines.Single().Words, Does.Contain("timeout"));
+        var unread = NewProjectScreens.RecapFolder(idea, startReached: false, null, problem: EntryText.FoldersUnanswered, notice: null);
+        Assert.That(unread.Lines.Select(line => (line.Words, line.Tone)), Is.EqualTo(new[]
+        {
+            (EntryText.FoldersUnread, LineTone.Problem), (EntryText.FoldersUnanswered, LineTone.Primary),
+        }), "the heading, then why");
         Assert.That(unread.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.ReadFolders));
         var refused = NewProjectScreens.RecapFolder(idea, startReached: false, listing, problem: null, notice: EntryText.NewFolderRule);
         Assert.That((refused.Lines[0].Words, refused.Lines[0].Tone), Is.EqualTo((EntryText.NewFolderRule, LineTone.Problem)));

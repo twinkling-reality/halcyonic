@@ -85,8 +85,34 @@ namespace Halcyonic.Client
         public const string ChooseAnotherFolder = "Choose a folder";
         public const string RebindWarning = "Every later task in this project uses the new folder. Tasks already running keep theirs.";
 
-        /// <summary>The folders couldn't be read: what went wrong, as it arrived, and what to do.</summary>
-        public static string FoldersUnread(string reason) => "Couldn't read " + HostText.Your + "'s folders: " + LabelText.Plain(reason) + " Press Try again.";
+        /// <summary>
+        /// The folders couldn't be read: this line, then why on the next, in Halcyonic's own words from
+        /// <see cref="WhyFoldersUnread"/>, else <see cref="PressTryAgain"/> (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public const string FoldersUnread = "Couldn't read " + HostText.Your + "'s folders.";
+
+        /// <summary>
+        /// Why a read of the folders failed, by the refusal's code or a request that never got a reply,
+        /// never the error's message, which is the control plane's own and can hold an address; null when
+        /// nothing a person can act on is known. <paramref name="accessRefused"/> is what a refused credential
+        /// means for how this headset reaches the computer, as its connection says it (<see cref="ControlPlaneApi.AccessRefused"/>)
+        /// (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public static string? WhyFoldersUnread(Exception? error, string accessRefused) => error switch
+        {
+            ControlPlaneRequestException { Code: "device_revoked" } => ConnectionText.PairingRefused,
+            ControlPlaneRequestException { Code: "unauthorized" } => accessRefused,
+            ControlPlaneRequestException { Code: "too_many_requests" } => FoldersTurnedAway,
+            ControlPlaneRequestException { Code: null, InnerException: System.Net.Http.HttpRequestException } => FoldersUnanswered,
+            _ => null,
+        };
+
+        public const string FoldersUnanswered = "It didn't answer. Check that this app is running there, then press Try again.";
+        public const string FoldersTurnedAway = HostText.YourStart + " is turning this headset away for a minute after too many tries. Press Try again after a minute.";
+
+        public const string FoldersNotConnected = HostText.YourStart + " isn't connected. Press Try again when it is.";
+
+        public const string PressTryAgain = "Press Try again.";
 
         /// <summary>
         /// Where the project's files live, for the recap, under its own heading: the folder chosen, the
