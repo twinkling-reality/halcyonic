@@ -204,6 +204,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var listing = new LocationsResponse { Roots = new List<LocationRoot> { place } };
             yield return ("folder", NewProjectScreens.RecapFolder(proposed, false, listing, null, null));
             yield return ("folder, unread", NewProjectScreens.RecapFolder(proposed, false, null, "timeout", null));
+            // The longest whys, within the three rows the page gives them (the review of batch 3).
+            yield return ("folder, unread by another computer", NewProjectScreens.RecapFolder(proposed, false, null, ConnectionText.NotThePairedComputer, null));
+            yield return ("folder, unread unproved", NewProjectScreens.RecapFolder(proposed, false, null, EntryText.FoldersUnproved, null));
             var runtimes = new[] { local, RenderRuntime("other", ModelChoice.None) };
             yield return ("how it runs", NewProjectScreens.RecapOptions(proposed, false, draft, runtimes, showModels: false, live: true));
             yield return ("how it runs, its models", NewProjectScreens.RecapOptions(proposed, false, draft, runtimes, showModels: true, live: true));
