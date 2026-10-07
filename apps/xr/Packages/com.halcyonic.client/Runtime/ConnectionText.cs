@@ -126,8 +126,11 @@ namespace Halcyonic.Client
         /// <summary>Your computer didn't answer the connection in time.</summary>
         public static string NoAnswer(TimeSpan within) => HostText.YourStart + " didn't answer within " + Seconds(within) + ".";
 
-        /// <summary>Your computer sent nothing on a live connection for this long.</summary>
-        public static string Silent(TimeSpan quiet) => HostText.YourStart + " sent nothing for " + Seconds(quiet) + ".";
+        /// <summary>
+        /// Your computer sent nothing on a live connection for this long. It answered before going quiet, so
+        /// the line stands alone, with its way on (settled by the coordinator, 2026-10-07).
+        /// </summary>
+        public static string Silent(TimeSpan quiet) => HostText.YourStart + " sent nothing for " + Seconds(quiet) + ". " + TriesAgain + ".";
 
         private static string Seconds(TimeSpan span)
         {
