@@ -298,6 +298,36 @@ public class WorkspacePresenterTests
     }
 
     [Test]
+    public void ARequestShowsEveryLineBreakAndOneCutToFitCanOnlyBeDenied()
+    {
+        var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");
+        WorkspacePresentation Asking(string summary)
+        {
+            var execution = Samples.Execution("e1", "w1", ExecutionStatus.WaitingForHuman);
+            execution.PendingApprovals.Add(new ApprovalView
+            {
+                ApprovalId = "approval-1",
+                Subject = new ToolUseSubject { ToolName = "shell", Summary = summary },
+                RequestedAt = Samples.Time,
+            });
+            var state = new ClientProjection();
+            state.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { execution }), new StateChanges());
+            return WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true);
+        }
+
+        var whole = Asking("echo start\nrm -rf build");
+        Assert.That(whole.Actions, Does.Contain(WorkspaceAction.Approve));
+        Assert.That(WorkspaceText.NeedFromYou(whole)!.Request, Is.EqualTo("echo start‹U+000A›rm -rf build"));
+        Assert.That(WorkspaceText.Request(whole.ApprovalToAnswer), Is.EqualTo("shell: echo start‹U+000A›rm -rf build"));
+
+        var cut = Asking("echo start " + new string('x', 1980) + " [truncated]");
+        Assert.That(cut.Actions, Does.Contain(WorkspaceAction.Deny));
+        Assert.That(cut.Actions, Does.Not.Contain(WorkspaceAction.Approve));
+        Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Does.Contain("It's too long to show you whole, so you can only deny it."));
+        Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Has.None.Contains("Approve"));
+    }
+
+    [Test]
     public void NothingIsOfferedWhileNotLiveOrWithoutTheRuntime()
     {
         var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");

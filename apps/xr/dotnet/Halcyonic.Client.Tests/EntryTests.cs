@@ -922,7 +922,7 @@ public class QuestionLedWorkspaceTests
         work.Change(execution => execution.PendingApprovals[0].Subject = new ToolUseSubject { ToolName = "sh\u202Eell", Summary = "Line one\nline two <b>x</b>" });
         var plain = WorkspaceText.NeedFromYou(work.Present())!;
         Assert.That(plain.Asks, Does.Contain("‹U+202E›"), "a tool's name shows by the one rule");
-        Assert.That(plain.Request, Is.EqualTo("Line one line two <b>x</b>"));
+        Assert.That(plain.Request, Is.EqualTo("Line one‹U+000A›line two <b>x</b>"), "a line break shows, so two commands never read as one");
 
         work.Change(execution =>
         {
