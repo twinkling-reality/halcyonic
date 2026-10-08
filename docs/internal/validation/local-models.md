@@ -482,8 +482,10 @@ them again at `dced6316` (26 tests, all passing), with the fake provider on loop
     (`codex-rs/skills/src/parser.rs`). E5b pins this behavior, so an upgrade that changes it
     shows.
   - **`skills.bundled.enabled = false`:** `config/read` reported `skills.bundled.enabled: false`;
-    the bundled skills were already absent from the request with `include_instructions` off, and
-    the adapter now passes it too, so naming one (`$skill-installer`) brings nothing.
+    the bundled skills were already absent from the list with `include_instructions` off, but
+    naming one still brought it in: with the setting removed, "$skill-installer" put the bundled
+    installer's `SKILL.md` into the request (E5b failed); with it, nothing of the installer
+    reached the provider. The adapter passes it on every launch and checks it.
 
 ## Speed and memory
 
