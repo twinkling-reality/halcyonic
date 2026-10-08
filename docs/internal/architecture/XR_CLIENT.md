@@ -558,8 +558,10 @@ the same definition names, as the JSON Schema document:
   drawn again). A column newly on the plane, opened, back from aside, or a frame back from behind
   its own side panel in its place, opens (`MenuFrameView.Open`, ADR 0027): a file's light line draws
   from its character over `Glaze.DrawSeconds`, eased out, and once `Glaze.PartsAfterDraw` of it has
-  drawn, its parts fade in from the top, subject, sections, then the page with its footer,
-  `Glaze.StaggerSeconds` apart, each over `Glaze.AppearSeconds`, eased out, by opacity alone
+  drawn, its parts fade in from the edge the line meets, `Glaze.StaggerSeconds` apart, each over
+  `Glaze.AppearSeconds`, eased out, by opacity alone: from the top, subject, sections, then the page
+  with its footer, or over a desk, where the line rises to the file's bottom edge, the page first
+  (`MenuFrameView.ArrivesAt`)
   (`Surface.Shown`, and `GlazeText.Show` on a label's own renderer, so whatever colours its words still
   does); a column with no character to come from, the menu, New project or a side panel, starts its
   parts at once. A file opens in 0.359 s, a column with no line in 0.26 s (`Glaze.OpeningSeconds`;
@@ -568,7 +570,9 @@ the same definition names, as the JSON Schema document:
   place change, another row's side panel and a page turn do not animate and keep the buttons' own
   settling. A column leaving the plane other than by stepping aside closes: every part fades together
   over `Glaze.LeaveSeconds`, eased in, and a file's light line draws back to its character over
-  `Glaze.UndrawShare` of it; the bar shows at once. Laid at once (`immediately`), nothing fades. The
+  `Glaze.UndrawShare` of it; the closed bar shows only once what closed has left, then fades in over
+  `Glaze.AppearSeconds`, eased out (`Glaze.AfterLeaveShown`, 0.35 s in all), taking no press until whole,
+  so its words never stand over the file's. Laid at once (`immediately`), nothing fades. The
   view keeps one value of its opening or closing, counted on the plane's clock, and everything reads
   it: its parts' fade, the light line, the plane's refusal of a press, hold or subject press
   (`MenuPlane.Takes`), every button it shows (`GlazeButton.Accepting`) and its subject plate
@@ -586,7 +590,9 @@ the same definition names, as the JSON Schema document:
   also presses past the buttons as it opens and halfway, and once each has opened. Frame by frame, at
   the headset's rate and at a tenth of a second, it presses Send answer every frame: the parts show
   partly faded, never a lower part ahead of one above it, the light line drawing, and the first press
-  taken finds every shape and word whole, the line whole and nothing sliding. Twenty frames of an
+  taken finds every shape and word whole, the line whole and nothing sliding; at 0.12 s the part
+  the line meets is the further along; and closing, stepped at the headset's rate, no word of the bar
+  and of the file both stand above a tenth of their opacity where they overlap. Twenty frames of an
   opening, and of a closing, allocate nothing, and it draws one strip of the file assembling from its
   character and closing to the bar (`<stage> opening.png`). It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks

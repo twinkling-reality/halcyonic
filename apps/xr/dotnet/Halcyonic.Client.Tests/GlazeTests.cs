@@ -494,6 +494,19 @@ public class GlazeMotionTests
     }
 
     [Test]
+    public void WhatTakesAClosingThingsPlaceWaitsUntilItHasLeft()
+    {
+        Assert.That(Glaze.AfterLeaveSeconds, Is.EqualTo(0.35f).Within(1e-6f));
+        for (var step = 0; step <= 15; step++)
+        {
+            var seconds = step / 100f;
+            Assert.That(Glaze.AfterLeaveShown(seconds), Is.Zero, "nothing shows while what closes is still there, at " + seconds + " s");
+        }
+        Assert.That(Glaze.AfterLeaveShown(Glaze.LeaveSeconds + Glaze.AppearSeconds / 2f), Is.GreaterThan(0.5f), "then it arrives, eased out");
+        Assert.That(Glaze.AfterLeaveShown(Glaze.AfterLeaveSeconds), Is.EqualTo(1f));
+    }
+
+    [Test]
     public void ALoopRisesAndFallsSmoothlyOncePerItsSeconds()
     {
         Assert.That(Glaze.Loop(0f, Glaze.ListeningPulseSeconds), Is.EqualTo(0f).Within(1e-6f));

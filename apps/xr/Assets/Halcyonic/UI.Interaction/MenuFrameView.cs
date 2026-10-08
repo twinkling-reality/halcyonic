@@ -89,6 +89,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The light line draws from the column's character as it opens, and its parts wait for it.</summary>
         private bool drawsFromLine;
 
+        /// <summary>The light line meets the column's bottom edge, as over a desk, so its parts arrive from the bottom up.</summary>
+        private bool fromBottom;
+
         /// <summary>A <see cref="Settle"/> came while the column opened: it reports drawn as the opening ends.</summary>
         private bool drawnOwed;
 
@@ -367,15 +370,17 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Starts the column's opening (ADR 0027), counted from <paramref name="frame"/>, the plane's frame it
         /// opened in: where <paramref name="fromLine"/>, the light line draws from its character first; then its
-        /// parts fade in from the top, <see cref="Glaze.StaggerSeconds"/> apart, each over
-        /// <see cref="Glaze.AppearSeconds"/>, by opacity alone. Until it ends nothing on it takes a press, a hold
-        /// or a subject press, and its page counts as drawn only then.
+        /// parts fade in from the edge the line meets, <see cref="Glaze.StaggerSeconds"/> apart, each over
+        /// <see cref="Glaze.AppearSeconds"/>, by opacity alone: from the top, or from the bottom where
+        /// <paramref name="fromBottom"/>, as over a desk, where the line rises to the page. Until it ends nothing
+        /// on it takes a press, a hold or a subject press, and its page counts as drawn only then.
         /// </summary>
-        public void Open(bool fromLine, int frame)
+        public void Open(bool fromLine, int frame, bool fromBottom = false)
         {
             motion = Motion.Opening;
             movedFor = 0f;
             drawsFromLine = fromLine;
+            this.fromBottom = fromBottom;
             OpenedIn = frame;
             drawnOwed = false;
             Unsettle(subjectToo: true);
@@ -443,10 +448,16 @@ namespace Halcyonic.XR.UI
         /// <summary>How long this column's opening lasts, by its parts and whether its light line draws first.</summary>
         public float OpeningSeconds => Glaze.OpeningSeconds(Parts.Count, drawsFromLine);
 
+        /// <summary>Where part <paramref name="index"/> (<see cref="Parts"/>, top to bottom) comes in its opening's order: counted from the edge its light line meets.</summary>
+        public int ArrivesAt(int index) => fromBottom ? Parts.Count - 1 - index : index;
+
+        /// <summary>The column's parts arrive from the bottom up, as over a desk.</summary>
+        public bool FromBottom => fromBottom;
+
         /// <summary>How visible part <paramref name="index"/> is now (<see cref="Parts"/>): 1 at rest.</summary>
         public float PartShown(int index) => motion switch
         {
-            Motion.Opening => Glaze.PartShown(movedFor, index, drawsFromLine),
+            Motion.Opening => Glaze.PartShown(movedFor, ArrivesAt(index), drawsFromLine),
             Motion.Closing => Glaze.LeftShown(movedFor),
             _ => 1f,
         };
