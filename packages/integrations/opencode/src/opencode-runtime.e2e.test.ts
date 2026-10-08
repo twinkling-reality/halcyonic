@@ -6,6 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { lookup } from 'node:dns/promises';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -26,6 +27,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { OpenCodeClient } from './client.ts';
 import { OpenCodeRuntimeAdapter, type OpenCodeRuntimeOptions } from './opencode-runtime.ts';
+import { launchServer } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_SHELL_COMMAND, type FakeProviderOptions } from './testing/fake-provider.ts';
@@ -1102,7 +1104,9 @@ function serverOf(runtime: OpenCodeRuntimeAdapter, sandbox: OpenCodeSandbox): Op
 const call = (tool: string, args: Record<string, unknown>) =>
   `CALL ${tool} b64:${Buffer.from(JSON.stringify(args)).toString('base64')}`;
 
-describe('OpenCode on a model on this Mac: nothing leaves it', { skip: SKIP }, () => {
+describe('OpenCode on a model on this Mac: its network tools are denied, and the probe sees nothing leave', {
+  skip: SKIP,
+}, () => {
   test(
     'every session denies the tools that reach the network, and the model is offered none of them',
     SLOW_TEST,
@@ -1112,7 +1116,7 @@ describe('OpenCode on a model on this Mac: nothing leaves it', { skip: SKIP }, (
       await execution.next('runtime.turn.completed');
       const offered = sandbox.provider.requests[0]?.toolNames ?? [];
       assert.ok(offered.includes('shell') && offered.includes('read'), offered.join(','));
-      for (const tool of ['execute', 'webfetch', 'websearch']) {
+      for (const tool of ['execute', 'webfetch', 'websearch', 'subagent']) {
         assert.ok(!offered.includes(tool), `${tool} was offered: ${offered.join(',')}`);
       }
       // The rules travelled with the session, as Halcyonic created it.
@@ -1124,12 +1128,34 @@ describe('OpenCode on a model on this Mac: nothing leaves it', { skip: SKIP }, (
       );
       t.diagnostic(`session as read back: ${JSON.stringify(read.body).slice(0, 600)}`);
       const text = JSON.stringify(read.body);
-      for (const action of ['execute', 'webfetch', 'websearch']) {
+      for (const action of ['execute', 'webfetch', 'websearch', 'subagent']) {
         assert.ok(
           text.includes(`{"action":"${action}","resource":"*","effect":"deny"}`),
           `${action} deny is not on the session`,
         );
       }
+    },
+  );
+
+  test(
+    'a write to a path OpenCode reads its configuration from is refused; any other is not',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t);
+      for (const path of [
+        '.opencode/plugin/planted.ts',
+        'opencode.json',
+        'sub/.opencode/plugins/p.ts',
+        '.agents/skills/x/SKILL.md',
+      ]) {
+        const execution = await start(call('write', { path, content: 'export default {}\n' }));
+        await execution.next('runtime.turn.completed');
+        assert.equal(existsSync(join(sandbox.project, path)), false, `${path} was written`);
+      }
+      // The control: an ordinary file is written.
+      const control = await start(call('write', { path: 'notes.txt', content: 'hello\n' }));
+      await control.next('runtime.turn.completed');
+      assert.equal(readFileSync(join(sandbox.project, 'notes.txt'), 'utf8'), 'hello\n');
     },
   );
 
@@ -1163,6 +1189,53 @@ describe('OpenCode on a model on this Mac: nothing leaves it', { skip: SKIP }, (
       });
       await until(() => hits.length > 0, 30_000, "Code Mode's fetch in the control session");
       assert.deepEqual(hits, ['POST /code-mode']);
+    },
+  );
+
+  test(
+    "the probe's negative control: without its catalog switch, OpenCode reaches beyond loopback at launch, and the probe sees it",
+    SLOW_TEST,
+    async (t) => {
+      try {
+        await lookup('models.opencode.ai');
+      } catch {
+        t.skip('offline: models.opencode.ai does not resolve, so the control cannot show anything');
+        return;
+      }
+      const sandbox = await createSandbox();
+      t.after(() => sandbox.cleanup());
+      // The sandbox's own folders, without its proxy variables or the adapter's switches.
+      const keep = [
+        'HOME',
+        'XDG_CONFIG_HOME',
+        'XDG_DATA_HOME',
+        'XDG_STATE_HOME',
+        'XDG_CACHE_HOME',
+        'XDG_RUNTIME_DIR',
+        'TMPDIR',
+      ];
+      const environment: Record<string, string> = { PATH: '/usr/bin:/bin' };
+      for (const name of keep) {
+        const value = sandbox.env[name];
+        if (value !== undefined) environment[name] = value;
+      }
+      const probe = probeNetwork(process.pid, BINARY);
+      const server = await launchServer({
+        binaryPath: BINARY,
+        environment,
+        recordFile: sandbox.recordFile,
+        port: null,
+        cwd: sandbox.project,
+        startupTimeoutMs: 30_000,
+      });
+      try {
+        await until(() => probe.beyondLoopback.length > 0, 30_000, 'a socket beyond loopback');
+      } finally {
+        await server.stop();
+        await probe.stop();
+      }
+      assert.deepEqual(probe.blind, []);
+      t.diagnostic(`seen: ${[...new Set(probe.beyondLoopback)].join('; ')}`);
     },
   );
 
