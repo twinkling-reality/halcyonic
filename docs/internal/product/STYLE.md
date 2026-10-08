@@ -93,13 +93,21 @@ Three sizes on the plane (`Glaze.Menu`):
   composition, as a side panel's counts at the far right, it takes 18 dp
   (`PlaneComposition.SmallTextDegreesAt`). The layout decides from the part's place before laying
   the text, so nothing overlaps afterwards.
-- **Heavier** are only the chosen section and the main action. An agent's words are quoted and
-  leaning.
+- **Heavier** are only the chosen section and the main action.
+- **Upright is ours; theirs leans** (the owner's pick, 2026-10-08). Everything Halcyonic didn't write,
+  an agent's words, a title, a name, a label, a source's sentence and the person's own words, leans by
+  the font's italic amount, never quoted, on a ground only Halcyonic draws where it meets our words:
+  white at 7.5 percent with a 17 percent hairline, 0.32 degree corners, 0.25 degrees past the words.
+  A row or a block all of it carries our quote mark (format_quote) in the icon column, in the
+  secondary colour, where no icon of ours stands; a title in its plate leans with the plate as its
+  ground. Theirs comes after our words where we can word it so, and is cut first, inside its ground.
+  Pills, the light line, prompts, places and sections hold our words alone.
 - **Last on a page**: an unavailable prompt's reason, then the source line, one a page, at 18 dp in
   the secondary colour. A detail under a part, as a Seorak part's coverage or freshness, is its own
   18 dp line in the secondary colour.
-- **The companion's words** are one quote of at most 2 rows. Its view, when it has one, goes first in
-  our words and the secondary colour, and the quote is then its question alone.
+- **The companion's words** are one block of theirs of at most 2 rows, the page's source line naming
+  the companion. Its view, when it has one, goes first in our words and the secondary colour, and the
+  block is then its question alone.
 
 ## Colour
 
@@ -159,7 +167,8 @@ One treatment for places, sections, rows, answers and prompts:
   no side action. Choosing one may set the footer's main action or the prompt beside it, as a
   project's Add a task and Hide from stage. A line that reports a problem is a row that opens its
   side panel, and what fixes it is the footer's main action while it is chosen.
-- **An answer** is a shape round its words, "Type my answer" included. Two stand side by side where
+- **An answer** is a shape round its words, "Type my answer" included; an agent's or the companion's
+  answer is a row of theirs, leaning beside our quote mark, so one labelled as our row never reads as it. Two stand side by side where
   each fits half the row in one row. Choosing one lights it, and the footer's main action sends or
   records it.
 - **A page packs by height**, not rows: a line of words takes its line, a target its 48 dp, against
@@ -171,8 +180,8 @@ One treatment for places, sections, rows, answers and prompts:
   answer longer than 2 rows is cut, and choosing it slides out its side panel with all its words.
   No answer the agent offered is left out.
 - **A claim keeps its evidence class's chip**: "Agent says", "Subagent says", "Inferred", "Planned",
-  "Author unknown" or "Model explains". Observed and measured facts, and Halcyonic's own words, take
-  none.
+  "Author unknown" or "Model explains", beside the claim's words, which lean. Observed and measured
+  facts, and Halcyonic's own words, take none.
 
 ## The footer
 

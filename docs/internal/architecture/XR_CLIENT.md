@@ -233,7 +233,7 @@ the same definition names, as the JSON Schema document:
   What do you need from me? (`NeedAnswer`: what it wants, the oldest request as the runtime reported
   it and what each answer does), the run's details (`RunDetails`, for Doing's details), what needs
   the person, activity lines with the local time and the agent's words
-  quoted as "It says: “…”", action labels, a confirmation question that names exactly what would be
+  ("It says: “…”" on the editor's old panel only; a file shows them as runs, below), action labels, a confirmation question that names exactly what would be
   sent (for approving or denying, "Approve the request above?" over the whole request, `Request`:
   the tool and what it would do, never shortened, by `LabelText.Exact`), and why no action is
   offered. Text
@@ -256,6 +256,21 @@ the same definition names, as the JSON Schema document:
   and escape parsing on, the only way such a label shows a backslash sequence as written
   ([workspace-interaction.md](../validation/workspace-interaction.md)). Characters that merely look
   alike, a Cyrillic letter for a Latin one or a no-break space for a space, show as they look.
+- **`LineWords`** is a line's words as runs, Halcyonic's own and outside text (lane V's treatment of
+  outside words, ADR 0026; the outside-text audit's batch B). A run of outside text is made by
+  `LabelText`'s rule (`Theirs`, `TheirName`), so its ends are where the shown text's are, and two runs
+  of one kind that meet become one. Everything Halcyonic didn't write is theirs: an agent's or a
+  runtime's words, titles, names from the file system, a source's sentences and labels, a model's
+  explanation, the companion's words and the person's own typed or heard words. No builder adds quotes
+  or leads such as "It says:"; the chip keeps a claim's class and the page's source line names the
+  companion. `ForTextMeshPro` gives the label's text and where each run of theirs stands in it, so a
+  doubled backslash, a code point shown by code, a surrogate pair or a combining mark never moves an
+  edge. `CutToFit` shortens outside text alone, every run held to one length, the longest that fits,
+  never inside a code point, so Halcyonic's words are never cut while outside text shows. A
+  `PageLine` of runs that is all theirs takes Halcyonic's quote mark (`GlazeIcon.Quote`,
+  format_quote) in its icon column where no icon of Halcyonic's stands; `MenuFrame` and `SidePanel`
+  subjects and source lines, a `SideFact`'s value and a line's fact take runs too, and their data
+  flags (`subjectIsData`, `valueIsData`, `factIsData`) mean theirs.
 - **`CommandSubmissions`** keeps this client's own view of each command it sent (sending, not
   sent, outcome unknown, acknowledged) until the control plane's record of it arrives in the
   projection. From then on only that record speaks, so a result reads as done only after the
@@ -300,7 +315,7 @@ the same definition names, as the JSON Schema document:
   the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
   reads "Your computer heard the words above. Send them?" under the words, read in parts, so a
   mishearing is never sent unread. An
-  armed instruction is read as a request is: its words, quoted (`ToRead`), must all have shown before
+  armed instruction is read as a request is: its words, leaning as theirs (`ToRead`), must all have shown before
   Yes sends them (`CanConfirm`), and a confirmation before then sends nothing and stays armed. This
   holds for typed words too, the person's own, since Yes sends only words shown and a policy's review
   is a reading of them.
@@ -677,7 +692,7 @@ the same definition names, as the JSON Schema document:
   it is laid out shows what it asks, with Send answer waiting ("Getting the question ready."), never
   that nothing waits.
   Approving or denying, or an instruction armed to send, heard through Hold to talk or typed for a
-  policy's review, shows the whole request, or all the instruction's words quoted, in parts, as rows
+  policy's review, shows the whole request, or all the instruction's words, as a block of theirs, in parts, as rows
   of one measured line
   (`PageLine.FromRow`), each part ending in a row to the next ("Next part, 2 of 3", from the last
   back to the first), with Cancel in the place of the press and Yes in the free middle. Approve's
@@ -720,7 +735,9 @@ the same definition names, as the JSON Schema document:
   the control plane's policy says (`WorkspacePresenter.AlwaysConfirmed`), so a policy of low
   consequence can't send an approval from its preview.
   **Activity** says what it is doing, the last thing this headset sent and the newest of the log
-  that fits, the agent's words quoted with their chip and time, with Tell it as the main action,
+  that fits, the agent's words leaning under Halcyonic's quote mark with their chip and time, a tool's or
+  an app's name leaning after Halcyonic's words ("Used {tool}: {title}", "Succeeded: {tool}", "Asked to
+  start on {app}"), with Tell it as the main action,
   Stop beside Close and Hold to talk beside Tell it; Tell it offers the recorded instructions as
   rows where there is no keyboard, each showing the very words it would send: a row only chooses,
   and Tell it sends the chosen words as shown (`FileScreen.PresetToSend`), waiting with its reason
@@ -944,8 +961,8 @@ the same definition names, as the JSON Schema document:
   computer saw of each ("Repository · changed 3 days ago") and look-alike names marked; Connect sends
   one `project.create` with `{kind: 'existing_folder', root, folder_name}` exactly as listed and the
   folder's own name as the project's, counted as connected only once its record completed with the
-  project, never sent again while its outcome may have run. Names are quoted inside Halcyonic's
-  sentences and shown by `LabelText`'s rule.
+  project, never sent again while its outcome may have run. Names lean inside Halcyonic's
+  sentences (`ConnectText.Named`, cut at 40), never quoted; a prompt's reason names no folder.
 - **`WorkOverview`** counts every project and workstream for Projects from the projection alone: per project its work, active, needs you and to check counts by
   the lineup's tiers, whether it shows, and how much has no character; and every workstream
   without a character, ranked as the lineup ranks, with whether its project is hidden or the stage
@@ -974,7 +991,7 @@ the same definition names, as the JSON Schema document:
   says the chosen answer and asks for the next reply, so a stray press never reaches the
   companion.
 - **`CompanionText`** writes the words around the companion, with the computer as `HostText`
-  says it: its line quoted and tagged as its own ("The companion says: “…”"), its view as its
+  says it: its line leaning as its own, with no quotes or lead, the page's source line naming the companion, its view as its
   opinion, the note that it is an AI that can be wrong (shorter on a side panel showing its
   suggestion, `SideNote`, whose Change stands beside it), waiting, and every failure from its code
   with a next step. New project shows it (`NewProjectScreens.Questions`).
@@ -1111,7 +1128,7 @@ the same definition names, as the JSON Schema document:
   Questions, Recap, Build), each reached once there is something there, the chosen one lit
   and an earlier one the way back; every footer Close, one other prompt and the main action, the
   most an 18 dp footer holds. Your idea offers typing the idea and one way to figure it out, the
-  companion or the fixed questions. Questions is the companion's turn: its line and question quoted
+  companion or the fixed questions. Questions is the companion's turn: its line and question leaning
   as its own in two rows, the line dropping first so the question is never cut; its view only when
   it thinks the idea can't be built; its suggestions, the person's own answer and Go on without it
   as answers that choosing only lights, the main action following the one chosen (Send answer, Make
@@ -1164,7 +1181,7 @@ the same definition names, as the JSON Schema document:
   with a tag, fitted to an **`AnswerRoom`**: the rows a page holds and how many rows each line takes,
   which the headset measures on its labels. Each gives two depths (`AnswerDepth`): `Brief`, a line
   or two a person reads first (What changed?: the count, and whether a check ran after the changes;
-  Why?: the latest reason, quoted, and how many more; How was it built?: the explanation's own "how",
+  Why?: the latest reason, leaning beside its chip, and how many more; How was it built?: the explanation's own "how",
   said to be a model's and whether it is up to date, or why there is none; What was checked?: the
   latest check and any files changed since), and `Full`, everything below, for the panel that opens
   on request. Every line keeps its own class at both depths; nothing is blended into one sentence.
@@ -1177,8 +1194,8 @@ the same definition names, as the JSON Schema document:
     its name with as many folders as tell two files of one name apart. As many as fit show and the
     rest are counted ("And 4 more files"), then whether a check ran after the changes (inferred),
     and, where there is room, the commits and what is not done yet.
-  - *Why?* quotes what the agent said before each change, in the order it said it, "Agent says:
-    “…”", leaning, with "Said before it changed …" under it: the source binds a reason to a file by
+  - *Why?* shows what the agent said before each change, in the order it said it, leaning beside
+    "Agent says", with "Said before it changed …" under it, the files' names leaning: the source binds a reason to a file by
     time, so the words never claim the reason is the file's. Files with no reason are named.
   - *How was it built?* steps through the source's explanation only when one was generated, a page a
     step: what it is about, why, each of its Why lanes, how, a change of approach, then the evidence
@@ -1209,8 +1226,8 @@ the same definition names, as the JSON Schema document:
   moment." Every
   claim keeps the source's own epistemic class as its tag (observed, reported, inferred, planned,
   explained), never upgraded, and someone's words, every statement (the agent's, a subagent's or an
-  unknown author's) and every remaining item said to be the agent's, are always reported, quoted and
-  attributed, whatever the source tagged them (`WorkAnswers.QuoteLine`, `Remaining`). A source's
+  unknown author's) and every remaining item said to be the agent's, are always reported, leaning and
+  attributed by their chip, whatever the source tagged them (`WorkAnswers.QuoteLine`, `Remaining`). A source's
   summary that shows as nothing where no check was seen or nothing was measured says "Nothing measured."
   (`IntelligenceText.PlainOr`). No line of an answer is amber, which is for what waits for the person
   only: partial, stale, unavailable and simulated are said in words, in the secondary tone. **`AnswerPages`** splits an answer that pages, keeping a line with
@@ -1793,7 +1810,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   Reset position: it stays beside its character. Doing answers in one plain answer, what needs the
   person, else that nothing does and what it did last; what this headset sent and how it went,
   newest first, or "Nothing sent from here yet."; and Recent activity, a log whose newest line is
-  last, the agent's words quoted and leaning, its older lines giving way where there is no room.
+  last, the agent's words leaning (quoted on this editor-only panel), its older lines giving way where there is no room.
   Show details beside its heading turns it to How is it running?, the run's details a line each
   (`WorkspaceText.RunDetails`): the agent app and whether it is on the Mac now, the model it was
   given and that where the model runs isn't known here, the folder it works in, and when it started
@@ -2022,12 +2039,19 @@ write. Every workspace label that can show such text, the title, the goal, a not
 the person, the question, what was sent, the activity, the whole request, the sections, the peek
 and the recorded instructions offered, gets it through `GlazeText.SetLiteral`: rich text off, escape
 parsing on and `LabelText.ForTextMeshPro`, so it interprets no markup and no escape sequence, and
-hides nothing. A line cut short ends in an ellipsis. Agent text in the activity, the agent's question,
-the sections and the companion's words lean as a claim, quoted by their builder around the outside words
-alone, never by the view (`PageLine.Drawn`), so Halcyonic's lead ("The companion says:", "Now:") stays
-outside the quotes; its letters sheared after TextMeshPro lays them out (`GlazeText.Lean`), because no label
-may use TextMeshPro's italics or bold: the font has no italic or bold typeface, so TextMeshPro
-finds no ellipsis for them and switches the label to cutting text short without one, for good
+hides nothing. A line cut short ends in an ellipsis. Text from outside, a line's runs of theirs
+(`LineWords`), leans on one label: its letters sheared by the font's own italic amount after
+TextMeshPro lays them out (`GlazeText.Lean` over each run's range, the same shear as TextMeshPro's
+italic), and Halcyonic's stay upright. Where theirs meets Halcyonic's words it stands on a ground only
+Halcyonic draws (`GlazeRuns`: white at 7.5 percent on the glass, a 17 percent hairline, 0.32 degree
+corners, 0.25 degrees past the words each side), one box a run on each row it reaches from the
+characters' bounds; a block of theirs, lines all of outside text that only say something, stands on
+one ground under Halcyonic's quote mark; a row all of theirs needs none beside its quote mark or icon;
+a title in its plate leans with the plate as its ground. A line with Halcyonic's words after outside
+text is cut by `LineWords.CutToFit`, never at its end. The same component draws the stage's banner and
+is there for the plate and the glance. No label may use TextMeshPro's italics or bold: the font has no
+italic or bold typeface, so TextMeshPro finds no ellipsis for them and switches the label to cutting
+text short without one, for good
 ([workspace-interaction.md](../validation/workspace-interaction.md)).
 
 The workspace's sizes are the tokens' angles (ADR 0023). The other sizes here are designed at a
