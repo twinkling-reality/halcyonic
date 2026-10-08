@@ -69,13 +69,16 @@ namespace Halcyonic.Client
                 if (pin != null && seen != null && seen != pin) throw new CertificateMismatchException(seen);
                 throw new HandshakeFailedException("The TLS handshake failed: " + error.Message, error);
             }
-            if (seen == null)
+            try
+            {
+                return new PinnedConnection(client, stream, Presented(seen));
+            }
+            catch (HandshakeFailedException)
             {
                 stream.Dispose();
                 client.Dispose();
-                throw new HandshakeFailedException("The server presented no certificate.", null);
+                throw;
             }
-            return new PinnedConnection(client, stream, seen);
         }
 
         /// <summary>
@@ -89,6 +92,12 @@ namespace Halcyonic.Client
             Stream.Dispose();
             client.Dispose();
         }
+
+        /// <summary>
+        /// The certificate the handshake saw, or a handshake that failed: one that ended without a certificate set
+        /// up no secure connection, though something took the connection.
+        /// </summary>
+        public static string Presented(string? seen) => seen ?? throw new HandshakeFailedException("The server presented no certificate.", null);
 
         private static async Task<TcpClient> ConnectAsync(string host, int port, CancellationToken cancellationToken)
         {
@@ -126,7 +135,6 @@ namespace Halcyonic.Client
         }
     }
 
-    /// <summary>The server presented a certificate other than the one pinned when this device paired.</summary>
     /// <summary>
     /// Something answered at the address and port, so the connection was made, and then no secure connection
     /// was set up: what answered doesn't speak TLS, closed it, or showed no certificate. Told apart from a name
@@ -140,6 +148,7 @@ namespace Halcyonic.Client
         }
     }
 
+    /// <summary>The server presented a certificate other than the one pinned when this device paired.</summary>
     public sealed class CertificateMismatchException : IOException
     {
         public CertificateMismatchException(string seen)
