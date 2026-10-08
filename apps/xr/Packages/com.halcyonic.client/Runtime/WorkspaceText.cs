@@ -416,6 +416,7 @@ namespace Halcyonic.Client
             RejectionCode.ExecutionNotFound => "This work isn't on " + HostText.Your + " any more. " + StateLanguage.AddItAgain,
             RejectionCode.RuntimeNotFound => "Its agent app isn't on " + HostText.Your + " now. Set it up there, then try again.",
             RejectionCode.ApprovalNotFound => "It no longer waits for that decision. See what it's doing now.",
+            RejectionCode.ApprovalNotWhole => "This request was never shown to you whole. Deny it, or stop the task.",
             RejectionCode.QuestionNotFound => "It's no longer waiting for this answer. See what it's doing now.",
             RejectionCode.InvalidAnswer => "It couldn't take that answer. Read the question again, then answer it.",
             RejectionCode.ModelRequired => "Its agent app needs a model. Choose one, then try again.",
