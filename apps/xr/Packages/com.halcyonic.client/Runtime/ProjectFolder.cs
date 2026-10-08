@@ -139,11 +139,11 @@ namespace Halcyonic.Client
         /// The choice in words, by the one rule: for example "a new folder, greeting-card, in Projects",
         /// "storefront in Projects", or "directly in Projects".
         /// </summary>
-        /// <param name="name">How a name from the file system is shown: <see cref="LabelText.Plain"/> unless given, or as it is for a review that spells it itself.</param>
+        /// <param name="name">How a name from the file system is shown: <see cref="LabelText.Name"/>, never empty, unless given, or as it is for a review that spells it itself.</param>
         /// <param name="startOfLine">Halcyonic's own first word capitalized, for a line of its own; a name from the file system stays as it is.</param>
         public string Describe(Func<string, string>? name = null, bool startOfLine = false)
         {
-            name ??= LabelText.Plain;
+            name ??= LabelText.Name;
             var root = PlaceGone ? "a place " + HostText.Your + " no longer lists" : name(RootName);
             if (FolderName == null) return (startOfLine ? "Directly in " : "directly in ") + root;
             var folder = name(FolderName);
@@ -157,14 +157,14 @@ namespace Halcyonic.Client
         /// folder in it. A root the host lists as missing is shown, and offers nothing.
         /// </summary>
         /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
-        public static string NewFolderLabel(LocationRoot root) => "New folder in " + LabelText.Plain(LabelOf(root));
+        public static string NewFolderLabel(LocationRoot root) => "New folder in " + LabelText.Name(LabelOf(root));
 
         public static IReadOnlyList<FolderOption> Options(LocationsResponse listing)
         {
             var options = new List<FolderOption>();
             foreach (var root in listing.Roots)
             {
-                var name = LabelText.Plain(LabelOf(root));
+                var name = LabelText.Name(LabelOf(root));
                 if (root.Status != LocationRootStatus.Available)
                 {
                     options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, "Not on " + HostText.Your + " right now"));
@@ -174,7 +174,7 @@ namespace Halcyonic.Client
                 options.Add(new FolderOption(root, null, FolderOptionKind.Root, "Directly in " + name, "Files go straight into " + name));
                 foreach (var folder in root.Folders)
                 {
-                    options.Add(new FolderOption(root, folder, FolderOptionKind.Folder, LabelText.Plain(folder.Name), "In " + name));
+                    options.Add(new FolderOption(root, folder, FolderOptionKind.Folder, LabelText.Name(folder.Name), "In " + name));
                 }
             }
             return options;

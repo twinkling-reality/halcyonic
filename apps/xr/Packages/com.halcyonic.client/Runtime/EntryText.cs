@@ -396,9 +396,9 @@ namespace Halcyonic.Client
         /// session a simulated runtime is named <see cref="PracticeRun"/>; the recorded demonstration,
         /// where nothing starts, keeps its runtimes' names.
         /// </summary>
-        /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Plain"/>; false leaves it as it is, for a review that spells it itself.</param>
+        /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Name"/>, which never leaves it empty; false leaves it as it is, for a review that spells it itself.</param>
         public static string RuntimeName(RuntimeDescriptor runtime, bool live = false, bool plain = true) =>
-            runtime.Synthetic && live ? PracticeRun : (plain ? LabelText.Plain(runtime.DisplayName) : runtime.DisplayName) + (runtime.Synthetic ? " (simulated)" : "");
+            runtime.Synthetic && live ? PracticeRun : (plain ? LabelText.Name(runtime.DisplayName) : runtime.DisplayName) + (runtime.Synthetic ? " (simulated)" : "");
 
         /// <summary>The runtimes offered in Create: real ones first, by name, and simulated ones after them.</summary>
         public static List<RuntimeDescriptor> RuntimeChoices(IEnumerable<RuntimeDescriptor> runtimes) =>

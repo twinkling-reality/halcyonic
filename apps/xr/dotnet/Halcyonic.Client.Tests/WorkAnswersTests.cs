@@ -98,6 +98,48 @@ internal static class Answers
         });
 }
 
+public class BlankSourceTextTests
+{
+    /// <summary>Every source sentence the contracts let be blank: Salidium's summaries and titles, Seorak's empty reason.</summary>
+    private static void Blank(JToken token)
+    {
+        foreach (var property in token.Children<JProperty>().ToList())
+        {
+            if ((property.Name == "summary" || property.Name == "title" || property.Name == "currently") && property.Value.Type == JTokenType.String) property.Value = " ";
+            else Blank(property.Value);
+        }
+        foreach (var item in token.Children().Where(child => child is not JProperty).ToList()) Blank(item);
+    }
+
+    /// <summary>
+    /// A source's sentence left blank, as its contract allows, is absent: no line of no words, which no page can
+    /// draw, so a file whose sources answered so is drawn all the same (the outside-text audit's gap 1).
+    /// </summary>
+    [Test]
+    public void ABlankSourceSentenceIsLeftOutAndNeverStopsAPageBeingDrawn()
+    {
+        var understanding = Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            var source = Intelligence.UnderstandingOf(response);
+            source["changes"]!["files"] = new JArray();
+            source["verification"]!["latest_by_method"] = new JArray();
+            Blank(source);
+        });
+        var evaluation = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
+            Intelligence.EvaluationOf(response)["verification"]!["lens"] = JObject.Parse("{\"by_kind\":[],\"empty_reason\":\" \"}"));
+        var sections = Enum.GetValues<UnderstandPrompt>().Select(prompt => Answers.Understand(prompt, understanding))
+            .Append(Answers.Checked(understanding, evaluation)).ToList();
+        foreach (var section in sections)
+        {
+            foreach (var line in section.Lines)
+            {
+                Assert.That(string.IsNullOrWhiteSpace(line.Words), Is.False, section.Kind + ": " + line.Text);
+                Assert.That(() => new PageLine(line.Words, wordsAreData: true), Throws.Nothing, section.Kind.ToString());
+            }
+        }
+    }
+}
+
 public class WhatChangedTests
 {
     [Test]

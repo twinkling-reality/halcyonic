@@ -169,7 +169,9 @@ namespace Halcyonic.Client
             Kind = kind;
             Provenance = provenance;
             ProvenanceTone = provenanceTone;
-            Lines = lines;
+            // A source's sentence left blank, as its contract allows, is absent: a line of no words says nothing
+            // and can't be drawn.
+            Lines = lines.Where(line => !string.IsNullOrWhiteSpace(line.Words) && !string.IsNullOrWhiteSpace(line.Text)).ToList();
             Simulated = simulated;
             Steps = steps;
         }
