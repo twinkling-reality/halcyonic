@@ -134,14 +134,27 @@ if New project's companion is not quoted as its own, or its recap offers a start
 that the companion is an AI.
 
 Then the demonstration's first visit, on the far and desk stages with the 3S's field:
-`far-3s-demo-welcome-1-projects` and `-2-a-task-waits`, and the same for `desk-3s`, at each text
-size. The menu stands open on Projects as the recording begins, then once its directed task waits,
-with the stage's banner where the stage stands it then, raised above the characters with the
-demonstration's lines alone. It fails if the demonstration's lines would be missing with the menu
-open, or a live session's banner would show or rise; if the lines come within a degree of a
-character's highest reach, risen and moving, of a label or of the plane; if they leave the field
-while the menu is read; if they reach more than 20 degrees above eye level; or if Tasks does not take
-the amber dot when the task waits. The log says from how high to how high the lines stand.
+`far-3s-demo-welcome-1-ambient`, `-2-a-task-waits` and `-3-projects`, and the same for `desk-3s`,
+at each text size. It opens ambient: the recorded characters, the closed bar and the
+demonstration's lines in the banner's own place, as the recording begins and once its directed task
+waits; then Projects, a press from the bar, with the banner raised above the characters and the
+demonstration's lines alone. It fails if the first visit asks the first question or opens anything,
+if the closed bar doesn't say what waits, if the demonstration's lines would be missing, or a live
+session's banner would show or rise with the menu open; if the lines come within a degree of a
+character's highest reach, risen and moving, of a label, the bar or the plane; if they leave the
+field while the menu is read; if, raised, they reach more than 20 degrees above eye level; or if
+Tasks does not take the amber dot when the task waits. The log says from how high to how high the
+lines stand.
+
+Then the first visit to a computer with no task, on the same stages: `far-3s-first-visit-1-question`,
+`-2-your-computer`, `-3-projects`, `-4-settings`, `-5-bar` and `-6-new-project`, and the same for
+`desk-3s`, at each text size. The menu opens by itself on the first question, the row of places
+holding Settings alone, unlit, in its slot at the right end; A project on your computer chosen sets
+Show my projects and takes Hold to talk away; Projects opens in its place with the computer's
+folders; Settings chosen from the row lights; its Close folds to the bar, saying "Nothing is running
+yet"; the bar's Open asks again, and Start a project opens New project alone. It fails if any of
+that doesn't hold, if the banner doesn't step aside while a column shows and come back with the bar,
+or if any of it fails the plane's own checks.
 
 The stage beside a window renders the same way, **Halcyonic > Render the Stage Beside a Window**,
 or in batch mode:
@@ -907,14 +920,15 @@ Before the session, on the Mac:
 - At least three projects and more than six workstreams in its journal (for example `pnpm demo`
   more than once), and one approval waiting in one of the projects
   (`pnpm demo | sed '/approval requested/q'`).
-- Halcyonic installed fresh, or its data cleared, so the first visit opens the menu by itself.
+- Halcyonic installed fresh, or its data cleared.
   Usage left left as it is until Seorak's limits build runs.
 
 In the headset:
 
-1. **First visit.** Once connected, the menu opens by itself on Projects: "What would you like to
-   work on?", each project's row saying what waits in it, and New project as the main prompt.
-   Running work stays on the stage. It opens by itself only on this first visit.
+1. **First visit.** Once connected to a computer with work, nothing opens by itself: the stage
+   and the closed bar. (A computer with no task gets the first question instead; see
+   HEADSET_SESSION.md.) Open the bar, then Projects: "What would you like to work on?", each
+   project's row saying what waits in it, and New project as the main prompt.
 2. **Hide a project.** Choose the project whose work waits for approval, then Hide from stage: its
    characters leave the stage, and its row reads "Hidden · 1 task waiting". Open Tasks: that work is
    still listed. Open it: it stands on the stage and opens; collapse it, then Show on stage.
@@ -1008,12 +1022,12 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
   live." and "It follows your answers. Nothing reaches an agent." Every character carries the Demo
   mark. While the menu is open the line rises over the characters, a degree above the highest a
   risen one reaches, and the peek still hides it.
-- **The welcome.** On the demonstration's first visit on this headset the menu opens by itself on
-  Projects, under "What would you like to work on?", with the recording's projects and New project
-  (`demo-welcome-1-projects`). It opens once: to see it again, clear the app's data. A visit to
-  your computer has its own first visit, so pairing afterwards opens Projects once more. Close it
-  to follow the walk below from the closed bar; left open, Projects stays while the task below
-  comes to wait, and Tasks takes the amber dot (`demo-welcome-2-a-task-waits`).
+- **The welcome.** The demonstration opens ambient: the recorded characters, the line above the
+  stage and the closed bar (`demo-welcome-1-ambient`); nothing opens by itself, and the first
+  question never shows, since the recording starts with its work. When the task below comes to wait,
+  the bar says so (`demo-welcome-2-a-task-waits`). Projects, with the recording's projects and New
+  project, is a press from the bar's Open (`demo-welcome-3-projects`). A visit to your computer has
+  its own first visit, so pairing afterwards with no task there opens the first question.
 - **Beside the story.** Of three characters, "Paginate the order history endpoint" and "Send an
   order confirmation email" work for about five seconds and then finish.
 - **The bar.** "Add rate limiting to the sign-in endpoint" starts at about 6 seconds and, at about

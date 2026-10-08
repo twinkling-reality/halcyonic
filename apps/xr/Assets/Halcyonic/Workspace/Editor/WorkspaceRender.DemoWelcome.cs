@@ -16,12 +16,14 @@ namespace Halcyonic.XR.Workspace.Editor
         private const float RaisedBannerMostDegrees = 20f;
 
         /// <summary>
-        /// The demonstration's first visit (ADR 0026), from the eyes, drawn by the menu's own director: the
-        /// menu open on Projects as the recording begins, and again once its directed task waits, with
-        /// the stage's banner where the stage stands it while the menu is open. It fails if the
-        /// demonstration's lines would be missing with the menu open, if a live session's banner would
-        /// show or rise, if the lines come within a degree of a character's highest reach, a label or the
-        /// plane, if they leave the field while the menu is read, or if they reach above
+        /// The demonstration's first visit (ADR 0026), from the eyes, drawn by the menu's own director: it
+        /// opens ambient, the recorded characters, the demonstration's lines in the banner's own place and
+        /// the closed bar, as the recording begins and again once its directed task waits; then Projects,
+        /// a press from the bar, with the banner raised above the stage while the menu is open. It fails if
+        /// the first visit opens anything or asks the first question, if the closed bar doesn't say what
+        /// waits, if the demonstration's lines would be missing, if a live session's banner would show or
+        /// rise with the menu open, if the lines come within a degree of a character's highest reach, a
+        /// label or the plane, if they leave the field while the menu is read, or if they reach above
         /// <see cref="RaisedBannerMostDegrees"/>.
         /// </summary>
         private static IEnumerable<string> RenderDemoWelcome(string name, string folder, float radius, float? surfaceDrop)
@@ -83,27 +85,41 @@ namespace Halcyonic.XR.Workspace.Editor
                 var banner = StageBanner.Create(bannerRoot);
                 var line = DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null);
 
-                // The first visit, as the workspace's director takes it once the recording plays with nothing open.
+                // The first visit, as the workspace's director takes it once the recording plays with nothing open:
+                // the demonstration never asks the first question, and opens nothing.
                 var visit = new FirstVisit(visited: false);
-                if (!visit.Due(live: true, demonstration: true, somethingOpen: false)) failures.Add(name + ": the demonstration's first visit does not open the menu.");
-                director.Open(MenuPlace.Projects);
+                var asks = visit.Asks(live: true, demonstration: true, state.Journal?.JournalId, state.Workstreams.Count > 0);
+                if (asks != false) failures.Add(name + ": the demonstration's first visit asks the first question.");
+                director.BeforeFirstTask = asks == true;
+                if (visit.Due(demonstration: true, somethingOpen: false, asks)) failures.Add(name + ": the demonstration's first visit opens the menu, not ambient.");
                 director.DrawNow();
 
-                void Shot(string step)
+                void Shot(string step, bool open)
                 {
                     var what = name + " demo welcome " + step;
-                    if (navigator.Place != MenuPlace.Projects || !navigator.IsOpen) failures.Add(what + ": the menu stands on " + navigator.Place + (navigator.IsOpen ? "" : ", closed") + ", not open on Projects.");
-                    if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Subject != ProjectsText.Subject) failures.Add(what + ": Projects does not ask what to work on.");
+                    if (open)
+                    {
+                        if (navigator.Place != MenuPlace.Projects || !navigator.IsOpen) failures.Add(what + ": the menu stands on " + navigator.Place + (navigator.IsOpen ? "" : ", closed") + ", not open on Projects.");
+                        if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Subject != ProjectsText.Subject) failures.Add(what + ": Projects does not ask what to work on.");
+                    }
+                    else
+                    {
+                        if (navigator.IsOpen || navigator.Beside != null || director.Plane.Bar == null) failures.Add(what + ": the demonstration does not open ambient, the closed bar alone on the plane.");
+                        var waits = state.Workstreams.Values.Any(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou);
+                        var said = TasksColumn.Bar(navigator.Place, state).ClosedLine;
+                        if (said != (waits ? "1 task is waiting for you" : "Nothing is waiting for you.")) failures.Add(what + ": the closed bar says \"" + said + "\", not what waits.");
+                    }
 
                     // Where the stage would stand its banner now, from what covers its place as the director drew it.
                     var stand = BannerPlace.Of(demonstration: true, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
-                    if (stand != BannerStand.AboveTheStage)
+                    var expected = open ? BannerStand.AboveTheStage : BannerStand.InPlace;
+                    if (stand != expected)
                     {
-                        failures.Add(what + ": with the menu open in the demonstration, its lines would be "
-                            + (stand == BannerStand.Hidden ? "missing" : "under the labels, where the menu stands") + ".");
+                        failures.Add(what + ": in the demonstration, its lines would be "
+                            + (stand == BannerStand.Hidden ? "missing" : stand == BannerStand.InPlace ? "under the labels, where the menu stands" : "raised over a closed bar") + ".");
                     }
                     var live = BannerPlace.Of(demonstration: false, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
-                    if (live != BannerStand.Hidden)
+                    if (open && live != BannerStand.Hidden)
                     {
                         failures.Add(what + ": with the menu open in a live session, the banner would " + (live == BannerStand.AboveTheStage ? "rise above the stage" : "show under the labels") + ".");
                     }
@@ -112,14 +128,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         failures.Add(what + ": the raised banner does not say the demonstration's lines alone.");
                     }
-                    // As the stage places it: clear of the characters, then of the panel in its place, by the top the plane gives.
+                    // As the stage places it: raised, clear of the characters, then of the panel in its place, by the top the
+                    // plane gives; in its own place, standing over a surface's lineup or hanging under the labels.
                     var panelTop = AmbientCover.PanelTop;
-                    if (panelTop == null) failures.Add(what + ": the open menu gives no top edge for the raised banner to clear.");
+                    if (open && panelTop == null) failures.Add(what + ": the open menu gives no top edge for the raised banner to clear.");
                     var overCharacters = surface.HasValue
                         ? CharacterStage.BannerBottomOnSurface(radius, surfaceDrop!.Value) - surfaceDrop.Value
                         : CharacterStage.BannerBottomAbove(radius, CharacterStage.DefaultHeightFromEyes);
-                    bannerRoot.position = eyes + new Vector3(0f, CharacterStage.RaisedBannerBottom(radius, overCharacters, panelTop), radius);
-                    banner.transform.localPosition = new Vector3(0f, banner.Height, 0f);
+                    var stands = open || surface.HasValue;
+                    var edge = open ? CharacterStage.RaisedBannerBottom(radius, overCharacters, panelTop)
+                        : surface.HasValue ? overCharacters : CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes);
+                    bannerRoot.position = eyes + new Vector3(0f, edge, radius);
+                    banner.transform.localPosition = new Vector3(0f, stands ? banner.Height : 0f, 0f);
                     banner.gameObject.SetActive(stand != BannerStand.Hidden);
                     ForceMeshes(root);
 
@@ -131,7 +151,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         others.Add(GlazeChecks.Of(view.WorkstreamId + "'s label", eyes, view.Label.gameObject));
                         others.Add(Reach(view, eyes));
                     }
-                    others.Add(GlazeChecks.Of("the menu's plane", eyes, director.Plane.gameObject));
+                    others.Add(GlazeChecks.Of(open ? "the menu's plane" : "the closed bar", eyes, director.Plane.gameObject));
                     foreach (var other in others)
                     {
                         var apart = GlazeChecks.OutlineApart(plate, eyes, other);
@@ -141,7 +161,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         .Select(y => plate.Root.position + plate.Root.right * (x * plate.Size.x) + plate.Root.up * (y * plate.Size.y))).ToList();
                     var elevations = corners.Select(corner => FieldChecks.ElevationOf(eyes, corner)).ToList();
                     var top = elevations.Max();
-                    if (top > RaisedBannerMostDegrees) failures.Add(what + ": the demonstration's lines reach " + GlazeChecks.Degrees(top) + " degrees above eye level, over " + RaisedBannerMostDegrees.ToString(CultureInfo.InvariantCulture) + ".");
+                    if (open && top > RaisedBannerMostDegrees) failures.Add(what + ": the demonstration's lines reach " + GlazeChecks.Degrees(top) + " degrees above eye level, over " + RaisedBannerMostDegrees.ToString(CultureInfo.InvariantCulture) + ".");
                     Debug.Log("Halcyonic: workspace render " + what + ": the demonstration's lines stand from " + GlazeChecks.Degrees(elevations.Min()) + " to "
                         + GlazeChecks.Degrees(top) + " degrees above eye level; the plane's top edge stands at " + (panelTop == null ? "none" : GlazeChecks.Degrees(panelTop.Value)) + ".");
                     // In the field while the person reads the menu, the head pitched as the plane's checks take it.
@@ -161,20 +181,26 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(PlaneState(name + " demo welcome " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: false));
                 }
 
-                Shot("1 projects");
-                if (!AmbientCover.PanelShowing) failures.Add(name + ": the open menu leaves the banner's place to it, so nothing raises the demonstration's lines.");
+                Shot("1 ambient", open: false);
+                if (AmbientCover.PanelShowing) failures.Add(name + ": the closed bar covers the banner's place.");
 
-                // The directed task comes to wait while Projects shows: nothing moves the menu, and Tasks takes the amber dot.
+                // The directed task comes to wait: nothing opens by itself, and the closed bar says so.
                 var asked = RecordedAt(recording, new[] { 0 });
                 state = asked.State;
                 foreach (var (view, _) in characters) view.Show(CharacterPresenter.Present(state.Workstreams[view.WorkstreamId], state, true));
                 navigator.Tick();
                 director.DrawNow();
+                Shot("2 a task waits", open: false);
+
+                // Projects, a press from the bar: the menu open beside the stage, its lines raised over it, Tasks with the amber dot.
+                director.Open(MenuPlace.Projects);
+                director.DrawNow();
+                if (!AmbientCover.PanelShowing) failures.Add(name + ": the open menu leaves the banner's place to it, so nothing raises the demonstration's lines.");
                 if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Sections.SingleOrDefault(section => section.Waits)?.Words != "Tasks")
                 {
                     failures.Add(name + ": with a task waiting, Tasks does not carry the amber dot beside Projects.");
                 }
-                Shot("2 a task waits");
+                Shot("3 projects", open: true);
             }
             finally
             {

@@ -55,6 +55,14 @@ namespace Halcyonic.Client
         public IReadOnlyList<FrameSection> Sections() =>
             Places.Select(place => new FrameSection(place.ToString(), Word(place), chosen: place == Chosen, waits: Waits(place))).ToList();
 
+        /// <summary>
+        /// Before the computer's first task, the row holds Settings alone, in its slot at the row's right
+        /// end (<see cref="MenuFrame.SectionSlots"/>), lit only while Settings shows, so text size and
+        /// Reset position are reachable from the first question; the other places join it with the first task.
+        /// </summary>
+        public static IReadOnlyList<FrameSection> SettingsAlone(bool chosen) =>
+            new[] { new FrameSection(MenuPlace.Settings.ToString(), Word(MenuPlace.Settings), chosen: chosen) };
+
         /// <summary>A place's word on the bar.</summary>
         public static string Word(MenuPlace place) => place switch
         {
@@ -672,12 +680,17 @@ namespace Halcyonic.Client
         /// <param name="sourceIsData">The source line is text from outside, as an answer's provenance or an error a service returned.</param>
         /// <param name="subjectWaits">The subject says what waits for the person, as Tasks' "1 task is waiting for you": it takes the waiting colour, as the closed bar's line does.</param>
         public MenuFrame(string subject, Footer footer, bool subjectIsData = false, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
-            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false)
+            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false,
+            int? sectionSlots = null)
         {
             if (string.IsNullOrWhiteSpace(subject)) throw new ArgumentException("A frame has its subject.", nameof(subject));
             sections ??= Array.Empty<FrameSection>();
             lines ??= Array.Empty<PageLine>();
-            if (sections.Count > 0 && sections.Count(section => section.Chosen) != 1) throw new ArgumentException("A frame's sections have one chosen.", nameof(sections));
+            var slots = sectionSlots ?? sections.Count;
+            if (slots < sections.Count) throw new ArgumentOutOfRangeException(nameof(sectionSlots), slots, "The row has a slot for each of its sections.");
+            // A row still waiting for sections to join it, as Settings alone before the first task, may have none lit.
+            var chosen = sections.Count(section => section.Chosen);
+            if (sections.Count > 0 && (chosen > 1 || (chosen == 0 && slots == sections.Count))) throw new ArgumentException("A frame's sections have one chosen.", nameof(sections));
             if (sections.Select(section => section.Key).Distinct().Count() != sections.Count) throw new ArgumentException("Each section has its own key.", nameof(sections));
             if (lines.Count(line => line.Chosen && !line.Choice) > 1) throw new ArgumentException("At most one row is chosen; only answers may be chosen together.", nameof(lines));
             if (side != null && !lines.Any(line => line.Chosen && (line.Opens || line.Choice)))
@@ -690,6 +703,7 @@ namespace Halcyonic.Client
             SubjectWaits = subjectWaits;
             Pill = pill;
             Sections = sections;
+            SectionSlots = slots;
             Lines = lines;
             Source = source;
             SourceIsData = sourceIsData;
@@ -698,8 +712,9 @@ namespace Halcyonic.Client
         }
 
         /// <summary>This frame with <paramref name="sections"/> in place of its own, as the menu's places on a place's page.</summary>
-        public MenuFrame WithSections(IReadOnlyList<FrameSection> sections) =>
-            new MenuFrame(Subject, Footer, SubjectIsData, Pill, sections, Lines, Source, Side, SourceIsData, SubjectWaits);
+        /// <param name="slots">How many slots the row is laid in, the sections given standing in the last of them; as many as there are when null.</param>
+        public MenuFrame WithSections(IReadOnlyList<FrameSection> sections, int? slots = null) =>
+            new MenuFrame(Subject, Footer, SubjectIsData, Pill, sections, Lines, Source, Side, SourceIsData, SubjectWaits, slots);
 
         public string Subject { get; }
 
@@ -711,6 +726,13 @@ namespace Halcyonic.Client
         public StateBadge? Pill { get; }
 
         public IReadOnlyList<FrameSection> Sections { get; }
+
+        /// <summary>
+        /// How many equal slots the row of sections is laid in, its sections standing in the last of them,
+        /// so a section keeps its place and size while others are yet to join it, as Settings alone before
+        /// the first task.
+        /// </summary>
+        public int SectionSlots { get; }
 
         public IReadOnlyList<PageLine> Lines { get; }
 

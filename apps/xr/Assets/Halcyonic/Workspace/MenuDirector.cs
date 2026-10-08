@@ -206,7 +206,9 @@ namespace Halcyonic.XR.Workspace
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
                 [MenuPlace.Settings] = () => new SettingsColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList()),
-            });
+            },
+            // Until the computer's first task, the menu asks what the person would like to work on (ADR 0026).
+            () => new FirstQuestionColumn(director.Bound(), director.StartFirstProject, () => director.navigator.OpenMenu(MenuPlace.Projects)));
             director.navigator.Changed += () => director.dirty = true;
             director.plane.Acted += (from, action, key, frame, side) => director.OnActed(from, action, key, frame, side);
             director.plane.Opened += () => director.navigator.OpenMenu(somethingWaits: setup.SomethingWaits());
@@ -240,6 +242,16 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>Closes the menu to its bar.</summary>
         public void CloseMenu() => navigator.CloseMenu();
+
+        /// <summary>The computer has had no task yet: the menu asks the first question, with Settings alone in its row (<see cref="MenuNavigator.BeforeFirstTask"/>).</summary>
+        public bool BeforeFirstTask
+        {
+            get => navigator.BeforeFirstTask;
+            set => navigator.BeforeFirstTask = value;
+        }
+
+        /// <summary>A column stands beside the menu, or in its place: a task's file or New project.</summary>
+        public bool BesideOpen => navigator.Beside != null;
 
         /// <summary>Draws again at once, as after the stage moved: the plane re-centres on the stage it stands over, and a drag judged against where it stood ends.</summary>
         public void Redraw()
@@ -412,7 +424,7 @@ namespace Halcyonic.XR.Workspace
             var bar = shownBar != null && Same(setup.Bar(navigator.Place), shownBar) ? shownBar : setup.Bar(navigator.Place);
             shownBar = bar;
             // Tasks keeps the row of the file beside the menu chosen.
-            if (navigator.IsOpen && navigator.PlaceColumn is TasksColumn tasks) tasks.Showing(navigator.BesideTask);
+            if (navigator.Shown is TasksColumn tasks) tasks.Showing(navigator.BesideTask);
             var (menu, beside) = navigator.Frames(bar);
             var stage = setup.StageNow();
             var standing = (navigator.IsOpen, navigator.Beside);
@@ -671,6 +683,13 @@ namespace Halcyonic.XR.Workspace
             {
                 opening = (false, null);
             }
+        }
+
+        /// <summary>The first question's Start a project: New project in its place, with the idea Hold to talk heard, if any, as the person's own words to check.</summary>
+        private void StartFirstProject(string? heard)
+        {
+            OpenNewProject(null, null);
+            if (heard != null && navigator.Beside is NewProjectFlow flow) flow.Heard(heard);
         }
 
         public void OpenNewProject(string? projectId, string? projectName)

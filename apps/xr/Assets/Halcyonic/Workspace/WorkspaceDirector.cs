@@ -68,11 +68,11 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Which projects the stage shows, for each journal, kept on the device under the key the project rail kept it under.</summary>
         private const string VisibilityPreference = "halcyonic.stage.visibility";
 
-        /// <summary>Set once the menu has opened by itself on the first visit to the person's computer, under the key the entry panel's welcome kept, so no one welcomed before is again.</summary>
+        /// <summary>Set once the first visit to the person's computer has come, under the key the entry panel's welcome kept, so no one welcomed before is opened on again.</summary>
         private const string VisitedPreference = "halcyonic.entry.welcomed";
 
-        /// <summary>Set once the menu has opened by itself on the demonstration's first visit.</summary>
-        private const string DemonstrationVisitedPreference = "halcyonic.demo.welcomed";
+        /// <summary>The journals of the computers that have had a task, which the first question never asks again (<see cref="FirstVisit.Started"/>).</summary>
+        private const string StartedPreference = "halcyonic.entry.started";
 
         private StageVisibility visibility = null!;
         private int savedVisibility;
@@ -112,7 +112,7 @@ namespace Halcyonic.XR.Workspace
             visibility = StageVisibility.Load(PlayerPrefs.GetString(VisibilityPreference, ""));
             savedVisibility = visibility.Version;
             stage.Visibility = visibility;
-            firstVisit = new FirstVisit(PlayerPrefs.GetInt(VisitedPreference, 0) == 1, PlayerPrefs.GetInt(DemonstrationVisitedPreference, 0) == 1);
+            firstVisit = new FirstVisit(PlayerPrefs.GetInt(VisitedPreference, 0) == 1, PlayerPrefs.GetString(StartedPreference, ""));
             // The same client the session introduces itself as (ControlPlaneConnection).
             commands = new CommandFactory(new ClientInfo
             {
@@ -418,16 +418,32 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// The first visit, to the demonstration or to the person's computer: the menu opens by itself on
-        /// Projects (ADR 0026), once for each, and never over work already open.
+        /// The first visit (ADR 0026): until the computer's first task, the menu asks the first question in
+        /// place of its places, decided only once its live state is known, and on the first visit opens on
+        /// it by itself, once, never over work already open. The demonstration never asks and opens nothing.
         /// </summary>
         private void OpenOnFirstVisit()
         {
+            if (menu == null) return;
             var demonstration = connection.DemonstrationLine != null;
-            if (menu == null || !firstVisit.Due(connection.Session?.Status.IsLive == true, demonstration, OpenWorkstream != null)) return;
-            PlayerPrefs.SetInt(demonstration ? DemonstrationVisitedPreference : VisitedPreference, 1);
-            PlayerPrefs.Save();
-            menu.Open(MenuPlace.Projects);
+            var session = connection.Session;
+            var state = session?.State;
+            var started = firstVisit.Started;
+            var asks = firstVisit.Asks(session?.Status.IsLive == true, demonstration, state?.Journal?.JournalId, (state?.Workstreams.Count ?? 0) > 0);
+            if (firstVisit.Started != started)
+            {
+                PlayerPrefs.SetString(StartedPreference, firstVisit.Started);
+                PlayerPrefs.Save();
+            }
+            if (asks is bool known) menu.BeforeFirstTask = known;
+            var visited = firstVisit.Visited;
+            var due = firstVisit.Due(demonstration, OpenWorkstream != null || menu.BesideOpen, asks);
+            if (firstVisit.Visited != visited)
+            {
+                PlayerPrefs.SetInt(VisitedPreference, 1);
+                PlayerPrefs.Save();
+            }
+            if (due) menu.Open();
         }
 
         /// <summary>Every project and its work as the stage counts it, the same object until the state or what the stage shows changes.</summary>
