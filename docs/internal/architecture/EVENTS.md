@@ -111,12 +111,20 @@ text").
 
 An execution view's `tool_activity` says whether a tool call runs, from these events alone:
 `running` when a turn is active, its status is not `unknown`, and a tool call is open (started,
-not completed); `none` when no turn is active, or one is with no call open on a runtime whose
-descriptor declares `reports_tool_activity`, that its adapter reports every tool call the runtime
-makes; `unknown` when a turn is active on a runtime that does not declare it, or the status is
-`unknown`, since a lost connection leaves the open calls stale. A turn's end closes every call it
-left open. OpenCode, Claude Code, Codex (every tool item of its 0.157.0 `ThreadItem`, not only
-commands and file changes) and the mock declare it. Two imprecisions: OpenCode starts a tool when the model begins writing its input, before it runs, so 'running' comes slightly early. A background shell (OpenCode background, Claude run_in_background) completes its call at once, while the process runs on: 'none' then means no tool call is open, not that nothing runs.
+not completed) or a test run is; `none` when no turn is active, or one is with nothing open on a
+runtime whose descriptor declares `reports_tool_activity`, that its adapter reports every tool
+call the runtime makes; `unknown` when a turn is active on a runtime that does not declare it, or
+the status is `unknown`, since a lost connection leaves the open calls stale. A turn's start and
+end close every call left open. OpenCode (whose adapter reports a call that started while its
+event stream was down once it reads the session back) and the mock declare it. Claude Code and
+Codex do not: their subagents work on after the call that launched them completes, unreported
+(Claude Code's run in the background by default; Codex's on threads the adapter does not
+follow), so with nothing open they read `unknown`, never `none` ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+Codex still reports every tool item of its 0.157.0 `ThreadItem`, not only commands and file
+changes, which keeps Activity truthful. Status wins over it: an execution waiting for the person
+is waiting, whatever `tool_activity` says, since a call raised for an approval or a question is
+open while it waits. Two imprecisions: OpenCode starts a tool when the model begins writing its input, before it runs, so 'running' comes slightly early.
+A background shell (OpenCode background, Claude run_in_background) completes its call at once, while the process runs on: 'none' then means no tool call is open, not that nothing runs.
 Nothing is journaled for it: the descriptor is served live, and the field is derived.
 
 An approval request carries `complete`, defined as: complete: the summary shows in full every

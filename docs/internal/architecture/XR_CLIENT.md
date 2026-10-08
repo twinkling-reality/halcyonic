@@ -150,13 +150,16 @@ the same definition names, as the JSON Schema document:
   adapters' own and open-ended, so a cause only one adapter names (a rate limit, missing
   credentials) is not said yet: that needs a
   closed cause in the contract, an open question.
-  What a character is doing, thinking or doing, comes from the execution view's `ToolActivity`
+  Whether a character is thinking or doing comes from the execution view's `ToolActivity`
   (`tool_activity`, [EVENTS.md](EVENTS.md)), never from silence: `Running` gives the lean-in pose,
   `None` in an active turn the sit-up-and-look-aside pose, and `Unknown` neither, only the plain
-  float (lane U's poses, 6C1). Two imprecisions: OpenCode starts a tool when the model begins
-  writing its input, before it runs, so 'running' comes slightly early. A background shell
-  (OpenCode background, Claude run_in_background) completes its call at once, while the process
-  runs on: 'none' then means no tool call is open, not that nothing runs.
+  float (lane U's poses, 6C1). Status wins: an execution waiting for the person
+  (`WaitingForHuman`) gives the waiting pose whatever `ToolActivity` says. Claude Code and Codex
+  never say `None` in a turn, so their characters float between calls. Two imprecisions: OpenCode
+  starts a tool when the model begins writing its input, before it runs, so 'running' comes
+  slightly early. A background shell (OpenCode background, Claude run_in_background) completes its
+  call at once, while the process runs on: 'none' then means no tool call is open, not that
+  nothing runs.
 - **`StateLanguage`** ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md))
   is the one mapping from a task's state to what every surface says and shows: Not started,
   Starting, Working, Checking its work, Waiting for you, Finished this round, Checks failed,

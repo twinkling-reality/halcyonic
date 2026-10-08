@@ -22,6 +22,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
     outcome: null,
     idleAt: null,
     toolStatus: new Map(),
+    toolNames: new Map(),
     forms: [],
     settledForms: new Map(),
     ...overrides,
@@ -259,6 +260,50 @@ describe('reconciling a session after the event stream reconnected', () => {
       ],
     );
     assert.deepEqual([...state.tools], ['call_busy']);
+  });
+
+  test('a call that started while the stream was down is reported once read back, if it still runs', () => {
+    const state = running();
+    const observations = settled(
+      state,
+      snapshot({
+        toolStatus: new Map([
+          ['call_new', 'running'],
+          ['call_typing', 'streaming'],
+          ['call_done', 'completed'],
+        ]),
+        toolNames: new Map([
+          ['call_new', 'shell'],
+          ['call_typing', 'edit'],
+          ['call_done', 'read'],
+        ]),
+      }),
+    );
+    assert.deepEqual(
+      observations.map((item) => [item.type, item.payload]),
+      [
+        ['runtime.tool.started', { tool_call_id: 'call_new', tool_name: 'shell', title: null }],
+        ['runtime.tool.started', { tool_call_id: 'call_typing', tool_name: 'edit', title: null }],
+      ],
+    );
+    assert.deepEqual([...state.tools], ['call_new', 'call_typing']);
+    // Read back again, it is not reported twice; once ended, it completes.
+    assert.deepEqual(
+      settled(
+        state,
+        snapshot({
+          toolStatus: new Map([
+            ['call_new', 'completed'],
+            ['call_typing', 'running'],
+          ]),
+          toolNames: new Map([
+            ['call_new', 'shell'],
+            ['call_typing', 'edit'],
+          ]),
+        }),
+      ).map((item) => [item.type, item.payload]),
+      [['runtime.tool.completed', { tool_call_id: 'call_new', outcome: 'succeeded' }]],
+    );
   });
 
   test('a question asked while disconnected is learned from the pending forms', () => {

@@ -265,7 +265,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       capabilities: { ...CODEX_CAPABILITIES, answer_question: this.#answerQuestions },
       model_choice: 'listed',
       uses_project_location: true,
-      reports_tool_activity: true,
+      // A spawned agent runs on a thread of its own, which the adapter does not follow, so no open call
+      // does not mean none runs (OPEN_QUESTIONS.md).
+      reports_tool_activity: false,
     };
   }
 

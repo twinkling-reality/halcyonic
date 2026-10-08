@@ -155,7 +155,9 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       capabilities: CLAUDE_AGENT_CAPABILITIES,
       model_choice: 'listed',
       uses_project_location: true,
-      reports_tool_activity: true,
+      // Agents run in the background by default (SDK 0.3.283), so between a subagent's reported calls work
+      // can go on unseen: no open call does not mean none runs (OPEN_QUESTIONS.md).
+      reports_tool_activity: false,
     };
   }
 

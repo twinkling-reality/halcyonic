@@ -29,8 +29,13 @@ export interface SessionSnapshot {
   readonly outcome: string | null;
   /** `time.idle` of the same read, in milliseconds by OpenCode's clock. */
   readonly idleAt: number | null;
-  /** Tool part status by tool call id, from `GET /api/session/{id}/message`, read only for active tools. */
+  /**
+   * Tool part status by tool call id, the newest part for an id, from `GET /api/session/{id}/message`,
+   * read whenever the session runs (and for a pending shell request's command).
+   */
   readonly toolStatus: ReadonlyMap<string, string>;
+  /** Each tool part's tool name by tool call id, from the same read. */
+  readonly toolNames: ReadonlyMap<string, string>;
   /** `GET /api/session/{id}/form`: the session's pending forms, the agent's questions (ADR 0022). */
   readonly forms: readonly Readonly<Record<string, unknown>>[];
   /**
@@ -238,6 +243,22 @@ export function reconcileSession(
         at(null, FORM_LIST),
       ),
     );
+  }
+  // A call that started while the stream was down is reported now, or it would run unseen.
+  if (snapshot.running) {
+    for (const [id, status] of snapshot.toolStatus) {
+      const name = snapshot.toolNames.get(id);
+      if ((status !== 'streaming' && status !== 'running') || name === undefined) continue;
+      if (state.tools.has(id)) continue;
+      state.tools.add(id);
+      observations.push(
+        observation(
+          'runtime.tool.started',
+          { tool_call_id: id, tool_name: name.slice(0, 128), title: null },
+          at(null, MESSAGE_LIST),
+        ),
+      );
+    }
   }
   for (const id of [...state.tools]) {
     const status = snapshot.toolStatus.get(id);

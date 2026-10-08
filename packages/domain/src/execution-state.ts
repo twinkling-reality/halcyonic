@@ -120,9 +120,9 @@ export function endTurn(
 }
 
 /**
- * Whether a tool call runs, from the facts alone (`ExecutionView`'s `tool_activity`): an open call
- * counts only in an active turn whose status is not `unknown`, and none open counts as none only
- * on a runtime that reports every tool call it makes.
+ * Whether a tool call runs, from the facts alone (`ExecutionView`'s `tool_activity`): an open call,
+ * or a test run, counts only in an active turn whose status is not `unknown`, and none open counts
+ * as none only on a runtime that reports every tool call it makes.
  */
 export function deriveToolActivity(
   state: ExecutionState,
@@ -130,7 +130,7 @@ export function deriveToolActivity(
 ): ExecutionView['tool_activity'] {
   if (state.activeTurn === null) return 'none';
   if (deriveExecutionStatus(state) === 'unknown') return 'unknown';
-  if (state.activeTools.size > 0) return 'running';
+  if (state.activeTools.size > 0 || state.activeTestRun !== null) return 'running';
   return reportsToolActivity ? 'none' : 'unknown';
 }
 

@@ -235,14 +235,18 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
         };
       }
       // A command is completed when it exited 0 and failed otherwise; a declined one never ran.
-      // Another tool item ends when Codex says it completed, failed only when it says so.
+      // Another tool item succeeded when Codex says completed, or says no status at all (assumed,
+      // codex-capabilities.md), and failed with any other, interrupted among them.
+      const other = item.type !== 'commandExecution' && item.type !== 'fileChange';
       const outcome =
         item.status === 'completed'
           ? 'succeeded'
           : item.status === 'failed' || item.status === 'declined'
             ? 'failed'
-            : item.type !== 'commandExecution' && item.type !== 'fileChange'
-              ? 'succeeded'
+            : other
+              ? item.status === undefined || item.status === null
+                ? 'succeeded'
+                : 'failed'
               : null;
       if (outcome === null || !state.tools.delete(id)) return none;
       state.fileChanges.delete(id);
@@ -611,9 +615,10 @@ const NO_CHANGES_NAMED = 'Codex did not say which files it wants to change.';
 
 /**
  * Every item type of Codex 0.157.0's `v2/ThreadItem.ts` that is a tool call, each reported as
- * `runtime.tool.started` and `runtime.tool.completed` named by its type, so the adapter reports
- * every tool call Codex makes (`reports_tool_activity`). The others are its words, its reasoning,
- * its plan, the person's message, compaction, review mode, hooks and a function's output.
+ * `runtime.tool.started` and `runtime.tool.completed` named by its type. The others are its words,
+ * its reasoning, its plan, the person's message, compaction, review mode, hooks, a function's
+ * output and a subagent's lifecycle marks. A spawned agent's own calls run on a thread the adapter
+ * does not follow, so Codex does not declare `reports_tool_activity`.
  */
 const TOOL_ITEMS: ReadonlySet<string> = new Set([
   'commandExecution',
@@ -625,7 +630,6 @@ const TOOL_ITEMS: ReadonlySet<string> = new Set([
   'imageGeneration',
   'imageView',
   'sleep',
-  'subAgentActivity',
 ]);
 
 /** What a tool item other than a command or a change does, from the field that says it, if any. */

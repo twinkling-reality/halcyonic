@@ -451,6 +451,8 @@ export class Projection {
       case 'runtime.turn.started':
         execution.activeTurn = { turnId: event.payload.turn_id };
         execution.turnCount += 1;
+        // A call opened between turns, whose end may never come, is not this turn's.
+        execution.activeTools.clear();
         execution.startedAt ??= event.occurred_at;
         break;
       case 'runtime.turn.completed':
