@@ -76,6 +76,25 @@ public class ProjectFolderTests
         Assert.That(options.Select(option => option.Label), Has.Some.EqualTo("shop<b>x</b>‹U+200B›"));
     }
 
+    /// <summary>
+    /// A name of only white space, which the contracts allow for a folder, a place and an agent app, shows each of
+    /// its characters by code point, so New project's lists are drawn and the name is something to see (the
+    /// outside-text audit's gap 1).
+    /// </summary>
+    [Test]
+    public void ANameOfOnlyWhiteSpaceShowsByItsCodePointsAndNeverStopsAListBeingDrawn()
+    {
+        var root = Root(" ", LocationRootStatus.Available, "  ");
+        var listing = new LocationsResponse { Roots = new List<LocationRoot> { root } };
+        Assert.That(ProjectFolder.Options(listing).Select(option => option.Label),
+            Is.EqualTo(new[] { "New folder in \u2039U+0020\u203A", "Directly in \u2039U+0020\u203A", "\u2039U+0020\u203A\u2039U+0020\u203A" }));
+        Assert.That(ProjectFolder.Existing(root, root.Folders[0]).Describe(), Is.EqualTo("\u2039U+0020\u203A\u2039U+0020\u203A in \u2039U+0020\u203A"));
+        var idea = new ProjectIdea();
+        idea.UseIdea("something for my running club");
+        Assert.That(() => NewProjectScreens.RecapFolder(idea, startReached: false, listing, problem: null, notice: null), Throws.Nothing);
+        Assert.That(EntryText.RuntimeName(new RuntimeDescriptor { RuntimeId = "blank", DisplayName = " " }), Is.EqualTo("\u2039U+0020\u203A"));
+    }
+
     [Test]
     public void TheListingOffersANewFolderTheRootAndItsFolders()
     {

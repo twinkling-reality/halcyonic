@@ -750,7 +750,7 @@ namespace Halcyonic.Client
                     var each = draft.Models[index];
                     var chosen = draft.Model?.ModelRef == each.ModelRef;
                     var pending = draft.PendingModel == each;
-                    lines.Add(new PageLine(LabelText.Plain(each.DisplayName), wordsAreData: true,
+                    lines.Add(new PageLine(LabelText.Name(each.DisplayName), wordsAreData: true,
                         fact: pending ? EntryText.ConfirmElsewhere(each)
                             : (chosen && draft.ModelPreselected ? EntryText.ChosenForYou + " · " : "") + EntryText.ServedShort(each.Served),
                         action: ChooseModel, key: each.ModelRef, choice: true, chosen: chosen));
