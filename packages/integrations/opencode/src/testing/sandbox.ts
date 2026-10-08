@@ -8,8 +8,9 @@ import { type FakeProvider, type FakeProviderOptions, startFakeProvider } from '
 /**
  * Everything an end to end test gives a real OpenCode server, so it never touches the user's
  * OpenCode configuration or data and never leaves the machine: private HOME, XDG and TMPDIR
- * directories, a configuration whose only provider is the fake one, shell commands that ask for
- * approval, and proxy variables pointing at a trap that records and refuses every request.
+ * directories, a configuration whose only provider is the fake one and no permission rules of its
+ * own (shell commands ask because every session Halcyonic opens asks), and proxy variables pointing
+ * at a trap that records and refuses every request.
  */
 export interface OpenCodeSandbox {
   readonly root: string;
@@ -69,7 +70,6 @@ export async function createSandbox(options: FakeProviderOptions = {}): Promise<
             },
           },
         },
-        permissions: [{ action: 'shell', resource: '*', effect: 'ask' }],
       },
       null,
       2,

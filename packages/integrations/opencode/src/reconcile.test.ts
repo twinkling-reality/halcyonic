@@ -67,7 +67,10 @@ describe('reconciling a session after the event stream reconnected', () => {
     const state = running();
     state.approvals.add('per_1');
     assert.deepEqual(
-      settled(state, snapshot({ permissions: [{ id: 'per_1', action: 'shell', resources: [] }] })),
+      settled(
+        state,
+        snapshot({ permissions: [{ id: 'per_1', action: 'shell', resources: [], command: null }] }),
+      ),
       [],
     );
     assert.deepEqual(settled(createSessionState(), snapshot({ running: false })), []);
@@ -163,7 +166,9 @@ describe('reconciling a session after the event stream reconnected', () => {
   test('a running session with a new pending permission reports the turn and the approval', () => {
     const observations = settled(
       createSessionState(),
-      snapshot({ permissions: [{ id: 'per_2', action: 'shell', resources: ['echo hi'] }] }),
+      snapshot({
+        permissions: [{ id: 'per_2', action: 'shell', resources: ['echo hi'], command: null }],
+      }),
     );
     assert.deepEqual(
       observations.map((item) => [item.type, item.provenance.epistemic]),
@@ -175,6 +180,26 @@ describe('reconciling a session after the event stream reconnected', () => {
     assert.deepEqual(observations[1]?.payload, {
       approval_id: 'per_2',
       subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo hi' },
+    });
+  });
+
+  test("a shell request read back shows its tool call's command, not the parsed parts", () => {
+    const [, requested] = settled(
+      createSessionState(),
+      snapshot({
+        permissions: [
+          {
+            id: 'per_3',
+            action: 'shell',
+            resources: ['echo one', 'echo two'],
+            command: 'echo one && echo two > two.txt',
+          },
+        ],
+      }),
+    );
+    assert.deepEqual(requested?.payload, {
+      approval_id: 'per_3',
+      subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo one && echo two > two.txt' },
     });
   });
 

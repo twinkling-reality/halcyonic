@@ -627,6 +627,50 @@ describe('OpenCode event decoding', () => {
     assert.equal(approvalSubject('shell', ['x'.repeat(3000)])?.summary, 'x'.repeat(3000));
   });
 
+  test("a shell request shows its tool call's command whole, not the parts OpenCode parsed", () => {
+    const state = createSessionState();
+    state.turn = { id: null };
+    const send = (type: string, data: Record<string, unknown>) => {
+      const event = decodeEvent(
+        JSON.stringify({ id: `evt_${type}`, type, data: { sessionID: 's', ...data } }),
+      );
+      assert.ok(event !== null);
+      return observeEvent(state, event, NOW);
+    };
+    const command = 'echo one && echo two > two.txt\nrm -f x';
+    send('session.tool.input.started', { id: 'call_1', name: 'shell' });
+    send('session.tool.called', { id: 'call_1', input: { command, workdir: '.' } });
+    const asked = (id: string, source: unknown, action = 'shell') =>
+      send('permission.asked', { id, action, resources: ['echo one', 'echo two'], source });
+    const [requested] = asked('per_1', { type: 'tool', messageID: 'msg_1', id: 'call_1' });
+    assert.ok(requested?.type === 'runtime.approval.requested');
+    assert.deepEqual(requested.payload.subject, {
+      kind: 'tool_use',
+      tool_name: 'shell',
+      summary: command,
+    });
+    // Without a known call, or for another action, the resources as before.
+    const [unknown] = asked('per_2', { type: 'tool', messageID: 'msg_1', id: 'call_9' });
+    assert.ok(unknown?.type === 'runtime.approval.requested');
+    assert.equal(unknown.payload.subject.summary, 'echo one\necho two');
+    const [other] = asked(
+      'per_3',
+      { type: 'tool', messageID: 'msg_1', id: 'call_1' },
+      'external_directory',
+    );
+    assert.ok(other?.type === 'runtime.approval.requested');
+    assert.equal(other.payload.subject.summary, 'echo one\necho two');
+    // A command of another tool's call is never taken for a shell command.
+    send('session.tool.input.started', { id: 'call_2', name: 'write' });
+    send('session.tool.called', { id: 'call_2', input: { command: 'not shell' } });
+    const [write] = asked('per_4', { type: 'tool', messageID: 'msg_1', id: 'call_2' });
+    assert.ok(write?.type === 'runtime.approval.requested');
+    assert.equal(write.payload.subject.summary, 'echo one\necho two');
+    // A finished call is forgotten.
+    send('session.tool.success', { id: 'call_1' });
+    assert.equal(state.shellCalls.has('call_1'), false);
+  });
+
   test('an execution error type that does not start with a letter still yields a valid code', () => {
     const state = createSessionState();
     state.turn = { id: null };

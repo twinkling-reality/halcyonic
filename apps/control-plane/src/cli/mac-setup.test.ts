@@ -409,12 +409,12 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Agent apps'), 'Look at this');
     assert.match(
       text(machine),
-      /OpenCode uses your own OpenCode settings\. With OpenCode's defaults it runs every command without asking you/,
+      /OpenCode uses your own OpenCode settings\. Halcyonic doesn't read them, so it can't tell whether they put OpenCode on a model this Mac serves\./,
     );
     assert.match(text(machine), /pnpm mac-setup local-model qwen3\.6:35b-a3b-nvfp4/);
   });
 
-  test("the words about Halcyonic's own OpenCode settings follow the permissions in them", async (t) => {
+  test("the check names Halcyonic's own OpenCode settings and its model, whatever permissions they hold", async (t) => {
     const machine = mac(t);
     machine.install('opencode');
     await machine.run('agent-apps');
@@ -422,38 +422,17 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.match(
       text(machine),
-      /Halcyonic's own OpenCode settings: it asks you before running a shell command, and it can't fetch from the web\./,
+      /OpenCode uses Halcyonic's own OpenCode settings, on qwen3\.6:35b-a3b-nvfp4\./,
     );
+    const before = status(machine, 'Agent apps');
+    // The rules on each session Halcyonic opens outrank these, so loosening them changes nothing.
     const path = join(machine.dataDir, 'opencode-config', 'opencode', 'opencode.json');
     const settings = JSON.parse(readFileSync(path, 'utf8'));
     settings.permissions.push({ action: '*', resource: '*', effect: 'allow' });
     writeFileSync(path, JSON.stringify(settings), { mode: 0o600 });
     await machine.run();
-    assert.equal(status(machine, 'Agent apps'), 'Look at this');
-    assert.match(
-      text(machine),
-      /it runs some or all shell commands without asking you, so they never reach the headset to approve, and it may fetch from the web\./,
-    );
-  });
-
-  test('a rule for a pattern of actions counts for every action it matches', async (t) => {
-    const machine = mac(t);
-    machine.install('opencode');
-    await machine.run('agent-apps');
-    await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4');
-    const path = join(machine.dataDir, 'opencode-config', 'opencode', 'opencode.json');
-    const settings = JSON.parse(readFileSync(path, 'utf8'));
-    settings.permissions.push({ action: 'web*', resource: '*', effect: 'allow' });
-    writeFileSync(path, JSON.stringify(settings), { mode: 0o600 });
-    await machine.run();
-    assert.match(
-      text(machine),
-      /it asks you before running a shell command, and it may fetch from the web\./,
-    );
-    settings.permissions.push({ action: 'sh?ll', resource: '*', effect: 'allow' });
-    writeFileSync(path, JSON.stringify(settings), { mode: 0o600 });
-    await machine.run();
-    assert.match(text(machine), /it runs some or all shell commands without asking you/);
+    assert.equal(status(machine, 'Agent apps'), before);
+    assert.doesNotMatch(text(machine), /without asking|fetch from the web/);
   });
 
   test('without ripgrep, the check says OpenCode would download it', async (t) => {

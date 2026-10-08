@@ -44,6 +44,8 @@ export interface PendingPermission {
   readonly id: string;
   readonly action: unknown;
   readonly resources: unknown;
+  /** For a shell request, the command of the tool call it was raised for, when that is known. */
+  readonly command: string | null;
 }
 
 export type Reconciliation =
@@ -197,7 +199,7 @@ export function reconcileSession(
   }
   for (const permission of snapshot.permissions) {
     if (state.approvals.has(permission.id)) continue;
-    const subject = approvalSubject(permission.action, permission.resources);
+    const subject = approvalSubject(permission.action, permission.resources, permission.command);
     if (subject === null) continue;
     state.approvals.add(permission.id);
     observations.push(

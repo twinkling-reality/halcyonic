@@ -66,8 +66,10 @@ Facts that shaped the decision:
    `opencode` folder but `opencode.json`, mode 600, which may hold only `model`, `small_model`, `permissions` and
    Ollama's context limits. Both models must be served on this Mac through Ollama (`ollama/...`,
    never a `cloud` tag). `pnpm mac-setup local-model <name>` writes it: that model as the default and
-   the small model, a question before every shell command, and no `webfetch` or `websearch`; the
-   check reads the permissions actually there and says what they allow.
+   the small model, a question before shell commands, and no `webfetch` or `websearch`; the
+   check reads the permissions actually there and says what they allow. (Since 2026-10-08 every
+   session Halcyonic opens carries rules that outrank them, and the check names only the settings
+   and their model; opencode-permissions.md.)
 6. **Project roots are checked by the control plane, wherever they come from.** A root from the
    environment or the file must be an existing folder that may hold projects: never the disk, a
    shared or system folder (in the forms `realpath(3)` gives, so `/etc` is `/private/etc`), a whole

@@ -121,7 +121,7 @@ describe('OpenCode start options', () => {
 });
 
 describe('OpenCode session rules', () => {
-  test('deny the network tools and subagents, and edits to every path OpenCode reads its configuration from', () => {
+  test('deny the network tools and subagents, ask for shell commands, and deny edits to the paths OpenCode reads its configuration from and to .git', () => {
     const rules = sessionPermissions({ HOME: '/Users/someone', PATH: '/usr/bin' });
     const denied = (action: string) =>
       rules
@@ -139,9 +139,17 @@ describe('OpenCode session rules', () => {
       '*/.agents/*',
       'opencode.json*',
       '*/opencode.json*',
+      '.git',
+      '.git/*',
+      '*/.git',
+      '*/.git/*',
       '/Users/someone/.config/opencode/*',
     ]);
-    assert.ok(rules.every((rule) => rule.effect === 'deny'));
+    // Nothing else is asked or allowed: edits keep OpenCode's own rules, so they need no press.
+    assert.deepEqual(
+      rules.filter((rule) => rule.effect !== 'deny'),
+      [{ action: 'shell', resource: '*', effect: 'ask' }],
+    );
     // OpenCode's global folder follows XDG_CONFIG_HOME, then OPENCODE_CONFIG_DIR; a file
     // OPENCODE_CONFIG names is denied too.
     assert.ok(denied.call(null, 'edit').includes('/Users/someone/.config/opencode/*'));

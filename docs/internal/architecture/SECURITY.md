@@ -199,10 +199,15 @@ which outrank every configuration file and any saved "always": `execute` (Code M
 JavaScript `fetch` no permission covers), `webfetch`, `websearch` and `subagent` (whose `model`
 input can send a child session to any listed model, hosted ones among them) are denied, so none is
 offered to the model, and so are edits to every path OpenCode reads its configuration, plugins and
-MCP servers from ([opencode-permissions.md](../validation/opencode-permissions.md)). This is not
-yet local-only: a shell command can still write those paths, or reach the network, unless shell
-commands ask, which with edits is the owner's question
-([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The server's password, passed in
+MCP servers from, and to a repository's `.git`, whose configuration and hooks name programs git
+runs ([opencode-permissions.md](../validation/opencode-permissions.md)). Shell commands ask the
+person (the owner's decision of 2026-10-08), whatever the person's or the repository's settings
+say, and the approval shows the command the model gave, whole; other edits need no press. The ask
+depends on OpenCode's parse of the command: OpenCode raises it for the commands its parse finds,
+and some shell constructs run without an ask. So Halcyonic treats the ask as a safeguard against an
+ordinary model, not a boundary: a model working to get around it can run commands, write files and
+reach the network unasked, and this is not local-only
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). A saved "always" outruns the ask, below. The server's password, passed in
 `OPENCODE_PASSWORD`, is not secret from commands the agent runs: each session's own environment
 leaves it out, but any process of the same user can read the server's starting environment
 (`ps -wwE`). So the adapter stops a task whose rules change, or whose request is approved, without
@@ -210,19 +215,20 @@ it, and stops the whole server when a session it did not open appears there; it 
 change rather than preventing it. Halcyonic's OpenCode server
 uses the person's own OpenCode data folder, so a saved "always", a Console login or a provider
 connection from their own OpenCode applies to its sessions, and Salidium reads those sessions from
-it. When `HALCYONIC_OPENCODE_CONFIG_HOME`
+it: an "always" the person gave for a command in the same project in their own OpenCode lets a
+Halcyonic task run commands it covers without asking (runtime verified). Halcyonic itself only ever
+answers "once". When `HALCYONIC_OPENCODE_CONFIG_HOME`
 is set, as `pnpm mac-setup local-model` sets it, OpenCode alone gets that directory as its
-`XDG_CONFIG_HOME`: Halcyonic's own OpenCode settings, which ask before every shell command, refuse
+`XDG_CONFIG_HOME`: Halcyonic's own OpenCode settings, which ask before shell commands, refuse
 `webfetch` and `websearch`, and name a model the Mac serves through Ollama as the default and as the
 small model. The control plane refuses to start unless they are held to the settings file's
 standard: the directory and its `opencode` folder are real folders owned by the user and closed to
 others (mode 0700), and the `opencode` folder holds nothing but `opencode.json`, a regular file of mode 0600 that
 holds only `model`, `small_model`, `permissions` and Ollama's context limits, with both models
 served on this Mac. Other folders may sit beside `opencode`, since tools an agent runs inherit the
-same configuration home. Their permissions are the person's to change; `pnpm mac-setup` reads them and
-says what they allow. They are not rules imposed on each session: a project's own `opencode.json`
-may still change them for its folder (seen for model settings,
-[local-models.md](../validation/local-models.md); assumed for permissions).
+same configuration home. Their permissions are the person's to change and apply when something
+other than Halcyonic runs OpenCode with them; each session Halcyonic opens carries the rules above,
+which outrank them and a project's own `opencode.json` (runtime verified for shell commands).
 
 When Create's companion is set up (`HALCYONIC_COMPANION_MODEL`, [ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)), the control plane asks
 Ollama on loopback for one reply at a time. Ollama's API has no authentication, so any process of

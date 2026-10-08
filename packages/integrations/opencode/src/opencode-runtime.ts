@@ -36,6 +36,8 @@ import {
   observation,
   observeEvent,
   type SessionState,
+  SHELL_TOOL,
+  shellCommand,
   toTimestamp,
 } from './events.ts';
 import {
@@ -93,7 +95,9 @@ export const DENIED_TOOLS: readonly string[] = ['execute', 'webfetch', 'websearc
  * (whose plugins load as server code), `.claude`, `.agents`, `opencode.json` and `opencode.jsonc`
  * (core/src/config/discovery.ts), and `~/.claude` and `~/.agents`, which `*` covers, since it
  * matches `/` too (core/src/util/wildcard.ts). OpenCode watches them and reloads MCP servers and
- * plugins, so an edit there could add either.
+ * plugins, so an edit there could add either. Also a repository's `.git`, file or folder: its
+ * configuration and hooks name programs that git runs, so an edit there would run code when a
+ * person approves a git command that looks harmless.
  */
 const CONFIG_PATHS: readonly string[] = [
   '.opencode/*',
@@ -104,16 +108,23 @@ const CONFIG_PATHS: readonly string[] = [
   '*/.agents/*',
   'opencode.json*',
   '*/opencode.json*',
+  '.git',
+  '.git/*',
+  '*/.git',
+  '*/.git/*',
 ];
 
 /**
  * The permission rules every session Halcyonic creates carries, after every configuration file's:
- * the tools above denied, and edits to any path OpenCode reads its configuration from denied,
- * among them OpenCode's global configuration folder (`OPENCODE_CONFIG_DIR`, or
- * `$XDG_CONFIG_HOME/opencode`, or `~/.config/opencode`; util/src/global-roots.ts) and a file
- * `OPENCODE_CONFIG` names. A session's deny outranks the person's configuration and any saved
- * "always" (core/src/permission.ts at v2.0.18). A shell command can still write those paths unless
- * shell commands ask.
+ * the tools above denied, shell commands asked (the owner's decision of 2026-10-08; OpenCode asks
+ * only for the commands its parse of the command line finds, opencode-permissions.md), and
+ * edits to a repository's `.git` and to any path OpenCode reads its configuration from denied,
+ * among them OpenCode's global
+ * configuration folder (`OPENCODE_CONFIG_DIR`, or `$XDG_CONFIG_HOME/opencode`, or
+ * `~/.config/opencode`; util/src/global-roots.ts) and a file `OPENCODE_CONFIG` names. Other edits
+ * keep OpenCode's own rules, so they need no press. A session's rule outranks the person's and the
+ * repository's configuration; a saved "always" outranks its ask but not its deny
+ * (core/src/permission.ts at v2.0.18; opencode-permissions.md).
  */
 export function sessionPermissions(
   environment: Readonly<Record<string, string>>,
@@ -139,6 +150,7 @@ export function sessionPermissions(
   ];
   return [
     ...DENIED_TOOLS.map((action) => ({ action, resource: '*', effect: 'deny' as const })),
+    { action: 'shell', resource: '*', effect: 'ask' },
     ...paths.map((resource) => ({ action: 'edit', resource, effect: 'deny' as const })),
   ];
 }
@@ -1273,8 +1285,21 @@ async function readSnapshot(
     throw new Error('the session, its permissions or the running sessions had an unexpected shape');
   }
   const running = Object.hasOwn(active, session.sessionId);
+  // The tool call each pending shell request was raised for, whose command it shows.
+  const askedBy = new Map<string, string>();
+  for (const item of permissions) {
+    if (!isRecord(item) || typeof item.id !== 'string' || item.action !== SHELL_TOOL) continue;
+    if (
+      isRecord(item.source) &&
+      item.source.type === 'tool' &&
+      typeof item.source.id === 'string'
+    ) {
+      askedBy.set(item.id, item.source.id);
+    }
+  }
   const toolStatus = new Map<string, string>();
-  if (running && session.state.tools.size > 0) {
+  const commands = new Map<string, string>();
+  if ((running && session.state.tools.size > 0) || askedBy.size > 0) {
     const messages = await readData(client, `${base}/message`);
     for (const item of Array.isArray(messages) ? messages : []) {
       if (!isRecord(item) || item.type !== 'assistant' || !Array.isArray(item.content)) continue;
@@ -1283,13 +1308,23 @@ async function readSnapshot(
         if (isRecord(part.state) && typeof part.state.status === 'string') {
           toolStatus.set(part.id, part.state.status);
         }
+        const command =
+          part.name === SHELL_TOOL && isRecord(part.state) && isRecord(part.state.input)
+            ? shellCommand(part.state.input)
+            : null;
+        if (command !== null) commands.set(part.id, command);
       }
     }
   }
   const pending: PendingPermission[] = [];
   for (const item of permissions) {
     if (!isRecord(item) || typeof item.id !== 'string') continue;
-    pending.push({ id: item.id, action: item.action, resources: item.resources });
+    const call = askedBy.get(item.id);
+    const command =
+      call === undefined
+        ? null
+        : (commands.get(call) ?? session.state.shellCalls.get(call) ?? null);
+    pending.push({ id: item.id, action: item.action, resources: item.resources, command });
   }
   return {
     inbox,
