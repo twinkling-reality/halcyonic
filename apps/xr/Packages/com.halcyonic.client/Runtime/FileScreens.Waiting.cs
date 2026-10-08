@@ -147,7 +147,7 @@ namespace Halcyonic.Client
             var rows = WithSource(room).Rows;
             var lines = new List<PageLine> { new PageLine(need.AsksRuns, tone: LineTone.Waiting) };
             // The request as much as fits under what it wants; Approve and Deny show it whole.
-            if (need.Request != null) lines.Add(new PageLine(LineWords.Theirs(need.Request), rows: Math.Max(1, Math.Min(RequestRows, rows - 1))));
+            if (need.Request != null) lines.Add(new PageLine(LineWords.TheirName(need.Request), rows: Math.Max(1, Math.Min(RequestRows, rows - 1))));
             var footer = ApprovalFooter(workspace);
             if (footer[PromptSlot.FarRight] == null && footer[PromptSlot.Secondary] == null && WorkspaceText.WhyNoActions(workspace) is string why)
             {
@@ -194,11 +194,21 @@ namespace Halcyonic.Client
         /// app's, or an instruction's words, the person's, a block leaning on Halcyonic's ground, as
         /// everything Halcyonic didn't write is (lane V's ruling, 2026-10-08).
         /// </summary>
+        /// <remarks>
+        /// Where an approval names no tool, what is read is Halcyonic's own sentence, upright (the independent review,
+        /// 2026-10-08). An approval's request is <see cref="LabelText.Exact"/>'s, which <see cref="LabelText.Name"/>
+        /// leaves as it is.
+        /// </remarks>
         public static PageLine RequestLine(WorkspaceSteering steering, string request, int rows = 1, int? fromRow = null) =>
-            new PageLine(LineWords.TheirName(request), rows: rows, fromRow: fromRow);
+            steering.Armed != WorkspaceAction.Instruct && request == WorkspaceText.ApprovalWithoutTool
+                ? new PageLine(request, rows: rows, fromRow: fromRow)
+                : new PageLine(LineWords.TheirName(request), rows: rows, fromRow: fromRow);
 
-        /// <summary>The agent's question as its lines show it: its words alone, leaning beside Halcyonic's quote mark, never quoted.</summary>
-        public static LineWords QuestionWords(QuestionPrompt asked) => LineWords.Theirs(asked.Text);
+        /// <summary>
+        /// The agent's question as its lines show it: its words alone, leaning beside Halcyonic's quote mark, never
+        /// quoted; words that show as nothing, as a lone U+0085, spelled by code point, so its page is still drawn.
+        /// </summary>
+        public static LineWords QuestionWords(QuestionPrompt asked) => LineWords.TheirName(asked.Text);
 
         /// <summary>The agent's question the person reads here, while it is the one the work shows.</summary>
         private static QuestionDraft? Asked(WorkspacePresentation workspace, FileScreen screen)
@@ -450,7 +460,7 @@ namespace Halcyonic.Client
             : new PageLine(LineWords.TheirName(typed), rows: rows, fromRow: fromRow);
 
         /// <summary>An answer as its row shows it: the agent's label and description, all outside text, leaning beside Halcyonic's quote mark.</summary>
-        public static LineWords AnswerRuns(QuestionOption option) => LineWords.Theirs(AnswerWords(option));
+        public static LineWords AnswerRuns(QuestionOption option) => LineWords.TheirName(AnswerWords(option));
 
         /// <summary>An answer's row to choose, as the page draws it and the layout measures it.</summary>
         public static PageLine AnswerRow(QuestionOption option, string key, bool chosen = false, bool available = true, int rows = 1) =>
@@ -458,7 +468,7 @@ namespace Halcyonic.Client
 
         /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
         public static string AnswerWords(QuestionOption option) =>
-            WorkspaceText.OneLine(option.Label) + (string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!));
+            LabelText.Name(option.Label) + (string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!));
 
         /// <summary>One answer offered, as a row to choose, its description after its label, in at most two rows.</summary>
         private static PageLine Answer(QuestionDraft draft, FileQuestion question, int prompt, int index)

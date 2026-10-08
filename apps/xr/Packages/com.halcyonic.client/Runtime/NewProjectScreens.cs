@@ -418,7 +418,7 @@ namespace Halcyonic.Client
                 for (var index = 0; index < choices.Count; index++)
                 {
                     if (answers != null && !answers.Shows(index)) continue;
-                    lines.Add(new PageLine(LineWords.Theirs(choices[index]), action: ChooseSuggestion,
+                    lines.Add(new PageLine(LineWords.TheirName(choices[index]), action: ChooseSuggestion,
                         key: AnswerKey(exchange.Generation, choices[index]), choice: true,
                         chosen: exchange.Chosen == CompanionAnswerRow.Suggestion && exchange.ChosenSuggestion == index,
                         available: recorded ? choices[index] == recordedAnswer : exchange.CanSay, rows: 2));
@@ -458,7 +458,7 @@ namespace Halcyonic.Client
             else
             {
                 // The companion has proposed: its recap is made, and Make the recap only opens it.
-                if (exchange.Latest is CompanionReply reply) lines.Add(new PageLine(LineWords.Theirs(reply.Line), rows: 3));
+                if (exchange.Latest is CompanionReply reply) lines.Add(new PageLine(LineWords.TheirName(reply.Line), rows: 3));
                 main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true);
                 answering = false;
             }
@@ -510,7 +510,7 @@ namespace Halcyonic.Client
         public static LineWords Asked(AskReply ask, bool withLine = true)
         {
             var question = LineWords.Theirs(ask.Question?.Text);
-            if (question.IsEmpty) return LineWords.TheirName(ask.Line);
+            if (question.IsEmpty) return LineWords.TheirName(string.IsNullOrEmpty(ask.Question?.Text) ? ask.Line : ask.Question!.Text);
             if (!withLine) return question;
             var both = LineWords.Theirs(LabelText.Plain(ask.Line) + " " + LabelText.Plain(ask.Question?.Text));
             return Rows(both.Text) <= QuoteRows ? both : question;

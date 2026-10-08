@@ -55,6 +55,22 @@ namespace Halcyonic.Client
 
         public string? About { get; }
 
+        /// <summary>
+        /// What it is now as runs: Halcyonic's words upright and, where they end with what it is about, as a
+        /// paired computer's address, that address leaning, the only words in it that aren't Halcyonic's.
+        /// </summary>
+        public LineWords NowRuns => Runs(Now);
+
+        /// <summary>Its value as runs, as <see cref="NowRuns"/>: a value that is the address itself leans whole.</summary>
+        public LineWords ValueRuns => Runs(Value);
+
+        private LineWords Runs(string words)
+        {
+            if (!ValueIsData || About == null || !words.EndsWith(About, StringComparison.Ordinal)) return LineWords.Written(words);
+            var lead = words.Substring(0, words.Length - About.Length);
+            return (lead.Length == 0 ? LineWords.None : LineWords.Ours(lead)) + LineWords.TheirName(About);
+        }
+
         /// <summary>Everything a row and its side panel show of it, and what an armed change is about, to tell whether it changed.</summary>
         internal string Shown => string.Join("\u0000", Value, Now, Next, Does, Prompt, Reason ?? "", Confirm ?? "", ValueIsData ? "data" : "", About ?? "");
     }
@@ -174,7 +190,8 @@ namespace Halcyonic.Client
                 lines.AddRange(rows.Select(setting =>
                 {
                     var read = setting.Read();
-                    return new PageLine(setting.Name, fact: read.Value, factIsData: read.ValueIsData, action: OpenSetting, key: setting.Key, opens: true,
+                    // Its value as runs: Halcyonic's word, as "Paired", upright; only an address in it, the person's, leans.
+                    return new PageLine(LineWords.Written(setting.Name), fact: read.ValueRuns, action: OpenSetting, key: setting.Key, opens: true,
                         chosen: setting.Key == chosen);
                 }));
                 var footer = new Footer(close);
@@ -189,7 +206,7 @@ namespace Halcyonic.Client
                         footer = Footer.Confirm(footer, PromptSlot.FarRight, new Prompt(Yes, now.Confirm, GlazeIcon.Change, PromptKind.Yes, safeInPlace: true),
                             new Prompt(Cancel, SettingsText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
                     }
-                    side = new SidePanel(open.Name, facts: new[] { new SideFact(SettingsText.Now, now.Now, valueIsData: now.ValueIsData), new SideFact(now.Next, now.Does) });
+                    side = new SidePanel(open.Name, facts: new[] { new SideFact(SettingsText.Now, now.NowRuns), new SideFact(now.Next, now.Does) });
                 }
                 // Paging waits while a setting is chosen.
                 else if (pages.Count > 1)

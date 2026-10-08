@@ -109,7 +109,7 @@ public class SettingsColumnTests
 
         public MenuSetting Setting => new("pairing", "Your computer", "Pairing", () => Paired
                 ? new SettingNow(Address, "Paired with " + Address, "Forget it", "This headset then needs pairing again to reach it", "Forget this computer",
-                    reason: Busy, confirm: "Yes, forget this computer", valueIsData: true)
+                    reason: Busy, confirm: "Yes, forget this computer", valueIsData: true, about: Address)
                 : new SettingNow("Not paired", "Not paired with a computer", "Pair", "Pair this headset with your computer", "Pair with a computer", reason: Busy),
             () =>
             {

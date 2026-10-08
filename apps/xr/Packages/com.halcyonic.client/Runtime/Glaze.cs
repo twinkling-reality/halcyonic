@@ -426,13 +426,16 @@ namespace Halcyonic.Client
 
             /// <summary>
             /// The ground under text from outside where it meets Halcyonic's words (lane V's treatment): white
-            /// at this opacity on the glass, so the words on it read first, with a hairline of its own at
-            /// <see cref="GroundHairlineOpacity"/>, corners of <see cref="GroundRadiusDegrees"/>, and
-            /// <see cref="GroundPaddingDegrees"/> past the words each side, so both its edges show.
+            /// at this opacity over the glass, blended in linear space as Unity blends, so it lifts the glass by
+            /// about a fifth of what a chosen row's fill does and never reads as chosen (lane V's second look:
+            /// a fill near (43, 50, 60) on the glass's (26, 33, 44)); a hairline of its own at
+            /// <see cref="GroundHairlineOpacity"/>, also linear, near (65, 71, 80); corners of
+            /// <see cref="GroundRadiusDegrees"/>; and <see cref="GroundPaddingDegrees"/> past the words each side,
+            /// so both its edges show.
             /// </summary>
-            public const float GroundOpacity = 0.075f;
+            public const float GroundOpacity = 0.02f;
 
-            public const float GroundHairlineOpacity = 0.17f;
+            public const float GroundHairlineOpacity = 0.05f;
 
             public const float GroundRadiusDegrees = 0.32f;
 

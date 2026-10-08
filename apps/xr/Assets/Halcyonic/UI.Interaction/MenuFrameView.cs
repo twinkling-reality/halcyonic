@@ -195,7 +195,7 @@ namespace Halcyonic.XR.UI
         /// Every page line shown, for the renders' checks of words from outside: its model, the label of
         /// its words, its icon where one shows, and the grounds drawn under its words and its fact.
         /// </summary>
-        public IEnumerable<(PageLine Model, TextMeshPro Words, TextMeshPro? Icon, TextMeshPro? Fact, IReadOnlyList<Surface> Grounds)> ShownLines
+        public IEnumerable<(PageLine Model, TextMeshPro Words, TextMeshPro? Icon, TextMeshPro? Fact, TextMeshPro? Chip, IReadOnlyList<Surface> Grounds)> ShownLines
         {
             get
             {
@@ -203,7 +203,7 @@ namespace Halcyonic.XR.UI
                 {
                     if (line.Model == null || !line.Words.gameObject.activeSelf) continue;
                     yield return (line.Model, line.Words, line.Icon.gameObject.activeSelf ? line.Icon : null,
-                        line.Fact.gameObject.activeSelf ? line.Fact : null, line.Grounds.ToList());
+                        line.Fact.gameObject.activeSelf ? line.Fact : null, line.Chip.gameObject.activeSelf ? line.Chip : null, line.Grounds.ToList());
                 }
             }
         }
@@ -258,13 +258,13 @@ namespace Halcyonic.XR.UI
         /// in the room its icon column, chip, fact and chevron leave, as the view lays it. Frames grow
         /// whole with larger text, so the count holds at both sizes.
         /// </summary>
-        public static int RowsOf(PageLine line, float columnDegrees) => Count(Quoted(line), WordsRoom(line, ContentWidth(columnDegrees)));
+        public static int RowsOf(PageLine line, float columnDegrees) => CountLine(line, WordsRoom(line, ContentWidth(columnDegrees)));
 
         /// <summary>How many rows <paramref name="words"/> alone wrap to across a column's content, as a side panel's fact value or a source line.</summary>
         public static int RowsOf(string words, float columnDegrees) => Count(words, ContentWidth(columnDegrees));
 
         /// <summary>Whether an answer's words fit one row in half a column <paramref name="columnDegrees"/> wide, so it may share its row with the next.</summary>
-        public static bool FitsHalf(PageLine answer, float columnDegrees) => Count(Quoted(answer), WordsRoom(answer, MenuPage.HalfWidth(columnDegrees))) == 1;
+        public static bool FitsHalf(PageLine answer, float columnDegrees) => CountLine(answer, WordsRoom(answer, MenuPage.HalfWidth(columnDegrees))) == 1;
 
         /// <summary>
         /// How many rows <paramref name="shown"/> takes on a page in a column
@@ -286,7 +286,7 @@ namespace Halcyonic.XR.UI
                     continue;
                 }
                 var line = shown[at];
-                rows += line.FromRow != null ? line.Rows : Mathf.Min(line.Rows, Count(Quoted(line), WordsRoom(line, content)));
+                rows += line.FromRow != null ? line.Rows : Mathf.Min(line.Rows, CountLine(line, WordsRoom(line, content)));
             }
             return rows;
         }
@@ -652,6 +652,16 @@ namespace Halcyonic.XR.UI
 
         private static int Count(string words, float room) => Count(Measuring(Glaze.Menu.BodyDegrees), words, room);
 
+        /// <summary>How many rows a line's words wrap to in <paramref name="room"/>, from the very text its label draws: its runs, with the room beside each ground.</summary>
+        private static int CountLine(PageLine line, float room)
+        {
+            var label = Measuring(Glaze.Menu.BodyDegrees);
+            label.richText = false;
+            label.parseCtrlCharacters = true;
+            label.text = line.Runs.ForTextMeshPro().Text;
+            return Mathf.Max(1, GlazeText.Lay(label, room, Unlimited).Lines);
+        }
+
         private static int Count(TextMeshPro label, string words, float room)
         {
             GlazeText.SetLiteral(label, words);
@@ -710,7 +720,7 @@ namespace Halcyonic.XR.UI
             if (!(first.Choice && second.Choice) && !first.BesideNext) return false;
             if (first.FromRow != null || second.FromRow != null) return false;
             var half = HalfWidth(content);
-            return Count(Quoted(first), WordsRoom(first, half)) == 1 && Count(Quoted(second), WordsRoom(second, half)) == 1;
+            return CountLine(first, WordsRoom(first, half)) == 1 && CountLine(second, WordsRoom(second, half)) == 1;
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -1110,8 +1120,15 @@ namespace Halcyonic.XR.UI
             if (model.Runs.AllTheirs || model.Claim)
             {
                 if (row) return;
+                // One ground under the block that hugs its words, so a chip or a time beside them stands on the glass (lane V).
+                var at = line.Words.transform.localPosition;
                 var pad = GlazeRuns.GroundPadding;
-                GlazeRuns.DrawGround(line.BlockGround(), new Vector2(right - left + 2f * pad, height + 2f * pad), new Vector3((left + right) / 2f, middle, -U(0.04f)));
+                var boxes = GlazeText.RunBoxes(line.Words, theirs);
+                if (boxes.Count == 0) return;
+                var area = Rect.MinMaxRect(at.x + boxes.Min(box => box.xMin) - pad, at.y + boxes.Min(box => box.yMin) - pad,
+                    at.x + boxes.Max(box => box.xMax) + pad, at.y + boxes.Max(box => box.yMax) + pad);
+                line.BlockArea = area;
+                GlazeRuns.DrawGround(line.BlockGround(), area.size, new Vector3(area.center.x, area.center.y, -U(0.04f)));
                 return;
             }
             GlazeRuns.TokenGrounds(line.Words, theirs, line.WordGrounds, contentPart, Order + 2);
@@ -1126,10 +1143,13 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void JoinBlock(Line first, Line next, float left, float right, float top, float foot)
         {
-            var pad = GlazeRuns.GroundPadding;
             foreach (var ground in next.Grounds.ToList()) ground.gameObject.SetActive(false);
             next.Icon.gameObject.SetActive(false);
-            GlazeRuns.DrawGround(first.BlockGround(), new Vector2(right - left + 2f * pad, top - foot + 2f * pad), new Vector3((left + right) / 2f, (top + foot) / 2f, -U(0.04f)));
+            if (!(first.BlockArea is Rect above) || !(next.BlockArea is Rect below)) return;
+            // From the first line's top to this one's foot, as wide as the block's words reach on either.
+            var area = Rect.MinMaxRect(Mathf.Min(above.xMin, below.xMin), Mathf.Min(above.yMin, below.yMin), Mathf.Max(above.xMax, below.xMax), Mathf.Max(above.yMax, below.yMax));
+            first.BlockArea = area;
+            GlazeRuns.DrawGround(first.BlockGround(), area.size, new Vector3(area.center.x, area.center.y, -U(0.04f)));
         }
 
 
@@ -1165,8 +1185,9 @@ namespace Halcyonic.XR.UI
                 var count = Mathf.Max(1, info.lineCount);
                 var first = Mathf.Min(from, count - 1);
                 var last = Mathf.Min(from + model.Rows, count);
-                var start = info.characterInfo[info.lineInfo[first].firstCharacterIndex].index;
-                var end = last < count ? info.characterInfo[info.lineInfo[last].firstCharacterIndex].index : text.Length;
+                // Never between the two backslashes of a pair, which would leave a lone one to turn the next characters into another.
+                var start = LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[first].firstCharacterIndex].index);
+                var end = last < count ? LabelText.CharacterStart(text, info.characterInfo[info.lineInfo[last].firstCharacterIndex].index) : text.Length;
                 label.text = text.Substring(start, end - start);
                 theirs = theirs.Select(range => (Mathf.Max(range.Start, start) - start, Mathf.Min(range.End, end) - start))
                     .Where(range => range.Item2 > range.Item1).ToList();
@@ -1363,6 +1384,9 @@ namespace Halcyonic.XR.UI
                 return WordGrounds[0];
             }
 
+            /// <summary>Where the ground under its block of outside text stands, in the content's units; null where it has none.</summary>
+            public Rect? BlockArea { get; set; }
+
             /// <summary>The grounds shown, for the renders' checks.</summary>
             public IEnumerable<Surface> Grounds => WordGrounds.Concat(FactGrounds).Where(ground => ground.gameObject.activeSelf);
 
@@ -1415,6 +1439,7 @@ namespace Halcyonic.XR.UI
                 ChipShape.gameObject.SetActive(false);
                 Chevron.gameObject.SetActive(false);
                 foreach (var ground in WordGrounds.Concat(FactGrounds)) ground.gameObject.SetActive(false);
+                BlockArea = null;
                 Button?.Hide();
             }
         }

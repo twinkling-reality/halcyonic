@@ -20,7 +20,7 @@ namespace Halcyonic.Client
         public static LineWords Proposed(ProposeReply reply)
         {
             var view = CompanionText.View(reply.View);
-            return (view == null ? LineWords.None : LineWords.Ours(view + " ")) + LineWords.Theirs(reply.Line);
+            return (view == null ? LineWords.None : LineWords.Ours(view + " ")) + LineWords.TheirName(reply.Line);
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace Halcyonic.Client
                 runtime.Synthetic && live ? LineWords.Ours(EntryText.PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated: ") : LineWords.None) + Raw(runtime.DisplayName),
                 model == null ? LineWords.Ours("chosen by the agent app") : Raw(model.DisplayName),
                 LineWords.Written(model == null ? "the agent app chooses" : EntryText.ServedInSentence(model.Served) + "; " + EntryText.Tools(model.ToolCalling)),
-                model?.ModelRef ?? "none",
+                model?.ModelRef is string modelRef ? Raw(modelRef) : LineWords.Ours("none"),
                 idea.FirstTask,
                 folder,
                 before,

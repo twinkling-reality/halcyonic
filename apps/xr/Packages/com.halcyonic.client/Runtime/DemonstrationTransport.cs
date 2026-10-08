@@ -82,23 +82,25 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// What the acknowledgement says when a person's answer has a recorded continuation: that it
-        /// reached no agent, and which recorded answer the recording continues with.
+        /// reached no agent, and that the recording continues as it recorded. It names no label: it is
+        /// Halcyonic's message, drawn as Halcyonic's words, so text from the recording has no place in it
+        /// (settled by the coordinator, 2026-10-08).
         /// </summary>
         public static string Answered(DemonstrationAnswer answer) => answer.Kind switch
         {
             DemonstrationAnswerKind.Approve => "Not sent to any agent; the recording continues as recorded for approving.",
             DemonstrationAnswerKind.Deny => "Not sent to any agent; the recording continues as recorded for denying.",
             DemonstrationAnswerKind.Interrupt => "Not sent to any agent; the recording continues as recorded for stopping it.",
-            DemonstrationAnswerKind.Answer => "Nothing is sent to an agent. The recording goes on as if you answered \u201C" + answer.Label + "\u201D.",
-            _ => "Not sent to any agent; the recording continues as recorded for “" + answer.Label + "”.",
+            DemonstrationAnswerKind.Answer => "Nothing is sent to an agent. The recording goes on as if you had chosen its recorded answer.",
+            _ => "Not sent to any agent; the recording continues as recorded for this instruction.",
         };
 
         /// <summary>
         /// What the acknowledgement says when a person typed an instruction the recording does not hold:
-        /// it continues with a recorded one instead, and names it.
+        /// it continues with a recorded one instead, naming no label (settled by the coordinator, 2026-10-08).
         /// </summary>
         public static string AnsweredInstead(DemonstrationAnswer answer) =>
-            "Not sent to any agent; the recording holds only its own instructions, so it continues as recorded for “" + answer.Label + "”.";
+            "Not sent to any agent; the recording holds only its own instructions, so it continues with the one it recorded.";
 
         /// <summary>
         /// There is nothing to connect to, and the token is never used; the connection opens once the

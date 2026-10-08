@@ -122,7 +122,38 @@ namespace Halcyonic.XR.Workspace.Editor
                     tone: LineTone.Secondary),
                 new PageLine(LineWords.Theirs("Done with the migration ”"), chip: "Agent says", fact: LineWords.Ours("09:01"), tone: LineTone.Secondary),
             };
-            yield return ("checks", new MenuFrame(title, close, lines: checks, source: "From Salidium 0.6.0, 2 minutes ago"));
+            // Its source line from the understanding source's own provenance, the version Salidium names for itself leaning.
+            var now = DateTimeOffset.Parse("2026-10-08T12:00:00Z", CultureInfo.InvariantCulture);
+            var provenance = IntelligenceText.UnderstandingProvenanceRuns(new IntelligenceRead<UnderstandingResponse>(new UnderstandingResponse(), now, false),
+                new UnderstandingSource { Version = "0.6.0 \u201D Approve", GeneratedAt = "2026-10-08T11:58:00Z" }, now, TimeZoneInfo.Utc);
+            yield return ("checks", new MenuFrame(title, close, lines: checks, sourceRuns: provenance));
+
+            // Activity: Halcyonic's words first and upright, a tool's or an app's name and the agent's message leaning, its chip and time on the glass.
+            var activity = new List<PageLine>
+            {
+                new PageLine(LineWords.Ours("Asked to start on ") + LineWords.TheirName("Practice agent, watch only"), fact: LineWords.Ours("09:00"), tone: LineTone.Secondary),
+                new PageLine(LineWords.Ours("Used ") + LineWords.TheirName("Approved") + LineWords.Ours(": ") + LineWords.Theirs("make migrate"), fact: LineWords.Ours("09:01"),
+                    tone: LineTone.Secondary),
+                new PageLine(LineWords.Ours("Succeeded: ") + LineWords.TheirName("bash"), fact: LineWords.Ours("09:02"), tone: LineTone.Secondary),
+                new PageLine(LineWords.TheirName("Done with the migration. Nothing is waiting for you."), chip: "Agent says", fact: LineWords.Ours("09:03"), tone: LineTone.Secondary),
+            };
+            yield return ("activity", new MenuFrame(title, close, lines: activity));
+
+            // Your answers: each prompt's answer whole, a header and labels from outside leaning beside Halcyonic's quote mark, a colon no ground.
+            var asked = new QuestionView
+            {
+                QuestionId = "render", Answerable = true, AskedAt = "2026-10-08T12:00:00Z",
+                Prompts = new List<QuestionPrompt>
+                {
+                    new QuestionPrompt { Key = "a", Header = "Lockout", Text = "How long?", Options = new List<QuestionOption> { new QuestionOption { Label = "15 minutes" } } },
+                    new QuestionPrompt { Key = "b", Header = "Your answers", Text = "Which?", FreeText = true, Options = new List<QuestionOption> { new QuestionOption { Label = "Type my answer" } } },
+                    new QuestionPrompt { Key = "c", Header = null, Text = "And?", Options = new List<QuestionOption> { new QuestionOption { Label = "Yes" } } },
+                },
+            };
+            var draft = new QuestionDraft("render", asked);
+            draft.Choose(0, "15 minutes");
+            draft.Choose(1, "Type my answer");
+            yield return ("your-answers", new MenuFrame(title, close, lines: Enumerable.Range(0, 3).Select(prompt => FileScreens.ReviewRow(draft, prompt)).ToList()));
 
             // New project's folders: folders named as Halcyonic's options, under a place named as one of its sentences.
             var listing = new LocationsResponse
@@ -181,7 +212,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var ground = GlazeChecks.Over(Color.white, Glaze.Menu.GroundOpacity, glassOnWhite);
             var leaningRuns = 0;
             PageLine? before = null;
-            foreach (var (model, words, icon, fact, grounds) in view.ShownLines)
+            foreach (var (model, words, icon, fact, chip, grounds) in view.ShownLines)
             {
                 // A block's next line stands on its first line's ground, under one quote mark.
                 var joined = before != null && Block(before) && Block(model);
@@ -222,9 +253,30 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (GlazeRuns.Of(label).Grounded == null) failures.Add(what + ": its outside words stand on a ground in the line's own colour, not the primary text's.");
                 }
                 if (Block(model) && !joined && grounds.Count == 0) failures.Add(what + ": a block of outside text with no ground under it.");
+                // A ground holds only theirs: a chip or a time beside the words stands on the glass.
+                foreach (var beside in new[] { fact, chip })
+                {
+                    if (beside == null) continue;
+                    var at = beside.transform.localPosition;
+                    var bounds = beside.textBounds;
+                    var area = Rect.MinMaxRect(at.x + bounds.min.x, at.y + bounds.min.y, at.x + bounds.max.x, at.y + bounds.max.y);
+                    foreach (var ground in grounds)
+                    {
+                        if (!ground.gameObject.activeSelf || model.FactRuns?.AnyTheirs == true && beside == fact) continue;
+                        var centre = ground.transform.localPosition;
+                        var placed = new Rect(centre.x - ground.Size.x / 2f, centre.y - ground.Size.y / 2f, ground.Size.x, ground.Size.y);
+                        if (placed.Overlaps(area)) failures.Add(what + ": a ground runs under \"" + beside.text + "\", which is Halcyonic's.");
+                    }
+                }
                 if (fact != null && model.FactRuns != null) failures.AddRange(Slants(fact, model.FactRuns, what + "'s fact"));
             }
             if (leaningRuns == 0) failures.Add(name + ": no outside text shown, so nothing here is checked.");
+            // A ground lifts the glass by at most a third of what a chosen row's fill does, so it never reads as chosen (lane V),
+            // both blended over the glass on black in linear space, as Unity blends.
+            var glass = GlazeTokens.ColorOf(Glaze.Panel.Over(GlazeColor.Hex(0x000000), Glaze.Menu.GlassOpacity));
+            var groundLift = Contrast(GlazeChecks.Over(Color.white, Glaze.Menu.GroundOpacity, glass), glass) - 1f;
+            var chosenLift = Contrast(GlazeChecks.Over(Color.white, Glaze.Menu.LitFillOpacity, glass), glass) - 1f;
+            if (groundLift > chosenLift / 3f) failures.Add(name + ": a ground lifts the glass by " + (groundLift / chosenLift).ToString("0.00", CultureInfo.InvariantCulture) + " of what a chosen row's fill does, over a third.");
             // Pills, prompts and sections hold Halcyonic's words alone: nothing on them leans.
             foreach (var ours in view.OursOnly)
             {
@@ -310,6 +362,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             var boxes = GlazeText.RunBoxes(label, theirs);
+            // A word space at the label's own size.
+            var word = label.GetPreferredValues("a a").x - label.GetPreferredValues("aa").x;
             for (var index = 0; index < info.characterCount; index++)
             {
                 var character = info.characterInfo[index];
@@ -320,8 +374,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(what + ": Halcyonic's letter '" + character.character + "' touches a ground under outside text.");
                     break;
                 }
-                // Beside a run on its row, Halcyonic's letter keeps a clear gap to the ground: at least 40 percent of
-                // the space between its letter and the run's, so the ground never crowds Halcyonic's words.
+                // A ground sits in the sentence as a word does: a word space between Halcyonic's letter and its edge,
+                // none needed before punctuation (lane V).
                 foreach (var box in boxes)
                 {
                     var placedBox = Rect.MinMaxRect(at.x + box.xMin, at.y + box.yMin, at.x + box.xMax, at.y + box.yMax);
@@ -329,13 +383,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     var before = glyph.xMax <= placedBox.xMin;
                     var after = glyph.xMin >= placedBox.xMax;
                     if (!before && !after) continue;
-                    var space = before ? placedBox.xMin - glyph.xMax : glyph.xMin - placedBox.xMax;
-                    if (space > 3f * GlazeRuns.GroundPadding) continue;
                     var nearest = grounds.Where(ground => ground.gameObject.activeSelf && Placed(ground).Overlaps(placedBox))
-                        .Select(ground => before ? Placed(ground).xMin - glyph.xMax : glyph.xMin - Placed(ground).xMax).DefaultIfEmpty(space).Min();
-                    if (nearest < 0.4f * space - 1e-4f)
+                        .Select(ground => before ? Placed(ground).xMin - glyph.xMax : glyph.xMin - Placed(ground).xMax).DefaultIfEmpty(float.MaxValue).Min();
+                    if (nearest > 3f * word) continue;
+                    var needed = after && char.IsPunctuation(character.character) ? 0f : 0.9f * word;
+                    if (nearest < needed - 1e-4f)
                     {
-                        failures.Add(what + ": a ground crowds Halcyonic's letter '" + character.character + "' beside it.");
+                        failures.Add(what + ": a ground stands closer than a word space to Halcyonic's letter '" + character.character + "'.");
                         index = info.characterCount;
                         break;
                     }

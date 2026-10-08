@@ -150,7 +150,9 @@ public class JudgeFileWalkTests
         var answered = (ExecutionAnswerQuestionCommand)sending.Command!;
         Assert.That(answered.Payload.Answers.Single().Selected, Is.EqualTo(new[] { Demonstration.FirstOption }));
         await submissions.SubmitAsync(c => session!.SubmitAsync(c), sending.Command!, workspace.Execution.ExecutionId);
-        Assert.That(submissions.FeedbackFor(workspace.Execution.ExecutionId, session!.State, 5).First().Text, Does.Contain(Demonstration.FirstOption));
+        // Halcyonic's message names no text from the recording (settled 2026-10-08).
+        Assert.That(submissions.FeedbackFor(workspace.Execution.ExecutionId, session!.State, 5).First().Text,
+            Is.EqualTo("Nothing is sent to an agent. The recording goes on as if you had chosen its recorded answer.").And.Not.Contain(Demonstration.FirstOption));
 
         // The approval: Waiting again, Approve the main action and Deny beside it; Stop stands on Activity.
         activity.Record((await Pumping.Until(session, Demonstration.AsksForApproval, "the directed work asks for approval")).Events);
@@ -233,7 +235,9 @@ public class JudgeFileWalkTests
         var telling = steering.Typed(screen.PresetToSend, workspace);
         Assert.That(telling.Step, Is.EqualTo(SteeringStep.Send));
         await submissions.SubmitAsync(c => session.SubmitAsync(c), telling.Command!, executionId);
-        Assert.That(submissions.FeedbackFor(executionId, session.State, 5).First().Text, Does.Contain(presets[0].Label));
+        // Halcyonic's message names no text from the recording (settled 2026-10-08).
+        Assert.That(submissions.FeedbackFor(executionId, session.State, 5).First().Text,
+            Is.EqualTo("Not sent to any agent; the recording continues as recorded for this instruction.").And.Not.Contain(presets[0].Label));
         await Pumping.Until(session, s => s.State.Runtimes.Count == 0, "the recording plays its instruction and ends");
         Assert.That(Demonstration.DirectedExecution(session)!.LastTestRun!.Outcome, Is.EqualTo(TestOutcome.Passed));
         Assert.That(session.State.Commands.Values.Where(command => command.ExecutionId == executionId).Select(command => command.Status),

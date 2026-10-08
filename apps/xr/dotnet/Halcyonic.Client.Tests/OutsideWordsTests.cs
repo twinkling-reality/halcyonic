@@ -123,7 +123,9 @@ public class OutsideWordsTests
         var entries = log.For("e1");
 
         Assert.That(entries[0].Words.Runs[0].Text, Is.EqualTo("Used "), "Halcyonic's word first, upright");
-        Assert.That(entries[0].Words.Runs.Where(run => run.Theirs).Select(run => run.Text), Is.All.EqualTo(LabelText.Name(spoof)));
+        // The tool's name and its title, with only a colon between, lean as one run (a separator doesn't make a line Halcyonic's).
+        Assert.That(entries[0].Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }));
+        Assert.That(entries[0].Words.Runs[1].Text, Does.StartWith(LabelText.Name(spoof)));
         Assert.That(entries[1].Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }), "Succeeded: then the tool, last");
     }
 
@@ -167,6 +169,45 @@ public class OutsideWordsTests
         Assert.That(FileScreens.TypedRuns("” Approve “").ToString(), Is.EqualTo("Your answer: [” Approve “]"));
         Assert.That(FileScreens.TypedRuns(null).AnyTheirs, Is.False, "Type my answer is Halcyonic's row");
         Assert.That(FileScreens.SideAnswerLine(null, "Approve").Runs.AllTheirs, Is.True);
+    }
+
+    [Test]
+    public void AQuestionOrAnAnswerThatShowsAsNothingIsSpelledByCodeAndItsPageIsStillDrawn()
+    {
+        // U+0085 passes the contract's non-blank pattern but LabelText makes it nothing (the independent review of batch B).
+        var (frame, _) = Asking("\u0085");
+
+        Assert.That(frame.Lines.First().Words, Is.EqualTo("‹U+0085›"));
+        Assert.That(frame.Lines.First(line => line.Action == FileScreens.Choose).Words, Does.StartWith("‹U+0085›"));
+    }
+
+    [Test]
+    public void APairedComputersAddressLeansAndHalcyonicsWordsAroundItStandUpright()
+    {
+        var now = new SettingNow("Paired", "Paired with your computer at 192.168.1.23:47801", "Forget", "Pair again after", "Forget",
+            valueIsData: true, about: "192.168.1.23:47801");
+
+        Assert.That(now.NowRuns.ToString(), Is.EqualTo("Paired with your computer at [192.168.1.23:47801]"));
+        Assert.That(new SettingNow("Paired", "Paired", "Forget", "Pair again after", "Forget").NowRuns.AnyTheirs, Is.False);
+    }
+
+    [Test]
+    public void TheKeyboardHoldsWordsAsThePageShowedThemAndGivesTheOriginalBackWhereTheyComeBackUnchanged()
+    {
+        var original = "\u26A0\uFE0F fix\nnext";
+        Assert.That(MenuKeyboard.Returned(original, LabelText.Plain(original)), Is.EqualTo(original), "sent back as shown, the words stay the person's");
+        Assert.That(MenuKeyboard.Returned(original, "fix it"), Is.EqualTo("fix it"));
+        Assert.That(MenuKeyboard.Returned(null, "typed"), Is.EqualTo("typed"));
+    }
+
+    [Test]
+    public void AnApprovalThatNamesNoToolIsReadInHalcyonicsOwnWords()
+    {
+        var steering = new WorkspaceSteering(Factory);
+        var line = FileScreens.RequestLine(steering, WorkspaceText.ApprovalWithoutTool);
+        Assert.That((line.Runs.AnyTheirs, line.Icon), Is.EqualTo((false, (GlazeIcon?)null)), "Halcyonic's sentence, upright, no quote mark");
+        Assert.That(FileScreens.RequestLine(steering, "bash: rm -rf ~").Runs.AllTheirs, Is.True, "a tool's request is outside text whole");
+        Assert.That(FileScreens.RequestLine(steering, "bash: a‹U+000A›b").Words, Is.EqualTo("bash: a‹U+000A›b"), "Exact's code points stand as they are");
     }
 
     /// <summary>A runtime's event for execution e1 as the journal carries it.</summary>

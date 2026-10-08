@@ -631,8 +631,14 @@ namespace Halcyonic.Client
         public static string Request(ApprovalView? approval) => approval?.Subject switch
         {
             ToolUseSubject tool => OneLine(tool.ToolName) + ": " + LabelText.Exact(tool.Summary),
-            _ => "It wants your approval.",
+            _ => ApprovalWithoutTool,
         };
+
+        /// <summary>
+        /// The request read before Yes where an approval names no tool: Halcyonic's own sentence. A tool's request
+        /// always holds its name and ": ", so it never reads as this one.
+        /// </summary>
+        public const string ApprovalWithoutTool = "It wants your approval.";
 
         /// <summary>The caption over a request shown whole, with which part shows when it takes more than one.</summary>
         public static string RequestCaption(int part, int parts) => parts <= 1

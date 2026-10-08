@@ -20,7 +20,7 @@ namespace Halcyonic.Client
     public sealed class ActivityEntry
     {
         public ActivityEntry(long position, string occurredAt, ActivityKind kind, string text, bool reported)
-            : this(position, occurredAt, kind, reported ? LineWords.Theirs(text) : LineWords.Written(text), reported)
+            : this(position, occurredAt, kind, reported ? LineWords.TheirName(text) : LineWords.Written(text), reported)
         {
         }
 
@@ -144,7 +144,7 @@ namespace Halcyonic.Client
                 case RuntimeTurnInterruptedEvent _:
                     return Entry(ActivityKind.Turn, "Round stopped");
                 case RuntimeAgentMessageEvent message:
-                    return Said(ActivityKind.Message, LineWords.Theirs(message.Payload.Text), reported: true);
+                    return Said(ActivityKind.Message, LineWords.TheirName(message.Payload.Text), reported: true);
                 case RuntimeToolStartedEvent tool:
                     toolNames[ToolKey(e, tool.Payload.ToolCallId)] = tool.Payload.ToolName;
                     // Halcyonic's word first, so a tool named "Approved" never reads as Halcyonic's own entry (settled 2026-10-08).

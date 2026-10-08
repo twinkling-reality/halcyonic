@@ -89,6 +89,37 @@ public class LineWordsTests
         Assert.That(words.Runs.Select(run => (run.Text, run.Theirs)), Is.EqualTo(new[] { ("ab", true), (" in x ", false), ("c", true) }));
     }
 
+    [TestCase(": ")]
+    [TestCase(", ")]
+    [TestCase("; ")]
+    [TestCase(" \u00B7 ")]
+    [TestCase(" ")]
+    public void ASeparatorBetweenTwoRunsOfTheirsDoesNotMakeTheLineHalcyonics(string separator)
+    {
+        // "{header}: {labels}" is outside text whole, drawn as an answer row is, with no grounds round a colon (lane V).
+        var words = LineWords.Theirs("Lockout") + LineWords.Ours(separator) + LineWords.Theirs("15 minutes");
+
+        Assert.That(words.Runs.Single().Theirs, Is.True);
+        Assert.That(words.Text, Is.EqualTo("Lockout" + separator + "15 minutes"));
+        Assert.That((LineWords.Theirs("a") + LineWords.Ours(" in ") + LineWords.Theirs("b")).Runs.Count, Is.EqualTo(3), "a word is Halcyonic's, not a separator");
+        Assert.That((LineWords.Ours("Used ") + LineWords.Theirs("a") + LineWords.Ours(".")).Runs.Count, Is.EqualTo(3), "punctuation at a line's end stays Halcyonic's");
+    }
+
+    [Test]
+    public void APartNeverStartsOrEndsOnTheSecondBackslashOfAPair()
+    {
+        // Every backslash is doubled for the label: cutting a part between a pair's two would leave a lone one,
+        // which turns the next characters into another (the independent review of batch B).
+        var shown = LabelText.ForTextMeshPro("a\\u0003b\\\\c");
+        var second = shown.IndexOf('\\') + 1;
+        Assert.That(LabelText.CharacterStart(shown, second), Is.EqualTo(second - 1));
+        Assert.That(LabelText.CharacterStart(shown, second - 1), Is.EqualTo(second - 1));
+        var pairs = shown.LastIndexOf('c') - 4;
+        Assert.That(Enumerable.Range(pairs, 4).Select(index => LabelText.CharacterStart(shown, index)), Is.EqualTo(new[] { pairs, pairs, pairs + 2, pairs + 2 }));
+        Assert.That(LabelText.CharacterStart(shown, 0), Is.EqualTo(0));
+        Assert.That(LabelText.CharacterStart(shown, shown.Length), Is.EqualTo(shown.Length));
+    }
+
     [Test]
     public void HalcyonicsOwnRunsHoldOnlyWhatShowsAsWritten()
     {
@@ -119,16 +150,22 @@ public class LineWordsTests
     [TestCaseSource(nameof(Edges))]
     public void EveryRunOfTheirsStandsOnTheShownTextCharacterByCharacter(string edge)
     {
-        var words = LineWords.Ours("Used ") + LineWords.Theirs(edge) + LineWords.Ours(": ") + LineWords.Theirs("\\" + edge) + LineWords.Ours(" (+1)");
+        var words = LineWords.Ours("Used ") + LineWords.Theirs(edge) + LineWords.Ours(" or ") + LineWords.Theirs("\\" + edge) + LineWords.Ours(" (+1)");
         var (text, theirs) = words.ForTextMeshPro();
 
-        // The label's text is what LabelText gives a TextMeshPro label for the whole line, run by run.
-        Assert.That(text, Is.EqualTo(string.Concat(words.Runs.Select(run => run.Text.Replace("\\", "\\\\")))));
+        // The label's text is what LabelText gives a TextMeshPro label for the whole line, run by run, with one
+        // more space wherever outside text meets Halcyonic's words, for the ground's padding.
+        Assert.That(text, Is.EqualTo(string.Join(LineWords.Pad, words.Runs.Select(run => run.Text.Replace("\\", "\\\\")))));
         Assert.That(theirs.Count, Is.EqualTo(2));
-        // Each character of the label's text, as the label shows it, belongs to the run it came from.
+        // Each character of the label's text, as the label shows it, belongs to the run it came from; the added spaces to none of theirs.
         var owners = Shown(text);
         var expected = new List<bool>();
-        foreach (var run in words.Runs) expected.AddRange(Shown(run.Text.Replace("\\", "\\\\")).Select(_ => run.Theirs));
+        for (var index = 0; index < words.Runs.Count; index++)
+        {
+            if (index > 0) expected.Add(false);
+            var run = words.Runs[index];
+            expected.AddRange(Shown(run.Text.Replace("\\", "\\\\")).Select(_ => run.Theirs));
+        }
         Assert.That(owners.Select(each => theirs.Any(range => each.Start >= range.Start && each.Start < range.End)), Is.EqualTo(expected), edge);
         // No range splits a character the label shows: each starts and ends on one's edge.
         foreach (var (start, end) in theirs)
@@ -142,7 +179,7 @@ public class LineWordsTests
         {
             if (!theirs.Any(range => index >= range.Start && index < range.End)) ours.Append(text[index]);
         }
-        Assert.That(ours.ToString(), Is.EqualTo("Used :  (+1)"));
+        Assert.That(ours.ToString(), Is.EqualTo("Used " + LineWords.Pad + LineWords.Pad + " or " + LineWords.Pad + LineWords.Pad + " (+1)"));
     }
 
     /// <summary>

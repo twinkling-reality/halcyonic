@@ -87,6 +87,21 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
+    /// The system keyboard as every column opens it: holding what it is given by <see cref="LabelText.Plain"/>'s
+    /// rule, as the page showed it, since the keyboard draws it with no lean or ground; and words given back
+    /// unchanged from that are the original's, so reopening the keyboard never alters what the person wrote or
+    /// was offered (the independent review of batch B, 2026-10-08).
+    /// </summary>
+    public static class MenuKeyboard
+    {
+        public static void Open(IMenuHost host, string? original, string prompt, Action<string> done) =>
+            host.OpenKeyboard(LabelText.Plain(original), prompt, text => done(Returned(original, text)));
+
+        /// <summary>What the keyboard gave back, or the original where it gave back the original as shown.</summary>
+        public static string Returned(string? original, string text) => original != null && text == LabelText.Plain(original) ? original : text;
+    }
+
+    /// <summary>
     /// One column of the menu's plane (ADR 0026): a place of the menu (Tasks, Projects, Usage,
     /// Settings), a task's file, or New project. A plain object the director asks for its frame and
     /// hands every press, draw and word heard, each only while the app has focus; its own rules
