@@ -82,7 +82,9 @@ Only whether each exists is read, and one that can't be checked counts as presen
 lifts once the path is gone. A refusal by the check after a launch, or at a start, which also
 stops a running server and reports its threads lost, is remembered until the control plane
 restarts, so no list or start launches Codex again; any other failure, such as a `config.toml`
-Codex can't read yet, is tried again by the next request. `/etc/codex` does not exist on this Mac,
+Codex can't read yet, is tried again by the next request. The check runs at launches and starts
+only: managed configuration that appears while Codex is idle or running leaves it running until
+the next start. `/etc/codex` does not exist on this Mac,
 and `configRequirements/read` answers null here.
 The proxy variables never reach Codex from the control plane, and the adapter sets `NO_PROXY` to
 `localhost,127.0.0.1,::1` after any additions, so a request to Ollama, the prompts and code with
@@ -141,7 +143,9 @@ Skills are the exception: Codex 0.157.0 discovers them from an untrusted project
 that turns discovery off (`skills` takes only `bundled`, `include_instructions`,
 `max_context_tokens` and per-skill rules, `codex-rs/config/src/skills_config.rs`). A skill is
 instructions the model may follow, so what it asks for still goes through the thread's sandbox and
-approvals.
+approvals. Whether `skills.include_instructions = false`, perhaps with
+`features.skill_search = false`, keeps discovered skills out of what the model sees is a runtime
+check still to make.
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
 `halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with
