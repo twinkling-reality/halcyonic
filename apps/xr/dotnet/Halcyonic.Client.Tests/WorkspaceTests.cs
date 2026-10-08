@@ -335,6 +335,20 @@ public class WorkspacePresenterTests
         Assert.That(unknown.Actions, Does.Not.Contain(WorkspaceAction.Approve));
         Assert.That(WorkspaceText.NeedFromYou(unknown)!.Notes, Does.Contain("Your computer couldn't get the whole command, so you can only deny it."));
 
+        // A request that runs no command says so in its own words.
+        var execution = Samples.Execution("e1", "w1", ExecutionStatus.WaitingForHuman);
+        execution.PendingApprovals.Add(new ApprovalView
+        {
+            ApprovalId = "approval-1",
+            Subject = new ToolUseSubject { ToolName = "webfetch", Summary = "webfetch" },
+            Approvable = false,
+            RequestedAt = Samples.Time,
+        });
+        var other = new ClientProjection();
+        other.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { execution }), new StateChanges());
+        var fetch = WorkspacePresenter.Present(workstream, other, new ActivityLog(), live: true);
+        Assert.That(WorkspaceText.NeedFromYou(fetch)!.Notes, Does.Contain("Your computer couldn't get all of this request, so you can only deny it."));
+
         // Whether it can be approved is the view's to say, never text in the request.
         var typed = Asking("echo [truncated] [whole command not known]", approvable: true);
         Assert.That(typed.Actions, Does.Contain(WorkspaceAction.Approve));

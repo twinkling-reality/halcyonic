@@ -1044,8 +1044,9 @@ const NOT_ACTING_INPUTS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
- * What an approval asks for, whole: the field that describes the call (`describeInput`), with "in
- * the background" after a Bash command that runs there, or else the whole input as JSON. Complete
+ * What an approval asks for, whole: the field that describes the call (`describeInput`), after a
+ * bracket saying where a Bash command runs and whether in the background, or else the whole input
+ * as JSON. Complete
  * when that is all the call says that acts: the whole input, or the describing field of one of
  * Claude Code's own tools beside only inputs that do not act. A call of any other tool described by
  * one field, while it has other inputs, is not complete, so it can only be denied.
@@ -1058,17 +1059,18 @@ function approvalRequest(
   const field = DESCRIBING_FIELDS.find((name) => input[name] === described);
   const others = Object.keys(input).filter((name) => name !== field);
   const quiet = NOT_ACTING_INPUTS[toolName] ?? [];
-  const background = toolName === 'Bash' && input.run_in_background === true;
+  // A Bash command names no folder: it runs in the session's shell, which started in the task's
+  // folder (the session's cwd) and keeps where an earlier command moved it. Said in a bracket that
+  // always comes first, so a command that starts with a bracket of its own follows the real one.
+  const where =
+    toolName === 'Bash' && described !== null
+      ? `[in its shell, which started in the task's folder${input.run_in_background === true ? ', in the background' : ''}] `
+      : '';
   return {
     subject: {
       kind: 'tool_use',
       tool_name: toolName.slice(0, 128),
-      summary:
-        described === null
-          ? JSON.stringify(input)
-          : background
-            ? `${described}\nin the background`
-            : described,
+      summary: described === null ? JSON.stringify(input) : `${where}${described}`,
     },
     // A tool's name cut to the contract could read as another's.
     complete:

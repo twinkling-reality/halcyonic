@@ -290,10 +290,13 @@ namespace Halcyonic.Client
             ? null
             : approval.Subject is ToolUseSubject tool && tool.Summary.EndsWith("[truncated]", StringComparison.Ordinal)
                 ? TooLongToShow
-                : CommandNotKnown;
+                : approval.Subject is ToolUseSubject command && RunsCommand(command.ToolName)
+                    ? CommandNotKnown
+                    : RequestNotKnown;
 
         public const string TooLongToShow = "This command is too long to show you whole, so you can only deny it.";
         public const string CommandNotKnown = "Your computer couldn't get the whole command, so you can only deny it.";
+        public const string RequestNotKnown = "Your computer couldn't get all of this request, so you can only deny it.";
 
         /// <summary>The goal line under the status: the workstream's objective.</summary>
         public static string Goal(WorkspacePresentation workspace) => "Goal: " + Objective(workspace);

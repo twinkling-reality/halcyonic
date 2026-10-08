@@ -86,16 +86,17 @@ const MIGRATIONS: readonly string[] = [
     AND json_type(envelope, '$.payload.directory') IS NULL;
   `,
   // An approval request now says whether its summary is complete. One stored before is complete
-  // unless the headset then offered only Deny for it: cut to fit (ending in " [truncated]"), or an
-  // OpenCode shell request whose command was not known (starting "[whole command not known]").
+  // unless the headset then offered only Deny for it, which it did for a summary holding
+  // "[truncated]" (cut to fit) or "[whole command not known]" (an OpenCode shell request whose
+  // command was not known) anywhere in it.
   `
   UPDATE events
   SET envelope = json_set(
     envelope,
     '$.payload.complete',
     json(CASE
-      WHEN json_extract(envelope, '$.payload.subject.summary') LIKE '% [truncated]'
-        OR json_extract(envelope, '$.payload.subject.summary') LIKE '[whole command not known]%'
+      WHEN json_extract(envelope, '$.payload.subject.summary') LIKE '%[truncated]%'
+        OR json_extract(envelope, '$.payload.subject.summary') LIKE '%[whole command not known]%'
       THEN 'false'
       ELSE 'true'
     END)

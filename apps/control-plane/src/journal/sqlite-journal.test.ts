@@ -439,7 +439,13 @@ describe('SQLite journal', () => {
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
     const requested = TRACE.find((event) => event.event_type === 'runtime.approval.requested');
     assert.ok(requested?.event_type === 'runtime.approval.requested');
-    const summaries = ['ls', `${'x'.repeat(10)} [truncated]`, '[whole command not known] echo one'];
+    const summaries = [
+      'ls',
+      `${'x'.repeat(10)} [truncated]`,
+      '[whole command not known] echo one',
+      // Anywhere in it, as the headset matched them then.
+      `${'x'.repeat(10)} [truncated]\nin /w`,
+    ];
     for (const [index, summary] of summaries.entries()) {
       journal.append({
         ...requested,
@@ -471,6 +477,7 @@ describe('SQLite journal', () => {
         ['a0', true],
         ['a1', false],
         ['a2', false],
+        ['a3', false],
       ],
     );
   });
