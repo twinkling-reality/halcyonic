@@ -225,26 +225,23 @@ public class JudgeMenuWalkTests
 
     [TestCase(TextSize.Standard)]
     [TestCase(TextSize.Larger)]
-    public async Task TheDemonstrationsFirstVisitOpensProjectsAndNothingInterruptsItWhenATaskComesToWait(TextSize text)
+    public async Task TheDemonstrationsFirstVisitOpensAmbientWithProjectsAPressFromTheBar(TextSize text)
     {
         player = new DemonstrationPlayer(Demonstration.Recording(), Samples.Client, Demonstration.Fast());
         player.Session.Start();
         var host = new DemonstrationMenuHost(player, text);
         var navigator = host.Navigator;
         var visit = new FirstVisit(visited: false);
-        Assert.That(visit.Due(host.Connected, host.Demonstration, somethingOpen: false), Is.False, "not before the recording has welcomed the headset");
         await Pumping.Until(player.Session, session => session.Status.IsLive, "the recording welcomes the headset");
 
-        // As the workspace's director does once the demonstration plays, with nothing open: the menu on Projects.
-        Assert.That(visit.Due(host.Connected, host.Demonstration, somethingOpen: navigator.Beside != null), Is.True);
-        navigator.OpenMenu(MenuPlace.Projects);
-        var (menu, file) = host.Draw();
-        Assert.That(file, Is.Null);
-        Assert.That(menu!.Subject, Is.EqualTo(ProjectsText.Subject));
-        Assert.That(menu.Sections.Single(section => section.Chosen).Words, Is.EqualTo("Projects"));
-        var projects = player.Session.State.Projects.Values.Select(project => project.Name).ToList();
-        Assert.That(menu.Lines.Where(line => line.Action == ProjectsScreens.ChooseProject).Select(line => line.Words), Is.EquivalentTo(projects),
-            "the demonstration's own projects");
+        // As the workspace's director does once the demonstration plays: it never asks the first question, and opens nothing.
+        var asks = visit.Asks(host.Connected, host.Demonstration, player.Session.State.Journal?.JournalId, player.Session.State.Workstreams.Count > 0);
+        Assert.That(asks, Is.False, "the demonstration starts with recorded work");
+        Assert.That(visit.Due(host.Demonstration, somethingOpen: navigator.Beside != null, asks), Is.False, "it opens ambient: the stage and the bar");
+        Assert.That(visit.Visited, Is.False, "the person's own first visit is still to come");
+        Assert.That(visit.Started, Is.Empty, "the recording's journal is not the person's computer");
+        Assert.That((navigator.IsOpen, navigator.BeforeFirstTask), Is.EqualTo((false, false)));
+        Assert.That(host.Draw(), Is.EqualTo(((MenuFrame?)null, (MenuFrame?)null)), "closed, the plane holds only the bar");
         // As the recording begins, before its first event, whatever the fast playback has reached by now:
         // nothing has run, as the labels say, and every label already carries the mark it keeps once it runs.
         var beginning = new ClientProjection();
@@ -257,16 +254,26 @@ public class JudgeMenuWalkTests
             var character = CharacterPresenter.Present(task, beginning, live: true);
             Assert.That((character.StatusLabel, StateLanguage.MarksOf(character).Single().Word), Is.EqualTo(("Not started", "Demo")));
         }
+
+        // The directed work comes to wait: the closed bar says so, with Tasks' amber dot, and nothing opens by itself.
+        await Pumping.Until(player.Session, Demonstration.AsksItsQuestion, "the directed work asks its question");
+        Assert.That(host.Draw(), Is.EqualTo(((MenuFrame?)null, (MenuFrame?)null)), "nothing interrupts the stage");
+        Assert.That(host.Bar.ClosedLine, Is.EqualTo("1 task is waiting for you"));
+
+        // Opened from the bar, the menu has its places, and Projects is one press away with the demonstration's
+        // projects and New project, which plays the companion's recording.
+        navigator.OpenMenu(somethingWaits: true);
+        var (menu, _) = host.Draw();
+        Assert.That(menu!.Sections.Select(section => section.Words), Is.EqualTo(new[] { "Tasks", "Projects", "Usage", "Settings" }));
+        Assert.That(host.Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Projects)), Is.True);
+        (menu, _) = host.Draw();
+        Assert.That(menu!.Subject, Is.EqualTo(ProjectsText.Subject));
+        var projects = player.Session.State.Projects.Values.Select(project => project.Name).ToList();
+        Assert.That(menu.Lines.Where(line => line.Action == ProjectsScreens.ChooseProject).Select(line => line.Words), Is.EquivalentTo(projects),
+            "the demonstration's own projects");
         Assert.That(menu.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
         Assert.That(menu.Footer[PromptSlot.FarRight]!.Available, Is.True, "New project plays the companion's recording");
-        Assert.That(visit.Due(host.Connected, host.Demonstration, somethingOpen: false), Is.False, "once only");
-
-        // The directed work comes to wait while Projects shows: Tasks takes the amber dot, and the menu stays where the judge is.
-        await Pumping.Until(player.Session, Demonstration.AsksItsQuestion, "the directed work asks its question");
-        (menu, file) = host.Draw();
-        Assert.That((navigator.Place, file), Is.EqualTo((MenuPlace.Projects, (MenuFrame?)null)));
-        Assert.That(menu!.Sections.Single(section => section.Waits).Words, Is.EqualTo("Tasks"));
-        Assert.That(menu.Subject, Is.EqualTo(ProjectsText.Subject));
+        Assert.That(menu.Sections.Single(section => section.Waits).Words, Is.EqualTo("Tasks"));
     }
 
     [TestCase(TextSize.Standard)]

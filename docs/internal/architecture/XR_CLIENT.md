@@ -1809,11 +1809,19 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   under), hands it to the stage before it places anyone, and counts every project and its work for
   Projects (`WorkOverview`). Hiding a project hides its characters only: its work is still listed
   in Tasks, and work brought forward from there leaves with its project (`ProjectShowing`, in the
-  client core). On the first visit, once the session is live with nothing open, the director opens
-  the menu on Projects by itself (ADR 0026, `FirstVisit`): once for the demonstration, kept under
-  `halcyonic.demo.welcomed`, and once for the person's computer, under the key the retired entry
-  panel's welcome kept, so no one welcomed before is again and a person who saw the demonstration
-  still finds Projects open on their first visit to their own work.
+  client core). Until the computer's first task the menu asks the first question in place of its
+  places (ADR 0026, `FirstVisit`, `FirstQuestionColumn`, `MenuNavigator.BeforeFirstTask`), its row
+  holding Settings alone in its last slot (`MenuFrame.SectionSlots`). The director decides it each
+  frame only once the session is live and its snapshot has come, holding the last decision while
+  reconnecting, and keeps on the device, under `halcyonic.entry.started`, the journals that have had
+  a task, the 8 most recently seen: a journal is one computer's, so the plate never asks again on
+  that computer, and another computer, or one whose journal starts afresh, has its own first visit.
+  A key for the whole device would ask nothing of a second computer with no work, which still needs
+  the plate. On the first visit, with nothing open, the director opens the menu on the plate by
+  itself, once, under the key the retired entry panel's welcome kept, so no one welcomed before is
+  opened on again; a first visit to a computer with work counts and opens nothing. The
+  demonstration never asks and opens nothing: it opens ambient. While the computer has no task at
+  all the closed bar says "Nothing is running yet" (`TasksText.NothingRunning`).
 - **Settings:** the menu's Settings (`SettingsColumn`, above): Your space, from `SpaceSettings`
   (the room shown and what it offers, given by the room's controls, where the characters stand, and
   the menu's Reset position, `MenuDirector.ResetPosition`), Comfort (`ComfortSettings`), and, in a

@@ -16,11 +16,21 @@ namespace Halcyonic.Client
     /// place's column is made when the menu first shows it after opening, and let go when the menu
     /// closes or the column closes, so each opening starts afresh, as Tasks decides its rows then and
     /// Projects' closed column takes nothing more; a column leaving the plane lets go of what was armed.
+    /// Until the computer's first task (<see cref="BeforeFirstTask"/>), the menu's row holds Settings alone,
+    /// lit only while it shows: opened, the menu shows the first question, or Projects once the question
+    /// leads there, or Settings, and a column opening beside it takes its place, the menu closing to its
+    /// bar. Close is the way back to the question, through the bar.
     /// </summary>
     public sealed class MenuNavigator
     {
         private readonly IReadOnlyDictionary<MenuPlace, Func<IMenuColumn>> makers;
         private readonly Dictionary<MenuPlace, IMenuColumn> places = new Dictionary<MenuPlace, IMenuColumn>();
+        private readonly Func<IMenuColumn>? firstQuestion;
+        private IMenuColumn? question;
+
+        /// <summary>The menu shows the first question, not a place: only before the first task, while open.</summary>
+        private bool asking;
+        private bool beforeFirstTask;
         private MenuFrame? placeFrame;
         private MenuFrame? menuFrame;
         private MenuFrame? besideFrame;
@@ -43,13 +53,15 @@ namespace Halcyonic.Client
         private bool changed = true;
 
         /// <param name="places">How each of the menu's places makes its column: Tasks, Projects, Usage and Settings.</param>
-        public MenuNavigator(IReadOnlyDictionary<MenuPlace, Func<IMenuColumn>> places)
+        /// <param name="firstQuestion">How the first question makes its column; with none, the menu always shows its places.</param>
+        public MenuNavigator(IReadOnlyDictionary<MenuPlace, Func<IMenuColumn>> places, Func<IMenuColumn>? firstQuestion = null)
         {
             foreach (var place in MenuBar.Places)
             {
                 if (!places.ContainsKey(place)) throw new ArgumentException("Every place of the menu has its column: " + MenuBar.Word(place) + " has none.", nameof(places));
             }
             makers = places;
+            this.firstQuestion = firstQuestion;
         }
 
         /// <summary>What shows changed: the director draws again.</summary>
@@ -85,6 +97,57 @@ namespace Halcyonic.Client
         /// <summary>The task whose file stands beside the menu, for its character's light line and the chosen row on Tasks; null for New project.</summary>
         public string? BesideTask { get; private set; }
 
+        /// <summary>
+        /// The computer has had no task yet (<see cref="FirstVisit.Asks"/>): the menu's row holds Settings
+        /// alone, and the menu opens on the first question. Once it has, the question leaves and the menu stays open where it
+        /// is, its places with it.
+        /// </summary>
+        public bool BeforeFirstTask
+        {
+            get => beforeFirstTask && firstQuestion != null;
+            set
+            {
+                if (value == beforeFirstTask) return;
+                beforeFirstTask = value;
+                if (IsOpen)
+                {
+                    // Every column shown since the menu opened was made for the menu as it stood.
+                    foreach (var place in new List<MenuPlace>(places.Keys)) Drop(place);
+                    DropQuestion();
+                    asking = BeforeFirstTask;
+                }
+                Raise();
+            }
+        }
+
+        /// <summary>Whether the menu shows the first question now.</summary>
+        public bool Asking => IsOpen && asking && BeforeFirstTask;
+
+        /// <summary>The column the menu shows: the first question's, or its place's; null while closed.</summary>
+        public IMenuColumn? Shown => !IsOpen ? null : Asking ? Question : PlaceColumn;
+
+        /// <summary>The first question's column, made when first shown since the menu opened.</summary>
+        private IMenuColumn Question
+        {
+            get
+            {
+                if (question != null) return question;
+                var column = firstQuestion!();
+                question = column;
+                column.Changed += () =>
+                {
+                    if (Asking && question == column) Raise();
+                };
+                column.Closed += () =>
+                {
+                    if (question != column) return;
+                    if (Asking) CloseMenu();
+                    else DropQuestion();
+                };
+                return column;
+            }
+        }
+
         /// <summary>The column of the place the menu shows, made when first shown since the menu opened.</summary>
         public IMenuColumn PlaceColumn
         {
@@ -106,10 +169,26 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Opens the menu: on <paramref name="place"/> when given, else on Tasks when something waits for
-        /// the person, else on the place last open, as the closed bar's Open does.
+        /// the person, else on the place last open, as the closed bar's Open does. Before the first task,
+        /// on the first question, or on Projects alone when that is asked for, as the question's Show my
+        /// projects does, the question leaving.
         /// </summary>
         public void OpenMenu(MenuPlace? place = null, bool somethingWaits = false)
         {
+            if (BeforeFirstTask)
+            {
+                // Only Projects, from the question, and Settings, its one place, show before the first task.
+                asking = place != MenuPlace.Projects && place != MenuPlace.Settings;
+                if (!asking)
+                {
+                    DropQuestion();
+                    if (place != Place && places.TryGetValue(Place, out var left)) Leaving(left);
+                    Place = place!.Value;
+                }
+                IsOpen = true;
+                Raise();
+                return;
+            }
             Place = place ?? (somethingWaits ? MenuPlace.Tasks : Place);
             IsOpen = true;
             Raise();
@@ -119,7 +198,9 @@ namespace Halcyonic.Client
         public void CloseMenu()
         {
             IsOpen = false;
+            asking = false;
             foreach (var place in new List<MenuPlace>(places.Keys)) Drop(place);
+            DropQuestion();
             Raise();
         }
 
@@ -130,7 +211,17 @@ namespace Halcyonic.Client
         public void Renew()
         {
             foreach (var place in new List<MenuPlace>(places.Keys)) Drop(place);
+            DropQuestion();
             Raise();
+        }
+
+        /// <summary>Lets the first question's column go, and the voice it held: the next showing makes it afresh.</summary>
+        private void DropQuestion()
+        {
+            if (question == null) return;
+            var column = question;
+            question = null;
+            Leaving(column);
         }
 
         /// <summary>Lets a place's column go, and what it had armed: the next showing makes it afresh.</summary>
@@ -148,6 +239,14 @@ namespace Halcyonic.Client
             // The menu's chosen row lets go of its side panel, which a column beside it leaves undrawn,
             // so nothing in the menu acts on details no one sees.
             if (IsOpen && places.TryGetValue(Place, out var place) && place.Frame?.Side != null) place.Act(SidePanel.Close, null);
+            // Before the first task it opens in the menu's place, which closes to its bar.
+            if (BeforeFirstTask && IsOpen)
+            {
+                IsOpen = false;
+                asking = false;
+                foreach (var each in new List<MenuPlace>(places.Keys)) Drop(each);
+                DropQuestion();
+            }
             Leave();
             Beside = column;
             BesideTask = task;
@@ -170,7 +269,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The frames to draw, each asked of its column once a change: the menu's, with
-        /// <paramref name="bar"/>'s places as its sections, while open, and the column's beside it. The
+        /// <paramref name="bar"/>'s places as its sections, while open, Settings alone before the first task, and the column's beside it. The
         /// director passes the same bar until it changes, draws these very objects, and hands them back
         /// in <see cref="Drawn"/>.
         /// </summary>
@@ -178,11 +277,16 @@ namespace Halcyonic.Client
         {
             if (changed)
             {
-                placeFrame = IsOpen ? PlaceColumn.Frame : null;
+                placeFrame = Shown?.Frame;
                 besideFrame = Beside?.Frame;
                 besideAside = IsOpen && Beside != null && placeFrame?.Side != null;
             }
-            if (changed || bar != lastBar) menuFrame = placeFrame?.WithSections(bar.Sections());
+            if (changed || bar != lastBar)
+            {
+                menuFrame = BeforeFirstTask
+                    ? placeFrame?.WithSections(MenuBar.SettingsAlone(chosen: !asking && Place == MenuPlace.Settings), MenuBar.Places.Count)
+                    : placeFrame?.WithSections(bar.Sections());
+            }
             changed = false;
             lastBar = bar;
             return (menuFrame, besideFrame);
@@ -201,6 +305,19 @@ namespace Halcyonic.Client
             if (!(Taking(from, action, frame, side) is IMenuColumn column)) return false;
             if (from == MenuColumn.Menu && action == MenuFrame.ChooseSection)
             {
+                // Before the first task the row holds Settings alone, which the question leaves for.
+                if (BeforeFirstTask)
+                {
+                    if (key == nameof(MenuPlace.Settings) && (asking || Place != MenuPlace.Settings))
+                    {
+                        if (asking) DropQuestion();
+                        else if (places.TryGetValue(Place, out var was)) Leaving(was);
+                        asking = false;
+                        Place = MenuPlace.Settings;
+                        Raise();
+                    }
+                    return true;
+                }
                 if (key != null && Enum.TryParse<MenuPlace>(key, out var place) && place != Place)
                 {
                     // The place left lets go of what it had armed; it keeps its page until the menu closes.
@@ -221,7 +338,7 @@ namespace Halcyonic.Client
         /// </summary>
         public IMenuColumn? Standing(MenuColumn from, MenuFrame? frame, SidePanel? side) => from switch
         {
-            MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu ? PlaceColumn : null,
+            MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu ? Shown : null,
             MenuColumn.File => Beside != null && !BesideAside && frame != null && frame == drawnBeside ? Beside : null,
             _ => side != null && side == drawnSide ? drawnSideOf : null,
         };
@@ -241,7 +358,7 @@ namespace Halcyonic.Client
                     // The place's column gave its frame without the menu's places; it learns of that very frame.
                     if (!IsOpen || placeFrame == null || frame == null || frame != menuFrame) return;
                     drawnMenu = frame;
-                    PlaceColumn.Drawn(placeFrame, null);
+                    Shown!.Drawn(placeFrame, null);
                     return;
                 case MenuColumn.File:
                     if (Beside == null || BesideAside || besideFrame == null || frame != besideFrame) return;
@@ -255,7 +372,7 @@ namespace Halcyonic.Client
                     if (side == null || front == null || side != front.Side || (frame != null && frame != front)) return;
                     drawnSide = side;
                     drawnSideFooter = frame != null ? front.Footer.InPlace(side) : SidePanel.Footer;
-                    drawnSideOf = front == besideFrame ? Beside! : PlaceColumn;
+                    drawnSideOf = front == besideFrame ? Beside! : Shown!;
                     // The column learns of the very footer presses on the panel count for.
                     drawnSideOf.Drawn(front == besideFrame ? besideFrame : placeFrame!, drawnSideFooter);
                     return;
@@ -282,28 +399,28 @@ namespace Halcyonic.Client
         /// <summary>The column whose held prompt, or press, came from <paramref name="from"/>.</summary>
         public IMenuColumn? ColumnOf(MenuColumn from) => from switch
         {
-            MenuColumn.Menu => IsOpen ? PlaceColumn : null,
+            MenuColumn.Menu => Shown,
             MenuColumn.File => Beside,
-            _ => BesideAside ? PlaceColumn : Beside ?? (IsOpen ? PlaceColumn : null),
+            _ => BesideAside ? Shown : Beside ?? Shown,
         };
 
         /// <summary>Once a frame: every open column looks at what it awaits.</summary>
         public void Tick()
         {
-            if (IsOpen) PlaceColumn.Tick();
+            Shown?.Tick();
             Beside?.Tick();
         }
 
         /// <summary>Another window took focus: every open column lets go of what was armed.</summary>
         public void FocusLeft()
         {
-            if (IsOpen) PlaceColumn.FocusLeft();
+            Shown?.FocusLeft();
             Beside?.FocusLeft();
         }
 
         private void Touch(IMenuColumn column)
         {
-            if (IsOpen && places.TryGetValue(Place, out var shown) && shown == column) Raise();
+            if (IsOpen && !Asking && places.TryGetValue(Place, out var shown) && shown == column) Raise();
         }
 
         private void OnBesideChanged() => Raise();

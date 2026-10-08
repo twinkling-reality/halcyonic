@@ -166,14 +166,15 @@ purpose; the token in use from then on never touched shared storage.
 
 ## The demonstration's first visit ([competition-judge-build.md](../validation/competition-judge-build.md))
 
-The first time the demonstration plays on a headset, the menu opens by itself on Projects, once
-(ADR 0026). Later steps play the demonstration too (a token set aside, a connection that fails
-before it was live), and the headset remembers the visit in the app's data, so see it here, before
-any of them. A judge sees it the same way on the release build. Check the build has it: this lists
-`WorkspaceDirector.cs`, and no line means record "not in this build" and go on to the checks.
+The demonstration opens ambient (ADR 0026, 2026-10-08): the recorded characters, its two lines
+above the stage and the closed bar, with nothing open by itself and no first question, since the
+recording starts with its work. Later steps play the demonstration too (a token set aside, a
+connection that fails before it was live), so see it here first, as a judge does on the release
+build. Check the build has it: this lists `MenuStart.cs`, and no line means the build still opens
+Projects on the demonstration's first visit; record "not in this build" and go on to the checks.
 
 ```bash
-git grep -nF "halcyonic.demo.welcomed" -- apps/xr/Assets
+git grep -nF "if (demonstration) return false;" -- apps/xr/Packages/com.halcyonic.client/Runtime/MenuStart.cs
 ```
 
 1. **Play the demonstration.** Set the token aside and restart the app:
@@ -182,15 +183,16 @@ git grep -nF "halcyonic.demo.welcomed" -- apps/xr/Assets
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-2. **The welcome.** Touch nothing. Pass: the menu opens on Projects, under "What would you like to
-   work on?", with New project at its right. Its one row reads "Storefront API" and "3 tasks not
-   started", and every character's label reads "Not started" with the Demo mark. The stage's lines,
+2. **The welcome.** Touch nothing. Pass: nothing opens by itself. Every character's label reads
+   "Not started" with the Demo mark, the closed bar stands under the stage, and the stage's lines,
    "Demo: recorded work played on this headset. Nothing here is live." and "It follows your answers.
-   Nothing reaches an agent.", stand above the characters, clear of every body and of the menu, and
-   read without leaning back. Capture.
-3. **Work starts.** Within about a second two characters start working, and the row reads "2 tasks
-   running". If present (this lists `ProjectsText.cs`), press the row while they work, within about
-   5 seconds: its side panel's Its work reads "2 tasks running, 1 not started". Close details.
+   Nothing reaches an agent.", hang under the labels, clear of every body and of the bar. Capture.
+3. **Work starts.** Within about a second two characters start working. Open the bar, then
+   Projects: its one row reads "Storefront API" and "2 tasks running", with New project at its
+   right, and the lines rise above the characters, clear of every body and of the menu, and read
+   without leaning back. If present (this lists `ProjectsText.cs`), press the row while they work,
+   within about 5 seconds: its side panel's Its work reads "2 tasks running, 1 not started". Close
+   details.
    ```bash
    git grep -nF "var paused = project.Work - project.NeedsYou" -- apps/xr/Packages/com.halcyonic.client/Runtime/ProjectsText.cs
    ```
@@ -545,7 +547,7 @@ Record in network-pairing.md, and in the pinned transports' row of OPEN_QUESTION
    headset-token-storage.md.
 2. **The walk.** Hands only, no token, no pairing: the walk in
    [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The demonstration judges see". Its welcome was seen in
-   "The demonstration's first visit" and doesn't come again, so the walk starts from the closed bar. Look at the timeline in
+   "The demonstration's first visit", which opens ambient, so the walk starts from the closed bar. Look at the timeline in
    competition-judge-build.md. Pass: each beat when the timeline says. Record: whether a newcomer
    finds the satisfying moment, the field of view split as the headset shows it, and a clean resume
    after sleep, the system menu and another app.
@@ -605,9 +607,12 @@ It makes its own access token: put it on the headset as check 1's step 5 does, t
 2. **Settings from the plate.** Settings stands alone at the right end of the row of places. Choose it,
    make text larger and standard again, then Close. Pass: the bar reads "Nothing is running yet"; its
    Open brings the plate back.
-3. **Say the idea.** Hold Hold to talk, say a short idea, let go. Pass: New project opens alone on Your
+3. **Your computer.** Choose A project on your computer. Pass: Hold to talk goes and the main action
+   reads Show my projects; pressed, Projects shows the computer's folders under the same question,
+   nothing in the row lit. Close, then Open: the plate again, Something new chosen.
+4. **Say the idea.** Hold Hold to talk, say a short idea, let go. Pass: New project opens alone on Your
    idea, the words as yours. Close it there; the full start is check 10's ground.
-4. **The owner's judgement.** Is it clear what to do, calm, and does an empty desk read as broken?
+5. **The owner's judgement.** Is it clear what to do, calm, and does an empty desk read as broken?
 
 Stop the control plane, start it again on `~/.halcyonic` (`pnpm start`), put its token back as before,
 restart the app, and remove the fresh folder at the end ("Close").

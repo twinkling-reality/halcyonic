@@ -479,4 +479,118 @@ public class MenuNavigatorTests
         Assert.That(menu.Act(MenuColumn.File, "open", "k", back, null), Is.True);
         Assert.That(file.Got.Count(got => got == "act open k"), Is.EqualTo(2), "once before the details, once after");
     }
+
+    /// <summary>The menu with the first question, before the computer's first task; the latest question made is in Questions.</summary>
+    private static (MenuNavigator Navigator, Dictionary<MenuPlace, Column> Places, List<Column> Questions) Asking()
+    {
+        var places = new Dictionary<MenuPlace, Column>();
+        var questions = new List<Column>();
+        var makers = MenuBar.Places.ToDictionary(place => place, place => (Func<IMenuColumn>)(() => places[place] = new Column(MenuBar.Word(place))));
+        var navigator = new MenuNavigator(makers, () =>
+        {
+            var question = new Column("Question");
+            questions.Add(question);
+            return question;
+        }) { BeforeFirstTask = true };
+        return (navigator, places, questions);
+    }
+
+    [Test]
+    public void BeforeTheFirstTaskTheMenuOpensOnTheQuestionWithSettingsAloneUnlitAtTheRowsRightEnd()
+    {
+        var (menu, places, questions) = Asking();
+        Assert.That(menu.Frames(Bar).Menu, Is.Null, "closed, the menu is its bar");
+        menu.OpenMenu(somethingWaits: true);
+        var (shown, _, _) = Draw(menu);
+        Assert.That((menu.Asking, shown!.Subject), Is.EqualTo((true, "Question 0")));
+        Assert.That(shown.Sections.Select(section => (section.Words, section.Chosen)), Is.EqualTo(new[] { ("Settings", false) }));
+        Assert.That(shown.SectionSlots, Is.EqualTo(4), "Settings keeps the slot it has once the other places join it");
+        Assert.That(places, Is.Empty, "no place's column is made");
+        Assert.That(questions.Single().Got, Is.EqualTo(new[] { "drawn Question 0" }));
+        Assert.That(menu.Act(MenuColumn.Menu, "open", "k", shown, null), Is.True);
+        Assert.That(questions.Single().Got.Last(), Is.EqualTo("act open k"), "its presses are the question's");
+        Assert.That(menu.ColumnOf(MenuColumn.Menu), Is.SameAs(questions.Single()), "and so is its held prompt");
+    }
+
+    [Test]
+    public void ChoosingSettingsFromTheQuestionShowsItLitAndItsCloseGoesToTheBarWhoseOpenAsksAgain()
+    {
+        var (menu, places, questions) = Asking();
+        menu.OpenMenu();
+        var (shown, _, _) = Draw(menu);
+        menu.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks), shown, null);
+        Assert.That(menu.Asking, Is.True, "no other place can be chosen yet");
+        menu.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings), shown, null);
+        Assert.That(questions.Single().Got.Last(), Is.EqualTo("focus left"), "the question left lets go of what it had armed");
+        (shown, _, _) = Draw(menu);
+        Assert.That((menu.Asking, menu.Place, shown!.Subject), Is.EqualTo((false, MenuPlace.Settings, "Settings 0")));
+        Assert.That(shown.Sections.Select(section => (section.Words, section.Chosen)), Is.EqualTo(new[] { ("Settings", true) }));
+        Assert.That(shown.SectionSlots, Is.EqualTo(4));
+
+        places[MenuPlace.Settings].Close();
+        Assert.That(menu.IsOpen, Is.False, "Close folds to the bar; there is no way back but through it");
+        menu.OpenMenu();
+        (shown, _, _) = Draw(menu);
+        Assert.That((menu.Asking, shown!.Subject), Is.EqualTo((true, "Question 0")));
+        Assert.That(questions, Has.Count.EqualTo(2), "asked afresh");
+    }
+
+    [Test]
+    public void ShowMyProjectsOpensProjectsInTheQuestionsPlaceAndClosingItBringsTheQuestionBack()
+    {
+        var (menu, places, questions) = Asking();
+        menu.OpenMenu();
+        Draw(menu);
+        // As the question's Show my projects does.
+        menu.OpenMenu(MenuPlace.Projects);
+        var (shown, _, _) = Draw(menu);
+        Assert.That((menu.Asking, shown!.Subject), Is.EqualTo((false, "Projects 0")));
+        Assert.That(shown.Sections.Select(section => (section.Words, section.Chosen)), Is.EqualTo(new[] { ("Settings", false) }), "nothing is lit");
+        Assert.That(questions.Single().Got.Last(), Is.EqualTo("focus left"));
+
+        places[MenuPlace.Projects].Close();
+        menu.OpenMenu(somethingWaits: false);
+        Assert.That(menu.Asking, Is.True, "while there is no task, the bar's Open brings back the question, not the place last open");
+    }
+
+    [Test]
+    public void AColumnOpenedBeforeTheFirstTaskTakesTheMenusPlaceAndItsCloseGoesToTheBar()
+    {
+        var (menu, _, questions) = Asking();
+        var newProject = new Column("New project");
+        menu.OpenMenu();
+        Draw(menu);
+        menu.ShowBeside(newProject, null);
+        var (shown, beside, _) = Draw(menu);
+        Assert.That((menu.IsOpen, shown, beside!.Subject), Is.EqualTo((false, (MenuFrame?)null, "New project 0")), "alone, in the question's place");
+        Assert.That(questions.Single().Got.Last(), Is.EqualTo("focus left"));
+        newProject.Close();
+        Assert.That(menu.Frames(Bar), Is.EqualTo(((MenuFrame?)null, (MenuFrame?)null)), "the bar alone");
+    }
+
+    [Test]
+    public void TheFirstTaskBringsThePlacesWithSettingsStayingPutAndTheQuestionLeaves()
+    {
+        var (menu, _, questions) = Asking();
+        menu.OpenMenu();
+        Draw(menu);
+        menu.BeforeFirstTask = false;
+        var (shown, _, _) = Draw(menu);
+        Assert.That((menu.IsOpen, menu.Asking), Is.EqualTo((true, false)), "the menu stays open");
+        Assert.That(shown!.Sections.Select(section => section.Words), Is.EqualTo(new[] { "Tasks", "Projects", "Usage", "Settings" }));
+        Assert.That(shown.SectionSlots, Is.EqualTo(4));
+        Assert.That(questions.Single().Got.Last(), Is.EqualTo("focus left"));
+        menu.CloseMenu();
+        menu.OpenMenu();
+        Assert.That(menu.Asking, Is.False);
+    }
+
+    [Test]
+    public void WithoutAFirstQuestionTheMenuAlwaysShowsItsPlaces()
+    {
+        var (menu, _) = Menu();
+        menu.BeforeFirstTask = true;
+        menu.OpenMenu();
+        Assert.That(Draw(menu).Menu!.Sections, Has.Count.EqualTo(4));
+    }
 }

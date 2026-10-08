@@ -4,39 +4,71 @@ using System.Collections.Generic;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The first visit (ADR 0026): once the session is live, with nothing open beside the menu, the menu
-    /// opens by itself on Projects, once on this device for the recorded demonstration and once for the
-    /// person's computer, so someone who saw the demonstration first still finds Projects open on their
-    /// first visit to their own work. The headset keeps the computer's under the key the retired entry
-    /// panel's welcome kept, so no one welcomed before is welcomed again.
+    /// The first visit (ADR 0026): until a computer's first task, the menu shows one question, "What
+    /// would you like to work on?", with no places, and on the first live visit it opens on it by itself,
+    /// once on this device and never over work already open. The demonstration, which starts with
+    /// recorded work, never asks and opens nothing: it opens ambient. Whether a computer has had a task
+    /// is kept on this device for each journal, since another computer's journal is another one; a
+    /// computer that has had one never asks again here, whatever becomes of its work. The headset keeps
+    /// the first visit under the key the retired entry panel's welcome kept, so no one welcomed before
+    /// is opened on again.
     /// </summary>
     public sealed class FirstVisit
     {
+        /// <summary>How many journals that have had a task are remembered, the most recently seen kept.</summary>
+        public const int Journals = 8;
+
+        private readonly List<string> started = new List<string>();
+
         /// <param name="visited">The device has seen its first visit to the person's computer already.</param>
-        /// <param name="demonstrationVisited">The device has seen the demonstration's first visit already.</param>
-        public FirstVisit(bool visited, bool demonstrationVisited = false)
+        /// <param name="started">The journals that have had a task, as <see cref="Started"/> wrote them; anything unreadable is none.</param>
+        public FirstVisit(bool visited, string? started = null)
         {
             Visited = visited;
-            DemonstrationVisited = demonstrationVisited;
+            foreach (var journal in (started ?? "").Split(' '))
+            {
+                if (journal.Length > 0 && !this.started.Contains(journal) && this.started.Count < Journals) this.started.Add(journal);
+            }
         }
 
         public bool Visited { get; private set; }
 
-        public bool DemonstrationVisited { get; private set; }
+        /// <summary>The journals that have had a task, the most recently seen first, as text for a device preference.</summary>
+        public string Started => string.Join(" ", started);
 
-        /// <summary>Whether the menu opens on Projects now; once true, never again for the same kind of session.</summary>
-        public bool Due(bool live, bool demonstration, bool somethingOpen)
+        /// <summary>
+        /// Whether the menu shows the first question in place of its places now: never in the
+        /// demonstration; while the session isn't live, or before its first snapshot, null, since what
+        /// the computer holds isn't known and nothing is decided on a stale state; else only while its
+        /// journal has never had a task, which a task now counts as having had for good.
+        /// </summary>
+        public bool? Asks(bool live, bool demonstration, string? journalId, bool anyTask)
         {
-            if (!live || somethingOpen) return false;
-            if (demonstration)
+            if (demonstration) return false;
+            if (!live || string.IsNullOrEmpty(journalId)) return null;
+            var at = started.IndexOf(journalId!);
+            if (anyTask)
             {
-                if (DemonstrationVisited) return false;
-                DemonstrationVisited = true;
-                return true;
+                if (at == 0) return false;
+                if (at > 0) started.RemoveAt(at);
+                started.Insert(0, journalId!);
+                if (started.Count > Journals) started.RemoveRange(Journals, started.Count - Journals);
+                return false;
             }
-            if (Visited) return false;
+            return at < 0;
+        }
+
+        /// <summary>
+        /// Whether the menu opens by itself now, on the first question (<paramref name="asks"/>, from
+        /// <see cref="Asks"/>): once the computer's state is known, with nothing open, and once only. A
+        /// first visit to a computer that already has work counts, and opens nothing: later visits open
+        /// closed, as it does. The demonstration's never counts.
+        /// </summary>
+        public bool Due(bool demonstration, bool somethingOpen, bool? asks)
+        {
+            if (demonstration || somethingOpen || asks == null || Visited) return false;
             Visited = true;
-            return true;
+            return asks.Value;
         }
     }
 

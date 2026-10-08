@@ -296,7 +296,7 @@ namespace Halcyonic.XR.UI
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
             LaySubject(shown.Subject, shown.Pill);
-            LaySections(shown.Sections);
+            LaySections(shown.Sections, shown.SectionSlots);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
         }
@@ -321,7 +321,7 @@ namespace Halcyonic.XR.UI
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = GlazeTokens.Text;
             LaySubject(shown.Subject, pill);
-            LaySections(Array.Empty<FrameSection>());
+            LaySections(Array.Empty<FrameSection>(), 0);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
         }
@@ -797,13 +797,17 @@ namespace Halcyonic.XR.UI
         }
 
         // ---------------------------------------------------------------------------------------------
-        // The sections: a row of shapes 12 mm apart, the chosen one lit, an amber dot on one that waits.
+        // The sections: a row of shapes 12 mm apart, the chosen one lit, an amber dot on one that waits; laid
+        // in the frame's slots, those shown in the last of them, so a section keeps its place and size while
+        // others are yet to join it.
 
-        private void LaySections(IReadOnlyList<FrameSection> shown)
+        private void LaySections(IReadOnlyList<FrameSection> shown, int slots)
         {
             while (sections.Count < shown.Count) sections.Add(NewSection(sections.Count));
             var height = GlazeButton.HeightOf(true);
-            var each = shown.Count == 0 ? 0f : (width - TargetGap * (shown.Count - 1)) / shown.Count;
+            slots = Mathf.Max(slots, shown.Count);
+            var first = slots - shown.Count;
+            var each = slots == 0 ? 0f : (width - TargetGap * (slots - 1)) / slots;
             var grid = U(Glaze.Menu.GridDegrees);
             for (var index = 0; index < sections.Count; index++)
             {
@@ -815,7 +819,7 @@ namespace Halcyonic.XR.UI
                 }
                 var model = shown[index];
                 section.Model = model;
-                var x = -width / 2f + each / 2f + index * (each + TargetGap);
+                var x = -width / 2f + each / 2f + (first + index) * (each + TargetGap);
                 section.Shape.gameObject.SetActive(true);
                 section.Shape.Draw(new Vector2(each, height), U(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.Menu.GlassOpacity),
                     new Color(1f, 1f, 1f, Glaze.Menu.HairlineOpacity), U(Glaze.Menu.HairlineDegrees));

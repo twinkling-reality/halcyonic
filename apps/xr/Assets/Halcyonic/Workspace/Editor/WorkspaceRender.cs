@@ -109,9 +109,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderYourAnswers("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // A judge's walk through the menu on the recorded demonstration, from the eyes.
                 failures.AddRange(RenderJudgeWalk("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
-                // The demonstration's first visit: the menu on Projects, the stage's demonstration lines raised above it.
+                // The demonstration's first visit: ambient, then Projects from the bar, its lines raised above the menu.
                 failures.AddRange(RenderDemoWelcome("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 failures.AddRange(RenderDemoWelcome("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                // The first visit to a computer with no task: the first question, Projects and Settings in its place, the bar, New project.
+                failures.AddRange(RenderFirstVisit("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                failures.AddRange(RenderFirstVisit("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 // Every New project footer in the file's column: never four prompts, and each fits.
                 failures.AddRange(RenderNewProjectFooters(string.IsNullOrEmpty(variant) ? "the standard" : "the larger"));
             }

@@ -186,6 +186,13 @@ public class TasksColumnTests
     }
 
     [Test]
+    public void WhileTheComputerHasNoTaskAtAllTheBarSaysNothingIsRunningYet()
+    {
+        var none = TasksColumn.Bar(MenuPlace.Tasks, StateWith(Array.Empty<WorkstreamView>()));
+        Assert.That((none.ClosedLine, none.Waits(MenuPlace.Tasks)), Is.EqualTo(("Nothing is running yet", false)));
+    }
+
+    [Test]
     public void ItsCloseClosesTheMenuAndItChangesWhenTheJournalMoves()
     {
         var host = new FakeMenuHost { State = StateWith(Array.Empty<WorkstreamView>()) };

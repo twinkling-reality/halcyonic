@@ -252,6 +252,12 @@ public class MenuFrameTests
         Assert.Throws<ArgumentException>(() => _ = new MenuFrame("x", new Footer(), sections: new[] { new FrameSection("a", "A", chosen: true), new FrameSection("b", "B", chosen: true) }));
         Assert.Throws<ArgumentException>(() => _ = new MenuFrame("x", new Footer(), sections: new[] { new FrameSection("a", "A", chosen: true), new FrameSection("a", "B") }));
         Assert.Throws<ArgumentException>(() => _ = new FrameSection("recap", "Recap", chosen: true, reached: false), "a step not reached can't be chosen");
+
+        // A row still waiting for sections to join it keeps their slots, and may have none lit, as Settings alone before the first task.
+        var alone = new MenuFrame("x", new Footer(), sections: MenuBar.SettingsAlone(chosen: false), sectionSlots: 4);
+        Assert.That((alone.Sections.Single().Words, alone.SectionSlots), Is.EqualTo(("Settings", 4)));
+        Assert.That(new MenuFrame("x", new Footer(), sections: file).SectionSlots, Is.EqualTo(4), "as many slots as sections unless given");
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new MenuFrame("x", new Footer(), sections: file, sectionSlots: 3), "a slot for each section");
         var passedOver = new FrameSection("questions", "Questions", reached: true);
         Assert.That(passedOver.Reached, Is.True, "a step passed over stays reached, so it can be chosen: the way back");
         Assert.Throws<ArgumentException>(() => _ = new FrameSection("", "Waiting"));

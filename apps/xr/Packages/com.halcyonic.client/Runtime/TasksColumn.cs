@@ -58,10 +58,12 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The menu's bar as the session stands: <paramref name="chosen"/> lit, the amber dot on Tasks while
-        /// any task waits for the person, and the closed line saying how many, or that nothing is waiting.
+        /// any task waits for the person, and the closed line saying how many, or that nothing is waiting,
+        /// or, while the computer has no task at all, that nothing is running yet.
         /// </summary>
         public static MenuBar Bar(MenuPlace chosen, ClientProjection? state)
         {
+            if (state != null && state.Workstreams.Count == 0) return new MenuBar(chosen, TasksText.NothingRunning);
             var waiting = state?.Workstreams.Values.Count(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou) ?? 0;
             return waiting > 0 ? new MenuBar(chosen, TasksText.Waiting(waiting), MenuPlace.Tasks) : new MenuBar(chosen, TasksText.Waiting(0));
         }
@@ -175,6 +177,9 @@ namespace Halcyonic.Client
 
         /// <summary>A page with no tasks on it.</summary>
         public const string None = "No tasks yet.";
+
+        /// <summary>The closed bar while the computer has no task at all, as the first question asks what to work on.</summary>
+        public const string NothingRunning = "Nothing is running yet";
 
         /// <summary>The subject: what waits for the person, or that nothing does.</summary>
         public static string Waiting(int count) => count switch
