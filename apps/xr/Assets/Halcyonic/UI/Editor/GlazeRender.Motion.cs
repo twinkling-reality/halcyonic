@@ -18,13 +18,14 @@ namespace Halcyonic.XR.UI.Editor
 
         /// <summary>
         /// Motion (ADR 0027), drawn as three strips. A wait's shimmer: Sent… and Hold to talk writing
-        /// down, a third, a half and four fifths into the sweep, then under Keep badges still; its words, in the
+        /// down, a third, a half and four fifths into the sweep, then under Keep things still; its words, in the
         /// secondary tone so the lift shows, move while the prompt waits, stand in their own colours once it no
-        /// longer does, and stand still under Keep badges still. Hold to talk listening: the active tone, its
-        /// microphone at three points of its pulse, then under Keep badges still; it grows and shrinks while it
-        /// listens, stands at its own size once the voice is idle, and stands still under Keep badges still.
+        /// longer does, and under Keep things still stand steady in the active tone, a still highlight that holds
+        /// 4.5:1 on the glass over white and gives way to their own colours once the wait ends. Hold to talk listening: the active tone, its
+        /// microphone at three points of its pulse, then under Keep things still; it grows and shrinks while it
+        /// listens, stands at its own size once the voice is idle, and stands still under Keep things still.
         /// A badge changing state: its colours cross-fade over a state's time, easing in and out, under Keep
-        /// badges still too. None allocates a frame, nor adds a renderer, so none adds a draw call.
+        /// things still too. None allocates a frame, nor adds a renderer, so none adds a draw call.
         /// </summary>
         private static IEnumerable<string> Motion(string folder, Camera camera, RenderTexture texture)
         {
@@ -45,6 +46,8 @@ namespace Halcyonic.XR.UI.Editor
                 var waiting = new Footer(close, secondary: writing, farRight: sent);
                 var half = GlazeTokens.Units(Glaze.Menu.FileColumnDegrees) / 2f;
                 var phases = new[] { 1f / 3f, 0.5f, 0.8f };
+                // A wait's still highlight: the active tone's text, as "Listening" is drawn.
+                var highlight = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Active).Foreground);
                 var footers = new List<FooterView>();
                 for (var row = 0; row <= phases.Length; row++)
                 {
@@ -92,21 +95,40 @@ namespace Halcyonic.XR.UI.Editor
                     var late = Colours(label);
                     if (!shimmer.Lifted || early.SequenceEqual(late)) failures.Add("component render: " + what + "'s words did not move while it waits.");
 
+                    // Kept still, the wait shows a still highlight: every letter steady in the active tone, wherever the sweep would be.
                     GlazeMotion.Still = true;
-                    shimmer.Draw(0.7f * Glaze.ShimmerSeconds);
-                    if (shimmer.Lifted || !InOwnColours(label)) failures.Add("component render: " + what + "'s words still moved under Keep badges still.");
+                    foreach (var phase in new[] { 0f, 0.3f, 0.5f, 0.7f, 0.95f })
+                    {
+                        shimmer.Draw(phase * Glaze.ShimmerSeconds);
+                        if (shimmer.Lifted || !shimmer.Highlighted || !AllIn(label, highlight))
+                        {
+                            failures.Add("component render: " + what + "'s words, " + phase + " into the sweep under Keep things still, are not every letter steady in the active tone.");
+                        }
+                    }
                     GlazeMotion.Still = false;
 
+                    // Let move again, the highlight gives way to the shimmer.
                     shimmer.Draw(0.7f * Glaze.ShimmerSeconds);
+                    if (shimmer.Highlighted || !shimmer.Lifted) failures.Add("component render: " + what + "'s still highlight stayed once things move again.");
                     // The wait over, the same footer shown again without it: the shimmer stops and every letter is its own colour.
                     probe.Show(new Footer(close, secondary: new Prompt(FileScreens.SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true),
                         farRight: new Prompt(FileScreens.SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), GlazeIcon.SendAnswer, main: true)), -half, half, 0f);
                     shimmer.Draw(0.7f * Glaze.ShimmerSeconds);
                     if (shimmer.Waits || shimmer.Lifted || !InOwnColours(label)) failures.Add("component render: " + what + "'s words kept moving once it no longer waits.");
+                    GlazeMotion.Still = true;
+                    shimmer.Draw(0.7f * Glaze.ShimmerSeconds);
+                    if (shimmer.Highlighted || !InOwnColours(label)) failures.Add("component render: " + what + "'s words kept the still highlight once it no longer waits.");
+                    GlazeMotion.Still = false;
                     probe.Show(waiting, -half, half, 0f);
                     foreach (var (_, button) in probe.Shown) button.Label.ForceMeshUpdate();
                 }
                 failures.AddRange(MotionAllocatesNothing("a wait's shimmer", now => footers[0].ShimmerOf(PromptSlot.Secondary)!.Draw(now)));
+                GlazeMotion.Still = true;
+                failures.AddRange(MotionAllocatesNothing("a wait's still highlight", now => footers[0].ShimmerOf(PromptSlot.Secondary)!.Draw(now)));
+                GlazeMotion.Still = false;
+                // The still highlight's words hold 4.5:1 on the menu's glass over white, the brightest room behind it.
+                var onGlass = GlazeChecks.Contrast(highlight, GlazeTokens.ColorOf(Glaze.Menu.GlassOverWhite));
+                if (onGlass < 4.5f) failures.Add("component render: a wait's still highlight holds " + onGlass.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + ":1 on the glass over white; 4.5:1 at least.");
                 // The same prompts, none waiting, draw with as many renderers: a wait adds no draw call.
                 var talk = new Prompt(FileScreens.SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
                 var renderers = footers[0].GetComponentsInChildren<Renderer>(false).Length;
@@ -157,7 +179,7 @@ namespace Halcyonic.XR.UI.Editor
                 if (Mathf.Abs(swollen - 1f - Glaze.ListeningPulseDepth) > 1e-3f) failures.Add("component render: at the top of its pulse the microphone grew " + (swollen - 1f) + ", not " + Glaze.ListeningPulseDepth + ".");
                 GlazeMotion.Still = true;
                 held.Pulse(0.5f * Glaze.ListeningPulseSeconds);
-                if (!Mathf.Approximately(held.IconGrowth, 1f)) failures.Add("component render: Hold to talk's microphone still pulsed under Keep badges still.");
+                if (!Mathf.Approximately(held.IconGrowth, 1f)) failures.Add("component render: Hold to talk's microphone still pulsed under Keep things still.");
                 GlazeMotion.Still = false;
                 failures.AddRange(MotionAllocatesNothing("the listening pulse", held.Pulse));
                 held.Pulse(0.5f * Glaze.ListeningPulseSeconds);
@@ -171,7 +193,7 @@ namespace Halcyonic.XR.UI.Editor
                 }
 
                 // A badge changing from Working to Waiting for you: its colours cross-fade over a state's time, easing
-                // in and out, at none, a quarter, half and all of it, then half under Keep badges still, since a change is no loop.
+                // in and out, at none, a quarter, half and all of it, then half under Keep things still, since a change is no loop.
                 foreach (var holder in made) holder.gameObject.SetActive(false);
                 var working = StateLanguage.BadgeOf(Character(CharacterActivity.Working, AttentionLevel.None));
                 var steps = new[] { 0f, 0.25f, 0.5f, 1f, 0.5f };
@@ -203,7 +225,7 @@ namespace Halcyonic.XR.UI.Editor
                 for (var row = 0; row < steps.Length; row++)
                 {
                     var along = Glaze.EaseInOut(steps[row]);
-                    var when = (steps[row] * 100f).ToString("0") + " percent through its change" + (row == steps.Length - 1 ? " under Keep badges still" : "");
+                    var when = (steps[row] * 100f).ToString("0") + " percent through its change" + (row == steps.Length - 1 ? " under Keep things still" : "");
                     if (!Near(badges[row].DrawnFill, Color.Lerp(workingFill, waitingFill, along)))
                     {
                         failures.Add("component render: a badge changing from Working to Waiting for you, " + when + ", does not draw its pill "
@@ -297,6 +319,23 @@ namespace Halcyonic.XR.UI.Editor
                 if (character.isVisible) colours.Add(info.meshInfo[character.materialReferenceIndex].colors32[character.vertexIndex]);
             }
             return colours;
+        }
+
+        /// <summary>Every visible letter is drawn in <paramref name="colour"/>, at its own opacity.</summary>
+        private static bool AllIn(TMPro.TMP_Text label, Color colour)
+        {
+            Color32 wanted = colour;
+            var info = label.textInfo;
+            var any = false;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                var drawn = info.meshInfo[character.materialReferenceIndex].colors32[character.vertexIndex];
+                if (drawn.r != wanted.r || drawn.g != wanted.g || drawn.b != wanted.b) return false;
+                any = true;
+            }
+            return any;
         }
 
         /// <summary>Every visible letter is drawn in its own colour.</summary>

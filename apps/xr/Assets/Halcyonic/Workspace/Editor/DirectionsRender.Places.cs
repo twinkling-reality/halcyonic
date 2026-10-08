@@ -119,7 +119,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
             // The second page while a comfort setting is chosen, the first otherwise.
             var (heading, rows) = chosen
-                ? ("Comfort", new[] { ("Text size", "Standard"), ("Moving badges", "On"), ("Sounds", "On") })
+                ? ("Comfort", new[] { ("Text size", "Standard"), ("Motion", "On"), ("Sounds", "On") })
                 : ("Your space", new[] { ("Around you", "Your room"), ("The characters", "In front of you"), ("The menu", "Where you moved it") });
             var menu = shot.Board("Settings", PlaneMeters);
             var l = -width / 2f + U(PanelPadding);

@@ -306,7 +306,7 @@ namespace Halcyonic.Client
         }
     }
 
-    /// <summary>The comfort settings (ADR 0023) as Settings' rows, under Comfort: the text's size, moving badges and sounds.</summary>
+    /// <summary>The comfort settings (ADR 0023) as Settings' rows, under Comfort: the text's size, motion (Keep things still) and sounds.</summary>
     public static class ComfortSettings
     {
         /// <param name="saved">The settings changed: the device keeps them, and the stage takes them.</param>
@@ -320,9 +320,11 @@ namespace Halcyonic.Client
                     comfort.Text = comfort.Text == TextSize.Larger ? TextSize.Standard : TextSize.Larger;
                     saved();
                 }),
-            new MenuSetting("moving-badges", Comfort.Heading, "Moving badges", () => comfort.Still
-                    ? new SettingNow("Off", "Badges stand still", "On", "Working's icon turns and Waiting for you breathes", comfort.MotionButton)
-                    : new SettingNow("On", "Badges move", "Off", "Badges stand still: no icon turns and nothing breathes", comfort.MotionButton),
+            // Its id stays moving-badges, as the row was named before Keep things still.
+            new MenuSetting("moving-badges", Comfort.Heading, "Motion", () => comfort.Still
+                    ? new SettingNow("Kept still", "Things keep still", "On", "Waits shimmer, a task waiting for you breathes, and characters move.", comfort.MotionButton)
+                    : new SettingNow("On", "Things move", "Kept still",
+                        "Nothing keeps moving on its own: a wait shows a still highlight, and characters and badges stand still.", comfort.MotionButton),
                 () =>
                 {
                     comfort.Still = !comfort.Still;

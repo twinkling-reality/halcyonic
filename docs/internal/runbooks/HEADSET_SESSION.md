@@ -450,10 +450,12 @@ Live, on the development build with the token in place, voice set up on the Mac.
    active blue, its microphone pulsing; capture while held. Say "Dark", let go. Pass: it shows the
    transcribe icon and "Writing down", a band of brightness sweeping across its words; capture. It
    keeps its width and place throughout, and no line is added to the page.
-4. **Keep badges still.** Settings, Comfort, Keep badges still, then steps 2 and 3 again. Pass:
-   the breath, the turning icons, the microphone's pulse and the shimmer stop, each state still
-   told by its colour, icon and words; slides, presses and the badge's cross-fade remain. Put it
-   back: Let badges move.
+4. **Keep things still.** Settings, Comfort, Motion, Keep things still, then steps 2 and 3 again.
+   Pass: the breath, the turning icons, the microphone's pulse and the shimmer stop, a wait's words
+   standing highlighted in the active tone instead; every character stands at rest, its surface,
+   its sweep ring and Waiting for you's halo still, and Working, Running tests and State unknown
+   still tell apart by eyes, light and words; slides, presses, a file opening and the badge's
+   cross-fade remain. Put it back: Let things move.
 5. **The owner's judgement.** Does it move enough now, too much, or anywhere it shouldn't? Does the
    shimmer read as noise beside the agent's own words, or the pulse draw the eye from the page?
 

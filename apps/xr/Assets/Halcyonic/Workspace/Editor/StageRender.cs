@@ -159,6 +159,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 File.WriteAllBytes(Path.Combine(folder, name + ".png"), whole.EncodeToPNG());
                 UnityEngine.Object.DestroyImmediate(whole);
                 failures.AddRange(CloseUps(name, folder, camera, texture, characters));
+                if (name == "states-a" || name == "states-b") failures.AddRange(KeptStill(name, folder, camera, texture, characters));
+                if (name == "states-a") failures.AddRange(StillStatesDiffer(name, root.transform, eyes, radius));
 
                 // The peek, as the director shows it: under its label in front of the person, over the
                 // character on a desk; the banner steps aside for it.
@@ -392,6 +394,101 @@ namespace Halcyonic.XR.Workspace.Editor
                     camera.fieldOfView = fieldOfView;
                 }
                 UnityEngine.Object.DestroyImmediate(image);
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// Keep things still (ADR 0027) on the stage: stepped at the headset's rate for three seconds to stand at rest,
+        /// then a second more, every character is the same picture, its pose, its surface's flow, its sweep ring and
+        /// Waiting for you's halo all standing; let move again, the same second changes the picture, so the check
+        /// sees motion where there is some. Sixty frames of the stage kept still allocate nothing.
+        /// </summary>
+        private static IEnumerable<string> KeptStill(string name, string folder, Camera camera, RenderTexture texture, List<(CharacterView View, CharacterTarget Target)> characters)
+        {
+            var failures = new List<string>();
+            var was = GlazeMotion.Still;
+            void Frames(int count)
+            {
+                for (var frame = 0; frame < count; frame++)
+                {
+                    foreach (var (view, _) in characters) view.AdvanceForRender(1f / 72f);
+                }
+            }
+            var all = new RectInt(0, 0, Size, Size);
+            Texture2D? first = null;
+            Texture2D? second = null;
+            Texture2D? moved = null;
+            try
+            {
+                GlazeMotion.Still = true;
+                Frames(216);
+                first = WorkspaceRender.Render(camera, texture);
+                Frames(72);
+                second = WorkspaceRender.Render(camera, texture);
+                File.WriteAllBytes(Path.Combine(folder, name + "-kept-still.png"), second.EncodeToPNG());
+                var (changed, largest) = WorkspaceRender.Compare(first, second, all);
+                if (changed > 0)
+                {
+                    failures.Add(name + ": under Keep things still, " + changed + " pixels of the stage changed in a second, by up to "
+                        + (largest * 255f).ToString("0", CultureInfo.InvariantCulture) + " of 255; nothing keeps moving on its own.");
+                }
+                if (!(GlazeChecks.Allocations(_ => Frames(1), 60) is (int every, int some, long bytes))) failures.Add(name + ": this editor cannot count allocations, so the stage kept still cannot be checked.");
+                else
+                {
+                    if (every > 0) failures.Add(name + ": " + every + " of sixty frames of the stage kept still allocate in each of 3 tries; a frame allocates nothing.");
+                    Debug.Log("Halcyonic: stage render " + name + ": sixty frames kept still: " + every + " allocate in every try, " + some + " in some; the quietest try counts " + bytes + " bytes on every thread.");
+                }
+                GlazeMotion.Still = false;
+                Frames(72);
+                moved = WorkspaceRender.Render(camera, texture);
+                if (WorkspaceRender.Compare(second, moved, all).Changed == 0) failures.Add(name + ": let move, the stage did not change in a second either, so keeping it still checks nothing.");
+            }
+            finally
+            {
+                GlazeMotion.Still = was;
+                foreach (var image in new[] { first, second, moved }) if (image != null) UnityEngine.Object.DestroyImmediate(image);
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// Under Keep things still, Working, Running tests and State unknown still tell apart by their eyes: a working
+        /// character looks down, one running tests a little down and open wider, one that can't be told half open and faint.
+        /// </summary>
+        private static IEnumerable<string> StillStatesDiffer(string name, Transform parent, Vector3 eyes, float radius)
+        {
+            var failures = new List<string>();
+            var was = GlazeMotion.Still;
+            var holder = new GameObject("Kept still states");
+            holder.transform.SetParent(parent, false);
+            var activities = new[] { CharacterActivity.Working, CharacterActivity.Verifying, CharacterActivity.Unknown };
+            try
+            {
+                GlazeMotion.Still = true;
+                var characters = WorkspaceRender.Lineup(holder.transform, eyes, radius, null, (_, slot) => Character(slot, "A task", activities[slot % activities.Length]));
+                for (var frame = 0; frame < 216; frame++)
+                {
+                    foreach (var (view, _) in characters) view.AdvanceForRender(1f / 72f);
+                }
+                var poses = characters.Take(activities.Length).Select(character => character.View.PoseForRender).ToList();
+                for (var one = 0; one < poses.Count; one++)
+                {
+                    for (var other = one + 1; other < poses.Count; other++)
+                    {
+                        var (a, b) = (poses[one], poses[other]);
+                        if (Mathf.Abs(a.Open - b.Open) < 0.05f && Mathf.Abs(a.LookY - b.LookY) < 0.05f && Mathf.Abs(a.Ink - b.Ink) < 0.05f)
+                        {
+                            failures.Add(name + ": under Keep things still, " + activities[one] + " and " + activities[other] + " have the same eyes; their states still differ by eyes.");
+                        }
+                    }
+                }
+                if (poses[0].LookY > -0.5f) failures.Add(name + ": under Keep things still, a working character's eyes look up from its work.");
+            }
+            finally
+            {
+                GlazeMotion.Still = was;
+                UnityEngine.Object.DestroyImmediate(holder);
             }
             return failures;
         }
