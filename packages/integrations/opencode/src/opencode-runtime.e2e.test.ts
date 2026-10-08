@@ -7,6 +7,8 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -22,10 +24,12 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import { OpenCodeClient } from './client.ts';
 import { OpenCodeRuntimeAdapter, type OpenCodeRuntimeOptions } from './opencode-runtime.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_SHELL_COMMAND, type FakeProviderOptions } from './testing/fake-provider.ts';
+import { probeNetwork } from './testing/network-probe.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { createSandbox, type OpenCodeSandbox } from './testing/sandbox.ts';
 
@@ -1084,5 +1088,115 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.ok(count('runtime.approval.resolved') <= 1);
     assert.equal(count('runtime.connection.lost'), 0);
     assertValidObservations(execution.observations, execution.context);
+  });
+});
+
+/** The server the adapter launched, reached the way the adapter reaches it, for what it does not do. */
+function serverOf(runtime: OpenCodeRuntimeAdapter, sandbox: OpenCodeSandbox): OpenCodeClient {
+  const record = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as { port: number };
+  const [password] = runtime.secrets();
+  assert.ok(password !== undefined, 'the server holds a password');
+  return new OpenCodeClient(`http://127.0.0.1:${record.port}`, password);
+}
+
+const call = (tool: string, args: Record<string, unknown>) =>
+  `CALL ${tool} b64:${Buffer.from(JSON.stringify(args)).toString('base64')}`;
+
+describe('OpenCode on a model on this Mac: nothing leaves it', { skip: SKIP }, () => {
+  test(
+    'every session denies the tools that reach the network, and the model is offered none of them',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start('Hello.');
+      await execution.next('runtime.turn.completed');
+      const offered = sandbox.provider.requests[0]?.toolNames ?? [];
+      assert.ok(offered.includes('shell') && offered.includes('read'), offered.join(','));
+      for (const tool of ['execute', 'webfetch', 'websearch']) {
+        assert.ok(!offered.includes(tool), `${tool} was offered: ${offered.join(',')}`);
+      }
+      // The rules travelled with the session, as Halcyonic created it.
+      const started = execution.observations[0];
+      assert.ok(started?.type === 'runtime.execution.started');
+      const read = await serverOf(runtime, sandbox).request(
+        'GET',
+        `/api/session/${encodeURIComponent(started.payload.native_id ?? '')}`,
+      );
+      t.diagnostic(`session as read back: ${JSON.stringify(read.body).slice(0, 600)}`);
+      const text = JSON.stringify(read.body);
+      for (const action of ['execute', 'webfetch', 'websearch']) {
+        assert.ok(
+          text.includes(`{"action":"${action}","resource":"*","effect":"deny"}`),
+          `${action} deny is not on the session`,
+        );
+      }
+    },
+  );
+
+  test(
+    "Code Mode's fetch reaches a listener from a session without the rules, never from Halcyonic's",
+    SLOW_TEST,
+    async (t) => {
+      const hits: string[] = [];
+      const listener = createServer((request, response) => {
+        hits.push(`${request.method} ${request.url}`);
+        response.end('reached');
+      });
+      await new Promise<void>((resolve) => listener.listen(0, '127.0.0.1', () => resolve()));
+      t.after(() => new Promise<void>((resolve) => listener.close(() => resolve())));
+      const url = `http://127.0.0.1:${(listener.address() as AddressInfo).port}/code-mode`;
+      const code = `const r = await fetch(${JSON.stringify(url)}, { method: 'POST', body: 'x' }); return await r.text();`;
+
+      const { runtime, sandbox, start } = await harness(t);
+      const ours = await start(call('execute', { code }));
+      await ours.next('runtime.turn.completed');
+      assert.deepEqual(hits, [], "Code Mode's fetch ran in Halcyonic's session");
+
+      // The control: a session made on the same server without Halcyonic's rules.
+      const client = serverOf(runtime, sandbox);
+      const created = await client.request('POST', '/api/session', {
+        body: { title: 'control', location: { directory: sandbox.project } },
+      });
+      const id = (created.body as { data: { id: string } }).data.id;
+      await client.request('POST', `/api/session/${encodeURIComponent(id)}/prompt`, {
+        body: { text: call('execute', { code }) },
+      });
+      await until(() => hits.length > 0, 30_000, "Code Mode's fetch in the control session");
+      assert.deepEqual(hits, ['POST /code-mode']);
+    },
+  );
+
+  test('the network probe: nothing leaves loopback through startup, idle and a full run', {
+    timeout: 300_000,
+  }, async (t) => {
+    const idleMs = Number(process.env.OPENCODE_E2E_PROBE_IDLE_MS ?? 60_000);
+    const probe = probeNetwork(process.pid, BINARY);
+    t.after(() => probe.stop());
+    const { runtime, sandbox, start } = await harness(t);
+    // Startup: listing the models launches the server.
+    await runtime.listModels();
+    await delay(idleMs);
+    const afterIdle = probe.samples;
+    const execution = await start(`RUN_SHELL then answer.`);
+    const asked = await execution.next('runtime.approval.requested');
+    assert.ok(asked.type === 'runtime.approval.requested');
+    await runtime.respondToApproval({
+      execution: execution.context,
+      approval_id: asked.payload.approval_id,
+      decision: 'approve',
+      message: null,
+    });
+    await execution.next('runtime.turn.completed');
+    await delay(3000);
+    await probe.stop();
+    const providerPort = new URL(sandbox.provider.baseUrl).port;
+    assert.ok(afterIdle > idleMs / 1000, `only ${afterIdle} samples through startup and idle`);
+    assert.deepEqual(probe.blind, [], 'the probe could not see the server');
+    assert.ok(
+      [...probe.loopback].some((name) => name.endsWith(`->127.0.0.1:${providerPort}`)),
+      `the probe never saw the connection to the provider: ${[...probe.loopback].join(', ')}`,
+    );
+    assert.deepEqual(probe.beyondLoopback, [], 'an OpenCode process held a socket beyond loopback');
+    t.diagnostic(`probe: ${probe.samples} samples, ${afterIdle} through startup and idle`);
   });
 });

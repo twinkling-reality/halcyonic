@@ -9,6 +9,8 @@ import type { AddressInfo } from 'node:net';
  *
  * - last message from a tool: a short text answer quoting the tool result;
  * - last user message contains `RUN_SHELL`: one call to the offered shell tool;
+ * - last user message contains `CALL <tool> b64:<base64 JSON>`: one call to that tool with those
+ *   arguments, whether or not it is offered;
  * - last user message contains `ASK_QUESTION`: one call to the offered `question` tool, asking
  *   which colour to use, red or blue;
  * - last user message contains `SLOW`: text streamed one chunk per `slowChunkMs` until the client
@@ -211,6 +213,14 @@ function plan(request: FakeProviderRequest, functions: ToolFunction[], counter: 
     return { kind: 'text', text: `Tool result received: ${lastTool}` };
   }
   const text = request.lastUserText;
+  const call = /CALL (\S+) b64:([A-Za-z0-9+/=]+)/.exec(text);
+  if (call !== null) {
+    const args = JSON.parse(Buffer.from(call[2] as string, 'base64').toString()) as Record<
+      string,
+      unknown
+    >;
+    return { kind: 'tool', name: call[1] as string, args };
+  }
   const shell = functions.find((fn) => fn.name === 'shell' || fn.name === 'bash');
   if (text.includes('RUN_SHELL') && shell !== undefined) {
     return { kind: 'tool', name: String(shell.name), args: shellArguments(shell) };
