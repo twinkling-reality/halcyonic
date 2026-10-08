@@ -869,6 +869,19 @@ public class NewProjectStartTests
     }
 
     [Test]
+    public void TheReviewLeansEveryValueFromOutsideAndKeepsHalcyonicsFallbacksUpright()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("Plan dinners.");
+        idea.Rename("chosen by the agent app");
+        var review = EntryScreens.ReviewOf(idea, Draft(), null, live: true);
+        // No model chosen: Halcyonic's own fallback stands upright, so a name copying it, here the project's, leans.
+        Assert.That(review.Items.Single(item => item.Label == "Model: ").Runs.ToString(), Is.EqualTo("Model: chosen by the agent app"));
+        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project: [chosen by the agent app]"));
+        Assert.That(review.Items.Single(item => item.Label == "Agent app: ").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
+    }
+
+    [Test]
     public void TheReviewShowsEachPartWholeFromWhereItsItemWasSplit()
     {
         var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");

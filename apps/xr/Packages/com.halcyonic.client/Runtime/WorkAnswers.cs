@@ -66,7 +66,8 @@ namespace Halcyonic.Client
             if (!(read.Response.Result is AvailableUnderstanding available)) return Failure(SectionKind.Understanding, read.Response.Result, status);
             var understanding = available.Understanding;
             var source = understanding.Source;
-            var provenance = IntelligenceText.UnderstandingProvenance(read, source, now, zone) + status;
+            var provenanceRuns = IntelligenceText.UnderstandingProvenanceRuns(read, source, now, zone) + LineWords.Written(status);
+            var provenance = provenanceRuns.Text;
             // Amber is for what waits for the person only: "Simulated" says so in words.
             var tone = SectionTone.Secondary;
             if (depth == AnswerDepth.Brief)
@@ -77,7 +78,7 @@ namespace Halcyonic.Client
                     UnderstandPrompt.WhyChanged => WhyChangedBrief(understanding),
                     _ => HowBuiltBrief(understanding),
                 };
-                return new SectionPresentation(SectionKind.Understanding, provenance, tone, brief, source.Synthetic);
+                return new SectionPresentation(SectionKind.Understanding, provenance, tone, brief, source.Synthetic, provenanceRuns: provenanceRuns);
             }
             var lines = prompt switch
             {
@@ -86,7 +87,7 @@ namespace Halcyonic.Client
                 _ => HowBuilt(understanding, zone, room),
             };
             var steps = prompt == UnderstandPrompt.HowBuilt && Flow(understanding.Explanation) != null;
-            return new SectionPresentation(SectionKind.Understanding, provenance, tone, lines, source.Synthetic, steps);
+            return new SectionPresentation(SectionKind.Understanding, provenance, tone, lines, source.Synthetic, steps, provenanceRuns);
         }
 
         /// <summary>The section an understanding that is not available becomes: why there is none, said in words.</summary>
@@ -754,7 +755,7 @@ namespace Halcyonic.Client
             // so every page has one source, even when the understanding source had no answer.
             var paged = measurement.Select((line, index) => index == 0 ? line.With(startsPage: true, repeats: true) : line);
             return new SectionPresentation(SectionKind.Checked, runs.Provenance, runs.ProvenanceTone, runs.Lines.Concat(paged).ToList(),
-                runs.Simulated || simulated);
+                runs.Simulated || simulated, provenanceRuns: runs.ProvenanceRuns);
         }
 
         /// <summary>
@@ -781,8 +782,8 @@ namespace Halcyonic.Client
                 // Only what makes the check no longer cover the work: files changed since.
                 if (run.Stale || UnderstandingPresenter.ChangedSince(run, understanding.Changes.Files).Count > 0) lines.Add(latest[1]);
             }
-            return new SectionPresentation(SectionKind.Checked, IntelligenceText.UnderstandingProvenance(read, source, now, zone, checks: true) + status,
-                SectionTone.Secondary, lines, source.Synthetic);
+            var provenance = IntelligenceText.UnderstandingProvenanceRuns(read, source, now, zone, checks: true) + LineWords.Written(status);
+            return new SectionPresentation(SectionKind.Checked, provenance.Text, SectionTone.Secondary, lines, source.Synthetic, provenanceRuns: provenance);
         }
 
         /// <summary>
@@ -820,8 +821,8 @@ namespace Halcyonic.Client
             {
                 page.AddIfRoom(UnderstandingPresenter.QuoteLine(statement, rows: 2));
             }
-            return new SectionPresentation(SectionKind.Checked, IntelligenceText.UnderstandingProvenance(read, source, now, zone, checks: true) + status,
-                SectionTone.Secondary, page.Lines, source.Synthetic);
+            var provenance = IntelligenceText.UnderstandingProvenanceRuns(read, source, now, zone, checks: true) + LineWords.Written(status);
+            return new SectionPresentation(SectionKind.Checked, provenance.Text, SectionTone.Secondary, page.Lines, source.Synthetic, provenanceRuns: provenance);
         }
     }
 
@@ -874,8 +875,8 @@ namespace Halcyonic.Client
             // source's page: its provenance is that line, never the section's own source's.
             return pages
                 .Select(lines => lines.Count > 0 && lines[0].Source && lines[0].StartsPage
-                    ? new SectionPresentation(section.Kind, lines[0].Text, lines[0].Tone, lines.Skip(1).ToList(), section.Simulated, section.Steps)
-                    : new SectionPresentation(section.Kind, section.Provenance, section.ProvenanceTone, lines, section.Simulated, section.Steps))
+                    ? new SectionPresentation(section.Kind, lines[0].Text, lines[0].Tone, lines.Skip(1).ToList(), section.Simulated, section.Steps, lines[0].Runs)
+                    : new SectionPresentation(section.Kind, section.Provenance, section.ProvenanceTone, lines, section.Simulated, section.Steps, section.ProvenanceRuns))
                 .ToList();
         }
 

@@ -91,6 +91,9 @@ public class FileScreensTests
         Assert.That((frame.Lines[2].Runs.AllTheirs, frame.Lines[2].Icon), Is.EqualTo((true, (GlazeIcon?)GlazeIcon.Quote)), "the agent's words lean as its own");
         Assert.That(frame.Lines.Where(line => !line.Opens).Any(line => line.Action != null), Is.False, "the other lines only say something");
         Assert.That(frame.Source, Does.StartWith("From Salidium"), "one source line, last");
+        // The version Salidium names for itself leans on its ground; "From Salidium" and when are Halcyonic's (settled 2026-10-08).
+        Assert.That(frame.SourceRuns!.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true, false }));
+        Assert.That(frame.SourceRuns!.Runs[0].Text, Is.EqualTo("From Salidium "));
         Assert.That(frame.Side, Is.Null);
         Assert.That(frame.Lines.Any(line => line.Tone == LineTone.Waiting), Is.False, "amber only for what waits");
     }
