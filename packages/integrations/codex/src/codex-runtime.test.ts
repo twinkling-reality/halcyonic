@@ -35,6 +35,7 @@ import {
   APP_SERVER_ARGUMENTS,
   buildEnvironment,
   INHERITED_VARIABLES,
+  launchServer,
   SIGN_IN_VARIABLES,
 } from './server.ts';
 import { allowOnly } from './testing/directory-policy.ts';
@@ -314,6 +315,59 @@ describe("Codex and the project's folder", () => {
         actionError('location_not_allowed')(error) &&
         /policy failure/.test((error as Error).message),
     );
+  });
+});
+
+describe('Codex startup time', () => {
+  /**
+   * A stand-in that answers --version after `versionSeconds`, then takes `seconds` before a shell
+   * execs node under the binary's own path, as a loaded Mac makes a start slow. node then runs
+   * `app-server` from the working folder, a shim that runs the stand-in Codex. ps confirms the
+   * shell at once (`runsAppServer` takes an interpreter before the binary, as the stand-ins need),
+   * so what these tests time is the start's one deadline, not the asks of ps.
+   */
+  function slowToExec(t: TestContext, seconds: number, versionSeconds = 0) {
+    const directory = temporary(t);
+    writeFileSync(
+      join(directory, 'app-server'),
+      `process.argv.splice(1, 1, ${JSON.stringify(FAKE_CODEX)}, 'app-server');\nimport(${JSON.stringify(FAKE_CODEX)});\n`,
+    );
+    const binary = join(directory, 'codex');
+    writeFileSync(
+      binary,
+      `#!/bin/bash\nif [ "$1" = --version ]; then sleep ${versionSeconds}; echo "codex-cli 0.157.0"; exit 0; fi\nsleep ${seconds}\nexec -a "$0" ${JSON.stringify(process.execPath)} "$@"\n`,
+      { mode: 0o755 },
+    );
+    const handlers = { onNotification: () => undefined, onRequest: () => undefined };
+    return (startupTimeoutMs: number) =>
+      launchServer({
+        binaryPath: binary,
+        environment: { PATH: '/usr/bin:/bin' },
+        recordFile: join(directory, 'server.json'),
+        cwd: directory,
+        startupTimeoutMs,
+        handlers,
+      });
+  }
+
+  test("a server slow to start is waited for within the start's time", async (t) => {
+    const server = await slowToExec(t, 5)(15_000);
+    t.after(() => server.stop());
+    assert.ok(server.pid > 0);
+  });
+
+  test('one startup time covers the version check, confirming the process and initialize', async (t) => {
+    // The version takes 2 of the 3 s; initialize gets only what is left, not 3 s more. Stopping
+    // the stand-in then takes up to its 1 s grace.
+    const started = Date.now();
+    await assert.rejects(slowToExec(t, 8, 2)(3000), (error: unknown) => {
+      assert.ok(actionError('runtime_unavailable')(error));
+      assert.match((error as Error).message, /did not answer initialize in time/);
+      return true;
+    });
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed >= 2000, `refused after ${elapsed} ms, before the version was read`);
+    assert.ok(elapsed < 3000 + 2000, `refused after ${elapsed} ms`);
   });
 });
 
