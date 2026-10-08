@@ -1,5 +1,6 @@
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
   ApprovalDecision,
@@ -51,6 +52,7 @@ import {
 } from './models.ts';
 import { parseStartOptions } from './options.ts';
 import { type PendingPermission, reconcileSession, type SessionSnapshot } from './reconcile.ts';
+import { openCodeFolders, sandboxProfile } from './sandbox-profile.ts';
 import {
   buildEnvironment,
   describeExit,
@@ -226,6 +228,15 @@ export interface OpenCodeRuntimeOptions {
    */
   readonly modelWaitMs?: number;
   readonly clock?: Clock;
+  /**
+   * Runs the server, and everything it starts, in a Seatbelt sandbox of Halcyonic's own (ADR
+   * 0028): network out only to loopback, writes only in these project roots, OpenCode's own folders
+   * and the temporary folder, and these paths unreadable. Null runs it unsandboxed.
+   */
+  readonly sandbox?: {
+    readonly projectRoots: readonly string[];
+    readonly unreadable: readonly string[];
+  } | null;
 }
 
 export type StaleServerResult =
@@ -320,6 +331,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #environment: Readonly<Record<string, string>>;
   readonly #port: number | null;
   readonly #startupTimeoutMs: number;
+  readonly #sandbox: OpenCodeRuntimeOptions['sandbox'];
   readonly #silenceTimeoutMs: number;
   readonly #reconnectDelaysMs: readonly number[];
   readonly #snapshotRetryDelaysMs: readonly number[];
@@ -344,6 +356,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#environment = buildEnvironment(process.env, options.env ?? {});
     this.#port = options.port ?? null;
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 30_000;
+    this.#sandbox = options.sandbox ?? null;
     this.#silenceTimeoutMs = options.streamSilenceTimeoutMs ?? 45_000;
     this.#reconnectDelaysMs = options.reconnectDelaysMs ?? [100, 250, 500, 1000, 2000, 4000];
     this.#snapshotRetryDelaysMs = options.snapshotRetryDelaysMs ?? [1000, 3000];
@@ -640,6 +653,32 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return this.#launching;
   }
 
+  /**
+   * Writes the server's Seatbelt profile beside its record, readable by the user only, from the
+   * project roots, OpenCode's own folders for this environment and the temporary folders; null
+   * when the server runs unsandboxed.
+   */
+  async #writeSandboxProfile(): Promise<string | null> {
+    if (this.#sandbox === null || this.#sandbox === undefined) return null;
+    const path = join(dirname(this.#recordFile), 'opencode-sandbox.sb');
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    const profile = sandboxProfile({
+      // The server's own temporary folder (its TMPDIR, inherited from the control plane), never the
+      // whole of the system's, unless it was given none.
+      writable: [
+        ...this.#sandbox.projectRoots,
+        ...openCodeFolders(this.#environment),
+        ...(this.#environment.TMPDIR === undefined || this.#environment.TMPDIR === ''
+          ? [tmpdir()]
+          : []),
+      ],
+      unreadable: this.#sandbox.unreadable,
+    });
+    await writeFile(path, profile, { mode: 0o600 });
+    await chmod(path, 0o600);
+    return path;
+  }
+
   async #launch(): Promise<Connection> {
     try {
       await this.#stopStale();
@@ -656,6 +695,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       port: this.#port,
       cwd: tmpdir(),
       startupTimeoutMs: this.#startupTimeoutMs,
+      sandboxProfile: await this.#writeSandboxProfile(),
     });
     if (this.#closing !== null) {
       await server.stop();
