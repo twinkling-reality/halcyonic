@@ -178,6 +178,21 @@ public class ActivityLogTests
             never.StatusReason.Code = code;
             Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo(words), code);
         }
+
+        // Something else changed what the task may do, so the agent app's adapter stopped it: said for a start, a
+        // round and an activity line alike, never on New project's steps, which no start command fails with
+        // (settled by the coordinator, 2026-10-08).
+        const string Tampered = "Something on your computer changed what this task was allowed to do, so it was stopped. See what it ran in Activity.";
+        Assert.That(WorkspaceText.Tampered, Is.EqualTo(Tampered));
+        Assert.That((WorkspaceText.WhyFailed("runtime_tampered", running: true), WorkspaceText.WhyFailed("runtime_tampered", running: false)),
+            Is.EqualTo((Tampered, Tampered)));
+        Assert.That(WorkspaceText.WhyFailed("runtime_tampered", running: false, step: true), Is.Null);
+        never.StatusReason.Code = "runtime_tampered";
+        Assert.That(StateLanguage.CouldNotFinish(never, null).Note, Is.EqualTo("Couldn't start: s" + Tampered.Substring(1)));
+        var ran = Samples.Execution(execution, "w1", ExecutionStatus.Failed);
+        ran.TurnCount = 1;
+        ran.StatusReason = new ErrorInfo { Code = "runtime_tampered", Message = "Something other than Halcyonic answered an approval." };
+        Assert.That(StateLanguage.CouldNotFinish(ran, null), Is.EqualTo(("Couldn't finish: s" + Tampered.Substring(1), Tampered)), "never to tell it again");
     }
 
     [Test]

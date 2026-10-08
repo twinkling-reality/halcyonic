@@ -436,8 +436,14 @@ namespace Halcyonic.Client
             "runtime_version_unsupported" when !running => step
                 ? "This agent app's version isn't supported yet. Choose another in How it runs."
                 : "This agent app's version on " + HostText.Your + " isn't supported yet. " + WithAnotherAgentApp,
+            // Something other than Halcyonic changed what the task may do, so the agent app's adapter stopped it; a
+            // turn's failure, never a step's, which no start command fails with (settled by the coordinator, 2026-10-08).
+            "runtime_tampered" when !step => Tampered,
             _ => EntryText.FolderProblem(null, code),
         };
+
+        /// <summary>A task stopped because something on the computer changed what it was allowed to do (runtime_tampered).</summary>
+        public const string Tampered = "Something on " + HostText.Your + " changed what this task was allowed to do, so it was stopped. See what it ran in Activity.";
 
         private const string WithAnotherAgentApp = "Add the task again in Projects with another agent app.";
         private const string InHowItRuns = "Choose another agent app in How it runs, then try again.";
