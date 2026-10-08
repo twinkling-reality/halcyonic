@@ -47,7 +47,9 @@ time, switching models unloads the other, and a model left idle for five minutes
   removes a model from OpenCode's list. A project's own `opencode.json` does the same for that
   directory only. `providers.ollama.settings.baseURL`, which the OpenCode documentation gives for a
   remote Ollama, made 2.0.18 list no Ollama model at all within 40 s, and reach neither the given
-  address nor the default one.
+  address nor the default one. On 2026-10-08 a loopback address ending in `/v1` there did work:
+  OpenCode asked a stand-in at it for its models within 0.6 s of launch and listed them. Why the
+  first attempt failed was not found.
 - **The list precedes discovery.** `GET /api/model` "may precede initial plugin settlement", as
   OpenCode's own API document says, and each directory settles separately: read from a fresh
   server, the list was empty, then held only OpenCode's hosted models, and held the Ollama models
@@ -55,6 +57,28 @@ time, switching models unloads the other, and a model left idle for five minutes
   its turn with `provider_no_route` ("Unsupported package for ollama/..."), and so did a second
   prompt 0.3 s later. The adapter now waits for a named model to be listed in the execution's
   directory, for up to 10 s, and refuses the start in words when it never is (below).
+- **Listed is not yet runnable.** Runtime, 2026-10-08, with a stand-in Ollama on loopback that
+  answered `/api/tags` and `/api/show` 900 ms late, and a configuration naming its model under
+  `providers.ollama.models` with limits, as `pnpm mac-setup local-model` writes it: the model was
+  listed about 0.3 s after the folder first loaded, with `package` an empty string and only
+  `baseURL` in its settings, and gained `@opencode/ai/providers/openai-compatible` about 1.6 s
+  later, when `/api/show` had answered. OpenCode's source agrees: the Ollama plugin sets the
+  provider's package only once discovery has found models (`core/src/plugin/provider/ollama.ts`),
+  a listed model takes its provider's package (`core/src/model.ts`), and a model without one
+  fails with "Unsupported package" (`core/src/model-resolver.ts`, which also skips such models
+  when it picks a default). A start in that window failed its first turn, as on `qwen3:4b-instruct`
+  ([opencode-permissions.md](opencode-permissions.md)). The adapter now waits for the model to be
+  listed with a package, and refuses the start in words when it is listed without one after 10 s.
+  The end to end test `a model the configuration names under Ollama runs its first turn though
+  discovery answers late` starts right after launch and passes; with the wait for a package
+  taken out, its first turn fails with `provider_no_route` ("Unsupported package for
+  ollama/stand-in:1b:", the package empty).
+- **Before discovery, the default is hosted.** In the same run, with the configuration's `model`
+  naming the stand-in's model, `GET /api/model/default` answered OpenCode Zen's
+  `opencode/space-bunny-free` for about 0.15 s, before the stand-in's model was listed: OpenCode
+  falls back to its first available model while the configured default is missing. Admission
+  never starts a runtime that lists its models without a model (`model_required`), so this
+  reaches only a caller of the adapter itself.
 - **With no configuration, the default model is hosted.** OpenCode lists seven free models of its
   own hosted service, OpenCode Zen (`https://opencode.ai/zen/v1`), from a catalog built into the
   binary, and without a configured model its default is one of them (`opencode/space-bunny-free`),

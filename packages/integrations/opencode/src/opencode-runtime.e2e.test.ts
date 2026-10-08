@@ -609,9 +609,9 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     SLOW_TEST,
     async (t) => {
       // As `pnpm mac-setup local-model` writes it: the model named, with its limits, here large
-      // enough that OpenCode's own prompt needs no compaction first. OpenCode
-      // lists such a model before its Ollama discovery has answered, without a package, and a
-      // session prompted with it then fails with provider.no-route ("Unsupported package").
+      // enough that OpenCode's own prompt needs no compaction first. OpenCode lists such a model
+      // before its Ollama discovery has answered, with an empty package, and a session prompted
+      // with it then fails with provider.no-route ("Unsupported package").
       const tag = 'stand-in:1b';
       const { runtime, sandbox } = await harness(t, {
         provider: { ollama: { model: tag, answerMs: 900 } },
