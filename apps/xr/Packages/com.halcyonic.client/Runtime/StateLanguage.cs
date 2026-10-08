@@ -277,6 +277,8 @@ namespace Halcyonic.Client
                 if (known != null) return (Lead("Couldn't start", known), known);
                 return ("Couldn't start. " + AddItAgain, AddItAgain);
             }
+            // Stopped because something else changed what it may do: telling it again can't go on with it.
+            if (execution.StatusReason?.Code == "runtime_tampered") return (Lead("Couldn't finish", WorkspaceText.Tampered), WorkspaceText.Tampered);
             var next = runtime != null && WorkspacePresenter.ActionsFor(execution, runtime).Contains(WorkspaceAction.Instruct) ? TellItAgain : AddItAgain;
             return ("Couldn't finish this round. " + next, next);
         }
