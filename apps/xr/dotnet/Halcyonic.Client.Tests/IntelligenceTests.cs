@@ -744,7 +744,7 @@ public class DemonstrationReadsTests
 
         understanding = await reads.ReadUnderstandingAsync(execution.ExecutionId, CancellationToken.None);
         section = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(section.Lines.Select(line => line.Text), Does.Contain("New: src/middleware/rate-limit.ts (+57 −0)"), "by its path in its repository");
+        Assert.That(section.Lines.Select(line => line.Text), Does.Contain("New: rate-limit.ts (+57 −0)").And.Contain("src/middleware/rate-limit.ts"), "by its name, its path in its repository beneath");
         Assert.That(section.Lines[1].Text, Is.EqualTo("At commit 3e7b0c2 on sign-in-rate-limit, where it started"));
         var flow = UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
         Assert.That(flow.Steps, Is.True, "a judge can step through how it was built once the first round ends");

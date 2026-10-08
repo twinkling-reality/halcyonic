@@ -165,6 +165,16 @@ public class WorkspaceTextTests
         Assert.That(WorkspaceText.Truncate("ab😀cd", 4), Is.EqualTo("ab…"), "never half a character");
         Assert.That(WorkspaceText.Truncate("ab😀cd", 5), Is.EqualTo("ab😀…"));
         Assert.Throws<ArgumentOutOfRangeException>(() => WorkspaceText.Truncate("x", 0));
+        // Never inside a code point Plain shows, which would leave half of it reading as something else (the outside-text audit's gap 13).
+        var shown = LabelText.Plain("ab\u202Ecdefgh");
+        Assert.That(shown, Is.EqualTo("ab\u2039U+202E\u203Acdefgh"));
+        for (var length = 3; length <= 10; length++)
+        {
+            Assert.That(WorkspaceText.Truncate(shown, length), Is.EqualTo("ab…"), length.ToString());
+        }
+        Assert.That(WorkspaceText.Truncate(shown, 11), Is.EqualTo("ab\u2039U+202E\u203A…"));
+        Assert.That(WorkspaceText.Prefix(LabelText.Plain("\u202Eabcdef"), 7), Is.EqualTo("\u2039U+202E\u203A"), "one it starts with stays whole");
+        Assert.That(WorkspaceText.Prefix("abcdef", 7), Is.EqualTo("abcdef"));
     }
 
     /// <summary>

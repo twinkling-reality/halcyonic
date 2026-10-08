@@ -180,10 +180,18 @@ namespace Halcyonic.Client
             // The source observes paths, counts and kinds.
             page.Add(new SectionLine("observed", Count(changes), SectionTone.Normal));
             if (Revision(understanding.Revision) is string revision) page.Add(new SectionLine("observed", revision, SectionTone.Secondary));
+            // Each file by its name and its counts, which a long path would push past the line's end, and the path
+            // in its repository on a line of its own beneath (the outside-text audit's gap 13).
             var shown = Shown(changes.Files);
             var files = changes.Files.Select((file, index) =>
-                new SectionLine("observed", KindOf(file.Kinds) + ": " + shown[index] + " " + LinesOf(file), SectionTone.Normal,
-                    file: FileKinds.Of(file.RepositoryPath ?? file.Path))).ToList();
+            {
+                var line = new SectionLine("observed", KindOf(file.Kinds) + ": " + shown[index] + " " + LinesOf(file), SectionTone.Normal,
+                    file: FileKinds.Of(file.RepositoryPath ?? file.Path));
+                var path = file.RepositoryPath is string inRepository ? IntelligenceText.Plain(inRepository) : null;
+                return path != null && path != shown[index]
+                    ? new[] { line, new SectionLine("observed", path, SectionTone.Secondary, detail: true) }
+                    : (IReadOnlyList<SectionLine>)new[] { line };
+            }).ToList();
             var coverage = Coverage(understanding);
             page.AddCounted(files, more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more file"), SectionTone.Secondary),
                 reserve: coverage);
@@ -402,14 +410,11 @@ namespace Halcyonic.Client
             + (file.LinesRemovedExact == false ? " or more" : "") + ")";
 
         /// <summary>
-        /// Each changed file as the person reads it: by its path in its repository where the source
-        /// resolved one, else by its name with as many folders as tell it apart from the others.
+        /// Each changed file as the person reads it: by its name, with as many of its folders, in its repository where
+        /// the source resolved its path there, as tell it apart from the others.
         /// </summary>
-        private static IReadOnlyList<string> Shown(IReadOnlyList<UnderstandingChangedFile> files)
-        {
-            var tails = PathTails(files.Select(file => file.Path).ToList());
-            return files.Select((file, index) => file.RepositoryPath is string inRepository ? IntelligenceText.Plain(inRepository) : tails[index]).ToList();
-        }
+        private static IReadOnlyList<string> Shown(IReadOnlyList<UnderstandingChangedFile> files) =>
+            PathTails(files.Select(file => file.RepositoryPath ?? file.Path).ToList());
 
         /// <summary>
         /// Which commit the work started from and stands at, as the source saw it at the session's
@@ -420,11 +425,11 @@ namespace Halcyonic.Client
             var start = revision.AtStart;
             var latest = revision.AtLatestTurnEnd;
             string Commit(UnderstandingRevisionAnchor anchor) => anchor.Head == null ? "a repository with no commits yet" : "commit " + ShortSha(anchor.Head);
-            string On(UnderstandingRevisionAnchor anchor) => anchor.Branch == null ? "" : " on " + IntelligenceText.Plain(anchor.Branch);
+            string On(UnderstandingRevisionAnchor anchor) => anchor.Branch == null ? "" : " on " + Branch(anchor.Branch);
             // A repository with no commits yet has no commit to stand at: "In a repository with no
             // commits yet, on main".
             string Empty(UnderstandingRevisionAnchor anchor) =>
-                "a repository with no commits yet" + (anchor.Branch == null ? "" : ", on " + IntelligenceText.Plain(anchor.Branch));
+                "a repository with no commits yet" + (anchor.Branch == null ? "" : ", on " + Branch(anchor.Branch));
             if (start != null && latest != null)
             {
                 if (start.Head == latest.Head)
@@ -472,10 +477,12 @@ namespace Halcyonic.Client
             return string.Join(", ", tails.Take(Shown)) + " and " + IntelligenceText.Plural(tails.Count - Shown, "more file");
         }
 
+        /// <summary>A branch's name, cut at 40 characters so the line's words around it stay whole.</summary>
+        private static string Branch(string branch) => IntelligenceText.Truncate(IntelligenceText.Plain(branch), 40);
+
         private static string ShortSha(string sha)
         {
-            var plain = IntelligenceText.Plain(sha);
-            return plain.Length > 7 ? plain.Substring(0, 7) : plain;
+            return WorkspaceText.Prefix(IntelligenceText.Plain(sha), 7);
         }
 
         /// <summary>Whether a check ran after every change, which the source infers; null when nothing changed.</summary>

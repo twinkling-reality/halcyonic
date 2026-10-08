@@ -619,15 +619,30 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Shortens text to at most <paramref name="maxLength"/> characters, ending in an ellipsis when
-        /// cut, and never between the two halves of a character outside the Basic Multilingual Plane.
+        /// cut (<see cref="Prefix"/>): the one cut for text from outside, made plain first.
         /// </summary>
         public static string Truncate(string text, int maxLength)
         {
             if (maxLength < 1) throw new ArgumentOutOfRangeException(nameof(maxLength), maxLength, "Must be at least 1.");
             if (text.Length <= maxLength) return text;
-            var kept = maxLength - 1;
+            return Prefix(text, maxLength - 1).TrimEnd() + "…";
+        }
+
+        /// <summary>
+        /// At most <paramref name="maxLength"/> characters from the start of text, never between the two halves of a
+        /// character outside the Basic Multilingual Plane and never inside a code point <see cref="LabelText.Plain"/>
+        /// shows, as ‹U+202E›, which would leave half of it reading as something else.
+        /// </summary>
+        public static string Prefix(string text, int maxLength)
+        {
+            if (text.Length <= maxLength) return text;
+            var kept = Math.Max(0, maxLength);
             if (kept > 0 && char.IsHighSurrogate(text[kept - 1])) kept--;
-            return text.Substring(0, kept).TrimEnd() + "…";
+            var open = kept == 0 ? -1 : text.LastIndexOf('\u2039', kept - 1);
+            var close = open < 0 ? -1 : text.IndexOf('\u203A', open);
+            // Cut before the code point; one it starts with stays whole rather than leave nothing.
+            if (open >= 0 && close >= kept) kept = open > 0 ? open : close + 1;
+            return text.Substring(0, kept);
         }
 
         /// <summary>
