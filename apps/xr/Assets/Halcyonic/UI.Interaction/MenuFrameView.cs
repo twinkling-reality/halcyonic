@@ -341,7 +341,8 @@ namespace Halcyonic.XR.UI
         public void Unsettle(bool subjectToo = false)
         {
             Unsettles++;
-            foreach (var button in GetComponentsInChildren<GlazeButton>()) button.Unsettle();
+            // Its hidden buttons too, as while the plane is folded away, so none takes a press once it shows.
+            foreach (var button in GetComponentsInChildren<GlazeButton>(true)) button.Unsettle();
             if (subjectToo) subjectUnsettledAt = Time.unscaledTime;
         }
 
