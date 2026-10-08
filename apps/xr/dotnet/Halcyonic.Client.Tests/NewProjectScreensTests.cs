@@ -879,6 +879,8 @@ public class NewProjectStartTests
         Assert.That(review.Items.Single(item => item.Label == "Model: ").Runs.ToString(), Is.EqualTo("Model: chosen by the agent app"));
         Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project: [chosen by the agent app]"));
         Assert.That(review.Items.Single(item => item.Label == "Agent app: ").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
+        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model id: none"),
+            "no model id: Halcyonic's word, upright, unlike a model whose id is \"none\"");
     }
 
     [Test]

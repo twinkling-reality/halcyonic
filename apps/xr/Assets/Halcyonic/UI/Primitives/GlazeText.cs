@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -279,31 +280,12 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// The grounds for the runs of outside text in a laid label (<see cref="RunBoxes"/>), each reaching
-        /// <paramref name="padding"/> past its words, but never past halfway to a letter of Halcyonic's beside
-        /// it on its row, so a space between the two stays a gap on both sides and Halcyonic's words stand clear.
+        /// The grounds for the runs of outside text in a laid label (<see cref="RunBoxes"/>), each reaching its
+        /// full <paramref name="padding"/> past its words: the room for it is the space <see cref="LineWords.Pad"/>
+        /// adds to the line where outside text meets Halcyonic's words, never taken from Halcyonic's own space.
         /// </summary>
-        public static List<Rect> RunGrounds(TMP_Text label, IReadOnlyList<(int Start, int End)> ranges, float padding)
-        {
-            var info = label.textInfo;
-            var grounds = new List<Rect>();
-            foreach (var box in RunBoxes(label, ranges))
-            {
-                var left = box.xMin - padding;
-                var right = box.xMax + padding;
-                for (var index = 0; index < info.characterCount; index++)
-                {
-                    var character = info.characterInfo[index];
-                    if (!character.isVisible || InRun(info, index, ranges)) continue;
-                    var line = info.lineInfo[character.lineNumber];
-                    if (line.descender > box.center.y || line.ascender < box.center.y) continue;
-                    if (character.topRight.x <= box.xMin) left = Mathf.Max(left, (character.topRight.x + box.xMin) / 2f);
-                    else if (character.bottomLeft.x >= box.xMax) right = Mathf.Min(right, (character.bottomLeft.x + box.xMax) / 2f);
-                }
-                grounds.Add(Rect.MinMaxRect(left, box.yMin, right, box.yMax));
-            }
-            return grounds;
-        }
+        public static List<Rect> RunGrounds(TMP_Text label, IReadOnlyList<(int Start, int End)> ranges, float padding) =>
+            RunBoxes(label, ranges).Select(box => Rect.MinMaxRect(box.xMin - padding, box.yMin, box.xMax + padding, box.yMax)).ToList();
 
         private static Rect Box(TMP_TextInfo info, int row, float left, float right)
         {

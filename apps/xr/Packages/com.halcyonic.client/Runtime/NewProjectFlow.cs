@@ -534,7 +534,7 @@ namespace Halcyonic.Client
                     if (current.OwnWords != null) ideaRow = IdeaRow.Typed;
                     break;
                 case NewProjectScreens.TypeIdea:
-                    host.OpenKeyboard(LabelText.Plain(current.OwnWords), current.ExistingProjectId == null ? EntryText.IdeaPrompt : EntryText.WorkPrompt, text =>
+                    MenuKeyboard.Open(host, current.OwnWords, current.ExistingProjectId == null ? EntryText.IdeaPrompt : EntryText.WorkPrompt, text =>
                     {
                         if (text.Trim().Length == 0) return;
                         current.UseIdea(text);
@@ -574,7 +574,7 @@ namespace Halcyonic.Client
                     if (exchange.Written != null) exchange.Write(exchange.Written, exchange.WrittenHeard);
                     break;
                 case NewProjectScreens.TypeAnswer when exchange != null && recording == null:
-                    host.OpenKeyboard(LabelText.Plain(exchange.Written), CompanionText.TypeAnswer, text =>
+                    MenuKeyboard.Open(host, exchange.Written, CompanionText.TypeAnswer, text =>
                     {
                         if (!exchange.Write(text))
                         {
@@ -610,7 +610,7 @@ namespace Halcyonic.Client
                     break;
                 case NewProjectScreens.TypeFixedAnswer when current.Question < ProjectIdea.Questions.Count:
                     var asked = current.Question;
-                    host.OpenKeyboard(LabelText.Plain(current.GuideWritten), ProjectIdea.Questions[asked].Prompt, text =>
+                    MenuKeyboard.Open(host, current.GuideWritten, ProjectIdea.Questions[asked].Prompt, text =>
                     {
                         if (current.Question == asked) current.WriteGuideAnswer(text);
                         Done();
@@ -690,7 +690,7 @@ namespace Halcyonic.Client
                     // Shown only once it holds the task, which is then the one chosen.
                     break;
                 case NewProjectScreens.TypeTask:
-                    host.OpenKeyboard(LabelText.Plain(current.FirstTask), EntryText.WhatFirstTask, text =>
+                    MenuKeyboard.Open(host, current.FirstTask, EntryText.WhatFirstTask, text =>
                     {
                         current.Rewrite(text);
                         said = null;
@@ -713,7 +713,7 @@ namespace Halcyonic.Client
                     showModels = false;
                     break;
                 case NewProjectScreens.TypeWords:
-                    host.OpenKeyboard(LabelText.Plain(written ?? WordsNow(current)), WordsPrompt(), text =>
+                    MenuKeyboard.Open(host, written ?? WordsNow(current), WordsPrompt(), text =>
                     {
                         written = text;
                         writtenHeard = false;

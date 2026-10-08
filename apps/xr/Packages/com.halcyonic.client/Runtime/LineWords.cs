@@ -107,7 +107,11 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>These runs, then <paramref name="next"/>'s; two runs of one kind that meet become one.</summary>
+        /// <summary>
+        /// These runs, then <paramref name="next"/>'s; two runs of one kind that meet become one, and so do two
+        /// runs of outside text with only Halcyonic's punctuation between them (a separator doesn't make a line
+        /// Halcyonic's, lane V's rule): "{header}: {labels}" is outside text whole.
+        /// </summary>
         public LineWords Then(LineWords next)
         {
             if (next == null) throw new ArgumentNullException(nameof(next));
@@ -118,9 +122,21 @@ namespace Halcyonic.Client
             {
                 var last = runs[runs.Count - 1];
                 if (last.Theirs == run.Theirs) runs[runs.Count - 1] = new WordRun(last.Text + run.Text, run.Theirs);
+                else if (run.Theirs && runs.Count >= 2 && runs[runs.Count - 2].Theirs && Separator(last.Text))
+                {
+                    runs[runs.Count - 2] = new WordRun(runs[runs.Count - 2].Text + last.Text + run.Text, theirs: true);
+                    runs.RemoveAt(runs.Count - 1);
+                }
                 else runs.Add(run);
             }
             return new LineWords(runs);
+        }
+
+        /// <summary>Halcyonic's words that only separate, as ": ", ", ", "; " or " · ": spaces and one punctuation mark at most.</summary>
+        private static bool Separator(string words)
+        {
+            var marks = words.Trim(' ');
+            return marks.Length <= 1 && (marks.Length == 0 || ",:;\u00B7".IndexOf(marks[0]) >= 0);
         }
 
         public static LineWords operator +(LineWords first, LineWords second) => first.Then(second);
@@ -130,20 +146,28 @@ namespace Halcyonic.Client
         /// doubled as <see cref="LabelText.ForTextMeshPro"/> does, and where each run of outside text
         /// stands in it, as the index of its first character and the one past its last: the ranges
         /// are taken on that text, so a doubled backslash, a code point shown by code, a surrogate
-        /// pair or a combining mark never moves a run's edge.
+        /// pair or a combining mark never moves a run's edge. Where outside text meets Halcyonic's words
+        /// one more space stands between them, outside the run, so a ground sits in the sentence as a
+        /// word does: Halcyonic's own space or punctuation, then the ground's padding inside it (lane V's
+        /// rule); a space is wider than the padding at every size a line takes.
         /// </summary>
         public (string Text, IReadOnlyList<(int Start, int End)> Theirs) ForTextMeshPro()
         {
             var text = new StringBuilder();
             var theirs = new List<(int, int)>();
-            foreach (var run in Runs)
+            for (var index = 0; index < Runs.Count; index++)
             {
+                var run = Runs[index];
+                if (index > 0) text.Append(Pad);
                 var start = text.Length;
                 text.Append(run.Text.Replace("\\", "\\\\"));
                 if (run.Theirs) theirs.Add((start, text.Length));
             }
             return (text.ToString(), theirs);
         }
+
+        /// <summary>The room added where outside text meets Halcyonic's words, for the ground's padding: one space.</summary>
+        public const string Pad = " ";
 
         /// <summary>
         /// These words cut to what <paramref name="fits"/>: outside text only, every run of it held to

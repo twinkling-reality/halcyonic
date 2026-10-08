@@ -43,7 +43,8 @@ public class ActivityLogTests
         var entries = log.For(ExecutionOf(events, "Move sessions to their own table"));
         Assert.That(entries[0].Words.ToString(), Is.EqualTo("Asked to start on [Mock runtime (development fixture)]"));
         Assert.That(entries.Single(entry => entry.Text == "Succeeded: bash").Words.ToString(), Is.EqualTo("Succeeded: [bash]"));
-        Assert.That(entries.First(entry => entry.Kind == ActivityKind.Approval).Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true, false, true }));
+        // The tool and its request with only a colon between are outside text whole (a separator doesn't make a line Halcyonic's).
+        Assert.That(entries.First(entry => entry.Kind == ActivityKind.Approval).Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }));
         Assert.That(entries.Where(entry => entry.Kind == ActivityKind.Turn).All(entry => !entry.Words.AnyTheirs), Is.True, "a round is Halcyonic's own words");
         Assert.That(texts[^1], Is.EqualTo("Round finished"), "a round, never a turn");
     }
@@ -229,8 +230,8 @@ public class ActivityLogTests
             var entries = log.For(ExecutionOf(events, title)).Where(entry => entry.Kind == ActivityKind.Tool).ToList();
             bool Finished(ActivityEntry entry) =>
                 entry.Text.StartsWith("Succeeded: ", StringComparison.Ordinal) || entry.Text.StartsWith("Failed: ", StringComparison.Ordinal);
-            // The tool's name is the entry's first run of outside text, after Halcyonic's "Used " or "Succeeded: ".
-            string Tool(ActivityEntry entry) => entry.Words.Runs.First(run => run.Theirs).Text;
+            // The tool's name: after Halcyonic's "Used " to its title's colon, or after "Succeeded: ".
+            string Tool(ActivityEntry entry) => entry.Words.Runs.First(run => run.Theirs).Text.Split(':')[0];
             var started = entries.Where(entry => !Finished(entry)).Select(Tool).ToList();
             var finished = entries.Where(Finished).Select(Tool).ToList();
             Assert.That(entries.Where(entry => !Finished(entry)).All(entry => entry.Text.StartsWith("Used ", StringComparison.Ordinal)), Is.True, title);

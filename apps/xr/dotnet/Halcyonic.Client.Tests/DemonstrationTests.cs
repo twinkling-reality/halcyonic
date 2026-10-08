@@ -433,7 +433,7 @@ public class DemonstrationTransportTests
         var command = Demonstration.AnswerCommand(commands, "1 hour");
         await SendAsync(transport, command);
         AssertAnsweredInWords(await ReceiveAsync(transport), command,
-            "Nothing is sent to an agent. The recording goes on as if you answered \u201C1 hour\u201D.");
+            "Nothing is sent to an agent. The recording goes on as if you had chosen its recorded answer.");
         var branch = Demonstration.AtQuestion(DemonstrationAnswerKind.Answer, "1 hour");
         var events = (await ReceiveAsync(transport, recording.Nodes[branch.Node].Events.Count)).Cast<EventMessage>().ToList();
         Assert.That(events.Select(e => e.Event).OfType<RuntimeQuestionResolvedEvent>().Single().Payload.QuestionId, Is.EqualTo(asked.QuestionId));
@@ -470,9 +470,12 @@ public class DemonstrationTransportTests
         Assert.That(DemonstrationTransport.Answered(Demonstration.AtApproval(DemonstrationAnswerKind.Approve).Answer),
             Is.EqualTo("Not sent to any agent; the recording continues as recorded for approving."));
         var instruction = Demonstration.InstructionsAfterApproving()[0].Answer;
-        Assert.That(DemonstrationTransport.Answered(instruction), Is.EqualTo("Not sent to any agent; the recording continues as recorded for “Count per account too”."));
+        // Halcyonic's message names no text from the recording, so none of it stands in Halcyonic's words (settled 2026-10-08).
+        Assert.That(DemonstrationTransport.Answered(instruction), Is.EqualTo("Not sent to any agent; the recording continues as recorded for this instruction."));
         Assert.That(DemonstrationTransport.AnsweredInstead(instruction),
-            Is.EqualTo("Not sent to any agent; the recording holds only its own instructions, so it continues as recorded for “Count per account too”."));
+            Is.EqualTo("Not sent to any agent; the recording holds only its own instructions, so it continues with the one it recorded."));
+        Assert.That(new[] { DemonstrationTransport.Answered(instruction), DemonstrationTransport.AnsweredInstead(instruction) },
+            Has.None.Contains(instruction.Label).And.None.Contains("\u201C"));
 
         using var transport = await PlayToTheApprovalAsync(Demonstration.Fast());
         var denial = commands.RespondToApproval(deny.Answer.ExecutionId, deny.Answer.ApprovalId!, ApprovalDecision.Deny, "Not now.");
@@ -648,7 +651,7 @@ public class DemonstrationSessionTests
         Assert.That(instructing.Step, Is.EqualTo(SteeringStep.Send), "an instruction needs no second press");
         await submissions.SubmitAsync(c => session.SubmitAsync(c), instructing.Command!, execution.ExecutionId);
         Assert.That(submissions.FeedbackFor(execution.ExecutionId, session.State, 5).First().Text,
-            Is.EqualTo("Not sent to any agent; the recording continues as recorded for “Count per account too”."));
+            Is.EqualTo("Not sent to any agent; the recording continues as recorded for this instruction."));
 
         seen = await Pumping.Until(session, s =>
         {
@@ -686,7 +689,8 @@ public class DemonstrationSessionTests
         Assert.That(Demonstration.DirectedExecution(session)!.LastTestRun!.Outcome, Is.EqualTo(TestOutcome.Passed));
 
         // Letter case and spacing do not matter to a recorded instruction.
-        Assert.That(DemonstrationTransport.Answered(first), Does.Contain(first.Label));
+        // Halcyonic's message names no text from the recording (settled 2026-10-08).
+        Assert.That(DemonstrationTransport.Answered(first), Does.Not.Contain(first.Label));
     }
 
     [Test]

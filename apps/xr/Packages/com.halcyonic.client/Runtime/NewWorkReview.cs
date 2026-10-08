@@ -117,7 +117,7 @@ namespace Halcyonic.Client
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
-            : this(project, title, LineWords.Shown(runtime), LineWords.Shown(model), LineWords.Written(modelFacts), modelRef, objective,
+            : this(project, title, LineWords.Shown(runtime), LineWords.Shown(model), LineWords.Written(modelFacts), LineWords.Shown(modelRef), objective,
                 folder == null ? null : LineWords.Shown(folder), folderBefore == null ? null : LineWords.Shown(folderBefore), titleCut, folderChoice)
         {
         }
@@ -127,7 +127,7 @@ namespace Halcyonic.Client
         /// "Simulated: " or "chosen by the agent app", upright, so a name that copies them never reads as
         /// Halcyonic's; outside text, raw, spelled here and leaning.
         /// </summary>
-        public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, string modelRef, string objective,
+        public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, LineWords modelRef, string objective,
             LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
         {
             FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);

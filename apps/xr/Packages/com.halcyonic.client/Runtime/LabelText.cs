@@ -229,6 +229,20 @@ namespace Halcyonic.Client
         /// </summary>
         public static string ForTextMeshPro(string? text) => Plain(text).Replace("\\", "\\\\");
 
+        /// <summary>
+        /// Where a character starts in text made for TextMeshPro (<see cref="ForTextMeshPro"/>), whose every
+        /// backslash is doubled: <paramref name="index"/>, or one before it where it falls on the second
+        /// backslash of a pair, so a part cut there never starts or ends with a lone backslash that would
+        /// turn the next characters into another (the independent review of batch B, 2026-10-08).
+        /// </summary>
+        public static int CharacterStart(string shown, int index)
+        {
+            if (index <= 0 || index >= shown.Length || shown[index] != '\\') return index;
+            var run = 0;
+            for (var before = index - 1; before >= 0 && shown[before] == '\\'; before--) run++;
+            return run % 2 == 1 ? index - 1 : index;
+        }
+
         private static bool In(int[] ranges, int codePoint)
         {
             for (var index = 0; index < ranges.Length; index += 2)

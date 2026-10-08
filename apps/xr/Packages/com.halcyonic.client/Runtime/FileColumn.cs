@@ -167,7 +167,7 @@ namespace Halcyonic.Client
                 case FileScreens.TypeAnswer when draft != null && !question.Reviewing:
                     var typing = question.Prompt;
                     var typingFor = draft;
-                    host.OpenKeyboard(LabelText.Plain(draft.Typed(typing)), "Your answer", text =>
+                    MenuKeyboard.Open(host, draft.Typed(typing), "Your answer", text =>
                     {
                         if (typingFor != draft) return;
                         // An answer armed to send meanwhile is cancelled, if these words changed it: Yes was for the answer before them.
