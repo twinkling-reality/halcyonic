@@ -120,7 +120,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// facing <paramref name="eyes"/>, its top <see cref="MenuPage.TopDegrees"/> below eye level, each
         /// column settled as the plane has it, which raises its view's Drawn.
         /// </summary>
-        private static void Lay(MenuFrame frame, MenuFrameView file, MenuFrameView side, Vector3 eyes)
+        internal static void Lay(MenuFrame frame, MenuFrameView file, MenuFrameView side, Vector3 eyes)
         {
             var subject = MenuFrameView.SubjectHeight(frame.Subject, Glaze.Menu.FileColumnDegrees, pillRoom: true);
             if (frame.Side != null) subject = Mathf.Max(subject, MenuFrameView.SubjectHeight(frame.Side.Subject, Glaze.Menu.SideColumnDegrees, pillRoom: true));
@@ -172,11 +172,11 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static IReadOnlyList<PromptMeasure> Measure(QuestionDraft draft) => draft.Prompts.Select(prompt =>
         {
-            var answers = prompt.Options.Select(FileScreens.AnswerWords).ToList();
+            // Measured as the file column measures them, from the lines the page draws.
             return new PromptMeasure(
-                MenuFrameView.RowsOf(new PageLine("“" + WorkspaceText.OneLine(prompt.Text) + "”", wordsAreData: true), Glaze.Menu.FileColumnDegrees),
-                answers.Select(words => MenuFrameView.RowsOf(new PageLine(words, wordsAreData: true, action: FileScreens.Choose, key: "0", choice: true), Glaze.Menu.FileColumnDegrees)).ToList(),
-                answers.Select(words => MenuFrameView.RowsOf(new PageLine(words, wordsAreData: true), Glaze.Menu.SideColumnDegrees)).ToList());
+                MenuFrameView.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), Glaze.Menu.FileColumnDegrees),
+                prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.AnswerRow(option, "0"), Glaze.Menu.FileColumnDegrees)).ToList(),
+                prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.SideAnswerLine(option, null), Glaze.Menu.SideColumnDegrees)).ToList());
         }).ToList();
 
         /// <summary>The agent's question with four answers of two rows each, then one chosen whose words run past two rows.</summary>

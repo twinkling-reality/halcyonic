@@ -381,9 +381,6 @@ namespace Halcyonic.Client
         /// </summary>
         public string? ToRead(WorkspacePresentation workspace) => Armed == WorkspaceAction.Instruct ? ArmedRequest : Request(workspace);
 
-        /// <summary>An instruction's words as its confirmation shows them whole: one line by the one rule, quoted.</summary>
-        public static string Quoted(string instruction) => "“" + WorkspaceText.OneLine(instruction) + "”";
-
         /// <summary>
         /// Drops a confirmation that lapsed: too late, no longer offered, or asked about an approval
         /// that is no longer pending. Returns why it dropped one, or null when nothing lapsed.
@@ -424,7 +421,8 @@ namespace Halcyonic.Client
             Armed = action;
             ArmedApprovalId = approvalId;
             Instruction = instruction;
-            ArmedRequest = action == WorkspaceAction.Instruct && instruction != null ? Quoted(instruction) : null;
+            // The words as the file shows them above the question, leaning, never quoted (lane V's ruling, 2026-10-08).
+            ArmedRequest = action == WorkspaceAction.Instruct && instruction != null ? WorkspaceText.OneLine(instruction) : null;
             Heard = false;
             WholeRequestShown = false;
             shownPart = 0;

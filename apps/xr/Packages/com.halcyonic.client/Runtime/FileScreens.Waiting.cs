@@ -190,14 +190,12 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The request a confirmation reads whole, as its parts show it: an approval's request is the agent
-        /// app's, all outside text, a block leaning on Halcyonic's ground; an instruction's words are the
-        /// person's own, upright in their quotes.
+        /// The request a confirmation reads whole, as its parts show it: an approval's request, the agent
+        /// app's, or an instruction's words, the person's, a block leaning on Halcyonic's ground, as
+        /// everything Halcyonic didn't write is (lane V's ruling, 2026-10-08).
         /// </summary>
         public static PageLine RequestLine(WorkspaceSteering steering, string request, int rows = 1, int? fromRow = null) =>
-            steering.Armed == WorkspaceAction.Instruct
-                ? new PageLine(request, wordsAreData: true, rows: rows, fromRow: fromRow)
-                : new PageLine(LineWords.Theirs(request), rows: rows, fromRow: fromRow);
+            new PageLine(LineWords.TheirName(request), rows: rows, fromRow: fromRow);
 
         /// <summary>The agent's question as its lines show it: its words alone, leaning beside Halcyonic's quote mark, never quoted.</summary>
         public static LineWords QuestionWords(QuestionPrompt asked) => LineWords.Theirs(asked.Text);
@@ -244,7 +242,20 @@ namespace Halcyonic.Client
             : answerPages > 1 ? OnToTheAnswers + ", 1 of " + answerPages.ToString(CultureInfo.InvariantCulture) : OnToTheAnswers;
 
         /// <summary>The row for the person's own answer: Type my answer, or once typed, their words as written, chosen.</summary>
-        public static string TypedWords(string? typed) => typed == null ? TypeMyAnswer : "Your answer: “" + WorkspaceText.OneLine(typed) + "”";
+        public static string TypedWords(string? typed) => TypedRuns(typed).Text;
+
+        /// <summary>
+        /// The row for the person's own answer as runs: Type my answer, or once typed or heard, "Your
+        /// answer: " and their words, leaning as everything Halcyonic didn't write does, never quoted
+        /// (lane V's ruling, 2026-10-08).
+        /// </summary>
+        public static LineWords TypedRuns(string? typed) =>
+            typed == null || LineWords.Theirs(typed).IsEmpty ? LineWords.Ours(TypeMyAnswer) : LineWords.Ours("Your answer: ") + LineWords.Theirs(typed);
+
+        /// <summary>The row for the person's own answer, as the page draws it and the layout measures it.</summary>
+        public static PageLine TypedRow(string? typed, string key, bool besideNext = false, int rows = 1) => typed == null
+            ? new PageLine(TypeMyAnswer, action: TypeAnswer, key: key, choice: true, besideNext: besideNext)
+            : new PageLine(TypedRuns(typed), action: TypeAnswer, key: key, choice: true, chosen: true, rows: rows, besideNext: besideNext);
 
         /// <summary>
         /// A prompt's answer as the page of the person's answers shows it, whole: its name, then each label
@@ -265,7 +276,7 @@ namespace Halcyonic.Client
         {
             var asked = draft.Prompts[prompt];
             var given = asked.Options.Where(option => draft.IsChosen(prompt, option.Label)).Select(option => LineWords.TheirName(option.Label)).ToList();
-            if (draft.Typed(prompt) is string typed) given.Add(LineWords.Ours("“" + WorkspaceText.OneLine(typed) + "”"));
+            if (draft.Typed(prompt) is string typed && LineWords.Theirs(typed) is { IsEmpty: false } words) given.Add(words);
             if (given.Count == 0) return none;
             var joined = given[0];
             for (var index = 1; index < given.Count; index++) joined = joined + LineWords.Ours(", ") + given[index];
@@ -404,9 +415,8 @@ namespace Halcyonic.Client
                 {
                     // Beside the paging row after it, one row for the two (lane V's rule 4).
                     var typed = draft.Typed(prompt);
-                    lines.Add(new PageLine(TypedWords(typed), wordsAreData: typed != null, action: TypeAnswer,
-                        key: asked.Options.Count.ToString(CultureInfo.InvariantCulture), choice: true, chosen: typed != null,
-                        rows: typed == null ? 1 : Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt))), besideNext: paging));
+                    lines.Add(TypedRow(typed, asked.Options.Count.ToString(CultureInfo.InvariantCulture), paging,
+                        typed == null ? 1 : Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
                 }
                 if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), action: MoreAnswers));
             }
@@ -437,7 +447,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static PageLine SideAnswerLine(QuestionOption? option, string? typed, int rows = 1, int? fromRow = null) => option != null
             ? new PageLine(AnswerRuns(option), rows: rows, fromRow: fromRow)
-            : new PageLine("“" + WorkspaceText.OneLine(typed ?? "") + "”", wordsAreData: true, rows: rows, fromRow: fromRow);
+            : new PageLine(LineWords.TheirName(typed), rows: rows, fromRow: fromRow);
 
         /// <summary>An answer as its row shows it: the agent's label and description, all outside text, leaning beside Halcyonic's quote mark.</summary>
         public static LineWords AnswerRuns(QuestionOption option) => LineWords.Theirs(AnswerWords(option));

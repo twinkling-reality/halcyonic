@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Halcyonic.Client
@@ -98,13 +99,21 @@ namespace Halcyonic.Client
         /// hours ago"), after the look-alike mark when its name looks like another's, since the place
         /// and the time are what tell look-alikes apart. <c>IsData</c> when it holds a place's name.
         /// </summary>
-        public static (string? Text, bool IsData) FolderFact(ConnectableFolder folder, DateTimeOffset now, TimeZoneInfo zone, bool manyPlaces)
+        public static (string? Text, bool IsData) FolderFact(ConnectableFolder folder, DateTimeOffset now, TimeZoneInfo zone, bool manyPlaces) =>
+            FolderFactRuns(folder, now, zone, manyPlaces) is LineWords fact ? (fact.Text, fact.AnyTheirs) : ((string?)null, false);
+
+        /// <summary>A folder's fact as runs: Halcyonic's words upright, begun with a capital, the place's name leaning.</summary>
+        public static LineWords? FolderFactRuns(ConnectableFolder folder, DateTimeOffset now, TimeZoneInfo zone, bool manyPlaces)
         {
-            var mark = folder.LooksLikeAnother ? ConnectText.LooksLikeAnother : null;
-            var first = folder.Repository == null ? Lower(CantTell) : manyPlaces ? "in " + folder.RootName : folder.Repository == true ? Repository : null;
-            var changed = folder.ChangedAt == null ? null : "changed " + ConnectText.Ago(folder.ChangedAt.Value, now, zone);
-            var fact = string.Join(" · ", new[] { mark, first, changed }.Where(part => part != null));
-            return (fact.Length == 0 ? null : Sentence(fact), folder.Repository != null && manyPlaces);
+            var parts = new List<LineWords>();
+            // Every part begins with Halcyonic's words, so the fact's first letter is always Halcyonic's to capitalise.
+            LineWords Lead(string words) => LineWords.Ours(parts.Count == 0 ? Sentence(words) : words);
+            if (folder.LooksLikeAnother) parts.Add(Lead(ConnectText.LooksLikeAnother));
+            if (folder.Repository == null) parts.Add(Lead(Lower(CantTell)));
+            else if (manyPlaces) parts.Add(Lead("in ") + LineWords.TheirName(folder.RootName));
+            else if (folder.Repository == true) parts.Add(Lead(Repository));
+            if (folder.ChangedAt != null) parts.Add(Lead("changed " + ConnectText.Ago(folder.ChangedAt.Value, now, zone)));
+            return parts.Count == 0 ? null : parts.Aggregate((said, next) => said + LineWords.Ours(" · ") + next);
         }
 
         /// <summary>A sentence of Halcyonic's own, begun with a capital, as a side panel's value.</summary>

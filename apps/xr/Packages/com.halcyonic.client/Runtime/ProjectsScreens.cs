@@ -275,7 +275,7 @@ namespace Halcyonic.Client
             if (state.Overview == null) lines.Add(Say(EntryText.WaitingForMac));
             foreach (var project in projects)
             {
-                lines.Add(new PageLine(project.Name, wordsAreData: true, fact: ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers, state)),
+                lines.Add(new PageLine(LineWords.TheirName(project.Name), fact: LineWords.Ours(ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers, state))),
                     action: ChooseProject, key: project.ProjectId, opens: true, chosen: project == chosenProject));
             }
             // The demonstration connects nothing, so it lists no folders.
@@ -306,8 +306,7 @@ namespace Halcyonic.Client
             var manyPlaces = offers.Select(offer => offer.Root.Path).Distinct(StringComparer.Ordinal).Count() > 1;
             foreach (var offer in offers)
             {
-                var (fact, factIsData) = ProjectsText.FolderFact(offer, state.Now, state.Zone, manyPlaces);
-                lines.Add(new PageLine(offer.Name, wordsAreData: true, fact: fact, factIsData: factIsData,
+                lines.Add(new PageLine(LineWords.TheirName(offer.Name), fact: ProjectsText.FolderFactRuns(offer, state.Now, state.Zone, manyPlaces),
                     action: ChooseFolder, key: offer.Key, opens: true, chosen: offer.Key == chosenFolder?.Key));
             }
             if (FolderConnect.AnyCut(listing)) lines.Add(Say(EntryText.FoldersCut, rows: 2));
@@ -370,8 +369,8 @@ namespace Halcyonic.Client
             if (folder.LooksLikeAnother) facts.Add(new SideFact(ProjectsText.ItsName, ConnectText.CheckWhichOne));
             // What connecting will do, until it was sent; then how it went takes its place.
             facts.Add(connection == null
-                ? new SideFact(ProjectsText.Connecting, ConnectText.WhatConnectingDoes(folder))
-                : new SideFact(ProjectsText.WhatHappened, ConnectText.Outcome(connection)));
+                ? new SideFact(ProjectsText.Connecting, ConnectText.WhatConnectingDoesRuns(folder))
+                : new SideFact(ProjectsText.WhatHappened, ConnectText.OutcomeRuns(connection)));
             return new SidePanel(folder.Name, subjectIsData: true, facts: facts);
         }
 

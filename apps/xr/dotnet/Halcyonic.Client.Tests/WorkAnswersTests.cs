@@ -593,7 +593,9 @@ public class UnderstandingAnswersTests
             });
             var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), lead + ", the agent says: ");
             Assert.That((line.Text, line.Words, line.Chip, line.Tone),
-                Is.EqualTo((lead + ", the agent says: “Document refund behaviour for support”", lead + ": “Document refund behaviour for support”", "Agent says", SectionTone.Claim)), status);
+                Is.EqualTo((lead + ", the agent says: “Document refund behaviour for support”", lead + ": Document refund behaviour for support", "Agent says", SectionTone.Claim)), status);
+            // Beside its chip, Halcyonic's lead upright and the agent's words leaning, never quoted (lane V's treatment).
+            Assert.That(line.Runs.ToString(), Is.EqualTo(lead + ": [Document refund behaviour for support]"), status);
             var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith("Agent says: “All tests pass.", StringComparison.Ordinal));
             Assert.That((statement.Tag, statement.Chip), Is.EqualTo(("reported", "Agent says")), "a statement the source tagged observed");
         }
@@ -675,7 +677,7 @@ public class CheckedTests
             ("observed", "2 items need attention: Recursive force delete; 1 file changed since the last passing check", false, false),
             ("reported", "Agent says: “All tests pass. The staging key ghp_[GITHUB_TOKEN#1] was never used by the fix.”", false, false),
             ("", "From Seorak, read 1 minute ago", false, true),
-            ("Checks", "test: 4 passed of 5 runs (80%)", false, false),
+            ("Checks", "4 passed of 5 runs (80%): test", false, false),
             ("", "available · 1 of 1 session, complete · fresh, data to 17:58:12", true, false),
             ("Cost", "About $1.37. Estimated from token counts at list prices. Not a bill.", false, false),
             ("", "available · 1 of 1 session, complete · fresh, data to 17:58:12", true, false),
@@ -841,7 +843,7 @@ public class CheckedTests
         var lines = Answers.Measurement(Answers.Checked(Intelligence.Verified, json));
         Assert.That(Answers.Pairs(lines.Where(line => !line.Detail)), Is.EqualTo(new[]
         {
-            ("Checks", "test: passes unknown of runs unknown (no pass rate)"),
+            ("Checks", "passes unknown of runs unknown (no pass rate): test"),
             ("Cost", "Unknown: unpriced, or not measured yet."),
             ("Outcome", "Nothing measured yet."),
         }));
@@ -1009,11 +1011,11 @@ public class EvidenceTests
         }));
         Assert.That(Classes(Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified)), Is.EqualTo(new[]
         {
-            (Evidence.Reported, (string?)"Agent says", "“I will add an idempotency key in ChargeService so a retried charge returns the first one.”"),
-        }), "the quote alone beside its chip");
+            (Evidence.Reported, (string?)"Agent says", "I will add an idempotency key in ChargeService so a retried charge returns the first one."),
+        }), "the agent's words alone beside its chip, leaning, never quoted");
         Assert.That(Classes(Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified)), Is.EqualTo(new[]
         {
-            (Evidence.Explained, (string?)"Model explains", "“One idempotency key per order, sent with every charge.”"),
+            (Evidence.Explained, (string?)"Model explains", "One idempotency key per order, sent with every charge."),
             (Evidence.Halcyonic, null, "Explained by a model, up to date"),
         }));
         var checks = CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),

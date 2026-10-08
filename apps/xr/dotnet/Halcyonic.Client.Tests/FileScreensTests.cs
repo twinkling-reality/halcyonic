@@ -83,12 +83,12 @@ public class FileScreensTests
         {
             ("4 files changed: 4 edited", (string?)null),
             ("1 file not checked after the last change", "Inferred"),
-            ("“I will add an idempotency key in ChargeService so a retried charge returns the first one.”", "Agent says"),
+            ("I will add an idempotency key in ChargeService so a retried charge returns the first one.", "Agent says"),
         }));
         var openers = frame.Lines.Where(line => line.Opens).ToList();
         Assert.That(openers.Select(line => line.Key), Is.EqualTo(new[] { FileScreens.WhatChangedKey, FileScreens.WhyChangedKey, FileScreens.HowBuiltKey }));
         Assert.That(openers.All(line => line.Action == FileScreens.Open && line.Pressable), Is.True);
-        Assert.That(frame.Lines[2].Claim, Is.True, "the agent's words lean as its own");
+        Assert.That((frame.Lines[2].Runs.AllTheirs, frame.Lines[2].Icon), Is.EqualTo((true, (GlazeIcon?)GlazeIcon.Quote)), "the agent's words lean as its own");
         Assert.That(frame.Lines.Where(line => !line.Opens).Any(line => line.Action != null), Is.False, "the other lines only say something");
         Assert.That(frame.Source, Does.StartWith("From Salidium"), "one source line, last");
         Assert.That(frame.Side, Is.Null);
@@ -295,8 +295,9 @@ public class FileScreensTests
         Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.HoldToTalk, FileScreens.TellIt }));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         var quote = frame.Lines.Last();
-        Assert.That((quote.Words, quote.Chip, quote.Claim, quote.Fact), Is.EqualTo(("“Done with the migration”", "Agent says", true, "09:00")));
-        Assert.That(quote.Drawn, Is.EqualTo("“Done with the migration”"), "one pair of quotes, its builder's, never the view's around them too");
+        // The agent's words alone, no quotes, leaning beside Halcyonic's quote mark, "Agent says" their class (settled 2026-10-08).
+        Assert.That((quote.Words, quote.Chip, quote.Runs.AllTheirs, quote.Icon, quote.Fact), Is.EqualTo(("Done with the migration", "Agent says", true, (GlazeIcon?)GlazeIcon.Quote, "09:00")));
+        Assert.That(quote.FactRuns!.AnyTheirs, Is.False, "the time is Halcyonic's");
         Assert.That(frame.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(Room.Rows), "the source line takes one of the page's rows");
         Assert.That(frame.Source, Is.EqualTo(FileScreens.AgentSource));
     }

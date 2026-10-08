@@ -62,6 +62,12 @@ namespace Halcyonic.Client
         /// </summary>
         internal static LineWords Written(string words) => string.IsNullOrEmpty(words) ? None : new LineWords(new[] { new WordRun(words, theirs: false) });
 
+        /// <summary>
+        /// Text from outside as its caller has already shown it by a rule of its own, as the review before
+        /// Start building spells every character (<see cref="NewWorkReview"/>): nothing is changed here.
+        /// </summary>
+        internal static LineWords Shown(string text) => Of(text);
+
         /// <summary>Text from outside, by <see cref="LabelText.Plain"/>'s rule: none where that leaves nothing.</summary>
         public static LineWords Theirs(string? text) => Of(LabelText.Plain(text));
 

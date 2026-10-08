@@ -12,10 +12,20 @@ namespace Halcyonic.Client
     public sealed class ReviewItem
     {
         public ReviewItem(string label, string value)
+            : this(label, LineWords.Written(value))
+        {
+        }
+
+        /// <param name="value">Its value as runs, as shown: outside text spelled by the review's own rule, leaning.</param>
+        public ReviewItem(string label, LineWords value)
         {
             Label = label;
-            Value = value;
+            Value = value.Text;
+            Runs = LineWords.Written(label) + value;
         }
+
+        /// <summary>The item as runs: Halcyonic's label upright, a name or the person's words leaning.</summary>
+        public LineWords Runs { get; }
 
         /// <summary>Halcyonic's words, for example "Project: ".</summary>
         public string Label { get; }
@@ -107,6 +117,18 @@ namespace Halcyonic.Client
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
+            : this(project, title, LineWords.Shown(runtime), LineWords.Shown(model), LineWords.Written(modelFacts), modelRef, objective,
+                folder == null ? null : LineWords.Shown(folder), folderBefore == null ? null : LineWords.Shown(folderBefore), titleCut, folderChoice)
+        {
+        }
+
+        /// <summary>
+        /// The review from runs, as <see cref="EntryScreens.ReviewOf"/> builds it: Halcyonic's own words, as
+        /// "Simulated: " or "chosen by the agent app", upright, so a name that copies them never reads as
+        /// Halcyonic's; outside text, raw, spelled here and leaning.
+        /// </summary>
+        public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, string modelRef, string objective,
+            LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
         {
             FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);
             Add(ProjectLabel, project);
@@ -116,14 +138,14 @@ namespace Halcyonic.Client
                 Add("Folder from now on: ", folder);
             }
             else if (folder != null) Add("Where its files live: ", folder);
-            items.Add(new ReviewItem("Task name: ", Safe(title) + (titleCut ? "…" : "")));
+            items.Add(new ReviewItem("Task name: ", LineWords.Shown(Safe(title) + (titleCut ? "…" : ""))));
             Add("Agent app: ", runtime);
             Add("Model: ", model);
             Add("Where the model runs: ", modelFacts);
             Add(ModelIdLabel, modelRef);
             Add(FirstTaskLabel, objective);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).
-            foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, ""));
+            foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, LineWords.None));
         }
 
         public IReadOnlyList<ReviewItem> Items => items;
@@ -283,7 +305,11 @@ namespace Halcyonic.Client
             return true;
         }
 
-        private void Add(string label, string value) => items.Add(new ReviewItem(label, Safe(value)));
+        private void Add(string label, string value) => Add(label, LineWords.Shown(value));
+
+        /// <summary>An item whose value is runs: outside text spelled by <see cref="Safe"/>, Halcyonic's words as written.</summary>
+        private void Add(string label, LineWords value) => items.Add(new ReviewItem(label,
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text)))));
 
         // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
         // control character in ASCII, and double a literal backslash so a typed marker differs.

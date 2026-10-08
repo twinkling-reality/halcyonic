@@ -338,7 +338,7 @@ public class LiveControlPlaneTests
         Assert.That(Now().QuestionToAnswer, Is.Null);
         var lines = activity.For(executionId).Select(entry => entry.Text).ToList();
         Assert.That(lines, Does.Contain("Asked to answer the agent's question"));
-        Assert.That(lines.IndexOf("Started on Mock runtime (development fixture)"), Is.GreaterThan(lines.IndexOf("Asked Mock runtime (development fixture) to start")),
+        Assert.That(lines.IndexOf("Started on Mock runtime (development fixture)"), Is.GreaterThan(lines.IndexOf("Asked to start on Mock runtime (development fixture)")),
             "started only after the runtime says so");
         Assert.That(lines, Has.None.Contains("halcyonic").And.None.Contains("execution.").And.None.Contains("Execution"),
             "no client names or command types reach the headset");

@@ -41,6 +41,9 @@ public class NewProjectFlowTests
 
         public List<string> Prompts { get; } = new();
 
+        /// <summary>What each keyboard opened holding.</summary>
+        public List<string> Prefills { get; } = new();
+
         public Task<CommandAckMessage>? Submit(CommandEnvelope command)
         {
             if (!Connected) return null;
@@ -51,6 +54,7 @@ public class NewProjectFlowTests
         public void OpenKeyboard(string text, string prompt, Action<string> done)
         {
             Prompts.Add(prompt);
+            Prefills.Add(text);
             if (Typed.Count > 0) done(Typed.Dequeue());
         }
 
@@ -456,6 +460,20 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.UseIdea, null);
         Assert.That((flow.Step, flow.Frame!.Side), Is.EqualTo((NewProjectStep.Recap, (SidePanel?)null)), "no fact chosen on the new recap");
         Assert.That(RunsWith(), Is.EqualTo(runsWith), "how it runs stays");
+    }
+
+    [Test]
+    public void AKeyboardOpensHoldingWordsAsThePageShowedThemByTheOneRule()
+    {
+        var host = new Host();
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page\u202E for my club\nnow");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        // Opened again, the system keyboard holds the idea as the page shows it, never a direction override it would act on.
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Assert.That(host.Prefills.Last(), Is.EqualTo(LabelText.Plain("A page\u202E for my club\nnow")));
+        Assert.That(host.Prefills.Last(), Does.Contain("‹U+202E›"));
     }
 
     [Test]

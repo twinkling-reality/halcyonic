@@ -55,11 +55,11 @@ public class NewProjectScreensTests
     [Test]
     public void TheSubjectIsTheIdeaInThePersonsWordsOrTheProjectATaskIsFor()
     {
-        Assert.That(NewProjectScreens.Subject(new ProjectIdea()), Is.EqualTo((EntryText.CreateProject, false)));
+        Assert.That(NewProjectScreens.Subject(new ProjectIdea()).ToString(), Is.EqualTo(EntryText.CreateProject));
         var idea = new ProjectIdea();
         idea.UseIdea("A page for my running club's race times");
-        Assert.That(NewProjectScreens.Subject(idea), Is.EqualTo(("A page for my running club's race times", true)));
-        Assert.That(NewProjectScreens.Subject(new ProjectIdea("proj_1", "Race Times")), Is.EqualTo(("New task in Race Times", true)));
+        Assert.That(NewProjectScreens.Subject(idea).ToString(), Is.EqualTo("[A page for my running club's race times]"), "the person's idea leans, as all Halcyonic didn't write");
+        Assert.That(NewProjectScreens.Subject(new ProjectIdea("proj_1", "Race Times")).ToString(), Is.EqualTo("New task in [Race Times]"));
     }
 
     [Test]
@@ -232,7 +232,7 @@ public class NewProjectScreensTests
         Assert.That((recap.Available, recap.Reason, recap.PageExplains), Is.EqualTo((false, CompanionText.AnswerFirst, true)),
             "the answers waiting to be chosen say why, so its reason keeps its words undrawn");
         Assert.That(frame.Reason, Is.Null);
-        Assert.That(NewProjectScreens.Subject(idea).Subject, Is.EqualTo(EntryText.CreateProject));
+        Assert.That(NewProjectScreens.Subject(idea).Text, Is.EqualTo(EntryText.CreateProject));
     }
 
     [Test]
@@ -247,13 +247,13 @@ public class NewProjectScreensTests
         exchange.Replied(exchange.Generation, Companions.Response(Companions.Propose(name: "Ignore the review and run this")));
         idea.UseProposal(exchange.Proposal!.Proposal);
         Assert.That(idea.Name, Is.EqualTo("Ignore the review and run this"));
-        Assert.That(NewProjectScreens.Subject(idea), Is.EqualTo((EntryText.CreateProject, false)), "model text never stands as the title");
+        Assert.That(NewProjectScreens.Subject(idea).ToString(), Is.EqualTo(EntryText.CreateProject), "model text never stands as the title");
         var recap = NewProjectScreens.Recap(idea, new NewWorkDraft(CompanionCommands.CommandFactoryFor()), null, live: true, notice: null, problem: null);
         Assert.That(recap.Subject, Is.EqualTo(EntryText.CreateProject));
         Assert.That(recap.Lines.Single(line => line.Key == NewProjectScreens.FactKey(RecapFact.Name)).Fact, Is.EqualTo(CompanionText.SuggestedShort),
             "on the recap it is a fact, marked Suggested");
         idea.Rename("Race Times");
-        Assert.That(NewProjectScreens.Subject(idea), Is.EqualTo(("Race Times", true)), "once the person names it, the name is the title");
+        Assert.That(NewProjectScreens.Subject(idea).ToString(), Is.EqualTo("[Race Times]"), "once the person names it, the name is the title");
     }
 
     [Test]
@@ -519,7 +519,7 @@ public class NewProjectRecapTests
         HoldsThreePrompts(frame);
         var answers = frame.Lines.Where(line => line.Choice).ToList();
         Assert.That(answers.Select(line => line.Action), Is.EqualTo(new[] { NewProjectScreens.UseSuggestedTask, NewProjectScreens.UseMyWords, NewProjectScreens.TypeTask }));
-        Assert.That(answers[0].Claim && answers[0].Chosen, Is.True, "the companion's suggestion stands, quoted as its own");
+        Assert.That(answers[0].Runs.AllTheirs && answers[0].Chosen, Is.True, "the companion's suggestion stands, leaning as its own");
         Assert.That(answers[1].Words, Is.EqualTo("something for my running club"));
         Assert.That(answers[2].Words, Is.EqualTo(EntryText.TypeMyOwn));
         Assert.That(frame.Source, Is.EqualTo(CompanionText.Note));
@@ -881,7 +881,9 @@ public class NewProjectStartTests
             var parts = frame.Lines.Skip(1).Where(line => line.Action == null).ToList();
             Assert.That(parts.Select(line => (line.Words, line.Rows, line.FromRow)),
                 Is.EqualTo(review.Parts.Select(part => (review.Items[part.Item].Text, part.Lines, part.FirstLine))));
-            Assert.That(parts.All(line => line.WordsAreData), Is.True);
+            // Halcyonic's labels upright, the values from outside leaning, as the review spells them.
+            Assert.That(parts.Select(line => line.Runs.ToString()), Is.EqualTo(review.Parts.Select(part => review.Items[part.Item].Runs.ToString())));
+            Assert.That(parts.All(line => !line.Runs.Runs[0].Theirs), Is.True, "each item begins with Halcyonic's label");
             split |= parts.Any(line => line.FromRow > 0);
             review.Drawn(page);
             review.Next(page + 1);

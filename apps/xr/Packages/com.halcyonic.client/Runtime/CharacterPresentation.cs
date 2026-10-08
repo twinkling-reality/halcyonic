@@ -42,7 +42,9 @@ namespace Halcyonic.Client
             bool synthetic,
             bool recorded,
             bool stale,
-            IReadOnlyList<string>? attentionDetails = null)
+            IReadOnlyList<string>? attentionDetails = null,
+            IReadOnlyList<LineWords>? attentionNoteRuns = null,
+            IReadOnlyList<LineWords>? attentionDetailRuns = null)
         {
             WorkstreamId = workstreamId;
             Title = title;
@@ -55,6 +57,8 @@ namespace Halcyonic.Client
             Recorded = recorded;
             Stale = stale;
             AttentionDetails = attentionDetails ?? attentionNotes;
+            AttentionNoteRuns = attentionNoteRuns ?? attentionNotes.Select(LineWords.Written).ToList();
+            AttentionDetailRuns = attentionDetailRuns ?? AttentionDetails.Select(LineWords.Written).ToList();
         }
 
         public string WorkstreamId { get; }
@@ -78,6 +82,15 @@ namespace Halcyonic.Client
         /// </summary>
         public IReadOnlyList<string> AttentionDetails { get; }
 
+        /// <summary>
+        /// <see cref="AttentionNotes"/> as runs (lane V's treatment): Halcyonic's words upright, a tool's
+        /// name, a command, a question or a check's summary from outside leaning, last.
+        /// </summary>
+        public IReadOnlyList<LineWords> AttentionNoteRuns { get; }
+
+        /// <summary><see cref="AttentionDetails"/> as runs: a failed check's summary alone is all outside text, on a ground after the badge.</summary>
+        public IReadOnlyList<LineWords> AttentionDetailRuns { get; }
+
         public int PendingApprovals { get; }
 
         /// <summary>
@@ -99,13 +112,13 @@ namespace Halcyonic.Client
         {
             var execution = state.CurrentExecution(workstream);
             var activity = ActivityOf(workstream.Status);
-            var notes = new List<string>();
-            var details = new List<string>();
+            var notes = new List<LineWords>();
+            var details = new List<LineWords>();
             foreach (var reason in workstream.Attention.Reasons)
             {
                 var (note, detail) = Explain(reason, state);
-                notes.Add(LabelText.Plain(note));
-                details.Add(LabelText.Plain(detail));
+                notes.Add(note);
+                details.Add(detail);
             }
             return new CharacterPresentation(
                 workstream.WorkstreamId,
@@ -113,11 +126,13 @@ namespace Halcyonic.Client
                 activity,
                 StateLanguage.WordOf(StateLanguage.StateOf(activity, workstream.Attention.Level)),
                 workstream.Attention.Level,
-                notes,
+                notes.Select(note => note.Text).ToList(),
                 execution?.PendingApprovals.Count ?? 0,
                 execution?.Runtime.Synthetic ?? (workstream.ExecutionIds.Count == 0 && OnlyPractice(state)),
                 state.Journal?.Origin == JournalOrigin.Fixture,
                 !live,
+                details.Select(detail => detail.Text).ToList(),
+                notes,
                 details);
         }
 
@@ -161,24 +176,32 @@ namespace Halcyonic.Client
         /// A question in one line: its one prompt whole, or, for several, how many and their headers,
         /// so it names the question as a whole and never the one prompt the workspace may not show.
         /// </summary>
-        public static string AsksYou(QuestionView question)
+        public static string AsksYou(QuestionView question) => AsksYouRuns(question).Text;
+
+        /// <summary>A question in one line as runs: Halcyonic's "Asks you" upright, the agent's header and words leaning.</summary>
+        public static LineWords AsksYouRuns(QuestionView question)
         {
             if (question.Prompts.Count == 1)
             {
                 var only = question.Prompts[0];
-                return "Asks you: " + (string.IsNullOrWhiteSpace(only.Header) ? only.Text : only.Header + ": " + only.Text);
+                var header = LineWords.Theirs(only.Header);
+                return LineWords.Ours("Asks you: ") + (header.IsEmpty ? LineWords.Theirs(only.Text) : header + LineWords.Ours(": ") + LineWords.Theirs(only.Text));
             }
-            var count = "Asks you " + question.Prompts.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " questions";
-            var headers = question.Prompts.Where(prompt => !string.IsNullOrWhiteSpace(prompt.Header)).Select(prompt => prompt.Header!).ToList();
-            return headers.Count == question.Prompts.Count ? count + ": " + string.Join("; ", headers) : count + ".";
+            var count = LineWords.Ours("Asks you " + question.Prompts.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " questions");
+            var headers = question.Prompts.Select(prompt => LineWords.Theirs(prompt.Header)).Where(header => !header.IsEmpty).ToList();
+            return headers.Count == question.Prompts.Count
+                ? count + LineWords.Ours(": ") + headers.Aggregate((said, next) => said + LineWords.Ours("; ") + next)
+                : count + LineWords.Ours(".");
         }
 
         /// <summary>
         /// A reason in words, and the same without what the state already says: under Couldn't finish
         /// the peek gives only why. A reason that has nothing more to say than its state has no detail.
         /// </summary>
-        private static (string Note, string Detail) Explain(AttentionReason reason, ClientProjection state)
+        private static (LineWords Note, LineWords Detail) Explain(AttentionReason reason, ClientProjection state)
         {
+            LineWords Ours(string words) => LineWords.Written(words);
+            (LineWords, LineWords) Both(LineWords words) => (words, words);
             state.Executions.TryGetValue(reason.ExecutionId, out var execution);
             switch (reason)
             {
@@ -188,34 +211,36 @@ namespace Halcyonic.Client
                         if (pending.ApprovalId == approval.ApprovalId && pending.Subject is ToolUseSubject tool)
                         {
                             // A command reads as one; any other tool, or one this app doesn't know, by its own name.
-                            var note = WorkspaceText.RunsCommand(tool.ToolName) ? "It wants to run: " + tool.Summary : "It wants to use " + tool.ToolName + ": " + tool.Summary;
-                            return (note, note);
+                            return Both(WorkspaceText.RunsCommand(tool.ToolName)
+                                ? Ours("It wants to run: ") + LineWords.Theirs(tool.Summary)
+                                : Ours("It wants to use ") + LineWords.TheirName(tool.ToolName) + Ours(": ") + LineWords.Theirs(tool.Summary));
                         }
                     }
-                    return ("It wants your approval.", "It wants your approval.");
+                    return Both(Ours("It wants your approval."));
                 case QuestionPendingReason question:
                     foreach (var pending in execution?.PendingQuestions ?? new List<QuestionView>())
                     {
                         if (pending.QuestionId != question.QuestionId || pending.Prompts.Count == 0) continue;
-                        var asks = AsksYou(pending);
-                        return (asks, asks);
+                        return Both(AsksYouRuns(pending));
                     }
-                    return ("It asks you a question.", "It asks you a question.");
+                    return Both(Ours("It asks you a question."));
                 case ExecutionFailedReason _:
                     // Why, from what Halcyonic itself knows, and the way on: the reason's message is an
                     // agent app's own error, never a person's words.
-                    return StateLanguage.CouldNotFinish(execution, execution == null ? null : state.RuntimeOf(execution));
+                    var (failed, how) = StateLanguage.CouldNotFinish(execution, execution == null ? null : state.RuntimeOf(execution));
+                    return (Ours(failed), Ours(how));
                 case ExecutionStateUnknownReason _:
                     // Why, by its code alone: the reason's message is a diagnostic, never a person's words.
                     var why = StateLanguage.CantTellWhy(execution?.StatusReason?.Code);
-                    return (StateLanguage.CantTell(why), why ?? "");
+                    return (Ours(StateLanguage.CantTell(why)), Ours(why ?? ""));
                 case VerificationFailedReason tests:
                     var run = execution?.LastTestRun;
-                    return run != null && run.TestRunId == tests.TestRunId && run.Summary != null
-                        ? ("Checks: " + run.Summary, run.Summary)
-                        : ("Its checks didn't pass.", "");
+                    // The runtime's summary leans on a ground after the badge, never as Halcyonic's reason.
+                    return run != null && run.TestRunId == tests.TestRunId && LineWords.Theirs(run.Summary) is { IsEmpty: false } summary
+                        ? (Ours("Checks: ") + summary, summary)
+                        : (Ours("Its checks didn't pass."), LineWords.None);
                 default:
-                    return ("It needs a look.", "");
+                    return (Ours("It needs a look."), LineWords.None);
             }
         }
     }

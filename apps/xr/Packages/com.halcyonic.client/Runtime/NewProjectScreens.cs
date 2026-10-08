@@ -285,12 +285,13 @@ namespace Halcyonic.Client
         /// suggestion, which shows as the recap's, marked Suggested, until the person takes it; else
         /// Create a project.
         /// </summary>
-        public static (string Subject, bool IsData) Subject(ProjectIdea idea)
+        public static LineWords Subject(ProjectIdea idea)
         {
-            if (idea.ExistingProjectId != null) return (EntryText.CreateTitle(LabelText.Plain(idea.Name)), true);
-            if (!string.IsNullOrWhiteSpace(idea.OwnWords)) return (LabelText.Plain(idea.OwnWords), true);
-            if (idea.Name.Length > 0 && !idea.NameSuggested) return (LabelText.Plain(idea.Name), true);
-            return (EntryText.CreateProject, false);
+            // A project's name, the person's idea or the name they gave lean, as everything Halcyonic didn't write does.
+            if (idea.ExistingProjectId != null) return EntryText.CreateTitleRuns(idea.Name);
+            if (!string.IsNullOrWhiteSpace(idea.OwnWords)) return LineWords.TheirName(idea.OwnWords);
+            if (idea.Name.Length > 0 && !idea.NameSuggested) return LineWords.TheirName(idea.Name);
+            return LineWords.Ours(EntryText.CreateProject);
         }
 
         /// <summary>
@@ -329,7 +330,7 @@ namespace Halcyonic.Client
             var lines = new List<PageLine> { new PageLine(existing ? EntryText.WorkPrompt : EntryText.IdeaPrompt) };
             if (keyboard || typed != null)
             {
-                lines.Add(new PageLine(typed == null ? EntryText.TypeIdea : LabelText.Plain(typed), wordsAreData: typed != null, icon: GlazeIcon.Type,
+                lines.Add(new PageLine(typed == null ? LineWords.Ours(EntryText.TypeIdea) : LineWords.TheirName(typed), icon: GlazeIcon.Type,
                     action: TypeIdea, choice: true, chosen: chosen == IdeaRow.Typed, rows: typed == null ? 1 : 2));
             }
             lines.Add(talk
@@ -348,8 +349,8 @@ namespace Halcyonic.Client
                 _ => new Prompt(UseIdea, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true),
             };
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: main), subjectIsData: isData,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: main),
                 sections: Sections(NewProjectStep.YourIdea, idea, startReached), lines: lines);
         }
 
@@ -432,7 +433,7 @@ namespace Halcyonic.Client
                 if (!recorded && (keyboard || exchange.Written != null))
                 {
                     var written = exchange.Written;
-                    lines.Add(new PageLine(written == null ? CompanionText.TypeAnswer : LabelText.Plain(written), wordsAreData: written != null,
+                    lines.Add(new PageLine(written == null ? LineWords.Ours(CompanionText.TypeAnswer) : LineWords.TheirName(written),
                         icon: GlazeIcon.Type, action: TypeAnswer, choice: true, chosen: exchange.Chosen == CompanionAnswerRow.Written,
                         available: exchange.CanSay, rows: written == null ? 1 : 2, besideNext: paging));
                 }
@@ -479,8 +480,8 @@ namespace Halcyonic.Client
             // A full exchange says so: as Hold to talk's reason where it stands, else on a line of its own.
             if (talk == null && !recorded && quiet == CompanionText.Full) lines.Add(new PageLine(CompanionText.Full, tone: LineTone.Secondary, rows: 2));
             var footer = new Footer(Close(), secondary: talk, farRight: main);
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, footer, sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines,
                 source: recorded ? CompanionText.Recorded : CompanionText.Note);
         }
 
@@ -496,8 +497,8 @@ namespace Halcyonic.Client
             var talk = voice && !recorded
                 ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: exchange.CanSay, reason: exchange.CanSay ? null : CompanionText.Full, holds: true)
                 : null;
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), secondary: talk, farRight: main), subjectIsData: isData,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: talk, farRight: main),
                 sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines, source: recorded ? CompanionText.Recorded : CompanionText.Note);
         }
 
@@ -593,16 +594,16 @@ namespace Halcyonic.Client
             else lines.Add(new PageLine(EntryScreens.Moves(idea, currentFolder) ? EntryText.RebindWarning : EntryText.RecapLine, tone: LineTone.Secondary, rows: 2));
             var named = idea.Name.Length > 0;
             lines.Add(existing
-                ? new PageLine(LabelText.Plain(idea.Name), wordsAreData: true)
-                : new PageLine(named ? LabelText.Plain(idea.Name) : EntryText.NotNamedYet, wordsAreData: named,
-                    fact: idea.NameSuggested ? CompanionText.SuggestedShort : null,
+                ? new PageLine(LineWords.TheirName(idea.Name))
+                : new PageLine(named ? LineWords.TheirName(idea.Name) : LineWords.Ours(EntryText.NotNamedYet),
+                    fact: idea.NameSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null,
                     action: ChooseFact, key: FactKey(RecapFact.Name), opens: true, chosen: chosen == RecapFact.Name));
-            lines.Add(new PageLine(LabelText.Plain(idea.FirstTask), wordsAreData: true, fact: idea.TaskSuggested ? CompanionText.SuggestedShort : null,
+            lines.Add(new PageLine(LineWords.TheirName(idea.FirstTask), fact: idea.TaskSuggested ? LineWords.Ours(CompanionText.SuggestedShort) : null,
                 action: ChooseFact, key: FactKey(RecapFact.FirstTask), opens: true, chosen: chosen == RecapFact.FirstTask));
             var nothingChosen = idea.Folder == null && currentFolder == null;
-            lines.Add(new PageLine(EntryText.FolderFact(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true), wordsAreData: !nothingChosen,
+            lines.Add(new PageLine(EntryText.FolderFactRuns(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true),
                 action: ChooseFact, key: FactKey(RecapFact.Folder), opens: true, chosen: chosen == RecapFact.Folder));
-            lines.Add(new PageLine(EntryText.RunsWith(draft, live), wordsAreData: RuntimeIsData(draft, live),
+            lines.Add(new PageLine(EntryText.RunsWithRuns(draft, live),
                 action: ChooseFact, key: FactKey(RecapFact.HowItRuns), opens: true, chosen: chosen == RecapFact.HowItRuns));
             // Start over, the last row, chosen like a fact, so it always stands in one place: on the last page.
             lines.Add(new PageLine(EntryText.StartOver, icon: GlazeIcon.StartOver, action: ChooseFact, key: FactKey(RecapFact.StartOver), opens: true,
@@ -631,8 +632,8 @@ namespace Halcyonic.Client
                     new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true),
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, footer, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
                 source: suggested ? CompanionText.Note : null, side: chosen is RecapFact fact ? Side(fact, idea, draft, currentFolder, live) : null);
         }
 
@@ -650,26 +651,25 @@ namespace Halcyonic.Client
             var lines = new List<PageLine> { new PageLine(EntryText.FirstTask, tone: LineTone.Secondary) };
             if (proposal != null)
             {
-                lines.Add(new PageLine("“" + LabelText.Plain(proposal.FirstTask) + "”", wordsAreData: true, claim: true, fact: CompanionText.SuggestedShort,
+                lines.Add(new PageLine(LineWords.TheirName(proposal.FirstTask), fact: LineWords.Ours(CompanionText.SuggestedShort),
                     action: UseSuggestedTask, choice: true, chosen: idea.TaskSuggested, rows: 3));
             }
             if (idea.OwnWords != null)
             {
-                lines.Add(new PageLine(LabelText.Plain(idea.OwnWords), wordsAreData: true, action: UseMyWords, choice: true,
+                lines.Add(new PageLine(LineWords.TheirName(idea.OwnWords), action: UseMyWords, choice: true,
                     chosen: !idea.TaskSuggested && idea.FirstTask == idea.OwnWords, rows: 3));
             }
             var typed = !idea.TaskSuggested && idea.FirstTask != idea.OwnWords;
             if (keyboard || typed)
             {
-                lines.Add(new PageLine(typed ? LabelText.Plain(idea.FirstTask) : EntryText.TypeMyOwn, wordsAreData: typed, icon: GlazeIcon.Type,
+                lines.Add(new PageLine(typed ? LineWords.TheirName(idea.FirstTask) : LineWords.Ours(EntryText.TypeMyOwn), icon: GlazeIcon.Type,
                     action: TypeTask, choice: true, chosen: typed, rows: typed ? 3 : 1));
             }
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
-            var (subject, isData) = Subject(idea);
+            var subject = Subject(idea);
             return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)),
-                subjectIsData: isData,
-                sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines, source: proposal != null ? CompanionText.Note : null);
+                                sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines, source: proposal != null ? CompanionText.Note : null);
         }
 
         /// <summary>
@@ -720,12 +720,13 @@ namespace Halcyonic.Client
                         && (option.Kind == FolderOptionKind.NewFolder ? current.IsNew
                             : !current.IsNew && (option.Kind == FolderOptionKind.Root ? current.FolderName == null
                                 : option.Kind == FolderOptionKind.Folder && current.FolderName == option.Folder!.Name));
-                    lines.Add(new PageLine(option.Label, wordsAreData: true, fact: option.Detail, action: ChooseFolder,
-                        key: FolderKey(option), choice: true, chosen: chosen, available: option.Choosable));
+                    // A folder's or a place's name leans beside Halcyonic's folder icon; Halcyonic's options stand upright.
+                    lines.Add(new PageLine(option.LabelRuns, icon: option.Kind == FolderOptionKind.Folder || option.Kind == FolderOptionKind.MissingRoot ? GlazeIcon.Folder : (GlazeIcon?)null,
+                        fact: option.DetailRuns, action: ChooseFolder, key: FolderKey(option), choice: true, chosen: chosen, available: option.Choosable));
                 }
             }
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), farRight: main), subjectIsData: isData,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), farRight: main),
                 sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
         }
 
@@ -751,9 +752,9 @@ namespace Halcyonic.Client
                     var each = draft.Models[index];
                     var chosen = draft.Model?.ModelRef == each.ModelRef;
                     var pending = draft.PendingModel == each;
-                    lines.Add(new PageLine(LabelText.Name(each.DisplayName), wordsAreData: true,
-                        fact: pending ? EntryText.ConfirmElsewhere(each)
-                            : (chosen && draft.ModelPreselected ? EntryText.ChosenForYou + " · " : "") + EntryText.ServedShort(each.Served),
+                    lines.Add(new PageLine(LineWords.TheirName(each.DisplayName),
+                        fact: LineWords.Written(pending ? EntryText.ConfirmElsewhere(each)
+                            : (chosen && draft.ModelPreselected ? EntryText.ChosenForYou + " · " : "") + EntryText.ServedShort(each.Served)),
                         action: ChooseModel, key: each.ModelRef, choice: true, chosen: chosen));
                 }
             }
@@ -765,13 +766,12 @@ namespace Halcyonic.Client
                 {
                     var fact = runtime.Synthetic ? (live ? EntryText.PracticeDetail : EntryText.Practice)
                         : runtime.ModelChoice == ModelChoice.Listed ? EntryText.ListsModels : EntryText.ChoosesModel;
-                    lines.Add(new PageLine(EntryText.RuntimeName(runtime, live), wordsAreData: !(runtime.Synthetic && live), fact: fact,
+                    lines.Add(new PageLine(EntryText.RuntimeNameRuns(runtime, live), fact: fact == null ? null : LineWords.Written(fact),
                         action: ChooseRuntime, key: runtime.RuntimeId, choice: true, chosen: draft.Runtime?.RuntimeId == runtime.RuntimeId));
                 }
             }
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)),
-                subjectIsData: isData, sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
+            var subject = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)), sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
         }
 
         /// <summary>A chosen fact's side panel: its name, then the whole of it; a suggested first task with the person's own words below.</summary>
@@ -782,7 +782,7 @@ namespace Halcyonic.Client
                 case RecapFact.Name:
                     var named = idea.Name.Length > 0;
                     return new SidePanel(EntryText.ProjectName,
-                        lines: new[] { new PageLine(named ? LabelText.Plain(idea.Name) : EntryText.NotNamedYet, wordsAreData: named, rows: 2) },
+                        lines: new[] { named ? new PageLine(LineWords.TheirName(idea.Name), rows: 2) : new PageLine(EntryText.NotNamedYet, rows: 2) },
                         source: idea.NameSuggested ? CompanionText.SideNote : null);
                 case RecapFact.FirstTask when idea.TaskSuggested && idea.OwnWords != null:
                     return new SidePanel(EntryText.FirstTask, facts: new[]
@@ -791,20 +791,19 @@ namespace Halcyonic.Client
                         new SideFact(CompanionText.YourOwnWords, LabelText.Plain(idea.OwnWords), valueIsData: true),
                     }, source: CompanionText.SideNote);
                 case RecapFact.FirstTask:
-                    return new SidePanel(EntryText.FirstTask, lines: new[] { new PageLine(LabelText.Plain(idea.FirstTask), wordsAreData: true, rows: 8) },
+                    return new SidePanel(EntryText.FirstTask, lines: new[] { new PageLine(LineWords.TheirName(idea.FirstTask), rows: 8) },
                         source: idea.TaskSuggested ? CompanionText.SideNote : null);
                 case RecapFact.StartOver:
                     return new SidePanel(EntryText.StartOver, lines: new[] { new PageLine(EntryText.StartOverClears(idea.ExistingProjectId != null), rows: 4) });
                 case RecapFact.Folder:
                     var folderLines = new List<PageLine>
                     {
-                        new PageLine(EntryText.FolderFact(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true),
-                            wordsAreData: idea.Folder != null || currentFolder != null, rows: 3),
+                        new PageLine(EntryText.FolderFactRuns(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true), rows: 3),
                     };
                     if (EntryScreens.Moves(idea, currentFolder)) folderLines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 3));
                     return new SidePanel(EntryText.FolderTitle, lines: folderLines);
                 default:
-                    var runLines = new List<PageLine> { new PageLine(EntryText.RunsWith(draft, live), wordsAreData: RuntimeIsData(draft, live), rows: 2) };
+                    var runLines = new List<PageLine> { new PageLine(EntryText.RunsWithRuns(draft, live), rows: 2) };
                     if (EntryText.ModelLine(draft) is string model && model.Length > 0) runLines.Add(new PageLine(model, tone: LineTone.Secondary, rows: 3));
                     return new SidePanel(EntryText.HowItRuns, lines: runLines);
             }
@@ -847,7 +846,7 @@ namespace Halcyonic.Client
             if (paging && question.SkipLabel != null && answers!.Shows(choices.Count)) lines.Add(new PageLine(question.SkipLabel, action: SkipFixedQuestion, choice: true, chosen: idea.GuideSkipChosen));
             if ((answers == null || !answers.OwnPage) && (keyboard || written != null))
             {
-                lines.Add(new PageLine(written == null ? question.TypeLabel : LabelText.Plain(written), wordsAreData: written != null, icon: GlazeIcon.Type,
+                lines.Add(new PageLine(written == null ? LineWords.Ours(question.TypeLabel) : LineWords.TheirName(written), icon: GlazeIcon.Type,
                     action: TypeFixedAnswer, choice: true, chosen: written != null && stands == written, rows: written == null ? 1 : 2, besideNext: paging));
             }
             if (answers != null && (paging || answers.OwnPage)) lines.Add(answers.Row());
@@ -860,8 +859,8 @@ namespace Halcyonic.Client
             var next = new Prompt(NextQuestion, idea.LastQuestion ? CompanionText.MakeTheRecap : EntryText.NextQuestion, GlazeIcon.Next, main: true,
                 available: idea.CanGoOn && inView && (answers == null || !answers.OwnPage), reason: EntryText.ChooseOrTypeFirst, pageExplains: true);
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: next), subjectIsData: isData,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: next),
                 sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines, source: EntryText.GuideNote);
         }
 
@@ -907,23 +906,23 @@ namespace Halcyonic.Client
             {
                 new PageLine(what switch
                 {
-                    WordsFor.Name => EntryText.ProjectName,
-                    WordsFor.FirstTask => EntryText.FirstTask,
-                    _ => EntryText.NewFolderIn(root!),
-                }, wordsAreData: what == WordsFor.FolderName),
+                    WordsFor.Name => LineWords.Ours(EntryText.ProjectName),
+                    WordsFor.FirstTask => LineWords.Ours(EntryText.FirstTask),
+                    _ => EntryText.NewFolderInRuns(root!),
+                }),
             };
             if (keyboard)
             {
-                lines.Add(new PageLine(shown ?? (what == WordsFor.FirstTask ? EntryText.TypeMyOwn : EntryText.TypeName), wordsAreData: shown != null,
+                lines.Add(new PageLine(shown != null ? LineWords.TheirName(shown) : LineWords.Ours(what == WordsFor.FirstTask ? EntryText.TypeMyOwn : EntryText.TypeName),
                     icon: GlazeIcon.Type, action: TypeWords, choice: true, chosen: shown != null && written != null, rows: what == WordsFor.FirstTask ? 4 : 1));
             }
-            else if (shown != null) lines.Add(new PageLine(shown, wordsAreData: true, rows: what == WordsFor.FirstTask ? 4 : 1));
+            else if (shown != null) lines.Add(new PageLine(LineWords.TheirName(shown), rows: what == WordsFor.FirstTask ? 4 : 1));
             if (heard && written != null) lines.Add(new PageLine(VoiceText.HeardNote, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
             var done = new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true, available: problem == null, reason: problem);
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: done), subjectIsData: isData,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: done),
                 sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
         }
 
@@ -941,7 +940,8 @@ namespace Halcyonic.Client
             var lines = new List<PageLine> { new PageLine(EntryText.ReviewLine, tone: LineTone.Secondary) };
             foreach (var part in review.Parts)
             {
-                lines.Add(new PageLine(review.Items[part.Item].Text, wordsAreData: true, rows: part.Lines, fromRow: part.FirstLine));
+                // Halcyonic's labels upright, the names and the person's words leaning, as the review spells them.
+                lines.Add(new PageLine(review.Items[part.Item].Runs, rows: part.Lines, fromRow: part.FirstLine));
             }
             // Only while a later part is there to turn to: never a "Next part" past the last.
             if (review.Paginated && review.Page < review.PageCount - 1)
@@ -953,8 +953,8 @@ namespace Halcyonic.Client
                 ? new Prompt(ConfirmStart, EntryText.ConfirmStart, GlazeIcon.StartBuilding, PromptKind.Yes, available: problem == null, reason: problem)
                 : null;
             var footer = Footer.Confirm(before, PromptSlot.FarRight, yes, new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Build, idea, startReached: true),
+            var subject = Subject(idea);
+            return new MenuFrame(subject, footer, sections: Sections(NewProjectStep.Build, idea, startReached: true),
                 lines: lines);
         }
 
@@ -1001,8 +1001,8 @@ namespace Halcyonic.Client
             {
                 main = new Prompt(CheckFirst, EntryText.CheckFirst, GlazeIcon.Next, main: true);
             }
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), secondary: beside, farRight: main), subjectIsData: isData,
+            var subject = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: beside, farRight: main),
                 sections: Sections(NewProjectStep.Build, idea, startReached: true), lines: lines);
         }
 
@@ -1031,8 +1031,8 @@ namespace Halcyonic.Client
                     new Prompt(ConfirmClear, EntryText.ConfirmClear, GlazeIcon.Next, PromptKind.Yes),
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
-            var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Build, idea, startReached: true),
+            var subject = Subject(idea);
+            return new MenuFrame(subject, footer, sections: Sections(NewProjectStep.Build, idea, startReached: true),
                 lines: lines);
         }
 
@@ -1044,10 +1044,6 @@ namespace Halcyonic.Client
             BuildStepStatus.Failed => step.EffectUnknown ? LineTone.Secondary : LineTone.Problem,
             _ => LineTone.Secondary,
         };
-
-        /// <summary>A runtime's own name, where it is shown, comes from outside; the practice agent's words in a live session are ours.</summary>
-        private static bool RuntimeIsData(NewWorkDraft draft, bool live) =>
-            draft.Runtime is RuntimeDescriptor runtime && (!runtime.Synthetic || !live) && (runtime.Synthetic || runtime.ModelChoice != ModelChoice.Listed);
 
         private static Prompt Close() => new Prompt(Footer.Close, EntryText.Close, GlazeIcon.Close, PromptKind.Close);
     }

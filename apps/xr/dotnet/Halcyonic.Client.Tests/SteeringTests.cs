@@ -811,7 +811,7 @@ public class WorkspaceSteeringTests
         Assert.That(steering.Typed("Add a test.", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Tell it this? “Add a test.”"));
         Assert.That(steering.Confirm(work.Present()).Message, Is.EqualTo(WorkspaceText.InstructionNotRead), "not before its words have shown");
-        Assert.That(steering.ToRead(work.Present()), Is.EqualTo("“Add a test.”"), "its words show whole above the question");
+        Assert.That(steering.ToRead(work.Present()), Is.EqualTo("Add a test."), "its words show whole above the question, leaning, never quoted");
         steering.RequestShown(1, 1);
         var command = (ExecutionSendInstructionCommand)steering.Confirm(work.Present()).Command!;
         Assert.That(command.Payload.Text, Is.EqualTo("Add a test."));

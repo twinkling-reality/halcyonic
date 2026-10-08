@@ -32,13 +32,19 @@ public class ActivityLogTests
         log.Record(events);
 
         var texts = log.For(ExecutionOf(events, "Move sessions to their own table")).Select(entry => entry.Text).ToList();
-        Assert.That(texts[0], Is.EqualTo("Asked Mock runtime (development fixture) to start"), "accepted is not started");
+        Assert.That(texts[0], Is.EqualTo("Asked to start on Mock runtime (development fixture)"), "accepted is not started");
         Assert.That(texts[1], Is.EqualTo("Started on Mock runtime (development fixture)"), "started once the runtime says so");
         Assert.That(texts.Any(text => text.StartsWith("Approval requested to use bash: ", StringComparison.Ordinal)), Is.True);
         Assert.That(texts, Does.Contain("Asked to approve"), "a client's name is never shown as a person's");
         Assert.That(texts, Has.None.Contains("halcyonic"));
         Assert.That(texts, Does.Contain("Approved"));
-        Assert.That(texts, Does.Contain("bash succeeded"));
+        Assert.That(texts, Does.Contain("Succeeded: bash"));
+        // Halcyonic's words first and upright, the agent app's names leaning last (settled 2026-10-08).
+        var entries = log.For(ExecutionOf(events, "Move sessions to their own table"));
+        Assert.That(entries[0].Words.ToString(), Is.EqualTo("Asked to start on [Mock runtime (development fixture)]"));
+        Assert.That(entries.Single(entry => entry.Text == "Succeeded: bash").Words.ToString(), Is.EqualTo("Succeeded: [bash]"));
+        Assert.That(entries.First(entry => entry.Kind == ActivityKind.Approval).Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true, false, true }));
+        Assert.That(entries.Where(entry => entry.Kind == ActivityKind.Turn).All(entry => !entry.Words.AnyTheirs), Is.True, "a round is Halcyonic's own words");
         Assert.That(texts[^1], Is.EqualTo("Round finished"), "a round, never a turn");
     }
 
@@ -222,9 +228,12 @@ public class ActivityLogTests
         {
             var entries = log.For(ExecutionOf(events, title)).Where(entry => entry.Kind == ActivityKind.Tool).ToList();
             bool Finished(ActivityEntry entry) =>
-                entry.Text.EndsWith(" succeeded", StringComparison.Ordinal) || entry.Text.EndsWith(" failed", StringComparison.Ordinal);
-            var started = entries.Where(entry => !Finished(entry)).Select(entry => entry.Text.Split(':')[0]).ToList();
-            var finished = entries.Where(Finished).Select(entry => entry.Text.Split(' ')[0]).ToList();
+                entry.Text.StartsWith("Succeeded: ", StringComparison.Ordinal) || entry.Text.StartsWith("Failed: ", StringComparison.Ordinal);
+            // The tool's name is the entry's first run of outside text, after Halcyonic's "Used " or "Succeeded: ".
+            string Tool(ActivityEntry entry) => entry.Words.Runs.First(run => run.Theirs).Text;
+            var started = entries.Where(entry => !Finished(entry)).Select(Tool).ToList();
+            var finished = entries.Where(Finished).Select(Tool).ToList();
+            Assert.That(entries.Where(entry => !Finished(entry)).All(entry => entry.Text.StartsWith("Used ", StringComparison.Ordinal)), Is.True, title);
             Assert.That(finished, Is.EqualTo(started), title);
         }
     }

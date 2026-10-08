@@ -165,8 +165,9 @@ namespace Halcyonic.Client
                 GlazeTone.Failure => LineTone.Problem,
                 _ => LineTone.Primary,
             };
-            var project = withProject && state.Projects.TryGetValue(task.ProjectId, out var view) ? view.Name : null;
-            return new PageLine(task.Title, wordsAreData: true, icon: badge.Icon, fact: project, factIsData: project != null, tone: tone,
+            var project = withProject && state.Projects.TryGetValue(task.ProjectId, out var view) ? LineWords.TheirName(view.Name) : null;
+            // A row all of outside text: the title and its project's name lean, the state's icon stays Halcyonic's.
+            return new PageLine(LineWords.TheirName(task.Title), icon: badge.Icon, fact: project, tone: tone,
                 action: OpenTask, key: task.WorkstreamId, opens: true, chosen: task.WorkstreamId == showing);
         }
     }

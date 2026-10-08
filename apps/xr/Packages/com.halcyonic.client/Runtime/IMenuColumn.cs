@@ -50,7 +50,11 @@ namespace Halcyonic.Client
         /// <summary>The system keyboard can open here; where it can't, as in the editor, <see cref="OpenKeyboard"/> opens nothing.</summary>
         bool KeyboardOffered { get; }
 
-        /// <summary>The system keyboard, holding <paramref name="text"/>; <paramref name="done"/> only when the person finishes, never when they cancel, and never where no keyboard opens.</summary>
+        /// <summary>
+        /// The system keyboard, holding <paramref name="text"/>; <paramref name="done"/> only when the person finishes, never when they cancel, and never where no keyboard opens.
+        /// The keyboard draws both itself, with no lean or ground, so <paramref name="prompt"/> is Halcyonic's words alone and
+        /// <paramref name="text"/> is given by <see cref="LabelText.Plain"/>'s rule, as the page showed it.
+        /// </summary>
         void OpenKeyboard(string text, string prompt, Action<string> done);
 
         /// <summary>How many rows <paramref name="words"/> wrap to across a column's content, as the view lays them.</summary>

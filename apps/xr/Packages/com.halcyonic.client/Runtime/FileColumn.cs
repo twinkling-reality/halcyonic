@@ -167,7 +167,7 @@ namespace Halcyonic.Client
                 case FileScreens.TypeAnswer when draft != null && !question.Reviewing:
                     var typing = question.Prompt;
                     var typingFor = draft;
-                    host.OpenKeyboard(draft.Typed(typing) ?? "", "Your answer", text =>
+                    host.OpenKeyboard(LabelText.Plain(draft.Typed(typing)), "Your answer", text =>
                     {
                         if (typingFor != draft) return;
                         // An answer armed to send meanwhile is cancelled, if these words changed it: Yes was for the answer before them.
@@ -272,7 +272,9 @@ namespace Halcyonic.Client
                 presets = true;
                 return;
             }
-            host.OpenKeyboard("", "What to tell it: " + (Now?.Character.Title ?? ""), text =>
+            // The system keyboard draws its prompt itself, with no lean or ground, so it holds Halcyonic's words
+            // alone; the file behind it names the task (settled 2026-10-08).
+            host.OpenKeyboard("", WorkspaceText.TellItPrompt, text =>
             {
                 if (Now != null) Steer(Steering.Typed(text, Now));
             });
@@ -452,8 +454,9 @@ namespace Halcyonic.Client
                     RequestPartRows(FileScreens.AllAsks(Steering), budget), Steering);
             }
 
+            // Each line measured as the page draws it, its runs, chip and icon (FileScreens.Line).
             var room = new AnswerRoom(host.PageRows(sourceLine: false), line =>
-                host.RowsOf(new PageLine(line.Words, wordsAreData: true, chip: line.Chip), Glaze.Menu.FileColumnDegrees));
+                host.RowsOf(FileScreens.Line(line, rows: 1), Glaze.Menu.FileColumnDegrees));
             var clock = host.Clock;
             if (Screen.Section == FileSection.Changes)
             {
@@ -512,7 +515,7 @@ namespace Halcyonic.Client
             {
                 if (!(asked.Typed(prompt) is string typed)) continue;
                 Screen.Question.MeasureTyped(prompt,
-                    host.RowsOf(new PageLine(FileScreens.TypedWords(typed), wordsAreData: true, action: FileScreens.TypeAnswer, key: "0", choice: true, chosen: true), File),
+                    host.RowsOf(FileScreens.TypedRow(typed, "0"), File),
                     host.RowsOf(FileScreens.SideAnswerLine(null, typed), Side));
             }
             if (asked.Prompts.Count > 1)

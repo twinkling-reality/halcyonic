@@ -1289,7 +1289,8 @@ public class FileColumnTests
     /// </summary>
     private static void ReadsTheWordsThenSends(FileMenuHost host, FileColumn column, string words)
     {
-        var quoted = "“" + words + "”";
+        // The person's words lean as everything Halcyonic didn't write does, never quoted (lane V's ruling, 2026-10-08).
+        var quoted = words;
         Assert.That(column.Screen.RequestParts, Is.GreaterThan(2), "the words take several parts");
         for (var part = 0; part < column.Screen.RequestParts; part++)
         {
@@ -1448,9 +1449,9 @@ public class FileColumnTests
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard("Carry on");
         Assert.That((column.Screen.RequestParts, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((1, (Prompt?)null)), "one part, not drawn yet");
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "“Carry on”", "Read to part 1 first" }));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Read to part 1 first" }));
         Draw(host, column);
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "“Carry on”", "Your computer heard the words above. Send them?" }));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Your computer heard the words above. Send them?" }));
         column.Act(FileScreens.Yes, null);
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"));
     }
@@ -1736,7 +1737,8 @@ public class FileColumnTests
         answering.HoldStarted(FileScreens.SpeakAnswer);
         answering.Heard("Teal");
         var typed = answering.Frame!.Lines.Single(line => line.Action == FileScreens.TypeAnswer);
-        Assert.That((typed.Words, typed.Chosen), Is.EqualTo(("Your answer: “Teal”", true)), "words heard stay as their choice");
+        Assert.That((typed.Words, typed.Chosen), Is.EqualTo(("Your answer: Teal", true)), "words heard stay as their choice");
+        Assert.That(typed.Runs.ToString(), Is.EqualTo("Your answer: [Teal]"), "the words heard lean, as everything Halcyonic didn't write");
         answering.Act(FileScreens.TypeAnswer, null);
         Assert.That(host.Keyboard, Is.Null, "pressing it opens no keyboard");
     }
@@ -1767,6 +1769,9 @@ public class FileColumnTests
         var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct));
         column.Act(FileScreens.TellIt, null);
         Assert.That(host.Keyboard, Is.Not.Null);
+        // The system keyboard draws its prompt with no lean, so it holds Halcyonic's words alone, never the task's title.
+        Assert.That(host.Keyboard!.Value.Prompt, Is.EqualTo(WorkspaceText.TellItPrompt));
+        Assert.That(host.Keyboard!.Value.Prompt, Does.Not.Contain(running.Present().Character.Title));
         Assert.That(column.Frame!.Lines.Single().Words, Is.EqualTo(WorkspaceText.TypingPrompt));
         host.Keyboard!.Value.Done("Add a test");
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Add a test"));
