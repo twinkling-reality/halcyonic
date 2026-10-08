@@ -40,6 +40,20 @@ describe("Halcyonic's sandbox profile for OpenCode (ADR 0028)", () => {
     }
   });
 
+  test('reads inside an unreadable folder stay allowed where named, after the deny', () => {
+    const lines = sandboxProfile({
+      writable: [],
+      unreadable: ['/d'],
+      readable: ['/d/runtimes'],
+    })
+      .trim()
+      .split('\n');
+    const deny = lines.findIndex((line) => line.startsWith('(deny file-read*'));
+    const allow = lines.findIndex((line) => line.startsWith('(allow file-read*'));
+    assert.ok(deny > 0 && allow > deny, 'the allow comes after the deny, so it wins');
+    assert.equal(lines[allow], '(allow file-read* (subpath "/d/runtimes"))');
+  });
+
   test("OpenCode's own folders follow the XDG variables, else their defaults, and the temporary folder", () => {
     assert.deepEqual(openCodeFolders({ HOME: '/h', TMPDIR: '/t/' }), [
       '/h/.local/share/opencode',

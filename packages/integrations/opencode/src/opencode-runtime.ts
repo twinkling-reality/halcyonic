@@ -236,6 +236,8 @@ export interface OpenCodeRuntimeOptions {
   readonly sandbox?: {
     readonly projectRoots: readonly string[];
     readonly unreadable: readonly string[];
+    /** Paths inside an unreadable folder that stay readable: OpenCode's settings, its binary. */
+    readonly readable?: readonly string[];
   } | null;
 }
 
@@ -376,6 +378,11 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   /** Pid of the running server, for diagnostics. */
+  /** Whether the server runs inside Halcyonic's sandbox (ADR 0028); never false on macOS. */
+  get sandboxed(): boolean {
+    return this.#sandbox !== null && this.#sandbox !== undefined;
+  }
+
   get serverPid(): number | null {
     return this.#current?.server.pid ?? null;
   }
@@ -659,7 +666,17 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * when the server runs unsandboxed.
    */
   async #writeSandboxProfile(): Promise<string | null> {
-    if (this.#sandbox === null || this.#sandbox === undefined) return null;
+    if (this.#sandbox === null || this.#sandbox === undefined) {
+      // On macOS OpenCode runs only inside the sandbox (ADR 0028): its ask before a shell command
+      // depends on its parse of the command, and the sandbox bounds what a command can reach.
+      if (process.platform === 'darwin') {
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          "OpenCode runs on this Mac only inside Halcyonic's sandbox, and none was set up for it.",
+        );
+      }
+      return null;
+    }
     const path = join(dirname(this.#recordFile), 'opencode-sandbox.sb');
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
     const profile = sandboxProfile({
@@ -673,6 +690,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
           : []),
       ],
       unreadable: this.#sandbox.unreadable,
+      readable: this.#sandbox.readable ?? [],
     });
     await writeFile(path, profile, { mode: 0o600 });
     await chmod(path, 0o600);

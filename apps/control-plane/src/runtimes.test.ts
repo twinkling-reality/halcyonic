@@ -17,6 +17,7 @@ import type { ExecutionId, ProjectId, WorkstreamId } from '@halcyonic/contracts'
 import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integration-claude-code';
 import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
+import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 import { ConfigError, loadConfig } from './config.ts';
 import { looksLikeCredential, redactSecrets } from './core/redaction.ts';
@@ -30,6 +31,7 @@ import {
   createRuntimeAdapters,
   heldSecrets,
   openCodeEnvironment,
+  openCodeSandbox,
   secretName,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
@@ -325,6 +327,48 @@ describe('runtime composition', () => {
       () => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, { HOME: '/home/someone', PATH: '/usr/bin' }),
       EnvironmentError,
     );
+  });
+});
+
+describe("OpenCode's sandbox on this Mac (ADR 0028)", () => {
+  test("writes only in the project roots, and reads nothing of the data directory but its settings and binary, nor the person's credentials", () => {
+    const sandbox = openCodeSandbox(
+      {
+        projectRoots: ['/Users/someone/HalcyonicProjects'],
+        opencodeConfigHome: '/d/opencode-config',
+        opencodeBinary: '/d/runtimes/opencode-2.0.18/bin/opencode',
+      },
+      '/d',
+      '/Users/someone',
+    );
+    assert.deepEqual(sandbox.projectRoots, ['/Users/someone/HalcyonicProjects']);
+    assert.equal(sandbox.unreadable[0], '/d');
+    for (const secret of ['/Users/someone/.ssh', '/Users/someone/Library/Keychains']) {
+      assert.ok(sandbox.unreadable.includes(secret), secret);
+    }
+    assert.deepEqual(sandbox.readable, [
+      '/d/runtimes',
+      '/d/opencode-config',
+      '/d/runtimes/opencode-2.0.18/bin/opencode',
+    ]);
+    // Without Halcyonic's own OpenCode settings, the person's are read, outside the data directory.
+    const own = openCodeSandbox(
+      { projectRoots: [], opencodeConfigHome: null, opencodeBinary: null },
+      '/d',
+      '/h',
+    );
+    assert.deepEqual(own.readable, ['/d/runtimes']);
+  });
+
+  test('is given to OpenCode on macOS, and nowhere else', () => {
+    const dataDir = mkdtempSync(join(base, 'sandboxed-'));
+    const binary = join(dataDir, 'opencode');
+    writeFileSync(binary, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const opencode = adapters({ HALCYONIC_OPENCODE_BIN: binary }, HOST, dataDir).find(
+      (adapter) => adapter.descriptor.kind === 'opencode',
+    );
+    assert.ok(opencode instanceof OpenCodeRuntimeAdapter);
+    assert.equal(opencode.sandboxed, process.platform === 'darwin');
   });
 });
 

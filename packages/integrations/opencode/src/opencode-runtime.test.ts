@@ -243,6 +243,38 @@ describe('OpenCode session rules', () => {
 });
 
 describe('OpenCode start failures', () => {
+  test("on macOS, never launches without Halcyonic's sandbox", {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    const directory = temporary(t);
+    const binary = join(directory, 'opencode');
+    const ran = join(directory, 'ran');
+    writeFileSync(binary, `#!/bin/sh\ntouch ${ran}\n`, { mode: 0o755 });
+    const runtime = new OpenCodeRuntimeAdapter({
+      binaryPath: binary,
+      serverRecordFile: join(directory, 'server.json'),
+      directoryPolicy: allowOnly(directory),
+    });
+    t.after(() => runtime.close());
+    assert.equal(runtime.sandboxed, false);
+    await assert.rejects(
+      runtime.startExecution({
+        execution: TEST_EXECUTION,
+        instruction: 'Hello.',
+        options: {},
+        directory,
+        model_ref: null,
+        emit: () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'runtime_unavailable' &&
+        error.effect === 'none' &&
+        /only inside Halcyonic's sandbox/.test(error.message),
+    );
+    assert.equal(existsSync(ran), false, 'the binary ran');
+  });
+
   test("never carry the server's error output, which may hold a key", async (t) => {
     const directory = temporary(t);
     const secret = 'sk-FAKE-not-real-0123456789';
@@ -261,6 +293,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
+      sandbox: { projectRoots: [directory], unreadable: [] },
     });
     t.after(() => runtime.close());
     await assert.rejects(
@@ -302,6 +335,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
+      sandbox: { projectRoots: [directory], unreadable: [] },
     });
     t.after(() => runtime.close());
     await assert.rejects(

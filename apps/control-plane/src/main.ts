@@ -3,6 +3,7 @@ import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
+import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
 import { Companion } from './companion/companion.ts';
@@ -57,6 +58,14 @@ async function main(): Promise<void> {
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });
   // Whether each agent binary is the copy Halcyonic was checked with, whoever named it (ADR 0024).
   const agentBinaries = await checkAgentBinaries(config);
+  for (const adapter of adapters) {
+    if (adapter instanceof OpenCodeRuntimeAdapter && !adapter.sandboxed) {
+      app.log.warn(
+        { platform: process.platform },
+        "OpenCode runs unsandboxed here: Halcyonic's sandbox is macOS only (ADR 0028)",
+      );
+    }
+  }
   for (const binary of agentBinaries.filter((entry) => entry.pinned === 'differs')) {
     app.log.warn(binary, 'an agent binary is not the copy Halcyonic was checked with');
   }

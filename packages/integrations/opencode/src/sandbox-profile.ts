@@ -13,6 +13,8 @@ export interface SandboxScope {
   readonly writable: readonly string[];
   /** Credentials and secrets: Halcyonic's and the person's. */
   readonly unreadable: readonly string[];
+  /** Paths inside an unreadable folder that stay readable, such as OpenCode's settings. */
+  readonly readable?: readonly string[];
 }
 
 /**
@@ -57,7 +59,8 @@ export function personalSecrets(home: string): string[] {
 /**
  * A Seatbelt profile (ADR 0028): everything is allowed except what follows. Outbound network only
  * to loopback, so a model on this Mac answers and nothing else does. Writes only in the scope's
- * writable folders and the devices a shell needs. Reads of every unreadable path refused. Paths are
+ * writable folders and the devices a shell needs. Reads of every unreadable path refused, but of
+ * the readable paths inside them. Paths are
  * given as the file system resolves them, since Seatbelt matches the resolved path (`/var` is
  * `/private/var` on macOS), through their nearest existing folder when they do not exist yet.
  */
@@ -67,6 +70,7 @@ export function sandboxProfile(scope: SandboxScope): string {
   const unreadable = scope.unreadable
     .map((path) => `(subpath ${quote(path)}) (literal ${quote(path)})`)
     .join(' ');
+  const readable = (scope.readable ?? []).map((path) => `(subpath ${quote(path)})`).join(' ');
   return [
     '(version 1)',
     '(allow default)',
@@ -75,6 +79,8 @@ export function sandboxProfile(scope: SandboxScope): string {
     '(deny file-write*)',
     `(allow file-write* ${writable} (literal "/dev/null") (literal "/dev/zero") (regex #"^/dev/tty") (regex #"^/dev/fd/"))`,
     ...(unreadable === '' ? [] : [`(deny file-read* ${unreadable})`]),
+    // Later rules win: what is readable inside an unreadable folder is said after it.
+    ...(readable === '' ? [] : [`(allow file-read* ${readable})`]),
     '',
   ].join('\n');
 }
