@@ -400,7 +400,8 @@ the same definition names, as the JSON Schema document:
   answers that each fit half a row in one row; and it keeps a small fact's or a chip's room at
   18 dp wherever it stands, drawing it at 15 dp where that reads as the eyes see it; a fact from
   outside takes at most 40 percent of its line. Once its words are laid as the plane has them it
-  raises `Drawn`, which the director passes on to the screen that counts what was read. `MenuBarView`
+  raises `Drawn`, which the director passes on to the screen that counts what was read; while the
+  column opens, only as the opening ends. `MenuBarView`
   is the menu closed. The component render lays five compositions with them on one plane from the
   eyes at both sizes and holds each to one plane, type stepping down, one selection treatment,
   text as seen, its targets, nothing of Halcyonic's own cut, its footers fitting, the content's
@@ -541,21 +542,39 @@ the same definition names, as the JSON Schema document:
   last drawn frame counts, nor its draw as read, until it is back (`MenuNavigator.BesideAside`, as in
   the frames handed out last, so a hold on the details ends at the menu's place until the plane is
   drawn again). A column newly on the plane, opened, back from aside, or a frame back from behind
-  its own side panel in its place, takes no press, hold or subject press until it has opened
-  (`MenuPlane.OpeningSeconds`, today `Glaze.AppearSeconds`, the one place its length is set),
-  widening ADR 0026's amendment of 2026-10-03 to every column newly on the plane: every button it
-  shows and its subject plate wait to settle (`MenuFrameView.Unsettle`, `GlazeButton.SettleSeconds`,
-  never shorter than the opening in nominal seconds), which drops a press before its flash, its sound or a hold's timer
-  starts, and the plane refuses whatever still reaches it until the opening ends. The frame it
-  opened in counts nothing toward the opening, and no frame counts more than a twentieth of a
-  second, so one long frame never opens a column before it is seen. Its frame still counts as
-  drawn when laid, exactly as one that stood open. `WorkspaceRender` presses every button of a
-  file opening with Send answer, Yes or Clear, of the menu opened from its bar and of a side panel
-  opening (carrying a Yes that is safe in place where it stands in its file's place) as a hand
-  presses it, each after its buttons had settled long before, so only the opening makes them wait;
-  for the file, it also presses past the buttons as it opens and halfway; and once each has opened.
-  The window counts capped frame time while the buttons settle in wall time, so on slow frames the
-  settle can end first; one opening value both read is due with the opening's motion. It places the composition as one panel of its size
+  its own side panel in its place, opens (`MenuFrameView.Open`, ADR 0027): a file's light line draws
+  from its character over `Glaze.DrawSeconds`, eased out, and once `Glaze.PartsAfterDraw` of it has
+  drawn, its parts fade in from the top, subject, sections, then the page with its footer,
+  `Glaze.StaggerSeconds` apart, each over `Glaze.AppearSeconds`, eased out, by opacity alone
+  (`Surface.Shown`, and `GlazeText.Show` on a label's own renderer, so whatever colours its words still
+  does); a column with no character to come from, the menu, New project or a side panel, starts its
+  parts at once. A file opens in 0.359 s, a column with no line in 0.26 s (`Glaze.OpeningSeconds`;
+  `MenuPlane.OpeningSeconds` is the longest). Another task's file or New project taking the file's
+  place opens anew, from its own character where it has one (`MenuPlane.Show`'s `fileColumn`); a
+  place change, another row's side panel and a page turn do not animate and keep the buttons' own
+  settling. A column leaving the plane other than by stepping aside closes: every part fades together
+  over `Glaze.LeaveSeconds`, eased in, and a file's light line draws back to its character over
+  `Glaze.UndrawShare` of it; the bar shows at once. Laid at once (`immediately`), nothing fades. The
+  view keeps one value of its opening or closing, counted on the plane's clock, and everything reads
+  it: its parts' fade, the light line, the plane's refusal of a press, hold or subject press
+  (`MenuPlane.Takes`), every button it shows (`GlazeButton.Accepting`) and its subject plate
+  (`MenuFrameView.SubjectSettling`), which drop a press before its flash, its sound or a hold's timer
+  starts, so nothing on it, Yes, Send answer or Clear among them, is acted on before every part shows
+  whole and in place, however slow the frames. This widens ADR 0026's amendment of 2026-10-03 to every
+  column newly on the plane. The frame it opened in counts nothing toward the opening, and no frame
+  counts more than a twentieth of a second, so one long frame never opens a column before it is seen.
+  Its page counts as drawn (`Drawn`) only as the opening ends, so the dwell guards that start from it
+  (`FileQuestion`'s and `FileScreen`'s `TurnGuard`, `NewWorkReview`'s pause, `NewProjectFlow`'s) count
+  from a page standing whole. `WorkspaceRender` presses every button of a file opening with Send
+  answer, Yes or Clear, of the menu opened from its bar and of a side panel opening (carrying a Yes
+  that is safe in place where it stands in its file's place) as a hand presses it, while their own
+  settling runs and again with it long past, so only the opening makes them wait; for the file, it
+  also presses past the buttons as it opens and halfway, and once each has opened. Frame by frame, at
+  the headset's rate and at a tenth of a second, it presses Send answer every frame: the parts show
+  partly faded, never a lower part ahead of one above it, the light line drawing, and the first press
+  taken finds every shape and word whole, the line whole and nothing sliding. Twenty frames of an
+  opening, and of a closing, allocate nothing, and it draws one strip of the file assembling from its
+  character and closing to the bar (`<stage> opening.png`). It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks
   (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
   (`PlaceAhead`), and slides every part to its new place, so the plane re-centres as one piece and

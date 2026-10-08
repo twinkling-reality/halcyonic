@@ -77,6 +77,32 @@ namespace Halcyonic.XR.UI
         private float subjectPressedAt = -1f;
         private bool subjectHolding;
 
+        /// <summary>
+        /// The column opening or closing on the plane (ADR 0027), counted on the plane's clock: the one value its
+        /// parts' fade, its light line, its buttons, its subject plate and the plane's own refusal all read.
+        /// </summary>
+        private Motion motion;
+
+        /// <summary>The seconds counted so far into the opening or closing.</summary>
+        private float movedFor;
+
+        /// <summary>The light line draws from the column's character as it opens, and its parts wait for it.</summary>
+        private bool drawsFromLine;
+
+        /// <summary>A <see cref="Settle"/> came while the column opened: it reports drawn as the opening ends.</summary>
+        private bool drawnOwed;
+
+        /// <summary>Every shape and every label on each part, gathered as the column is laid, to fade each part by itself without allocating.</summary>
+        private readonly List<(Surface Shape, int Part)> fadingShapes = new List<(Surface, int)>();
+
+        private readonly List<(TMP_Text Words, int Part)> fadingWords = new List<(TMP_Text, int)>();
+        private readonly List<Surface> gatheringShapes = new List<Surface>();
+        private readonly List<TMP_Text> gatheringWords = new List<TMP_Text>();
+        private readonly List<GlazeButton> gatheringButtons = new List<GlazeButton>();
+
+        /// <summary>Every button on the column asks this before taking a press: none while the column opens or closes.</summary>
+        private Func<bool> still = null!;
+
         /// <summary>When the subject plate was last made to wait to settle, as a column newly on the plane does.</summary>
         private float subjectUnsettledAt = float.NegativeInfinity;
 
@@ -309,7 +335,9 @@ namespace Halcyonic.XR.UI
         public void Settle(PlanePart placed, float zoom)
         {
             LayContent(placed.Height / zoom, new Vector2(placed.Right, placed.Up), zoom);
-            Drawn?.Invoke(this);
+            // Opening, its page shows whole only as the opening ends, and only then counts as drawn.
+            if (motion == Motion.Opening) drawnOwed = true;
+            else Drawn?.Invoke(this);
         }
 
         /// <summary>The subject's part, whose plate's top edge the light line ends on.</summary>
@@ -330,7 +358,134 @@ namespace Halcyonic.XR.UI
         /// <summary>The frame whose place this side panel stands in, carrying its footer; null beside its frame, or for a frame.</summary>
         public MenuFrame? InPlaceOf => inPlaceOf;
 
-        public void Hide() => gameObject.SetActive(false);
+        public void Hide()
+        {
+            Stop();
+            gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Starts the column's opening (ADR 0027), counted from <paramref name="frame"/>, the plane's frame it
+        /// opened in: where <paramref name="fromLine"/>, the light line draws from its character first; then its
+        /// parts fade in from the top, <see cref="Glaze.StaggerSeconds"/> apart, each over
+        /// <see cref="Glaze.AppearSeconds"/>, by opacity alone. Until it ends nothing on it takes a press, a hold
+        /// or a subject press, and its page counts as drawn only then.
+        /// </summary>
+        public void Open(bool fromLine, int frame)
+        {
+            motion = Motion.Opening;
+            movedFor = 0f;
+            drawsFromLine = fromLine;
+            OpenedIn = frame;
+            drawnOwed = false;
+            Unsettle(subjectToo: true);
+            Paint();
+        }
+
+        /// <summary>Starts the column's closing: every part fades together over <see cref="Glaze.LeaveSeconds"/>, eased in, then it hides. It takes nothing meanwhile.</summary>
+        public void Close()
+        {
+            if (!gameObject.activeSelf) return;
+            if (motion == Motion.Closing) return;
+            motion = Motion.Closing;
+            movedFor = 0f;
+            drawnOwed = false;
+            Paint();
+        }
+
+        /// <summary>
+        /// Moves the opening or closing on by <paramref name="seconds"/> of the plane's clock. An opening that
+        /// ends shows every part whole and reports its page drawn; a closing that ends hides the column.
+        /// </summary>
+        public void Step(float seconds)
+        {
+            if (motion == Motion.Still) return;
+            movedFor += seconds;
+            if (motion == Motion.Opening && movedFor >= OpeningSeconds)
+            {
+                var owed = drawnOwed;
+                Stop();
+                if (owed) Drawn?.Invoke(this);
+                return;
+            }
+            if (motion == Motion.Closing && movedFor >= Glaze.LeaveSeconds)
+            {
+                Hide();
+                return;
+            }
+            Paint();
+        }
+
+        /// <summary>Ends any opening or closing where it stands, every part whole, reporting nothing: as when the column leaves the plane by stepping aside.</summary>
+        public void Stop()
+        {
+            if (motion == Motion.Still) return;
+            motion = Motion.Still;
+            drawnOwed = false;
+            Paint();
+        }
+
+        /// <summary>The column is opening, taking nothing yet.</summary>
+        public bool Opening => motion == Motion.Opening;
+
+        /// <summary>The column is closing, taking nothing.</summary>
+        public bool Closing => motion == Motion.Closing;
+
+        /// <summary>The seconds counted into the opening or closing under way.</summary>
+        public float MovedFor => movedFor;
+
+        /// <summary>The light line draws from the column's character as this opening starts.</summary>
+        public bool DrawsFromLine => drawsFromLine;
+
+        /// <summary>The plane's frame the opening started in, which counts nothing toward it.</summary>
+        public int OpenedIn { get; private set; }
+
+        /// <summary>How long this column's opening lasts, by its parts and whether its light line draws first.</summary>
+        public float OpeningSeconds => Glaze.OpeningSeconds(Parts.Count, drawsFromLine);
+
+        /// <summary>How visible part <paramref name="index"/> is now (<see cref="Parts"/>): 1 at rest.</summary>
+        public float PartShown(int index) => motion switch
+        {
+            Motion.Opening => Glaze.PartShown(movedFor, index, drawsFromLine),
+            Motion.Closing => Glaze.LeftShown(movedFor),
+            _ => 1f,
+        };
+
+        /// <summary>Every shape and every label as far into view as its part is now; whole at rest, every label's fade dropped.</summary>
+        private void Paint()
+        {
+            for (var index = 0; index < fadingShapes.Count; index++)
+            {
+                var (shape, part) = fadingShapes[index];
+                if (shape != null) shape.Shown = PartShown(part);
+            }
+            for (var index = 0; index < fadingWords.Count; index++)
+            {
+                var (words, part) = fadingWords[index];
+                if (words != null) GlazeText.Show(words, PartShown(part));
+            }
+        }
+
+        /// <summary>
+        /// Gathers every shape and label on each part, shown or not, so one shown later in the opening fades too,
+        /// and has every button ask <see cref="still"/>; then paints them as far into view as their parts are.
+        /// </summary>
+        private void Gather()
+        {
+            fadingShapes.Clear();
+            fadingWords.Clear();
+            var parts = Parts;
+            for (var part = 0; part < parts.Count; part++)
+            {
+                parts[part].GetComponentsInChildren(true, gatheringShapes);
+                for (var index = 0; index < gatheringShapes.Count; index++) fadingShapes.Add((gatheringShapes[index], part));
+                parts[part].GetComponentsInChildren(true, gatheringWords);
+                for (var index = 0; index < gatheringWords.Count; index++) fadingWords.Add((gatheringWords[index], part));
+            }
+            GetComponentsInChildren(true, gatheringButtons);
+            for (var index = 0; index < gatheringButtons.Count; index++) gatheringButtons[index].Accepting = still;
+            Paint();
+        }
 
         /// <summary>
         /// Back on the plane from stepping aside: every button it shows waits to settle again, its prompts,
@@ -347,7 +502,7 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The subject plate is still waiting to settle, taking no press, as a button that waits.</summary>
-        public bool SubjectSettling => Time.unscaledTime - subjectUnsettledAt < GlazeButton.SettleSeconds;
+        public bool SubjectSettling => motion != Motion.Still || Time.unscaledTime - subjectUnsettledAt < GlazeButton.SettleSeconds;
 
         /// <summary>Every press on it begun at <paramref name="since"/> or later ends, as presses begun under a plane a drag moved.</summary>
         public void EndPressesSince(float since)
@@ -368,6 +523,13 @@ namespace Halcyonic.XR.UI
         /// <summary>For the editor's renders: the subject plate held at <paramref name="point"/>, raised past its own timing.</summary>
         public void HoldSubjectForRender(Vector3 point) => SubjectHeld?.Invoke(point);
 
+        /// <summary>For the editor's renders: the column <paramref name="seconds"/> into an opening, or a closing, as stepped so far, to count what a frame of it allocates.</summary>
+        public void MovedForRender(float seconds, bool closing = false)
+        {
+            motion = closing ? Motion.Closing : Motion.Opening;
+            movedFor = seconds;
+        }
+
         /// <summary>For the editor's renders, whose clock barely moves: the subject plate settled long ago.</summary>
         public void SettleSubjectForRender() => subjectUnsettledAt = float.NegativeInfinity;
 #endif
@@ -377,6 +539,8 @@ namespace Halcyonic.XR.UI
 
         private void Begin(float columnDegrees, float subject, bool pillRoom)
         {
+            // Laid anew as it closes, as when it is measured to open again: it stands whole until the plane decides.
+            if (motion == Motion.Closing) Stop();
             gameObject.SetActive(true);
             width = PlaneComposition.Units(columnDegrees);
             reserve = pillRoom ? StateBadgeView.PillHeight / 2f : 0f;
@@ -385,6 +549,7 @@ namespace Halcyonic.XR.UI
 
         private void Build()
         {
+            still = () => motion == Motion.Still;
             subjectPart = Part("Subject");
             sectionsPart = Part("Sections");
             contentPart = Part("Content");
@@ -922,6 +1087,7 @@ namespace Halcyonic.XR.UI
             heights.Add(contentHeight);
             Parts = parts;
             Heights = heights;
+            Gather();
         }
 
         private Line NewLine(int index)
@@ -929,6 +1095,13 @@ namespace Halcyonic.XR.UI
             var line = new Line(contentPart, "Line " + index);
             line.Pressed += (action, key) => Acted?.Invoke(action, key);
             return line;
+        }
+
+        private enum Motion
+        {
+            Still,
+            Opening,
+            Closing,
         }
 
         /// <summary>A section's shape, its place to press, its words and its waiting dot.</summary>

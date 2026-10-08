@@ -29,12 +29,6 @@ namespace Halcyonic.XR.Workspace
 
         private readonly Dictionary<Transform, Slide> slides = new Dictionary<Transform, Slide>();
 
-        /// <summary>
-        /// The seconds each column newly on the plane has left of its opening, taking nothing until they run
-        /// out, and the frame it opened in, which counts nothing toward it.
-        /// </summary>
-        private readonly Dictionary<MenuFrameView, (float Left, int Frame)> opening = new Dictionary<MenuFrameView, (float, int)>();
-
         /// <summary>The most one frame counts toward a column's opening, so one long frame never opens it before it is seen.</summary>
         private const float OpeningFrameSeconds = 0.05f;
 
@@ -198,22 +192,23 @@ namespace Halcyonic.XR.Workspace
         public MenuBarView? Bar => bar.gameObject.activeSelf ? bar : null;
 
         /// <summary>
-        /// How long a column newly on the plane takes no press, hold or subject press: as long as it takes to
-        /// appear (ADR 0027), so nothing on it, Yes, Send answer or Clear among them, is acted on before it
-        /// shows whole. It widens ADR 0026's amendment of 2026-10-03, which held a column back from stepping
-        /// aside, to every column newly on the plane. Its buttons and subject plate wait to settle
-        /// (<see cref="MenuFrameView.Unsettle"/>), which drops a press before its flash, sound or hold timer,
-        /// and must last at least this long; this plane refuses what still reaches it. Its frame still counts
-        /// as drawn when it is laid (<see cref="Drawn"/>), as before. The one place the opening's length is set.
+        /// The longest a column newly on the plane opens: a file whose light line draws first, with sections.
+        /// While a column opens (<see cref="MenuFrameView.Open"/>, ADR 0027) it takes no press, hold or subject
+        /// press, so nothing on it, Yes, Send answer or Clear among them, is acted on before every part shows
+        /// whole and in place. It widens ADR 0026's amendment of 2026-10-03, which held a column back from
+        /// stepping aside, to every column newly on the plane. The one value the view keeps of its opening is
+        /// what its parts' fade, the light line, its buttons and subject plate (which drop a press before its
+        /// flash, sound or hold timer) and this plane's refusal all read, and its page counts as drawn
+        /// (<see cref="Drawn"/>) only when the opening ends.
         /// </summary>
-        public static float OpeningSeconds => Glaze.AppearSeconds;
+        public static float OpeningSeconds => Glaze.OpeningSeconds(3, drawn: true);
 
         /// <summary>Whether <paramref name="kind"/>'s column is on the plane and still opening, taking nothing yet.</summary>
         public bool Opening(MenuColumn kind)
         {
             foreach (var (each, view) in shown)
             {
-                if (each == kind) return opening.ContainsKey(view);
+                if (each == kind) return view.Opening;
             }
             return false;
         }
@@ -230,6 +225,9 @@ namespace Halcyonic.XR.Workspace
                 return false;
             }
         }
+
+        /// <summary>How much of the light line is drawn from its character's end: less while its file opens or closes.</summary>
+        public float LineShown => drawnShare;
 
         /// <summary>The light line's two ends, while it shows.</summary>
         public (Vector3 From, Vector3 To)? LightLine => line.gameObject.activeSelf ? (line.GetPosition(0), line.GetPosition(1)) : ((Vector3, Vector3)?)null;
@@ -296,7 +294,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>A column takes a press, a hold or a subject press only while it stands on the plane and has opened.</summary>
-        private bool Takes(MenuFrameView view) => Contains(shown, view) && !opening.ContainsKey(view);
+        private bool Takes(MenuFrameView view) => Contains(shown, view) && !view.Opening;
 
         /// <summary>
         /// Shows the menu open on <paramref name="menuFrame"/>, or closed to <paramref name="menuBar"/>
@@ -307,13 +305,18 @@ namespace Halcyonic.XR.Workspace
         /// their places, or stand there at once when <paramref name="immediately"/>.
         /// </summary>
         /// <param name="moved">How far a drag left the plane from where the stage places it (<see cref="MenuDrag"/>).</param>
+        /// <param name="fileColumn">
+        /// What the file belongs to, as a task's file or New project: another in the file's place opens anew,
+        /// as a file newly on the plane does, though the view stands where it stood.
+        /// </param>
         /// <param name="besideWindow">
         /// The characters stand either side of a window straight ahead (along <paramref name="looking"/>):
         /// the plane opens centred under it, a file not turned toward its character, the menu and a file
         /// one at a time, and no light line, which would run across the window.
         /// </param>
         public void Show(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, CharacterTarget? fileCharacter, IReadOnlyList<CharacterTarget> all,
-            Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default)
+            Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default,
+            object? fileColumn = null)
         {
             eyes = at;
             surfaceDrop = surfaceHeight.HasValue ? at.y - surfaceHeight.Value : (float?)null;
@@ -328,6 +331,7 @@ namespace Halcyonic.XR.Workspace
                 fileFrame = null;
                 fileCharacter = null;
             }
+            var lineWas = fileOf != null && lineTo != null && lineTo.gameObject.activeSelf ? (lineTo, fileOf) : ((MenuFrameView, CharacterTarget)?)null;
             fileOf = fileFrame != null && !besideWindow ? fileCharacter : null;
             measured = -1f;
             SeeStage(all);
@@ -443,8 +447,14 @@ namespace Halcyonic.XR.Workspace
                 // Closed with no file: the bar alone, where the person looks, which leaves the banner be.
                 cover.SetActive(false);
                 Composition = null;
-                foreach (var (_, view) in before) view.Hide();
-                opening.Clear();
+                // What was open fades away together, the light line drawing back to its character; the bar shows at once.
+                foreach (var (_, view) in before)
+                {
+                    if (immediately) view.Hide();
+                    else view.Close();
+                }
+                lineTo = null;
+                LeaveLine(lineWas, immediately);
                 bar.Show(menuBar, Glaze.Menu.MenuColumnDegrees);
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
                 Placed = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
@@ -454,7 +464,7 @@ namespace Halcyonic.XR.Workspace
                 Direction = Placed;
                 var placedBar = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
                 SlideTo(bar.transform, placedBar, zoom, null, true);
-                line.gameObject.SetActive(false);
+                UpdateLightLine();
                 return;
             }
             bar.Hide();
@@ -467,6 +477,10 @@ namespace Halcyonic.XR.Workspace
                 var parts = view.Parts;
                 var index = 0;
                 var unsettled = false;
+                // Newly on the plane, as opened or back from stepping aside, or another task's file or New project in
+                // the file's place: it opens, taking nothing until every part shows whole, its page counted drawn only
+                // then. A file's light line draws from its character first.
+                if (!WasShown(before, view) || (kind == MenuColumn.File && fileColumn != shownFileColumn)) view.Open(fromLine: view == lineTo && kind == MenuColumn.File, frames);
                 foreach (var placed in Composition.Parts)
                 {
                     if (placed.Column != c) continue;
@@ -485,18 +499,8 @@ namespace Halcyonic.XR.Workspace
                     if (index == parts.Count - 1) view.Settle(placed, zoom);
                     index++;
                 }
-                // Newly on the plane, as opened or back from stepping aside, it takes nothing until it has opened:
-                // its buttons and subject drop a press themselves, and this plane refuses what reaches it.
-                if (!WasShown(before, view))
-                {
-                    opening[view] = (OpeningSeconds, frames);
-                    view.Unsettle(subjectToo: true);
-                }
             }
-            foreach (var view in frameViews)
-            {
-                if (!Contains(shown, view)) opening.Remove(view);
-            }
+            shownFileColumn = Contains(shown, file) ? fileColumn : null;
             foreach (var (kind, view) in before)
             {
                 if (Contains(shown, view) || !view.gameObject.activeSelf) continue;
@@ -510,12 +514,20 @@ namespace Halcyonic.XR.Workspace
                     // Steps aside for the menu's details: slides right, off the plane, then hides.
                     foreach (var part in view.Parts) SlideAway(part, Vector3.right);
                 }
-                else view.Hide();
+                // Leaving the plane otherwise, it fades away; the light line draws back to its character with it.
+                else if (immediately) view.Hide();
+                else view.Close();
             }
-            // A view laid only to measure, as the menu beside a file too tall for it, never shows.
-            foreach (var view in new[] { menu, file, side })
+            foreach (var view in frameViews)
             {
-                if (!Contains(shown, view) && !Contains(before, view)) view.Hide();
+                // Stepping aside, it stands whole as it slides away, taking nothing.
+                if (!Contains(shown, view) && view.Opening) view.Stop();
+            }
+            LeaveLine(lineWas, immediately);
+            // A view laid only to measure, as the menu beside a file too tall for it, never shows; one still closing fades on.
+            foreach (var view in frameViews)
+            {
+                if (!Contains(shown, view) && !Contains(before, view) && !view.Closing) view.Hide();
             }
             Advance(0f);
         }
@@ -711,11 +723,11 @@ namespace Halcyonic.XR.Workspace
         private void Step(float seconds, bool frame)
         {
             var toward = frame ? Mathf.Min(seconds, OpeningFrameSeconds) : seconds;
-            foreach (var view in frameViews)
+            for (var index = 0; index < frameViews.Length; index++)
             {
-                if (!opening.TryGetValue(view, out var open) || (frame && open.Frame == frames)) continue;
-                if (open.Left - toward <= 0f) opening.Remove(view);
-                else opening[view] = (open.Left - toward, open.Frame);
+                var view = frameViews[index];
+                if (view.Opening && !(frame && view.OpenedIn == frames)) view.Step(toward);
+                else if (view.Closing) view.Step(seconds);
             }
             if (frame) frames++;
             foreach (var pair in slides)
@@ -802,7 +814,16 @@ namespace Halcyonic.XR.Workspace
         private void UpdateLightLine()
         {
             var to = lineTo != null && lineTo.gameObject.activeSelf ? lineTo : null;
-            if (fileOf == null || to == null)
+            var of = fileOf;
+            // From its character as the file opens; back to it as the file closes; whole otherwise.
+            drawnShare = to == null ? 1f : to.Opening && to.DrawsFromLine ? Glaze.LineShown(to.MovedFor) : 1f;
+            if (to == null && leavingLine is (MenuFrameView leaving, CharacterTarget leftFrom) && leaving.Closing && leftFrom != null)
+            {
+                to = leaving;
+                of = leftFrom;
+                drawnShare = Glaze.LineLeft(leaving.MovedFor);
+            }
+            if (of == null || to == null || drawnShare <= 0f)
             {
                 line.gameObject.SetActive(false);
                 return;
@@ -812,15 +833,15 @@ namespace Halcyonic.XR.Workspace
             {
                 var content = to.Parts[to.Parts.Count - 1];
                 var bottom = -to.Content.Size.y / 2f;
-                var top = fileOf.BodyPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
+                var top = of.BodyPosition + Vector3.up * (CharacterView.BodyExtent * of.Scale);
                 Join(top, top, content.TransformPoint(new Vector3(-to.Width / 2f, bottom, 0f)), content.TransformPoint(new Vector3(to.Width / 2f, bottom, 0f)));
                 return;
             }
-            var plate = fileOf.View.Label.Plate.transform;
+            var plate = of.View.Label.Plate.transform;
             if (measured < 0f || Time.unscaledTime - measured > MeasureSeconds)
             {
                 measured = Time.unscaledTime;
-                lowest = LabelOutline(fileOf.View).Covered.yMin;
+                lowest = LabelOutline(of.View).Covered.yMin;
             }
             Join(plate.TransformPoint(new Vector3(-0.5f, lowest, 0f)), plate.TransformPoint(new Vector3(0.5f, lowest, 0f)),
                 subject.TransformPoint(new Vector3(-to.Width / 2f, to.PlateTop, 0f)), subject.TransformPoint(new Vector3(to.Width / 2f, to.PlateTop, 0f)));
@@ -867,6 +888,26 @@ namespace Halcyonic.XR.Workspace
         /// <summary>How far, in degrees, the light line keeps from a character's body; a label is told by its own outline.</summary>
         private const float LineMarginDegrees = 0.5f;
 
+        /// <summary>
+        /// With no light line laid now, the one that stood (<paramref name="was"/>) draws back to its character
+        /// while its file closes, or one already drawing back goes on; laid at once, or with a line laid, none does.
+        /// </summary>
+        private void LeaveLine((MenuFrameView View, CharacterTarget Of)? was, bool immediately)
+        {
+            if (lineTo != null || immediately) leavingLine = null;
+            else if (was is (MenuFrameView leaving, CharacterTarget _) && leaving.Closing) leavingLine = was;
+            else if (!(leavingLine is (MenuFrameView still, CharacterTarget _) && still.Closing)) leavingLine = null;
+        }
+
+        /// <summary>A closing file the light line draws back from, to its character, until it is gone; null with none.</summary>
+        private (MenuFrameView View, CharacterTarget Of)? leavingLine;
+
+        /// <summary>How much of the light line is drawn now, from its character's end: less as a file opens or closes.</summary>
+        private float drawnShare = 1f;
+
+        /// <summary>What the file on the plane belongs to, as laid last (<see cref="Show"/>'s fileColumn).</summary>
+        private object? shownFileColumn;
+
         /// <summary>Which column of the composition the light line reaches, or -1.</summary>
         private int lineColumn = -1;
 
@@ -897,7 +938,8 @@ namespace Halcyonic.XR.Workspace
             var (from, to) = Joined(labelLeft, labelRight, plateLeft, plateRight);
             line.gameObject.SetActive(true);
             line.SetPosition(0, from);
-            line.SetPosition(1, to);
+            // Drawn from the character's end as far as it has come.
+            line.SetPosition(1, Vector3.Lerp(from, to, drawnShare));
         }
 
         /// <summary>The light line's two ends between the label's edge and the plate's: straight across from the middle of their overlap, as the eyes see them, else their nearer ends.</summary>

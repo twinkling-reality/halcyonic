@@ -463,6 +463,37 @@ public class GlazeMotionTests
     }
 
     [Test]
+    public void AFileAssemblesFromItsLightLineTopToBottomInAboutAThirdOfASecond()
+    {
+        // Lane V's timing, as the owner saw it: the parts start once 0.55 of the line has drawn, 0.03 s apart.
+        Assert.That(Glaze.OpeningSeconds(3, drawn: true), Is.EqualTo(0.359f).Within(1e-5f));
+        Assert.That(Glaze.OpeningSeconds(3, drawn: false), Is.EqualTo(0.26f).Within(1e-5f));
+        Assert.That(Glaze.OpeningSeconds(2, drawn: true), Is.EqualTo(0.329f).Within(1e-5f));
+        Assert.That(Glaze.PartShown(Glaze.PartStarts(0, drawn: true) - 1e-4f, 0, drawn: true), Is.EqualTo(0f), "nothing shows before the line has drawn its share");
+        Assert.That(Glaze.LineShown(0f), Is.EqualTo(0f));
+        Assert.That(Glaze.LineShown(Glaze.DrawSeconds), Is.EqualTo(1f));
+        for (var step = 0; step <= 400; step++)
+        {
+            var seconds = step / 1000f;
+            var subject = Glaze.PartShown(seconds, 0, drawn: true);
+            var sections = Glaze.PartShown(seconds, 1, drawn: true);
+            var page = Glaze.PartShown(seconds, 2, drawn: true);
+            Assert.That(subject, Is.GreaterThanOrEqualTo(sections), "top to bottom at " + seconds + " s");
+            Assert.That(sections, Is.GreaterThanOrEqualTo(page), "top to bottom at " + seconds + " s");
+            if (seconds < Glaze.OpeningSeconds(3, drawn: true) - 1e-3f) Assert.That(page, Is.LessThan(1f), "the page shows whole only as the opening ends, at " + seconds + " s");
+        }
+        Assert.That(Glaze.PartShown(Glaze.OpeningSeconds(3, drawn: true), 2, drawn: true), Is.EqualTo(1f), "the opening ends with every part whole");
+    }
+
+    [Test]
+    public void ClosingFadesEverythingTogetherAndTheLineIsGoneFirst()
+    {
+        Assert.That((Glaze.LeftShown(0f), Glaze.LeftShown(Glaze.LeaveSeconds)), Is.EqualTo((1f, 0f)));
+        Assert.That((Glaze.LineLeft(0f), Glaze.LineLeft(Glaze.UndrawShare * Glaze.LeaveSeconds)), Is.EqualTo((1f, 0f)));
+        Assert.That(Glaze.LeftShown(Glaze.LeaveSeconds / 2f), Is.GreaterThan(0.5f), "what leaves starts slowly");
+    }
+
+    [Test]
     public void ALoopRisesAndFallsSmoothlyOncePerItsSeconds()
     {
         Assert.That(Glaze.Loop(0f, Glaze.ListeningPulseSeconds), Is.EqualTo(0f).Within(1e-6f));

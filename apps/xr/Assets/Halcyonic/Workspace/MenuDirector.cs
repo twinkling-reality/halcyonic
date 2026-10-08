@@ -433,7 +433,7 @@ namespace Halcyonic.XR.Workspace
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             drawnVoice = Voiced();
             plane.Voice = drawnVoice;
-            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved);
+            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, navigator.Beside);
             // Only as much of a drag as still holds for what is laid now; none, and Settings says so.
             moved = plane.Moved;
         }
