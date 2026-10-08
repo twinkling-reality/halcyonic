@@ -167,9 +167,11 @@ export const LOCAL_ONLY_SETTINGS: readonly {
   { key: 'analytics.enabled', value: false },
   { key: 'web_search', value: 'disabled' },
   // Codex discovers skills from a project, untrusted or not, from ~/.agents/skills and its own
-  // bundled ones (installers among them), and lists them all to the model; this keeps every one
-  // out of what a thread sends (local-models.md). Discovery itself has no switch.
+  // bundled ones (installers among them), and lists them all to the model; these keep the list
+  // out of what a thread sends and the bundled ones out of the catalog (local-models.md). A skill
+  // an instruction names with `$` still reaches the model; discovery itself has no switch.
   { key: 'skills.include_instructions', value: false },
+  { key: 'skills.bundled.enabled', value: false },
   { key: 'cli_auth_credentials_store', value: 'file' },
   { key: 'mcp_oauth_credentials_store', value: 'file' },
 ];
