@@ -101,6 +101,7 @@ Halcyonic's own words go without one. The words below were settled by the coordi
 | A model's account of the work, after it | Model explains | Explanation |
 | The source's own reading of what it observed, not a fact | Inferred | |
 | What the agent planned to do | Planned | |
+| A question the agent asks, on a character's glance, its words leaning on their ground (2026-10-08) | Agent asks | It asks: |
 
 ### Usage in the demonstration
 
@@ -254,6 +255,7 @@ replaces the entry panel's screens. Routine wording, settled by the coordinator,
 | Quiet tasks crowding the stage as a session starts | None | A plate asked once: "4 tasks haven't been heard from since Monday." ("for over a week" past 6 days), then "Move them to Earlier? Tasks keeps them, and you can bring any back.", its main action "Move to Earlier" | 2026-10-08, by the coordinator |
 | The first-time hint on the stage | "Look, then pinch", above the character that needs you | A prompt at the foot of a character's glance, the pinch icon in its cap and "Open", until the first file opened from a character | 2026-10-08, lane V and the coordinator |
 | What is still open while things are folded into the bar | "Still open: {task title}" on the stage's banner, under the labels | The closed bar's subject says "Still open: {task title}" while nothing waits; what waits wins | 2026-10-08, lane V and the coordinator |
+| Two tasks of one project that changed the same file, on either character's glance (ADR 0013) | None | "Both changed {file}", the file on a token | 2026-10-08, by the coordinator |
 | Start building while a build is on its way, its reason as the page's last line | None: Start building did nothing and said nothing | Already starting. Wait to hear how it went. | The coordinator, 2026-10-02 |
 | A place, where two share a name | "Projects" and "Projects", told apart by nothing | "Projects (person)" and "Projects (Work)": the place's own name, then the nearest folder above that tells them apart; where one is not enough, more, in path order, "Projects (Personal, Work)"; where nothing above tells them apart, a number, "Projects (old) 2"; never a path. The host names them (`label`), so Projects, New project and every listing say the same | 2026-10-02, by the coordinator |
 | A kept choice whose place is gone | The old place name, kept with the draft | "{folder}, in a place your computer no longer lists" | 2026-10-02, by the coordinator |
