@@ -539,14 +539,17 @@ the same definition names, as the JSON Schema document:
   (`MenuPlane.OpeningSeconds`, today `Glaze.AppearSeconds`, the one place its length is set),
   widening ADR 0026's amendment of 2026-10-03 to every column newly on the plane: every button it
   shows and its subject plate wait to settle (`MenuFrameView.Unsettle`, `GlazeButton.SettleSeconds`,
-  never shorter than the opening), which drops a press before its flash, its sound or a hold's timer
+  never shorter than the opening in nominal seconds), which drops a press before its flash, its sound or a hold's timer
   starts, and the plane refuses whatever still reaches it until the opening ends. The frame it
   opened in counts nothing toward the opening, and no frame counts more than a twentieth of a
   second, so one long frame never opens a column before it is seen. Its frame still counts as
   drawn when laid, exactly as one that stood open. `WorkspaceRender` presses every button of a
   file opening with Send answer, Yes or Clear, of the menu opened from its bar and of a side panel
-  opening (carrying Yes in its file's place where it stands there) as a hand presses it, then
-  past the buttons as it opens and halfway, and once it has opened. It places the composition as one panel of its size
+  opening (carrying a Yes that is safe in place where it stands in its file's place) as a hand
+  presses it, each after its buttons had settled long before, so only the opening makes them wait;
+  for the file, it also presses past the buttons as it opens and halfway; and once each has opened.
+  The window counts capped frame time while the buttons settle in wall time, so on slow frames the
+  settle can end first; one opening value both read is due with the opening's motion. It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks
   (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
   (`PlaceAhead`), and slides every part to its new place, so the plane re-centres as one piece and

@@ -215,11 +215,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// On a file opened beside the menu asking Send answer, then Yes, then Clear: every button waits to settle,
         /// and pressed as a hand presses it drops the press before its flash, sound or hold's timer; the subject
         /// plate waits too; the frame it opened in and one long frame never end its opening; what still reaches
-        /// the plane past the buttons, a press, a hold, a subject press or hold, is refused as it opens and
-        /// halfway; and once it has opened and settled, the press is taken. The menu opened from its bar and a
-        /// side panel opening, in its file's place carrying Yes where it stands there, take nothing either until
-        /// they have opened. The file counts as drawn when laid, as it does when it stood open, so a page counted
-        /// while faint is never acted on before it shows.
+        /// the plane past the file's buttons, a press, a hold, a subject press or hold, is refused as it opens
+        /// and halfway; and once it has opened and settled, the press is taken. The menu opened from its bar and
+        /// a side panel opening, carrying a Yes that is safe in place where it stands in its file's place, wait
+        /// to settle and take no press through their buttons until they have opened. The file counts as drawn
+        /// when laid, as it does when it stood open, so a page counted while faint is never acted on before it shows.
         /// </summary>
         private static IEnumerable<string> OpeningTakesNothing(string name, MenuPlane plane, MenuFrame waiting, MenuFrame chosen, System.Action<MenuFrame?, bool> show,
             System.Action closed)
@@ -331,8 +331,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         view.SettleSubjectForRender();
                     }
                     drawn.Clear();
-                    show(frame, false);
                     var since = UnityEngine.Time.unscaledTime;
+                    show(frame, false);
                     var openedNow = drawn.ToList();
                     if (view == null || plane.Shown.All(column => column.Kind != MenuColumn.File))
                     {
@@ -383,30 +383,43 @@ namespace Halcyonic.XR.Workspace.Editor
                 plane.Advance(0.02f);
                 if (plane.Opening(MenuColumn.File)) failures.Add(name + ": a file's opening outlasted its time, locking it out.");
 
-                // The menu opened from its bar alone: its rows take nothing until it has opened.
+                // The menu opened from its bar alone, its buttons settled long before: they wait to settle again and
+                // take nothing until it has opened.
                 closed();
-                show(null, false);
                 var menuView = FindView(plane, "Menu");
+                if (menuView != null) SettleLongAgo(menuView);
+                var menuSince = UnityEngine.Time.unscaledTime;
+                show(null, false);
                 if (menuView != null && plane.Shown.Any(column => column.Kind == MenuColumn.Menu))
                 {
-                    var since = UnityEngine.Time.unscaledTime;
+                    var since = menuSince;
                     if (!plane.Opening(MenuColumn.Menu)) failures.Add(name + ": the menu just opened is not opening.");
+                    failures.AddRange(WaitsToSettle(name + ": the menu just opened", menuView));
                     NothingTaken(name + ": the menu just opened", menuView, since);
                     Taken(name + ": the menu that has opened", menuView,
                         menuView.GetComponentsInChildren<GlazeButton>().FirstOrDefault(button => !button.Static && button.Available && menuView.Footer.Shown.All(slot => slot.Button != button)), MenuColumn.Menu);
                 }
                 else failures.Add(name + ": the menu opened from its bar does not stand on the plane.");
 
-                // A side panel opening, in its file's place carrying Yes where it stands there, takes nothing until it has opened.
-                show(Confirming(waiting), true);
+                // A side panel opening, its buttons settled long before, carrying a Yes that is safe in place (as Start
+                // over's) where it stands in its file's place: it waits to settle and takes nothing until it has opened.
+                var startOver = new Prompt("yes", EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true);
+                var cancel = new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel);
+                MenuFrame Asking(MenuFrame on) => new MenuFrame(on.Subject, Footer.Confirm(on.Footer, PromptSlot.FarRight, startOver, cancel),
+                    on.SubjectIsData, on.Pill, on.Sections, on.Lines, on.Source, on.Side, on.SourceIsData, on.SubjectWaits);
+                show(Asking(waiting), true);
                 plane.Advance(ended);
-                show(Confirming(chosen), false);
                 var sideView = FindView(plane, "Side panel");
+                if (sideView != null) SettleLongAgo(sideView);
+                var sideSince = UnityEngine.Time.unscaledTime;
+                show(Asking(chosen), false);
                 if (sideView != null && plane.Shown.Any(column => column.Kind == MenuColumn.Side))
                 {
-                    var since = UnityEngine.Time.unscaledTime;
+                    var since = sideSince;
                     var carries = ButtonFor(sideView, "yes");
-                    var what = name + ": a side panel just opened" + (carries != null ? ", carrying Yes," : "");
+                    var inPlace = plane.Shown.Count == 1;
+                    var what = name + ": a side panel just opened" + (inPlace ? " in its file's place" : " beside its file") + (carries != null ? ", carrying Yes" : "");
+                    if (inPlace && carries == null) failures.Add(what + " does not carry the file's Yes, safe in place.");
                     if (!plane.Opening(MenuColumn.Side)) failures.Add(what + " is not opening.");
                     failures.AddRange(WaitsToSettle(what, sideView));
                     NothingTaken(what, sideView, since);
