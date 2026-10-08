@@ -1232,6 +1232,38 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
   );
 
   test(
+    'a write outside the folder asks for the folder, then for the file by its path, and only then writes',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const outside = join(sandbox.root, 'outside.txt');
+      const execution = await start(call('write', { path: outside, content: 'hello\n' }));
+      const answer = async (count: number) => {
+        const asked = await execution.next('runtime.approval.requested', count);
+        assert.ok(asked.type === 'runtime.approval.requested');
+        await runtime.respondToApproval({
+          execution: execution.context,
+          approval_id: asked.payload.approval_id,
+          decision: 'approve',
+          message: null,
+        });
+        return asked.payload;
+      };
+      const folder = await answer(1);
+      assert.equal(
+        folder.subject.kind === 'tool_use' && folder.subject.tool_name,
+        'external_directory',
+      );
+      assert.equal(existsSync(outside), false, 'written after the folder alone');
+      const file = await answer(2);
+      assert.deepEqual(file.subject, { kind: 'tool_use', tool_name: 'edit', summary: outside });
+      assert.equal(file.complete, true);
+      await execution.next('runtime.turn.completed');
+      assert.equal(readFileSync(outside, 'utf8'), 'hello\n');
+    },
+  );
+
+  test(
     "Code Mode's fetch reaches a listener from a session without the rules, never from Halcyonic's",
     SLOW_TEST,
     async (t) => {

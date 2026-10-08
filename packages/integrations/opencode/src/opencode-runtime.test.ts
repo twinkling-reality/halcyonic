@@ -221,7 +221,11 @@ describe('OpenCode session rules', () => {
     // Nothing else is asked or allowed: edits keep OpenCode's own rules, so they need no press.
     assert.deepEqual(
       rules.filter((rule) => rule.effect !== 'deny'),
-      [{ action: 'shell', resource: '*', effect: 'ask' }],
+      [
+        { action: 'shell', resource: '*', effect: 'ask' },
+        // An edit outside the folder asks by its own path; inside it, its resource is relative.
+        { action: 'edit', resource: '/*', effect: 'ask' },
+      ],
     );
     // OpenCode's global folder follows XDG_CONFIG_HOME, then OPENCODE_CONFIG_DIR; a file
     // OPENCODE_CONFIG names is denied too.

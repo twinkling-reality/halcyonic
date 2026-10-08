@@ -434,6 +434,47 @@ describe('SQLite journal', () => {
     );
   });
 
+  test('migration 5 leaves a request that was cut, or whose command was not known, only deniable', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const requested = TRACE.find((event) => event.event_type === 'runtime.approval.requested');
+    assert.ok(requested?.event_type === 'runtime.approval.requested');
+    const summaries = ['ls', `${'x'.repeat(10)} [truncated]`, '[whole command not known] echo one'];
+    for (const [index, summary] of summaries.entries()) {
+      journal.append({
+        ...requested,
+        event_id: ids.next() as EventEnvelope['event_id'],
+        source_native_id: `approval-${index}`,
+        payload: {
+          approval_id: `a${index}`,
+          subject: { kind: 'tool_use', tool_name: 'shell', summary },
+          complete: true,
+        },
+      });
+    }
+    journal.close();
+    const db = new DatabaseSync(path);
+    db.exec("UPDATE events SET envelope = json_remove(envelope, '$.payload.complete')");
+    db.exec('PRAGMA user_version = 4');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const read = [...reopened.readAll()].map((stored) => stored.event);
+    reopened.close();
+    assert.deepEqual(
+      read.map((event) =>
+        event.event_type === 'runtime.approval.requested'
+          ? [event.payload.approval_id, event.payload.complete]
+          : null,
+      ),
+      [
+        ['a0', true],
+        ['a1', false],
+        ['a2', false],
+      ],
+    );
+  });
+
   test('a stored event that no longer matches the contract is reported, not trusted', () => {
     const path = freshPath();
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });

@@ -641,6 +641,8 @@ describe('OpenCode event decoding', () => {
       complete: false,
     });
     assert.equal(approvalRequest('github_create_issue', ['x'])?.complete, false);
+    // A name cut to the contract could read as another's.
+    assert.equal(approvalRequest(`edit${'x'.repeat(130)}`, ['a.ts'])?.complete, false);
     assert.equal(approvalRequest(' ', ['x']), null);
     // Whole, for the control plane to cut after it takes credentials out.
     assert.equal(approvalRequest('edit', ['x'.repeat(3000)])?.subject.summary, 'x'.repeat(3000));

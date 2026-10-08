@@ -45,7 +45,8 @@ export interface ThreadState {
   /** Items reported as started tools and not yet as completed ones. */
   readonly tools: Set<string>;
   /** What each file change item changes, for an approval that names the item. */
-  readonly fileChanges: Map<string, string>;
+  /** Each file change item's files, one line each, and whether every change was described. */
+  readonly fileChanges: Map<string, { readonly text: string; readonly complete: boolean }>;
   /** Approvals Codex asked for and has not resolved, by approval id. */
   readonly approvals: Map<string, PendingApproval>;
   /** Questions Codex asked and has not resolved, by question id. */
@@ -196,7 +197,9 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
       }
       state.tools.add(id);
       const title =
-        item.type === 'commandExecution' ? nonBlank(item.command) : state.fileChanges.get(id);
+        item.type === 'commandExecution'
+          ? nonBlank(item.command)
+          : (state.fileChanges.get(id)?.text ?? null);
       return {
         observations: [
           make(
@@ -567,30 +570,48 @@ function commandSummary(params: Readonly<Record<string, unknown>>): {
         : 'Codex did not say which command it wants to run.';
   const cwd = nonBlank(params.cwd);
   if (command !== null && cwd !== null) summary += `\nin ${cwd}`;
+  // A command that also asks for the network says so.
+  if (command !== null && host !== null) {
+    summary += `\nand network access to ${host} (${String(network.protocol)})`;
+  }
   // Whole: the control plane takes credentials out, then cuts it to the contract.
-  // Input to a running command runs nothing new, so it needs no folder to be complete.
-  const complete = command !== null ? params.kind === 'writeStdin' || cwd !== null : host !== null;
+  // Input to a running command runs nothing new, so it needs no folder to be complete. A command
+  // in an environment other than this computer's runs somewhere the summary does not say.
+  // Codex 0.157.0 names its own environment "local" (fixtures/approvals.jsonl).
+  const elsewhere =
+    params.environmentId !== undefined &&
+    params.environmentId !== null &&
+    params.environmentId !== 'local';
+  const complete =
+    !elsewhere && (command !== null ? params.kind === 'writeStdin' || cwd !== null : host !== null);
   return { summary, complete };
 }
 
-/** A change approval as the paths it writes; complete only when Codex named them. */
+/**
+ * A change approval as the paths it writes; complete only when Codex named every change and asked
+ * for nothing more. Write access under a folder for the rest of the session covers writes no later
+ * request names, so a request asking for it is not complete.
+ */
 function fileChangeSummary(
-  changes: string | undefined,
+  changes: { readonly text: string; readonly complete: boolean } | undefined,
   grantRoot: unknown,
 ): { readonly summary: string; readonly complete: boolean } {
-  const named = changes !== undefined && changes !== NO_CHANGES_NAMED;
-  let summary = named ? changes : NO_CHANGES_NAMED;
+  let summary = changes?.text ?? NO_CHANGES_NAMED;
   const root = nonBlank(grantRoot);
   if (root !== null) summary += `\nand write access under ${root} for the rest of the session`;
-  return { summary, complete: named };
+  return { summary, complete: changes?.complete === true && root === null };
 }
 
 const NO_CHANGES_NAMED = 'Codex did not say which files it wants to change.';
 
-/** The files a file change item touches, one line each, from `v2/FileUpdateChange.ts`. */
-function describeChanges(changes: unknown): string {
+/**
+ * The files a file change item touches, one line each, from `v2/FileUpdateChange.ts`; complete
+ * only when every change was one it could describe.
+ */
+function describeChanges(changes: unknown): { readonly text: string; readonly complete: boolean } {
   const lines: string[] = [];
-  for (const change of Array.isArray(changes) ? changes : []) {
+  const listed = Array.isArray(changes) ? changes : [];
+  for (const change of listed) {
     if (!isRecord(change) || !isRecord(change.kind)) continue;
     const path = nonBlank(change.path);
     if (path === null) continue;
@@ -601,7 +622,9 @@ function describeChanges(changes: unknown): string {
     else if (kind === 'update')
       lines.push(moved === null ? `update ${path}` : `move ${path} to ${moved}`);
   }
-  return lines.length > 0 ? lines.join('\n') : NO_CHANGES_NAMED;
+  return lines.length > 0
+    ? { text: lines.join('\n'), complete: lines.length === listed.length }
+    : { text: NO_CHANGES_NAMED, complete: false };
 }
 
 /**

@@ -275,6 +275,10 @@ describe('command admission', () => {
     });
     const deny = admitCommand(commands.approve('a1', 'deny'), projection, catalog());
     assert.equal(deny.admitted, true);
+    // While it cannot be answered at all, that is what is said, never "deny it".
+    projection.apply(b.runtimeEvent(scope, 'runtime.connection.lost', { reason: 'Gone.' }));
+    const unanswerable = admitCommand(commands.approve('a1'), projection, catalog());
+    assert.equal(unanswerable.admitted ? null : unanswerable.rejection.code, 'invalid_state');
   });
 
   test('an approval on an unobservable execution cannot be answered', () => {

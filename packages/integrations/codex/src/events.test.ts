@@ -451,6 +451,73 @@ describe('Codex approval summaries', () => {
     assert.equal(item?.type === 'runtime.approval.requested' && item.payload.complete, false);
   });
 
+  test('a request is complete only when it says everything that runs and every file it writes', () => {
+    const asked = (method: string, params: Record<string, unknown>, changes?: unknown[]) => {
+      const state = createThreadState();
+      state.activeTurnId = 'turn-1';
+      if (changes !== undefined) {
+        observe(
+          state,
+          {
+            kind: 'notification',
+            method: 'item/started',
+            params: {
+              threadId: 't',
+              turnId: 'turn-1',
+              item: { type: 'fileChange', id: 'call-1', changes, status: 'inProgress' },
+            },
+            emittedAtMs: null,
+          },
+          NOW,
+        );
+      }
+      const item = observe(
+        state,
+        {
+          kind: 'request',
+          id: 7,
+          method,
+          params: { threadId: 't', turnId: 'turn-1', itemId: 'call-1', ...params },
+        },
+        NOW,
+      ).observations.find((each) => each.type === 'runtime.approval.requested');
+      assert.ok(item?.type === 'runtime.approval.requested');
+      return [item.payload.subject.summary, item.payload.complete];
+    };
+    const command = 'item/commandExecution/requestApproval';
+    const change = 'item/fileChange/requestApproval';
+    const added = [{ path: '/w/a.txt', kind: { type: 'add' } }];
+    assert.deepEqual(asked(change, {}, added), ['add /w/a.txt', true]);
+    // Write access for the rest of the session covers writes no later request names.
+    assert.deepEqual(asked(change, { grantRoot: '/w' }, added), [
+      'add /w/a.txt\nand write access under /w for the rest of the session',
+      false,
+    ]);
+    // A change it could not describe is not shown, so the request is not complete.
+    assert.deepEqual(
+      asked(change, {}, [...added, { path: '/w/b.txt', kind: { type: 'rename' } }]),
+      ['add /w/a.txt', false],
+    );
+    // A command that also asks for the network says so.
+    assert.deepEqual(
+      asked(command, {
+        command: 'curl x',
+        cwd: '/w',
+        networkApprovalContext: { host: 'example.com', protocol: 'https' },
+      }),
+      ['curl x\nin /w\nand network access to example.com (https)', true],
+    );
+    assert.deepEqual(asked(command, { command: 'ls', cwd: '/w', environmentId: 'local' }), [
+      'ls\nin /w',
+      true,
+    ]);
+    // One in another environment runs somewhere the summary does not say.
+    assert.deepEqual(asked(command, { command: 'ls', cwd: '/w', environmentId: 'remote-1' }), [
+      'ls\nin /w',
+      false,
+    ]);
+  });
+
   test('other requests raise no approval, so the adapter refuses them', () => {
     for (const method of [
       'item/tool/requestUserInput',
