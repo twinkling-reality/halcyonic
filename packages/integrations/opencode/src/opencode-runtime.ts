@@ -953,12 +953,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   // Sessions -----------------------------------------------------------------------------------
 
   /**
-   * Waits until OpenCode offers the execution's model in its directory. OpenCode discovers the
-   * models of local servers such as Ollama shortly after it starts, per directory, and again every
-   * 30 s; until then its list lacks them, and a session prompted with such a model fails with
-   * `provider.no-route`. A named model still missing after the wait is refused in words, before
-   * any session exists. Without a named model, the wait is for OpenCode to have a default, which
-   * it then chooses itself.
+   * Waits until OpenCode can run the execution's model in its directory: the model is listed and
+   * has a package. OpenCode discovers the models of local servers such as Ollama shortly after it
+   * starts, per directory, and again every 30 s; until then its list lacks them, or lists a model
+   * the configuration names without a package, and a session prompted with such a model fails
+   * with `provider.no-route`. A named model still not runnable after the wait is refused in
+   * words, before any session exists. Without a named model, the wait is for OpenCode to have a
+   * default with a package, which it then chooses itself. Until discovery has listed the
+   * configured default, OpenCode's default is its first available model, a hosted one of its own
+   * service, which is why admission never starts a runtime that lists its models without one.
    */
   async #awaitModel(
     connection: Connection,
@@ -971,12 +974,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       if (connection.halted.signal.aborted) throw unreachableError();
       // Each read sends the folder to OpenCode, which reads that folder's own configuration.
       confirmProjectLocation(this.#directoryPolicy, directory);
-      let found: boolean;
+      // The model or the default as OpenCode lists it; without a package it cannot run yet.
+      let listed: { readonly package: string | null } | undefined;
       try {
-        found =
+        listed =
           model === null
-            ? (await readDefaultModel(client, directory, READ_TIMEOUT_MS)) !== null
-            : (await readModels(client, directory, READ_TIMEOUT_MS)).some((entry) =>
+            ? ((await readDefaultModel(client, directory, READ_TIMEOUT_MS)) ?? undefined)
+            : (await readModels(client, directory, READ_TIMEOUT_MS)).find((entry) =>
                 sameModel(entry, model),
               );
       } catch (error) {
@@ -985,9 +989,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
           `OpenCode's list of models could not be read: ${message(error)}`,
         );
       }
-      if (found) return;
+      if (listed !== undefined && listed.package !== null) return;
       if (Date.now() >= deadline) {
         if (model === null) return;
+        if (listed !== undefined) {
+          throw new RuntimeActionError(
+            'model_unavailable',
+            `OpenCode lists the model ${model.providerID}/${model.id} in ${directory} but cannot run it yet: it has not set up how to reach it. For a local server such as Ollama, that happens once OpenCode has reached the server.`,
+          );
+        }
         throw new RuntimeActionError(
           'model_unavailable',
           `OpenCode does not offer the model ${model.providerID}/${model.id} in ${directory}. It lists the models its providers offer there; a local server's models appear once OpenCode has reached the server, and a model the configuration disables does not appear.`,

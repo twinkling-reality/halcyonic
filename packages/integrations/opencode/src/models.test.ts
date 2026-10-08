@@ -44,6 +44,7 @@ describe('OpenCode model listing', () => {
         tools: true,
         contextTokens: 65536,
         baseUrl: 'http://127.0.0.1:11434/v1',
+        package: '@opencode/ai/providers/openai-compatible',
       },
       {
         providerID: 'opencode',
@@ -52,9 +53,29 @@ describe('OpenCode model listing', () => {
         tools: true,
         contextTokens: 200000,
         baseUrl: 'https://opencode.ai/zen/v1',
+        package: null,
       },
     ]);
     assert.equal(JSON.stringify(models).includes('key-that-must-not-travel'), false);
+  });
+
+  test('a model the configuration names reads as having no package until discovery', () => {
+    // As OpenCode 2.0.18 lists a model named under `providers.ollama.models` before its Ollama
+    // discovery has answered, and after.
+    const named = {
+      id: 'stand-in:1b',
+      modelID: 'stand-in:1b',
+      providerID: 'ollama',
+      name: 'stand-in:1b',
+      package: '',
+      settings: { baseURL: 'http://127.0.0.1:11434/v1' },
+      capabilities: { tools: true, input: ['text'], output: ['text'] },
+      enabled: true,
+      limit: { context: 6000, output: 1024 },
+    };
+    const discovered = { ...named, package: '@opencode/ai/providers/openai-compatible' };
+    assert.equal(parseModels([named])[0]?.package, null);
+    assert.equal(parseModels([discovered])[0]?.package, '@opencode/ai/providers/openai-compatible');
   });
 
   test('drops disabled and malformed entries, and says unknown for what is missing', () => {
@@ -71,7 +92,13 @@ describe('OpenCode model listing', () => {
         capabilities: {},
         limit: { context: 0 },
       },
-      { providerID: 'vllm', id: 'served', limit: { context: 1.5 }, settings: { baseURL: 7 } },
+      {
+        providerID: 'vllm',
+        id: 'served',
+        limit: { context: 1.5 },
+        settings: { baseURL: 7 },
+        package: '',
+      },
     ]);
     assert.deepEqual(models, [
       {
@@ -81,6 +108,7 @@ describe('OpenCode model listing', () => {
         tools: null,
         contextTokens: null,
         baseUrl: null,
+        package: null,
       },
       {
         providerID: 'vllm',
@@ -89,6 +117,7 @@ describe('OpenCode model listing', () => {
         tools: null,
         contextTokens: null,
         baseUrl: null,
+        package: null,
       },
     ]);
   });
@@ -134,7 +163,15 @@ describe('OpenCode model listing', () => {
 
   test('where a model runs follows the address OpenCode reaches it at, not its name', () => {
     const served = (providerID: string, id: string, baseUrl: string | null) =>
-      servedBy({ providerID, id, name: id, tools: null, contextTokens: null, baseUrl });
+      servedBy({
+        providerID,
+        id,
+        name: id,
+        tools: null,
+        contextTokens: null,
+        baseUrl,
+        package: null,
+      });
     assert.equal(
       served('ollama', 'qwen3.6:35b-a3b-nvfp4', 'http://127.0.0.1:11434/v1'),
       'this_mac',
@@ -156,6 +193,7 @@ describe('OpenCode model listing', () => {
       tools: null,
       contextTokens: null,
       baseUrl: null,
+      package: null,
     });
     assert.equal(quiet.tool_calling, 'unknown');
     assert.equal(quiet.served, 'unknown');

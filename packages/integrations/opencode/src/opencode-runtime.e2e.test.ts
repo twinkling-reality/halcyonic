@@ -605,6 +605,49 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
   });
 
   test(
+    'a model the configuration names under Ollama runs its first turn though discovery answers late',
+    SLOW_TEST,
+    async (t) => {
+      // As `pnpm mac-setup local-model` writes it: the model named, with its limits. OpenCode
+      // lists such a model before its Ollama discovery has answered, without a package, and a
+      // session prompted with it then fails with provider.no-route ("Unsupported package").
+      const tag = 'stand-in:1b';
+      const { runtime, sandbox } = await harness(t, {
+        provider: { ollama: { model: tag, answerMs: 900 } },
+      });
+      const file = join(sandbox.root, 'config/opencode/opencode.json');
+      const config = JSON.parse(readFileSync(file, 'utf8')) as { providers: object };
+      config.providers = {
+        ...config.providers,
+        ollama: {
+          settings: { baseURL: sandbox.provider.baseUrl },
+          models: { [tag]: { limit: { context: 8192, output: 1024 } } },
+        },
+      };
+      writeFileSync(file, JSON.stringify(config));
+      // No listing first: the start launches the server and loads the folder itself.
+      const execution = new Execution();
+      await runtime.startExecution({
+        execution: execution.context,
+        instruction: 'Hello.',
+        options: {},
+        directory: sandbox.project,
+        model_ref: `ollama/${tag}`,
+        emit: execution.emit,
+      });
+      const ended = (type: RuntimeEventType) =>
+        type === 'runtime.turn.completed' || type === 'runtime.turn.failed';
+      await until(() => execution.types().some(ended), 30_000, 'the first turn to end');
+      const failed = execution.observations.filter((item) => item.type === 'runtime.turn.failed');
+      assert.deepEqual(
+        failed.map((item) => item.payload),
+        [],
+      );
+      assert.equal(sandbox.provider.requests.at(-1)?.model, tag);
+    },
+  );
+
+  test(
     'a model OpenCode does not offer, or that the directory disables, is refused before any session exists',
     SLOW_TEST,
     async (t) => {

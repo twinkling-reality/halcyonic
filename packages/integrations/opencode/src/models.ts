@@ -18,6 +18,14 @@ export interface OpenCodeModel {
   readonly contextTokens: number | null;
   /** `settings.baseURL`, the endpoint OpenCode sends the model's requests to, when set. */
   readonly baseUrl: string | null;
+  /**
+   * `package`, the provider package OpenCode runs the model through, or null when the listing
+   * has none or an empty one. A model the configuration names under a provider that a plugin
+   * sets up, such as `ollama`, is listed with an empty one until the plugin's discovery has
+   * reached the server, and a session prompted with it then fails with `provider.no-route`
+   * ("Unsupported package").
+   */
+  readonly package: string | null;
 }
 
 export interface ModelRef {
@@ -43,12 +51,16 @@ export async function readModels(
   return parseModels(data);
 }
 
-/** Reads the model a session without an explicit model uses in `directory`, or null for none yet. */
+/**
+ * Reads the model a session without an explicit model uses in `directory`, or null for none yet,
+ * with its `package` as `parseModels` reads it. OpenCode runs a session on its default only once
+ * the default has a package, and on another model that has one until then.
+ */
 export async function readDefaultModel(
   client: OpenCodeClient,
   directory: string,
   timeoutMs: number,
-): Promise<ModelRef | null> {
+): Promise<(ModelRef & { readonly package: string | null }) | null> {
   const response = await client.request('GET', `/api/model/default${location(directory)}`, {
     timeoutMs,
   });
@@ -58,7 +70,7 @@ export async function readDefaultModel(
   if (!isRecord(data) || typeof data.providerID !== 'string' || typeof data.id !== 'string') {
     return null;
   }
-  return { providerID: data.providerID, id: data.id };
+  return { providerID: data.providerID, id: data.id, package: packageOf(data) };
 }
 
 /** Keeps the listed models that are enabled and well formed, field by field. */
@@ -89,9 +101,14 @@ export function parseModels(data: readonly unknown[]): OpenCodeModel[] {
           ? context
           : null,
       baseUrl: typeof settings.baseURL === 'string' ? settings.baseURL : null,
+      package: packageOf(item),
     });
   }
   return models;
+}
+
+function packageOf(item: Record<string, unknown>): string | null {
+  return typeof item.package === 'string' && item.package !== '' ? item.package : null;
 }
 
 export function sameModel(model: OpenCodeModel | ModelRef, ref: ModelRef): boolean {
