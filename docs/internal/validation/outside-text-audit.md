@@ -136,6 +136,15 @@
 Each gap's fix lands in a batch for independent review, with its words settled by the coordinator and
 a test that fails without it; this record says which have landed.
 
+**Landed (batch A, 2026-10-08):**
+- **Gap 1:** a source's blank sentence is left out (`SectionPresentation`); a blank folder, place or agent app name shows by code point (`LabelText.Name`).
+- **Gap 2:** an agent's or subagent's statement and remaining item are always reported, quoted and attributed.
+- **Gap 4:** a claim is quoted once, by its builder, around the outside words alone (`PageLine.Drawn`); the agent's question leans.
+- **Gap 5:** a refusal coded `demonstration` is said in its own words only while the demonstration shows (`CommandSubmissions.Demonstration`).
+- **Gap 8:** each page of an answer carries its own source's provenance, and the measurement opens even when the understanding source had no answer.
+
+**Waiting:** batch B (gaps 3, 6, 7, 9, 11) waits for lane V's treatment of outside words beside Halcyonic's own. Batch C (gaps 10, 12, 13, 14) follows A.
+
 ## Not verified
 
 - Nothing ran on a headset. How TextMeshPro's font draws a glyph it lacks (one box for many) is
