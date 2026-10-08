@@ -163,8 +163,33 @@ namespace Halcyonic.Client
             string? chip = null, bool claim = false, string? action = null, string? key = null, bool opens = false, bool choice = false,
             bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false, bool besideNext = false,
             bool waits = false)
+            : this(LineWords.Written(words), wordsAreData, icon, fact, tone, chip, claim, action, key, opens, choice, chosen, available, rows, fromRow,
+                factIsData, besideNext, waits)
         {
-            if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A line has words.", nameof(words));
+        }
+
+        /// <summary>
+        /// A line of runs, Halcyonic's words and text from outside (<see cref="LineWords"/>): the outside
+        /// text leans, on a ground where it meets Halcyonic's words, and is cut before them. A line all
+        /// of outside text takes Halcyonic's quote mark in its icon column where no icon of its own
+        /// stands there (<see cref="GlazeIcon.Quote"/>).
+        /// </summary>
+        public PageLine(LineWords words, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
+            string? chip = null, string? action = null, string? key = null, bool opens = false, bool choice = false,
+            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false, bool besideNext = false,
+            bool waits = false)
+            : this(words, words.AnyTheirs, icon ?? (words.AllTheirs ? GlazeIcon.Quote : (GlazeIcon?)null), fact, tone, chip, false, action, key, opens,
+                choice, chosen, available, rows, fromRow, factIsData, besideNext, waits)
+        {
+        }
+
+        private PageLine(LineWords words, bool wordsAreData, GlazeIcon? icon, string? fact, LineTone tone,
+            string? chip, bool claim, string? action, string? key, bool opens, bool choice,
+            bool chosen, bool available, int rows, int? fromRow, bool factIsData, bool besideNext,
+            bool waits)
+        {
+            if (words == null) throw new ArgumentNullException(nameof(words));
+            if (string.IsNullOrWhiteSpace(words.Text)) throw new ArgumentException("A line has words.", nameof(words));
             if (string.Equals(chip, "observed", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
             if (chip != null && string.IsNullOrWhiteSpace(chip)) throw new ArgumentException("A chip has its word, or is null.", nameof(chip));
             if (opens && action == null) throw new ArgumentException("A line that opens a side panel raises an action.", nameof(opens));
@@ -175,7 +200,8 @@ namespace Halcyonic.Client
             if (rows < 1) throw new ArgumentOutOfRangeException(nameof(rows), rows, "A line takes at least one row.");
             if (fromRow < 0) throw new ArgumentOutOfRangeException(nameof(fromRow), fromRow, "A line shows from its first row or a later one.");
             if (icon == GlazeIcon.HoldToTalk) throw new ArgumentException("A line never shows the microphone: Hold to talk is the footer's Secondary.", nameof(icon));
-            Words = words;
+            Runs = words;
+            Words = words.Text;
             WordsAreData = wordsAreData;
             Icon = icon;
             Fact = fact;
@@ -196,6 +222,9 @@ namespace Halcyonic.Client
         }
 
         public string Words { get; }
+
+        /// <summary>Its words as runs, Halcyonic's and outside text's; one of Halcyonic's for a line made from a string.</summary>
+        public LineWords Runs { get; }
 
         public bool WordsAreData { get; }
 
