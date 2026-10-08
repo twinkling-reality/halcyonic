@@ -15,14 +15,24 @@ public class PerFrameTests
 {
     private const int Frames = 1000;
 
-    /// <summary>The bytes <paramref name="frame"/> allocates over <see cref="Frames"/> frames, after two to warm up.</summary>
+    /// <summary>
+    /// The fewest bytes <paramref name="frame"/> allocates over <see cref="Frames"/> frames, in three tries,
+    /// after as many frames to warm up. A frame that allocates does so in every try; what the runtime does
+    /// once on this thread, as a method's first path after the warm-up or its compilation landing mid-try,
+    /// is in one try at most. Once, under swap pressure, a single try counted 5368 bytes for a drag that
+    /// allocates none (2026-10-07; not reproduced under forced collections or immediate tier-up).
+    /// </summary>
     private static long AllocatedBy(Action frame)
     {
-        frame();
-        frame();
-        var before = GC.GetAllocatedBytesForCurrentThread();
         for (var index = 0; index < Frames; index++) frame();
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        var fewest = long.MaxValue;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var index = 0; index < Frames; index++) frame();
+            fewest = Math.Min(fewest, GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+        return fewest;
     }
 
     [Test]
@@ -30,6 +40,19 @@ public class PerFrameTests
     {
         object? kept = null;
         Assert.That(AllocatedBy(() => kept = new byte[64]), Is.GreaterThan(Frames * 64L), "else a zero below proves nothing");
+        Assert.That(kept, Is.Not.Null);
+    }
+
+    [Test]
+    public void TheMeasureSeesAFrameThatAllocatesNowAndThen()
+    {
+        object? kept = null;
+        var frame = 0;
+        // Every tenth frame, as a cache that refills: the fewest of three tries still counts it.
+        Assert.That(AllocatedBy(() =>
+        {
+            if (++frame % 10 == 0) kept = new byte[64];
+        }), Is.GreaterThanOrEqualTo(Frames / 10 * 64L), "a fewest-of-three measure hides only what happens once");
         Assert.That(kept, Is.Not.Null);
     }
 
