@@ -105,6 +105,11 @@ namespace Halcyonic.XR.UI.Editor
                             failures.Add("component render: " + what + "'s words, " + phase + " into the sweep under Keep things still, are not every letter steady in the active tone.");
                         }
                     }
+                    // The wait over with its words unchanged, as when a prompt stops waiting in place: its own colours again.
+                    shimmer.Waits = false;
+                    shimmer.Draw(0.7f * Glaze.ShimmerSeconds);
+                    if (shimmer.Highlighted || !InOwnColours(label)) failures.Add("component render: " + what + "'s words, the same once it no longer waits, kept the still highlight.");
+                    shimmer.Waits = true;
                     GlazeMotion.Still = false;
 
                     // Let move again, the highlight gives way to the shimmer.
