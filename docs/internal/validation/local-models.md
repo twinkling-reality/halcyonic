@@ -481,6 +481,13 @@ them again at `dced6316` (26 tests, all passing), with the fake provider on loop
     environment variable names), and a name may be any text of up to 64 characters
     (`codex-rs/skills/src/parser.rs`). E5b pins this behavior, so an upgrade that changes it
     shows.
+  - **A project's `AGENTS.md`** (the same kind of run, a git project with `AGENTS.md` holding a
+    marker sentence, the thread marked untrusted as the adapter marks it, the instruction
+    "Hello."): the marker was absent from what the thread sent. Codex reads no `AGENTS.md` for an
+    untrusted project (`load_project_instructions`, `codex-rs/core/src/agents_md.rs`).
+    The control, the same run without the adapter's untrusted marking, so Codex trusted the
+    project as it does by default: the marker reached the provider, so the read sees `AGENTS.md`
+    when Codex sends it.
   - **`skills.bundled.enabled = false`:** `config/read` reported `skills.bundled.enabled: false`;
     the bundled skills were already absent from the list with `include_instructions` off, but
     naming one still brought it in: with the setting removed, "$skill-installer" put the bundled
