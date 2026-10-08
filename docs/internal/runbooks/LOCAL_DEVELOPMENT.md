@@ -75,10 +75,11 @@ which only you can read or change, and Halcyonic reads it when it starts
    pnpm mac-setup local-model qwen3.6:35b-a3b-nvfp4
    ```
 
-   OpenCode then starts on that model when none is chosen, asks you before every shell command, which
-   is how its approvals reach the headset, and cannot fetch from the web; your own OpenCode settings
-   are left as they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code
-   Mode, web fetch and web search turned off. Codex gets the same model in a home of its own, `~/.halcyonic/codex-home`:
+   OpenCode then starts on that model when none is chosen; your own OpenCode settings are left as
+   they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code Mode, web fetch,
+   web search and subagents turned off, and asks you about shell commands, which is how its
+   approvals reach the headset ([opencode-permissions.md](../validation/opencode-permissions.md)
+   says what the ask covers). Codex gets the same model in a home of its own, `~/.halcyonic/codex-home`:
    it runs only on models this Mac serves, never signed in, and your own `~/.codex` is left as it
    is ([Codex](#codex)). Claude Agent runs only on Anthropic's remote service and is paid with your API
    key, so the setup never turns it on; see [Run real agents](#run-real-agents).
@@ -313,8 +314,9 @@ default `model` or `small_model` that is not an Ollama model on this Mac, or if 
 settings file sits beside them.
 
 The `model` makes a start without one use the local model instead of OpenCode's free hosted
-default. The permissions make shell commands ask the person, which is how approvals reach
-Halcyonic, and keep the agent from fetching the web. The `limit` tells OpenCode the context Ollama
+default. The permissions ask about shell commands and keep OpenCode off the web when something other
+than Halcyonic runs it with these settings; each task Halcyonic starts carries rules of its own that
+outrank them. The `limit` tells OpenCode the context Ollama
 actually gives the model (`OLLAMA_CONTEXT_LENGTH`), where it would otherwise assume the model's full
 context. The adapter disables OpenCode's catalog fetch by default. Ensure ripgrep is on the PATH
 passed to the control plane, so OpenCode does not download it when it searches files:

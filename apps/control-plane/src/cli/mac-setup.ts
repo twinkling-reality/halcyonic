@@ -386,30 +386,18 @@ class MacSetup {
       } catch {
         own = null;
       }
+      // What a task may do is set by the rules on each session Halcyonic opens, which outrank any
+      // settings (opencode-permissions.md); the settings choose the model and its limits.
       if (own === null) {
         look = true;
         lines.push(
-          "OpenCode uses your own OpenCode settings. With OpenCode's defaults it runs every command without asking you, so nothing reaches the headset to approve, and it may fetch from the web. Halcyonic doesn't read your settings, so it can't tell whether yours ask first.",
+          "OpenCode uses your own OpenCode settings. Halcyonic doesn't read them, so it can't tell whether they put OpenCode on a model this Mac serves.",
         );
         next.push(`pnpm mac-setup local-model ${this.#suggestedModel(ollama) ?? '<model name>'}`);
       } else {
-        const shell = effectOf(own, 'shell');
-        const web = [effectOf(own, 'webfetch'), effectOf(own, 'websearch')];
-        const asks = shell === 'ask' || shell === 'deny';
-        const offline = web.every((effect) => effect === 'deny');
-        if (!asks || !offline) look = true;
         lines.push(
-          `OpenCode uses Halcyonic's own OpenCode settings: ${
-            shell === 'ask'
-              ? 'it asks you before running a shell command'
-              : shell === 'deny'
-                ? 'it never runs a shell command'
-                : 'it runs some or all shell commands without asking you, so they never reach the headset to approve'
-          }, and ${offline ? "it can't fetch from the web" : 'it may fetch from the web'}.`,
+          `OpenCode uses Halcyonic's own OpenCode settings, on ${own.model.replace(/^ollama\//, '')}.`,
         );
-        if (!asks || !offline) {
-          next.push(`pnpm mac-setup local-model ${own.model.replace(/^ollama\//, '')}`);
-        }
       }
       if (this.#io.which('rg') === null) {
         look = true;
@@ -1586,44 +1574,6 @@ class MacSetup {
     if (path === home) return '~';
     return path.startsWith(`${home}${sep}`) ? `~${path.slice(home.length)}` : path;
   }
-}
-
-/**
- * What OpenCode does with an action under these settings, for every resource: the last rule whose
- * action matches wins, as OpenCode applies them, a `*` in a rule's action matching any run of
- * characters (`web*` matches `webfetch`), and with no rule it allows. A rule that allows only some
- * resources makes the answer `some`.
- */
-export function effectOf(
-  settings: OpenCodeSettings,
-  action: string,
-): 'allow' | 'ask' | 'deny' | 'some' {
-  let effect: 'allow' | 'ask' | 'deny' = 'allow';
-  let someAllowed = false;
-  for (const rule of settings.permissions) {
-    if (!globMatches(rule.action, action)) continue;
-    if (rule.resource === '*') {
-      effect = rule.effect;
-      someAllowed = false;
-    } else if (rule.effect === 'allow') {
-      someAllowed = true;
-    }
-  }
-  return someAllowed && effect !== 'allow' ? 'some' : effect;
-}
-
-/** Whether a pattern with `*` (any run of characters) and `?` (one character) matches the whole name. */
-function globMatches(pattern: string, name: string): boolean {
-  const source = [...pattern]
-    .map((character) =>
-      character === '*'
-        ? '.*'
-        : character === '?'
-          ? '.'
-          : character.replace(/[.+^${}()|[\]\\]/g, '\\$&'),
-    )
-    .join('');
-  return new RegExp(`^${source}$`, 's').test(name);
 }
 
 function companionProblem(code: string | null): string {

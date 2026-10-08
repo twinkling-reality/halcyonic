@@ -1182,24 +1182,34 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
   );
 
   test(
-    'a write to a path OpenCode reads its configuration from is refused; any other is not',
+    'a write to a path OpenCode reads its configuration from, or to .git, is refused; any other is not, and none asks',
     SLOW_TEST,
     async (t) => {
       const { sandbox, start } = await harness(t);
+      const executions: Execution[] = [];
       for (const path of [
         '.opencode/plugin/planted.ts',
         'opencode.json',
         'sub/.opencode/plugins/p.ts',
         '.agents/skills/x/SKILL.md',
+        '.git',
+        '.git/config',
+        '.git/hooks/pre-commit',
+        'sub/.git/config',
       ]) {
         const execution = await start(call('write', { path, content: 'export default {}\n' }));
         await execution.next('runtime.turn.completed');
+        executions.push(execution);
         assert.equal(existsSync(join(sandbox.project, path)), false, `${path} was written`);
       }
-      // The control: an ordinary file is written.
+      // The control: an ordinary file is written, and like every edit here it needs no press.
       const control = await start(call('write', { path: 'notes.txt', content: 'hello\n' }));
       await control.next('runtime.turn.completed');
+      executions.push(control);
       assert.equal(readFileSync(join(sandbox.project, 'notes.txt'), 'utf8'), 'hello\n');
+      for (const execution of executions) {
+        assert.ok(!execution.types().includes('runtime.approval.requested'), 'an edit asked');
+      }
     },
   );
 
@@ -1444,6 +1454,203 @@ describe('OpenCode tasks stop when something other than Halcyonic changes what t
       assert.equal(tampered(execution), undefined, 'its own approval was taken as tampering');
       const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
       assert.ok(sent.includes('len=0'), 'the command saw the password');
+    },
+  );
+});
+
+describe("OpenCode's ask before a shell command, whatever the configuration says", {
+  skip: SKIP,
+}, () => {
+  // OpenCode's parse lists this as "echo start" and "printf ran", without where it writes.
+  const COMMAND = 'echo start && printf ran > ran.txt';
+  const ran = (sandbox: OpenCodeSandbox) => join(sandbox.project, 'ran.txt');
+  const location = (sandbox: OpenCodeSandbox) =>
+    `?location%5Bdirectory%5D=${encodeURIComponent(sandbox.project)}`;
+
+  async function asked(execution: Execution) {
+    const requested = await execution.next('runtime.approval.requested');
+    assert.ok(requested.type === 'runtime.approval.requested');
+    return requested.payload;
+  }
+
+  /** A server of the sandbox's own, without Halcyonic's adapter or its session rules. */
+  async function bareServer(t: TestContext, sandbox: OpenCodeSandbox) {
+    const bare = await launchServer({
+      binaryPath: BINARY,
+      environment: buildEnvironment(process.env, sandbox.env),
+      recordFile: join(sandbox.root, 'control-server.json'),
+      port: null,
+      cwd: sandbox.project,
+      startupTimeoutMs: 30_000,
+    });
+    t.after(() => bare.stop());
+    for (let i = 0; i < 100; i += 1) {
+      const models = await bare.client.request('GET', `/api/model${location(sandbox)}`);
+      if (JSON.stringify(models.body).includes('fake-model')) break;
+      await delay(100);
+    }
+    return bare;
+  }
+
+  test(
+    'a shell command raises an ask that carries the command, and runs only after Yes, answered once',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start(call('shell', { command: COMMAND }));
+      const request = await asked(execution);
+      // What the person reads before Yes is the command itself.
+      assert.deepEqual(request.subject, { kind: 'tool_use', tool_name: 'shell', summary: COMMAND });
+      await delay(500);
+      assert.equal(existsSync(ran(sandbox)), false, 'the command ran before Yes');
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: request.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(readFileSync(ran(sandbox), 'utf8'), 'ran');
+
+      // Yes is "once": nothing was saved, and the same command asks again.
+      const saved = await serverOf(runtime, sandbox).request('GET', '/api/permission/saved');
+      assert.deepEqual((saved.body as { data: unknown[] }).data, [], 'a rule was saved');
+      const again = await start(call('shell', { command: COMMAND }));
+      const second = await asked(again);
+      assert.equal(second.subject.kind === 'tool_use' && second.subject.summary, COMMAND);
+      await runtime.respondToApproval({
+        execution: again.context,
+        approval_id: second.approval_id,
+        decision: 'deny',
+        message: null,
+      });
+      await again.next('runtime.turn.interrupted');
+    },
+  );
+
+  test('a refused ask runs nothing', SLOW_TEST, async (t) => {
+    const { runtime, sandbox, start } = await harness(t);
+    const execution = await start(call('shell', { command: COMMAND }));
+    const request = await asked(execution);
+    await runtime.respondToApproval({
+      execution: execution.context,
+      approval_id: request.approval_id,
+      decision: 'deny',
+      message: null,
+    });
+    await execution.next('runtime.turn.interrupted');
+    const tool = execution.observations.find((item) => item.type === 'runtime.tool.completed');
+    assert.equal(tool?.type === 'runtime.tool.completed' && tool.payload.outcome, 'failed');
+    await delay(500);
+    assert.equal(existsSync(ran(sandbox)), false, 'a refused command ran');
+  });
+
+  test(
+    "neither the project's opencode.json nor the person's own settings allowing shell skip the ask",
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const allow = [{ action: 'shell', resource: '*', effect: 'allow' }];
+      writeFileSync(join(sandbox.project, 'opencode.json'), JSON.stringify({ permissions: allow }));
+      const global = join(sandbox.env.XDG_CONFIG_HOME ?? '', 'opencode/opencode.json');
+      const settings = JSON.parse(readFileSync(global, 'utf8')) as Record<string, unknown>;
+      writeFileSync(global, JSON.stringify({ ...settings, permissions: allow }));
+
+      const execution = await start(call('shell', { command: COMMAND }));
+      const request = await asked(execution);
+      assert.equal(request.subject.kind === 'tool_use' && request.subject.summary, COMMAND);
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: request.approval_id,
+        decision: 'deny',
+        message: null,
+      });
+      await execution.next('runtime.turn.interrupted');
+      assert.equal(existsSync(ran(sandbox)), false);
+
+      // The control: the same settings, on a server without Halcyonic's session rules, run the
+      // command without asking, so they were read and do allow it.
+      await runtime.close();
+      const bare = await bareServer(t, sandbox);
+      const created = await bare.client.request('POST', '/api/session', {
+        body: { title: 'control', location: { directory: sandbox.project } },
+      });
+      const id = (created.body as { data: { id: string } }).data.id;
+      await bare.client.request('POST', `/api/session/${encodeURIComponent(id)}/prompt`, {
+        body: { text: call('shell', { command: COMMAND }) },
+      });
+      await until(() => existsSync(ran(sandbox)), 30_000, 'the command in the control session');
+      const pending = await bare.client.request(
+        'GET',
+        `/api/permission/request${location(sandbox)}`,
+      );
+      assert.ok(!JSON.stringify(pending.body).includes('printf'), 'the control session asked');
+    },
+  );
+
+  test(
+    'a saved "always" from the person\'s own OpenCode for the project skips the ask',
+    SLOW_TEST,
+    async (t) => {
+      // What Halcyonic cannot prevent while its server shares the person's data folder: answered
+      // "always" in their own OpenCode, here a server of the sandbox's own, the rule is saved for
+      // the project, and a later session of Halcyonic's runs the command unasked.
+      const sandbox = await createSandbox();
+      t.after(() => sandbox.cleanup());
+      const bare = await bareServer(t, sandbox);
+      const created = await bare.client.request('POST', '/api/session', {
+        body: {
+          title: 'their own',
+          location: { directory: sandbox.project },
+          permissions: [{ action: 'shell', resource: '*', effect: 'ask' }],
+        },
+      });
+      const id = (created.body as { data: { id: string } }).data.id;
+      await bare.client.request('POST', `/api/session/${encodeURIComponent(id)}/prompt`, {
+        body: { text: call('shell', { command: 'echo first && printf first > first.txt' }) },
+      });
+      let requestId = '';
+      for (let i = 0; i < 150 && requestId === ''; i += 1) {
+        const pending = await bare.client.request(
+          'GET',
+          `/api/permission/request${location(sandbox)}`,
+        );
+        const match = /"(per_[A-Za-z0-9]+)"/.exec(JSON.stringify(pending.body));
+        if (match?.[1] !== undefined) requestId = match[1];
+        else await delay(200);
+      }
+      assert.notEqual(requestId, '', 'their own session never asked');
+      await bare.client.request(
+        'POST',
+        `/api/session/${encodeURIComponent(id)}/permission/${encodeURIComponent(requestId)}/reply`,
+        { body: { decision: 'always' } },
+      );
+      await until(() => existsSync(join(sandbox.project, 'first.txt')), 30_000, 'their command');
+      const saved = await bare.client.request('GET', '/api/permission/saved');
+      t.diagnostic(`saved: ${JSON.stringify(saved.body)}`);
+      assert.ok(JSON.stringify(saved.body).includes('printf *'));
+      assert.ok(JSON.stringify(saved.body).includes('echo *'));
+      await bare.stop();
+
+      const runtime = new OpenCodeRuntimeAdapter({
+        binaryPath: BINARY,
+        serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
+        env: sandbox.env,
+      });
+      t.after(() => runtime.close());
+      const execution = new Execution();
+      await runtime.startExecution({
+        execution: execution.context,
+        instruction: call('shell', { command: COMMAND }),
+        options: {},
+        directory: sandbox.project,
+        model_ref: null,
+        emit: execution.emit,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.ok(!execution.types().includes('runtime.approval.requested'));
+      assert.equal(readFileSync(ran(sandbox), 'utf8'), 'ran');
     },
   );
 });
