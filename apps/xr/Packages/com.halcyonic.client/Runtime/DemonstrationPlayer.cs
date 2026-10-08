@@ -84,6 +84,28 @@ namespace Halcyonic.Client
         /// <summary>How many times the recording has started from its beginning, in any connection.</summary>
         public int Plays => Volatile.Read(ref plays);
 
+        private int reading;
+        private DemonstrationTransport? playing;
+
+        /// <summary>
+        /// A task's file is open, as the workspace's director says each frame. While it is, a hold the
+        /// recording times (an end's before it starts again, or the time its instructions are offered)
+        /// does not run, so a person reading Changes or Checks is never cut off; once it closes, the
+        /// hold runs whole from then. A hold that waits for an answer is unchanged.
+        /// </summary>
+        public bool Reading
+        {
+            get => Volatile.Read(ref reading) == 1;
+            set
+            {
+                if ((Interlocked.Exchange(ref reading, value ? 1 : 0) == 1) == value) return;
+                Volatile.Read(ref playing)?.ReadingChanged(value);
+            }
+        }
+
+        /// <summary>The transport playing now, which is told when <see cref="Reading"/> changes.</summary>
+        internal void PlayedBy(DemonstrationTransport transport) => Volatile.Write(ref playing, transport);
+
         /// <summary>
         /// The instructions the recording offers for this execution where it stands now, as buttons that
         /// send exactly the recorded text; empty where it offers none. Any other text is answered with

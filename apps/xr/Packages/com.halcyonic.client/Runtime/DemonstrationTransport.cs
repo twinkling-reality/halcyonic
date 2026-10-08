@@ -62,6 +62,7 @@ namespace Halcyonic.Client
             : this(player.Options, player)
         {
             loading = player.Loading;
+            player.PlayedBy(this);
         }
 
         private DemonstrationTransport(DemonstrationOptions? options, DemonstrationPlayer? player)
@@ -290,7 +291,7 @@ namespace Halcyonic.Client
                 return TimeSpan.Zero;
             }
             var hold = HoldOf(current);
-            if (hold == null) return null;
+            if (hold == null || player?.Reading == true) return null;
             var end = holdStart.GetValueOrDefault(now) + hold.Value;
             if (end > now) return end - now;
             // The final state has held: the demonstration starts again, in the same connection.
@@ -353,10 +354,30 @@ namespace Halcyonic.Client
                 if (branch == null) return;
                 path.Add((node, played));
                 Begin(branch.Node);
-                var woken = wake;
-                wake = NewWake();
-                woken.TrySetResult(true);
+                Wake();
             }
+        }
+
+        /// <summary>
+        /// A task's file opened or closed (<see cref="DemonstrationPlayer.Reading"/>). Where a final state
+        /// holds, its hold runs whole from the close, however long the file was open.
+        /// </summary>
+        internal void ReadingChanged(bool reading)
+        {
+            lock (gate)
+            {
+                if (read == null || helloReceived == 0) return;
+                if (!reading && played == read.Nodes[node].Events.Count) holdStart = clock.Elapsed;
+                Wake();
+            }
+        }
+
+        /// <summary>Wakes the playback to look again at what is due; called holding the gate.</summary>
+        private void Wake()
+        {
+            var woken = wake;
+            wake = NewWake();
+            woken.TrySetResult(true);
         }
 
         private static DemonstrationBranch? Match(IReadOnlyList<DemonstrationBranch> offered, CommandEnvelope command, out string words)

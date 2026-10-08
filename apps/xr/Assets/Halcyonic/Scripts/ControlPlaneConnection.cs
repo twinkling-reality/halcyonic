@@ -57,6 +57,12 @@ namespace Halcyonic.XR
         /// <summary>While the demonstration is shown, its recorded understanding and evaluation answers; null otherwise.</summary>
         public DemonstrationReads? DemonstrationReads => sessions?.Player?.Reads;
 
+        /// <summary>
+        /// A task's file is open, as the workspace's director says: the demonstration's timed holds wait
+        /// for it to close, then run whole (<see cref="DemonstrationPlayer.Reading"/>).
+        /// </summary>
+        public bool Reading { get; set; }
+
         private void OnEnable()
         {
             var client = new ClientInfo
@@ -88,6 +94,7 @@ namespace Halcyonic.XR
         private void Update()
         {
             if (sessions == null) return;
+            if (sessions.Player is DemonstrationPlayer player) player.Reading = Reading;
             var changes = sessions.Pump();
             LogShown(sessions.Reason);
             LogStatus("connection", sessions.ControlPlane, ref loggedControlPlane);
