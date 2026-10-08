@@ -649,7 +649,7 @@ namespace Halcyonic.Client
             var lines = new List<PageLine> { new PageLine(EntryText.FirstTask, tone: LineTone.Secondary) };
             if (proposal != null)
             {
-                lines.Add(new PageLine(LabelText.Plain(proposal.FirstTask), wordsAreData: true, claim: true, fact: CompanionText.SuggestedShort,
+                lines.Add(new PageLine("“" + LabelText.Plain(proposal.FirstTask) + "”", wordsAreData: true, claim: true, fact: CompanionText.SuggestedShort,
                     action: UseSuggestedTask, choice: true, chosen: idea.TaskSuggested, rows: 3));
             }
             if (idea.OwnWords != null)

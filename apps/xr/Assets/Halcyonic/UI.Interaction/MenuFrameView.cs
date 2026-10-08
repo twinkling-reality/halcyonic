@@ -480,8 +480,8 @@ namespace Halcyonic.XR.UI
 
         private const float ChevronGlyph = 0.4f;
 
-        /// <summary>A line's words as shown: the agent's own, a claim, in quotation marks as well as leaning, never read as Halcyonic's.</summary>
-        private static string Quoted(PageLine line) => line.Claim ? "\u201C" + line.Words + "\u201D" : line.Words;
+        /// <summary>A line's words as shown (<see cref="PageLine.Drawn"/>): a claim leans, quoted by its builder around the outside words alone.</summary>
+        private static string Quoted(PageLine line) => line.Drawn;
 
         /// <summary>
         /// Two answers next to each other share a row where each fits half of it in one row, and so does a
