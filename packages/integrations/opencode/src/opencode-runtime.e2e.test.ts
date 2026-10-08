@@ -1303,20 +1303,25 @@ describe('OpenCode tasks stop when something other than Halcyonic changes what t
       (item) =>
         item.type === 'runtime.turn.failed' && item.payload.error.code === 'runtime_tampered',
     );
+  const tamperedMessage = (execution: Execution): string => {
+    const failure = tampered(execution);
+    return failure?.type === 'runtime.turn.failed' ? failure.payload.error.message : '';
+  };
+  const sessionOf = (execution: Execution): string => {
+    const started = execution.observations[0];
+    return started?.type === 'runtime.execution.started' ? (started.payload.native_id ?? '') : '';
+  };
 
   test("replacing a running task's rules fails its turn as tampered", SLOW_TEST, async (t) => {
     const { runtime, sandbox, start } = await harness(t);
     const execution = await start('SLOW reply, please.');
     await execution.next('runtime.turn.started');
-    const id = (execution.observations[0]?.payload as { native_id: string }).native_id;
+    const id = sessionOf(execution);
     await serverOf(runtime, sandbox).request('PATCH', `/api/session/${encodeURIComponent(id)}`, {
       body: { permissions: [{ action: '*', resource: '*', effect: 'allow' }] },
     });
     await until(() => tampered(execution) !== undefined, 15_000, 'the tampered failure');
-    assert.match(
-      (tampered(execution)?.payload as { error: { message: string } }).error.message,
-      /changed this task's permission rules/,
-    );
+    assert.match(tamperedMessage(execution), /changed this task's permission rules/);
     await assert.rejects(
       runtime.sendInstruction({ execution: execution.context, text: 'More.' }),
       RuntimeActionError,
@@ -1332,17 +1337,14 @@ describe('OpenCode tasks stop when something other than Halcyonic changes what t
         const execution = await start('RUN_SHELL please.');
         const asked = await execution.next('runtime.approval.requested');
         assert.ok(asked.type === 'runtime.approval.requested');
-        const id = (execution.observations[0]?.payload as { native_id: string }).native_id;
+        const id = sessionOf(execution);
         await serverOf(runtime, sandbox).request(
           'POST',
           `/api/session/${encodeURIComponent(id)}/permission/${encodeURIComponent(asked.payload.approval_id)}/reply`,
           { body: { decision } },
         );
         await until(() => tampered(execution) !== undefined, 15_000, 'the tampered failure');
-        assert.match(
-          (tampered(execution)?.payload as { error: { message: string } }).error.message,
-          /approved a request on this task/,
-        );
+        assert.match(tamperedMessage(execution), /approved a request on this task/);
       },
     );
   }
@@ -1382,7 +1384,9 @@ describe('OpenCode tasks stop when something other than Halcyonic changes what t
       const { runtime, sandbox, start } = await harness(t);
       // Prints only the length, never the value.
       const execution = await start(
-        call('shell', { command: 'printf "len=%s" "${#OPENCODE_PASSWORD}"' }),
+        call('shell', {
+          command: 'printf "len=%s" "$(printf %s "$OPENCODE_PASSWORD" | wc -c | tr -d " ")"',
+        }),
       );
       const asked = await execution.next('runtime.approval.requested');
       assert.ok(asked.type === 'runtime.approval.requested');
