@@ -347,7 +347,7 @@ describe('the XR client demonstration', () => {
       const index = path.nodes.at(-1) ?? 0;
       const node = DEMONSTRATION.nodes[index] as DemonstrationNode;
       const before = path.events.length - node.events.length;
-      const projection = new Projection();
+      const projection = demonstrationProjection();
       for (const stored of asJournal(path.events.slice(0, before))) projection.apply(stored);
       let runtimes = DEMONSTRATION.snapshot.snapshot.runtimes;
       node.events.forEach(({ at_ms, message }, played) => {
@@ -705,9 +705,18 @@ function asJournal(events: Path['events']): { position: number; event: EventEnve
   return [...PROLOGUE, ...events.map(({ position, event }) => ({ position, event }))];
 }
 
+/** A projection that knows the recording's runtimes, as the control plane that recorded it did. */
+function demonstrationProjection(): Projection {
+  const runtimes = DEMONSTRATION.snapshot.snapshot.runtimes;
+  return new Projection({
+    reportsToolActivity: (id) =>
+      runtimes.find((runtime) => runtime.runtime_id === id)?.reports_tool_activity === true,
+  });
+}
+
 /** The entities a projection of the path's journal holds. */
 function replayPath(path: Path): EntityChanges {
-  const projection = new Projection();
+  const projection = demonstrationProjection();
   for (const stored of asJournal(path.events)) projection.apply(stored);
   return {
     projects: projection.projects(),
