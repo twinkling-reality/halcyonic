@@ -28,6 +28,9 @@ const runtime = new OpenCodeRuntimeAdapter({
   serverRecordFile: options.recordFile,
   directoryPolicy: allowOnly(options.directory),
   env: options.env,
+  // On macOS the adapter launches OpenCode only inside its sandbox (ADR 0028).
+  sandbox:
+    process.platform === 'darwin' ? { projectRoots: [options.directory], unreadable: [] } : null,
 });
 await runtime.startExecution({
   execution: TEST_EXECUTION,

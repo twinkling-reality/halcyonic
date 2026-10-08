@@ -7,7 +7,7 @@ import {
   SIGN_IN_VARIABLES,
 } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
-import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
+import { OpenCodeRuntimeAdapter, personalSecrets } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
@@ -69,6 +69,10 @@ export function createRuntimeAdapters(
         serverRecordFile: join(dependencies.dataDir, OPENCODE_SERVER_RECORD),
         directoryPolicy: dependencies.directoryPolicy,
         env: openCodeEnvironment(config, additions),
+        sandbox:
+          process.platform === 'darwin'
+            ? openCodeSandbox(config, dependencies.dataDir, dependencies.environment.HOME ?? '')
+            : null,
       }),
     );
   }
@@ -84,6 +88,28 @@ export function createRuntimeAdapters(
     );
   }
   return adapters;
+}
+
+/**
+ * What OpenCode's sandbox lets it reach on this Mac (ADR 0028): it writes only in the project
+ * roots (and its own folders, which the adapter adds), and reads nothing of Halcyonic's data
+ * directory, its journal and every credential in it, but its own settings and the pinned binary,
+ * nor the person's own credentials.
+ */
+export function openCodeSandbox(
+  config: Pick<ControlPlaneConfig, 'projectRoots' | 'opencodeConfigHome' | 'opencodeBinary'>,
+  dataDir: string,
+  home: string,
+) {
+  return {
+    projectRoots: config.projectRoots,
+    unreadable: [dataDir, ...(home === '' ? [] : personalSecrets(home))],
+    readable: [
+      join(dataDir, 'runtimes'),
+      ...(config.opencodeConfigHome === null ? [] : [config.opencodeConfigHome]),
+      ...(config.opencodeBinary === null ? [] : [config.opencodeBinary]),
+    ],
+  };
 }
 
 /**
