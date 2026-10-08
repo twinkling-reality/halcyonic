@@ -929,7 +929,6 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
   }
 
-  /** Stops using a server: its messages are ignored and actions on it are refused. */
   /** Stops a server that no longer runs local-only, losing its threads, and keeps the refusal. */
   #refuseRunning(connection: Connection, refusal: RuntimeActionError): void {
     this.#refusal = refusal;
@@ -937,9 +936,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       if (thread.connection === connection && !thread.lost) this.#lose(thread, refusal.message);
     }
     this.#halt(connection);
-    void connection.server.stop();
+    void connection.server.stop().catch(() => undefined);
   }
 
+  /** Stops using a server: its messages are ignored and actions on it are refused. */
   #halt(connection: Connection): void {
     connection.halted.abort();
     if (this.#current === connection) this.#current = null;
