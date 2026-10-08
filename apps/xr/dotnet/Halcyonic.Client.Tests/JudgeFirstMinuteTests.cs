@@ -6,13 +6,13 @@ using NUnit.Framework;
 namespace Halcyonic.Client.Tests;
 
 /// <summary>
-/// What a judge sees in the first 60 seconds of the recorded demonstration, with hands in their lap:
-/// the lines above the stage, the closed bar's words and each character's state word, instant by
-/// instant at the recorded pace, as the demonstration opens closed (nothing opens by itself). The
-/// testing instructions and the video storyboard describe exactly this
-/// (docs/internal/validation/competition-judge-build.md): three tasks not started, the two watched
-/// ones finishing, then the directed one alone waiting for the judge, and nothing else for the rest of
-/// the minute, since the recording holds at its question until it is answered.
+/// What a judge sees in the first 60 seconds of the recorded demonstration, with hands in their lap,
+/// as it opens closed (nothing opens by itself): the closed bar's words and each character's state
+/// word, instant by instant at the recorded pace. The lines above the stage are the owner's words,
+/// held by DemonstrationTests. The testing instructions and the video storyboard describe exactly
+/// this (docs/internal/validation/competition-judge-build.md): three tasks not started, the two
+/// watched ones finishing, then the directed one alone waiting for the judge, and nothing else for
+/// the rest of the minute, since the recording holds at its question until it is answered.
 /// </summary>
 public class JudgeFirstMinuteTests
 {
@@ -26,13 +26,6 @@ public class JudgeFirstMinuteTests
     }
 
     [Test]
-    public void TheLinesAboveTheStageSayTheDemoIsRecordedAndReachesNoAgent()
-    {
-        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), Is.EqualTo(
-            "Demo: recorded work played on this headset. Nothing here is live.\nIt follows your answers. Nothing reaches an agent."));
-    }
-
-    [Test]
     public void TheFirstMinuteShowsThreeTasksTheWatchedOnesFinishingThenTheDirectedOneAloneWaiting()
     {
         var recording = Demonstration.Recording();
@@ -43,16 +36,16 @@ public class JudgeFirstMinuteTests
         var first = moments[0];
         Assert.That(first.At, Is.EqualTo(TimeSpan.Zero));
         Assert.That(first.Words.Values, Has.Count.EqualTo(3).And.All.EqualTo("Not started"));
-        Assert.That(first.Bar, Is.EqualTo("Nothing is waiting for you."));
+        Assert.That(first.Bar, Is.EqualTo(TasksText.Waiting(0)));
 
         // The first instant anything waits: the directed task alone, within ten seconds, the two watched ones finished.
-        var waits = moments.First(moment => moment.Bar != "Nothing is waiting for you.");
+        var waits = moments.First(moment => moment.Bar != TasksText.Waiting(0));
         Assert.That(waits.At, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(10)), "the first decision comes within ten seconds");
-        Assert.That(waits.Bar, Is.EqualTo("1 task is waiting for you"));
+        Assert.That(waits.Bar, Is.EqualTo(TasksText.Waiting(1)));
         Assert.That(waits.Words[Demonstration.Directed], Is.EqualTo("Waiting for you"));
         Assert.That(waits.Words.Where(pair => pair.Key != Demonstration.Directed).Select(pair => pair.Value),
             Is.All.EqualTo("Finished this round"), "the watched tasks have finished their round by then");
-        Assert.That(moments.TakeWhile(moment => moment != waits).Select(moment => moment.Bar), Is.All.EqualTo("Nothing is waiting for you."),
+        Assert.That(moments.TakeWhile(moment => moment != waits).Select(moment => moment.Bar), Is.All.EqualTo(TasksText.Waiting(0)),
             "nothing waits before the directed task");
 
         // From then to the minute's end nothing changes: the recording holds at its question.

@@ -289,14 +289,14 @@ public class JudgeMenuWalkTests
         // The closed bar: one line saying a task waits, Tasks' amber dot.
         Assert.That(navigator.IsOpen, Is.False);
         Assert.That(host.Draw(), Is.EqualTo(((MenuFrame?)null, (MenuFrame?)null)), "closed, the plane holds only the bar");
-        Assert.That(host.Bar.ClosedLine, Is.EqualTo("1 task is waiting for you"));
+        Assert.That(host.Bar.ClosedLine, Is.EqualTo(TasksText.Waiting(1)));
         Assert.That(host.Bar.Sections().Single(section => section.Waits).Words, Is.EqualTo("Tasks"));
 
         // Opened as the bar's Open does while something waits: on Tasks, the waiting task first.
         navigator.OpenMenu(somethingWaits: true);
         var (tasks, _) = host.Draw();
         Assert.That(navigator.Place, Is.EqualTo(MenuPlace.Tasks));
-        Assert.That(tasks!.Subject, Is.EqualTo("1 task is waiting for you"));
+        Assert.That(tasks!.Subject, Is.EqualTo(TasksText.Waiting(1)));
         Assert.That(tasks.SubjectWaits, Is.True);
         Assert.That(tasks.Sections.Select(section => section.Words), Is.EqualTo(new[] { "Tasks", "Projects", "Usage", "Settings" }));
         var directed = Directed(player.Session);
@@ -542,10 +542,10 @@ public class JudgeMenuWalkTests
         host.Press(MenuColumn.File, Footer.Close);
         navigator.CloseMenu();
         Assert.That(host.Draw(), Is.EqualTo(((MenuFrame?)null, (MenuFrame?)null)));
-        Assert.That(host.Bar.ClosedLine, Is.EqualTo("Nothing is waiting for you."));
+        Assert.That(host.Bar.ClosedLine, Is.EqualTo(TasksText.Waiting(0)));
 
         // Every word drawn on the way names no brand.
-        var words = new HashSet<string> { host.Bar.ClosedLine, "1 task is waiting for you" };
+        var words = new HashSet<string> { host.Bar.ClosedLine, TasksText.Waiting(1) };
         foreach (var drawn in host.Drawn) words.UnionWith(JudgeWordsTests.WordsOf(drawn));
         foreach (var drawnSide in host.DrawnSides) words.UnionWith(JudgeWordsTests.WordsOf(drawnSide));
         Assert.That(JudgeWordsTests.Branded(words), Is.Empty);

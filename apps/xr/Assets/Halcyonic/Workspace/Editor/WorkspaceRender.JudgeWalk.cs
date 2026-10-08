@@ -211,7 +211,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The closed bar: one line saying what waits.
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": the judge walk starts with no closed bar.");
-                if (TasksColumn.Bar(MenuPlace.Tasks, state).ClosedLine != "1 task is waiting for you") failures.Add(name + ": the closed bar does not say a task waits.");
+                if (TasksColumn.Bar(MenuPlace.Tasks, state).ClosedLine != TasksText.Waiting(1)) failures.Add(name + ": the closed bar does not say a task waits.");
                 Shot("1 bar");
 
                 // Opened while something waits: Tasks, the waiting task first.
