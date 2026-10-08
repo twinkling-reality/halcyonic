@@ -454,7 +454,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// Under Keep things still, Working, Running tests and State unknown still tell apart by their eyes: a working
-        /// character looks down, one running tests a little down and open wider, one that can't be told half open and faint.
+        /// character looks down, one running tests a little down and open wider, one that can't be told half open, faint,
+        /// its lids uneven and its look held aside and a little up.
         /// </summary>
         private static IEnumerable<string> StillStatesDiffer(string name, Transform parent, Vector3 eyes, float radius)
         {
@@ -484,6 +485,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 if (poses[0].LookY > -0.5f) failures.Add(name + ": under Keep things still, a working character's eyes look up from its work.");
+                // One that can't be told holds a still look aside and a little up, its lids uneven: never centred, like a sleepy Working.
+                var unsure = poses[2];
+                if (Mathf.Abs(unsure.LookX) < 0.3f || unsure.LookY < 0.15f || Mathf.Abs(unsure.Uneven) < 0.15f)
+                {
+                    failures.Add(name + ": under Keep things still, State unknown's eyes stand at " + unsure.LookX.ToString("0.00", CultureInfo.InvariantCulture) + " across and "
+                        + unsure.LookY.ToString("0.00", CultureInfo.InvariantCulture) + " up, lids " + unsure.Uneven.ToString("0.00", CultureInfo.InvariantCulture)
+                        + " uneven; it holds a look aside and a little up, one lid lower than the other.");
+                }
             }
             finally
             {

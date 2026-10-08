@@ -24,6 +24,7 @@ Shader "Halcyonic/Character Body"
         _Ghost ("Halftone ghost", Range(0, 1)) = 0
         _EyeKind ("Eyes: 0 open, 1 closed, 2 crossed, 3 flat", Float) = 0
         _EyeOpen ("Eye opening", Float) = 1
+        _EyeUneven ("How much more one lid stands open than the other", Range(-0.5, 0.5)) = 0
         _EyeInk ("Eye opacity", Range(0, 1)) = 1
         _Look ("Gaze offset", Vector) = (0, 0, 0, 0)
         _EyeLayout ("Eye spacing, height and size", Vector) = (0.3, 0.12, 1, 0)
@@ -60,6 +61,7 @@ Shader "Halcyonic/Character Body"
             float _Ghost;
             float _EyeKind;
             float _EyeOpen;
+            float _EyeUneven;
             float _EyeInk;
             float4 _Look;
             float4 _EyeLayout;
@@ -193,9 +195,9 @@ Shader "Halcyonic/Character Body"
 
                 // Two eyes on the face, over the gloss so no highlight ever washes them out.
                 float2 face = i.body.xy - _Look.xy * float2(0.07, 0.055) - float2(0.0, _EyeLayout.y);
-                float2 squash = float2(1.0, 1.0 / max(_EyeOpen, 0.08)) / _EyeLayout.z;
-                float2 left = (face + float2(_EyeLayout.x, 0.0)) * squash;
-                float2 right = (face - float2(_EyeLayout.x, 0.0)) * squash;
+                // Uneven lids open one eye more than the other.
+                float2 left = (face + float2(_EyeLayout.x, 0.0)) * float2(1.0, 1.0 / max(_EyeOpen * (1.0 + _EyeUneven), 0.08)) / _EyeLayout.z;
+                float2 right = (face - float2(_EyeLayout.x, 0.0)) * float2(1.0, 1.0 / max(_EyeOpen * (1.0 - _EyeUneven), 0.08)) / _EyeLayout.z;
                 float front = saturate(i.body.z * 8.0);
                 float ink = Coverage(min(EyeDistance(left), EyeDistance(right))) * front * _EyeInk;
                 float2 glintAt = float2(0.028, 0.075);

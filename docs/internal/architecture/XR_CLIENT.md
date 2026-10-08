@@ -1872,8 +1872,10 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   once the wait ends or things move again. The characters stand at their motion's rest pose, no hop,
   hover, drift, breath or bob; their surface's flow and fog and the sweep ring stand on a clock of
   their own that stops (`CharacterView`'s surface clock); Waiting for you's halo stands at the middle
-  of its pulse; eyes that scan or wander stand at their middle, and a working character's still look
-  down, so Working, Running tests and State unknown still differ by eyes, light and words. What the
+  of its pulse; eyes that scan stand at their middle, a working character's still look down, and
+  one that can't be told holds a still look aside and a little up, its lids uneven (as they are for it
+  always, `_EyeUneven`), so it never reads as a sleepy Working, and Working, Running tests and State
+  unknown still differ by eyes, light and words. What the
   person causes, a press, a slide, a file opening, still moves. A badge changing
   state cross-fades its pill's colours over `Glaze.StateSeconds` under it too: a change is not a loop.
   Its word stays in whichever state's colour reads more clearly on the pill as drawn, never a blend,

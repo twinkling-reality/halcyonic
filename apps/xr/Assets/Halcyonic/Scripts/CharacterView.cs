@@ -62,6 +62,13 @@ namespace Halcyonic.XR
         private static readonly int GhostId = Shader.PropertyToID("_Ghost");
         private static readonly int EyeKindId = Shader.PropertyToID("_EyeKind");
         private static readonly int EyeOpenId = Shader.PropertyToID("_EyeOpen");
+        private static readonly int EyeUnevenId = Shader.PropertyToID("_EyeUneven");
+
+        /// <summary>How much more one lid of a character that can't be told stands open than the other (ADR 0013: lids uneven).</summary>
+        private const float UnsureUneven = 0.3f;
+
+        /// <summary>Where a character that can't be told looks while things are kept still: aside and a little up, a still look around.</summary>
+        private static readonly Vector2 UnsureStillLook = new Vector2(0.55f, 0.35f);
         private static readonly int EyeInkId = Shader.PropertyToID("_EyeInk");
         private static readonly int LookId = Shader.PropertyToID("_Look");
         private static readonly int EyeLayoutId = Shader.PropertyToID("_EyeLayout");
@@ -103,6 +110,7 @@ namespace Halcyonic.XR
         private float lookX;
         private float lookY;
         private float eyeInk = 1f;
+        private float eyeUneven;
         private float eyeKind;
         private float nextEyeKind;
         private float eyeSwitch;
@@ -194,7 +202,7 @@ namespace Halcyonic.XR
         public void AdvanceForRender(float seconds) => Advance(seconds, false);
 
         /// <summary>For the editor's renders: how its eyes stand and how strong its light is now.</summary>
-        public (float Open, float LookX, float LookY, float Ink, float Halo) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, haloStrength);
+        public (float Open, float LookX, float LookY, float Ink, float Halo, float Uneven) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, haloStrength, eyeUneven);
 #endif
 
         /// <summary>
@@ -346,6 +354,7 @@ namespace Halcyonic.XR
             var targetLookX = 0f;
             var targetLookY = 0f;
             var targetInk = 1f;
+            var targetUneven = 0f;
             var openEyes = true;
             switch (cues.Eyes)
             {
@@ -368,6 +377,7 @@ namespace Halcyonic.XR
                     break;
                 case CharacterEyes.Unfocused:
                     targetOpen = 0.42f;
+                    targetUneven = UnsureUneven;
                     targetLookX = Mathf.Sin(t * 0.37f) * 0.9f;
                     targetLookY = Mathf.Cos(t * 0.29f) * 0.6f;
                     targetInk = 0.75f;
@@ -392,9 +402,15 @@ namespace Halcyonic.XR
             }
             if (still)
             {
-                // Eyes that scan or wander stand at their middle; a working character's still look down.
-                if (cues.Eyes == CharacterEyes.Open || cues.Eyes == CharacterEyes.OnTask || cues.Eyes == CharacterEyes.Scanning || cues.Eyes == CharacterEyes.Unfocused) targetLookX = 0f;
-                if (cues.Eyes == CharacterEyes.Open || cues.Eyes == CharacterEyes.Unfocused) targetLookY = 0f;
+                // Eyes that scan stand at their middle, and a working character's still look down. One that can't be
+                // told holds a still look aside and a little up, its lids uneven, so it never reads as a sleepy Working.
+                if (cues.Eyes == CharacterEyes.Open || cues.Eyes == CharacterEyes.OnTask || cues.Eyes == CharacterEyes.Scanning) targetLookX = 0f;
+                if (cues.Eyes == CharacterEyes.Open) targetLookY = 0f;
+                if (cues.Eyes == CharacterEyes.Unfocused)
+                {
+                    targetLookX = UnsureStillLook.x;
+                    targetLookY = UnsureStillLook.y;
+                }
             }
             if (openEyes && !still)
             {
@@ -459,6 +475,7 @@ namespace Halcyonic.XR
             lookX = Mathf.Lerp(lookX, targetLookX, quick);
             lookY = Mathf.Lerp(lookY, targetLookY, quick);
             eyeInk = Mathf.Lerp(eyeInk, targetInk, ease);
+            eyeUneven = Mathf.Lerp(eyeUneven, targetUneven, ease);
             flow = Mathf.Lerp(flow, targetFlow, ease);
             flowSpeed = Mathf.Lerp(flowSpeed, targetFlowSpeed, ease);
             crack = Mathf.Lerp(crack, targetCrack, ease);
@@ -538,6 +555,7 @@ namespace Halcyonic.XR
             bodyBlock.SetFloat(GhostId, ghost);
             bodyBlock.SetFloat(EyeKindId, eyeKind);
             bodyBlock.SetFloat(EyeOpenId, eyeOpen);
+            bodyBlock.SetFloat(EyeUnevenId, eyeUneven);
             bodyBlock.SetFloat(EyeInkId, eyeInk);
             bodyBlock.SetVector(LookId, new Vector4(lookX, lookY, 0f, 0f));
             bodyBlock.SetVector(EyeLayoutId, eyeLayout);
