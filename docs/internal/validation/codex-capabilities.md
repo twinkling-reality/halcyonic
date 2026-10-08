@@ -311,3 +311,19 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
 - App-server made no request beyond loopback, and never asked Ollama to pull a model, with
   `features.plugins = false` in its home; without it, it reaches GitHub at startup
   ([local-models.md](local-models.md), 2026-10-03).
+
+## Tool items (2026-10-08)
+
+- **Source:** Codex 0.157.0's app-server v2 TypeScript bindings, generated from the pinned binary
+  (`codex app-server generate-ts`). `ThreadItem` has these types: agentMessage, collabAgentToolCall,
+  commandExecution, contextCompaction, dynamicToolCall, enteredReviewMode, exitedReviewMode,
+  fileChange, functionCallOutput, hookPrompt, imageGeneration, imageView, mcpToolCall, plan,
+  reasoning, sleep, subAgentActivity, userMessage, webSearch.
+- **Reported as tool calls** (`TOOL_ITEMS`, `packages/integrations/codex/src/events.ts`):
+  commandExecution, fileChange, mcpToolCall, dynamicToolCall, collabAgentToolCall, webSearch,
+  imageGeneration, imageView, sleep. subAgentActivity marks a subagent's lifecycle, not a call.
+- **Outcome, assumed, not runtime verified:** an item other than a command or a file change that
+  completes with status `completed`, or with no status at all, succeeded; with any other status
+  (`failed`, `declined`, `interrupted`, or an image generation's other values), it failed.
+- **Not reported:** a spawned agent's own items, which come on a thread of its own that the adapter
+  drops, so the adapter does not declare `reports_tool_activity` (EVENTS.md).

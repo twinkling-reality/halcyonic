@@ -111,7 +111,8 @@ text").
 
 An execution view's `tool_activity` says whether a tool call runs, from these events alone:
 `running` when a turn is active, its status is not `unknown`, and a tool call is open (started,
-not completed) or a test run is; `none` when no turn is active, or one is with nothing open on a
+not completed) or a test run is; `none` when no turn is active (it then says only that no turn
+runs: a Claude Code subagent can work on after its turn), or one is with nothing open on a
 runtime whose descriptor declares `reports_tool_activity`, that its adapter reports every tool
 call the runtime makes; `unknown` when a turn is active on a runtime that does not declare it, or
 the status is `unknown`, since a lost connection leaves the open calls stale. A turn's start and
