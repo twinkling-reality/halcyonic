@@ -96,6 +96,8 @@ ICONS = {
     "OpensMore": "chevron_right",
     # Hold to talk let go, while what was said is written down (ADR 0027): speech becoming text.
     "WritingDown": "transcribe",
+    # Halcyonic's quote mark beside a line all of outside text (lane V's treatment of outside words).
+    "Quote": "format_quote",
 }
 
 

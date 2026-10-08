@@ -123,6 +123,12 @@ namespace Halcyonic.Client
 
         /// <summary>Hold to talk let go, while the computer writes down what was said (ADR 0027).</summary>
         WritingDown,
+
+        /// <summary>
+        /// Halcyonic's quote mark, in the icon column of a line all of outside text: a mark only
+        /// Halcyonic draws, since outside text shows every Private Use character by its code.
+        /// </summary>
+        Quote,
     }
 
     /// <summary>How a badge is filled: outline only, a soft container of its tone, or its tone's solid fill.</summary>
