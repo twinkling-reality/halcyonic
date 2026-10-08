@@ -170,7 +170,8 @@ namespace Halcyonic.Client
                     .Where(command => command.ExecutionId == execution.ExecutionId)
                     .OrderByDescending(command => command.IssuedAt, System.StringComparer.Ordinal)
                     .Take(RecentCommands)
-                    .Select(Feedback)
+                    // A journaled command is never the demonstration's, which journals nothing.
+                    .Select(command => Feedback(command))
                     .ToList();
             }
             var confirm = actions.Where(action => AlwaysConfirmed(action) || state.RequiresConfirmation(CommandTypeOf(action))).ToList();
@@ -242,7 +243,9 @@ namespace Halcyonic.Client
             _ => CommandType.ExecutionSendInstruction,
         };
 
-        public static CommandFeedback Feedback(CommandView command)
+        /// <param name="demonstration">The recorded demonstration is what this client shows: only then is a refusal coded
+        /// <c>demonstration</c> said in its own words, which are the recording's; a live control plane's message never is.</param>
+        public static CommandFeedback Feedback(CommandView command, bool demonstration = false)
         {
             string text;
             switch (command.Status)
@@ -255,9 +258,10 @@ namespace Halcyonic.Client
                     break;
                 case CommandStatus.Rejected:
                     // The recorded demonstration says in its own words that nothing reached an agent
-                    // and how the recording continues; "Refused" would contradict what plays next.
+                    // and how the recording continues; "Refused" would contradict what plays next. Only in the
+                    // demonstration: a live control plane answering with that code is said by its code, as any other.
                     // Any other refusal is said by its code, never the control plane's message.
-                    text = command.Rejection?.Code == RejectionCode.Demonstration
+                    text = command.Rejection?.Code == RejectionCode.Demonstration && demonstration
                         ? command.Rejection.Message
                         : command.Rejection?.Code == RejectionCode.QuestionNotFound
                         ? "Couldn't send: it's no longer waiting for this answer. See what it's doing now."

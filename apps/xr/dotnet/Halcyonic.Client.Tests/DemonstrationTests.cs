@@ -591,7 +591,7 @@ public class DemonstrationSessionTests
     {
         var player = Play(Demonstration.Fast());
         var activity = new ActivityLog();
-        var submissions = new CommandSubmissions();
+        var submissions = new CommandSubmissions { Demonstration = () => true };
         var steering = new WorkspaceSteering(new CommandFactory(Samples.Client));
         var seen = await Demonstration.ToTheApprovalAsync(session!);
         activity.Record(seen.Events);
@@ -681,7 +681,7 @@ public class DemonstrationSessionTests
         var ack = await session.SubmitAsync(factory.SendInstruction(approve.Answer.ExecutionId, "Please make every test pass."));
 
         var first = Demonstration.InstructionsAfterApproving()[0].Answer;
-        Assert.That(WorkspacePresenter.Feedback(ack.Command!).Text, Is.EqualTo(DemonstrationTransport.AnsweredInstead(first)));
+        Assert.That(WorkspacePresenter.Feedback(ack.Command!, demonstration: true).Text, Is.EqualTo(DemonstrationTransport.AnsweredInstead(first)));
         await Pumping.Until(session, s => s.State.Runtimes.Count == 0, "the recording continues with its first instruction and ends");
         Assert.That(Demonstration.DirectedExecution(session)!.LastTestRun!.Outcome, Is.EqualTo(TestOutcome.Passed));
 

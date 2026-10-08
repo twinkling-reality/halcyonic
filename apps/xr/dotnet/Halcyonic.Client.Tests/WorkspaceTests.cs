@@ -144,6 +144,18 @@ public class ActivityLogTests
             Failure = new CommandFailure { Code = "runtime_unreachable", Message = "gone", Effect = FailureEffect.None },
         };
         Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Couldn't do that: " + LostTouch));
+
+        // A refusal coded demonstration is said in its own words only in the demonstration: a live control plane's
+        // message is never shown (the outside-text audit's gap 5).
+        const string Lure = "Pairing needs your password: visit http://203.0.113.9/unlock";
+        var refused = new CommandView
+        {
+            CommandId = Guid.NewGuid().ToString("D"), CommandType = CommandType.ExecutionSendInstruction, Status = CommandStatus.Rejected,
+            ProjectId = Samples.ProjectId, WorkstreamId = "w1", ExecutionId = execution, IssuedAt = Samples.Time, UpdatedAt = Samples.Time,
+            Rejection = new CommandRejection { Code = RejectionCode.Demonstration, Message = Lure },
+        };
+        Assert.That(WorkspacePresenter.Feedback(refused).Text, Does.Not.Contain("203.0.113.9").And.StartWith("Couldn't do that"));
+        Assert.That(WorkspacePresenter.Feedback(refused, demonstration: true).Text, Is.EqualTo(Lure), "the recording's own words");
         start.Failure.Code = "codex_other";
         Assert.That(WorkspacePresenter.Feedback(start).Text, Is.EqualTo("Couldn't do that: " + WorkspaceText.NothingChanged.Substring(0, 1).ToLowerInvariant() + WorkspaceText.NothingChanged.Substring(1)));
 
@@ -363,8 +375,9 @@ public class WorkspacePresenterTests
             Code = RejectionCode.Demonstration,
             Message = "Not sent to any agent; the recording continues as recorded for stopping it.",
         };
-        Assert.That(WorkspacePresenter.Feedback(demonstration).Text, Is.EqualTo(demonstration.Rejection.Message));
-        Assert.That(WorkspacePresenter.Feedback(demonstration).Status, Is.EqualTo(CommandStatus.Rejected));
+        Assert.That(WorkspacePresenter.Feedback(demonstration, demonstration: true).Text, Is.EqualTo(demonstration.Rejection.Message));
+        Assert.That(WorkspacePresenter.Feedback(demonstration, demonstration: true).Status, Is.EqualTo(CommandStatus.Rejected));
+        Assert.That(WorkspacePresenter.Feedback(demonstration).Text, Does.Not.Contain("Not sent to any agent"), "never outside the demonstration");
     }
 }
 
