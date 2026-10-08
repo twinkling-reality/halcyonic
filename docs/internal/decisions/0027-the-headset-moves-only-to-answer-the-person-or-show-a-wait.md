@@ -83,6 +83,15 @@ speed and the turn on confirmation are lane V's own.
    - A place, a section or a page changing, or a side panel showing another row, does not animate;
      its buttons keep their settle before they take a press.
 
+   The opening also guards what it shows (lane U, 2026-10-08). A column keeps one value of its
+   opening, counted on the plane's clock, which counts nothing for the frame the column opened in
+   and at most a twentieth of a second for any frame. Its parts' fade, its light line, the plane's
+   refusal of a press, a hold or a subject press, and every button on it and its subject plate all
+   read that value, so nothing on it, Yes, Send answer or Clear among them, takes a press before
+   every part shows whole and in place, however slow the frames. Its page counts as drawn only as
+   the opening ends, so every wait that starts from a page drawn, as a question's turn guard,
+   counts from a page standing whole. A closing column takes nothing.
+
    Nothing overshoots or bounces.
 2. **What moves.** Only what answers the person, shows a wait or says a state:
    - presses and holds, at once;
@@ -173,6 +182,11 @@ Added with the 2026-10-08 amendment, each with the view that brings it:
 - Sixty frames of a stage with every character moving allocate nothing.
 - A look strip: a character before, during and after the person's look; the states that don't answer
   unchanged; and over a scripted burst of tool calls, each working pose held at least 1.5 s.
+- The opening's guard, in the workspace render: a file opened beside the menu, pressed every frame at
+  the headset's rate and at a tenth of a second, takes its first press only with every shape and
+  word whole and nothing sliding; its buttons refuse with their own settle long past; its page counts
+  as drawn once, as its opening ends; another task's file in its place opens anew; and twenty frames
+  of an opening, and of a closing, allocate nothing.
 
 ## Alternatives considered
 

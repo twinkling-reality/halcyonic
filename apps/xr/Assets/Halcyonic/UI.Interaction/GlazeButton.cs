@@ -633,9 +633,12 @@ namespace Halcyonic.XR.UI
         {
             if (pressedAt < 0f) return;
             var started = holding;
+            // A short tap counts as a press only of what the button still is: not once it took a new role or
+            // new words under the hand, nor while it takes no press.
+            var same = shownAt < pressedAt && Accepting();
             EndPress();
             if (started) HoldEnded?.Invoke(!cancelled);
-            else if (!cancelled)
+            else if (!cancelled && same)
             {
                 Pressed?.Invoke();
                 AnyPressed?.Invoke(this);

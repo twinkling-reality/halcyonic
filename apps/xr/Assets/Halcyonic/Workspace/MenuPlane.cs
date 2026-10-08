@@ -487,9 +487,11 @@ namespace Halcyonic.XR.Workspace
                     // The menu coming back slides in from where it stepped aside to, and the file from its side.
                     Vector3? from = kind == MenuColumn.Menu && wasAside ? Aside(placed, zoom)
                         : kind == MenuColumn.File && wasFileAside ? Aside(placed, zoom, toTheRight: true) : (Vector3?)null;
-                    // A column the drag moves, as when a drag let go keeps less of it, takes no new press until it
-                    // settles again; a re-lay that follows the stage, as the characters bob, never does.
-                    if (dragMoved && from == null && !unsettled && WasShown(before, view)
+                    // A column the drag moves, as when a drag let go keeps less of it, or one that slides to a new place
+                    // because the columns beside it changed, as a side panel opening beside a file, takes no new press
+                    // until it settles again, longer than the slide; a re-lay that follows the stage, as the characters
+                    // bob, never does.
+                    if ((dragMoved || laidNow != wasLaid) && from == null && !unsettled && WasShown(before, view)
                         && Vector3.Distance(parts[index].position, PlaneLayout.PointOf(eyes, Direction, placed.Right, placed.Up)) > MovedMeters)
                     {
                         view.Unsettle();

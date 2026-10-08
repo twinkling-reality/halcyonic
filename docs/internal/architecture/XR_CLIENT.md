@@ -460,10 +460,13 @@ the same definition names, as the JSON Schema document:
   a time, else none (`MenuDrag.Kept`, `MenuPlane.Allows`, which judges the light line from the
   geometry alone), and the menu stands beside the file, or a side panel beside its frame, only where
   the two fit where the plane will stand, the layout decided again at the part of the drag kept; with
-  none of it kept, Settings says "Where it stands". Only a move the drag causes makes a column's
-  prompts wait to settle again: the plane following the hand, less of the drag kept as the plane is
-  laid anew, or another layout standing where it was; a re-lay that follows the stage or new content,
-  as a file grown taller, never does. A press ends only at a drag's start, every press under way, and
+  none of it kept, Settings says "Where it stands". Only a move the drag causes, or a change
+  of the columns beside it, makes a column's prompts wait to settle again: the plane following the
+  hand, less of the drag kept as the plane is laid anew, another layout standing where it was, or a
+  column already shown sliding to a new place because a column came or went, as a file moving over
+  for its side panel or to the centre as the menu steps aside for its taller title; a re-lay that
+  follows the stage or new content with the same columns, as a file grown taller beside the menu,
+  never does. A press ends only at a drag's start, every press under way, and
   at its end, those begun under it (`MenuPlane.UnsettleShown`), so a prompt pressed under a moving
   plane, Hold to talk among them, takes nothing. Placement and a drag's rules read each character's
   body at the lift its motion holds, risen while it waits, never its hop, bob or breath
@@ -2429,7 +2432,9 @@ instruction; typing always stays:
 - **`GlazeButton`'s hold mode** (`Holds`): a press held for 0.3 s starts the hold (`HoldStarted`);
   letting go ends it (`HoldEnded(true)`); the hand leaving the button, the button no longer
   accepting (as when input is suspended) or the button going away drops it (`HoldEnded(false)`).
-  A press let go sooner is a tap, which says to hold while speaking. `PointerTarget.Released`
+  A press let go sooner is a tap, which says to hold while speaking, and counts as a press only of
+  what the button still is: not once it took new words or a new role under the hand, as a slot
+  turning into Yes, nor while it takes no press. `PointerTarget.Released`
   reports the end of a press.
 - **`HoldToTalk`** owns the microphone while a hold lasts, one clip at a time, at most 30
   seconds, then sends it through `SpeechClip` and `TranscribeAsync`. The microphone permission is
