@@ -225,7 +225,8 @@ the same definition names, as the JSON Schema document:
   the person, activity lines with the local time and the agent's words
   quoted as "It says: “…”", action labels, a confirmation question that names exactly what would be
   sent (for approving or denying, "Approve the request above?" over the whole request, `Request`:
-  the tool and what it would do, never shortened), and why no action is offered. Text
+  the tool and what it would do, never shortened, by `LabelText.Exact`), and why no action is
+  offered. Text
   from outside in any of them shows by `LabelText`'s rule, and a cut never splits a character in
   two. `Describe` writes one activity entry in one line, for the peek too.
 - **`LabelText`** is the one rule for showing text Halcyonic did not write: workstream titles and
@@ -278,7 +279,11 @@ the same definition names, as the JSON Schema document:
   workspace reports which part of it shows (`RequestShown`), each part turned to starts the 15
   seconds again, and until the last part has shown the question says to read the whole request
   first (`CanConfirm` is false) and a confirmation sends nothing and stays armed. Denying needs no
-  reading, since refusing what one has not read in full can do no harm. Instruct asks for text
+  reading, since refusing what one has not read in full can do no harm. A request the control plane
+  cut to fit its limit ("[truncated]", `WorkspaceText.CutShort`) was never shown whole, so it offers
+  only Deny, and says why. An approval's request shows by `LabelText.Exact`: `Plain`, except that a
+  line break, a tab and every other white space but the space shows as its code point, as
+  ‹U+000A›, so two commands on two lines never read as one. Instruct asks for text
   first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless
   the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
   reads "Your computer heard the words above. Send them?" under the words, read in parts, so a
