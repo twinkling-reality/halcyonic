@@ -406,6 +406,18 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
 - **A grip under the plane and under the bar.** Holding it and moving drags the whole plane round
   the eyes, still facing them, as holding a file's subject does (`PanelDrag`); its target keeps the
   60 dp hit area. Reset position stays in Settings' Your space.
+- **While the plane stays open, its top line holds** (lane V and the coordinator, after lane C's
+  first-visit renders showed Settings rising about 2 degrees under the ray as it was pressed, since a
+  page of another height re-centred the plate). Whatever a press changes while the plane stays open,
+  a place, a section, a page, a side panel, the text's size, New project in the plate's place or a
+  task sliding out beside the menu, the subjects' top edge stays where it stands: a page that grows
+  extends downward, and one that shrinks gives back from the bottom, so what was pressed stays under
+  the ray. The plane moves up or down only where the composition would otherwise leave the measured
+  field or come within a degree of a character or a label, only as far as that needs, as one piece
+  over the slide, and it doesn't move back on its own while it stays open. Sideways the first rule
+  holds: the plane re-centres as one piece. Opening from the bar, a file opening from its character,
+  a drag, Reset position and the stage being placed anew place it as before. Lane U builds it before
+  the characters' places and travel.
 - **Where tasks wait is asked once,** the first time another window takes focus and the person comes
   back: "Where should your tasks wait?", with Below my screen, On my right and On my left, and the
   main action Keep them here, Move them right or Move them left, which moves the bar, files and
