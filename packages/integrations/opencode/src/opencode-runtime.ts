@@ -63,6 +63,24 @@ import {
 import { SseParser } from './sse.ts';
 
 /**
+ * The permission rules every session Halcyonic creates carries, after every configuration file's:
+ * the tools that reach the network whatever the model is, denied, so a task on a model on this
+ * Mac sends nothing off it through them (opencode-permissions.md). Code Mode's `execute` runs
+ * JavaScript with a `fetch` no permission covers; `webfetch` and `websearch` are the web tools. A
+ * tool every rule denies is not offered to the model at all. A session's deny outranks the
+ * person's configuration and any saved "always" (core/src/permission.ts at v2.0.18).
+ */
+export const SESSION_PERMISSIONS: readonly {
+  readonly action: string;
+  readonly resource: string;
+  readonly effect: 'allow' | 'ask' | 'deny';
+}[] = [
+  { action: 'execute', resource: '*', effect: 'deny' },
+  { action: 'webfetch', resource: '*', effect: 'deny' },
+  { action: 'websearch', resource: '*', effect: 'deny' },
+];
+
+/**
  * Verified against OpenCode 2.0.18. Instructions while a turn runs use OpenCode's `steer`
  * delivery, which hands them to the model when the running step ends.
  */
@@ -336,6 +354,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
       // directory reached through a symbolic link.
       location: { directory },
+      permissions: SESSION_PERMISSIONS,
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
     const created = await send(connection, 'POST', '/api/session', body, 'runtime_refused');
