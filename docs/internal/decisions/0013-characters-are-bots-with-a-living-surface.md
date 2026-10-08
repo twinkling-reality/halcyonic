@@ -3,7 +3,8 @@
 - Status: Accepted (by the owner, 2026-09-29); amended by the owner's picks on 2026-10-08
 - Date: 2026-09-29, amended 2026-10-08 (a feature on top, eyelids, a ring and rim in place of the
   halo, places that mean something, labels that grow when looked at, and a stage for what is
-  current)
+  current; then life: looking back, homes by project, thinking and doing, the agent's words, and
+  turning to each other only over what two tasks share)
 
 ## Context
 
@@ -45,6 +46,12 @@ V's proposal "One kit, four forms" (2026-10-07, outside the repository) answered
 proposal's own choices, such as the six features, the two ages and the 0.5 m/s, are lane V's, not
 taken from any reference.
 
+The same day the owner asked for more: in the reel, the characters "weren't just cool because of their
+looks (which I saw you improved here) but because they felt like i.e. they could move around, they
+could look at you and look away and talk to each other like real characters etc". Halcyonic's agents
+never talk to each other, so lane V proposed the closest true things as the proposal's item 6, and
+the owner agreed to its recommended set on 2026-10-08. Its choices are lane V's.
+
 ## Decision
 
 The owner chose bots.
@@ -81,8 +88,13 @@ The owner chose bots.
 
 - The characters stand on an arc of fixed slots 2.4 m away, beyond the system windows. By default
   60 degrees lie between the outermost, so every character and its labels stay within about 36
-  degrees of where the person faced, and characters that need attention stand in the middle. The
-  person looks at them and points at them from the seat; nothing needs them to stand or reach.
+  degrees of where the person faced. The person looks at them and points at them from the seat;
+  nothing needs them to stand or reach.
+- Homes go by project: a project's characters share a stretch of the arc, as a team shares a table,
+  and a new task takes the free slot nearest its project-mates. Homes never shuffle while a task is on
+  the stage, since moving without a reason says nothing true; gaps close when the stage is next
+  placed. A character that needs the person comes to the front of the desk rather than standing in the
+  middle, as the next bullet says. Beside a window the groups split either side.
 - Each slot is a character's home, marked by its ring. A character leaves home only for a place its
   state names: the front of the desk while something waits for the person, the side of its open
   file while the file is open, and the bar when it arrives on the stage or leaves it. Characters an
@@ -95,6 +107,27 @@ The owner chose bots.
   toward the person only while a request or question waits, turns once only when the agent confirms
   what the person sent, and never moves faster or more as a sign of progress, which Halcyonic cannot
   know.
+- A character looks back when the person looks at it. After the peek's dwell its eyes come to the
+  person, then its body turns and lifts a little; when the look leaves it holds for Glaze's linger,
+  then goes back to its work. Only a live character with open eyes answers: never one that couldn't
+  finish, was stopped, can't be seen, is last known or is days old, since answering would suggest a
+  live task; a finished one opens its eyes while looked at. Only a character that waits for the person
+  looks at them unasked, so a character's look always means one of two true things: it needs the
+  person, or the person is looking at it.
+- While one of its agent's tool calls runs, as the task's view reports, a working character leans in,
+  eyes down on the work; between tool calls it sits up and looks up to one side. Each pose holds at
+  least 1.5 s, so a burst of calls never makes it flicker, and it never moves faster for more work.
+  The view does not report a running tool call yet; that is a contract change of its own.
+- Its glance shows, for working and finished work, the agent's last whole message, leaning on a ground
+  with Agent says before it, at most 2 lines, cut first. A new message replaces it with Appear's fade,
+  never as streamed or partial text, since the contract carries whole messages.
+- Characters turn to each other only over something two tasks really share, because Halcyonic's agents
+  never talk to each other. As one comes forward because it needs the person, its project-mates look at
+  it once; as a task joins a project, its project-mates look at it once as it lands. Once a capability
+  reports the files each task changed, two tasks of one project that changed the same file turn to each
+  other, joined by a light line that names the file when the person looks at either; where an agent app
+  can't report its files, its character never turns for one. Nothing chatters: no character faces
+  another and moves as if talking with nothing behind it.
 - The stage is for now: what waits for the person, what works, and what ended or went quiet
   recently. Work that ended leaves the stage 8 hours later, and work Halcyonic hasn't heard from 24
   hours after it last heard; what waits for the person never leaves. Tasks keeps both under Earlier,
@@ -128,6 +161,12 @@ The owner chose bots.
   the person could only rise where it stood, and nothing could arrive or leave.
 - **Today's 128 identities** (2026-10-08). In about a quarter of stages, two of six characters
   shared a shape and a hue.
+- **Glancing at the person while working** (2026-10-08). Livelier, but an unasked look is how a
+  character says it needs the person, so it would cry wolf.
+- **Wandering about the desk, or chattering with each other** (2026-10-08). Both show something that
+  isn't happening, and wandering pulls the eye at the edge of the view while the person works.
+- **Homes by state, a float alone, the agent's words only in the file, a shared file only, or never
+  turning to each other** (2026-10-08). The other options of item 6; each is calmer and says less.
 - **Only the state's mark at rest, or the full label** (2026-10-08). The mark alone drops the written
   status this ADR keeps. The full label, the state and a title on two rows, put three lines under
   every character, 18 of the 48 pieces of text lane V counted in one view of a task opened on a
@@ -153,8 +192,12 @@ The owner chose bots.
   renders. The speeds, the two ages and the ring's cost are judged on the headset, where they may
   change.
 - Characters with more life, moving around, looking at the person and looking away, and talking to
-  each other like real characters, were asked for by the owner on 2026-10-08 and are proposed
-  separately. Until the owner picks, this ADR describes only the movement above.
+  each other like real characters, were asked for by the owner on 2026-10-08, and the owner agreed to
+  lane V's recommended set the same day. Thinking and doing waits for the task's view to report a
+  running tool call, and the shared file for a capability each agent app declares; both are contract
+  changes with their own records, and the shared file may miss the competition build.
+- Looks between characters, the two working poses and the look back add motion at the edge of the
+  person's view, which the open question on calm over a long session now covers too.
 - The arc does not adapt to a device's field of view at run time. Its default fits a Quest 3 and a
   Quest 3S; another device needs its span and distance tuned.
 - Custom shaders must ship through materials that the build includes
