@@ -155,8 +155,8 @@ namespace Halcyonic.Client
                 actions = actions.Where(action => action != WorkspaceAction.Approve && action != WorkspaceAction.Deny).ToList();
                 approvalInFlight = true;
             }
-            // A request cut to fit was never shown whole, so nothing it runs may be approved.
-            if (approval != null && WorkspaceText.CutShort(approval))
+            // A request never shown whole, cut to fit or without its command, may not be approved.
+            if (approval != null && WorkspaceText.OnlyDeny(approval) != null)
             {
                 actions = actions.Where(action => action != WorkspaceAction.Approve).ToList();
             }

@@ -17,9 +17,12 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
+import type { OpenCodeClient } from './client.ts';
+import { createSessionState, shellCallKey } from './events.ts';
 import {
   OPENCODE_CAPABILITIES,
   OpenCodeRuntimeAdapter,
+  readSnapshot,
   sessionPermissions,
 } from './opencode-runtime.ts';
 import { buildEnvironment, INHERITED_VARIABLES, launchServer } from './server.ts';
@@ -120,8 +123,81 @@ describe('OpenCode start options', () => {
   });
 });
 
+describe('reading a session back after the event stream reconnected', () => {
+  test("a pending shell request is matched to its call by message and call id, and shows that call's request", async () => {
+    const state = createSessionState();
+    state.shellCalls.set(
+      shellCallKey('msg_gone', 'call_9') ?? '',
+      "[in the task's folder] from the stream",
+    );
+    const data: Record<string, unknown> = {
+      '/api/session/s/permission': [
+        ['per_1', 'msg_new', 'call_1'],
+        ['per_2', 'msg_old', 'call_1'],
+        ['per_3', 'msg_new', 'call_2'],
+        ['per_4', 'msg_gone', 'call_9'],
+      ].map(([id, messageID, call]) => ({
+        id,
+        action: 'shell',
+        resources: ['parsed'],
+        source: { type: 'tool', messageID, id: call },
+      })),
+      '/api/session/s/form': [],
+      '/api/session/active': {},
+      '/api/session/s': {},
+      // Newest first, as OpenCode lists them.
+      '/api/session/s/message': [
+        {
+          id: 'msg_new',
+          type: 'assistant',
+          content: [
+            {
+              type: 'tool',
+              id: 'call_1',
+              name: 'shell',
+              state: { status: 'running', input: { command: 'echo one > f', workdir: 'sub' } },
+            },
+            {
+              type: 'tool',
+              id: 'call_2',
+              name: 'shell',
+              state: { status: 'running', input: { command: 7 } },
+            },
+          ],
+        },
+        {
+          id: 'msg_old',
+          type: 'assistant',
+          content: [
+            {
+              type: 'tool',
+              id: 'call_1',
+              name: 'shell',
+              state: { status: 'completed', input: { command: 'echo old' } },
+            },
+          ],
+        },
+      ],
+    };
+    const client = {
+      request: async (_method: string, path: string) =>
+        path in data ? { status: 200, body: { data: data[path] } } : { status: 404, body: null },
+    } as unknown as Pick<OpenCodeClient, 'request'>;
+    const snapshot = await readSnapshot(client, { sessionId: 's', state });
+    assert.deepEqual(
+      snapshot.permissions.map((permission) => [permission.id, permission.command]),
+      [
+        ['per_1', '[in "sub"] echo one > f'],
+        ['per_2', "[in the task's folder] echo old"],
+        ['per_3', null],
+        ['per_4', "[in the task's folder] from the stream"],
+      ],
+    );
+  });
+});
+
 describe('OpenCode session rules', () => {
-  test('deny the network tools and subagents, ask for shell commands, and deny edits to the paths OpenCode reads its configuration from and to .git', () => {
+  test('deny the network tools and subagents, ask for shell commands, and deny edits to every hidden path and to opencode.json', () => {
     const rules = sessionPermissions({ HOME: '/Users/someone', PATH: '/usr/bin' });
     const denied = (action: string) =>
       rules
@@ -130,21 +206,18 @@ describe('OpenCode session rules', () => {
     for (const tool of ['execute', 'webfetch', 'websearch', 'subagent']) {
       assert.deepEqual(denied(tool), ['*'], tool);
     }
-    assert.deepEqual(denied('edit'), [
-      '.opencode/*',
-      '*/.opencode/*',
-      '.claude/*',
-      '*/.claude/*',
-      '.agents/*',
-      '*/.agents/*',
-      'opencode.json*',
-      '*/opencode.json*',
-      '.git',
-      '.git/*',
-      '*/.git',
-      '*/.git/*',
-      '/Users/someone/.config/opencode/*',
-    ]);
+    const edits = denied('edit');
+    assert.deepEqual(edits.slice(0, 2), ['.*', '*/.*']);
+    assert.equal(edits.at(-1), '/Users/someone/.config/opencode/*');
+    // opencode.json is not hidden: every spelling by case, with any extension of four letters or more.
+    const named = edits.slice(2, -1);
+    assert.equal(named.length, 512);
+    for (const spelling of ['opencode', 'OpenCode', 'OPENCODE', 'oPeNcOdE']) {
+      assert.ok(
+        named.includes(`${spelling}.????*`) && named.includes(`*/${spelling}.????*`),
+        spelling,
+      );
+    }
     // Nothing else is asked or allowed: edits keep OpenCode's own rules, so they need no press.
     assert.deepEqual(
       rules.filter((rule) => rule.effect !== 'deny'),

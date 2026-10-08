@@ -163,8 +163,8 @@ only loopback ports (source).
     `config/plugin/mcp.ts:17-57`). Edits are not asked, so the model could write a plugin. The
     rules deny `edit` on `.opencode/*`, `*/.opencode/*`, `.claude/*`, `*/.claude/*`, `.agents/*`,
     `*/.agents/*`, `opencode.json*`, `*/opencode.json*`, the global folder and an `OPENCODE_CONFIG`
-    file; `*` matches `/` too (`core/src/util/wildcard.ts`). Since 2026-10-08 also `.git`,
-    `.git/*`, `*/.git` and `*/.git/*`, below. A shell command can still write those paths, once the
+    file; `*` matches `/` too (`core/src/util/wildcard.ts`). Since 2026-10-08 every hidden path
+    instead of the hidden names, below. A shell command can still write those paths, once the
     person approves it, or through what the ask misses (below).
   - **The end to end suite checks:** that none of the denied tools is offered to the model and
     that the session, read back, holds the rules; that writes to `.opencode/plugin/planted.ts`,
@@ -241,26 +241,43 @@ The owner decided on 2026-10-08: every OpenCode session Halcyonic opens asks bef
 commands; edits do not ask; subagents stay denied.
 
 - **Built:** the session's rules add `{action: "shell", resource: "*", effect: "ask"}`. A session's
-  rule outranks every configuration file, so neither the person's own settings nor a repository's
-  `opencode.json` can turn the ask off: runtime, with both allowing `shell` for every resource, a
-  Halcyonic task asked, and a session without Halcyonic's rules on a server of the same settings ran
-  the same command unasked. Edits keep OpenCode's own rules, which allow them, so they need no
-  press; the denies on the configuration paths still hold.
+  rule outranks every configuration file, so no settings file, the person's or a repository's,
+  can turn the ask off: runtime, with both allowing `shell` for every resource, a Halcyonic task
+  asked, and a session without Halcyonic's rules on a server of the same settings ran the same
+  command unasked. Plugins can, below. The session's ask also outranks a person's own deny, of
+  shell or of one command (`git push *`), which becomes an ask. Edits keep OpenCode's own rules,
+  which allow them, so they need no press, except on hidden paths, below.
+- **Plugins can change what runs or turn the ask off** (source): a `shell` `create.before` hook
+  runs before the parse and can change the command (`core/src/shell.ts:274`); a `tool`
+  `execute.before` hook can change a tool's input after `session.tool.called` was published
+  (`core/src/tool.ts`); a `permission` `evaluate` hook can turn an ask into an allow
+  (`core/src/permission.ts`); a session hook can rename the shell tool, so the adapter never
+  learns its command and offers only Deny. Halcyonic configures none; a repository's
+  `.opencode/plugins` or the person's own plugins load as code in the server whatever the rules
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **The approval shows the command the model gave, whole.** OpenCode's ask lists `resources`: the
   commands its parse of the command line found, each as the text of its node. Those can leave out
   what the command does: `echo start && printf ran > ran.txt` was listed as `echo start` and
   `printf ran`, without where it writes; a command substitution inside an assignment was listed as
-  the inner command alone. So the adapter keeps each shell tool call's `command` from
+  the inner command alone. So the adapter keeps each shell tool call's input from
   `session.tool.called`, which OpenCode publishes before the tool runs
-  (`core/src/session/runner/step.ts:101`), and an ask whose `source` names that call
-  (`{type: "tool", id}`) shows that command as its summary. After a reconnect it is read from the
-  session's messages (the tool part's `state.input.command`). Only when neither is known does the
-  summary fall back to the resources. The headset shows every line break and other white space
-  but the space by its code point (`LabelText.Exact`), pages the request with Approve only after
-  its last part, and offers only Deny for a request the control plane cut to fit its 2,000
-  characters. A plugin's `shell` `create.before` hook runs before the parse and can change the
-  command (`core/src/shell.ts:274`), so with such a plugin what runs can differ from what was
-  shown; Halcyonic configures none, and a plugin already runs as code in the server.
+  (`core/src/session/runner/step.ts:101`), by the call's message id and its own (a call id comes
+  from the provider and may repeat), and an ask whose `source` names that call (`{type: "tool",
+  messageID, id}`) shows it as its summary: first a bracket of where and how it runs, "[in the
+  task's folder]" or "[in "<workdir as given>"]", quoted so no folder's name reads as the default,
+  with ", in the background" inside it when it applies, always first, so a command that starts with
+  a bracket of its own follows the real one;
+  then the command exactly as the model wrote it. After a reconnect it is read from the session's
+  messages (the tool part's `state.input`, newest message first). When the input does not say it
+  plainly, the summary is the resources after "[whole command not known]", and the headset offers
+  only Deny for it: a call never seen, input that is not an object (OpenCode repairs a stringified
+  one only after the ask, `core/src/plugin/tool-input-repair.ts`), a `workdir` that is not a
+  string or holds a bracket, a `background` that is not a boolean. The cost: a model that sends
+  its arguments in such a shape cannot get a command approved. The headset shows every line break
+  and other white space but the space by its code point (`LabelText.Exact`), pages the request
+  with Approve only after its last part, and offers only Deny for a request the control plane cut
+  to fit its 2,000 characters. The control plane itself does not yet refuse an approval of such a
+  request from another client ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **The ask depends on OpenCode's parse.** The shell tool asks only when its parse of the command
   line finds a command (`core/src/tool/plugin/shell.ts:135`, `if (parsed.commands.length > 0)`),
   with a bash grammar whatever shell runs it (the person's `SHELL`, `/bin/zsh` by default on macOS,
@@ -270,13 +287,29 @@ commands; edits do not ask; subagents stay denied.
   commands, write files and reach the network unasked. The details stay out of this repository
   until the owner decides on reporting them to OpenCode
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
-- **`.git` is denied to edits.** A repository's `.git` configuration names programs git runs
-  (filters, `core.fsmonitor`, `core.hooksPath`, hooks), so an edit there would run code the next
-  time the person approves a git command that looks harmless. Runtime: a clean filter written into
-  `.git/config` by an edit, with a `.gitattributes` naming it, did not run from OpenCode's own
+- **Every hidden path is denied to edits.** A repository's `.git` configuration names programs git
+  runs (filters, `core.fsmonitor`, `core.hooksPath`, hooks), so an edit there would run code the
+  next time the person approves a git command that looks harmless. Runtime: a clean filter written
+  into `.git/config` by an edit, with a `.gitattributes` naming it, did not run from OpenCode's own
   `git status` (it passes `core.fsmonitor=false` and uses `--no-ext-diff`, `plugin/vcs/git.ts`), but
-  an approved `git status` would run it. The session's rules now deny `edit` on `.git`, `.git/*`,
-  `*/.git` and `*/.git/*`, so neither the folder nor a `.git` file pointing elsewhere can be written.
+  an approved `git status` would run it. OpenCode matches a resource by case except on Windows
+  (`core/src/util/wildcard.ts`), and the resource is the path as the model wrote it
+  (`core/src/file-access.ts`), while macOS's disk ignores case, so a rule for `.git` missed
+  `.GIT/config`, which landed in `.git` (the review, 2026-10-08); the earlier rules for
+  `.opencode`, `.claude` and `.agents` had the same gap. The session's rules now deny `edit` on
+  `.*` and `*/.*`: every path one of whose parts starts with a dot, in any case, inside the project
+  and outside it, the configuration folders and `.git` among them. The cost: the edit tool cannot
+  change `.gitignore`, `.github` or any other dotfile, nor, in a task whose folder is inside a
+  repository, a file above it (`../x`); a shell command can, once approved. `opencode.json` and
+  `opencode.jsonc` are not hidden, and OpenCode loads them by an exact path the disk resolves in
+  any case (`core/src/config.ts`), so an `OpenCode.json` would load an MCP server or plugin with no
+  approval at all (the second review): every spelling of `opencode` by case is denied with any
+  extension of four letters or more, 512 rules. The global folder and an `OPENCODE_CONFIG` file
+  are still denied as written, outside the project, where an outside-folder ask comes first.
+- **Approving a command can run files the agent edited without asking.** `npm test`, `make`, a
+  test runner or `git commit` with hooks a repository set up in a folder of its own run files of
+  the project, which edits change without a press. The person approves the command, not what those
+  files now hold; the hidden-path deny closes this only for `.git` itself.
 - **Halcyonic answers "once", never "always".** Its approval contract has only approve and deny,
   and the adapter sends `once` for approve. Runtime: after a Yes, nothing was saved
   (`GET /api/permission/saved` empty) and the same command asked again.
@@ -298,8 +331,9 @@ commands; edits do not ask; subagents stay denied.
 - **The end to end suite checks** (`opencode-runtime.e2e.test.ts`): the ask carries the whole
   command and nothing runs before Yes; Yes runs it once and saves nothing; No runs nothing; the
   person's and the project's settings allowing shell do not skip the ask, while a session without
-  Halcyonic's rules runs it unasked; a saved "always" does skip it; writes to the configuration
-  paths and to `.git` are refused while an ordinary file is written, and none of them asks. The
+  Halcyonic's rules runs it unasked; a saved "always" does skip it; writes to hidden paths and to
+  `opencode.json`, in any case, `.gitignore` and `OpenCode.json` among them, are refused while an
+  ordinary file is written, and none of them asks. The
   sandbox's own settings no longer ask before shell, so every approval test in the suite rests on
   the session's rule.
 

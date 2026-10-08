@@ -198,11 +198,16 @@ unless its permissions say otherwise. Every session Halcyonic creates carries ru
 which outrank every configuration file and any saved "always": `execute` (Code Mode, whose
 JavaScript `fetch` no permission covers), `webfetch`, `websearch` and `subagent` (whose `model`
 input can send a child session to any listed model, hosted ones among them) are denied, so none is
-offered to the model, and so are edits to every path OpenCode reads its configuration, plugins and
-MCP servers from, and to a repository's `.git`, whose configuration and hooks name programs git
-runs ([opencode-permissions.md](../validation/opencode-permissions.md)). Shell commands ask the
-person (the owner's decision of 2026-10-08), whatever the person's or the repository's settings
-say, and the approval shows the command the model gave, whole; other edits need no press. The ask
+offered to the model, and so are edits to every hidden path, in any case of its letters (the
+folders OpenCode reads its configuration, plugins and MCP servers from, and a repository's `.git`,
+whose configuration and hooks name programs git runs), and to `opencode.json` in any case
+([opencode-permissions.md](../validation/opencode-permissions.md)). Shell commands ask the
+person (the owner's decision of 2026-10-08), whatever any settings file says, and the approval
+shows where the command runs and the command the model gave, whole, or offers only Deny when that
+is not known; other edits need no press. A plugin, the person's or a repository's, runs as code in
+the server and can change a command after it was shown or turn the ask off. Approving a command
+such as `npm test` also runs whatever the project's files now hold, which edits change without a
+press. The ask
 depends on OpenCode's parse of the command: OpenCode raises it for the commands its parse finds,
 and some shell constructs run without an ask. So Halcyonic treats the ask as a safeguard against an
 ordinary model, not a boundary: a model working to get around it can run commands, write files and

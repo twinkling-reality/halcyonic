@@ -391,7 +391,7 @@ class MacSetup {
       if (own === null) {
         look = true;
         lines.push(
-          "OpenCode uses your own OpenCode settings. Halcyonic doesn't read them, so it can't tell whether they put OpenCode on a model this Mac serves.",
+          "Halcyonic can't tell whether your own settings put OpenCode on a model this computer serves.",
         );
         next.push(`pnpm mac-setup local-model ${this.#suggestedModel(ollama) ?? '<model name>'}`);
       } else {
