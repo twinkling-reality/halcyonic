@@ -714,20 +714,26 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (moment == 0f) pressed = frames[frames.Count - 1];
                     whole = frames[frames.Count - 1];
                 }
-                // Where each part's largest shape stands on the render, by its area there, read once the file shows whole.
+                // Where each part's shapes stand on the render, the area they cover together, read once the file shows whole.
                 var shapes = new List<(string Part, RectInt Rect)>();
                 foreach (var part in view?.Parts ?? new List<Transform>())
                 {
-                    var largest = part.GetComponentsInChildren<Surface>()
-                        .Select(shape => ScreenRect(camera, shape.transform, Vector2.one))
-                        .OrderByDescending(rect => rect.width * rect.height)
-                        .FirstOrDefault();
-                    if (largest.width > 2 && largest.height > 2) shapes.Add((part.name, largest));
-                    else failures.Add(what + ": the " + part.name + " has no shape large enough to read on the render.");
+                    var covered = part.GetComponentsInChildren<Surface>().Where(shape => shape.Size.x > 0f && shape.Size.y > 0f)
+                        .Select(shape => Around(camera, shape.transform, Vector2.one, 0.5f, 0.5f)).ToList();
+                    if (covered.Count == 0)
+                    {
+                        failures.Add(what + ": the " + part.name + " has no shape to read on the render.");
+                        continue;
+                    }
+                    var leftmost = covered.Min(rect => rect.xMin);
+                    var lowest = covered.Min(rect => rect.yMin);
+                    var area = new RectInt(leftmost, lowest, covered.Max(rect => rect.xMax) - leftmost, covered.Max(rect => rect.yMax) - lowest);
+                    area.ClampToBounds(new RectInt(0, 0, Size, Size));
+                    shapes.Add((part.name, area));
                 }
                 close();
                 // The bar shows at once where the file's subject stood: what it covers is read from outside it.
-                var bar = plane.Bar is MenuBarView closed ? Around(camera, closed.transform, closed.Size) : new RectInt();
+                var bar = plane.Bar is MenuBarView closed ? Around(camera, closed.transform, closed.Size, 0.6f, 0.9f) : new RectInt();
                 at = 0f;
                 Texture2D? closing = null;
                 foreach (var moment in new[] { 0.06f, 0.1f, 0.13f, 0.148f })
@@ -813,11 +819,15 @@ namespace Halcyonic.XR.Workspace.Editor
             return count;
         }
 
-        /// <summary>A shape <paramref name="size"/> big in its own units on the render, with room around it for its pill and soft edge: everything it draws.</summary>
-        private static RectInt Around(Camera camera, Transform shape, Vector2 size)
+        /// <summary>
+        /// A shape <paramref name="size"/> big in its own units on the render, out to <paramref name="across"/> and
+        /// <paramref name="up"/> of its size either side of its centre: half for the shape itself, more for room around
+        /// it, as a bar's pill and soft edge.
+        /// </summary>
+        private static RectInt Around(Camera camera, Transform shape, Vector2 size, float across, float up)
         {
             var corners = new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) }
-                .Select(corner => camera.WorldToScreenPoint(shape.TransformPoint(new Vector3(corner.x * size.x * 0.6f, corner.y * size.y * 0.9f, 0f))))
+                .Select(corner => camera.WorldToScreenPoint(shape.TransformPoint(new Vector3(corner.x * size.x * across, corner.y * size.y * up, 0f))))
                 .ToList();
             var left = Mathf.FloorToInt(corners.Min(corner => corner.x));
             var bottom = Mathf.FloorToInt(corners.Min(corner => corner.y));
