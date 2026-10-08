@@ -194,8 +194,15 @@ downloaded from GitHub the first time an agent searches files when no `rg` is on
 inherits. Its configuration decides the rest, and its defaults do not keep work local: without a
 configured model it uses a free hosted model of its own service (OpenCode Zen) even when local
 models are listed, and it runs every tool without asking, `webfetch` and `websearch` included,
-unless its permissions say otherwise. Halcyonic does not yet impose permission rules on OpenCode
-sessions ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). When `HALCYONIC_OPENCODE_CONFIG_HOME`
+unless its permissions say otherwise. Every session Halcyonic creates carries rules of its own,
+which outrank every configuration file and any saved "always": `execute` (Code Mode, whose
+JavaScript `fetch` no permission covers), `webfetch` and `websearch` are denied, so none is offered
+to the model ([opencode-permissions.md](../validation/opencode-permissions.md)). Whether sessions
+should also ask before shell commands and edits is the owner's question, and a subagent's ask is
+not yet followed ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Halcyonic's OpenCode server
+uses the person's own OpenCode data folder, so a saved "always", a Console login or a provider
+connection from their own OpenCode applies to its sessions, and Salidium reads those sessions from
+it. When `HALCYONIC_OPENCODE_CONFIG_HOME`
 is set, as `pnpm mac-setup local-model` sets it, OpenCode alone gets that directory as its
 `XDG_CONFIG_HOME`: Halcyonic's own OpenCode settings, which ask before every shell command, refuse
 `webfetch` and `websearch`, and name a model the Mac serves through Ollama as the default and as the
