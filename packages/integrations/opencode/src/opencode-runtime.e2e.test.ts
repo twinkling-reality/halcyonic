@@ -27,7 +27,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { OpenCodeClient } from './client.ts';
 import { OpenCodeRuntimeAdapter, type OpenCodeRuntimeOptions } from './opencode-runtime.ts';
-import { launchServer } from './server.ts';
+import { buildEnvironment, launchServer } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_SHELL_COMMAND, type FakeProviderOptions } from './testing/fake-provider.ts';
@@ -1178,8 +1178,25 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
       await ours.next('runtime.turn.completed');
       assert.deepEqual(hits, [], "Code Mode's fetch ran in Halcyonic's session");
 
-      // The control: a session made on the same server without Halcyonic's rules.
-      const client = serverOf(runtime, sandbox);
+      // The control: a session without Halcyonic's rules, on a server of its own in the same
+      // sandbox (one opened on Halcyonic's server would stop it, as it should).
+      await runtime.close();
+      const bare = await launchServer({
+        binaryPath: BINARY,
+        environment: buildEnvironment(process.env, sandbox.env),
+        recordFile: join(sandbox.root, 'control-server.json'),
+        port: null,
+        cwd: sandbox.project,
+        startupTimeoutMs: 30_000,
+      });
+      t.after(() => bare.stop());
+      const client = bare.client;
+      const location = `?location%5Bdirectory%5D=${encodeURIComponent(sandbox.project)}`;
+      for (let i = 0; i < 100; i += 1) {
+        const models = await client.request('GET', `/api/model${location}`);
+        if (JSON.stringify(models.body).includes('fake-model')) break;
+        await delay(100);
+      }
       const created = await client.request('POST', '/api/session', {
         body: { title: 'control', location: { directory: sandbox.project } },
       });
