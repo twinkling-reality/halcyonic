@@ -1219,7 +1219,8 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
         const value = sandbox.env[name];
         if (value !== undefined) environment[name] = value;
       }
-      const probe = probeNetwork(process.pid, BINARY);
+      // Sampled often: a catalog request is short, and one shorter than a sample is missed.
+      const probe = probeNetwork(process.pid, BINARY, 25);
       const server = await launchServer({
         binaryPath: BINARY,
         environment,
@@ -1229,6 +1230,9 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
         startupTimeoutMs: 30_000,
       });
       try {
+        // Listing a folder's models loads it, which fetches the catalog when its copy is stale.
+        const location = `?location%5Bdirectory%5D=${encodeURIComponent(sandbox.project)}`;
+        void server.client.request('GET', `/api/model${location}`).catch(() => undefined);
         await until(() => probe.beyondLoopback.length > 0, 30_000, 'a socket beyond loopback');
       } finally {
         await server.stop();
