@@ -1226,7 +1226,10 @@ the same definition names, as the JSON Schema document:
   leading to its own node. A node ends by holding its final state: until an answer at an approval
   or a question, for 60 seconds while it offers
   instructions, or, where the recording has nothing more, after a snapshot of its control plane
-  started again without runtimes, for 20 seconds. The control plane computed every state in it,
+  started again without runtimes, for 20 seconds. Neither timed hold runs while a task's file is
+  open (`DemonstrationPlayer.Reading`, which the workspace's director sets each frame), so a person
+  reading Changes or Checks is never cut off; once the file closes the hold runs whole from then.
+  The control plane computed every state in it,
   so the client still derives nothing. A recording whose journal is not a fixture, whose answers
   are not where an instant ends, or whose nodes do not form a tree that continues the journal, is
   refused; every character reads recorded, and its runtimes are synthetic, so it also reads

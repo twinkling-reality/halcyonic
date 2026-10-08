@@ -49,8 +49,8 @@ builds only), so it always plays the demonstration. From the recording:
 | 5.7 s | The directed task, "Add rate limiting to the sign-in endpoint", starts |
 | 6.6 s | It is Waiting for you with the agent's question, how long a locked address waits (15 minutes or 1 hour); the hint "Look, then pinch" stands over it until a workspace has been opened once; the recording holds until the judge answers |
 | answer + 2.7 s | Waiting for you again, for a request to run `make migrate`; it holds again |
-| approval + 3.4 s | After Approve: the migration, "Checks failed" (1 failed, 23 passed), the round ends; two recorded instructions are offered for 60 s |
-| next round | Either instruction plays a second round whose checks pass; then the end holds 20 s and the demonstration starts again |
+| approval + 3.4 s | After Approve: the migration, "Checks failed" (1 failed, 23 passed), the round ends; two recorded instructions are offered for 60 s, counted from when the file closes if it is open |
+| next round | Either instruction plays a second round whose checks pass; then the end holds 20 s, counted the same way, and the demonstration starts again |
 
 The first decision comes about 7 seconds after the stage appears, and the whole story, played
 without pauses, takes under a minute; it waits for the judge at the question and at the request. Within 10 minutes a
@@ -111,6 +111,7 @@ eyes on the far Quest 3S stage. Each step is held to the plane's checks at both 
 | Sound cues | Play as live work does (`StageSound`) | `StageSound.cs` | Headset check |
 | Icons | On badges, marks and actions, as live | Stage and workspace renders | None |
 | Starting again | Closed 2026-10-02: after a pause it goes on where it stood; only after its end does it start again | `DemonstrationTransport.Resume` | None |
+| The holds | Closed 2026-10-08 (the coordinator's call): the 60 s instruction hold and the 20 s end hold do not run while a task's file is open and run whole from its close, so a judge reading Changes or Checks is never cut off | `DemonstrationPlayer.Reading`, `JudgeHoldsTests` | None |
 
 ## Names a judge reads
 
