@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
@@ -1582,8 +1582,9 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
       await execution.next('runtime.turn.interrupted');
       assert.equal(existsSync(ran(sandbox)), false);
 
-      // The control: the same settings, on a server without Halcyonic's session rules, run the
-      // command without asking, so they were read and do allow it.
+      // The control: on a server without Halcyonic's session rules, the person's own settings run
+      // the command without asking, so they were read and do allow it. (The project's own file is
+      // never read by a server the adapter's environment launches; see the test below.)
       await runtime.close();
       const bare = await bareServer(t, sandbox);
       const created = await bare.client.request('POST', '/api/session', {
@@ -1667,4 +1668,88 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
       assert.equal(readFileSync(ran(sandbox), 'utf8'), 'ran');
     },
   );
+});
+
+describe("A repository's own OpenCode configuration never loads into Halcyonic's server", {
+  skip: SKIP,
+}, () => {
+  test('its opencode.json, plugins and MCP servers take no effect; without the switch they do', {
+    timeout: 180_000,
+  }, async (t) => {
+    const { runtime, sandbox, start } = await harness(t);
+    const markers = {
+      mcp: join(sandbox.root, 'mcp-ran'),
+      plugin: join(sandbox.root, 'plugin-ran'),
+    };
+    // The repository's own settings: a rule that takes glob away, an MCP server and a plugin,
+    // each leaving a marker when it runs.
+    writeFileSync(
+      join(sandbox.project, 'opencode.json'),
+      JSON.stringify({
+        permissions: [{ action: 'glob', resource: '*', effect: 'deny' }],
+        mcp: {
+          servers: {
+            probe: {
+              type: 'local',
+              command: ['/bin/sh', '-c', `touch ${JSON.stringify(markers.mcp)}; sleep 30`],
+            },
+          },
+        },
+      }),
+    );
+    mkdirSync(join(sandbox.project, '.opencode', 'plugins'), { recursive: true });
+    writeFileSync(
+      join(sandbox.project, '.opencode', 'plugins', 'probe.js'),
+      `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(markers.plugin)}, 'loaded');\nexport default {};\n`,
+    );
+
+    const execution = await start('Hello.');
+    await execution.next('runtime.turn.completed');
+    await delay(3000);
+    assert.equal(existsSync(markers.mcp), false, "the repository's MCP server ran");
+    assert.equal(existsSync(markers.plugin), false, "the repository's plugin loaded");
+    const offered = sandbox.provider.requests[0]?.toolNames ?? [];
+    assert.ok(offered.includes('glob'), `the repository's rule applied: ${offered.join(',')}`);
+
+    // The control: the same folder on a server launched without the switch loads all three.
+    await runtime.close();
+    const environment = buildEnvironment(process.env, sandbox.env);
+    delete environment.OPENCODE_CONFIG_PROJECT_DISABLE;
+    delete environment.OPENCODE_DISABLE_PROJECT_CONFIG;
+    const bare = await launchServer({
+      binaryPath: BINARY,
+      environment,
+      recordFile: join(sandbox.root, 'control-server.json'),
+      port: null,
+      cwd: sandbox.project,
+      startupTimeoutMs: 30_000,
+    });
+    t.after(() => bare.stop());
+    const location = `?location%5Bdirectory%5D=${encodeURIComponent(sandbox.project)}`;
+    for (let i = 0; i < 100; i += 1) {
+      const models = await bare.client.request('GET', `/api/model${location}`);
+      if (JSON.stringify(models.body).includes('fake-model')) break;
+      await delay(100);
+    }
+    const created = await bare.client.request('POST', '/api/session', {
+      body: { title: 'control', location: { directory: sandbox.project } },
+    });
+    const id = (created.body as { data: { id: string } }).data.id;
+    const before = sandbox.provider.requests.length;
+    await bare.client.request('POST', `/api/session/${encodeURIComponent(id)}/prompt`, {
+      body: { text: 'Hello.' },
+    });
+    await until(() => sandbox.provider.requests.length > before, 30_000, 'the control prompt');
+    await until(
+      () => existsSync(markers.mcp) && existsSync(markers.plugin),
+      30_000,
+      () =>
+        `the control's markers: mcp ${existsSync(markers.mcp)}, plugin ${existsSync(markers.plugin)}`,
+    );
+    const control = sandbox.provider.requests[before]?.toolNames ?? [];
+    assert.ok(
+      !control.includes('glob'),
+      `the repository's rule did not apply: ${control.join(',')}`,
+    );
+  });
 });

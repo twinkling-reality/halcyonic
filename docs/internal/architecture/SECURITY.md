@@ -204,8 +204,12 @@ whose configuration and hooks name programs git runs), and to `opencode.json` in
 ([opencode-permissions.md](../validation/opencode-permissions.md)). Shell commands ask the
 person (the owner's decision of 2026-10-08), whatever any settings file says, and the approval
 shows where the command runs and the command the model gave, whole, or offers only Deny when that
-is not known; other edits need no press. A plugin, the person's or a repository's, runs as code in
-the server and can change a command after it was shown or turn the ask off. Approving a command
+is not known; other edits need no press. A repository's own OpenCode configuration never loads:
+the adapter launches the server with OpenCode's switch that skips the project's folder and every
+folder above it, so its `opencode.json`, `.opencode` plugins and MCP servers, `.claude` and
+`.agents` take no effect (runtime verified). A plugin in the person's own OpenCode settings, used
+when Halcyonic's own are not set up, runs as code in the server and can change a command after it
+was shown or turn the ask off. Approving a command
 such as `npm test` also runs whatever the project's files now hold, which edits change without a
 press. The ask
 depends on OpenCode's parse of the command: OpenCode raises it for the commands its parse finds,

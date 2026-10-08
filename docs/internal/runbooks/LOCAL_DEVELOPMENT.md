@@ -77,8 +77,9 @@ which only you can read or change, and Halcyonic reads it when it starts
 
    OpenCode then starts on that model when none is chosen; your own OpenCode settings are left as
    they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code Mode, web fetch,
-   web search and subagents turned off, cannot edit hidden files such as `.git` or `.gitignore`
-   itself, and asks you about shell commands, which is how its
+   web search and subagents turned off, ignores the project's own OpenCode configuration and
+   plugins, cannot edit hidden files such as `.git` or `.gitignore` itself, and asks you about
+   shell commands, which is how its
    approvals reach the headset ([opencode-permissions.md](../validation/opencode-permissions.md)
    says what the ask covers). Codex gets the same model in a home of its own, `~/.halcyonic/codex-home`:
    it runs only on models this Mac serves, never signed in, and your own `~/.codex` is left as it

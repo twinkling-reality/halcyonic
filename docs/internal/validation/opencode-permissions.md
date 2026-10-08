@@ -252,9 +252,9 @@ commands; edits do not ask; subagents stay denied.
   `execute.before` hook can change a tool's input after `session.tool.called` was published
   (`core/src/tool.ts`); a `permission` `evaluate` hook can turn an ask into an allow
   (`core/src/permission.ts`); a session hook can rename the shell tool, so the adapter never
-  learns its command and offers only Deny. Halcyonic configures none; a repository's
-  `.opencode/plugins` or the person's own plugins load as code in the server whatever the rules
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+  learns its command and offers only Deny. Halcyonic configures none, and since 2026-10-08 a
+  repository's own plugins never load (below); plugins in the person's own OpenCode settings, used
+  when Halcyonic's own settings are not set up, load as code in the server whatever the rules.
 - **The approval shows the command the model gave, whole.** OpenCode's ask lists `resources`: the
   commands its parse of the command line found, each as the text of its node. Those can leave out
   what the command does: `echo start && printf ran > ran.txt` was listed as `echo start` and
@@ -340,6 +340,31 @@ commands; edits do not ask; subagents stay denied.
   ordinary file is written, and none of them asks. The
   sandbox's own settings no longer ask before shell, so every approval test in the suite rests on
   the session's rule.
+
+## A repository's own configuration never loads (2026-10-08)
+
+- **Built:** the adapter launches every OpenCode server with `OPENCODE_DISABLE_PROJECT_CONFIG` and
+  its other name `OPENCODE_CONFIG_PROJECT_DISABLE` set to `true` (the second wins when both are
+  set, `cli/src/server-process.ts:109-113`); configuration may set neither. OpenCode then skips its
+  search of the task's folder and every folder above it (`core/src/config/discovery.ts:33-36`):
+  no `opencode.json` or `opencode.jsonc`, `.opencode` (plugins, agents, commands, settings),
+  `.claude` or `.agents` there contributes anything, in any case of its letters. Still loaded: the
+  global configuration folder (Halcyonic's own when `HALCYONIC_OPENCODE_CONFIG_HOME` is set, which
+  holds only `opencode.json`; else the person's own, plugins included, which `pnpm mac-setup`'s
+  check says), and the skills in `~/.claude` and `~/.agents`, which are text the model reads
+  (`core/src/config/plugin/compatibility.ts`).
+- **Runtime, 2026-10-08:** a project holding an `opencode.json` with a rule denying `glob` and a
+  local MCP server that leaves a marker, and a `.opencode/plugins` file that leaves a marker when
+  loaded: in a Halcyonic task neither marker appeared and `glob` was offered; on a server launched
+  from the same folder without the switch, both markers appeared and `glob` was not offered.
+- **Cost:** a repository's OpenCode setup does not apply to Halcyonic's tasks: its models,
+  agents, commands, instructions and rules, and the skills in its own `.claude` and `.agents`.
+  The project's AGENTS.md is not loaded when the server starts either
+  (`core/src/config/plugin/instruction.ts`); OpenCode still adds a folder's AGENTS.md when the
+  agent reads a file there (`core/src/instance.ts`). Codex in an untrusted project loads none
+  either ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- The edit denies on hidden paths and `opencode.json` stay, so a task still cannot write those
+  files for a later server, or for the person's own OpenCode, to load.
 
 ## Not verified
 
