@@ -432,7 +432,7 @@ public class JudgeMenuWalkTests
         host.Press(MenuColumn.Menu, UsageColumn.OpenLimit, "0");
         (menu, _) = host.Draw();
         var side = menu!.Side ?? host.DrawnSides.Last();
-        Assert.That(side.Facts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.Seen, UsageText.Resets, UsageText.Account }));
+        Assert.That(side.Facts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
         Assert.That(side.Facts.Last().Value, Is.EqualTo("Part of the recording"));
 
         // Projects: the demonstration's own projects, nothing read from a computer.

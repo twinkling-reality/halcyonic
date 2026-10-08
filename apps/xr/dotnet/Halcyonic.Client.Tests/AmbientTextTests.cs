@@ -33,13 +33,14 @@ public class AmbientTextTests
     [Test]
     public void SaysWhichPanelIsStillOpenItsNameCutShort()
     {
-        Assert.That(AmbientText.StillOpen("Create a project"), Is.EqualTo("Still open: Create a project"));
+        // Halcyonic's words upright and first, the panel's name leaning last (lane V's treatment).
+        Assert.That(AmbientText.StillOpen("Create a project").ToString(), Is.EqualTo("Still open: [Create a project]"));
         var title = new string('T', 80);
-        Assert.That(AmbientText.StillOpen(title), Is.EqualTo("Still open: " + IntelligenceText.Truncate(title, AmbientText.StillOpenLimit)));
-        Assert.That(AmbientText.StillOpen(title).Length, Is.LessThan(50));
+        Assert.That(AmbientText.StillOpen(title).Text, Is.EqualTo("Still open: " + IntelligenceText.Truncate(title, AmbientText.StillOpenLimit)));
+        Assert.That(AmbientText.StillOpen(title).Text.Length, Is.LessThan(50));
         // Made plain before it is cut, so what it shows never runs past the limit or splits a code point.
         var hidden = new string('T', 25) + "\u202E" + new string('T', 20);
-        Assert.That(AmbientText.StillOpen(hidden), Is.EqualTo("Still open: " + new string('T', 25) + "…"));
+        Assert.That(AmbientText.StillOpen(hidden).Text, Is.EqualTo("Still open: " + new string('T', 25) + "…"));
     }
 
     [Test]

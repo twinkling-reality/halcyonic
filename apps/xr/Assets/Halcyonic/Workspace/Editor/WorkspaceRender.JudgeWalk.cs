@@ -311,14 +311,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 Shot("11 settings");
                 CloseSide();
 
-                // New project from Projects: the companion's recorded questions, quoted as its own, then its recap, which can't start here.
+                // New project from Projects: the companion's recorded questions, leaning as its own, then its recap, which can't start here.
                 Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Projects));
                 Press(MenuColumn.Menu, ProjectsScreens.NewProject);
                 Press(MenuColumn.File, NewProjectScreens.BeginCompanion);
                 if (flow?.Step != NewProjectStep.Questions) failures.Add(name + ": Talk it through did not bring the companion's recorded questions.");
-                else if (Shown(MenuColumn.File)?.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)) != true)
+                else if (Shown(MenuColumn.File)?.Lines.Any(line => line.Runs.AllTheirs && line.Action == null) != true)
                 {
-                    failures.Add(name + ": the companion's words are not quoted as its own.");
+                    failures.Add(name + ": the companion's words don't lean as its own.");
                 }
                 Shot("12 new project questions", lightLine: false);
                 if (flow?.Idea?.Companion is CompanionExchange exchange && companion.RecordedAnswer(exchange) is string answer)

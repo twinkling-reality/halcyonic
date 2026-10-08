@@ -633,7 +633,7 @@ public class DemonstrationSessionTests
         var lines = activity.For(execution.ExecutionId).Select(entry => entry.Text).ToList();
         Assert.That(lines, Has.Some.EqualTo("Asked to approve"));
         Assert.That(lines, Has.Some.EqualTo("Approved"));
-        Assert.That(lines, Has.Some.EqualTo("shell: make migrate"));
+        Assert.That(lines, Has.Some.EqualTo("Used shell: make migrate"));
         Assert.That(lines, Has.Some.EqualTo("Tests failed: 1 failed, 23 passed"));
         Assert.That(execution.LastTestRun!.Outcome, Is.EqualTo(TestOutcome.Failed));
 

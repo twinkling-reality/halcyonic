@@ -20,11 +20,18 @@ namespace Halcyonic.Client
     public sealed class ActivityEntry
     {
         public ActivityEntry(long position, string occurredAt, ActivityKind kind, string text, bool reported)
+            : this(position, occurredAt, kind, reported ? LineWords.Theirs(text) : LineWords.Written(text), reported)
+        {
+        }
+
+        /// <param name="words">What it says as runs: Halcyonic's words upright, a name, a title or the agent's message from outside leaning.</param>
+        public ActivityEntry(long position, string occurredAt, ActivityKind kind, LineWords words, bool reported)
         {
             Position = position;
             OccurredAt = occurredAt;
             Kind = kind;
-            Text = text;
+            Words = words;
+            Text = words.Text;
             Reported = reported;
         }
 
@@ -35,6 +42,9 @@ namespace Halcyonic.Client
         public ActivityKind Kind { get; }
 
         public string Text { get; }
+
+        /// <summary>What it says as runs, outside text shown by <see cref="LabelText"/>'s rule.</summary>
+        public LineWords Words { get; }
 
         /// <summary>The text is a claim made in agent output, not an observed fact.</summary>
         public bool Reported { get; }
@@ -99,20 +109,23 @@ namespace Halcyonic.Client
         private ActivityEntry? Describe(StoredEvent stored)
         {
             var e = stored.Event;
-            ActivityEntry Entry(ActivityKind kind, string text, bool reported = false) =>
-                new ActivityEntry(stored.Position, e.OccurredAt, kind, text, reported);
+            ActivityEntry Entry(ActivityKind kind, string text) => Said(kind, LineWords.Written(text));
+            ActivityEntry Said(ActivityKind kind, LineWords words, bool reported = false) =>
+                new ActivityEntry(stored.Position, e.OccurredAt, kind, words, reported);
+            LineWords Ours(string words) => LineWords.Written(words);
 
             switch (e)
             {
                 case ExecutionCreatedEvent created:
                     // Recorded when the control plane accepts the start, before the runtime has started anything.
                     if (e.ExecutionId != null) runtimeNames[e.ExecutionId] = created.Payload.Runtime.DisplayName;
-                    return Entry(ActivityKind.Lifecycle, "Asked " + created.Payload.Runtime.DisplayName + " to start");
+                    // Theirs last, so a name never stands where Halcyonic's words do (settled 2026-10-08).
+                    return Said(ActivityKind.Lifecycle, Ours("Asked to start on ") + LineWords.TheirName(created.Payload.Runtime.DisplayName));
                 case RuntimeExecutionStartedEvent _:
                     // Started only once the runtime says so.
-                    return Entry(ActivityKind.Lifecycle, e.ExecutionId != null && runtimeNames.TryGetValue(e.ExecutionId, out var runtime)
-                        ? "Started on " + runtime
-                        : "Started");
+                    return Said(ActivityKind.Lifecycle, e.ExecutionId != null && runtimeNames.TryGetValue(e.ExecutionId, out var runtime)
+                        ? Ours("Started on ") + LineWords.TheirName(runtime)
+                        : Ours("Started"));
                 case ExecutionStartFailedEvent failed:
                     // The message is the agent app's or the control plane's own; a folder's problem is said by its code.
                     return Entry(ActivityKind.Lifecycle, WorkspaceText.WhyFailed(failed.Payload.Error.Code, running: false) is string why
@@ -131,21 +144,26 @@ namespace Halcyonic.Client
                 case RuntimeTurnInterruptedEvent _:
                     return Entry(ActivityKind.Turn, "Round stopped");
                 case RuntimeAgentMessageEvent message:
-                    return Entry(ActivityKind.Message, message.Payload.Text, reported: true);
+                    return Said(ActivityKind.Message, LineWords.Theirs(message.Payload.Text), reported: true);
                 case RuntimeToolStartedEvent tool:
                     toolNames[ToolKey(e, tool.Payload.ToolCallId)] = tool.Payload.ToolName;
-                    return Entry(ActivityKind.Tool, tool.Payload.Title == null ? tool.Payload.ToolName : tool.Payload.ToolName + ": " + tool.Payload.Title);
+                    // Halcyonic's word first, so a tool named "Approved" never reads as Halcyonic's own entry (settled 2026-10-08).
+                    var used = Ours("Used ") + LineWords.TheirName(tool.Payload.ToolName);
+                    return Said(ActivityKind.Tool, LineWords.Theirs(tool.Payload.Title) is { IsEmpty: false } title ? used + Ours(": ") + title : used);
                 case RuntimeToolCompletedEvent toolDone:
-                    var name = toolNames.TryGetValue(ToolKey(e, toolDone.Payload.ToolCallId), out var known) ? known : "A tool";
-                    return Entry(ActivityKind.Tool, name + (toolDone.Payload.Outcome == ToolOutcome.Succeeded ? " succeeded" : " failed"));
+                    var succeeded = toolDone.Payload.Outcome == ToolOutcome.Succeeded;
+                    return Said(ActivityKind.Tool, toolNames.TryGetValue(ToolKey(e, toolDone.Payload.ToolCallId), out var known)
+                        ? Ours(succeeded ? "Succeeded: " : "Failed: ") + LineWords.TheirName(known)
+                        : Ours(succeeded ? "A tool succeeded" : "A tool failed"));
                 case RuntimeTestRunStartedEvent tests:
-                    return Entry(ActivityKind.TestRun, tests.Payload.Label == null ? "Tests started" : "Tests started: " + tests.Payload.Label);
+                    return Said(ActivityKind.TestRun, LineWords.Theirs(tests.Payload.Label) is { IsEmpty: false } label ? Ours("Tests started: ") + label : Ours("Tests started"));
                 case RuntimeTestRunCompletedEvent testsDone:
-                    return Entry(ActivityKind.TestRun, "Tests " + TestWord(testsDone.Payload.Outcome) + (testsDone.Payload.Summary == null ? "" : ": " + testsDone.Payload.Summary));
+                    var ran = Ours("Tests " + TestWord(testsDone.Payload.Outcome));
+                    return Said(ActivityKind.TestRun, LineWords.Theirs(testsDone.Payload.Summary) is { IsEmpty: false } summary ? ran + Ours(": ") + summary : ran);
                 case RuntimeApprovalRequestedEvent approval:
-                    return Entry(ActivityKind.Approval, approval.Payload.Subject is ToolUseSubject subject
-                        ? "Approval requested to use " + subject.ToolName + ": " + subject.Summary
-                        : "Approval requested");
+                    return Said(ActivityKind.Approval, approval.Payload.Subject is ToolUseSubject subject
+                        ? Ours("Approval requested to use ") + LineWords.TheirName(subject.ToolName) + Ours(": ") + LineWords.Theirs(subject.Summary)
+                        : Ours("Approval requested"));
                 case RuntimeApprovalResolvedEvent resolved:
                     return Entry(ActivityKind.Approval, resolved.Payload.Decision == ApprovalResolution.Approved ? "Approved" : "Denied");
                 case RuntimeConnectionLostEvent lost:

@@ -104,10 +104,10 @@ namespace Halcyonic.Client
             screen.QuestionPage = page.OfQuestion;
             var lines = page.Lines.ToList();
             if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
+            // The task's title leans in its plate, which is its ground; the pill on its edge stays upright.
             return new MenuFrame(
-                workspace.Character.Title,
+                LineWords.TheirName(workspace.Character.Title),
                 page.Footer,
-                subjectIsData: true,
                 pill: StateLanguage.BadgeOf(workspace.Character),
                 sections: Sections(workspace, screen.Section),
                 lines: lines,
@@ -202,7 +202,7 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>();
             var waiting = WorkspaceText.SomethingWaits(workspace);
             var tone = waiting ? LineTone.Waiting : workspace.Character.AttentionNotes.Count > 0 ? LineTone.Problem : LineTone.Primary;
-            foreach (var line in Doing(workspace)) lines.Add(new PageLine(line, wordsAreData: !waiting, tone: tone, rows: line == NothingWaits ? 1 : 2));
+            lines.AddRange(Doing(workspace, waiting, tone));
             if (normal.Reason == null && !normal.All.Any(each => each.Prompt.Kind == PromptKind.Action) && WorkspaceText.WhyNoActions(workspace) is string why)
             {
                 lines.Add(new PageLine(why, tone: LineTone.Secondary, rows: 2));
@@ -218,13 +218,13 @@ namespace Halcyonic.Client
             for (var index = Math.Max(0, activity.Count - fits); index < activity.Count; index++)
             {
                 var entry = activity[index];
-                lines.Add(new PageLine(
-                    entry.Reported ? "“" + WorkspaceText.OneLine(entry.Text) + "”" : WorkspaceText.OneLine(entry.Text),
-                    wordsAreData: true,
-                    fact: Clock(entry.OccurredAt, screen.Zone),
-                    tone: LineTone.Secondary,
-                    chip: entry.Reported ? "Agent says" : null,
-                    claim: entry.Reported));
+                // Halcyonic's words upright, a name, a title or the agent's message leaning; the agent's under
+                // Halcyonic's quote mark with "Agent says" as its class, never quoted (settled 2026-10-08).
+                var time = Clock(entry.OccurredAt, screen.Zone);
+                lines.Add(entry.Words.AnyTheirs
+                    ? new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null)
+                    // A line of Halcyonic's own words alone, as it always was: one row of the log, which may end in an ellipsis.
+                    : new PageLine(entry.Text, wordsAreData: true, fact: time, tone: LineTone.Secondary));
             }
             return new Page(lines, source, normal);
         }
@@ -233,13 +233,22 @@ namespace Halcyonic.Client
         /// What it is doing, in a line or two: what waits for the person names the section it is in, and
         /// while nothing does, the latest of the work is the log's last line, so it is said only without one.
         /// </summary>
-        private static IReadOnlyList<string> Doing(WorkspacePresentation workspace)
+        private static IReadOnlyList<PageLine> Doing(WorkspacePresentation workspace, bool waiting, LineTone tone)
         {
-            if (workspace.ApprovalToAnswer != null) return new[] { "It wants your approval. See it under " + Word(FileSection.Waiting) + "." };
-            if (workspace.QuestionToAnswer != null) return new[] { "It asks you a question. See it under " + Word(FileSection.Waiting) + "." };
-            var answer = WorkspaceText.Answer(workspace);
-            return answer.Count == 2 && answer[0] == NothingWaits && workspace.Activity.Count > 0 && !workspace.Character.Stale ? new[] { NothingWaits } : answer;
+            PageLine Said(string words) => new PageLine(words, wordsAreData: !waiting, tone: tone, rows: words == NothingWaits ? 1 : 2);
+            if (workspace.ApprovalToAnswer != null) return new[] { Said("It wants your approval. See it under " + Word(FileSection.Waiting) + ".") };
+            if (workspace.QuestionToAnswer != null) return new[] { Said("It asks you a question. See it under " + Word(FileSection.Waiting) + ".") };
+            // A tool's name, a command, a question or a check's summary in a reason leans, last (lane V's treatment).
+            var attention = workspace.Character.AttentionNoteRuns;
+            if (attention.Count > 0) return attention.Select(note => note.AnyTheirs ? new PageLine(note, tone: tone, rows: 2) : Said(note.Text)).ToList();
+            if (workspace.Activity.Count > 0 && !workspace.Character.Stale) return new[] { Said(NothingWaits) };
+            // A name or the agent's message in the latest line leans, and the agent's carries "Agent says" (settled 2026-10-08).
+            var (latest, reported) = WorkspaceText.Latest(workspace);
+            return new[] { Said(NothingWaits), new PageLine(latest, tone: tone, chip: reported ? AgentSays : null, rows: 2) };
         }
+
+        /// <summary>The chip on the agent's own words in Activity and Doing: its class, beside its words, which lean.</summary>
+        private const string AgentSays = "Agent says";
 
         /// <summary>Activity's footer: Close, Stop beside it, Hold to talk beside Tell it, and Tell it as the main action.</summary>
         private static Footer ActivityFooter(WorkspacePresentation workspace, FileScreen screen)
@@ -398,20 +407,36 @@ namespace Halcyonic.Client
         /// inside an answer, as Seorak's part's, in the secondary colour. With <paramref name="opens"/>,
         /// pressing it opens the full answer beside the page.
         /// </summary>
-        internal static PageLine Line(SectionLine line, AnswerRoom room, string? opens = null, bool chosen = false) => new PageLine(
-            line.Words,
-            // A source line inside an answer carries the source's own words, its version or why it could
-            // not be read, so it is data, as every class but Halcyonic's own is.
-            wordsAreData: line.Source || line.Evidence != Evidence.Halcyonic,
-            icon: line.File is FileKind kind ? Icon(kind) : (GlazeIcon?)null,
-            tone: line.Source || line.Detail ? LineTone.Secondary : Tone(line.Tone),
-            chip: line.Chip,
-            claim: line.Tone == SectionTone.Claim,
-            action: opens == null ? null : Open,
-            key: opens,
-            opens: opens != null,
-            chosen: chosen && opens != null,
-            rows: room.RowsOf(line));
+        internal static PageLine Line(SectionLine line, AnswerRoom room, string? opens = null, bool chosen = false) =>
+            Line(line, room.RowsOf(line), opens, chosen);
+
+        /// <summary>
+        /// An answer's line as a page line in <paramref name="rows"/>, as the page draws it and the file
+        /// column measures it: outside text in it leaning on Halcyonic's ground, beside its chip, never
+        /// quoted; a line of Halcyonic's words alone as it always was.
+        /// </summary>
+        internal static PageLine Line(SectionLine line, int rows, string? opens = null, bool chosen = false)
+        {
+            var icon = line.File is FileKind kind ? Icon(kind) : (GlazeIcon?)null;
+            var tone = line.Source || line.Detail ? LineTone.Secondary : Tone(line.Tone);
+            var action = opens == null ? null : Open;
+            return line.Runs.AnyTheirs
+                ? new PageLine(line.Runs, icon: icon, tone: tone, chip: line.Chip, action: action, key: opens, opens: opens != null, chosen: chosen && opens != null,
+                    rows: rows)
+                : new PageLine(
+                    line.Words,
+                    // A source line inside an answer carries the source's own words, its version or why it could
+                    // not be read, so it is data, as every class but Halcyonic's own is.
+                    wordsAreData: line.Source || line.Evidence != Evidence.Halcyonic,
+                    icon: icon,
+                    tone: tone,
+                    chip: line.Chip,
+                    action: action,
+                    key: opens,
+                    opens: opens != null,
+                    chosen: chosen && opens != null,
+                    rows: rows);
+        }
 
         /// <summary>A changed file's generic glyph by its kind (ADR 0026), never a language's or a product's mark.</summary>
         public static GlazeIcon Icon(FileKind kind) => kind switch

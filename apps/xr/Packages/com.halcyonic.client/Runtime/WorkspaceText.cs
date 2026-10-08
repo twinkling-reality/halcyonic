@@ -376,6 +376,9 @@ namespace Halcyonic.Client
             new PresetInstruction("Run checks again", "Run the tests again and report the results."),
         };
 
+        /// <summary>The system keyboard's prompt for an instruction: Halcyonic's words alone, since the keyboard draws it with no lean (settled 2026-10-08).</summary>
+        public const string TellItPrompt = "What to tell it";
+
         /// <summary>What the workspace says while the system keyboard is open.</summary>
         public const string TypingPrompt = "Type what to tell it, then press Enter.";
 
@@ -695,6 +698,20 @@ namespace Halcyonic.Client
         /// itself shown as its code point.
         /// </summary>
         public static string OneLine(string text) => LabelText.Plain(text);
+
+        /// <summary>
+        /// The latest of the work as a file's Doing says it while nothing waits, as runs: "Latest: " and
+        /// the log's last line other than a round's, a name or the agent's message in it leaning, or the
+        /// task's state; "Last known. " first where the state is stale. Reported where it is the agent's
+        /// message, which the line marks with "Agent says" (settled 2026-10-08).
+        /// </summary>
+        public static (LineWords Words, bool Reported) Latest(WorkspacePresentation workspace)
+        {
+            var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
+            var line = LineWords.Written("Latest: ") + (latest == null ? LineWords.Written(workspace.Character.StatusLabel) : latest.Words);
+            if (workspace.Character.Stale) line = LineWords.Written("Last known. ") + line;
+            return (line, latest?.Reported == true);
+        }
 
         /// <summary>An activity entry in one line, agent text quoted as the agent's.</summary>
         public static string Describe(ActivityEntry entry) =>

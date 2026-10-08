@@ -55,9 +55,6 @@ namespace Halcyonic.XR.UI
         private GlazeShimmer reasonShimmer = null!;
         private TextMeshPro source = null!;
 
-        /// <summary>Where outside text stands in each label's words as shown, to lean them (<see cref="Lean"/>).</summary>
-        private readonly Dictionary<TMP_Text, IReadOnlyList<(int Start, int End)>> leanings = new Dictionary<TMP_Text, IReadOnlyList<(int, int)>>();
-
         /// <summary>The grounds under outside text in the subject, and in the source line.</summary>
         private readonly List<Surface> subjectGrounds = new List<Surface>();
         private readonly List<Surface> sourceGrounds = new List<Surface>();
@@ -188,6 +185,31 @@ namespace Halcyonic.XR.UI
                 if ((frame?.SourceIsData ?? side?.SourceIsData ?? false) && source.gameObject.activeSelf) yield return source;
             }
         }
+
+        /// <summary>
+        /// Every page line shown, for the renders' checks of words from outside: its model, the label of
+        /// its words, its icon where one shows, and the grounds drawn under its words and its fact.
+        /// </summary>
+        public IEnumerable<(PageLine Model, TextMeshPro Words, TextMeshPro? Icon, TextMeshPro? Fact, IReadOnlyList<Surface> Grounds)> ShownLines
+        {
+            get
+            {
+                foreach (var line in lines)
+                {
+                    if (line.Model == null || !line.Words.gameObject.activeSelf) continue;
+                    yield return (line.Model, line.Words, line.Icon.gameObject.activeSelf ? line.Icon : null,
+                        line.Fact.gameObject.activeSelf ? line.Fact : null, line.Grounds.ToList());
+                }
+            }
+        }
+
+        /// <summary>The subject's title and the grounds under outside text in it, for the renders' checks.</summary>
+        public (TextMeshPro Title, IReadOnlyList<Surface> Grounds) SubjectShown => (subjectTitle, subjectGrounds.Where(ground => ground.gameObject.activeSelf).ToList());
+
+        /// <summary>Every prompt's and section's label, which hold Halcyonic's words alone, for the renders' checks.</summary>
+        public IEnumerable<TMP_Text> OursOnly =>
+            sections.Where(section => section.Words.gameObject.activeSelf).Select(section => (TMP_Text)section.Words)
+                .Concat(footer.GetComponentsInChildren<TMP_Text>(false));
 
         /// <summary>The content's glass, whose light must end above its first target.</summary>
         public Surface Content => content;
@@ -795,9 +817,8 @@ namespace Halcyonic.XR.UI
             var padding = U(Glaze.Menu.PaddingDegrees);
             var left = -width / 2f + padding;
             var room = width - 2f * padding;
-            var theirs = SetRuns(subjectTitle, words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
-            Lean(subjectTitle, theirs);
+            var theirs = GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
             var (rows, _) = GlazeText.Lay(subjectTitle, room, SubjectRows);
             var titleHeight = Mathf.Max(1, rows) * GlazeText.LineHeight(subjectTitle);
             var top = subjectHeight / 2f;
@@ -810,7 +831,7 @@ namespace Halcyonic.XR.UI
             // In the plate, under the pill's lower half, centred.
             var inner = Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));
-            TokenGrounds(subjectTitle, words.AllTheirs ? Array.Empty<(int, int)>() : theirs, subjectGrounds, subjectPart);
+            GlazeRuns.TokenGrounds(subjectTitle, words.AllTheirs ? Array.Empty<(int, int)>() : theirs, subjectGrounds, subjectPart, Order + 1);
             pill.gameObject.SetActive(badge != null);
             if (badge != null)
             {
@@ -952,8 +973,7 @@ namespace Halcyonic.XR.UI
                 if (from != null)
                 {
                     var (foot, theirs) = NoteRuns(source, from, left, right, y - group, NoteRows);
-                    Lean(source, theirs);
-                    TokenGrounds(source, theirs, sourceGrounds, contentPart);
+                    GlazeRuns.TokenGrounds(source, theirs, sourceGrounds, contentPart, Order + 2);
                     y = foot;
                 }
                 return y;
@@ -977,8 +997,7 @@ namespace Halcyonic.XR.UI
             line.ShowFact(fact.ValueIsData);
             var y = Note(line.Name, fact.Name, left, right, top, 1) - U(Glaze.Menu.LabelToValueDegrees);
             var (foot, theirs) = NoteRuns(line.Words, fact.ValueRuns, left, right, y, FactRows);
-            line.Leaning = theirs;
-            TokenGrounds(line.Words, theirs, line.WordGrounds, contentPart);
+            GlazeRuns.TokenGrounds(line.Words, theirs, line.WordGrounds, contentPart, Order + 2);
             return foot;
         }
 
@@ -1023,10 +1042,9 @@ namespace Halcyonic.XR.UI
                 var kept = FactRoom(model, right - left);
                 var (_, factTheirs) = Small(line.Fact, model.FactRuns!, end, middle, center, zoom,
                     ColourOf(model.Tone == LineTone.Waiting ? LineTone.Waiting : LineTone.Secondary, model.Available), kept);
-                Lean(line.Fact, factTheirs);
                 // A row all of outside text needs no ground: its quote mark, or its icon, marks it beside Halcyonic's rows.
                 var allTheirs = model.Runs.AllTheirs && model.FactRuns!.AllTheirs;
-                TokenGrounds(line.Fact, role != null && allTheirs ? Array.Empty<(int, int)>() : factTheirs, line.FactGrounds, contentPart);
+                GlazeRuns.TokenGrounds(line.Fact, role != null && allTheirs ? Array.Empty<(int, int)>() : factTheirs, line.FactGrounds, contentPart, Order + 2);
                 line.FactMayCut = model.FactIsData;
                 end -= kept + grid;
             }
@@ -1047,12 +1065,13 @@ namespace Halcyonic.XR.UI
             {
                 line.Icon.gameObject.SetActive(true);
                 GlazeIcons.Show(line.Icon, icon);
-                line.Icon.color = ColourOf(model.Tone, model.Available);
+                // Halcyonic's quote mark beside outside text stands in the secondary colour; any other icon carries the tone.
+                line.Icon.color = icon == GlazeIcon.Quote ? ColourOf(LineTone.Secondary, model.Available) : ColourOf(model.Tone, model.Available);
                 line.Icon.transform.localPosition = new Vector3(left + U(Glaze.Menu.IconColumnDegrees) / 2f, middle, -U(0.05f));
                 wordsLeft = left + U(Glaze.Menu.IconColumnDegrees) + grid;
             }
             line.Words.color = ColourOf(carried && model.Tone != LineTone.Secondary ? LineTone.Primary : model.Tone, model.Available);
-            line.Leaning = theirs;
+            GlazeRuns.Of(line.Words).Lean(theirs);
             // A line that says what is under way, as "Sending…", shimmers while it shows (ADR 0027).
             line.Shimmer.Waits = model.Waits;
             line.MayCut = model.WordsAreData;
@@ -1074,13 +1093,11 @@ namespace Halcyonic.XR.UI
             if (model.Runs.AllTheirs || model.Claim)
             {
                 if (row) return;
-                var pad = U(GroundPadDegrees);
-                var ground = line.BlockGround();
-                ground.Draw(new Vector2(right - left + 2f * pad, height + 2f * pad), U(Glaze.Menu.GridDegrees), GroundColour);
-                ground.transform.localPosition = new Vector3((left + right) / 2f, middle, -U(0.04f));
+                var pad = GlazeRuns.GroundPadding;
+                GlazeRuns.DrawGround(line.BlockGround(), new Vector2(right - left + 2f * pad, height + 2f * pad), new Vector3((left + right) / 2f, middle, -U(0.04f)));
                 return;
             }
-            TokenGrounds(line.Words, theirs, line.WordGrounds, contentPart);
+            GlazeRuns.TokenGrounds(line.Words, theirs, line.WordGrounds, contentPart, Order + 2);
         }
 
         /// <summary>A line all of outside text that only says something: a block, on a ground of its own.</summary>
@@ -1092,19 +1109,13 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void JoinBlock(Line first, Line next, float left, float right, float top, float foot)
         {
-            var pad = U(GroundPadDegrees);
+            var pad = GlazeRuns.GroundPadding;
             foreach (var ground in next.Grounds.ToList()) ground.gameObject.SetActive(false);
             next.Icon.gameObject.SetActive(false);
-            var ground0 = first.BlockGround();
-            ground0.Draw(new Vector2(right - left + 2f * pad, top - foot + 2f * pad), U(Glaze.Menu.GridDegrees), GroundColour);
-            ground0.transform.localPosition = new Vector3((left + right) / 2f, (top + foot) / 2f, -U(0.04f));
+            GlazeRuns.DrawGround(first.BlockGround(), new Vector2(right - left + 2f * pad, top - foot + 2f * pad), new Vector3((left + right) / 2f, (top + foot) / 2f, -U(0.04f)));
         }
 
-        /// <summary>How far a ground reaches past the words it holds, so its edges stand clear of their letters.</summary>
-        private const float GroundPadDegrees = 0.15f;
 
-        /// <summary>The ground's fill: white, faint on the glass (lane V's 7.5 percent), so the words on it read first.</summary>
-        private static Color GroundColour => new Color(1f, 1f, 1f, 0.075f);
 
         /// <summary>
         /// Lays a line's words in <paramref name="room"/>: from their start, ending in an ellipsis past
@@ -1158,7 +1169,7 @@ namespace Halcyonic.XR.UI
             label.gameObject.SetActive(true);
             label.fontSize = GlazeTokens.FontSize(U(degrees));
             label.color = colour;
-            var theirs = SetRuns(label, words, text => label.GetPreferredValues(text).x <= most);
+            var theirs = GlazeRuns.Of(label).Set(words, text => label.GetPreferredValues(text).x <= most);
             var wide = Mathf.Min(label.GetPreferredValues(label.text).x, most);
             GlazeText.Lay(label, wide + U(0.1f), 1);
             var tall = GlazeText.LineHeight(label);
@@ -1179,74 +1190,20 @@ namespace Halcyonic.XR.UI
             };
         }
 
-        /// <summary>Lays words from <paramref name="top"/> down, left-aligned, in at most <paramref name="rows"/> rows; returns their foot.</summary>
         /// <summary>
         /// Lays runs from <paramref name="top"/> down, left-aligned, in at most <paramref name="rows"/> rows,
-        /// cut inside outside text before Halcyonic's words; returns their foot and where outside text stands.
+        /// cut inside outside text before Halcyonic's words and leaning it; returns their foot and where outside text stands.
         /// </summary>
-        private (float Foot, IReadOnlyList<(int Start, int End)> Theirs) NoteRuns(TextMeshPro label, LineWords words, float left, float right, float top, int rows)
+        private static (float Foot, IReadOnlyList<(int Start, int End)> Theirs) NoteRuns(TextMeshPro label, LineWords words, float left, float right, float top, int rows)
         {
             label.gameObject.SetActive(true);
-            var theirs = SetRuns(label, words, shown => GlazeText.Lay(label, right - left, Unlimited).Lines <= rows);
+            var theirs = GlazeRuns.Of(label).Set(words, shown => GlazeText.Lay(label, right - left, Unlimited).Lines <= rows);
             var (count, _) = GlazeText.Lay(label, right - left, rows);
             label.transform.localPosition = new Vector3(left, top, -U(0.05f));
             return (top - Mathf.Max(1, count) * GlazeText.LineHeight(label), theirs);
         }
 
-        /// <summary>
-        /// Sets <paramref name="words"/> on a label with rich text off and escape parsing on, cut inside
-        /// outside text where Halcyonic's words follow it and the whole doesn't <paramref name="fits"/>
-        /// (<see cref="LineWords.CutToFit"/>); returns where outside text stands in the label's text.
-        /// </summary>
-        private static IReadOnlyList<(int Start, int End)> SetRuns(TMP_Text label, LineWords words, Func<string, bool> fits)
-        {
-            label.richText = false;
-            label.parseCtrlCharacters = true;
-            if (words.OursAfterTheirs)
-            {
-                words = words.CutToFit(tried =>
-                {
-                    var text = tried.ForTextMeshPro().Text;
-                    label.text = text;
-                    return fits(text);
-                });
-            }
-            var (shown, theirs) = words.ForTextMeshPro();
-            label.text = shown;
-            return theirs;
-        }
-
-        /// <summary>Leans the letters of outside text on <paramref name="label"/>, where <paramref name="theirs"/> says it stands; a change draws them again.</summary>
-        private void Lean(TMP_Text label, IReadOnlyList<(int Start, int End)> theirs)
-        {
-            if (!leanings.TryGetValue(label, out var before))
-            {
-                label.OnPreRenderText += info =>
-                {
-                    if (leanings.TryGetValue(label, out var ranges) && ranges.Count > 0) GlazeText.Lean(info, ranges);
-                };
-                before = Array.Empty<(int, int)>();
-            }
-            leanings[label] = theirs;
-            if (!before.SequenceEqual(theirs)) label.havePropertiesChanged = true;
-        }
-
-        /// <summary>A ground hugging each run of outside text on <paramref name="label"/>, on each row it reaches, from <paramref name="pool"/> under <paramref name="parent"/>.</summary>
-        private static void TokenGrounds(TMP_Text label, IReadOnlyList<(int Start, int End)> theirs, List<Surface> pool, Transform parent)
-        {
-            var boxes = theirs.Count == 0 ? new List<Rect>() : GlazeText.RunBoxes(label, theirs);
-            while (pool.Count < boxes.Count) pool.Add(Surface.Create(parent, label.name + " ground " + pool.Count, Order + 2));
-            var at = label.transform.localPosition;
-            for (var index = 0; index < pool.Count; index++)
-            {
-                pool[index].gameObject.SetActive(index < boxes.Count);
-                if (index >= boxes.Count) continue;
-                var box = boxes[index];
-                pool[index].Draw(new Vector2(box.width + 2f * U(GroundPadDegrees), box.height), U(Glaze.Menu.GridDegrees), GroundColour);
-                pool[index].transform.localPosition = new Vector3(at.x + box.center.x, at.y + box.center.y, -U(0.04f));
-            }
-        }
-
+        /// <summary>Lays words from <paramref name="top"/> down, left-aligned, in at most <paramref name="rows"/> rows; returns their foot.</summary>
         private static float Note(TextMeshPro label, string words, float left, float right, float top, int rows = NoteRows)
         {
             label.gameObject.SetActive(true);
@@ -1325,7 +1282,6 @@ namespace Halcyonic.XR.UI
             private readonly Transform parent;
             private readonly string name;
             private PageLine? model;
-            private IReadOnlyList<(int Start, int End)> leaning = Array.Empty<(int, int)>();
 
             public Line(Transform parent, string name)
             {
@@ -1333,10 +1289,6 @@ namespace Halcyonic.XR.UI
                 this.name = name;
                 Icon = GlazeIcons.Create(parent, name + " icon", Glaze.Menu.BodyDegrees, GlazeTokens.Text, Order + 3);
                 Words = Label(name + " words", GlazeTokens.Text);
-                Words.OnPreRenderText += info =>
-                {
-                    if (leaning.Count > 0) GlazeText.Lean(info, leaning);
-                };
                 Shimmer = GlazeShimmer.On(Words);
                 Name = Label(name + " name", GlazeTokens.TextSecondary);
                 Fact = Label(name + " fact", GlazeTokens.TextSecondary);
@@ -1369,22 +1321,14 @@ namespace Halcyonic.XR.UI
 
             public GlazeButton? Button { get; private set; }
 
+            /// <summary>The page line it shows, or null while hidden.</summary>
+            public PageLine? Model => model;
+
             /// <summary>The words are text from outside, which may end in an ellipsis.</summary>
             public bool MayCut { get; set; }
 
             /// <summary>The small fact is text from outside, which may end in an ellipsis past its share of the line.</summary>
             public bool FactMayCut { get; set; }
-
-            /// <summary>Where outside text stands in the words as shown, which leans; a change draws them again.</summary>
-            public IReadOnlyList<(int Start, int End)> Leaning
-            {
-                set
-                {
-                    if (leaning.SequenceEqual(value)) return;
-                    leaning = value;
-                    Words.havePropertiesChanged = true;
-                }
-            }
 
             /// <summary>The grounds under outside text in its words, and in its small fact.</summary>
             public List<Surface> WordGrounds { get; } = new List<Surface>();
@@ -1435,7 +1379,7 @@ namespace Halcyonic.XR.UI
                 Name.gameObject.SetActive(true);
                 Words.gameObject.SetActive(true);
                 Words.color = GlazeTokens.Text;
-                Leaning = Array.Empty<(int, int)>();
+                GlazeRuns.Of(Words).Lean(Array.Empty<(int, int)>());
             }
 
             public void Hide()

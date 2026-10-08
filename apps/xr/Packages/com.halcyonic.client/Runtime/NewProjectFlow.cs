@@ -534,7 +534,7 @@ namespace Halcyonic.Client
                     if (current.OwnWords != null) ideaRow = IdeaRow.Typed;
                     break;
                 case NewProjectScreens.TypeIdea:
-                    host.OpenKeyboard(current.OwnWords ?? "", current.ExistingProjectId == null ? EntryText.IdeaPrompt : EntryText.WorkPrompt, text =>
+                    host.OpenKeyboard(LabelText.Plain(current.OwnWords), current.ExistingProjectId == null ? EntryText.IdeaPrompt : EntryText.WorkPrompt, text =>
                     {
                         if (text.Trim().Length == 0) return;
                         current.UseIdea(text);
@@ -574,7 +574,7 @@ namespace Halcyonic.Client
                     if (exchange.Written != null) exchange.Write(exchange.Written, exchange.WrittenHeard);
                     break;
                 case NewProjectScreens.TypeAnswer when exchange != null && recording == null:
-                    host.OpenKeyboard(exchange.Written ?? "", CompanionText.TypeAnswer, text =>
+                    host.OpenKeyboard(LabelText.Plain(exchange.Written), CompanionText.TypeAnswer, text =>
                     {
                         if (!exchange.Write(text))
                         {
@@ -610,7 +610,7 @@ namespace Halcyonic.Client
                     break;
                 case NewProjectScreens.TypeFixedAnswer when current.Question < ProjectIdea.Questions.Count:
                     var asked = current.Question;
-                    host.OpenKeyboard(current.GuideWritten ?? "", ProjectIdea.Questions[asked].Prompt, text =>
+                    host.OpenKeyboard(LabelText.Plain(current.GuideWritten), ProjectIdea.Questions[asked].Prompt, text =>
                     {
                         if (current.Question == asked) current.WriteGuideAnswer(text);
                         Done();
@@ -690,7 +690,7 @@ namespace Halcyonic.Client
                     // Shown only once it holds the task, which is then the one chosen.
                     break;
                 case NewProjectScreens.TypeTask:
-                    host.OpenKeyboard(current.FirstTask, EntryText.WhatFirstTask, text =>
+                    host.OpenKeyboard(LabelText.Plain(current.FirstTask), EntryText.WhatFirstTask, text =>
                     {
                         current.Rewrite(text);
                         said = null;
@@ -713,7 +713,7 @@ namespace Halcyonic.Client
                     showModels = false;
                     break;
                 case NewProjectScreens.TypeWords:
-                    host.OpenKeyboard(written ?? WordsNow(current) ?? "", WordsPrompt(), text =>
+                    host.OpenKeyboard(LabelText.Plain(written ?? WordsNow(current)), WordsPrompt(), text =>
                     {
                         written = text;
                         writtenHeard = false;
@@ -974,8 +974,7 @@ namespace Halcyonic.Client
             else if (byRow) lines.Add(new PageLine(EntryText.NextPage(linePage, pages), icon: GlazeIcon.Next, action: NewProjectScreens.NextPage,
                 key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             var side = opens >= from && opens < to ? frame.Side : null;
-            return new MenuFrame(frame.Subject, footer, frame.SubjectIsData, frame.Pill, frame.Sections, lines, frame.Source, side, frame.SourceIsData,
-                frame.SubjectWaits);
+            return frame.With(footer, lines, side);
         }
 
         /// <summary>Where each page of <paramref name="all"/> starts: whole lines in order, at least one a page, as many as <paramref name="room"/> holds.</summary>
@@ -1042,8 +1041,7 @@ namespace Halcyonic.Client
                 footer = new Footer(footer[PromptSlot.Close], farRight: new Prompt(clear.Id, clear.Words, clear.Icon, main: true, available: false,
                     reason: EntryText.ReadToPart(unresolvedParts)));
             }
-            return new MenuFrame(frame.Subject, footer, frame.SubjectIsData, frame.Pill, frame.Sections, lines, frame.Source, frame.Side, frame.SourceIsData,
-                frame.SubjectWaits);
+            return frame.With(footer, lines, frame.Side);
         }
 
         /// <summary>
@@ -1528,7 +1526,7 @@ namespace Halcyonic.Client
         /// </summary>
         private int ReviewPartRows()
         {
-            var subject = Math.Max(1, host.TitleRows(NewProjectScreens.Subject(idea!).Subject, Glaze.Menu.FileColumnDegrees));
+            var subject = Math.Max(1, host.TitleRows(NewProjectScreens.Subject(idea!).Text, Glaze.Menu.FileColumnDegrees));
             var room = host.PageHeight(subject, besideMenu: false) - MenuPage.Words(1) - MenuPage.Target() - 2f * MenuPage.GroupGap;
             return Math.Max(1, (int)Math.Floor(room / (MenuPage.Words(1) + MenuPage.Grid)));
         }

@@ -106,7 +106,7 @@ namespace Halcyonic.Client
         private static IReadOnlyList<SectionLine> WhatChangedBrief(Understanding understanding)
         {
             var changes = understanding.Changes;
-            var lines = new List<SectionLine> { new SectionLine("observed", Count(changes), SectionTone.Normal) };
+            var lines = new List<SectionLine> { CountLine(changes) };
             if (changes.Files.Count == 0) return lines;
             var unverified = understanding.Verification.UnverifiedFiles.Count;
             lines.Add(unverified == 0
@@ -138,7 +138,7 @@ namespace Halcyonic.Client
                 return new[]
                 {
                     new SectionLine("", "No reason given before it changed " + Names(files.Select(file => file.Path)), SectionTone.Secondary, rows: 2,
-                        evidence: Evidence.Observed),
+                        evidence: Evidence.Observed, said: Ours("No reason given before it changed ") + NamesRuns(files.Select(file => file.Path))),
                 };
             }
             var latest = reasons[reasons.Count - 1];
@@ -161,7 +161,7 @@ namespace Halcyonic.Client
             if (content == null) return new[] { new SectionLine("", NoFlow(explanation.Status), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed) };
             return new[]
             {
-                new SectionLine("explained", Quoted(content.How.Summary), SectionTone.Claim, rows: 2),
+                new SectionLine("explained", Quoted(content.How.Summary), SectionTone.Claim, rows: 2, said: Theirs(content.How.Summary)),
                 explanation.Current
                     ? new SectionLine("", "Explained by a model, up to date", SectionTone.Secondary)
                     : new SectionLine("", "Explained by a model before the latest evidence", SectionTone.Secondary),
@@ -178,8 +178,8 @@ namespace Halcyonic.Client
             var changes = understanding.Changes;
             var page = room.Page();
             // The source observes paths, counts and kinds.
-            page.Add(new SectionLine("observed", Count(changes), SectionTone.Normal));
-            if (Revision(understanding.Revision) is string revision) page.Add(new SectionLine("observed", revision, SectionTone.Secondary));
+            page.Add(CountLine(changes));
+            if (RevisionRuns(understanding.Revision) is LineWords revision) page.Add(new SectionLine("observed", revision.Text, SectionTone.Secondary, said: revision));
             // Each file by its name and its counts, which a long path would push past the line's end, and the path
             // in its repository on a line of its own beneath (the outside-text audit's gap 13).
             var shown = Shown(changes.Files);
@@ -187,10 +187,11 @@ namespace Halcyonic.Client
             {
                 // The name cut at 40, as a branch is, so its counts after it always show.
                 var line = new SectionLine("observed", KindOf(file.Kinds) + ": " + IntelligenceText.Truncate(shown[index], 40) + " " + LinesOf(file), SectionTone.Normal,
-                    file: FileKinds.Of(file.RepositoryPath ?? file.Path));
+                    file: FileKinds.Of(file.RepositoryPath ?? file.Path),
+                    said: Ours(KindOf(file.Kinds) + ": ") + LineWords.TheirName(IntelligenceText.Truncate(shown[index], 40)) + Ours(" " + LinesOf(file)));
                 var path = file.RepositoryPath is string inRepository ? IntelligenceText.Plain(inRepository) : null;
                 return path != null && path != shown[index]
-                    ? new[] { line, new SectionLine("observed", path, SectionTone.Secondary, detail: true) }
+                    ? new[] { line, new SectionLine("observed", path, SectionTone.Secondary, detail: true, said: Theirs(path)) }
                     : (IReadOnlyList<SectionLine>)new[] { line };
             }).ToList();
             var coverage = Coverage(understanding);
@@ -199,8 +200,9 @@ namespace Halcyonic.Client
             if (coverage != null) page.Add(coverage);
             if (changes.Commits.Count > 0)
             {
-                page.AddIfRoom(new SectionLine("observed", IntelligenceText.Plural(changes.Commits.Count, "commit") + ": "
-                    + string.Join(", ", changes.Commits.Select(commit => ShortSha(commit.Sha))), SectionTone.Normal));
+                var commits = changes.Commits.Select(commit => LineWords.TheirName(ShortSha(commit.Sha))).Aggregate((said, next) => said + Ours(", ") + next);
+                page.AddIfRoom(new SectionLine("observed", IntelligenceText.Plural(changes.Commits.Count, "commit") + ": " + commits.Text, SectionTone.Normal,
+                    said: Ours(IntelligenceText.Plural(changes.Commits.Count, "commit") + ": ") + commits));
             }
             foreach (var item in understanding.Remaining.Items) page.AddIfRoom(Remaining(item));
             return page.Lines;
@@ -232,14 +234,15 @@ namespace Halcyonic.Client
                     {
                         QuoteLine(statement, rows: 2),
                         new SectionLine("", "Said before it changed " + Names(reason.Select(file => file.Path)), SectionTone.Secondary, detail: true, rows: 1,
-                            evidence: Evidence.Observed),
+                            evidence: Evidence.Observed, said: Ours("Said before it changed ") + NamesRuns(reason.Select(file => file.Path))),
                     };
                 })
                 .ToList();
             var unexplained = files.Where(file => file.Reason == null).Select(file => file.Path).ToList();
             var none = unexplained.Count == 0
                 ? null
-                : new SectionLine("", "No reason given before it changed " + Names(unexplained), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed);
+                : new SectionLine("", "No reason given before it changed " + Names(unexplained), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed,
+                    said: Ours("No reason given before it changed ") + NamesRuns(unexplained));
             page.AddCounted(reasons, more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more reason") + " it gave", SectionTone.Secondary),
                 reserve: none);
             if (none != null) page.Add(none);
@@ -272,13 +275,14 @@ namespace Halcyonic.Client
             void Step(string title, string? theirs, IEnumerable<SectionLine> body)
             {
                 lines.Add(new SectionLine("", title + note, noteTone, startsPage: true, repeats: true));
-                if (theirs != null) lines.Add(new SectionLine("explained", Quoted(theirs), SectionTone.Claim, repeats: true));
+                if (theirs != null) lines.Add(new SectionLine("explained", Quoted(theirs), SectionTone.Claim, repeats: true, said: Theirs(theirs)));
                 lines.AddRange(body);
             }
-            // The model's words in quotes, Halcyonic's lead before them outside the quotes.
+            // The model's words leaning, Halcyonic's lead before them upright.
             // Blank words leave the whole line blank, Halcyonic's lead too, so the line is left out.
             SectionLine Claim(string lead, string theirs, int rows = 2) =>
-                new SectionLine("explained", Quoted(theirs).Length == 0 ? "" : lead + Quoted(theirs), SectionTone.Claim, rows: rows);
+                new SectionLine("explained", Quoted(theirs).Length == 0 ? "" : lead + Quoted(theirs), SectionTone.Claim, rows: rows,
+                    said: Theirs(theirs).IsEmpty ? LineWords.None : Ours(lead) + Theirs(theirs));
             IEnumerable<SectionLine> Numbered(IReadOnlyList<string> steps) =>
                 steps.Select((step, index) => Claim((index + 1).ToString(CultureInfo.InvariantCulture) + ". ", step, rows: 1));
 
@@ -341,19 +345,24 @@ namespace Halcyonic.Client
         /// </summary>
         private static void AddEvidence(AnswerPage page, Understanding understanding, TimeZoneInfo zone)
         {
-            page.Add(new SectionLine("observed", Count(understanding.Changes), SectionTone.Normal));
+            page.Add(CountLine(understanding.Changes));
             var coverage = Coverage(understanding);
             if (coverage != null) page.Add(coverage);
             var runs = Runs(understanding);
             if (runs.Count == 0)
             {
-                page.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary, evidence: Evidence.Observed));
+                page.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary,
+                    evidence: Evidence.Observed, said: SummaryOr(understanding.Verification.Summary)));
             }
             page.AddCounted(runs.Select(run => Run(run, zone)).ToList(),
                 more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more check"), SectionTone.Secondary));
         }
 
         /// <summary>"3 files changed: 1 new, 2 edited", or the source's own words when none did.</summary>
+        /// <summary>The count of what changed as a line: the source's own sentence, leaning, where no file changed.</summary>
+        private static SectionLine CountLine(UnderstandingChanges changes) =>
+            new SectionLine("observed", Count(changes), SectionTone.Normal, said: changes.Files.Count == 0 ? Theirs(changes.Summary) : null);
+
         internal static string Count(UnderstandingChanges changes)
         {
             if (changes.Files.Count == 0) return IntelligenceText.Plain(changes.Summary);
@@ -421,28 +430,32 @@ namespace Halcyonic.Client
         /// Which commit the work started from and stands at, as the source saw it at the session's
         /// boundaries: "From commit 3f9a2c1 to 8b1e4d7 on main". Null when the source saw neither.
         /// </summary>
-        internal static string? Revision(UnderstandingRevision revision)
+        internal static string? Revision(UnderstandingRevision revision) => RevisionRuns(revision)?.Text;
+
+        /// <summary>Which commit the work started from and stands at, as runs: commits and branches leaning, Halcyonic's words upright.</summary>
+        internal static LineWords? RevisionRuns(UnderstandingRevision revision)
         {
             var start = revision.AtStart;
             var latest = revision.AtLatestTurnEnd;
-            string Commit(UnderstandingRevisionAnchor anchor) => anchor.Head == null ? "a repository with no commits yet" : "commit " + ShortSha(anchor.Head);
-            string On(UnderstandingRevisionAnchor anchor) => anchor.Branch == null ? "" : " on " + Branch(anchor.Branch);
+            LineWords Sha(string head) => LineWords.TheirName(ShortSha(head));
+            LineWords Commit(UnderstandingRevisionAnchor anchor) => anchor.Head == null ? Ours("a repository with no commits yet") : Ours("commit ") + Sha(anchor.Head);
+            LineWords On(UnderstandingRevisionAnchor anchor) => anchor.Branch == null ? LineWords.None : Ours(" on ") + LineWords.TheirName(Branch(anchor.Branch));
             // A repository with no commits yet has no commit to stand at: "In a repository with no
             // commits yet, on main".
-            string Empty(UnderstandingRevisionAnchor anchor) =>
-                "a repository with no commits yet" + (anchor.Branch == null ? "" : ", on " + Branch(anchor.Branch));
+            LineWords Empty(UnderstandingRevisionAnchor anchor) =>
+                Ours("a repository with no commits yet") + (anchor.Branch == null ? LineWords.None : Ours(", on ") + LineWords.TheirName(Branch(anchor.Branch)));
             if (start != null && latest != null)
             {
                 if (start.Head == latest.Head)
                 {
-                    return latest.Head == null ? "In " + Empty(latest) : "At " + Commit(latest) + On(latest) + ", where it started";
+                    return latest.Head == null ? Ours("In ") + Empty(latest) : Ours("At ") + Commit(latest) + On(latest) + Ours(", where it started");
                 }
-                if (latest.Head == null) return "In " + Empty(latest);
-                var startBranch = start.Branch == latest.Branch ? "" : On(start);
-                return "From " + Commit(start) + startBranch + " to " + ShortSha(latest.Head) + On(latest);
+                if (latest.Head == null) return Ours("In ") + Empty(latest);
+                var startBranch = start.Branch == latest.Branch ? LineWords.None : On(start);
+                return Ours("From ") + Commit(start) + startBranch + Ours(" to ") + Sha(latest.Head) + On(latest);
             }
-            if (latest != null) return latest.Head == null ? "In " + Empty(latest) : "At " + Commit(latest) + On(latest);
-            if (start != null) return start.Head == null ? "Started in " + Empty(start) : "Started at " + Commit(start) + On(start);
+            if (latest != null) return latest.Head == null ? Ours("In ") + Empty(latest) : Ours("At ") + Commit(latest) + On(latest);
+            if (start != null) return start.Head == null ? Ours("Started in ") + Empty(start) : Ours("Started at ") + Commit(start) + On(start);
             return null;
         }
 
@@ -470,12 +483,21 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Files by name, the first few, then how many more.</summary>
-        internal static string Names(IEnumerable<string> paths)
+        internal static string Names(IEnumerable<string> paths) => NamesRuns(paths).Text;
+
+        /// <summary>Files by name as runs, each name leaning, Halcyonic's commas, "and" and count upright.</summary>
+        internal static LineWords NamesRuns(IEnumerable<string> paths)
         {
             var tails = PathTails(paths.ToList());
             const int Shown = 3;
-            if (tails.Count <= Shown) return string.Join(", ", tails.Take(tails.Count - 1)) + (tails.Count > 1 ? " and " : "") + tails[tails.Count - 1];
-            return string.Join(", ", tails.Take(Shown)) + " and " + IntelligenceText.Plural(tails.Count - Shown, "more file");
+            var named = tails.Take(Math.Min(tails.Count, Shown)).Select(LineWords.TheirName).ToList();
+            var said = LineWords.None;
+            for (var index = 0; index < named.Count; index++)
+            {
+                if (index > 0) said += Ours(tails.Count <= Shown && index == named.Count - 1 ? " and " : ", ");
+                said += named[index];
+            }
+            return tails.Count <= Shown ? said : said + Ours(" and " + IntelligenceText.Plural(tails.Count - Shown, "more file"));
         }
 
         /// <summary>A branch's name, cut at 40 characters so the line's words around it stay whole.</summary>
@@ -493,11 +515,11 @@ namespace Halcyonic.Client
             if (files.Count == 0) return null;
             var unverified = understanding.Verification.UnverifiedFiles;
             var by = files.Select(file => file.Coverage.By).FirstOrDefault(value => value != null);
-            var text = unverified.Count == 0
-                ? "Every changed file was checked after its last change" + (by == null ? "" : ", by " + IntelligenceText.Plain(by))
-                : IntelligenceText.Plural(unverified.Count, "file") + " not checked after the last change: " + Names(unverified);
+            var said = unverified.Count == 0
+                ? Ours("Every changed file was checked after its last change") + (Theirs(by) is { IsEmpty: false } who ? Ours(", by ") + who : LineWords.None)
+                : Ours(IntelligenceText.Plural(unverified.Count, "file") + " not checked after the last change: ") + NamesRuns(unverified);
             // Coverage is always the source's inference.
-            return new SectionLine("inferred", text, SectionTone.Normal);
+            return new SectionLine("inferred", said.Text, SectionTone.Normal, said: said);
         }
 
         /// <summary>The latest run of each kind of check, the earliest first.</summary>
@@ -514,32 +536,32 @@ namespace Halcyonic.Client
             var at = At(run.At);
             var since = ChangedSince(run, files);
             var before = files.Where(file => At(file.LastChangedAt) <= at).OrderByDescending(file => At(file.LastChangedAt)).FirstOrDefault();
-            string after;
+            LineWords after;
             // Files changed since read in the normal tone, plainer than the change it ran after:
             // amber is for what waits for the person only.
             var tone = SectionTone.Secondary;
             if (since.Count > 0)
             {
-                after = "Then " + Names(since) + " changed, so it no longer covers " + (since.Count == 1 ? "it" : "them");
+                after = Ours("Then ") + NamesRuns(since) + Ours(" changed, so it no longer covers " + (since.Count == 1 ? "it" : "them"));
                 tone = SectionTone.Normal;
             }
             else if (run.Stale)
             {
-                after = "Files changed after it ran, so it no longer covers them";
+                after = Ours("Files changed after it ran, so it no longer covers them");
                 tone = SectionTone.Normal;
             }
             else if (before != null)
             {
-                after = "Ran after the last change, to " + PathTails(new[] { before.Path })[0] + " at "
-                    + IntelligenceText.Clock(At(before.LastChangedAt), zone, seconds: false);
+                after = Ours("Ran after the last change, to ") + LineWords.TheirName(PathTails(new[] { before.Path })[0]) + Ours(" at "
+                    + IntelligenceText.Clock(At(before.LastChangedAt), zone, seconds: false));
             }
             else
             {
-                after = "Ran before any file changed";
+                after = Ours("Ran before any file changed");
             }
-            if (run.LaterUnreadable > 0) after += "; " + IntelligenceText.Plural(run.LaterUnreadable, "later run") + " couldn't be read";
+            if (run.LaterUnreadable > 0) after += Ours("; " + IntelligenceText.Plural(run.LaterUnreadable, "later run") + " couldn't be read");
             // From the times the source observed.
-            yield return new SectionLine("", after, tone, detail: true, evidence: Evidence.Observed);
+            yield return new SectionLine("", after.Text, tone, detail: true, evidence: Evidence.Observed, said: after);
         }
 
         /// <summary>The files that changed after a check ran, by the times the source observed.</summary>
@@ -567,7 +589,9 @@ namespace Halcyonic.Client
                 _ => ("outcome unknown", SectionTone.Secondary),
             };
             var when = IntelligenceText.TryParse(run.At, out var at) ? " at " + IntelligenceText.Clock(at, zone, seconds: false) : "";
-            return new SectionLine(Word(run.Epistemic), method + " " + outcome + when + ": " + IntelligenceText.Plain(run.Label), tone);
+            // Halcyonic's outcome first, the source's label for the run last, leaning.
+            return new SectionLine(Word(run.Epistemic), method + " " + outcome + when + ": " + IntelligenceText.Plain(run.Label), tone,
+                said: Theirs(run.Label) is { IsEmpty: false } label ? Ours(method + " " + outcome + when + ": ") + label : Ours(method + " " + outcome + when));
         }
 
         internal static SectionLine Remaining(UnderstandingRemainingItem item)
@@ -584,24 +608,25 @@ namespace Halcyonic.Client
                     _ => "To do",
                 };
                 return new SectionLine("reported", lead + ", the agent says: “" + text + "”", SectionTone.Claim,
-                    words: lead + ": “" + text + "”", chip: "Agent says");
+                    chip: "Agent says", said: Ours(lead + ": ") + Theirs(text));
             }
             if (item.Source == UnderstandingRemainingItemSource.Agent)
             {
-                return new SectionLine("reported", "Still to do, the agent says: “" + text + "”", SectionTone.Claim, words: "Still to do: “" + text + "”", chip: "Agent says");
+                return new SectionLine("reported", "Still to do, the agent says: “" + text + "”", SectionTone.Claim, chip: "Agent says", said: Ours("Still to do: ") + Theirs(text));
             }
             return item.Status switch
             {
                 // Said to be the agent's, so reported whichever source passed it on.
                 UnderstandingRemainingItemStatus.Reported => new SectionLine("reported", "Still to do, the agent says: “" + text + "”", SectionTone.Claim,
-                    words: "Still to do: “" + text + "”", chip: "Agent says"),
-                UnderstandingRemainingItemStatus.Failing => new SectionLine(Word(item.Epistemic), "Failing: " + text, SectionTone.Problem),
-                UnderstandingRemainingItemStatus.InProgress => new SectionLine(Word(item.Epistemic), "In progress: " + text, SectionTone.Normal),
+                    chip: "Agent says", said: Ours("Still to do: ") + Theirs(text)),
+                UnderstandingRemainingItemStatus.Failing => new SectionLine(Word(item.Epistemic), "Failing: " + text, SectionTone.Problem, said: Ours("Failing: ") + Theirs(text)),
+                UnderstandingRemainingItemStatus.InProgress => new SectionLine(Word(item.Epistemic), "In progress: " + text, SectionTone.Normal,
+                    said: Ours("In progress: ") + Theirs(text)),
                 _ => new SectionLine(Word(item.Epistemic),
                     (item.Source == UnderstandingRemainingItemSource.Plan ? "Planned, not done: " : "To do: ") + text, SectionTone.Normal,
-                    words: item.Source == UnderstandingRemainingItemSource.Plan && SectionLine.EvidenceOf(Word(item.Epistemic)) == Evidence.Planned
-                        ? "Not done: " + text
-                        : null),
+                    said: Ours(item.Source == UnderstandingRemainingItemSource.Plan && SectionLine.EvidenceOf(Word(item.Epistemic)) == Evidence.Planned
+                        ? "Not done: "
+                        : item.Source == UnderstandingRemainingItemSource.Plan ? "Planned, not done: " : "To do: ") + Theirs(text)),
             };
         }
 
@@ -625,9 +650,19 @@ namespace Halcyonic.Client
                     _ => "Author unknown",
                 }
                 : SectionLine.ChipOf(evidence);
+            // Beside its chip, the words alone, leaning on Halcyonic's ground, never quoted (settled 2026-10-08).
             return new SectionLine(tag, (lead ?? "") + Quote(statement), SectionTone.Claim, rows: rows, evidence: evidence,
-                words: (lead ?? "") + quoted, chip: chip);
+                chip: chip, said: Ours(lead ?? "") + Theirs(statement.Text));
         }
+
+        /// <summary>Halcyonic's own words as a run, upright.</summary>
+        private static LineWords Ours(string words) => LineWords.Written(words);
+
+        /// <summary>Text from outside as a run, leaning on Halcyonic's ground.</summary>
+        private static LineWords Theirs(string? text) => LineWords.Theirs(text);
+
+        /// <summary>A source's sentence where nothing ran, outside text, or Halcyonic's "Nothing measured." where it shows as nothing.</summary>
+        internal static LineWords SummaryOr(string? summary) => Theirs(summary) is { IsEmpty: false } said ? said : Ours(IntelligenceText.NothingMeasured);
 
         /// <summary>A model's or a source's words in quotes, made plain; blank words stay blank, so their line is left out.</summary>
         internal static string Quoted(string? text) => string.IsNullOrWhiteSpace(text) ? "" : "“" + IntelligenceText.Plain(text) + "”";
@@ -733,7 +768,11 @@ namespace Halcyonic.Client
             var source = understanding.Source;
             var runs = UnderstandingPresenter.Runs(understanding);
             var lines = new List<SectionLine>();
-            if (runs.Count == 0) lines.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary, evidence: Evidence.Observed));
+            if (runs.Count == 0)
+            {
+                lines.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary,
+                    evidence: Evidence.Observed, said: UnderstandingPresenter.SummaryOr(understanding.Verification.Summary)));
+            }
             else
             {
                 var run = runs[runs.Count - 1];
@@ -759,7 +798,8 @@ namespace Halcyonic.Client
             var runs = UnderstandingPresenter.Runs(understanding);
             if (runs.Count == 0)
             {
-                page.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary, evidence: Evidence.Observed));
+                page.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary,
+                    evidence: Evidence.Observed, said: UnderstandingPresenter.SummaryOr(understanding.Verification.Summary)));
             }
             var coverage = UnderstandingPresenter.Coverage(understanding);
             page.AddCounted(runs.Select(run => (IReadOnlyList<SectionLine>)UnderstandingPresenter.Run(run, understanding.Changes.Files, zone).ToList()).ToList(),
@@ -770,7 +810,10 @@ namespace Halcyonic.Client
             {
                 var labels = string.Join("; ", review.Groups.Take(2).Select(group => IntelligenceText.Plain(group.Label)));
                 var first = review.Groups[0].Items.Count > 0 ? UnderstandingPresenter.Word(review.Groups[0].Items[0].Epistemic) : "";
-                page.AddIfRoom(new SectionLine(first, IntelligenceText.Plain(review.Summary) + ": " + labels, SectionTone.Normal, rows: 2));
+                // The source's summary and its groups' labels, each on its own ground, Halcyonic's punctuation between.
+                var said = review.Groups.Take(2).Select(group => LineWords.Theirs(group.Label)).Where(label => !label.IsEmpty)
+                    .Aggregate(LineWords.Theirs(review.Summary) + LineWords.Ours(": "), (line, label) => line.Runs.Last().Theirs ? line + LineWords.Ours("; ") + label : line + label);
+                page.AddIfRoom(new SectionLine(first, IntelligenceText.Plain(review.Summary) + ": " + labels, SectionTone.Normal, rows: 2, said: said));
             }
             var statement = understanding.Verification.Statements.LastOrDefault();
             if (statement != null)

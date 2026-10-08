@@ -141,6 +141,19 @@ namespace Halcyonic.Client
         /// </summary>
         /// <param name="name">How a name from the file system is shown: <see cref="LabelText.Name"/>, never empty, unless given, or as it is for a review that spells it itself.</param>
         /// <param name="startOfLine">Halcyonic's own first word capitalized, for a line of its own; a name from the file system stays as it is.</param>
+        /// <summary>The choice in words as runs (<see cref="Describe"/>): Halcyonic's upright, a place's or a folder's name leaning.</summary>
+        /// <param name="name">How a name from the file system becomes a run: <see cref="LineWords.TheirName"/> unless given, as the review gives it raw to spell itself.</param>
+        public LineWords DescribeRuns(bool startOfLine = false, Func<string, LineWords>? name = null)
+        {
+            name ??= LineWords.TheirName;
+            LineWords Ours(string words) => LineWords.Ours(words);
+            var root = PlaceGone ? Ours("a place " + HostText.Your + " no longer lists") : name(RootName);
+            if (FolderName == null) return Ours(startOfLine ? "Directly in " : "directly in ") + root;
+            var folder = name(FolderName);
+            if (IsNew) return Ours(startOfLine ? "A new folder, " : "a new folder, ") + folder + Ours(", in ") + root;
+            return folder + Ours(PlaceGone ? ", in " : " in ") + root;
+        }
+
         public string Describe(Func<string, string>? name = null, bool startOfLine = false)
         {
             name ??= LabelText.Name;
@@ -159,26 +172,46 @@ namespace Halcyonic.Client
         /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
         public static string NewFolderLabel(LocationRoot root) => "New folder in " + LabelText.Name(LabelOf(root));
 
+        /// <remarks>
+        /// Each option's words are runs (lane V's treatment): Halcyonic's upright, a place's or a folder's
+        /// name leaning. A name that looks like another option's words, a folder named "New folder in
+        /// Projects" or two folders alike, carries the look-alike mark Projects shows.
+        /// </remarks>
         public static IReadOnlyList<FolderOption> Options(LocationsResponse listing)
         {
             var options = new List<FolderOption>();
+            LineWords Ours(string words) => LineWords.Ours(words);
             foreach (var root in listing.Roots)
             {
-                var name = LabelText.Name(LabelOf(root));
+                var name = LineWords.TheirName(LabelOf(root));
                 if (root.Status != LocationRootStatus.Available)
                 {
-                    options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, "Not on " + HostText.Your + " right now"));
+                    options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, Ours("Not on " + HostText.Your + " right now")));
                     continue;
                 }
-                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, NewFolderLabel(root), HostText.YourStart + " makes a new, empty folder"));
-                options.Add(new FolderOption(root, null, FolderOptionKind.Root, "Directly in " + name, "Files go straight into " + name));
+                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, NewFolderRuns(root), Ours(HostText.YourStart + " makes a new, empty folder")));
+                options.Add(new FolderOption(root, null, FolderOptionKind.Root, Ours("Directly in ") + name, Ours("Files go straight into ") + name));
                 foreach (var folder in root.Folders)
                 {
-                    options.Add(new FolderOption(root, folder, FolderOptionKind.Folder, LabelText.Name(folder.Name), "In " + name));
+                    options.Add(new FolderOption(root, folder, FolderOptionKind.Folder, LineWords.TheirName(folder.Name), Ours("In ") + name));
+                }
+            }
+            // A folder's or a place's name that reads like another option's words, by the likeness Projects uses.
+            var likeness = options.Select(option => FolderConnect.Likeness(option.Label)).ToList();
+            for (var index = 0; index < options.Count; index++)
+            {
+                var option = options[index];
+                if (option.Kind != FolderOptionKind.Folder && option.Kind != FolderOptionKind.MissingRoot) continue;
+                if (likeness.Where((each, at) => at != index).Contains(likeness[index], StringComparer.Ordinal))
+                {
+                    options[index] = new FolderOption(option.Root, option.Folder, option.Kind, option.LabelRuns, Ours(ConnectText.LooksLikeAnother + " · ") + option.DetailRuns);
                 }
             }
             return options;
         }
+
+        /// <summary>A new folder's words in a place as runs: "New folder in " upright, the place's name leaning, last.</summary>
+        public static LineWords NewFolderRuns(LocationRoot root) => LineWords.Ours("New folder in ") + LineWords.TheirName(LabelOf(root));
     }
 
     public enum FolderOptionKind
@@ -199,14 +232,22 @@ namespace Halcyonic.Client
     /// <summary>One row of Where its files live: words by the one rule, and what choosing it means.</summary>
     public sealed class FolderOption
     {
-        public FolderOption(LocationRoot root, LocationFolder? folder, FolderOptionKind kind, string label, string detail)
+        public FolderOption(LocationRoot root, LocationFolder? folder, FolderOptionKind kind, LineWords label, LineWords detail)
         {
             Root = root;
             Folder = folder;
             Kind = kind;
-            Label = label;
-            Detail = detail;
+            LabelRuns = label;
+            DetailRuns = detail;
+            Label = label.Text;
+            Detail = detail.Text;
         }
+
+        /// <summary>Its words as runs, a name from the file system leaning.</summary>
+        public LineWords LabelRuns { get; }
+
+        /// <summary>Its fact as runs, a place's name leaning.</summary>
+        public LineWords DetailRuns { get; }
 
         public LocationRoot Root { get; }
 

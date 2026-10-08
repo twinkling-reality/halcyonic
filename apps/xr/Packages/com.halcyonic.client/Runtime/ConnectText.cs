@@ -25,8 +25,9 @@ namespace Halcyonic.Client
         public const string CheckWhichOne = "Another folder or project has a name that looks the same. Check where it is and when it changed to be sure it's the one you mean.";
 
         /// <summary>Connect waits while another folder's connection may still be on its way.</summary>
+        /// <remarks>It stands where a prompt's reason does, which holds Halcyonic's words alone, so it names no folder (proposed 2026-10-08).</remarks>
         public static string WaitingOn(ConnectableFolder other) =>
-            "Still waiting to hear whether " + Quoted(other.ProjectName) + " was connected. Connecting another folder waits until that's known.";
+            "Still waiting to hear whether the other folder was connected. Connecting another folder waits until that's known.";
 
         /// <summary>
         /// Connect waits on another folder's connection: still on its way, or sent with an outcome nobody
@@ -34,10 +35,10 @@ namespace Halcyonic.Client
         /// </summary>
         public static string WaitingOn(FolderConnection other) => other.Step.Status == BuildStepStatus.Waiting
             ? WaitingOn(other.Folder)
-            : "Not sure whether " + Quoted(other.Folder.ProjectName) + " was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart.";
+            : "Not sure whether the other folder was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart.";
 
-        /// <summary>A name from outside inside one of Halcyonic's sentences, quoted so it never reads as Halcyonic's words.</summary>
-        public static string Quoted(string name) => "\u201C" + WorkspaceText.Truncate(LabelText.Name(name), NameLimit) + "\u201D";
+        /// <summary>A name from outside inside one of Halcyonic's sentences, leaning on Halcyonic's ground so it never reads as Halcyonic's words.</summary>
+        public static LineWords Named(string name) => LineWords.TheirName(WorkspaceText.Truncate(LabelText.Name(name), NameLimit));
 
         /// <summary>The most of a name a sentence quotes, so Halcyonic's words after it, as what connecting changes, always show whole.</summary>
         public const int NameLimit = 40;
@@ -60,26 +61,36 @@ namespace Halcyonic.Client
 
         /// <summary>Above Connect: where the folder is, and what connecting does.</summary>
         /// <remarks>What connecting never changes comes first, so no name, however long, pushes it past the line's end.</remarks>
-        public static string WhatConnectingDoes(ConnectableFolder folder) =>
-            "Nothing in this folder changes until you add a task. "
-            + (folder.Folder == null ? "The folder " + Quoted(folder.RawName) + " itself" : "In " + Quoted(ProjectFolder.LabelOf(folder.Root)))
-            + ". Connecting makes a project called " + Quoted(folder.ProjectName) + " that works in this folder.";
+        public static string WhatConnectingDoes(ConnectableFolder folder) => WhatConnectingDoesRuns(folder).Text;
+
+        /// <summary>Above Connect, as runs: Halcyonic's words upright, the folder's, place's and project's names leaning.</summary>
+        public static LineWords WhatConnectingDoesRuns(ConnectableFolder folder) =>
+            LineWords.Ours("Nothing in this folder changes until you add a task. ")
+            + (folder.Folder == null ? LineWords.Ours("The folder ") + Named(folder.RawName) + LineWords.Ours(" itself") : LineWords.Ours("In ") + Named(ProjectFolder.LabelOf(folder.Root)))
+            + LineWords.Ours(". Connecting makes a project called ") + Named(folder.ProjectName) + LineWords.Ours(" that works in this folder.");
 
         /// <summary>How connecting went: sent is not done, and only the completed record confirms it.</summary>
-        public static string Outcome(FolderConnection connection)
+        public static string Outcome(FolderConnection connection) => OutcomeRuns(connection).Text;
+
+        /// <summary>How connecting went, as runs: a project's name leaning, everything else Halcyonic's.</summary>
+        public static LineWords OutcomeRuns(FolderConnection connection)
         {
             var step = connection.Step;
-            if (connection.Connected) return "Connected: " + Quoted(connection.Folder.ProjectName) + " is a project now. Add a task to start work in it.";
+            if (connection.Connected)
+            {
+                return LineWords.Ours("Connected: ") + Named(connection.Folder.ProjectName) + LineWords.Ours(" is a project now. Add a task to start work in it.");
+            }
+            LineWords Ours(string words) => LineWords.Written(words);
             return step.Status switch
             {
-                BuildStepStatus.Waiting => Connecting,
+                BuildStepStatus.Waiting => Ours(Connecting),
                 // Why, by its code, never the control plane's message.
-                BuildStepStatus.Refused when step.Refusal == Halcyonic.Contracts.RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
-                BuildStepStatus.Refused => WorkspaceText.Couldnt("Couldn't connect", WorkspaceText.WhyRefused(step.Refusal)),
+                BuildStepStatus.Refused when step.Refusal == Halcyonic.Contracts.RejectionCode.DeviceRevoked => Ours(ConnectionText.PairingRefused),
+                BuildStepStatus.Refused => Ours(WorkspaceText.Couldnt("Couldn't connect", WorkspaceText.WhyRefused(step.Refusal))),
                 // A failure that may have had an effect is never put in words that say nothing happened.
-                BuildStepStatus.Failed when !step.EffectUnknown => WorkspaceText.Couldnt("Couldn't connect", (EntryText.FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged),
-                BuildStepStatus.NotSent => NotConnectedYet,
-                _ => "Not sure whether " + Quoted(connection.Folder.ProjectName) + " was connected. Look for it in Projects.",
+                BuildStepStatus.Failed when !step.EffectUnknown => Ours(WorkspaceText.Couldnt("Couldn't connect", (EntryText.FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged)),
+                BuildStepStatus.NotSent => Ours(NotConnectedYet),
+                _ => Ours("Not sure whether ") + Named(connection.Folder.ProjectName) + Ours(" was connected. Look for it in Projects."),
             };
         }
 

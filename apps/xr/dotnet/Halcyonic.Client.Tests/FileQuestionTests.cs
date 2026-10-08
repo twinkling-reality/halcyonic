@@ -191,7 +191,8 @@ public class FileQuestionTests
         screen.Question.MoreAnswers(Later(screen));
         Assert.That(draft.Typed(0), Is.EqualTo("CockroachDB"), "the typed answer's row is on every page, so it stays");
         var typed = Screen(workspace, screen).Lines.Single(line => line.Action == FileScreens.TypeAnswer);
-        Assert.That((typed.Words, typed.Chosen, typed.WordsAreData), Is.EqualTo(("Your answer: “CockroachDB”", true, true)));
+        Assert.That((typed.Words, typed.Chosen, typed.WordsAreData), Is.EqualTo(("Your answer: CockroachDB", true, true)));
+        Assert.That(typed.Runs.ToString(), Is.EqualTo("Your answer: [CockroachDB]"), "the person's words lean, never quoted");
     }
 
     /// <summary>A page's height as its budget prices it: words, targets, the gaps between them, and its reason.</summary>
@@ -482,7 +483,8 @@ public class FileQuestionTests
         screen.Question.MeasureTyped(0, 4, 3);
         Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "a long typed answer too");
         var typed = Screen(workspace, screen);
-        Assert.That(typed.Side!.Lines.Single().Words, Is.EqualTo("“MariaDB with a long story about why it fits best for our case”"));
+        Assert.That(typed.Side!.Lines.Single().Words, Is.EqualTo("MariaDB with a long story about why it fits best for our case"));
+        Assert.That(typed.Side!.Lines.Single().Runs.AllTheirs, Is.True);
         Assert.That(typed.Side.Parts, Is.Null, "three rows fit one part");
         screen.Question.SideDrawn(clock);
         Assert.That(FileScreens.WhySendWaits(screen), Is.Null);

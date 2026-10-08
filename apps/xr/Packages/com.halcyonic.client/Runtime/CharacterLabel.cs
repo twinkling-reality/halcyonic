@@ -46,11 +46,12 @@ namespace Halcyonic.Client
         /// <summary>Said before the reason while the state is only the last known one.</summary>
         public const string LastKnown = "Last known";
 
-        private PeekCard(StateBadge badge, IReadOnlyList<WorkMark> marks, string reason, int moreReasons, string? next)
+        private PeekCard(StateBadge badge, IReadOnlyList<WorkMark> marks, string reason, int moreReasons, string? next, LineWords? reasonRuns = null)
         {
             Badge = badge;
             Marks = marks;
             Reason = reason;
+            ReasonRuns = reasonRuns ?? LineWords.Written(reason);
             MoreReasons = moreReasons;
             Next = next;
         }
@@ -64,6 +65,12 @@ namespace Halcyonic.Client
         /// empty. Text from outside, as <see cref="LabelText.Plain"/> shows it.
         /// </summary>
         public string Reason { get; }
+
+        /// <summary>
+        /// The reason as runs (lane V's treatment), for the stage's label to lean: Halcyonic's words upright,
+        /// a tool's name, a command, a check's summary or the agent's message leaning, with no quotes or lead.
+        /// </summary>
+        public LineWords ReasonRuns { get; }
 
         /// <summary>How many more reasons wait behind the first; 0 for one or none.</summary>
         public int MoreReasons { get; }
@@ -96,24 +103,30 @@ namespace Halcyonic.Client
             var character = workspace.Character;
             var badge = StateLanguage.BadgeOf(character);
             var reason = "";
+            var runs = LineWords.None;
             var more = 0;
             if (character.AttentionNotes.Count > 0)
             {
                 // The first reason with more to say than the state, and every other reason behind it.
                 // When none has, as for a failure that gave no reason, the state says it all.
-                var shown = character.AttentionDetails.FirstOrDefault(detail => detail.Length > 0);
-                if (shown != null)
+                var index = character.AttentionDetails.ToList().FindIndex(detail => detail.Length > 0);
+                if (index >= 0)
                 {
-                    reason = shown;
+                    reason = character.AttentionDetails[index];
+                    runs = character.AttentionDetailRuns[index];
                     more = character.AttentionNotes.Count - 1;
                 }
             }
             else
             {
                 var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
-                if (latest != null) reason = WorkspaceText.Describe(latest);
+                if (latest != null)
+                {
+                    reason = WorkspaceText.Describe(latest);
+                    runs = latest.Words;
+                }
             }
-            return new PeekCard(badge, StateLanguage.MarksOf(character), reason, more, NextOf(badge));
+            return new PeekCard(badge, StateLanguage.MarksOf(character), reason, more, NextOf(badge), runs);
         }
 
         /// <summary>
@@ -148,6 +161,7 @@ namespace Halcyonic.Client
             && other.Badge.Text == Badge.Text
             && other.Badge.LastKnown == Badge.LastKnown
             && other.Reason == Reason
+            && other.ReasonRuns.ToString() == ReasonRuns.ToString()
             && other.MoreReasons == MoreReasons
             && other.Next == Next
             && other.Marks.Select(mark => mark.Word).SequenceEqual(Marks.Select(mark => mark.Word));

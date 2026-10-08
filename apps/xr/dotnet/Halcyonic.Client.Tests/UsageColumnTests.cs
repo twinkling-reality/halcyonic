@@ -69,6 +69,7 @@ public class UsageColumnTests
         Assert.That(frame.Side!.Subject, Is.EqualTo("Claude Code, 5-hour window"));
         Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(new[]
         {
+            ("Agent app", "claude"),
             ("Seen", "Today at 19:08"),
             ("Resets", "Today at 21:05"),
             ("Account", "Part of the recording"),

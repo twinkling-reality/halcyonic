@@ -54,8 +54,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add("New project's " + what + " has four prompts (" + prompts + "); never four.");
                             continue;
                         }
-                        var shown = new MenuFrame(frame.Subject, footer, frame.SubjectIsData, frame.Pill, frame.Sections, frame.Lines, frame.Source, frame.Side,
-                            frame.SourceIsData, frame.SubjectWaits);
+                        var shown = frame.With(footer, frame.Lines, frame.Side);
                         var view = MenuFrameView.Create(root.transform, what);
                         view.Show(shown, Glaze.Menu.FileColumnDegrees, MenuFrameView.SubjectHeight(shown.Subject, Glaze.Menu.FileColumnDegrees, false), pillRoom: false);
                         var (needed, room) = view.Footer.Measure;

@@ -65,8 +65,12 @@ namespace Halcyonic.Client
         /// <param name="evidence">How it is known; from <paramref name="tag"/> when not given.</param>
         /// <param name="words">What it says beside its chip, without saying the chip again; <paramref name="text"/> when not given.</param>
         /// <param name="chip">Its chip's words; from its evidence when not given.</param>
+        /// <param name="said">
+        /// What it says beside its chip as runs, Halcyonic's words and outside text (<see cref="LineWords"/>),
+        /// which a file's page draws, outside text leaning; <paramref name="words"/> as Halcyonic's when not given.
+        /// </param>
         public SectionLine(string tag, string text, SectionTone tone, bool detail = false, int rows = 0, bool source = false, bool startsPage = false,
-            bool repeats = false, Evidence? evidence = null, string? words = null, string? chip = null, FileKind? file = null)
+            bool repeats = false, Evidence? evidence = null, string? words = null, string? chip = null, FileKind? file = null, LineWords? said = null)
         {
             Tag = tag;
             Text = text;
@@ -77,10 +81,14 @@ namespace Halcyonic.Client
             StartsPage = startsPage;
             Repeats = repeats;
             Evidence = evidence ?? (source ? Client.Evidence.Halcyonic : EvidenceOf(tag));
-            Words = words ?? text;
+            Words = said?.Text ?? words ?? text;
+            Runs = said ?? LineWords.Written(Words);
             Chip = chip ?? ChipOf(Evidence);
             File = file;
         }
+
+        /// <summary>What it says beside its chip as runs: outside text, a quote, a label or a name, leans on Halcyonic's ground.</summary>
+        public LineWords Runs { get; }
 
         /// <summary>The kind of the changed file the line names, for the generic glyph beside it; null for any other line.</summary>
         public FileKind? File { get; }
@@ -127,7 +135,7 @@ namespace Halcyonic.Client
         public SectionLine With(string? tag = null, string? text = null, string? words = null, string? chip = null, bool? startsPage = null,
             bool? repeats = null) =>
             new SectionLine(tag ?? Tag, text ?? Text, Tone, Detail, Rows, Source, startsPage ?? StartsPage, repeats ?? Repeats, Evidence, words ?? Words,
-                chip ?? Chip, File);
+                chip ?? Chip, File, words == null ? Runs : null);
 
         /// <summary>
         /// The claim's epistemic class in the source's own word ("observed", "reported", "inferred",
@@ -263,36 +271,42 @@ namespace Halcyonic.Client
             var lines = new List<SectionLine>();
             var verification = evaluation.Verification;
             var lens = verification.Lens;
+            // Each part's name heads its line in a file, where no tag is drawn (settled 2026-10-08): "Checks: ", "Cost: ", "Outcome: ".
+            var checks = LineWords.Written("Checks: ");
             if (lens == null)
             {
-                lines.Add(new SectionLine("Checks", "No verification lens.", SectionTone.Secondary));
+                lines.Add(new SectionLine("Checks", "No verification lens.", SectionTone.Secondary, said: checks + LineWords.Written("No verification lens.")));
             }
             else if (lens.ByKind.Count == 0)
             {
-                lines.Add(new SectionLine("Checks", IntelligenceText.PlainOr(lens.EmptyReason, IntelligenceText.NothingMeasured), SectionTone.Secondary));
+                lines.Add(new SectionLine("Checks", IntelligenceText.PlainOr(lens.EmptyReason, IntelligenceText.NothingMeasured), SectionTone.Secondary,
+                    said: checks + UnderstandingPresenter.SummaryOr(lens.EmptyReason)));
             }
             else
             {
-                lines.Add(new SectionLine("Checks", string.Join("; ", lens.ByKind.Select(Kind)), SectionTone.Normal));
+                var kinds = lens.ByKind.Select(KindRuns).Aggregate((said, next) => said + LineWords.Written("; ") + next);
+                lines.Add(new SectionLine("Checks", kinds.Text, SectionTone.Normal, said: checks + kinds));
             }
             lines.Add(Status(verification.Availability, verification.Coverage, verification.Freshness, now, zone));
 
             var cost = evaluation.Cost;
+            var costLead = LineWords.Written("Cost: ");
             lines.Add(cost.EstimatedUsd is double usd
-                ? new SectionLine("Cost", "About " + Money(usd) + ". " + IntelligenceText.Plain(cost.Note), SectionTone.Normal)
-                : new SectionLine("Cost", "Unknown: unpriced, or not measured yet.", SectionTone.Secondary));
+                ? new SectionLine("Cost", "About " + Money(usd) + ". " + IntelligenceText.Plain(cost.Note), SectionTone.Normal,
+                    said: costLead + LineWords.Written("About " + Money(usd) + ".") + (LineWords.Theirs(cost.Note) is { IsEmpty: false } note ? LineWords.Written(" ") + note : LineWords.None))
+                : new SectionLine("Cost", "Unknown: unpriced, or not measured yet.", SectionTone.Secondary, said: costLead + LineWords.Written("Unknown: unpriced, or not measured yet.")));
             lines.Add(Status(cost.Availability, cost.Coverage, cost.Freshness, now, zone));
 
             var outcome = evaluation.Outcome;
             var measure = outcome.Measure;
             if (measure == null)
             {
-                lines.Add(new SectionLine("Outcome", "Nothing measured yet.", SectionTone.Secondary));
+                lines.Add(new SectionLine("Outcome", "Nothing measured yet.", SectionTone.Secondary, said: LineWords.Written("Outcome: Nothing measured yet.")));
             }
             else
             {
-                lines.Add(new SectionLine("Outcome", Commits(measure.CommitsLanded) + " · " + Errors(measure, zone) + " · " + End(measure.EndReason),
-                    SectionTone.Normal));
+                var outcomeWords = Commits(measure.CommitsLanded) + " · " + Errors(measure, zone) + " · " + End(measure.EndReason);
+                lines.Add(new SectionLine("Outcome", outcomeWords, SectionTone.Normal, said: LineWords.Written("Outcome: " + outcomeWords)));
                 lines.Add(new SectionLine("", Uncommitted(measure.Uncommitted) + " · " + Survival(measure.LineSurvival), SectionTone.Normal,
                     evidence: Evidence.Measured));
             }
@@ -349,13 +363,14 @@ namespace Halcyonic.Client
             return new SectionLine("", state + " · " + covers + " · " + current, tone, detail: true, evidence: Evidence.Measured);
         }
 
-        private static string Kind(EvaluationVerificationKind kind)
+        /// <summary>A kind of check as Seorak measured it, Halcyonic's counts first and its label last, leaning (settled 2026-10-08).</summary>
+        private static LineWords KindRuns(EvaluationVerificationKind kind)
         {
-            var label = IntelligenceText.Plain(kind.Label);
             var runs = kind.Runs is long count ? IntelligenceText.Plural(count, "run") : "runs unknown";
             var passed = kind.Passed is long passes ? passes.ToString(CultureInfo.InvariantCulture) + " passed" : "passes unknown";
             var rate = kind.PassRate is double fraction ? (fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "no pass rate";
-            return label + ": " + passed + " of " + runs + " (" + rate + ")";
+            var counts = LineWords.Written(passed + " of " + runs + " (" + rate + ")");
+            return LineWords.Theirs(kind.Label) is { IsEmpty: false } label ? counts + LineWords.Written(": ") + label : counts;
         }
 
         private static string Commits(long? landed) => landed switch

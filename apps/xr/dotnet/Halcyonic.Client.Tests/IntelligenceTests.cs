@@ -751,7 +751,7 @@ public class DemonstrationReadsTests
         Assert.That(flow.Lines.Select(line => line.Tag), Does.Contain("explained"));
         evaluation = await reads.ReadEvaluationAsync(execution.ExecutionId, CancellationToken.None);
         measured = CheckedPresenter.Present(execution.ExecutionId, understanding, false, null, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("test: 0 passed of 1 run (0%)"));
+        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("0 passed of 1 run (0%): test"));
         Assert.That(measured.Lines[0].Text, Does.StartWith("Tests failed at "));
 
         Assert.That(await AssertNothingRecorded(reads, "01a0dcf1-5a80-7000-8000-0000000000e9"), Is.EqualTo(DemonstrationReads.NothingRecorded));

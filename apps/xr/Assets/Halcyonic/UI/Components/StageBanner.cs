@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Generic;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -49,6 +50,9 @@ namespace Halcyonic.XR.UI
         private TextMeshPro notShown = null!;
         private TextMeshPro stillOpen = null!;
 
+        /// <summary>The grounds under the kept panel's name.</summary>
+        private readonly List<Surface> stillOpenGrounds = new List<Surface>();
+
         public float Height { get; private set; }
 
         public float Width { get; private set; }
@@ -85,7 +89,8 @@ namespace Halcyonic.XR.UI
         /// notice, under that <paramref name="needsYou"/> when something waits for the person, and then
         /// <paramref name="notShown"/> and <paramref name="stillOpen"/> when given.
         /// </summary>
-        public void Show(string text, BannerKind kind, string? needsYou, string? news = null, string? notShown = null, string? stillOpen = null)
+        /// <param name="stillOpen">The panel kept open, as runs: its name, which can be a task's title, leans on a ground of Halcyonic's.</param>
+        public void Show(string text, BannerKind kind, string? needsYou, string? news = null, string? notShown = null, LineWords? stillOpen = null)
         {
             var side = GlazeTokens.Units(SideDegrees);
             var end = GlazeTokens.Units(EndDegrees);
@@ -114,16 +119,18 @@ namespace Halcyonic.XR.UI
                 bottom -= GlazeText.LineHeight(waiting);
                 width = Mathf.Max(width, waitingWidth);
             }
-            foreach (var (label, said, most) in new[] { (this.notShown, notShown, 1), (this.stillOpen, stillOpen, 2) })
+            foreach (var (label, said, most) in new[] { (this.notShown, notShown == null ? null : LineWords.Ours(notShown), 1), (this.stillOpen, stillOpen, 2) })
             {
                 label.gameObject.SetActive(said != null);
                 if (said == null) continue;
-                GlazeText.SetLiteral(label, said);
+                var theirs = GlazeRuns.Of(label).Set(said, shown => GlazeText.Lay(label, room, 99).Lines <= most);
                 var (saidLines, saidWidth) = GlazeText.Lay(label, room, most);
                 label.transform.localPosition = new Vector3(0f, bottom, -0.001f);
+                if (label == this.stillOpen) GlazeRuns.TokenGrounds(label, theirs, stillOpenGrounds, transform, 1);
                 bottom -= saidLines * GlazeText.LineHeight(label);
                 width = Mathf.Max(width, saidWidth);
             }
+            if (stillOpen == null) foreach (var ground in stillOpenGrounds) ground.gameObject.SetActive(false);
             Width = width + 2f * side;
             Height = -bottom + end;
             var edge = kind switch

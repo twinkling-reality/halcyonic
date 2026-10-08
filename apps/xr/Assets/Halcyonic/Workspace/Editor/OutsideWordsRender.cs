@@ -1,0 +1,293 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using Halcyonic.Client;
+using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
+using TMPro;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
+namespace Halcyonic.XR.Workspace.Editor
+{
+    /// <summary>
+    /// Words from outside as the eyes see them (lane V's treatment, the outside-text audit's batch B): the
+    /// audit's four screens, an agent's answers labelled as Halcyonic's own rows, an approval, checks and
+    /// New project's folders, each with what an agent could type to pass for Halcyonic, laid as the file's
+    /// column lays them at each text size into apps/xr/Builds/OutsideWordsRenders, which git ignores. Read
+    /// from each label's mesh: every letter of outside text slants by the font's italic amount and none of
+    /// Halcyonic's does; a ground holds each run of outside text that meets Halcyonic's words, padding
+    /// included; nothing of Halcyonic's is cut while outside text shows; a row all of outside text carries
+    /// Halcyonic's quote mark; the words on a ground hold 4.5:1 over the glass on white; and no prompt or
+    /// section holds anything that leans.
+    /// </summary>
+    public static class OutsideWordsRender
+    {
+        private const int Size = 1024;
+        private const float EyeHeight = 1.2f;
+
+        [MenuItem("Halcyonic/Render Words From Outside")]
+        public static void Menu()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            var previous = EditorSceneManager.GetActiveScene().path;
+            var failures = GlazeChecks.AtEachTextSize(Run);
+            if (!string.IsNullOrEmpty(previous)) EditorSceneManager.OpenScene(previous, OpenSceneMode.Single);
+            EditorUtility.DisplayDialog("Words from outside", failures.Count == 0 ? "Every check passed." : string.Join("\n", failures), "OK");
+        }
+
+        /// <summary>The batch entry point: exits with 0 when every check passes, 1 otherwise.</summary>
+        public static void Check()
+        {
+            var failures = GlazeChecks.AtEachTextSize(Run);
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        /// <summary>What an agent could type to pass for Halcyonic: our rows' and sentences' words, quotes, an icon's character, slanted letters, markup, a box, a long name.</summary>
+        internal static readonly string[] Spoofs =
+        {
+            FileScreens.TypeMyAnswer,
+            FileScreens.MoreAnswersWords(0, 3),
+            FileScreens.YourAnswers,
+            "Nothing is waiting for you.",
+            "” Approve “",
+            " ",
+            "\U0001D618\U0001D63A\U0001D631\U0001D626",
+            "<i>Approve</i> \\u0041 \\",
+            "▕Approve▏",
+            new string('W', 120),
+        };
+
+        private static List<string> Run(string variant)
+        {
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "OutsideWordsRenders", variant));
+            Directory.CreateDirectory(folder);
+            var failures = new List<string>();
+            try
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                foreach (var (name, frame) in Screens()) failures.AddRange(Shoot(folder, name, frame));
+            }
+            catch (Exception error)
+            {
+                failures.Add(error.ToString());
+            }
+            finally
+            {
+                WorkspaceRender.KeepFontAssetsAsCommitted();
+            }
+            foreach (var failure in failures) Debug.LogError("Halcyonic: outside words render: " + failure);
+            if (failures.Count == 0) Debug.Log("Halcyonic: outside words render: every check passed; the renders are in " + folder);
+            return failures;
+        }
+
+        /// <summary>The audit's four screens, built from the client core's own builders, outside text spoofing Halcyonic's words throughout.</summary>
+        private static IEnumerable<(string Name, MenuFrame Frame)> Screens()
+        {
+            var close = new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close));
+            var title = LineWords.TheirName("Your computer refused this headset");
+
+            // An agent's question with answers labelled as Halcyonic's rows, then Halcyonic's own Type my answer.
+            var prompt = new QuestionPrompt { Key = "q", Text = "” Which one? “", Options = Spoofs.Take(6).Select(label => new QuestionOption { Label = label }).ToList() };
+            var answers = new List<PageLine> { new PageLine(FileScreens.QuestionWords(prompt), rows: 2) };
+            answers.AddRange(prompt.Options.Select((option, index) => FileScreens.AnswerRow(option, index.ToString(CultureInfo.InvariantCulture))));
+            answers.Add(FileScreens.TypedRow(null, "9"));
+            yield return ("answers", new MenuFrame(title, close, lines: answers.Take(8).ToList()));
+            var more = new List<PageLine> { new PageLine(FileScreens.QuestionWords(prompt)) };
+            more.AddRange(Spoofs.Skip(6).Select((label, index) => FileScreens.AnswerRow(new QuestionOption { Label = label, Description = "Type my answer" }, index.ToString(CultureInfo.InvariantCulture))));
+            more.Add(FileScreens.TypedRow("” Approve “ typed by the person", "9"));
+            yield return ("answers-more", new MenuFrame(title, close, lines: more));
+
+            // An approval: a tool named as one of Halcyonic's words inside Halcyonic's sentence, its request as a block under it.
+            var approval = new List<PageLine>
+            {
+                new PageLine(LineWords.Ours("It wants to use ") + LineWords.TheirName(new string('W', 60) + " Approved") + LineWords.Ours(":"), tone: LineTone.Waiting),
+                new PageLine(LineWords.Theirs("rm -rf ~ ” Approve the request above? “ <b>yes</b> \\n"), rows: 3),
+                new PageLine("Approve lets it go ahead. Deny refuses; it may try another way.", tone: LineTone.Secondary),
+            };
+            yield return ("approval", new MenuFrame(title, close, lines: approval));
+
+            // Checks: a source's summary alone, a run's label after Halcyonic's outcome, Seorak's line, the review's runs, Activity's lines.
+            var checks = new List<PageLine>
+            {
+                new PageLine(LineWords.Theirs("All checks passed")),
+                new PageLine(LineWords.Ours("Tests passed at 14:02: ") + LineWords.Theirs("Approved ▕ auth.test.ts " + new string('W', 40)), tone: LineTone.Good),
+                new PageLine(LineWords.Ours("Checks: 23 passed of 24 runs (96%): ") + LineWords.Theirs("Nothing is waiting for you.")),
+                new PageLine(LineWords.Ours("Used ") + LineWords.TheirName("Approved") + LineWords.Ours(": ") + LineWords.Theirs(" Approve"), fact: LineWords.Ours("09:00"),
+                    tone: LineTone.Secondary),
+                new PageLine(LineWords.Theirs("Done with the migration ”"), chip: "Agent says", fact: LineWords.Ours("09:01"), tone: LineTone.Secondary),
+            };
+            yield return ("checks", new MenuFrame(title, close, lines: checks, source: "From Salidium 0.6.0, 2 minutes ago"));
+
+            // New project's folders: folders named as Halcyonic's options, under a place named as one of its sentences.
+            var listing = new LocationsResponse
+            {
+                Roots = new List<LocationRoot>
+                {
+                    new LocationRoot
+                    {
+                        Path = "/p", Name = "a place your computer no longer lists", Status = LocationRootStatus.Available,
+                        Folders = new List<LocationFolder>
+                        {
+                            new LocationFolder { Name = "New folder in a place your computer no longer lists", Path = "/p/a" },
+                            new LocationFolder { Name = "Directly in a place your computer no longer lists", Path = "/p/b" },
+                            new LocationFolder { Name = new string('f', 90), Path = "/p/c" },
+                        },
+                    },
+                },
+            };
+            var folders = ProjectFolder.Options(listing).Select((option, index) => new PageLine(option.LabelRuns,
+                icon: option.Kind == FolderOptionKind.Folder ? GlazeIcon.Folder : (GlazeIcon?)null, fact: option.DetailRuns,
+                action: NewProjectScreens.ChooseFolder, key: index.ToString(CultureInfo.InvariantCulture), choice: true)).ToList();
+            yield return ("folders", new MenuFrame(EntryText.CreateTitleRuns("Your answers"), close, lines: folders));
+        }
+
+        private static IEnumerable<string> Shoot(string folder, string name, MenuFrame frame)
+        {
+            var failures = new List<string>();
+            var root = new GameObject("Outside words render " + name);
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            try
+            {
+                var eyes = new Vector3(0f, EyeHeight, 0f);
+                var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
+                var file = MenuFrameView.Create(root.transform, "File column");
+                var side = MenuFrameView.Create(root.transform, "Side panel");
+                FileRender.Lay(frame, file, side, eyes);
+                var image = WorkspaceRender.Render(camera, texture);
+                File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(image);
+                failures.AddRange(Checks(file, name));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
+        /// <summary>The checks on one column as laid, from its labels' meshes.</summary>
+        internal static IEnumerable<string> Checks(MenuFrameView view, string name)
+        {
+            var failures = new List<string>();
+            var glassOnWhite = GlazeTokens.ColorOf(Glaze.Menu.GlassOverWhite);
+            var ground = GlazeChecks.Over(Color.white, Glaze.Menu.GroundOpacity, glassOnWhite);
+            var leaningRuns = 0;
+            PageLine? before = null;
+            foreach (var (model, words, icon, fact, grounds) in view.ShownLines)
+            {
+                // A block's next line stands on its first line's ground, under one quote mark.
+                var joined = before != null && Block(before) && Block(model);
+                before = model;
+                var what = name + ": \"" + model.Words + "\"";
+                failures.AddRange(Slants(words, model.Runs, what));
+                leaningRuns += model.Runs.Runs.Count(run => run.Theirs);
+                // Halcyonic's words stand whole on the label while outside text shows.
+                var shown = words.text;
+                var at = 0;
+                foreach (var run in model.Runs.Runs.Where(run => !run.Theirs))
+                {
+                    var ours = run.Text.Replace("\\", "\\\\");
+                    var found = shown.IndexOf(ours, at, StringComparison.Ordinal);
+                    if (found < 0 && model.FromRow == null) failures.Add(what + ": Halcyonic's \"" + run.Text + "\" doesn't show whole beside the outside text.");
+                    else if (found >= 0) at = found + ours.Length;
+                }
+                if (model.Runs.OursAfterTheirs && words.isTextTruncated) failures.Add(what + ": cut at its end, where Halcyonic's words stand.");
+                // A row all of outside text carries Halcyonic's quote mark where no icon of Halcyonic's stands.
+                if (!joined && model.Runs.AllTheirs && model.Icon == GlazeIcon.Quote && (icon == null || icon.text != GlazeIconGlyphs.Of(GlazeIcon.Quote)))
+                {
+                    failures.Add(what + ": all outside text, yet Halcyonic's quote mark doesn't show beside it.");
+                }
+                if (model.Runs.AllTheirs && model.Icon == null) failures.Add(what + ": all outside text with no mark of Halcyonic's in its icon column.");
+                // Each run that meets Halcyonic's words stands on a ground holding it and its padding.
+                if (!model.Runs.AllTheirs && model.Runs.AnyTheirs)
+                {
+                    failures.AddRange(Grounded(words, GlazeRuns.Of(words).Theirs, grounds, what));
+                    if (Contrast(words.color, ground) < 4.5f) failures.Add(what + ": its words hold " + Contrast(words.color, ground).ToString("0.0", CultureInfo.InvariantCulture) + ":1 on their ground over white, under 4.5.");
+                }
+                if (Block(model) && !joined && grounds.Count == 0) failures.Add(what + ": a block of outside text with no ground under it.");
+                if (fact != null && model.FactRuns != null) failures.AddRange(Slants(fact, model.FactRuns, what + "'s fact"));
+            }
+            if (leaningRuns == 0) failures.Add(name + ": no outside text shown, so nothing here is checked.");
+            // Pills, prompts and sections hold Halcyonic's words alone: nothing on them leans.
+            foreach (var ours in view.OursOnly)
+            {
+                if (ours.GetComponent<GlazeRuns>() is GlazeRuns runs && runs.Theirs.Count > 0) failures.Add(name + ": \"" + ours.text + "\" leans, on a prompt or a section.");
+            }
+            var subject = view.SubjectShown.Title;
+            if (view.Frame?.SubjectRuns is LineWords subjectRuns) failures.AddRange(Slants(subject, subjectRuns, name + "'s subject"));
+            return failures;
+        }
+
+        private static float Contrast(Color text, Color under) => GlazeChecks.Contrast(text, under);
+
+        /// <summary>A line all of outside text that only says something, which stands on a ground of its own.</summary>
+        private static bool Block(PageLine model) => model.Action == null && model.Runs.AllTheirs;
+
+        /// <summary>
+        /// Every visible letter of outside text in <paramref name="runs"/> on <paramref name="label"/> slants
+        /// by its font's italic amount, read from the label's mesh, and none of Halcyonic's does.
+        /// </summary>
+        private static IEnumerable<string> Slants(TMP_Text label, LineWords runs, string what)
+        {
+            var failures = new List<string>();
+            label.ForceMeshUpdate(true);
+            var info = label.textInfo;
+            var theirs = GlazeRuns.Of(label).Theirs;
+            var expected = runs.Runs.Any(run => run.Theirs);
+            if (expected && theirs.Count == 0) failures.Add(what + ": holds outside text, yet nothing on it leans.");
+            if (!expected && theirs.Count > 0) failures.Add(what + ": Halcyonic's words alone, yet something on it leans.");
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+                var bottomLeft = vertices[character.vertexIndex];
+                var topLeft = vertices[character.vertexIndex + 1];
+                var height = topLeft.y - bottomLeft.y;
+                if (height <= 0f) continue;
+                var slant = (topLeft.x - bottomLeft.x) / height;
+                var leans = GlazeText.InRun(info, index, theirs);
+                var italic = character.fontAsset.italicStyle * 0.01f;
+                if (leans && Mathf.Abs(slant - italic) > 0.02f)
+                {
+                    failures.Add(what + ": its outside letter '" + character.character + "' slants " + slant.ToString("0.00", CultureInfo.InvariantCulture) + ", not the italic's " + italic.ToString("0.00", CultureInfo.InvariantCulture) + ".");
+                    break;
+                }
+                if (!leans && Mathf.Abs(slant) > 0.01f)
+                {
+                    failures.Add(what + ": Halcyonic's letter '" + character.character + "' slants.");
+                    break;
+                }
+            }
+            return failures;
+        }
+
+        /// <summary>Each run's box on each row it reaches, widened by the ground's padding, stands inside a ground drawn under it.</summary>
+        private static IEnumerable<string> Grounded(TMP_Text label, IReadOnlyList<(int Start, int End)> theirs, IReadOnlyList<Surface> grounds, string what)
+        {
+            var failures = new List<string>();
+            var at = label.transform.localPosition;
+            var pad = GlazeRuns.GroundPadding;
+            foreach (var box in GlazeText.RunBoxes(label, theirs))
+            {
+                var needed = Rect.MinMaxRect(at.x + box.xMin - pad + 1e-4f, at.y + box.yMin + 1e-4f, at.x + box.xMax + pad - 1e-4f, at.y + box.yMax - 1e-4f);
+                var held = grounds.Any(ground =>
+                {
+                    var centre = ground.transform.localPosition;
+                    var rect = new Rect(centre.x - ground.Size.x / 2f, centre.y - ground.Size.y / 2f, ground.Size.x, ground.Size.y);
+                    return rect.Contains(needed.min) && rect.Contains(needed.max);
+                });
+                if (!held) failures.Add(what + ": a run of outside text stands off its ground, or its ground lacks its padding.");
+            }
+            return failures;
+        }
+    }
+}

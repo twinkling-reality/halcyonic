@@ -10,8 +10,17 @@ namespace Halcyonic.Client
     public sealed class UsageLeftRow
     {
         public UsageLeftRow(string title, string text, int left, string seen = "", string resets = "")
+            : this(LineWords.Written(title), text, left, seen, resets)
         {
-            Title = title;
+        }
+
+        /// <param name="title">The provider's label for the limit, leaning, then Halcyonic's word for its window.</param>
+        /// <param name="agent">The agent the reading belongs to, as Seorak names it; null where not known.</param>
+        public UsageLeftRow(LineWords title, string text, int left, string seen = "", string resets = "", string? agent = null)
+        {
+            TitleRuns = title;
+            Title = title.Text;
+            Agent = agent;
             Text = text;
             Left = left;
             Seen = seen;
@@ -20,6 +29,12 @@ namespace Halcyonic.Client
 
         /// <summary>The agent's name as the control plane gives it, plain text, and the window.</summary>
         public string Title { get; }
+
+        /// <summary>Its title as runs: the provider's label leaning, Halcyonic's window upright.</summary>
+        public LineWords TitleRuns { get; }
+
+        /// <summary>The agent the reading belongs to, as Seorak names it, outside text; null where not known.</summary>
+        public string? Agent { get; }
 
         /// <summary>"At most X% left, seen at …, resets …". Never a current value.</summary>
         public string Text { get; }
@@ -134,10 +149,11 @@ namespace Halcyonic.Client
                 // Rounded up, so that "at most" stays true.
                 var left = (int)Math.Ceiling(100 - reading.UsedPercent);
                 rows.Add(new UsageLeftRow(
-                    IntelligenceText.Truncate(IntelligenceText.Plain(reading.Label), LabelLimit) + ", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly"),
+                    LineWords.TheirName(IntelligenceText.Truncate(IntelligenceText.Plain(reading.Label), LabelLimit))
+                        + LineWords.Ours(", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly")),
                     "At most " + left.ToString(CultureInfo.InvariantCulture) + "% left, seen " + When(observed, now, zone)
                         + ", resets " + When(resets, now, zone),
-                    left, When(observed, now, zone), When(resets, now, zone)));
+                    left, When(observed, now, zone), When(resets, now, zone), reading.Agent));
             }
             return rows.Count == 0
                 ? Quiet(NoReadingSinceReset)

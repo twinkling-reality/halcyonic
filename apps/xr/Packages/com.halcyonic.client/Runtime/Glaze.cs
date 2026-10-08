@@ -424,6 +424,20 @@ namespace Halcyonic.Client
 
             public const float HairlineDegrees = 0.06f;
 
+            /// <summary>
+            /// The ground under text from outside where it meets Halcyonic's words (lane V's treatment): white
+            /// at this opacity on the glass, so the words on it read first, with a hairline of its own at
+            /// <see cref="GroundHairlineOpacity"/>, corners of <see cref="GroundRadiusDegrees"/>, and
+            /// <see cref="GroundPaddingDegrees"/> past the words each side, so both its edges show.
+            /// </summary>
+            public const float GroundOpacity = 0.075f;
+
+            public const float GroundHairlineOpacity = 0.17f;
+
+            public const float GroundRadiusDegrees = 0.32f;
+
+            public const float GroundPaddingDegrees = 0.25f;
+
             /// <summary>Chosen: the shape lights up, white at this opacity, and gains a crisp white frame at <see cref="LitFrameOpacity"/>.</summary>
             public const float LitFillOpacity = 0.10f;
 

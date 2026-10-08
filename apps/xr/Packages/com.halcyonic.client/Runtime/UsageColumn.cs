@@ -65,7 +65,7 @@ namespace Halcyonic.Client
                 else chosen = null;
                 if (page >= pages) page = 0;
                 var lines = presentation.Rows.Select((row, at) => (row, at)).Skip(page * rows).Take(rows)
-                    .Select(each => new PageLine(each.row.Title, wordsAreData: true, fact: UsageText.Left(each.row.Left), action: OpenLimit,
+                    .Select(each => new PageLine(each.row.TitleRuns, fact: LineWords.Ours(UsageText.Left(each.row.Left)), action: OpenLimit,
                         key: each.at.ToString(CultureInfo.InvariantCulture), opens: true, chosen: each.at == chosen))
                     .ToList();
                 var footer = new Footer(close, rare: refresh);
@@ -172,12 +172,16 @@ namespace Halcyonic.Client
         }
 
         /// <summary>What a chosen limit's side panel says: when it was seen, when it resets, and whose account it is.</summary>
-        private SidePanel Side(UsageLeftPresentation presentation, UsageLeftRow row) => new SidePanel(row.Title, subjectIsData: true, facts: new[]
+        private SidePanel Side(UsageLeftPresentation presentation, UsageLeftRow row)
         {
-            new SideFact(UsageText.Seen, UsageText.Sentence(row.Seen)),
-            new SideFact(UsageText.Resets, UsageText.Sentence(row.Resets)),
-            new SideFact(UsageText.Account, host.Demonstration ? UsageText.PartOfTheRecording : UsageText.NotIdentified),
-        }, source: presentation.Source);
+            var facts = new List<SideFact>();
+            // Which agent the reading is for, as Seorak names it, leaning (settled 2026-10-08).
+            if (LineWords.Theirs(row.Agent) is { IsEmpty: false } agent) facts.Add(new SideFact(UsageText.AgentApp, agent));
+            facts.Add(new SideFact(UsageText.Seen, UsageText.Sentence(row.Seen)));
+            facts.Add(new SideFact(UsageText.Resets, UsageText.Sentence(row.Resets)));
+            facts.Add(new SideFact(UsageText.Account, host.Demonstration ? UsageText.PartOfTheRecording : UsageText.NotIdentified));
+            return new SidePanel(row.TitleRuns, facts: facts, source: presentation.Source == null ? null : LineWords.Written(presentation.Source));
+        }
     }
 
     /// <summary>Usage's own words (WORDS.md, ADR 0026).</summary>
@@ -192,6 +196,9 @@ namespace Halcyonic.Client
         public const string Resets = "Resets";
 
         public const string Account = "Account";
+
+        /// <summary>A limit's fact naming the agent app the reading is for (settled 2026-10-08).</summary>
+        public const string AgentApp = "Agent app";
 
         /// <summary>A limit's Account fact in the demonstration, in place of who it belongs to.</summary>
         public const string PartOfTheRecording = "Part of the recording";

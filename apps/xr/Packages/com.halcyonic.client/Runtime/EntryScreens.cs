@@ -58,16 +58,20 @@ namespace Halcyonic.Client
             var model = draft.Model;
             var moves = Moves(idea, currentFolder);
             var sends = FolderSent(idea, currentFolder);
-            // The review spells what Halcyonic did not write by its code points, so it is given those names as they are.
-            var folder = sends?.Describe(name => name) ?? currentFolder?.Name ?? "none";
-            var before = moves ? currentFolder?.Name ?? "none" : null;
+            // The review spells what Halcyonic did not write by its code points, so it is given those names as
+            // they are, as runs: Halcyonic's own fallbacks upright, so a name that copies one never reads as it.
+            LineWords Raw(string name) => LineWords.Shown(name);
+            LineWords NamedOrNone(string? name) => name == null ? LineWords.Ours("none") : Raw(name);
+            var folder = sends?.DescribeRuns(name: Raw) ?? NamedOrNone(currentFolder?.Name);
+            var before = moves ? NamedOrNone(currentFolder?.Name) : null;
             var (title, titleCut) = NewWorkDraft.TitleSourceOf(idea.FirstTask);
+            var runtime = draft.Runtime!;
             return new NewWorkReview(
                 idea.Name,
                 title,
-                EntryText.RuntimeName(draft.Runtime!, live, plain: false),
-                model?.DisplayName ?? "chosen by the agent app",
-                model == null ? "the agent app chooses" : EntryText.ServedInSentence(model.Served) + "; " + EntryText.Tools(model.ToolCalling),
+                runtime.Synthetic && live ? LineWords.Ours(EntryText.PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated: ") : LineWords.None) + Raw(runtime.DisplayName),
+                model == null ? LineWords.Ours("chosen by the agent app") : Raw(model.DisplayName),
+                LineWords.Written(model == null ? "the agent app chooses" : EntryText.ServedInSentence(model.Served) + "; " + EntryText.Tools(model.ToolCalling)),
                 model?.ModelRef ?? "none",
                 idea.FirstTask,
                 folder,

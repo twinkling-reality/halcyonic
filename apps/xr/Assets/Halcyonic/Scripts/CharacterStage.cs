@@ -144,7 +144,7 @@ namespace Halcyonic.XR
         private string? shownWaiting;
         private string? shownNotice;
         private string? shownNotShown;
-        private string? shownStillOpen;
+        private LineWords? shownStillOpen;
         private bool shownRaised;
 
         /// <summary>The banner says its line alone, with no notice under it: raised over the open menu, which says what waits.</summary>
@@ -665,10 +665,10 @@ namespace Halcyonic.XR
         /// <param name="stillOpen">The panel kept while another window has focus, or null.</param>
         /// <param name="raised">Above the stage, as the demonstration's banner always stands.</param>
         /// <param name="alone">Saying <paramref name="text"/> alone, with no notice under it, as over the open menu.</param>
-        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, string? stillOpen, bool raised, bool alone)
+        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, LineWords? stillOpen, bool raised, bool alone)
         {
             if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice
-                && notShown == shownNotShown && stillOpen == shownStillOpen && raised == shownRaised && alone == shownAlone && shownScale == GlazeText.Version) return;
+                && notShown == shownNotShown && stillOpen?.ToString() == shownStillOpen?.ToString() && raised == shownRaised && alone == shownAlone && shownScale == GlazeText.Version) return;
             // The text's size changes the banner and how deep the labels above it reach.
             shownScale = GlazeText.Version;
             shownBanner = text;

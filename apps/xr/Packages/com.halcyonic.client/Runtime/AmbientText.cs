@@ -31,7 +31,9 @@ namespace Halcyonic.Client
         /// name can be text from outside, as a task's title, so it is made plain first and then cut short past
         /// <see cref="StillOpenLimit"/>, never inside a code point it shows.
         /// </summary>
-        public static string StillOpen(string panel) => "Still open: " + IntelligenceText.Truncate(LabelText.Plain(panel), StillOpenLimit);
+        /// <remarks>As runs: "Still open: " upright, the panel's name leaning on Halcyonic's ground, last.</remarks>
+        public static LineWords StillOpen(string panel) =>
+            LineWords.Ours("Still open: ") + LineWords.TheirName(IntelligenceText.Truncate(LabelText.Plain(panel), StillOpenLimit));
     }
 
     /// <summary>Where the stage's banner stands (<see cref="BannerPlace"/>).</summary>

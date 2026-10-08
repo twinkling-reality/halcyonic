@@ -147,6 +147,15 @@ namespace Halcyonic.Client
         /// project's own, or what is still to choose. <paramref name="current"/> is an existing
         /// project's folder; <paramref name="needed"/> says whether what runs it works in a project folder.
         /// </summary>
+        /// <summary>The folder fact as runs (<see cref="FolderFact"/>): Halcyonic's words upright and first, names leaning.</summary>
+        public static LineWords FolderFactRuns(ProjectLocation? current, ProjectFolder? chosen, bool needed)
+        {
+            if (chosen != null && current != null) return LineWords.Ours("From now on, ") + chosen.DescribeRuns() + LineWords.Ours("; ") + LineWords.TheirName(current.Name) + LineWords.Ours(" now");
+            if (chosen != null) return chosen.DescribeRuns(startOfLine: true);
+            if (current != null) return LineWords.TheirName(current.Name) + LineWords.Ours(", the project's folder");
+            return LineWords.Ours(needed ? "Not chosen yet" : "Not needed");
+        }
+
         public static string FolderFact(ProjectLocation? current, ProjectFolder? chosen, bool needed)
         {
             // Halcyonic's own words first, so a long name never pushes them past the line's end (settled by the coordinator, 2026-10-08).
@@ -299,6 +308,10 @@ namespace Halcyonic.Client
 
         public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New task in " + existingProject;
 
+        /// <summary>New project's subject for a project that exists, as runs: "New task in " upright, its name leaning, last.</summary>
+        public static LineWords CreateTitleRuns(string? existingProject) =>
+            existingProject == null ? LineWords.Ours(CreateProject) : LineWords.Ours("New task in ") + LineWords.TheirName(existingProject);
+
         public static string Question(int index, int count) => "Question " + Count(index + 1) + " of " + Count(count);
 
 
@@ -398,6 +411,19 @@ namespace Halcyonic.Client
         /// where nothing starts, keeps its runtimes' names.
         /// </summary>
         /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Name"/>, which never leaves it empty; false leaves it as it is, for a review that spells it itself.</param>
+        /// <summary>An agent app's name as runs: "Simulated: " upright first, its name leaning; the practice run Halcyonic's own words.</summary>
+        public static LineWords RuntimeNameRuns(RuntimeDescriptor runtime, bool live = false) =>
+            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated: ") : LineWords.None) + LineWords.TheirName(runtime.DisplayName);
+
+        /// <summary>How it runs as runs (<see cref="RunsWith"/>): an agent app's name leaning.</summary>
+        public static LineWords RunsWithRuns(NewWorkDraft draft, bool live = false) =>
+            draft.Runtime is RuntimeDescriptor runtime && (runtime.Synthetic || runtime.ModelChoice != ModelChoice.Listed)
+                ? RuntimeNameRuns(runtime, live)
+                : LineWords.Written(RunsWith(draft, live));
+
+        /// <summary>A new folder's words over its name as runs: "New folder in " upright, the place's name leaning.</summary>
+        public static LineWords NewFolderInRuns(LocationRoot root) => ProjectFolder.NewFolderRuns(root);
+
         public static string RuntimeName(RuntimeDescriptor runtime, bool live = false, bool plain = true) =>
             runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated: " : "") + (plain ? LabelText.Name(runtime.DisplayName) : runtime.DisplayName);
 

@@ -240,7 +240,7 @@ namespace Halcyonic.XR.UI
             var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
             for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
             {
-                vertices[corner].x += LeanShear * (vertices[corner].y - middle);
+                vertices[corner].x += Shear(character) * (vertices[corner].y - middle);
             }
         }
 
@@ -272,7 +272,7 @@ namespace Halcyonic.XR.UI
                     left = Mathf.Min(left, character.bottomLeft.x);
                     // A leaning letter's top stands right of its foot by the shear of its height above the middle.
                     var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
-                    right = Mathf.Max(right, character.topRight.x + LeanShear * Mathf.Max(0f, character.topRight.y - middle));
+                    right = Mathf.Max(right, character.topRight.x + Shear(character) * Mathf.Max(0f, character.topRight.y - middle));
                 }
                 if (row >= 0) boxes.Add(Box(info, row, left, right));
             }
@@ -285,8 +285,12 @@ namespace Halcyonic.XR.UI
             return Rect.MinMaxRect(left, line.descender, right, line.ascender);
         }
 
-        /// <summary>How far a leaning letter's top stands right of its foot, for each unit of its height.</summary>
-        private const float LeanShear = 0.35f;
+        /// <summary>
+        /// How far a leaning letter's top stands right of its foot, for each unit of its height: its font's
+        /// own italic amount, as TextMeshPro's italic shears (a hundredth of its italic style), so the lean
+        /// matches the italic the owner was shown.
+        /// </summary>
+        private static float Shear(TMP_CharacterInfo character) => character.fontAsset.italicStyle * 0.01f;
 
         /// <summary>
         /// Draws <paramref name="text"/> heavier, by its material, or as it is: on the menu only the
