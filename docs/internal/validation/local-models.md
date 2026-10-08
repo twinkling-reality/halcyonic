@@ -472,6 +472,18 @@ them again at `dced6316` (26 tests, all passing), with the fake provider on loop
   - The adapter now passes `skills.include_instructions=false` on every launch and checks it;
     the end to end test E5 plants the same three skills and fails if any name, `SKILL.md` or
     `skill-installer` reaches the provider.
+  - **A skill an instruction names** (the same run, the instruction "Hello. Use $probe-codex-dir
+    and $5 please.", a fourth skill named `5` planted in the project's `.codex/skills`): both
+    planted skills' `SKILL.md` text reached the provider, each with its path, with
+    `include_instructions` off, from the untrusted project; the word "skill" appeared 10 times.
+    Codex selects a skill by exact name from `$` mentions (`codex-rs/ext/skills/src/selection.rs`
+    and `codex-rs/skills/src/mentions.rs`: letters, digits, `_`, `-`, `:`, all but a few common
+    environment variable names), and a name may be any text of up to 64 characters
+    (`codex-rs/skills/src/parser.rs`). E5b pins this behavior, so an upgrade that changes it
+    shows.
+  - **`skills.bundled.enabled = false`:** `config/read` reported `skills.bundled.enabled: false`;
+    the bundled skills were already absent from the request with `include_instructions` off, and
+    the adapter now passes it too, so naming one (`$skill-installer`) brings nothing.
 
 ## Speed and memory
 

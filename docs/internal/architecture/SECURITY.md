@@ -137,16 +137,24 @@ reason, as when the home records the project as trusted. The end to end suite ch
 project whose own settings start an MCP server that leaves a mark, from the repository's root and
 from a folder below it.
 
-Skills never reach the model. Codex 0.157.0 discovers them from an untrusted project too
+Codex lists no skill to the model; a skill's instructions reach it only when an instruction names
+it with `$name`. Codex 0.157.0 discovers skills from an untrusted project too
 (`.codex/skills`, `.agents/skills`), from `~/.agents/skills` in the person's home and from its own
 bundled ones (`codex-rs/config/src/state.rs` and `codex-rs/ext/skills/src/host_roots.rs`), and has
 no setting that turns discovery off (`skills` takes only `bundled`, `include_instructions`,
 `max_context_tokens` and per-skill rules, `codex-rs/config/src/skills_config.rs`). By default it
 lists every one of them to the model, the bundled skill installer among them. So every launch
-passes `skills.include_instructions=false`, checked in `config/read` with the other local-only
-settings; with it, no skill, and no mention of skills, reaches what a thread sends the provider
-(the end to end suite's E5, [local-models.md](../validation/local-models.md)). Codex still reads
-the skill files.
+passes `skills.include_instructions=false` and `skills.bundled.enabled=false`, checked in
+`config/read` with the other local-only settings; with them, no skill, and no mention of skills,
+reaches what a thread sends the provider, and the bundled skills are out of the catalog (the end
+to end suite's E5). The limit: Codex still picks out a skill an instruction names, as `$name` or
+by path, and reads its `SKILL.md` into the turn whatever these settings say
+(`codex-rs/ext/skills/src/selection.rs`), from an untrusted project too. A name is any text of up
+to 64 characters (`codex-rs/skills/src/parser.rs`), and a mention is `$` followed by letters,
+digits, `_`, `-` or `:`, all but a few common environment variable names
+(`codex-rs/skills/src/mentions.rs`), so a repository can plant a skill named `5` that "$5" in an
+instruction brings in (E5b pins this). Whether Halcyonic should do more is open
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
 `halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with

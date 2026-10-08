@@ -117,5 +117,7 @@ Codex reads before it would record a folder it can write as trusted, and a start
 `config/read` shows a device-profile, enterprise, managed-file or non-empty system layer; a refusal
 after a launch is remembered until the control plane restarts. Skills from a project, the
 person's `~/.agents/skills` and Codex's own are still discovered, since 0.157.0 has no setting that
-stops discovery, but `skills.include_instructions=false`, among the launch's checked settings, keeps
-every one out of what a thread sends the model. The decision is otherwise unchanged.
+stops discovery, but `skills.include_instructions=false` and `skills.bundled.enabled=false`, among
+the launch's checked settings, keep Codex from listing any skill to the model. A skill's
+instructions still reach it when an instruction names it with `$name`, a limit recorded in
+[OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md). The decision is otherwise unchanged.
