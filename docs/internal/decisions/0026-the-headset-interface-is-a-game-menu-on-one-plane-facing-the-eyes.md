@@ -395,6 +395,12 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   - The demonstration's first visit opens closed too (the owner, 2026-10-08): its recorded characters
     at work, its two lines above the stage and the bar saying what waits. Projects and New project's
     recorded companion stay one press away, and the headset still keeps each first visit apart.
+  - As built (lane C, 2026-10-08): the plate opens by itself once each app start, when the live
+    state is first ready with no workstream, and a reconnect doesn't open it again; nothing is
+    decided before the first snapshot or on a stale state. "For that computer" is its journal: the
+    headset keeps the journals that have had a task (`halcyonic.entry.started`, the 8 most recent),
+    so another computer with no task still asks. The demonstration's lines stand raised above the
+    stage over the closed bar too, since the bar stands where they would hang.
 - **A task opened from its character opens its file alone,** and the menu stays closed until the
   person opens it. A task chosen in Tasks still slides out beside the menu.
 - **A grip under the plane and under the bar.** Holding it and moving drags the whole plane round
