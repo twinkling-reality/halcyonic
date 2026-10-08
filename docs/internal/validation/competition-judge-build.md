@@ -235,6 +235,23 @@ The rules were read again on 2026-10-08 with no change that binds the judge buil
 the project on a Quest or "via XR Simulator or another equivalent emulator", and the language clause
 names testing instructions among the entry materials.
 
+Built again on 2026-10-08 at 2e3627d8, the candidate for the trial upload: the demonstration opening
+closed (lane C), the file assembling from its character, Keep things still, the holds and Meta XR
+Audio's spatializer, without `HALCYONIC_VERSION_CODE`:
+
+| APK | Bytes | SHA-256 |
+| --- | --- | --- |
+| Release | 73,945,639 | `002a18c1a465765439f2cdf56bafcc3a8054e189630fda5dcc8d884000e0a4aa` |
+| Development | 113,911,663 | `22dd38c24b3d3485245dc2acf3fa6079e0deda583380728a23802fe74e941406` |
+
+The release build's checks passed and `aapt2` reads the same five permissions, the same four devices,
+no glance, microphone or development tools, and `libMetaXRAudioUnity.so`; the development build's
+glance control found every marker. `WorkspaceRender` passed at both text sizes, the demonstration's
+first visit among its renders (`far-3s-demo-welcome-1-ambient` to `-3-projects`), and the 74 judge,
+demonstration and first-visit tests passed, `JudgeHoldsTests` among them. The trial upload needs the
+owner's key and a version code (`HALCYONIC_VERSION_CODE`), so the uploaded APK is built again from
+this commit and its own size and SHA-256 recorded then.
+
 Before an upload, still the owner's: a release key, a version code above every earlier upload
 (now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and
 the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
@@ -258,7 +275,8 @@ it goes only to the system service that already receives the Interaction SDK's.
 
 For the submission form, written for the ambient first visit and the kit's first-open prompt that
 the owner approved on 2026-10-08; to be checked against the judge build at the freeze. No brand
-names.
+names. Checked against 2e3627d8 (the demonstration opening closed, lane C): steps 2 and 3 hold as
+written, and step 7 now names the closed bar's Open, since nothing opens by itself.
 
 > Halcyonic lets you see and direct AI agents building software, from where you sit. This build
 > plays a recorded demo on the headset: it needs no computer, account or network, and nothing you
@@ -272,8 +290,9 @@ names.
 > 5. It then asks to run a command: read the request to its end, then approve it.
 > 6. A check fails. Look through Changes and Checks, then use Tell it to send one of the offered
 >    instructions. The agent goes again and the checks pass.
-> 7. Close puts the file away. From the menu you can also try Projects (New project talks an idea
->    through with an AI companion), Usage and Settings.
+> 7. Close puts the file away. The bar below the characters says what is waiting for you; its Open
+>    shows the menu, where you can also try Projects (New project talks an idea through with an AI
+>    companion), Usage and Settings.
 >
 > The demo waits for you at every decision and while anything is open in front of you, and starts
 > again by itself after it ends. Taking the headset off and on picks up where you were.
