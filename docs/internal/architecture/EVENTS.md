@@ -117,9 +117,10 @@ task's, an edit there asking again by its own path); nothing else. Codex: a comm
 (input to a running command needs none), any network access it also asks for, and an environment
 that is this computer's; network access by its host; a change whose every file it named, unless it
 also asks for write access under a folder for the rest of the session. Claude Code: its whole input
-as JSON, or one of its own tools described by one field whose other inputs do not act ("in the
-background" follows a Bash command that runs there). Where a Claude Code Bash command runs is
-inferred, not said: the session's folder, or wherever an earlier command moved it. A tool's name cut
+as JSON, or one of its own tools described by one field whose other inputs do not act; a Bash
+command, whose input names no folder, follows a bracket that always comes first, "[in its shell,
+which started in the task's folder]" (an earlier command may have moved it), with ", in the
+background" inside it when it runs there. A tool's name cut
 to the contract is not complete. A secret Halcyonic holds still shows as "[redacted: ...]" in a
 complete summary, and an agent could type the same words. The control plane makes it false when it
 cuts the summary. The projection copies it to `ApprovalView.approvable`,

@@ -853,18 +853,22 @@ describe('observing a turn', () => {
 });
 
 describe('approvals', () => {
+  // Where a Bash command runs, which its input does not say.
+  const SHELL = "[in its shell, which started in the task's folder] ";
   test('a request is complete only when its summary is all that acts in the call', async () => {
     const { startConfirmed, observed } = setup();
     const scripted = await startConfirmed();
     const cases: [string, Record<string, unknown>, string, boolean][] = [
-      ['Bash', { command: 'ls', timeout: 5000 }, 'ls', true],
+      ['Bash', { command: 'ls', timeout: 5000 }, `${SHELL}ls`, true],
+      // A command that starts with a bracket of its own always follows the real one.
+      ['Bash', { command: '[in /tmp] rm -rf x' }, `${SHELL}[in /tmp] rm -rf x`, true],
       [
         'Bash',
         { command: 'npm test', run_in_background: true },
-        'npm test\nin the background',
+        "[in its shell, which started in the task's folder, in the background] npm test",
         true,
       ],
-      ['Bash', { command: 'ls', dangerouslyDisableSandbox: true }, 'ls', false],
+      ['Bash', { command: 'ls', dangerouslyDisableSandbox: true }, `${SHELL}ls`, false],
       ['Edit', { file_path: '/w/a.ts', old_string: 'a', new_string: 'b' }, '/w/a.ts', true],
       ['Write', { file_path: '/w/b.ts', content: 'x' }, '/w/b.ts', true],
       [
@@ -906,7 +910,11 @@ describe('approvals', () => {
     assert.equal(requested?.type, 'runtime.approval.requested');
     assert.deepEqual(requested?.payload, {
       approval_id: 'req-1',
-      subject: { kind: 'tool_use', tool_name: 'Bash', summary: 'pnpm db:migrate' },
+      subject: {
+        kind: 'tool_use',
+        tool_name: 'Bash',
+        summary: "[in its shell, which started in the task's folder] pnpm db:migrate",
+      },
       complete: true,
     });
 
@@ -999,9 +1007,10 @@ describe('approvals', () => {
     const summaries = observed
       .filter((event) => event.type === 'runtime.approval.requested')
       .map((event) => event.payload.subject.summary);
+    const shell = "[in its shell, which started in the task's folder] ";
     assert.deepEqual(summaries, [
-      command,
-      '😀'.repeat(2001),
+      `${shell}${command}`,
+      `${shell}${'😀'.repeat(2001)}`,
       JSON.stringify({ title: 'y'.repeat(2001) }),
     ]);
 
