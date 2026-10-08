@@ -25,8 +25,13 @@ namespace Halcyonic.XR.Sound
     /// Every clip is rendered once, on a worker thread, and made an <see cref="AudioClip"/> on the main
     /// thread a few per frame; nothing is synthesized while sound plays. A character's cues come from
     /// its body, the person's own actions from in front of them where the workspace opens, and the
-    /// dropped connection's one cue from the middle of the stage, spread across it. Unity's built-in
-    /// panning places them; nothing else is needed. A press any button takes is answered by a soft
+    /// dropped connection's one cue from the middle of the stage, spread across it. A character's
+    /// cues, the person's actions and a control's tap go through Meta XR Audio's head-related
+    /// spatializer (<see cref="Spatializer"/>), so they are heard from where they are, above and
+    /// behind included; the dropped connection's cue keeps Unity's panning, which keeps its spread.
+    /// Distance is Unity's own curve either way, as the spatializer applies none. With the option
+    /// <see cref="PannedFile"/>, or without the spatializer loaded, Unity's panning places every
+    /// cue, as before. A press any button takes is answered by a soft
     /// tap from the button, unless it sent an act, whose own cue answers it; a press a button refuses,
     /// being unavailable now, by Not now. Both start at once and hold up no other cue. No cue starts
     /// while the app lacks focus, as while the system menu or a window such as Virtual Display's has
@@ -52,13 +57,13 @@ namespace Halcyonic.XR.Sound
         /// about 0.55 m away, and in the virtual space, 2.4 m away, so where it stands is heard in the
         /// direction of each cue, not in its loudness, as the characters keep their apparent size.
         /// </summary>
-        private const float FullLevelWithin = 2.5f;
+        public const float FullLevelWithin = 2.5f;
 
         /// <summary>Beyond this distance a cue gets no quieter, a tenth of its level.</summary>
-        private const float QuietestFrom = 25f;
+        public const float QuietestFrom = 25f;
 
         /// <summary>The dropped connection's cue is spread across the arc's 60 degrees.</summary>
-        private const float StageSpread = 60f;
+        public const float StageSpread = 60f;
 
         private const int ClipsPerFrame = 4;
 
@@ -73,6 +78,16 @@ namespace Halcyonic.XR.Sound
 
         /// <summary>A cue heard while away plays this much quieter than usual.</summary>
         private const float AwayLevel = 0.6f;
+
+        /// <summary>The head-related spatializer the project names in ProjectSettings/AudioManager.asset.</summary>
+        public const string Spatializer = "Meta XR Audio";
+
+        /// <summary>
+        /// The file whose presence in the app's data directory turns the spatializer off, so Unity's
+        /// panning places every cue, as before: the one setting between the two, for comparing them by
+        /// ear on the headset. Read once, at start.
+        /// </summary>
+        public const string PannedFile = "sound-panned";
 
         [Tooltip("The level of every cue, from 0 to 1. The soundbook played them at half, its starting volume; the headset's own volume applies on top.")]
         [SerializeField] private float volume = 0.5f;
@@ -90,6 +105,7 @@ namespace Halcyonic.XR.Sound
         private Voice control = null!;
         private bool ready;
         private bool whileAway;
+        private bool headRelated;
 
         /// <summary>The frame the person last sent an act in: a press in it is answered by the act's own cue.</summary>
         private int actedFrame = -1;
@@ -109,6 +125,10 @@ namespace Halcyonic.XR.Sound
             stage = GetComponent<CharacterStage>();
             director = GetComponent<WorkspaceDirector>();
             slotOf = stage.SlotOf;
+            var panned = System.IO.File.Exists(System.IO.Path.Combine(Application.persistentDataPath, PannedFile));
+            headRelated = HeadRelated(AudioSettings.GetSpatializerPluginName(), panned);
+            Log(headRelated ? "sound placed by " + Spatializer + "'s head-related spatializer"
+                : "sound placed by Unity's panning, because " + (panned ? "of the option " + PannedFile : "no spatializer is loaded"));
             for (var cue = 0; cue < clips.Length; cue++) clips[cue] = new AudioClip?[GlazeSynthesizer.Bots];
             workspace = CreateVoice(new GameObject("Workspace sound"), 0f);
             whole = CreateVoice(new GameObject("Stage sound"), StageSpread);
@@ -340,10 +360,28 @@ namespace Halcyonic.XR.Sound
 
         private Voice CreateVoice(GameObject host, float spread) => new Voice(host.transform, Source(host, spread), Source(host, spread));
 
-        /// <summary>A fully spatial source with no Doppler, level within <see cref="FullLevelWithin"/>.</summary>
         private AudioSource Source(GameObject host, float spread)
         {
             var source = host.AddComponent<AudioSource>();
+            Configure(source, spread, headRelated, Mathf.Clamp01(volume));
+            return source;
+        }
+
+        /// <summary>
+        /// Whether cues go through the head-related spatializer: when the project's is the one loaded
+        /// (<paramref name="loaded"/>, as <see cref="AudioSettings.GetSpatializerPluginName"/> names it)
+        /// and the option <see cref="PannedFile"/> is not set.
+        /// </summary>
+        public static bool HeadRelated(string? loaded, bool panned) => !panned && loaded == Spatializer;
+
+        /// <summary>
+        /// A fully spatial source with no Doppler, level within <see cref="FullLevelWithin"/> and no
+        /// quieter beyond <see cref="QuietestFrom"/>. With <paramref name="headRelated"/> a source
+        /// without a spread goes through the spatializer; one with a spread keeps Unity's panning,
+        /// which keeps it.
+        /// </summary>
+        public static void Configure(AudioSource source, float spread, bool headRelated, float volume)
+        {
             source.playOnAwake = false;
             source.loop = false;
             source.spatialBlend = 1f;
@@ -352,8 +390,8 @@ namespace Halcyonic.XR.Sound
             source.minDistance = FullLevelWithin;
             source.maxDistance = QuietestFrom;
             source.spread = spread;
-            source.volume = Mathf.Clamp01(volume);
-            return source;
+            source.spatialize = headRelated && spread == 0f;
+            source.volume = volume;
         }
 
         /// <summary>Reads the option on start and whenever focus goes, so a file pushed meanwhile counts; either name turns it on.</summary>

@@ -16,3 +16,9 @@ Copyright (c) 2012 Red Hat, Inc., with digitized data copyright (c) 2010 Google 
 Licensed under the SIL Open Font License, Version 1.1:
 apps/xr/Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt
 As TextMeshPro's essential resources include it.
+
+The headset app includes Meta XR Audio SDK 85.0.0's native library, under the Oculus SDK License
+Agreement as the project's other Meta XR packages are, and with it third-party code under its own
+licences (Kiss FFT, OOURA FFT, Pretty Fast Fourier Transform, sfft, tinythread++ and zlib), whose
+notices are in:
+apps/xr/Licenses/MetaXRAudio-THIRD_PARTY_NOTICES.txt

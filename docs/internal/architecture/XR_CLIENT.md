@@ -2155,8 +2155,17 @@ within 2.5 m. The stage stands within that both on a desk, about 0.55 m away
 2.4 m away, so where it stands is heard in each cue's direction and not in its loudness, as the
 characters keep their apparent size. The person's actions sound 0.6 m in front of their head, where
 the workspace opens; Last known sounds from the middle of the characters, spread over the arc's 60
-degrees. Unity's built-in panning places them, with no spatializer plugin or package: the page
-panned each bot by the sine of its angle on the arc, which positions reproduce. Cues are scheduled
+degrees. A character's cues, the person's actions and a button's tap go through Meta XR Audio's
+head-related spatializer (`com.meta.xr.sdk.audio` 85.0.0, named in `AudioManager.asset`), so they
+are heard from their direction, above and behind included, not only left and right; Last known
+keeps Unity's panning, which keeps its spread. Distance stays Unity's own curve, since the
+spatializer applies no attenuation of its own, and no room acoustics run: the package's reflection
+effect is not on the mixer. One setting chooses between the spatializer and Unity's panning, the
+file `sound-panned` in the app's data directory, read at start; without the spatializer loaded
+the panning is used anyway, and the `Halcyonic: sound placed by ...` line says which
+(`StageSound.HeadRelated`, `StageSound.Configure`, checked both ways by `SoundCheck`). The
+package, its licence, its telemetry and what it costs are in
+[meta-xr-audio.md](../validation/meta-xr-audio.md). Cues are scheduled
 on the audio clock (`AudioSource.PlayScheduled`), keeping their gap there too, so once the clips
 exist nothing runs per frame; the selector keeps its time on the real-time clock, because the audio
 clock can stand still while the output is suspended.

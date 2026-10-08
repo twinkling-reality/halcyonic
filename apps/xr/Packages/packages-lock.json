@@ -29,6 +29,13 @@
       },
       "url": "https://npm.developer.oculus.com"
     },
+    "com.meta.xr.sdk.audio": {
+      "version": "85.0.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://npm.developer.oculus.com"
+    },
     "com.meta.xr.sdk.core": {
       "version": "207.0.0",
       "depth": 0,
@@ -307,6 +314,12 @@
       "dependencies": {
         "com.unity.modules.jsonserialize": "1.0.0"
       }
+    },
+    "com.unity.modules.terrain": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
     },
     "com.unity.modules.ui": {
       "version": "1.0.0",
