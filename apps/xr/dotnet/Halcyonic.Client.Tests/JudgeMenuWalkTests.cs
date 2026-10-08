@@ -225,7 +225,7 @@ public class JudgeMenuWalkTests
 
     [TestCase(TextSize.Standard)]
     [TestCase(TextSize.Larger)]
-    public async Task TheDemonstrationsFirstVisitOpensAmbientWithProjectsAPressFromTheBar(TextSize text)
+    public async Task TheDemonstrationsFirstVisitOpensClosedWithProjectsReachedFromTheBar(TextSize text)
     {
         player = new DemonstrationPlayer(Demonstration.Recording(), Samples.Client, Demonstration.Fast());
         player.Session.Start();
@@ -237,7 +237,7 @@ public class JudgeMenuWalkTests
         // As the workspace's director does once the demonstration plays: it never asks the first question, and opens nothing.
         var asks = visit.Asks(host.Connected, host.Demonstration, player.Session.State.Journal?.JournalId, player.Session.State.Workstreams.Count > 0);
         Assert.That(asks, Is.False, "the demonstration starts with recorded work");
-        Assert.That(visit.Due(host.Demonstration, somethingOpen: navigator.Beside != null, asks), Is.False, "it opens ambient: the stage and the bar");
+        Assert.That(visit.Due(host.Demonstration, somethingOpen: navigator.Beside != null, asks), Is.False, "it opens closed: the stage and the bar");
         Assert.That(visit.Visited, Is.False, "the person's own first visit is still to come");
         Assert.That(visit.Started, Is.Empty, "the recording's journal is not the person's computer");
         Assert.That((navigator.IsOpen, navigator.BeforeFirstTask), Is.EqualTo((false, false)));
