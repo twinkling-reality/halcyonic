@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Halcyonic.Contracts;
 using NUnit.Framework;
@@ -38,12 +39,29 @@ public class MenuStartTests
     public void TheDeviceRemembersTheMostRecentJournalsThatHadATask()
     {
         var visit = new FirstVisit();
-        var journals = Enumerable.Range(0, FirstVisit.Journals + 1).Select(index => "journal-" + index).ToList();
+        var journals = Enumerable.Range(0, FirstVisit.Journals + 1).Select(_ => Guid.NewGuid().ToString()).ToList();
         foreach (var journal in journals) visit.Asks(live: true, demonstration: false, journal, anyTask: true);
         Assert.That(visit.Started.Split(' '), Has.Length.EqualTo(FirstVisit.Journals));
         Assert.That(visit.Asks(live: true, demonstration: false, journals[0], anyTask: false), Is.True, "the oldest is forgotten");
+        var version = visit.Version;
         visit.Asks(live: true, demonstration: false, journals[1], anyTask: true);
         Assert.That(visit.Started.Split(' ')[0], Is.EqualTo(journals[1]), "seen again, it is the most recent");
+        Assert.That(visit.Version, Is.EqualTo(version + 1), "the device keeps it again");
+        visit.Asks(live: true, demonstration: false, journals[1], anyTask: true);
+        Assert.That(visit.Version, Is.EqualTo(version + 1), "already the most recent, nothing changes");
+    }
+
+    [Test]
+    public void TheKeptJournalsAreReadAsUntrustedAndOnlyJournalIdsAreKept()
+    {
+        var many = string.Join("  ", Enumerable.Range(0, 40).Select(_ => Guid.NewGuid().ToString()));
+        Assert.That(new FirstVisit(many).Started.Split(' '), Has.Length.EqualTo(FirstVisit.Journals), "the first few, however many were written");
+        var mixed = new FirstVisit("not-a-journal " + new string('a', 5000) + " " + Journal + " " + Journal);
+        Assert.That(mixed.Started, Is.EqualTo(Journal), "nothing that couldn't be a journal's id, and no repeats");
+
+        var odd = new FirstVisit();
+        Assert.That(odd.Asks(live: true, demonstration: false, "journal with spaces", anyTask: true), Is.False, "it has work");
+        Assert.That((odd.Started, odd.Version), Is.EqualTo(("", 0)), "an id that couldn't be read back is never kept");
     }
 
     [Test]

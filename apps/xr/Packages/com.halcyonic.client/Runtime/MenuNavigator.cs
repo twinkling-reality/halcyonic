@@ -115,6 +115,12 @@ namespace Halcyonic.Client
                     foreach (var place in new List<MenuPlace>(places.Keys)) Drop(place);
                     DropQuestion();
                     asking = BeforeFirstTask;
+                    // Before the first task a column beside the menu stands in its place: the menu closes for it.
+                    if (BeforeFirstTask && Beside != null)
+                    {
+                        IsOpen = false;
+                        asking = false;
+                    }
                 }
                 Raise();
             }

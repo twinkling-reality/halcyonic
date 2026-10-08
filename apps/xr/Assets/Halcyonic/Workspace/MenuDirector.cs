@@ -685,11 +685,17 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
-        /// <summary>The first question's Start a project: New project in its place, with the idea Hold to talk heard, if any, as the person's own words to check.</summary>
+        /// <summary>
+        /// The first question's Start a project: New project in its place, with the idea Hold to talk heard,
+        /// if any, as the person's own words to check, only where it opens on Your idea; a draft kept from
+        /// before that opens on a later step takes no words it wasn't asked for there, and says so.
+        /// </summary>
         private void StartFirstProject(string? heard)
         {
             OpenNewProject(null, null);
-            if (heard != null && navigator.Beside is NewProjectFlow flow) flow.Heard(heard);
+            if (heard == null || !(navigator.Beside is NewProjectFlow flow)) return;
+            if (flow.Step == NewProjectStep.YourIdea) flow.Heard(heard);
+            else flow.Said(VoiceText.NotOnYourIdea);
         }
 
         public void OpenNewProject(string? projectId, string? projectName)

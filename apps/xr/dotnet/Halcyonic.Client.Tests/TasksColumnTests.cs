@@ -190,6 +190,8 @@ public class TasksColumnTests
     {
         var none = TasksColumn.Bar(MenuPlace.Tasks, StateWith(Array.Empty<WorkstreamView>()));
         Assert.That((none.ClosedLine, none.Waits(MenuPlace.Tasks)), Is.EqualTo(("Nothing is running yet", false)));
+        // A session's state before its first snapshot is empty, not known to be: it claims nothing about the computer's work.
+        Assert.That(TasksColumn.Bar(MenuPlace.Tasks, new ClientProjection()).ClosedLine, Is.EqualTo("Nothing is waiting for you."));
     }
 
     [Test]

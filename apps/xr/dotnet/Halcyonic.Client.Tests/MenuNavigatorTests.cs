@@ -586,6 +586,37 @@ public class MenuNavigatorTests
     }
 
     [Test]
+    public void APressOnTheQuestionAsDrawnIsPassedOverOnceTheMenuShowsSomethingElse()
+    {
+        var (menu, places, questions) = Asking();
+        menu.OpenMenu();
+        var (question, _, _) = Draw(menu);
+        var left = new List<IMenuColumn>();
+        menu.Left += left.Add;
+        menu.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings), question, null);
+        Assert.That(left, Is.EqualTo(new IMenuColumn[] { questions.Single() }), "the question leaving the plane stops the voice it held");
+        Assert.That(menu.Act(MenuColumn.Menu, "open", "k", question, null), Is.False, "the question no longer stands");
+        Draw(menu);
+        Assert.That(menu.Act(MenuColumn.Menu, "open", "k", question, null), Is.False);
+        Assert.That(questions.Single().Got.Where(got => got.StartsWith("act")), Is.Empty);
+        Assert.That(places[MenuPlace.Settings].Got.Where(got => got.StartsWith("act")), Is.Empty, "nor reaches the place now shown");
+    }
+
+    [Test]
+    public void TurningBackToBeforeTheFirstTaskWithAColumnBesideClosesTheMenuForIt()
+    {
+        var (menu, _, questions) = Asking();
+        menu.BeforeFirstTask = false;
+        var newProject = new Column("New project");
+        menu.OpenMenu(MenuPlace.Tasks);
+        menu.ShowBeside(newProject, null);
+        menu.BeforeFirstTask = true;
+        var (shown, beside, _) = Draw(menu);
+        Assert.That((menu.IsOpen, shown, beside!.Subject), Is.EqualTo((false, (MenuFrame?)null, "New project 0")), "the column stands alone, in the question's place");
+        Assert.That(questions, Is.Empty, "no question stands beside it");
+    }
+
+    [Test]
     public void WithoutAFirstQuestionTheMenuAlwaysShowsItsPlaces()
     {
         var (menu, _) = Menu();
