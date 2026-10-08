@@ -1163,9 +1163,11 @@ the same definition names, as the JSON Schema document:
   allowed", with the control plane's reason, such as "No answer in time. Press Refresh in a
   moment." Every
   claim keeps the source's own epistemic class as its tag (observed, reported, inferred, planned,
-  explained), never upgraded, and an agent's or a subagent's words, a statement or a remaining item
-  from the agent, are always reported, quoted and attributed, whatever the source tagged them
-  (`WorkAnswers.QuoteLine`, `Remaining`). No line of an answer is amber, which is for what waits for the person
+  explained), never upgraded, and someone's words, every statement (the agent's, a subagent's or an
+  unknown author's) and every remaining item said to be the agent's, are always reported, quoted and
+  attributed, whatever the source tagged them (`WorkAnswers.QuoteLine`, `Remaining`). A source's
+  summary that shows as nothing where no check was seen or nothing was measured says "Nothing measured."
+  (`IntelligenceText.PlainOr`). No line of an answer is amber, which is for what waits for the person
   only: partial, stale, unavailable and simulated are said in words, in the secondary tone. **`AnswerPages`** splits an answer that pages, keeping a line with
   its detail, never a provenance line at a page's foot, and a step's heading again at the top of a
   step that goes on; the page showing is named at the head of the provenance line ("Step 2 of 7 ·

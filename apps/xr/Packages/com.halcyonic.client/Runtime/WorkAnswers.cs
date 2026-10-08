@@ -346,7 +346,7 @@ namespace Halcyonic.Client
             var runs = Runs(understanding);
             if (runs.Count == 0)
             {
-                page.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary, evidence: Evidence.Observed));
+                page.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary, evidence: Evidence.Observed));
             }
             page.AddCounted(runs.Select(run => Run(run, zone)).ToList(),
                 more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more check"), SectionTone.Secondary));
@@ -591,8 +591,9 @@ namespace Halcyonic.Client
             }
             return item.Status switch
             {
-                UnderstandingRemainingItemStatus.Reported => new SectionLine(Word(item.Epistemic), "Still to do, the agent says: “" + text + "”", SectionTone.Claim,
-                    words: SectionLine.EvidenceOf(Word(item.Epistemic)) == Evidence.Reported ? "Still to do: “" + text + "”" : null),
+                // Said to be the agent's, so reported whichever source passed it on.
+                UnderstandingRemainingItemStatus.Reported => new SectionLine("reported", "Still to do, the agent says: “" + text + "”", SectionTone.Claim,
+                    words: "Still to do: “" + text + "”", chip: "Agent says"),
                 UnderstandingRemainingItemStatus.Failing => new SectionLine(Word(item.Epistemic), "Failing: " + text, SectionTone.Problem),
                 UnderstandingRemainingItemStatus.InProgress => new SectionLine(Word(item.Epistemic), "In progress: " + text, SectionTone.Normal),
                 _ => new SectionLine(Word(item.Epistemic),
@@ -611,9 +612,9 @@ namespace Halcyonic.Client
         internal static SectionLine QuoteLine(UnderstandingStatement statement, int rows, string? lead = null)
         {
             var quoted = "“" + IntelligenceText.Plain(statement.Text) + "”";
-            // An agent's or a subagent's words are reported, never observed, whatever the source tagged them (AGENTS.md).
-            var byAgent = statement.Author == UnderstandingStatementAuthor.Agent || statement.Author == UnderstandingStatementAuthor.Subagent;
-            var tag = byAgent ? "reported" : Word(statement.Epistemic);
+            // A statement is someone's words, an agent's, a subagent's or an unknown author's: reported, never observed,
+            // whatever the source tagged them (AGENTS.md).
+            const string tag = "reported";
             var evidence = SectionLine.EvidenceOf(tag);
             var chip = evidence == Evidence.Reported
                 ? statement.Author switch
@@ -731,7 +732,7 @@ namespace Halcyonic.Client
             var source = understanding.Source;
             var runs = UnderstandingPresenter.Runs(understanding);
             var lines = new List<SectionLine>();
-            if (runs.Count == 0) lines.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary, evidence: Evidence.Observed));
+            if (runs.Count == 0) lines.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary, evidence: Evidence.Observed));
             else
             {
                 var run = runs[runs.Count - 1];
@@ -757,7 +758,7 @@ namespace Halcyonic.Client
             var runs = UnderstandingPresenter.Runs(understanding);
             if (runs.Count == 0)
             {
-                page.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary, evidence: Evidence.Observed));
+                page.Add(new SectionLine("", IntelligenceText.PlainOr(understanding.Verification.Summary, IntelligenceText.NothingMeasured), SectionTone.Secondary, evidence: Evidence.Observed));
             }
             var coverage = UnderstandingPresenter.Coverage(understanding);
             page.AddCounted(runs.Select(run => (IReadOnlyList<SectionLine>)UnderstandingPresenter.Run(run, understanding.Changes.Files, zone).ToList()).ToList(),

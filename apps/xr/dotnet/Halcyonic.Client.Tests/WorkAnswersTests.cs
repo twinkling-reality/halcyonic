@@ -137,6 +137,9 @@ public class BlankSourceTextTests
                 Assert.That(() => new PageLine(line.Words, wordsAreData: true), Throws.Nothing, section.Kind.ToString());
             }
         }
+        // A fact still stands where its sentence shows as nothing: no check seen, and nothing measured (settled 2026-10-08).
+        var checkedLines = sections.Last().Lines.Select(line => line.Text).ToList();
+        Assert.That(checkedLines.Count(text => text == "Nothing measured."), Is.EqualTo(2), string.Join(" | ", checkedLines));
     }
 }
 
@@ -589,6 +592,16 @@ public class UnderstandingAnswersTests
             var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith("Agent says: “All tests pass.", StringComparison.Ordinal));
             Assert.That((statement.Tag, statement.Chip), Is.EqualTo(("reported", "Agent says")), "a statement the source tagged observed");
         }
+        // Said to be the agent's, whichever source passed it on.
+        var passedOn = Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            var item = (JObject)Intelligence.UnderstandingOf(response)["remaining"]!["items"]![0]!;
+            item["source"] = "plan";
+            item["status"] = "reported";
+            item["epistemic"] = "observed";
+        });
+        var still = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, passedOn), "Still to do, the agent says: ");
+        Assert.That((still.Tag, still.Chip), Is.EqualTo(("reported", "Agent says")));
     }
 
     [Test]
@@ -1051,7 +1064,7 @@ public class EvidenceTests
         Assert.That((observed.Evidence, observed.Chip, observed.Tone), Is.EqualTo((Evidence.Reported, "Subagent says", SectionTone.Claim)),
             "a subagent's description the source tagged observed is still reported, and leans as its words");
         var unknown = Brief(UnderstandPrompt.WhyChanged, With("null", "observed")).Lines[0];
-        Assert.That((unknown.Evidence, unknown.Chip), Is.EqualTo((Evidence.Observed, (string?)null)), "words of no known author keep the source's class");
+        Assert.That((unknown.Evidence, unknown.Chip), Is.EqualTo((Evidence.Reported, "Author unknown")), "words of no known author are someone's words too");
     }
 
     [Test]
