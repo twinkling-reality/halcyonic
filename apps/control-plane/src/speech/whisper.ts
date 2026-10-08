@@ -17,6 +17,9 @@ export const ENGINE_TIMEOUT_MS = 15_000;
  */
 export const WARM_UP_TIMEOUT_MS = 120_000;
 
+/** How long the binary has to answer --version at startup: the native binary answers at once. */
+export const VERSION_TIMEOUT_MS = 5_000;
+
 /** The whisper.cpp release Halcyonic runs: its release archive's build reports 1.9.4-dev, a tag checkout's 1.9.4. */
 const PINNED_VERSION = /^1\.9\.4(-dev)?$/;
 
@@ -102,11 +105,24 @@ export class WhisperEngine implements SpeechEngine {
     config: SpeechConfig,
     timeoutMs: number = ENGINE_TIMEOUT_MS,
     warmUpTimeoutMs: number = WARM_UP_TIMEOUT_MS,
+    versionTimeoutMs: number = VERSION_TIMEOUT_MS,
   ): Promise<WhisperEngine> {
     await removeLeftovers();
     const output = await new Promise<string>((resolve, reject) => {
-      execFile(config.binary, ['--version'], { env: {}, timeout: 5_000 }, (error, stdout) =>
-        error === null ? resolve(stdout) : reject(error),
+      execFile(
+        config.binary,
+        ['--version'],
+        { env: {}, timeout: versionTimeoutMs },
+        (error, stdout) => {
+          if (error === null) resolve(stdout);
+          else if (error.killed) {
+            reject(
+              new Error(
+                `${config.binary} did not answer --version within ${versionTimeoutMs / 1000} s.`,
+              ),
+            );
+          } else reject(error);
+        },
       );
     });
     const version = /whisper\.cpp version: (\S{1,64})/.exec(output)?.[1];
