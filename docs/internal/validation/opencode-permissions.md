@@ -290,7 +290,11 @@ commands; edits do not ask; subagents stay denied.
   a safeguard against an ordinary model, not a boundary: a model working to get around it can run
   commands, write files and reach the network unasked. The details stay out of this repository
   until the owner decides on reporting them to OpenCode
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Since 2026-10-08 the server runs on macOS
+  inside a sandbox of Halcyonic's own, which contains those commands: no write outside the project
+  roots, no network but the model's port and the server's own
+  ([ADR 0028](../decisions/0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md),
+  [opencode-sandbox.md](opencode-sandbox.md)).
 - **Every hidden path is denied to edits.** A repository's `.git` configuration names programs git
   runs (filters, `core.fsmonitor`, `core.hooksPath`, hooks), so an edit there would run code the
   next time the person approves a git command that looks harmless. Runtime: a clean filter written

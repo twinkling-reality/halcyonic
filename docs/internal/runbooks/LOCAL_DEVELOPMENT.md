@@ -77,7 +77,10 @@ which only you can read or change, and Halcyonic reads it when it starts
 
    OpenCode then starts on that model when none is chosen; your own OpenCode settings are left as
    they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code Mode, web fetch,
-   web search and subagents turned off, ignores the project's own OpenCode configuration and
+   web search and subagents turned off, runs inside a sandbox of Halcyonic's own (it reaches only
+   Ollama on this Mac, writes only in your project folders, and reads none of your credentials, so
+   an `npm install` or `git fetch` it runs fails: run those yourself), ignores the project's own
+   OpenCode configuration and
    plugins, cannot edit hidden files such as `.git` or `.gitignore` itself, and asks you about
    shell commands, which is how its
    approvals reach the headset ([opencode-permissions.md](../validation/opencode-permissions.md)
