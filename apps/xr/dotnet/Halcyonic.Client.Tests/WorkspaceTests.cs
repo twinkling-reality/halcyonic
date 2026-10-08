@@ -269,6 +269,7 @@ public class WorkspacePresenterTests
             {
                 ApprovalId = "approval-1",
                 Subject = new ToolUseSubject { ToolName = "bash", Summary = "Run it" },
+                Approvable = true,
                 RequestedAt = Samples.Time,
             });
         }
@@ -301,13 +302,14 @@ public class WorkspacePresenterTests
     public void ARequestShowsEveryLineBreakAndOneNotShownWholeCanOnlyBeDenied()
     {
         var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");
-        WorkspacePresentation Asking(string summary)
+        WorkspacePresentation Asking(string summary, bool approvable)
         {
             var execution = Samples.Execution("e1", "w1", ExecutionStatus.WaitingForHuman);
             execution.PendingApprovals.Add(new ApprovalView
             {
                 ApprovalId = "approval-1",
                 Subject = new ToolUseSubject { ToolName = "shell", Summary = summary },
+                Approvable = approvable,
                 RequestedAt = Samples.Time,
             });
             var state = new ClientProjection();
@@ -315,23 +317,27 @@ public class WorkspacePresenterTests
             return WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true);
         }
 
-        var whole = Asking("echo start\nrm -rf build");
+        var whole = Asking("echo start\nrm -rf build", approvable: true);
         Assert.That(whole.Actions, Does.Contain(WorkspaceAction.Approve));
         Assert.That(WorkspaceText.NeedFromYou(whole)!.Request, Is.EqualTo("echo start‹U+000A›rm -rf build"));
         Assert.That(WorkspaceText.Request(whole.ApprovalToAnswer), Is.EqualTo("shell: echo start‹U+000A›rm -rf build"));
 
-        var cut = Asking("echo start " + new string('x', 1980) + " [truncated]");
+        // The control plane cut it to fit: not approvable, and the words name the cut.
+        var cut = Asking("echo start " + new string('x', 1980) + " [truncated]", approvable: false);
         Assert.That(cut.Actions, Does.Contain(WorkspaceAction.Deny));
         Assert.That(cut.Actions, Does.Not.Contain(WorkspaceAction.Approve));
         Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Does.Contain("This command is too long to show you whole, so you can only deny it."));
         Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Has.None.Contains("Approve"));
 
-        // OpenCode's adapter marks a shell request whose whole command it could not learn.
-        var unknown = Asking("[whole command not known] echo start\nrm -rf build");
+        // The agent app could not say all of it.
+        var unknown = Asking("echo start\nrm -rf build", approvable: false);
         Assert.That(unknown.Actions, Does.Contain(WorkspaceAction.Deny));
         Assert.That(unknown.Actions, Does.Not.Contain(WorkspaceAction.Approve));
         Assert.That(WorkspaceText.NeedFromYou(unknown)!.Notes, Does.Contain("Your computer couldn't get the whole command, so you can only deny it."));
-        Assert.That(WorkspaceText.NeedFromYou(unknown)!.Notes, Has.None.Contains("Approve"));
+
+        // Whether it can be approved is the view's to say, never text in the request.
+        var typed = Asking("echo [truncated] [whole command not known]", approvable: true);
+        Assert.That(typed.Actions, Does.Contain(WorkspaceAction.Approve));
     }
 
     [Test]

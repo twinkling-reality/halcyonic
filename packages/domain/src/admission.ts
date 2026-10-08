@@ -172,11 +172,22 @@ export function admitCommand(
       const { facts, runtime, scope } = target;
       const missing = requireCapability(runtime, 'respond_to_approval', scope);
       if (missing !== undefined) return missing;
-      if (!facts.pendingApprovalIds.includes(command.payload.approval_id)) {
+      const approval = facts.pendingApprovals.find(
+        (pending) => pending.approval_id === command.payload.approval_id,
+      );
+      if (approval === undefined) {
         return reject(
           scope,
           'approval_not_found',
           `Approval ${command.payload.approval_id} is not pending on this execution.`,
+        );
+      }
+      // What the person could not read whole may be refused, never approved.
+      if (!approval.approvable && command.payload.decision === 'approve') {
+        return reject(
+          scope,
+          'approval_not_whole',
+          'This request was never shown whole, so it can only be denied.',
         );
       }
       if (facts.status !== 'waiting_for_human') {

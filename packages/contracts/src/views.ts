@@ -120,7 +120,13 @@ export const WorkstreamView = Type.Object(
 export type WorkstreamView = Static<typeof WorkstreamView>;
 
 export const ApprovalView = Type.Object(
-  { approval_id: NativeId, subject: ApprovalSubject, requested_at: Timestamp },
+  {
+    approval_id: NativeId,
+    subject: ApprovalSubject,
+    /** False when the request was not complete as reported or journaled: it can only be denied. */
+    approvable: Type.Boolean(),
+    requested_at: Timestamp,
+  },
   strict,
 );
 export type ApprovalView = Static<typeof ApprovalView>;

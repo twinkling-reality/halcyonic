@@ -138,12 +138,15 @@ function withoutCredentials(
         : payload;
     case 'runtime.approval.requested': {
       const subject = payload.subject as { summary?: unknown } | undefined;
-      return typeof subject?.summary === 'string'
-        ? {
-            ...payload,
-            subject: { ...subject, summary: fitted(redaction.held(subject.summary), 2000) },
-          }
-        : payload;
+      if (typeof subject?.summary !== 'string') return payload;
+      const held = redaction.held(subject.summary);
+      const summary = fitted(held, 2000);
+      // A request cut to fit was never shown whole, so it can no longer be approved.
+      return {
+        ...payload,
+        subject: { ...subject, summary },
+        complete: payload.complete === true && summary === held,
+      };
     }
     case 'runtime.question.asked':
       return fittedQuestion(payload, redaction);

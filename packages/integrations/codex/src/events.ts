@@ -324,20 +324,24 @@ function observeRequest(
     answer: null,
   };
   state.approvals.set(approval.approvalId, approval);
-  const subject: ApprovalSubject =
+  const asked =
     method === 'item/commandExecution/requestApproval'
-      ? { kind: 'tool_use', tool_name: 'commandExecution', summary: commandSummary(params) }
+      ? { tool: 'commandExecution', ...commandSummary(params) }
       : {
-          kind: 'tool_use',
-          tool_name: 'fileChange',
-          summary: fileChangeSummary(state.fileChanges.get(itemId), params.grantRoot),
+          tool: 'fileChange',
+          ...fileChangeSummary(state.fileChanges.get(itemId), params.grantRoot),
         };
+  const subject: ApprovalSubject = {
+    kind: 'tool_use',
+    tool_name: asked.tool,
+    summary: asked.summary,
+  };
   state.sequence += 1;
   return {
     observations: [
       observation(
         'runtime.approval.requested',
-        { approval_id: approval.approvalId, subject },
+        { approval_id: approval.approvalId, subject, complete: asked.complete },
         {
           native_event_id: `${approval.approvalId}:${method}`,
           sequence: state.sequence,
@@ -542,8 +546,14 @@ export function endTurn(state: ThreadState, turnId: string): Observed['settled']
   return settled;
 }
 
-/** A command approval as the command Codex would run and where, or the network access it asks for. */
-function commandSummary(params: Readonly<Record<string, unknown>>): string {
+/**
+ * A command approval as the command Codex would run and where, or the network access it asks for;
+ * complete only when Codex said the command and where it runs, or the host.
+ */
+function commandSummary(params: Readonly<Record<string, unknown>>): {
+  readonly summary: string;
+  readonly complete: boolean;
+} {
   const command = nonBlank(params.command);
   const network = isRecord(params.networkApprovalContext) ? params.networkApprovalContext : {};
   const host = nonBlank(network.host);
@@ -558,15 +568,24 @@ function commandSummary(params: Readonly<Record<string, unknown>>): string {
   const cwd = nonBlank(params.cwd);
   if (command !== null && cwd !== null) summary += `\nin ${cwd}`;
   // Whole: the control plane takes credentials out, then cuts it to the contract.
-  return summary;
+  // Input to a running command runs nothing new, so it needs no folder to be complete.
+  const complete = command !== null ? params.kind === 'writeStdin' || cwd !== null : host !== null;
+  return { summary, complete };
 }
 
-function fileChangeSummary(changes: string | undefined, grantRoot: unknown): string {
-  let summary = changes ?? 'Codex did not say which files it wants to change.';
+/** A change approval as the paths it writes; complete only when Codex named them. */
+function fileChangeSummary(
+  changes: string | undefined,
+  grantRoot: unknown,
+): { readonly summary: string; readonly complete: boolean } {
+  const named = changes !== undefined && changes !== NO_CHANGES_NAMED;
+  let summary = named ? changes : NO_CHANGES_NAMED;
   const root = nonBlank(grantRoot);
   if (root !== null) summary += `\nand write access under ${root} for the rest of the session`;
-  return summary;
+  return { summary, complete: named };
 }
+
+const NO_CHANGES_NAMED = 'Codex did not say which files it wants to change.';
 
 /** The files a file change item touches, one line each, from `v2/FileUpdateChange.ts`. */
 function describeChanges(changes: unknown): string {
@@ -582,7 +601,7 @@ function describeChanges(changes: unknown): string {
     else if (kind === 'update')
       lines.push(moved === null ? `update ${path}` : `move ${path} to ${moved}`);
   }
-  return lines.length > 0 ? lines.join('\n') : 'Codex did not say which files it wants to change.';
+  return lines.length > 0 ? lines.join('\n') : NO_CHANGES_NAMED;
 }
 
 /**

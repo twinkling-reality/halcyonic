@@ -1,4 +1,5 @@
 import type {
+  ApprovalView,
   CommandEnvelope,
   CommandFailure,
   CommandId,
@@ -56,7 +57,7 @@ export interface ExecutionFacts {
   runtimeId: string;
   status: ExecutionStatus;
   hasNativeSession: boolean;
-  pendingApprovalIds: readonly string[];
+  pendingApprovals: readonly ApprovalView[];
   pendingQuestions: readonly QuestionView[];
 }
 
@@ -462,6 +463,7 @@ export class Projection {
         execution.pendingApprovals.set(event.payload.approval_id, {
           approval_id: event.payload.approval_id,
           subject: event.payload.subject,
+          approvable: event.payload.complete,
           requested_at: event.occurred_at,
         });
         break;
@@ -622,7 +624,7 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     runtimeId: state.runtime.runtime_id,
     status: deriveExecutionStatus(state),
     hasNativeSession: state.runtimeStarted,
-    pendingApprovalIds: [...state.pendingApprovals.keys()],
+    pendingApprovals: [...state.pendingApprovals.values()],
     // Only those shown can be answered: one behind them waits its turn.
     pendingQuestions: shownQuestions(state.pendingQuestions),
   };

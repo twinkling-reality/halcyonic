@@ -281,21 +281,16 @@ namespace Halcyonic.Client
         private static bool IsCut(string? text) => text != null && text.Contains("[truncated]");
 
         /// <summary>
-        /// What an OpenCode shell request's summary starts with when its adapter could not learn the
-        /// whole command, so it shows only the parts OpenCode found in it (the adapter's UNKNOWN_COMMAND).
+        /// Why an approval's request can only be denied, or null when it can be approved: the request
+        /// was not complete, as its agent app reported it or once the control plane cut it to fit
+        /// (`Approvable`), so the person could never read all of what it would run. The words name the
+        /// cut when the summary ends with its mark.
         /// </summary>
-        public const string UnknownCommand = "[whole command not known]";
-
-        /// <summary>
-        /// Why an approval's request can only be denied, or null when it can be approved: the control
-        /// plane cut it to fit, or its whole command is not known, so the person could never read all
-        /// of what it would run.
-        /// </summary>
-        public static string? OnlyDeny(ApprovalView approval) => approval.Subject is ToolUseSubject tool
-            ? IsCut(tool.Summary) ? TooLongToShow
-                : tool.Summary.Contains(UnknownCommand) ? CommandNotKnown
-                : null
-            : null;
+        public static string? OnlyDeny(ApprovalView approval) => approval.Approvable
+            ? null
+            : approval.Subject is ToolUseSubject tool && tool.Summary.EndsWith("[truncated]", StringComparison.Ordinal)
+                ? TooLongToShow
+                : CommandNotKnown;
 
         public const string TooLongToShow = "This command is too long to show you whole, so you can only deny it.";
         public const string CommandNotKnown = "Your computer couldn't get the whole command, so you can only deny it.";

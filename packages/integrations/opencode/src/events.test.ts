@@ -10,7 +10,7 @@ import { describe, test } from 'node:test';
 import { QUESTION_TEXT_LIMIT, questionTextLength } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import {
-  approvalSubject,
+  approvalRequest,
   clip,
   createSessionState,
   decodeEvent,
@@ -123,6 +123,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
             tool_name: 'shell',
             summary: "[in the task's folder] echo halcyonic-smoke",
           },
+          complete: true,
         },
       },
       {
@@ -616,24 +617,33 @@ describe('OpenCode event decoding', () => {
     assert.equal(replyOutcome('always'), 'approved');
     assert.equal(replyOutcome('reject'), 'denied');
     assert.equal(replyOutcome('later'), null);
-    // A shell request without its command shows the parsed parts after the marker.
-    assert.deepEqual(approvalSubject('shell', ['echo a', 'sleep 1']), {
-      kind: 'tool_use',
-      tool_name: 'shell',
-      summary: '[whole command not known] echo a\nsleep 1',
+    // A shell request without its command shows the parsed parts, and is not complete.
+    assert.deepEqual(approvalRequest('shell', ['echo a', 'sleep 1']), {
+      subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo a\nsleep 1' },
+      complete: false,
     });
-    assert.equal(
-      approvalSubject('shell', ['echo a'], "[in the task's folder] echo a | tee x")?.summary,
-      "[in the task's folder] echo a | tee x",
+    assert.deepEqual(
+      approvalRequest('shell', ['echo a'], "[in the task's folder] echo a | tee x"),
+      {
+        subject: {
+          kind: 'tool_use',
+          tool_name: 'shell',
+          summary: "[in the task's folder] echo a | tee x",
+        },
+        complete: true,
+      },
     );
-    assert.deepEqual(approvalSubject('webfetch', []), {
-      kind: 'tool_use',
-      tool_name: 'webfetch',
-      summary: 'webfetch',
+    // A request that names its paths is complete; any other action's is not.
+    assert.equal(approvalRequest('external_directory', ['/elsewhere/*'])?.complete, true);
+    assert.equal(approvalRequest('edit', [])?.complete, false);
+    assert.deepEqual(approvalRequest('webfetch', []), {
+      subject: { kind: 'tool_use', tool_name: 'webfetch', summary: 'webfetch' },
+      complete: false,
     });
-    assert.equal(approvalSubject(' ', ['x']), null);
+    assert.equal(approvalRequest('github_create_issue', ['x'])?.complete, false);
+    assert.equal(approvalRequest(' ', ['x']), null);
     // Whole, for the control plane to cut after it takes credentials out.
-    assert.equal(approvalSubject('edit', ['x'.repeat(3000)])?.summary, 'x'.repeat(3000));
+    assert.equal(approvalRequest('edit', ['x'.repeat(3000)])?.subject.summary, 'x'.repeat(3000));
   });
 
   test("a shell request shows its tool call's command whole, after where it runs", () => {
@@ -651,7 +661,7 @@ describe('OpenCode event decoding', () => {
       send('session.tool.called', { assistantMessageID: message, id, input });
     };
     let count = 0;
-    const shown = (id: string, action = 'shell', message = 'msg_1') => {
+    const asked = (id: string, action = 'shell', message = 'msg_1') => {
       count += 1;
       const [requested] = send('permission.asked', {
         id: `per_${count}`,
@@ -661,7 +671,16 @@ describe('OpenCode event decoding', () => {
       });
       assert.ok(requested?.type === 'runtime.approval.requested');
       assert.ok(requested.payload.subject.kind === 'tool_use');
-      return requested.payload.subject.summary;
+      return requested.payload;
+    };
+    // A complete request's summary; null for one that is not, which shows the parsed parts.
+    const shown = (id: string, action = 'shell', message = 'msg_1') => {
+      const payload = asked(id, action, message);
+      if (!payload.complete) {
+        assert.equal(payload.subject.summary, 'echo one\necho two');
+        return null;
+      }
+      return payload.subject.summary;
     };
     const command = 'echo one && echo two > two.txt\nrm -f x';
     call('call_1', 'shell', { command });
@@ -675,19 +694,18 @@ describe('OpenCode event decoding', () => {
     call('call_8', 'shell', { command: 'ls', workdir: "the task's folder" });
     assert.equal(shown('call_8'), '[in "the task\'s folder"] ls');
 
-    // Without the call's request, the parsed parts after the marker, so only Deny is offered.
-    const unknown = '[whole command not known] echo one\necho two';
-    assert.equal(shown('call_9'), unknown, 'a call never seen');
+    // Without the call's request, not complete, so only Deny is offered.
+    assert.equal(shown('call_9'), null, 'a call never seen');
     call('call_4', 'shell', '{"command":"rm -rf x"}');
-    assert.equal(shown('call_4'), unknown, 'input OpenCode repairs only after the ask');
+    assert.equal(shown('call_4'), null, 'input OpenCode repairs only after the ask');
     call('call_5', 'shell', { command: 'ls', workdir: "a] [in the task's folder" });
-    assert.equal(shown('call_5'), unknown, 'a workdir with a bracket');
+    assert.equal(shown('call_5'), null, 'a workdir with a bracket');
     call('call_6', 'shell', { command: 'ls', background: 'true' });
-    assert.equal(shown('call_6'), unknown, 'a background OpenCode could repair');
-    assert.equal(shown('call_1', 'shell', 'msg_2'), unknown, 'the same call id in another message');
+    assert.equal(shown('call_6'), null, 'a background OpenCode could repair');
+    assert.equal(shown('call_1', 'shell', 'msg_2'), null, 'the same call id in another message');
     call('call_7', 'write', { command: 'not shell' });
-    assert.equal(shown('call_7'), unknown, "another tool's call");
-    // Another action shows its resources as they are.
+    assert.equal(shown('call_7'), null, "another tool's call");
+    // A request for paths shows them as they are, complete.
     assert.equal(shown('call_1', 'external_directory'), 'echo one\necho two');
 
     // A call id reused in a later message is that message's call, never the earlier command.
@@ -695,7 +713,7 @@ describe('OpenCode event decoding', () => {
     assert.equal(shown('call_1', 'shell', 'msg_3'), "[in the task's folder] echo later");
     // A finished call is forgotten.
     send('session.tool.success', { assistantMessageID: 'msg_1', id: 'call_1' });
-    assert.equal(shown('call_1'), unknown);
+    assert.equal(shown('call_1'), null);
   });
 
   test('an execution error type that does not start with a letter still yields a valid code', () => {

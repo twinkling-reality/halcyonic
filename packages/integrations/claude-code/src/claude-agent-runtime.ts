@@ -15,6 +15,7 @@ import {
 } from '@anthropic-ai/claude-agent-sdk';
 import type {
   ApprovalDecision,
+  ApprovalSubject,
   ErrorInfo,
   EventOf,
   ExecutionId,
@@ -624,11 +625,7 @@ class ClaudeSession {
       'runtime.approval.requested',
       {
         approval_id: approvalId,
-        subject: {
-          kind: 'tool_use',
-          tool_name: toolName.slice(0, 128),
-          summary: approvalSummary(input),
-        },
+        ...approvalRequest(toolName, input),
       },
       observed('can_use_tool'),
       `${approvalId}:requested`,
@@ -1030,9 +1027,48 @@ function askedQuestions(input: Record<string, unknown>): {
   return { prompts, texts, answerable };
 }
 
-/** What an approval asks for, whole, as `describeInput`. */
-function approvalSummary(input: Record<string, unknown>): string {
-  return describeInput(input) ?? JSON.stringify(input);
+/**
+ * The inputs of Claude Code's own tools that change neither what runs nor where a change is
+ * written, besides the field that describes the call: a command's description and time limit, and
+ * a change's content, which a request does not show (`runtime.approval.requested`'s `complete`).
+ */
+const NOT_ACTING_INPUTS: Readonly<Record<string, readonly string[]>> = {
+  Bash: ['description', 'timeout', 'run_in_background'],
+  Edit: ['old_string', 'new_string', 'replace_all'],
+  MultiEdit: ['edits'],
+  Write: ['content'],
+  NotebookEdit: ['new_source', 'cell_id', 'cell_type', 'edit_mode'],
+};
+
+/**
+ * What an approval asks for, whole: the field that describes the call (`describeInput`), with "in
+ * the background" after a Bash command that runs there, or else the whole input as JSON. Complete
+ * when that is all the call says that acts: the whole input, or the describing field of one of
+ * Claude Code's own tools beside only inputs that do not act. A call of any other tool described by
+ * one field, while it has other inputs, is not complete, so it can only be denied.
+ */
+function approvalRequest(
+  toolName: string,
+  input: Record<string, unknown>,
+): { readonly subject: ApprovalSubject; readonly complete: boolean } {
+  const described = describeInput(input);
+  const field = DESCRIBING_FIELDS.find((name) => input[name] === described);
+  const others = Object.keys(input).filter((name) => name !== field);
+  const quiet = NOT_ACTING_INPUTS[toolName] ?? [];
+  const background = toolName === 'Bash' && input.run_in_background === true;
+  return {
+    subject: {
+      kind: 'tool_use',
+      tool_name: toolName.slice(0, 128),
+      summary:
+        described === null
+          ? JSON.stringify(input)
+          : background
+            ? `${described}\nin the background`
+            : described,
+    },
+    complete: described === null || others.every((name) => quiet.includes(name)),
+  };
 }
 
 /** Shortens text to a contract limit. Null when nothing visible remains. */

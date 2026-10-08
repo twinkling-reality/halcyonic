@@ -70,13 +70,13 @@ function setup() {
       command_type: 'execution.interrupt',
       payload: { execution_id: execution.executionId },
     }),
-    approve: (approvalId: string): CommandEnvelope => ({
+    approve: (approvalId: string, decision: 'approve' | 'deny' = 'approve'): CommandEnvelope => ({
       ...base(),
       command_type: 'execution.respond_to_approval',
       payload: {
         execution_id: execution.executionId,
         approval_id: approvalId,
-        decision: 'approve',
+        decision,
         message: null,
       },
     }),
@@ -251,10 +251,30 @@ describe('command admission', () => {
       b.runtimeEvent(scope, 'runtime.approval.requested', {
         approval_id: 'a1',
         subject: { kind: 'tool_use', tool_name: 'bash', summary: 'Run it' },
+        complete: true,
       }),
     );
     const pending = admitCommand(commands.approve('a1'), projection, catalog());
     assert.equal(pending.admitted && pending.policy, 'review_required');
+  });
+
+  test('a request never shown whole can be denied, never approved', () => {
+    const { b, projection, scope, commands } = setup();
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.approval.requested', {
+        approval_id: 'a1',
+        subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo one' },
+        complete: false,
+      }),
+    );
+    const approve = admitCommand(commands.approve('a1'), projection, catalog());
+    assert.deepEqual(approve.admitted ? null : approve.rejection, {
+      code: 'approval_not_whole',
+      message: 'This request was never shown whole, so it can only be denied.',
+    });
+    const deny = admitCommand(commands.approve('a1', 'deny'), projection, catalog());
+    assert.equal(deny.admitted, true);
   });
 
   test('an approval on an unobservable execution cannot be answered', () => {
@@ -264,6 +284,7 @@ describe('command admission', () => {
       b.runtimeEvent(scope, 'runtime.approval.requested', {
         approval_id: 'a1',
         subject: { kind: 'tool_use', tool_name: 'bash', summary: 'Run it' },
+        complete: true,
       }),
     );
     projection.apply(b.runtimeEvent(scope, 'runtime.connection.lost', { reason: 'Gone.' }));

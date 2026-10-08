@@ -477,6 +477,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         ApprovalId = "render-approval",
                         Subject = new ToolUseSubject { ToolName = tool, Summary = summary },
+                        Approvable = true,
                         RequestedAt = Time,
                     }),
                     new ApprovalPendingReason { ExecutionId = "render-execution", ApprovalId = "render-approval" }, false);

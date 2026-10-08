@@ -74,7 +74,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.turn.completed` | execution | runtime | The turn ended normally |
 | `runtime.turn.failed` | execution | runtime | The turn ended with an error |
 | `runtime.turn.interrupted` | execution | runtime | The turn was stopped on request |
-| `runtime.approval.requested` | execution | runtime | The runtime is blocked on a human decision; carries the tool and what it asks for (`subject.summary`), the tool's input (below) |
+| `runtime.approval.requested` | execution | runtime | The runtime is blocked on a human decision; carries the tool and what it asks for (`subject.summary`), the tool's input (below), and whether that is `complete` (below) |
 | `runtime.approval.resolved` | execution | runtime | The runtime applied a decision |
 | `runtime.question.asked` | execution | runtime | The agent waits for the person to answer a question; carries the runtime's question id, its prompts (the agent's words) and whether Halcyonic can answer it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)) |
 | `runtime.question.resolved` | execution | runtime | The runtime took an answer (`answered`) or withdrew the question (`dismissed`); a turn's end withdraws it too |
@@ -101,12 +101,23 @@ A command from a device revoked after its request or connection was authenticate
 A tool's `title` and what an approval asks for carry the tool's input, as the runtime gives it:
 Codex's whole command line, with where it runs, or the files a change touches; Claude Code's
 command, path, URL, query or pattern, or for an approval with none of those, its whole input as
-JSON, which for an MCP tool can hold a credential argument; OpenCode's resources for a permission.
+JSON, which for an MCP tool can hold a credential argument; for an OpenCode shell command, where it
+runs and the command as the model gave it, and otherwise OpenCode's resources for a permission.
 A question's texts and a test run's label and summary are the runtime's own words. Adapters report
 all of them whole, and the control plane takes every exact copy of a secret it holds out of them,
 named, then cuts each to the contract before it is journaled. A credential it doesn't hold stays,
 so the person reads the command as it would run ([SECURITY.md](SECURITY.md), "Logs and error
 text").
+
+An approval request carries `complete`, defined as: complete: the summary shows in full every
+command that would run, with how and where it runs, and names every path a change would write. It
+does not include a change's content. Each adapter says it for what it reports: OpenCode for a shell
+command whose call it knows, or a request naming paths; Codex unless it did not say the command and
+its folder, the host or the files; Claude Code for the whole input, or for one of its own tools whose
+other inputs do not act ("in the background" follows a Bash command that runs there). The control
+plane makes it false when it cuts the summary. The projection copies it to `ApprovalView.approvable`,
+and admission answers an approve of a request that is not approvable with `approval_not_whole`
+("This request was never shown whole, so it can only be denied."); a deny is admitted.
 
 ## Contracts: one source of truth
 
@@ -159,6 +170,11 @@ To change a contract:
   changed, because the only client in the field is a development build: one generated before
   this change sends `project.create` without `location` and gets 400 `invalid_command` until it is
   rebuilt, since the command's schema requires the explicit null.
+- Migration 5 gives every stored `runtime.approval.requested` the `complete: true` its contract
+  gained on 2026-10-08: a request stored before was offered for approval as it was, so it stays
+  approvable. It runs on the owner's journal the next time the control plane starts. No version
+  changed: `ApprovalView.approvable` and the `approval_not_whole` rejection are additions, and the
+  only client in the field is a development build, regenerated with them.
 - The question events, `runtime.connection.restored`, `execution.answer_question` and the
   `answer_question` capability are additions that no stored event or command lacks, so they need
   no migration and change no version

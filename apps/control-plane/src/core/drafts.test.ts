@@ -96,6 +96,7 @@ describe("a runtime's observations", () => {
       observation('runtime.approval.requested', {
         approval_id: 'a',
         subject: { kind: 'tool_use', tool_name: 'Bash', summary: command },
+        complete: true,
       }),
     );
     sink(
@@ -129,6 +130,7 @@ describe("a runtime's observations", () => {
         {
           approval_id: 'a',
           subject: { kind: 'tool_use', tool_name: 'Bash', summary: expected },
+          complete: true,
         },
         { tool_call_id: 't', tool_name: 'Bash', title: expected },
         { tool_call_id: 'u', tool_name: 'Read', title: null },
@@ -157,6 +159,7 @@ describe("a runtime's observations", () => {
       observation('runtime.approval.requested', {
         approval_id: 'a',
         subject: { kind: 'tool_use', tool_name: 'Bash', summary },
+        complete: true,
       }),
     );
     sink(observation('runtime.tool.started', { tool_call_id: 't', tool_name: 'Bash', title }));
@@ -167,9 +170,11 @@ describe("a runtime's observations", () => {
     const [approval, tool, started, completed] = recorded.map((draft) => draft.payload);
     const cutSummary = `${'x'.repeat(1990)}${MARK}`.slice(0, 2000 - TRUNCATED.length) + TRUNCATED;
     const cutTitle = `${'x'.repeat(490)}${MARK}`.slice(0, 500 - TRUNCATED.length) + TRUNCATED;
+    // Cut to fit, it was never shown whole, so it is no longer complete.
     assert.deepEqual(approval, {
       approval_id: 'a',
       subject: { kind: 'tool_use', tool_name: 'Bash', summary: cutSummary },
+      complete: false,
     });
     assert.deepEqual(tool, { tool_call_id: 't', tool_name: 'Bash', title: cutTitle });
     assert.deepEqual(started, { test_run_id: 'x', label: cutTitle });
@@ -189,6 +194,7 @@ describe("a runtime's observations", () => {
       observation('runtime.approval.requested', {
         approval_id: 'a',
         subject: { kind: 'tool_use', tool_name: 'Bash', summary },
+        complete: true,
       }),
     );
     const prompt = `😀${'y'.repeat(3999 - short.length)}${short}`;
@@ -207,8 +213,10 @@ describe("a runtime's observations", () => {
       validatePayload({
         approval_id: 'a',
         subject: { kind: 'tool_use', tool_name: 'Bash', summary: cut },
+        complete: false,
       }).ok,
     );
+    assert.equal((approval as { complete: boolean }).complete, false);
     // A prompt the marker pushed past its limit is cut, and so can no longer be answered.
     const asked = question as { prompts: { text: string }[]; answerable: boolean };
     assert.equal(Array.from(asked.prompts[0]?.text ?? '').length, 4000);

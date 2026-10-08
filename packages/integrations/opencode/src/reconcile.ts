@@ -1,7 +1,7 @@
 import type { Provenance } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import {
-  approvalSubject,
+  approvalRequest,
   endTurn,
   formQuestion,
   observation,
@@ -199,13 +199,13 @@ export function reconcileSession(
   }
   for (const permission of snapshot.permissions) {
     if (state.approvals.has(permission.id)) continue;
-    const subject = approvalSubject(permission.action, permission.resources, permission.command);
-    if (subject === null) continue;
+    const request = approvalRequest(permission.action, permission.resources, permission.command);
+    if (request === null) continue;
     state.approvals.add(permission.id);
     observations.push(
       observation(
         'runtime.approval.requested',
-        { approval_id: permission.id, subject },
+        { approval_id: permission.id, ...request },
         at(null, PERMISSION_LIST),
       ),
     );

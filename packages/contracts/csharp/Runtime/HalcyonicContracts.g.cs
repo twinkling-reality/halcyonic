@@ -377,6 +377,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("subject", Required = Required.Always)]
         public ApprovalSubject Subject { get; set; } = default!;
 
+        [JsonProperty("approvable", Required = Required.Always)]
+        public bool Approvable { get; set; }
+
         [JsonProperty("requested_at", Required = Required.Always)]
         public string RequestedAt { get; set; } = default!;
     }
@@ -559,6 +562,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "execution_not_found")] ExecutionNotFound,
         [EnumMember(Value = "runtime_not_found")] RuntimeNotFound,
         [EnumMember(Value = "approval_not_found")] ApprovalNotFound,
+        [EnumMember(Value = "approval_not_whole")] ApprovalNotWhole,
         [EnumMember(Value = "question_not_found")] QuestionNotFound,
         [EnumMember(Value = "invalid_answer")] InvalidAnswer,
         [EnumMember(Value = "model_required")] ModelRequired,
@@ -1459,6 +1463,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("subject", Required = Required.Always)]
         public ApprovalSubject Subject { get; set; } = default!;
+
+        [JsonProperty("complete", Required = Required.Always)]
+        public bool Complete { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]

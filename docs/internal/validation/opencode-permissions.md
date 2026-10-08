@@ -269,7 +269,8 @@ commands; edits do not ask; subagents stay denied.
   a bracket of its own follows the real one;
   then the command exactly as the model wrote it. After a reconnect it is read from the session's
   messages (the tool part's `state.input`, newest message first). When the input does not say it
-  plainly, the summary is the resources after "[whole command not known]", and the headset offers
+  plainly, the summary is the resources and the request is not complete (`complete: false`, since
+  2026-10-08 a field of the contract rather than a mark in the text), and the headset offers
   only Deny for it: a call never seen, input that is not an object (OpenCode repairs a stringified
   one only after the ask, `core/src/plugin/tool-input-repair.ts`), a `workdir` that is not a
   string or holds a bracket, a `background` that is not a boolean. The cost: a model that sends

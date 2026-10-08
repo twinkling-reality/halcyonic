@@ -85,6 +85,14 @@ const MIGRATIONS: readonly string[] = [
   WHERE event_type = 'execution.created'
     AND json_type(envelope, '$.payload.directory') IS NULL;
   `,
+  // An approval request now says whether its summary is complete; one stored before was offered
+  // for approval as it was, so it stays approvable.
+  `
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.complete', json('true'))
+  WHERE event_type = 'runtime.approval.requested'
+    AND json_type(envelope, '$.payload.complete') IS NULL;
+  `,
 ];
 
 export const JOURNAL_SCHEMA_VERSION = MIGRATIONS.length;

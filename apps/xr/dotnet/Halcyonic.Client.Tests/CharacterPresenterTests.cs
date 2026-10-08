@@ -45,6 +45,7 @@ public class CharacterPresenterTests
         {
             ApprovalId = "approval-1",
             Subject = new ToolUseSubject { ToolName = "bash", Summary = "Run the migration" },
+            Approvable = true,
             RequestedAt = Samples.Time,
         });
         var workstream = Samples.Workstream(
