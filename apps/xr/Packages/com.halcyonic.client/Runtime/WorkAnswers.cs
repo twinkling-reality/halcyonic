@@ -185,7 +185,8 @@ namespace Halcyonic.Client
             var shown = Shown(changes.Files);
             var files = changes.Files.Select((file, index) =>
             {
-                var line = new SectionLine("observed", KindOf(file.Kinds) + ": " + shown[index] + " " + LinesOf(file), SectionTone.Normal,
+                // The name cut at 40, as a branch is, so its counts after it always show.
+                var line = new SectionLine("observed", KindOf(file.Kinds) + ": " + IntelligenceText.Truncate(shown[index], 40) + " " + LinesOf(file), SectionTone.Normal,
                     file: FileKinds.Of(file.RepositoryPath ?? file.Path));
                 var path = file.RepositoryPath is string inRepository ? IntelligenceText.Plain(inRepository) : null;
                 return path != null && path != shown[index]
