@@ -45,6 +45,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [claude-code-capabilities.md](validation/claude-code-capabilities.md) | Claude Code CLI and Agent SDK |
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
 | [headset-token-storage.md](validation/headset-token-storage.md) | The access token a development build uses over USB, kept in app-private storage: the move from shared storage, the run-as write, and what still needs a headset |
+| [outside-text-audit.md](validation/outside-text-audit.md) | Every line on the headset that can carry text Halcyonic did not write: the rule and limit on each path, whether the reader can tell whose words they are, and the gaps |
 | [logging-audit.md](validation/logging-audit.md) | What leaves the processes through logs, errors, the journal and printed lines: every site checked, the leaks fixed, the scan that guards them, and what is open |
 | [xr-loopback-proof.md](validation/xr-loopback-proof.md) | The headset asks the control plane to prove it holds the access token, for the address and port it dialled, before sending it: impostors, relays, redirects and a stale token |
 | [mac-host-setup.md](validation/mac-host-setup.md) | `pnpm mac-setup` and the settings file on the owner's Mac: the read-only check, every setup step in a scratch data directory, a control plane started from the file alone, and what was not tried |
