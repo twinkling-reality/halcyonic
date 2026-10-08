@@ -1,7 +1,7 @@
 # ADR 0027: The headset moves only to answer the person or to show a wait
 
 - Status: Accepted on 2026-10-07 by the owner; amended by the owner's picks on 2026-10-08.
-- Date: 2026-10-04, amended 2026-10-07 (Hold to talk drawn from the voice in every column; a wait's words in the secondary tone) and 2026-10-08 (a file assembling out of its character, the characters' own movement, seven more tokens, and Keep things still with its still highlight)
+- Date: 2026-10-04, amended 2026-10-07 (Hold to talk drawn from the voice in every column; a wait's words in the secondary tone) and 2026-10-08 (a file assembling out of its character, the characters' own movement, seven more tokens, and Keep things still with its still highlight; then the characters' looks and working poses)
 
 ## Context
 
@@ -94,6 +94,10 @@ speed and the turn on confirmation are lane V's own.
      travelling to a place their state names, one turn when the agent confirms what the person sent,
      and their life in place, a breath, a blink and a slow float while working;
    - a new task's character arriving from the bar, and an old one leaving into it;
+   - a character looking back when the person looks at it, which answers the person; project-mates
+     looking once at one that needs the person or has just joined, and two that changed one file
+     turning to each other, each of which says a state; and a working character's two poses, as its
+     agent's tool calls start and end (ADR 0013, 2026-10-08);
    - Hold to talk's three states;
    - every wait the person sees, with one shimmer. A wait is a line, or a prompt's words, marked as one.
    The shimmer changes the brightness of the words, never their place.
@@ -103,6 +107,8 @@ speed and the turn on confirmation are lane V's own.
    - Anything the person did not cause, beyond a wait's shimmer, Waiting for you's breath and the
      characters' state movement (ADR 0013).
    - A character across an open file, or nearer the eyes than the front of the desk.
+   - A look at the person that the person didn't ask for, from any character but one that waits for
+     them.
    - Anything that suggests work or progress the agent has not reported: nothing floats faster for
      more work, and nothing guesses how long.
 4. **Hold to talk shows three states, centrally.** The menu's one voice (`MenuVoice.Stage`) says
@@ -124,7 +130,9 @@ speed and the turn on confirmation are lane V's own.
 6. **Reduced motion.** "Keep things still", renamed from Keep badges still (the owner, 2026-10-08), is
    the one reduced-motion setting. It stops every loop (the breath, the turning, the pulse, the
    shimmer, a character's float and blinks), turns travel into a fade out and in, and drops turns and
-   trails. A wait keeps a still highlight in place of its shimmer: its words in the active tone, as
+   trails, the looks between characters and the two working poses; a character looking back keeps its
+   eyes and drops its turn, since the person caused it. A wait keeps a still highlight in place of its
+   shimmer: its words in the active tone, as
    Apple's reduced-motion criteria allow a colour shift for motion that carries status. Every state
    still shows by place, eyes, ring, colour, icon and words. Presses, slides and a file assembling
    keep their feedback, which the person caused.
@@ -133,7 +141,8 @@ speed and the turn on confirmation are lane V's own.
    scales the icon's own mesh. A character's travel and turn move transforms only, and its blinks
    and lids change a size or a colour on its eyes. A trail is the one exception: one ribbon a
    travelling character, at most two at once, and a third traveller goes without. A ring is one quad
-   and replaces the halo's larger one.
+   and replaces the halo's larger one. Looks and poses move transforms and redraw eyes already built; a
+   shared file's light line is one more draw call while it shows.
 
 ## Verification
 
@@ -162,6 +171,8 @@ Added with the 2026-10-08 amendment, each with the view that brings it:
   things still no position change, only a fade; a turn only after the render's journal records the
   agent's confirmation, and none on a command only sent.
 - Sixty frames of a stage with every character moving allocate nothing.
+- A look strip: a character before, during and after the person's look; the states that don't answer
+  unchanged; and over a scripted burst of tool calls, each working pose held at least 1.5 s.
 
 ## Alternatives considered
 

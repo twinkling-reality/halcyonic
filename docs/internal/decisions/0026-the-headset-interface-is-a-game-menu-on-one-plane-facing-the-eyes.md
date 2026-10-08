@@ -219,7 +219,8 @@ coordinator's first-visit words:
   menu or a file is open: it stands a little more than a degree over the highest a risen character
   reaches, as it stands over a surface, and over the open plane's top edge, which over a desk's
   lineup stands where it would; it says the demonstration's lines alone, since the menu says what
-  waits (the coordinator, 2026-10-07). The peek still takes its place.
+  waits (the coordinator, 2026-10-07). The peek still takes its place. Amended 2026-10-08: the stage's
+  lines stand raised above the stage always, live too (below).
 - **The stage keeps its own sizes**, its labels' 20 dp titles and 16 dp badges, sized for its
   distances and held to text as the eyes see it; the three sizes govern the menu's plane.
 - **A subject's line holds about 36 characters** at 24 dp in the menu's 32 degree column; a longer
@@ -433,6 +434,13 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   quotes and no leads such as "It says:"; a claim's chip stays as its class, never the only mark; and
   theirs is cut first, inside its ground. Lane W applies it as batch B of the outside-text audit
   ([outside-text-audit.md](../validation/outside-text-audit.md)).
+- **The stage's lines stand above the stage** (lane V and the coordinator, after lane C's render found
+  the banner under the labels overlapping the closed bar by about 2 degrees). The demonstration's two
+  lines and a live session's lines stand raised above the stage, never under the labels. "Connected to
+  your computer" shows for 3 seconds as the connection becomes live, then leaves over Leave; a
+  connection problem stays until it clears. "Still open: {title}" moves into the closed bar's subject
+  while nothing waits, and what waits wins. A render checks that no stage line overlaps the bar or a
+  label, at both text sizes and on a Quest 3S.
 
 ## Alternatives considered
 
