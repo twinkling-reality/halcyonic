@@ -127,10 +127,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         failures.Add(what + ": the raised banner does not say the demonstration's lines alone.");
                     }
-                    // As the stage places it: raised, clear of the characters, then of the panel in its place, by the top the
-                    // plane gives, which the closed bar alone doesn't give.
-                    var panelTop = AmbientCover.PanelTop;
-                    if (open && panelTop == null) failures.Add(what + ": the open menu gives no top edge for the raised banner to clear.");
+                    // As the stage places it: raised, clear of the characters, then of the panel in its place, or of the
+                    // closed bar alone, by the top the plane gives.
+                    var panelTop = AmbientCover.RaisedOver;
+                    if (open && AmbientCover.PanelTop == null) failures.Add(what + ": the open menu gives no top edge for the raised banner to clear.");
+                    if (!open && AmbientCover.BarTop == null) failures.Add(what + ": the closed bar gives no top edge for the raised banner to clear.");
                     var overCharacters = surface.HasValue
                         ? CharacterStage.BannerBottomOnSurface(radius, surfaceDrop!.Value) - surfaceDrop.Value
                         : CharacterStage.BannerBottomAbove(radius, CharacterStage.DefaultHeightFromEyes);

@@ -331,7 +331,7 @@ namespace Halcyonic.XR
             }
             Glide();
             // Raised, the banner follows the panel in its place as it is laid anew, as a page that grows.
-            if (shownRaised && AmbientCover.PanelTop != shownPanelTop) PlaceBanner();
+            if (shownRaised && AmbientCover.RaisedOver != shownPanelTop) PlaceBanner();
         }
 
         /// <summary>
@@ -692,8 +692,9 @@ namespace Halcyonic.XR
             var top = onSurface ? BannerBottomOnSurface(radius, eyesAbove)
                 : shownRaised ? BesideAWindow ? BannerBottomAboveWindow(radius) : BannerBottomAbove(radius, heightFromEyes)
                 : BesideAWindow ? BannerTopBesideWindow(radius) : BannerTop(radius, heightFromEyes);
-            // Raised, it also clears the panel in its place, as the menu over a desk's lineup stands where the banner would.
-            shownPanelTop = shownRaised ? AmbientCover.PanelTop : null;
+            // Raised, it also clears the panel in its place, as the menu over a desk's lineup stands where the banner would,
+            // or the closed bar alone, which a risen character there lifts as high.
+            shownPanelTop = shownRaised ? AmbientCover.RaisedOver : null;
             if (shownRaised) top = RaisedBannerBottom(radius, top - eyesAbove, shownPanelTop) + eyesAbove;
             bannerRoot.localPosition = new Vector3(0f, top, radius);
             bannerRoot.localScale = Vector3.one * radius;

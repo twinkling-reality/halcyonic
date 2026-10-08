@@ -43,6 +43,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The menu, the file and the side panel, made once, for stepping each frame without allocating.</summary>
         private MenuFrameView[] frameViews = null!;
         private MenuBarView bar = null!;
+
+        /// <summary>The closed bar as laid while it stands alone, for its top edge (<see cref="BarElevation"/>).</summary>
+        private PlanePart barPart;
         private LineRenderer line = null!;
 
         /// <summary>Covers the stage's banner's place while the menu is open or a file stands on the plane, not for the closed bar alone (<see cref="AmbientCover"/>).</summary>
@@ -102,6 +105,21 @@ namespace Halcyonic.XR.Workspace
                         ElevationOf(PlaneLayout.PointOf(eyes, Direction, part.Right + part.Width / 2f, part.Top)));
                 }
                 return top;
+            }
+        }
+
+        /// <summary>
+        /// The highest the closed bar reaches as laid while it stands alone, in degrees from eye level, the
+        /// edges of its top side; null while the menu or a column stands on the plane.
+        /// </summary>
+        public float? BarElevation
+        {
+            get
+            {
+                if (Composition != null || bar == null || !bar.gameObject.activeInHierarchy) return null;
+                var part = barPart;
+                return Mathf.Max(ElevationOf(PlaneLayout.PointOf(eyes, Direction, part.Left, part.Top)),
+                    ElevationOf(PlaneLayout.PointOf(eyes, Direction, part.Right + part.Width / 2f, part.Top)));
             }
         }
 
@@ -243,7 +261,7 @@ namespace Halcyonic.XR.Workspace
             var plane = go.AddComponent<MenuPlane>();
             plane.cover = new GameObject("Covers the banner");
             plane.cover.transform.SetParent(go.transform, false);
-            AmbientCover.Add(plane.cover, panel: true, openAs, () => plane.TopElevation);
+            AmbientCover.Add(plane.cover, panel: true, openAs, () => plane.TopElevation, () => plane.BarElevation);
             plane.cover.SetActive(false);
             plane.menu = plane.View("Menu", MenuColumn.Menu);
             plane.file = plane.View("File", MenuColumn.File);
@@ -463,6 +481,7 @@ namespace Halcyonic.XR.Workspace
                 Moved = default;
                 Direction = Placed;
                 var placedBar = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
+                barPart = placedBar;
                 SlideTo(bar.transform, placedBar, zoom, null, true);
                 UpdateLightLine();
                 return;

@@ -1519,12 +1519,13 @@ scripts use only long-stable core Unity APIs:
   focus ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
   The banner steps aside while a foreground panel or the peek is where it goes (`AmbientCover`):
   a panel says itself whether it is live, and the peek says it of its character. In the
-  demonstration a panel, as the open menu, raises it instead (`BannerPlace`, in the client core): it
-  stands a little more than a degree over the highest a risen character reaches
+  demonstration it always stands raised instead, the closed bar included (`BannerPlace`, in the
+  client core): it stands a little more than a degree over the highest a risen character reaches
   (`CharacterStage.BannerBottomAbove`; beside a window, over the window's lane), as it stands over a
-  surface, and a little more than a degree over the open plane's top edge, which the plane gives as
-  laid (`MenuPlane.TopElevation`, `AmbientCover.PanelTop`) and which over a desk's lineup stands
-  where the banner would (`CharacterStage.RaisedBannerBottom`). It says the `DemonstrationLine`
+  surface, and a little more than a degree over the open plane's top edge, or the closed bar's
+  while it stands alone, which the plane gives as laid (`MenuPlane.TopElevation`,
+  `MenuPlane.BarElevation`, `AmbientCover.RaisedOver`) and which over a desk's lineup stand where
+  the banner would (`CharacterStage.RaisedBannerBottom`). It says the `DemonstrationLine`
   alone, so the demonstration's lines stay in view whatever the menu shows (ADR 0026), and follows
   the plane as it is laid anew. The peek still hides it. The arc is 2.4 m
   away, beyond the system windows, such as Virtual Display's screens, that open within about 2 m
