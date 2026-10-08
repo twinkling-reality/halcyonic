@@ -105,6 +105,8 @@ namespace Halcyonic.XR.Workspace
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
+            // Only the demonstration's refusals are said in their own words, which are the recording's.
+            submissions.Demonstration = () => connection.DemonstrationLine != null;
             stage = GetComponent<CharacterStage>();
             // The stage takes the choice of projects before it places anyone.
             visibility = StageVisibility.Load(PlayerPrefs.GetString(VisibilityPreference, ""));

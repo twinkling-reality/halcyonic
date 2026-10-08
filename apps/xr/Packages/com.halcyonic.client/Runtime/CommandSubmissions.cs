@@ -45,6 +45,12 @@ namespace Halcyonic.Client
         /// <summary>Changes whenever a submission changes, so a presentation knows to redraw.</summary>
         public int Version => Volatile.Read(ref version);
 
+        /// <summary>
+        /// Whether the recorded demonstration is what this client shows, the only session whose refusals may be
+        /// said in their own words (<see cref="WorkspacePresenter.Feedback"/>).
+        /// </summary>
+        public Func<bool> Demonstration { get; set; } = () => false;
+
         /// <summary>The submission of a command, if this client sent it and still remembers it.</summary>
         public SubmissionState? StateOf(string commandId)
         {
@@ -219,6 +225,7 @@ namespace Halcyonic.Client
         {
             var feedback = state.Commands.Values
                 .Where(command => command.ExecutionId == executionId)
+                // A journaled command is never the demonstration's, which journals nothing: said by its code.
                 .Select(command => (command.IssuedAt, WorkspacePresenter.Feedback(command)))
                 .ToList();
             lock (gate)
@@ -228,7 +235,7 @@ namespace Halcyonic.Client
                     if (submission.ExecutionId != executionId) continue;
                     if (state.Commands.ContainsKey(submission.CommandId)) submission.HandedOver = true;
                     if (submission.HandedOver) continue;
-                    feedback.Add((submission.IssuedAt, submission.Describe()));
+                    feedback.Add((submission.IssuedAt, submission.Describe(Demonstration())));
                 }
             }
             return feedback
@@ -305,7 +312,7 @@ namespace Halcyonic.Client
             /// <summary>The control plane's record of this command was seen, so it speaks from now on.</summary>
             public bool HandedOver { get; set; }
 
-            public CommandFeedback Describe()
+            public CommandFeedback Describe(bool demonstration = false)
             {
                 switch (State)
                 {
@@ -320,7 +327,7 @@ namespace Halcyonic.Client
                 var ack = Ack!;
                 if (ack.Command != null && ack.Disposition != CommandAckDisposition.Conflict)
                 {
-                    return WorkspacePresenter.Feedback(ack.Command);
+                    return WorkspacePresenter.Feedback(ack.Command, demonstration);
                 }
                 return ack.Disposition switch
                 {

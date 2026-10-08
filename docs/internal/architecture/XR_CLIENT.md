@@ -1246,7 +1246,9 @@ the same definition names, as the JSON Schema document:
   recording continues with, for example "Not sent to any agent; the recording continues as
   recorded for approving." or, for an option of the question, "Nothing is sent to an agent. The
   recording goes on as if you answered “1 hour”." `WorkspacePresenter.Feedback` shows those words as they are, without
-  "Refused:", since the recording then plays its own recorded command, which its runtime confirmed.
+  "Refused:", since the recording then plays its own recorded command, which its runtime confirmed;
+  only while the demonstration is what the headset shows (`CommandSubmissions.Demonstration`), so a
+  live control plane answering with that code is said by its code, never its message.
   Typed text that matches no recorded instruction, ignoring case and spacing, continues with the
   first one offered and says so; any other command changes nothing and says that too. Nothing is
   journaled, and no command is ever reported accepted or done. Once a final state has held, the

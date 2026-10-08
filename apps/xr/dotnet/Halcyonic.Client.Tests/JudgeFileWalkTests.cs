@@ -63,7 +63,7 @@ public class JudgeFileWalkTests
         var room = new AnswerRoom(rows);
         var player = Play();
         var activity = new ActivityLog();
-        var submissions = new CommandSubmissions();
+        var submissions = new CommandSubmissions { Demonstration = () => true };
         var steering = new WorkspaceSteering(factory);
         var screen = new FileScreen { Speak = false, Zone = TimeZoneInfo.Utc };
         MenuFrame Frame(WorkspacePresentation workspace) => FileScreens.Screen(workspace, steering, screen, room);
@@ -247,7 +247,7 @@ public class JudgeFileWalkTests
         Assert.That(text, Does.Contain("\"secret\":false"));
         Play(DemonstrationRecording.Parse(text.Replace("\"secret\":false", "\"secret\":true")));
         var activity = new ActivityLog();
-        var submissions = new CommandSubmissions();
+        var submissions = new CommandSubmissions { Demonstration = () => true };
         await Pumping.Until(session!, Demonstration.AsksItsQuestion, "the directed work asks its question");
         var workspace = Directed(activity, submissions);
         Assert.That(workspace.Actions, Has.None.EqualTo(WorkspaceAction.Answer).And.None.EqualTo(WorkspaceAction.Instruct));
