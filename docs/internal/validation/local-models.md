@@ -45,7 +45,8 @@ time, switching models unloads the other, and a model left idle for five minutes
 - **Configuration can correct both.** `providers.ollama.models["<tag>"].limit` in `opencode.json`
   sets the context and output limits OpenCode assumes for a discovered model, and `disabled: true`
   removes a model from OpenCode's list. A project's own `opencode.json` does the same for that
-  directory only. `providers.ollama.settings.baseURL`, which the OpenCode documentation gives for a
+  directory only, but since 2026-10-08 Halcyonic's OpenCode server never loads a project's own
+  configuration ([opencode-permissions.md](opencode-permissions.md)). `providers.ollama.settings.baseURL`, which the OpenCode documentation gives for a
   remote Ollama, made 2.0.18 list no Ollama model at all within 40 s, and reach neither the given
   address nor the default one. On 2026-10-08 a loopback address ending in `/v1` there did work:
   OpenCode asked a stand-in at it for its models within 0.6 s of launch and listed them. Why the

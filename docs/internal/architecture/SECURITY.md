@@ -237,7 +237,7 @@ holds only `model`, `small_model`, `permissions` and Ollama's context limits, wi
 served on this Mac. Other folders may sit beside `opencode`, since tools an agent runs inherit the
 same configuration home. Their permissions are the person's to change and apply when something
 other than Halcyonic runs OpenCode with them; each session Halcyonic opens carries the rules above,
-which outrank them and a project's own `opencode.json` (runtime verified for shell commands).
+which outrank them, and its server never loads a project's own `opencode.json` (runtime verified).
 
 When Create's companion is set up (`HALCYONIC_COMPANION_MODEL`, [ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)), the control plane asks
 Ollama on loopback for one reply at a time. Ollama's API has no authentication, so any process of

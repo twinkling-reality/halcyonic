@@ -649,15 +649,21 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
   );
 
   test(
-    'a model OpenCode does not offer, or that the directory disables, is refused before any session exists',
+    'a model OpenCode does not offer, or that its settings disable, is refused before any session exists',
     SLOW_TEST,
     async (t) => {
       const { runtime, sandbox } = await harness(t, { runtime: { modelWaitMs: 1500 } });
-      // The project's own configuration takes a model off OpenCode's list for that directory.
-      writeFileSync(
-        join(sandbox.project, 'opencode.json'),
-        JSON.stringify({ providers: { fake: { models: { 'fake-model-2': { disabled: true } } } } }),
-      );
+      // OpenCode's settings take a model off its list. Its global settings, since a project's own
+      // are never loaded into Halcyonic's server.
+      const global = join(sandbox.env.XDG_CONFIG_HOME ?? '', 'opencode/opencode.json');
+      const settings = JSON.parse(readFileSync(global, 'utf8')) as {
+        providers: { fake: { models: Record<string, Record<string, unknown>> } };
+      };
+      settings.providers.fake.models['fake-model-2'] = {
+        ...settings.providers.fake.models['fake-model-2'],
+        disabled: true,
+      };
+      writeFileSync(global, JSON.stringify(settings));
       for (const model of ['fake/not-configured', 'fake/fake-model-2', 'elsewhere/fake-model']) {
         const execution = new Execution();
         const started = Date.now();
