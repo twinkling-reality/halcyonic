@@ -29,6 +29,7 @@ import { type HttpResponse, type OpenCodeClient, TransportError } from './client
 import {
   createSessionState,
   decodeEvent,
+  endTurn,
   formAnswer,
   isRecord,
   type OpenCodeEvent,
@@ -62,6 +63,12 @@ import {
   stopRecordedProcess,
 } from './server-record.ts';
 import { SseParser } from './sse.ts';
+
+/**
+ * The code a task fails with when something other than Halcyonic changed what it may do: its
+ * session's rules, an approval Halcyonic did not give, or a session on its server it did not open.
+ */
+export const TAMPERED = 'runtime_tampered';
 
 /** A permission rule, as OpenCode 2.0.18 takes it (schema/src/permission.ts). */
 export interface PermissionRule {
@@ -231,6 +238,8 @@ interface HostedSession {
   readonly state: SessionState;
   /** Requests sent for this session that OpenCode has not answered yet. */
   readonly inFlight: Set<Promise<unknown>>;
+  /** Approvals the adapter has sent or is sending for this session, by request id. */
+  readonly approving: Set<string>;
   /** Set while the session is reconciled; requests wait for it, so none races the snapshot. */
   reconciling: Promise<void> | null;
   lost: boolean;
@@ -292,6 +301,11 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #clock: Clock;
   readonly #sessions = new Map<string, HostedSession>();
   readonly #bySessionId = new Map<string, HostedSession>();
+  /** Session creations in flight, and the ids they returned: sessions the adapter made itself. */
+  #creating = 0;
+  readonly #made = new Set<string>();
+  /** Sessions the server reported created that no creation of the adapter's has claimed yet. */
+  readonly #unclaimed = new Map<string, Connection>();
   #current: Connection | null = null;
   #launching: Promise<Connection> | null = null;
   #closing: Promise<void> | null = null;
@@ -413,8 +427,16 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       permissions: sessionPermissions(this.#environment),
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
-    const created = await send(connection, 'POST', '/api/session', body, 'runtime_refused');
+    this.#creating += 1;
+    let created: HttpResponse;
+    try {
+      created = await send(connection, 'POST', '/api/session', body, 'runtime_refused');
+    } finally {
+      this.#creating -= 1;
+    }
     const info = isRecord(created.body) && isRecord(created.body.data) ? created.body.data : {};
+    if (typeof info.id === 'string') this.#made.add(info.id);
+    this.#checkUnclaimed();
     if (typeof info.id !== 'string' || info.id === '') {
       throw new RuntimeActionError(
         'runtime_protocol_error',
@@ -429,6 +451,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       connection,
       state: createSessionState(),
       inFlight: new Set(),
+      approving: new Set(),
       reconciling: null,
       lost: false,
       recoverable: false,
@@ -451,6 +474,16 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     if (connection.halted.signal.aborted) {
       this.#lose(session, 'The OpenCode server stopped while the execution was starting.');
     }
+    // Shell commands get this environment instead of the server's own, so the server's password,
+    // which the adapter passes in OPENCODE_PASSWORD, is not in theirs. Defence in depth only: any
+    // process of this user can read the server's starting environment (opencode-permissions.md).
+    await send(
+      connection,
+      'PUT',
+      `/api/session/${encodeURIComponent(session.sessionId)}/environment`,
+      { variables: this.#environment },
+      'runtime_refused',
+    );
     await this.#prompt(session, request.instruction);
     return { native_id: session.sessionId };
   }
@@ -477,7 +510,14 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     };
     if (request.message !== null) body.message = request.message;
     await this.#act(session, async () => {
-      await send(session.connection, 'POST', path, body, 'approval_not_pending');
+      // Marked before it is sent: OpenCode may report the reply before it answers the request.
+      if (request.decision === 'approve') session.approving.add(request.approval_id);
+      try {
+        await send(session.connection, 'POST', path, body, 'approval_not_pending');
+      } catch (error) {
+        session.approving.delete(request.approval_id);
+        throw error;
+      }
       if (session.state.approvals.has(request.approval_id)) {
         session.state.replies.set(
           request.approval_id,
@@ -698,7 +738,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
           const event = decodeEvent(message.data);
           if (event === null) continue;
           if (event.type !== 'server.connected') {
-            this.#dispatch(event);
+            this.#dispatch(event, connection);
             continue;
           }
           if (connected) continue;
@@ -720,11 +760,87 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return connected;
   }
 
-  #dispatch(event: OpenCodeEvent): void {
+  #dispatch(event: OpenCodeEvent, connection: Connection): void {
     if (event.sessionId === null) return;
+    if (event.type === 'session.created' && !this.#made.has(event.sessionId)) {
+      // Ours unless no creation of the adapter's claims it once those in flight have answered.
+      this.#unclaimed.set(event.sessionId, connection);
+      this.#checkUnclaimed();
+      return;
+    }
     const session = this.#bySessionId.get(event.sessionId);
     if (session === undefined || session.lost) return;
+    if (event.type === 'session.permissions') {
+      // The adapter sets a session's rules only when it creates it.
+      this.#tamper(session, event.type, "changed this task's permission rules");
+      return;
+    }
+    if (event.type === 'permission.replied') {
+      const id = typeof event.data.requestID === 'string' ? event.data.requestID : '';
+      const reply = event.data.reply;
+      // A reject, which also settles a session's other requests, never lets anything run.
+      if (reply === 'always' || (reply === 'once' && !session.approving.has(id))) {
+        this.#tamper(session, event.type, 'approved a request on this task');
+        return;
+      }
+      session.approving.delete(id);
+    }
     this.#emit(session, observeEvent(session.state, event, this.#clock.now()));
+  }
+
+  /**
+   * A session on the adapter's own server that the adapter did not create means its password was
+   * used by something else: every task on that server is stopped, and the server with them.
+   */
+  #checkUnclaimed(): void {
+    if (this.#creating > 0) return;
+    for (const [sessionId, connection] of this.#unclaimed) {
+      this.#unclaimed.delete(sessionId);
+      if (this.#made.has(sessionId) || connection.halted.signal.aborted) continue;
+      for (const session of this.#bySessionId.values()) {
+        if (session.connection === connection) {
+          this.#tamper(session, 'session.created', 'opened another session on its OpenCode server');
+        }
+      }
+      void this.#giveUp(
+        connection,
+        'Something other than Halcyonic opened a session on its OpenCode server.',
+      );
+    }
+  }
+
+  /**
+   * Stops a task when something other than the adapter changed what it may do: its turn fails with
+   * `runtime_tampered`, or, at rest, the task is reported lost; either way it can no longer be
+   * controlled. Only the kind of change and ids are recorded, never what was sent.
+   */
+  #tamper(session: HostedSession, nativeType: string, what: string): void {
+    if (session.lost) return;
+    const message = `Something other than Halcyonic ${what}, so Halcyonic stopped it.`;
+    const path = `/api/session/${encodeURIComponent(session.sessionId)}/interrupt`;
+    void send(session.connection, 'POST', path, undefined, 'runtime_unreachable').catch(
+      () => undefined,
+    );
+    const turn = session.state.turn;
+    if (turn === null) {
+      this.#lose(session, message);
+      return;
+    }
+    endTurn(session.state);
+    this.#emit(session, [
+      observation(
+        'runtime.turn.failed',
+        { turn_id: turn.id, error: { code: TAMPERED, message } },
+        {
+          native_event_id: null,
+          sequence: null,
+          occurred_at: this.#clock.now().toISOString(),
+          provenance: { epistemic: 'observed', native_type: nativeType },
+        },
+      ),
+    ]);
+    session.lost = true;
+    session.recoverable = false;
   }
 
   async #reconcileAll(connection: Connection): Promise<void> {

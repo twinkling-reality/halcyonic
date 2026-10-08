@@ -1273,3 +1273,108 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
     t.diagnostic(`probe: ${probe.samples} samples, ${afterIdle} through startup and idle`);
   });
 });
+
+describe('OpenCode tasks stop when something other than Halcyonic changes what they may do', {
+  skip: SKIP,
+}, () => {
+  const tampered = (execution: Execution) =>
+    execution.observations.find(
+      (item) =>
+        item.type === 'runtime.turn.failed' && item.payload.error.code === 'runtime_tampered',
+    );
+
+  test("replacing a running task's rules fails its turn as tampered", SLOW_TEST, async (t) => {
+    const { runtime, sandbox, start } = await harness(t);
+    const execution = await start('SLOW reply, please.');
+    await execution.next('runtime.turn.started');
+    const id = (execution.observations[0]?.payload as { native_id: string }).native_id;
+    await serverOf(runtime, sandbox).request('PATCH', `/api/session/${encodeURIComponent(id)}`, {
+      body: { permissions: [{ action: '*', resource: '*', effect: 'allow' }] },
+    });
+    await until(() => tampered(execution) !== undefined, 15_000, 'the tampered failure');
+    assert.match(
+      (tampered(execution)?.payload as { error: { message: string } }).error.message,
+      /changed this task's permission rules/,
+    );
+    await assert.rejects(
+      runtime.sendInstruction({ execution: execution.context, text: 'More.' }),
+      RuntimeActionError,
+    );
+  });
+
+  for (const decision of ['always', 'once'] as const) {
+    test(
+      `an approval answered "${decision}" by something else fails the task as tampered`,
+      SLOW_TEST,
+      async (t) => {
+        const { runtime, sandbox, start } = await harness(t);
+        const execution = await start('RUN_SHELL please.');
+        const asked = await execution.next('runtime.approval.requested');
+        assert.ok(asked.type === 'runtime.approval.requested');
+        const id = (execution.observations[0]?.payload as { native_id: string }).native_id;
+        await serverOf(runtime, sandbox).request(
+          'POST',
+          `/api/session/${encodeURIComponent(id)}/permission/${encodeURIComponent(asked.payload.approval_id)}/reply`,
+          { body: { decision } },
+        );
+        await until(() => tampered(execution) !== undefined, 15_000, 'the tampered failure');
+        assert.match(
+          (tampered(execution)?.payload as { error: { message: string } }).error.message,
+          /approved a request on this task/,
+        );
+      },
+    );
+  }
+
+  test(
+    'a session Halcyonic did not open on its server stops every task there, and the server',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const first = await start('SLOW reply, please.');
+      await first.next('runtime.turn.started');
+      const second = await start('Hello.');
+      await second.next('runtime.turn.completed');
+      const pid = runtime.serverPid;
+      assert.ok(pid !== null);
+      await serverOf(runtime, sandbox).request('POST', '/api/session', {
+        body: { title: 'not Halcyonic', location: { directory: sandbox.project } },
+      });
+      await until(
+        () => tampered(first) !== undefined,
+        15_000,
+        "the running task's tampered failure",
+      );
+      await until(
+        () => second.observations.some((item) => item.type === 'runtime.connection.lost'),
+        15_000,
+        'the resting task reported lost',
+      );
+      await until(() => !alive(pid), 15_000, 'the server to stop');
+    },
+  );
+
+  test(
+    'a shell command does not find the server password in its environment',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      // Prints only the length, never the value.
+      const execution = await start(
+        call('shell', { command: 'printf "len=%s" "${#OPENCODE_PASSWORD}"' }),
+      );
+      const asked = await execution.next('runtime.approval.requested');
+      assert.ok(asked.type === 'runtime.approval.requested');
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: asked.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(tampered(execution), undefined, 'its own approval was taken as tampering');
+      const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
+      assert.ok(sent.includes('len=0'), 'the command saw the password');
+    },
+  );
+});
