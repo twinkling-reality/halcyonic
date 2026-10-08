@@ -98,7 +98,7 @@ eyes on the far Quest 3S stage. Each step is held to the plane's checks at both 
 
 | Area | Today in the judge build | Evidence | Who closes it |
 | --- | --- | --- | --- |
-| Welcome and onboarding | Still open, updated 2026-10-03: the entry panel and its welcome are retired; on a first visit the menu opens by itself on Projects, but only when connected, never in the demonstration. A judge gets the line above the stage, the closed bar ("1 task is waiting for you") and the pinch hint | `WorkspaceDirector.OpenOnFirstVisit` | Final recording: a demonstration welcome (script below) |
+| Welcome and onboarding | Closed 2026-10-07 (lane C, e4e06d7d): the demonstration's first visit opens the menu on Projects, and the stage's demonstration lines stand above the stage and the open menu. Lane V's calmer first view (picked 2026-10-08) will replace it | `WorkspaceDirector.OpenOnFirstVisit`, `JudgeMenuWalkTests`, `far-3s-demo-welcome-1` and `-2` | Lane C, with the calmer first view |
 | Agent questions (ADR 0022) | Closed: the story's first decision is a question with two options, each with its own recorded continuation, asked in the file under Waiting; the simulated explanation now treats a waiting question as waiting | `sign_in_rate_limit.json`, `JudgeFileWalkTests`, `demonstration-sources.ts` | None |
 | New project | Closed 2026-10-03 (lane C): Projects' New project plays the companion's recording, its question quoted as its own, to a recap marked as its suggestions under the note that it is an AI; Start building waits with "The demo can't start new work. Real work runs on your computer." | `JudgeMenuWalkTests`, `far-3s-judge-12` and `-13` | None |
 | Changes and Checks | Closed: the file's Changes and Checks show the recorded simulated answers in words, as "Tests failed …: 1 failed, 23 passed" under "Simulated checks · recorded at …" | `JudgeMenuWalkTests`, `far-3s-judge-8-checks` | None |
@@ -210,6 +210,30 @@ APK and said "Exiting batchmode successfully now!", then aborted in its own shut
 "terminate_handler unexpectedly returned"); the APK and the project were intact. A batch build's
 exit code alone is therefore not proof of failure; read the log's `Halcyonic: built` line.
 
+Built again on 2026-10-08 at b9346b83 (the demonstration's first visit on Projects, lane W's
+outside-text words, lane U's motion), without `HALCYONIC_VERSION_CODE`:
+
+| APK | Bytes | SHA-256 |
+| --- | --- | --- |
+| Release (`BuildReleaseApk`) | 72,141,285 | `e3467353f280fc1b28f013623d8681ef38a9f539a530428e6c339f1bfff6f1b9` |
+| Development (`BuildDevelopmentApk`) | 113,890,823 | `71aa3e352d9589ee200ba5d7cfe2214c1cfa0667121b18b34927531c37dbe1cf` |
+
+The release build's own checks passed, and `aapt2` and `apksigner` agree: `com.halcyonic.xr`,
+version code 1, target API 34, not debuggable; the same five permissions as above, no
+`RECORD_AUDIO`; `quest2|questpro|quest3|quest3s`; no glance activity, permission or class; none of
+the dev agent, the agent bridge, `METAX_operator` or `DevAgentSettings`; signed with the Android
+debug key, scheme v2 only. `Meta.XR.ImmersiveDebugger` and its interface are in it by design
+([horizon-store-release.md](horizon-store-release.md)). The development build carries the glance
+(`GlanceActivity`, `POST_NOTIFICATIONS`), and its positive control found every marker the release
+check looks for. `WorkspaceRender` passed at both text sizes, the judge walk and the demonstration's
+first visit among its renders, and the client core's 64 judge and demonstration tests passed
+(`JudgeWordsTests`, `JudgeFileWalkTests`, `JudgeMenuWalkTests`, the demonstration's own). `ProjectSettings.asset` was unchanged after both
+builds.
+
+The rules were read again on 2026-10-08 with no change that binds the judge build. The video may show
+the project on a Quest or "via XR Simulator or another equivalent emulator", and the language clause
+names testing instructions among the entry materials.
+
 Before an upload, still the owner's: a release key, a version code above every earlier upload
 (now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and
 the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
@@ -219,8 +243,9 @@ the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before a
 - The judge path works end to end off the device, through the menu of ADR 0026, and its words name
   no brand: the three names above were replaced with the owner's words, and the scan allows none
   (updated 2026-10-03).
-- The demonstration's story has its agent question and New project's recorded companion; its final
-  recording still waits for a demonstration welcome.
+- The demonstration's story has its agent question, New project's recorded companion and a first
+  visit that opens Projects; lane V's calmer first view will change that first visit before the
+  final recording.
 - The layout adapts to the device's field: every menu state the judge walk draws is checked inside
   a Quest 3S's field at both text sizes. The real split waits for the headset session.
 - Re-read the rules before the submission; they can change.
