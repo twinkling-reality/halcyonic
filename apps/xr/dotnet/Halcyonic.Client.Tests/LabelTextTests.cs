@@ -32,6 +32,15 @@ public class LabelTextTests
         "",
     };
 
+    /// <summary>Noncharacters, which nothing draws and a normalizer can refuse, show as their code points (the review of lane W's labels).</summary>
+    [Test]
+    public void NoncharactersShowAsTheirCodePoints()
+    {
+        Assert.That(LabelText.Plain("Yes\uFFFE \uFFFF \uFDD0 \uFDEF \U0001FFFE \U000EFFFF"),
+            Is.EqualTo("Yes\u2039U+FFFE\u203A \u2039U+FFFF\u203A \u2039U+FDD0\u203A \u2039U+FDEF\u203A \u2039U+1FFFE\u203A \u2039U+EFFFF\u203A"));
+        Assert.That(LabelText.Plain("\uFDCF \uFDF0 \uFFFD"), Is.EqualTo("\uFDCF \uFDF0 \uFFFD"), "their neighbours show as they are");
+    }
+
     [Test]
     public void LineBreaksTabsAndOtherWhitespaceCollapseButSpacesStayAsWrittenWithNoneAtEitherEnd()
     {

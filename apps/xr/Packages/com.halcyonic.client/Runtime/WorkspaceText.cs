@@ -228,7 +228,19 @@ namespace Halcyonic.Client
         /// tab, and one letter written composed or decomposed, read the same; case, width, ligatures and
         /// letters of other scripts that only look alike do not (OPEN_QUESTIONS.md).
         /// </summary>
-        public static string AsShown(string? label) => LabelText.Plain(label).Normalize(NormalizationForm.FormC);
+        public static string AsShown(string? label)
+        {
+            var plain = LabelText.Plain(label);
+            try
+            {
+                return plain.Normalize(NormalizationForm.FormC);
+            }
+            catch (ArgumentException)
+            {
+                // Whatever a runtime's normalizer refuses is compared as shown, so drawing a question never fails.
+                return plain;
+            }
+        }
 
         /// <summary>Why a question with a prompt whose answers read alike and no other way to answer can't be answered here (settled by the coordinator, 2026-10-04).</summary>
         public const string SameAnswersTwice = "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.";

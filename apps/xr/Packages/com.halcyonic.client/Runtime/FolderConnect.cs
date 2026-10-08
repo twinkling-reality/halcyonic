@@ -158,7 +158,16 @@ namespace Halcyonic.Client
         internal static string Likeness(string shown)
         {
             var text = System.Text.RegularExpressions.Regex.Replace(shown, @"\u2039U\+[0-9A-F]{4,6}\u203A", "");
-            var folded = text.Normalize(System.Text.NormalizationForm.FormKC).ToLowerInvariant();
+            string folded;
+            try
+            {
+                folded = text.Normalize(System.Text.NormalizationForm.FormKC).ToLowerInvariant();
+            }
+            catch (ArgumentException)
+            {
+                // What the normalizer refuses is compared as written, so listing folders never fails.
+                folded = text.ToLowerInvariant();
+            }
             var kept = new System.Text.StringBuilder(folded.Length);
             foreach (var character in folded)
             {
