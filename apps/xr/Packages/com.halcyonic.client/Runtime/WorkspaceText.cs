@@ -193,13 +193,20 @@ namespace Halcyonic.Client
             return prompt.Options.Where((_, other) => other != option).Any(other => string.Equals(AsShown(other.Label), shown, StringComparison.Ordinal));
         }
 
-        /// <summary>Words typed or heard for the prompt that read the same as one of its answers that can't be chosen.</summary>
+        /// <summary>
+        /// Words typed or heard for the prompt that an agent could take for one of its answers that can't be
+        /// chosen: compared more loosely than the answers are with each other (<see cref="Loosely"/>), since
+        /// speech writes "Yes." for "Yes" and the agent reads free text as it likes.
+        /// </summary>
         public static bool ReadsLikeOneThatCantBeChosen(QuestionPrompt prompt, string words)
         {
-            var shown = AsShown(words);
+            var heard = Loosely(words);
             return Enumerable.Range(0, prompt.Options.Count)
-                .Any(option => ReadsAlike(prompt, option) && string.Equals(AsShown(prompt.Options[option].Label), shown, StringComparison.Ordinal));
+                .Any(option => ReadsAlike(prompt, option) && string.Equals(Loosely(prompt.Options[option].Label), heard, StringComparison.Ordinal));
         }
+
+        /// <summary>Text as shown (<see cref="AsShown"/>), case folded, with any . ! ? or , at its end left off.</summary>
+        private static string Loosely(string text) => AsShown(text).ToLowerInvariant().TrimEnd('.', '!', '?', ',', ' ');
 
         /// <summary>
         /// Said under a prompt's answers where some read the same, with Stop where the page offers it, as stopping
