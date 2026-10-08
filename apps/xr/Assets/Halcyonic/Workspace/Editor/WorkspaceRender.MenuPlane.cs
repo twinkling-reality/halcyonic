@@ -714,18 +714,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (moment == 0f) pressed = frames[frames.Count - 1];
                     whole = frames[frames.Count - 1];
                 }
-                // Where each part's largest shape stands on the render, read once the file shows whole.
-                var shapes = view == null ? new List<(string Part, RectInt Rect)>() : view.Parts
-                    .Select(part => (Part: part.name, Shape: part.GetComponentsInChildren<Surface>().OrderByDescending(shape => shape.Size.x * shape.Size.y).FirstOrDefault()))
-                    .Where(each => each.Shape != null)
-                    .Select(each => (each.Part, Rect: ScreenRect(camera, each.Shape!.transform, Vector2.one)))
-                    .Where(each => each.Rect.width > 2 && each.Rect.height > 2)
-                    .ToList();
-                if (view == null || shapes.Count != view.Parts.Count) failures.Add(what + ": not every part of the file has a shape to read on the render.");
+                // Where each part's largest shape stands on the render, by its area there, read once the file shows whole.
+                var shapes = new List<(string Part, RectInt Rect)>();
+                foreach (var part in view?.Parts ?? new List<Transform>())
+                {
+                    var largest = part.GetComponentsInChildren<Surface>()
+                        .Select(shape => ScreenRect(camera, shape.transform, Vector2.one))
+                        .OrderByDescending(rect => rect.width * rect.height)
+                        .FirstOrDefault();
+                    if (largest.width > 2 && largest.height > 2) shapes.Add((part.name, largest));
+                    else failures.Add(what + ": the " + part.name + " has no shape large enough to read on the render.");
+                }
                 close();
+                // The bar shows at once where the file's subject stood: what it covers is read from outside it.
+                var bar = plane.Bar is MenuBarView closed ? Around(camera, closed.transform, closed.Size) : new RectInt();
                 at = 0f;
                 Texture2D? closing = null;
-                foreach (var moment in new[] { 0.06f, 0.1f, 0.13f, 0.145f })
+                foreach (var moment in new[] { 0.06f, 0.1f, 0.13f, 0.148f })
                 {
                     plane.Advance(moment - at);
                     at = moment;
@@ -737,13 +742,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var shown = Brightness(whole!, rect);
                     var atPress = Brightness(pressed!, rect);
-                    var nearlyGone = Brightness(closing!, rect);
+                    var uncovered = Brightness(whole!, rect, bar);
+                    var nearlyGone = Brightness(closing!, rect, bar);
+                    if (Uncovered(rect, bar) < rect.width * rect.height / 5)
+                    {
+                        Debug.Log("Halcyonic: workspace render " + what + ": the " + part + " stands under the bar as it closes, so its closing is not read.");
+                        uncovered = nearlyGone = float.NaN;
+                    }
                     Debug.Log("Halcyonic: workspace render " + what + ": the " + part + "'s shape reads " + atPress.ToString("0", CultureInfo.InvariantCulture) + " at the press, "
                         + shown.ToString("0", CultureInfo.InvariantCulture) + " whole and " + nearlyGone.ToString("0", CultureInfo.InvariantCulture) + " near the end of its closing, of 255.");
                     if (shown - atPress < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s shape is only " + (shown - atPress).ToString("0", CultureInfo.InvariantCulture)
                         + " of 255 dimmer at the press than whole; it does not fade in.");
-                    if (shown - nearlyGone < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s shape is only " + (shown - nearlyGone).ToString("0", CultureInfo.InvariantCulture)
-                        + " of 255 dimmer near the end of its closing than whole; it does not fade away.");
+                    if (uncovered - nearlyGone < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s shape, outside the bar, is only "
+                        + (uncovered - nearlyGone).ToString("0", CultureInfo.InvariantCulture) + " of 255 dimmer near the end of its closing than whole; it does not fade away.");
                 }
                 var strip = new Texture2D(frames.Sum(frame => frame.width), frames.Max(frame => frame.height), TextureFormat.RGBA32, false);
                 var left = 0;
@@ -767,19 +778,50 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>How much dimmer, of 255, a part's shape must read as the eyes see it before it opens, and near the end of its closing, than whole.</summary>
         private const float SeenFadeLevels = 30f;
 
-        /// <summary>How bright <paramref name="rect"/> reads on <paramref name="image"/>: the mean of each pixel's brightest channel, of 255.</summary>
-        private static float Brightness(Texture2D image, RectInt rect)
+        /// <summary>
+        /// How bright <paramref name="rect"/> reads on <paramref name="image"/>, outside <paramref name="skip"/>: the
+        /// mean of each pixel's brightest channel, of 255.
+        /// </summary>
+        private static float Brightness(Texture2D image, RectInt rect, RectInt skip = default)
         {
             var sum = 0f;
+            var count = 0;
             for (var y = rect.yMin; y < rect.yMax; y++)
             {
                 for (var x = rect.xMin; x < rect.xMax; x++)
                 {
+                    if (skip.Contains(new Vector2Int(x, y))) continue;
                     var pixel = image.GetPixel(x, y);
                     sum += Mathf.Max(pixel.r, Mathf.Max(pixel.g, pixel.b));
+                    count++;
                 }
             }
-            return rect.width * rect.height == 0 ? 0f : 255f * sum / (rect.width * rect.height);
+            return count == 0 ? 0f : 255f * sum / count;
+        }
+
+        /// <summary>How many pixels of <paramref name="rect"/> stand outside <paramref name="skip"/>.</summary>
+        private static int Uncovered(RectInt rect, RectInt skip)
+        {
+            var count = 0;
+            for (var y = rect.yMin; y < rect.yMax; y++)
+            {
+                for (var x = rect.xMin; x < rect.xMax; x++)
+                {
+                    if (!skip.Contains(new Vector2Int(x, y))) count++;
+                }
+            }
+            return count;
+        }
+
+        /// <summary>A shape <paramref name="size"/> big in its own units on the render, with room around it for its pill and soft edge: everything it draws.</summary>
+        private static RectInt Around(Camera camera, Transform shape, Vector2 size)
+        {
+            var corners = new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) }
+                .Select(corner => camera.WorldToScreenPoint(shape.TransformPoint(new Vector3(corner.x * size.x * 0.6f, corner.y * size.y * 0.9f, 0f))))
+                .ToList();
+            var left = Mathf.FloorToInt(corners.Min(corner => corner.x));
+            var bottom = Mathf.FloorToInt(corners.Min(corner => corner.y));
+            return new RectInt(left, bottom, Mathf.CeilToInt(corners.Max(corner => corner.x)) - left, Mathf.CeilToInt(corners.Max(corner => corner.y)) - bottom);
         }
 
         /// <summary>The button <paramref name="view"/>'s footer shows for the prompt <paramref name="id"/>, if it shows one.</summary>
