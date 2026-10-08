@@ -6,9 +6,15 @@ export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
 
 /**
  * What the OpenCode server, and everything it starts, may reach under Halcyonic's sandbox
- * (ADR 0028): folders it may write in, and files and folders it may not read.
+ * (ADR 0028): the loopback ports it may connect to, folders it may write in, and files and
+ * folders it may not read.
  */
 export interface SandboxScope {
+  /**
+   * The only ports on loopback it may connect to: the model's (Ollama's) and the server's own. No
+   * other program listening on this Mac, a debugger's port, a database or an app's own, is reached.
+   */
+  readonly loopbackPorts: readonly number[];
   /** The project roots a task may work in, OpenCode's own folders and the temporary folder. */
   readonly writable: readonly string[];
   /** Credentials and secrets: Halcyonic's and the person's. */
@@ -58,7 +64,8 @@ export function personalSecrets(home: string): string[] {
 
 /**
  * A Seatbelt profile (ADR 0028): everything is allowed except what follows. Outbound network only
- * to loopback, so a model on this Mac answers and nothing else does. Writes only in the scope's
+ * to the given loopback ports, so the model on this Mac answers and nothing else does, on this Mac
+ * or beyond it; local sockets of other programs neither. Writes only in the scope's
  * writable folders and the devices a shell needs. Reads of every unreadable path refused, but of
  * the readable paths inside them. Paths are
  * given as the file system resolves them, since Seatbelt matches the resolved path (`/var` is
@@ -75,7 +82,9 @@ export function sandboxProfile(scope: SandboxScope): string {
     '(version 1)',
     '(allow default)',
     '(deny network-outbound)',
-    '(allow network-outbound (remote ip "localhost:*"))',
+    ...scope.loopbackPorts.map(
+      (port) => `(allow network-outbound (remote ip "localhost:${port}"))`,
+    ),
     '(deny file-write*)',
     `(allow file-write* ${writable} (literal "/dev/null") (literal "/dev/zero") (regex #"^/dev/tty") (regex #"^/dev/fd/"))`,
     ...(unreadable === '' ? [] : [`(deny file-read* ${unreadable})`]),

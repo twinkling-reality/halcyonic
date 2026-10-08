@@ -57,6 +57,7 @@ import {
   buildEnvironment,
   describeExit,
   type ExitStatus,
+  freeLoopbackPort,
   launchServer,
   OPENCODE_VERSION,
   type OpenCodeServer,
@@ -234,6 +235,8 @@ export interface OpenCodeRuntimeOptions {
    * and the temporary folder, and these paths unreadable. Null runs it unsandboxed.
    */
   readonly sandbox?: {
+    /** The model's ports on loopback, Ollama's; the server's own is added. */
+    readonly loopbackPorts: readonly number[];
     readonly projectRoots: readonly string[];
     readonly unreadable: readonly string[];
     /** Paths inside an unreadable folder that stay readable: OpenCode's settings, its binary. */
@@ -665,7 +668,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    * project roots, OpenCode's own folders for this environment and the temporary folders; null
    * when the server runs unsandboxed.
    */
-  async #writeSandboxProfile(): Promise<string | null> {
+  async #writeSandboxProfile(port: number): Promise<string | null> {
     if (this.#sandbox === null || this.#sandbox === undefined) {
       // On macOS OpenCode runs only inside the sandbox (ADR 0028): its ask before a shell command
       // depends on its parse of the command, and the sandbox bounds what a command can reach.
@@ -680,6 +683,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     const path = join(dirname(this.#recordFile), 'opencode-sandbox.sb');
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
     const profile = sandboxProfile({
+      loopbackPorts: [...this.#sandbox.loopbackPorts, port],
       // The server's own temporary folder (its TMPDIR, inherited from the control plane), never the
       // whole of the system's, unless it was given none.
       writable: [
@@ -706,14 +710,16 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         `Could not check for an OpenCode server left running by an earlier run: ${message(error)}`,
       );
     }
+    // Chosen here, since the sandbox's profile names the server's own port.
+    const port = this.#port ?? (await freeLoopbackPort());
     const server = await launchServer({
       binaryPath: this.#binaryPath,
       environment: this.#environment,
       recordFile: this.#recordFile,
-      port: this.#port,
+      port,
       cwd: tmpdir(),
       startupTimeoutMs: this.#startupTimeoutMs,
-      sandboxProfile: await this.#writeSandboxProfile(),
+      sandboxProfile: await this.#writeSandboxProfile(port),
     });
     if (this.#closing !== null) {
       await server.stop();

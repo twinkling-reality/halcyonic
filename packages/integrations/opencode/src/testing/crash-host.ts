@@ -22,6 +22,8 @@ const options = JSON.parse(process.argv[2] ?? '{}') as {
   recordFile: string;
   env: Record<string, string>;
   directory: string;
+  /** The loopback ports the sandboxed server may reach: the scripted provider's and the trap's. */
+  loopbackPorts?: number[];
 };
 const runtime = new OpenCodeRuntimeAdapter({
   binaryPath: options.binaryPath,
@@ -30,7 +32,13 @@ const runtime = new OpenCodeRuntimeAdapter({
   env: options.env,
   // On macOS the adapter launches OpenCode only inside its sandbox (ADR 0028).
   sandbox:
-    process.platform === 'darwin' ? { projectRoots: [options.directory], unreadable: [] } : null,
+    process.platform === 'darwin'
+      ? {
+          loopbackPorts: options.loopbackPorts ?? [],
+          projectRoots: [options.directory],
+          unreadable: [],
+        }
+      : null,
 });
 await runtime.startExecution({
   execution: TEST_EXECUTION,

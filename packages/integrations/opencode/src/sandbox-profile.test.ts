@@ -10,29 +10,32 @@ describe("Halcyonic's sandbox profile for OpenCode (ADR 0028)", () => {
     const folder = mkdtempSync(join(tmpdir(), 'halcyonic-profile-'));
     try {
       const profile = sandboxProfile({
+        loopbackPorts: [11434, 47800],
         writable: [folder, join(folder, 'later/deeper'), '/not/there/yet'],
         unreadable: ['/Users/someone/.ssh'],
       });
       const lines = profile.trim().split('\n');
-      assert.deepEqual(lines.slice(0, 5), [
+      // Only the given ports on loopback: no other program's listener on this Mac.
+      assert.deepEqual(lines.slice(0, 6), [
         '(version 1)',
         '(allow default)',
         '(deny network-outbound)',
-        '(allow network-outbound (remote ip "localhost:*"))',
+        '(allow network-outbound (remote ip "localhost:11434"))',
+        '(allow network-outbound (remote ip "localhost:47800"))',
         '(deny file-write*)',
       ]);
       // Seatbelt matches resolved paths (/var is /private/var), so a folder is given as resolved,
       // through its nearest existing folder when it is not made yet, and one with none as written.
-      assert.ok(lines[5]?.includes(`(subpath ${JSON.stringify(realpathSync(folder))})`));
+      assert.ok(lines[6]?.includes(`(subpath ${JSON.stringify(realpathSync(folder))})`));
       assert.ok(
-        lines[5]?.includes(
+        lines[6]?.includes(
           `(subpath ${JSON.stringify(join(realpathSync(folder), 'later/deeper'))})`,
         ),
       );
-      assert.ok(lines[5]?.includes('(subpath "/not/there/yet")'));
-      assert.ok(lines[5]?.includes('(literal "/dev/null")'));
+      assert.ok(lines[6]?.includes('(subpath "/not/there/yet")'));
+      assert.ok(lines[6]?.includes('(literal "/dev/null")'));
       assert.equal(
-        lines[6],
+        lines[7],
         '(deny file-read* (subpath "/Users/someone/.ssh") (literal "/Users/someone/.ssh"))',
       );
     } finally {
@@ -42,6 +45,7 @@ describe("Halcyonic's sandbox profile for OpenCode (ADR 0028)", () => {
 
   test('reads inside an unreadable folder stay allowed where named, after the deny', () => {
     const lines = sandboxProfile({
+      loopbackPorts: [],
       writable: [],
       unreadable: ['/d'],
       readable: ['/d/runtimes'],

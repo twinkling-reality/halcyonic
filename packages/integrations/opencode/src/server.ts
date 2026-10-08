@@ -381,7 +381,7 @@ function drainErrorOutput(child: ChildProcess): void {
   child.stderr?.resume();
 }
 
-async function freeLoopbackPort(): Promise<number> {
+export async function freeLoopbackPort(): Promise<number> {
   const probe = createServer();
   await new Promise<void>((resolve, reject) => {
     probe.once('error', reject);
