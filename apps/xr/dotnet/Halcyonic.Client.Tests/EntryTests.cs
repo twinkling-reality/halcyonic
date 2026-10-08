@@ -775,7 +775,7 @@ public class EntryWordsTests
         Assert.That(EntryText.ModelLine(draft), Does.Contain("Nothing is chosen for you"));
 
         draft.ChooseRuntime(Samples.MockRuntime());
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Mock runtime (simulated)"), "the recorded demonstration keeps its names");
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Simulated: Mock runtime"), "the recorded demonstration keeps its names");
         Assert.That(EntryText.RunsWith(draft, live: true), Is.EqualTo(EntryText.PracticeRun));
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Practice: no agent, no files."));
 
@@ -824,7 +824,7 @@ public class EntryWordsTests
         cannotStart.Capabilities.StartExecution = false;
         // The fifth headset session: "Mock runtime (development fixture)" beside OpenCode was taken for a real one.
         Assert.That(EntryText.RuntimeName(mock, live: true), Is.EqualTo("Practice run: builds nothing"));
-        Assert.That(EntryText.RuntimeName(mock), Does.EndWith("(simulated)"), "the demonstration is unaffected");
+        Assert.That(EntryText.RuntimeName(mock), Does.StartWith("Simulated: "), "the demonstration is unaffected");
         Assert.That(EntryText.RuntimeName(real, live: true), Is.EqualTo("OpenCode 2.0.18"));
         Assert.That(EntryText.RuntimeChoices(new[] { mock, cannotStart, real }).Select(runtime => runtime.RuntimeId),
             Is.EqualTo(new[] { "opencode", mock.RuntimeId }), "real runtimes first, a simulated one last, and none that cannot start work");

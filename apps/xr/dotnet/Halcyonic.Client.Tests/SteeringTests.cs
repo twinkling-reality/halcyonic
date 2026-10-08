@@ -128,7 +128,7 @@ public class WorkspaceTextTests
         Assert.That(PeekCard.Of(work.Present(live: false)).ReasonLine, Is.EqualTo("Last known: It wants to run: Run the migration"));
 
         work.Workstream.Attention.Reasons.Add(new ExecutionFailedReason { ExecutionId = "e1" });
-        Assert.That(PeekCard.Of(work.Present()).ReasonLine, Is.EqualTo("It wants to run: Run the migration (+1 more)"),
+        Assert.That(PeekCard.Of(work.Present()).ReasonLine, Is.EqualTo("+1 more · It wants to run: Run the migration"),
             "a reason with no more to say than its state still counts");
     }
 
