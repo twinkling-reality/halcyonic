@@ -755,8 +755,9 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// The banner shows unless a panel or the peek is where it goes (<see cref="AmbientCover"/>); in the
-        /// demonstration a panel raises it above the stage instead (<see cref="BannerPlace"/>), which says
-        /// its line again.
+        /// demonstration it always stands raised above the stage instead (<see cref="BannerPlace"/>), saying
+        /// its line alone while a panel shows and keeping its notice over the closed bar, so it says its line
+        /// again as either changes.
         /// </summary>
         private void ShowBannerUncovered()
         {
