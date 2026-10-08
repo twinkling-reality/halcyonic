@@ -210,7 +210,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!model.Runs.AllTheirs && model.Runs.AnyTheirs)
                 {
                     failures.AddRange(Grounded(words, GlazeRuns.Of(words).Theirs, grounds, what));
-                    if (Contrast(words.color, ground) < 4.5f) failures.Add(what + ": its words hold " + Contrast(words.color, ground).ToString("0.0", CultureInfo.InvariantCulture) + ":1 on their ground over white, under 4.5.");
+                }
+                // Outside text on a ground, a token's or a block's, holds 4.5:1 there over the glass on white, in the colour it is drawn in.
+                var onGround = model.Runs.AnyTheirs && !(model.Action != null && model.Runs.AllTheirs);
+                foreach (var (label, grounded) in new[] { ((TMP_Text)words, onGround), ((TMP_Text?)fact, fact != null && GlazeRuns.Of(fact).Theirs.Count > 0
+                    && !(model.Action != null && model.Runs.AllTheirs && model.FactRuns?.AllTheirs == true)) })
+                {
+                    if (label == null || !grounded) continue;
+                    var drawn = (Color)(GlazeRuns.Of(label).Grounded ?? (Color32)label.color);
+                    if (Contrast(drawn, ground) < 4.5f) failures.Add(what + ": its outside words hold " + Contrast(drawn, ground).ToString("0.0", CultureInfo.InvariantCulture) + ":1 on their ground over white, under 4.5.");
+                    if (GlazeRuns.Of(label).Grounded == null) failures.Add(what + ": its outside words stand on a ground in the line's own colour, not the primary text's.");
                 }
                 if (Block(model) && !joined && grounds.Count == 0) failures.Add(what + ": a block of outside text with no ground under it.");
                 if (fact != null && model.FactRuns != null) failures.AddRange(Slants(fact, model.FactRuns, what + "'s fact"));
@@ -223,6 +232,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var subject = view.SubjectShown.Title;
             if (view.Frame?.SubjectRuns is LineWords subjectRuns) failures.AddRange(Slants(subject, subjectRuns, name + "'s subject"));
+            if (view.SourceShown is TMP_Text source && view.Frame?.SourceRuns is LineWords sourceRuns) failures.AddRange(Slants(source, sourceRuns, name + "'s source line"));
             return failures;
         }
 
@@ -270,22 +280,45 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        /// <summary>Each run's box on each row it reaches, widened by the ground's padding, stands inside a ground drawn under it.</summary>
+        /// <summary>
+        /// Each run's box on each row it reaches stands inside a ground drawn under it, with the ground's padding
+        /// or halfway to Halcyonic's letter beside it, and no letter of Halcyonic's on the label touches a ground.
+        /// </summary>
         private static IEnumerable<string> Grounded(TMP_Text label, IReadOnlyList<(int Start, int End)> theirs, IReadOnlyList<Surface> grounds, string what)
         {
             var failures = new List<string>();
             var at = label.transform.localPosition;
-            var pad = GlazeRuns.GroundPadding;
+            var info = label.textInfo;
+            Rect Placed(Surface ground)
+            {
+                var centre = ground.transform.localPosition;
+                return new Rect(centre.x - ground.Size.x / 2f, centre.y - ground.Size.y / 2f, ground.Size.x, ground.Size.y);
+            }
+            var expected = GlazeText.RunGrounds(label, theirs, GlazeRuns.GroundPadding);
             foreach (var box in GlazeText.RunBoxes(label, theirs))
             {
-                var needed = Rect.MinMaxRect(at.x + box.xMin - pad + 1e-4f, at.y + box.yMin + 1e-4f, at.x + box.xMax + pad - 1e-4f, at.y + box.yMax - 1e-4f);
-                var held = grounds.Any(ground =>
+                var needed = Rect.MinMaxRect(at.x + box.xMin + 1e-4f, at.y + box.yMin + 1e-4f, at.x + box.xMax - 1e-4f, at.y + box.yMax - 1e-4f);
+                if (!grounds.Any(ground => Placed(ground).Contains(needed.min) && Placed(ground).Contains(needed.max))) failures.Add(what + ": a run of outside text stands off its ground.");
+            }
+            foreach (var ground in expected)
+            {
+                // Padding each side: the full padding, or halfway to Halcyonic's letter beside it.
+                var placed = Rect.MinMaxRect(at.x + ground.xMin, at.y + ground.yMin, at.x + ground.xMax, at.y + ground.yMax);
+                if (!grounds.Any(drawn => Mathf.Abs(Placed(drawn).xMin - placed.xMin) < 1e-3f && Mathf.Abs(Placed(drawn).xMax - placed.xMax) < 1e-3f))
                 {
-                    var centre = ground.transform.localPosition;
-                    var rect = new Rect(centre.x - ground.Size.x / 2f, centre.y - ground.Size.y / 2f, ground.Size.x, ground.Size.y);
-                    return rect.Contains(needed.min) && rect.Contains(needed.max);
-                });
-                if (!held) failures.Add(what + ": a run of outside text stands off its ground, or its ground lacks its padding.");
+                    failures.Add(what + ": a ground lacks its padding.");
+                }
+            }
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible || GlazeText.InRun(info, index, theirs)) continue;
+                var glyph = Rect.MinMaxRect(at.x + character.bottomLeft.x, at.y + character.bottomLeft.y, at.x + character.topRight.x, at.y + character.topRight.y);
+                if (grounds.Any(ground => ground.gameObject.activeSelf && Placed(ground).Overlaps(glyph)))
+                {
+                    failures.Add(what + ": Halcyonic's letter '" + character.character + "' touches a ground under outside text.");
+                    break;
+                }
             }
             return failures;
         }

@@ -206,6 +206,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The subject's title and the grounds under outside text in it, for the renders' checks.</summary>
         public (TextMeshPro Title, IReadOnlyList<Surface> Grounds) SubjectShown => (subjectTitle, subjectGrounds.Where(ground => ground.gameObject.activeSelf).ToList());
 
+        /// <summary>The source line's label while it shows, for the renders' checks.</summary>
+        public TextMeshPro? SourceShown => source.gameObject.activeSelf ? source : null;
+
         /// <summary>Every prompt's and section's label, which hold Halcyonic's words alone, for the renders' checks.</summary>
         public IEnumerable<TMP_Text> OursOnly =>
             sections.Where(section => section.Words.gameObject.activeSelf).Select(section => (TMP_Text)section.Words)
@@ -974,6 +977,7 @@ namespace Halcyonic.XR.UI
                 {
                     var (foot, theirs) = NoteRuns(source, from, left, right, y - group, NoteRows);
                     GlazeRuns.TokenGrounds(source, theirs, sourceGrounds, contentPart, Order + 2);
+                    GlazeRuns.Of(source).Grounded = theirs.Count > 0 ? Grounded(true) : (Color32?)null;
                     y = foot;
                 }
                 return y;
@@ -998,6 +1002,7 @@ namespace Halcyonic.XR.UI
             var y = Note(line.Name, fact.Name, left, right, top, 1) - U(Glaze.Menu.LabelToValueDegrees);
             var (foot, theirs) = NoteRuns(line.Words, fact.ValueRuns, left, right, y, FactRows);
             GlazeRuns.TokenGrounds(line.Words, theirs, line.WordGrounds, contentPart, Order + 2);
+            GlazeRuns.Of(line.Words).Grounded = theirs.Count > 0 ? Grounded(true) : (Color32?)null;
             return foot;
         }
 
@@ -1044,7 +1049,9 @@ namespace Halcyonic.XR.UI
                     ColourOf(model.Tone == LineTone.Waiting ? LineTone.Waiting : LineTone.Secondary, model.Available), kept);
                 // A row all of outside text needs no ground: its quote mark, or its icon, marks it beside Halcyonic's rows.
                 var allTheirs = model.Runs.AllTheirs && model.FactRuns!.AllTheirs;
-                GlazeRuns.TokenGrounds(line.Fact, role != null && allTheirs ? Array.Empty<(int, int)>() : factTheirs, line.FactGrounds, contentPart, Order + 2);
+                var factGrounded = role != null && allTheirs ? Array.Empty<(int, int)>() : factTheirs;
+                GlazeRuns.TokenGrounds(line.Fact, factGrounded, line.FactGrounds, contentPart, Order + 2);
+                GlazeRuns.Of(line.Fact).Grounded = factGrounded.Count > 0 ? Grounded(model.Available) : (Color32?)null;
                 line.FactMayCut = model.FactIsData;
                 end -= kept + grid;
             }
@@ -1072,6 +1079,8 @@ namespace Halcyonic.XR.UI
             }
             line.Words.color = ColourOf(carried && model.Tone != LineTone.Secondary ? LineTone.Primary : model.Tone, model.Available);
             GlazeRuns.Of(line.Words).Lean(theirs);
+            // Outside text on a ground takes the primary text colour, so it holds 4.5:1 there; a row all of it has no ground.
+            GlazeRuns.Of(line.Words).Grounded = theirs.Count > 0 && !(role != null && model.Runs.AllTheirs) ? Grounded(model.Available) : (Color32?)null;
             // A line that says what is under way, as "Sending…", shimmers while it shows (ADR 0027).
             line.Shimmer.Waits = model.Waits;
             line.MayCut = model.WordsAreData;
@@ -1176,6 +1185,9 @@ namespace Halcyonic.XR.UI
             label.transform.localPosition = new Vector3(end - wide, middle + tall / 2f, -U(0.05f));
             return (new Vector2(wide, tall), theirs);
         }
+
+        /// <summary>Outside text on a ground: the primary text colour, or quiet where its line takes no press now.</summary>
+        private static Color32 Grounded(bool available) => ColourOf(LineTone.Primary, available);
 
         private static Color ColourOf(LineTone tone, bool available)
         {

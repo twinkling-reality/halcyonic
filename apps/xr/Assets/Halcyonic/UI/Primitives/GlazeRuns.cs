@@ -67,9 +67,36 @@ namespace Halcyonic.XR.UI
             label.havePropertiesChanged = true;
         }
 
+        /// <summary>
+        /// The colour outside text takes where it stands on a ground, or null for the label's own: words
+        /// on a ground hold 4.5:1 over the glass on white only in the primary text colour, so a secondary
+        /// or toned line's outside text takes it while Halcyonic's words keep the line's colour.
+        /// </summary>
+        public Color32? Grounded
+        {
+            get => grounded;
+            set
+            {
+                if (Nullable.Equals(grounded, value)) return;
+                grounded = value;
+                label.havePropertiesChanged = true;
+            }
+        }
+
+        private Color32? grounded;
+
         private void LeanTheirs(TMP_TextInfo info)
         {
-            if (theirs.Count > 0) GlazeText.Lean(info, theirs);
+            if (theirs.Count == 0) return;
+            GlazeText.Lean(info, theirs);
+            if (!(grounded is Color32 colour)) return;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible || !GlazeText.InRun(info, index, theirs)) continue;
+                var colours = info.meshInfo[character.materialReferenceIndex].colors32;
+                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++) colours[corner] = colour;
+            }
         }
 
         private void OnDestroy()
@@ -96,13 +123,14 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// A ground hugging each run of outside text on <paramref name="label"/>, on each row it reaches,
+        /// A ground hugging each run of outside text on <paramref name="label"/>, on each row it reaches, its padding
+        /// stopping halfway to a letter of Halcyonic's beside it (<see cref="GlazeText.RunGrounds"/>),
         /// from <paramref name="pool"/>, made under <paramref name="parent"/> at <paramref name="order"/> as
         /// needed; the label and its parent share units. The rest of the pool hides. Returns the grounds drawn.
         /// </summary>
         public static int TokenGrounds(TMP_Text label, IReadOnlyList<(int Start, int End)> theirs, List<Surface> pool, Transform parent, int order)
         {
-            var boxes = theirs.Count == 0 ? new List<Rect>() : GlazeText.RunBoxes(label, theirs);
+            var boxes = theirs.Count == 0 ? new List<Rect>() : GlazeText.RunGrounds(label, theirs, GroundPadding);
             while (pool.Count < boxes.Count) pool.Add(Surface.Create(parent, label.name + " ground " + pool.Count, order));
             var at = label.transform.localPosition;
             for (var index = 0; index < pool.Count; index++)
@@ -113,7 +141,7 @@ namespace Halcyonic.XR.UI
                     continue;
                 }
                 var box = boxes[index];
-                DrawGround(pool[index], new Vector2(box.width + 2f * GroundPadding, box.height), new Vector3(at.x + box.center.x, at.y + box.center.y, at.z + GlazeTokens.Units(0.01f)));
+                DrawGround(pool[index], box.size, new Vector3(at.x + box.center.x, at.y + box.center.y, at.z + GlazeTokens.Units(0.01f)));
             }
             return boxes.Count;
         }
