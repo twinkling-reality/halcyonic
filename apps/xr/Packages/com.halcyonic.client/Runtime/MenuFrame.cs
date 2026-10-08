@@ -763,10 +763,12 @@ namespace Halcyonic.Client
         /// (<see cref="LineWords"/>): a task's title, all outside text, leans in its plate, which is its
         /// ground; a name inside Halcyonic's subject leans on a ground of its own.
         /// </summary>
+        /// <param name="sourceRuns">The source line as runs, a source's version leaning, in place of <paramref name="source"/>.</param>
         public MenuFrame(LineWords subject, Footer footer, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
-            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false)
+            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false,
+            LineWords? sourceRuns = null)
             : this(subject ?? throw new ArgumentNullException(nameof(subject)), footer, subject.AnyTheirs, pill, sections, lines,
-                source == null ? null : LineWords.Written(source), side, sourceIsData, subjectWaits)
+                sourceRuns ?? (source == null ? null : LineWords.Written(source)), side, sourceIsData || sourceRuns?.AnyTheirs == true, subjectWaits)
         {
         }
 

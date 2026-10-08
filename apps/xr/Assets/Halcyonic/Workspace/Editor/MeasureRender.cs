@@ -168,6 +168,26 @@ namespace Halcyonic.XR.Workspace.Editor
                 var model = panel.Frame.Shown!;
                 return (panel.gameObject, () => panel.Show(model, null));
             });
+            // The cost of words from outside (lane V's estimate: about 2 draw calls a run): a file's checks
+            // page as Halcyonic's words alone, then with its outside text leaning on its grounds.
+            foreach (var leaning in new[] { false, true })
+            {
+                yield return new Scene("a task's file, its checks, " + (leaning ? "outside words on their grounds" : "every word upright, before"), root =>
+                {
+                    Stage(root, besideWindow: false);
+                    var frame = OutsideWordsRender.Screens().Single(screen => screen.Name == "checks").Frame;
+                    if (!leaning)
+                    {
+                        frame = frame.With(frame.Footer, frame.Lines.Select(line => new PageLine(line.Words, wordsAreData: true, fact: line.Fact, tone: line.Tone,
+                            chip: line.Chip)).ToList(), frame.Side);
+                    }
+                    var eyes = new Vector3(0f, EyeHeight, 0f);
+                    var file = MenuFrameView.Create(root.transform, "File column");
+                    var side = MenuFrameView.Create(root.transform, "Side panel");
+                    FileRender.Lay(frame, file, side, eyes);
+                    return (file.gameObject, () => FileRender.Lay(frame, file, side, eyes));
+                });
+            }
             yield return new Scene("a workspace, Doing", root =>
             {
                 Stage(root, besideWindow: false);
@@ -194,7 +214,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The stage's banner where the stage hangs it, under the labels or under the window's lane.</summary>
-        private static void Banner(GameObject root, string? waiting, string? notShown, string? stillOpen, bool besideWindow)
+        private static void Banner(GameObject root, string? waiting, string? notShown, LineWords? stillOpen, bool besideWindow)
         {
             var radius = CharacterStage.DefaultDistance;
             var holder = new GameObject("Banner").transform;

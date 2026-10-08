@@ -113,7 +113,8 @@ namespace Halcyonic.Client
                 lines: lines,
                 source: page.Source,
                 sourceIsData: page.SourceIsData,
-                side: page.Side);
+                side: page.Side,
+                sourceRuns: page.SourceRuns);
         }
 
         /// <summary>The four sections, the one showing chosen, Waiting's amber dot while something waits.</summary>
@@ -128,12 +129,14 @@ namespace Halcyonic.Client
         /// <summary>A section's page: its lines, its source line, the side panel a line opened and its footer.</summary>
         private sealed class Page
         {
-            public Page(IReadOnlyList<PageLine> lines, string? source, Footer footer, SidePanel? side = null, bool sourceIsData = false, bool ofQuestion = false)
+            public Page(IReadOnlyList<PageLine> lines, string? source, Footer footer, SidePanel? side = null, bool sourceIsData = false, bool ofQuestion = false,
+                LineWords? sourceRuns = null)
             {
                 OfQuestion = ofQuestion;
                 SourceIsData = sourceIsData;
                 Lines = lines;
                 Source = source;
+                SourceRuns = sourceRuns;
                 Footer = footer;
                 Side = side;
             }
@@ -141,6 +144,9 @@ namespace Halcyonic.Client
             public IReadOnlyList<PageLine> Lines { get; }
 
             public string? Source { get; }
+
+            /// <summary>The source line as runs where it holds outside text, as a source's version; null for words of Halcyonic's alone.</summary>
+            public LineWords? SourceRuns { get; }
 
             /// <summary>The source line is an answer's provenance, holding a source's version or why it could not be read: text from outside.</summary>
             public bool SourceIsData { get; }
@@ -324,17 +330,21 @@ namespace Halcyonic.Client
             var first = groups[0].Answer.Brief;
             var lines = new List<PageLine>();
             string? source = first.Provenance;
+            LineWords? sourceRuns = first.ProvenanceRuns;
             foreach (var (key, _, answer) in groups)
             {
                 var content = answer.Brief.Lines.Where(line => !line.Source).ToList();
                 if (content.Count == 0)
                 {
-                    if (ReferenceEquals(answer.Brief, first)) source = null;
+                    if (ReferenceEquals(answer.Brief, first)) (source, sourceRuns) = (null, null);
                     // Why there is no brief answer; where the full one still holds something, as the evaluation
                     // source's measurement beside an understanding that couldn't be read, it opens it.
                     var opens = answer.Full.Lines.Count > 0;
-                    lines.Add(new PageLine(IntelligenceText.Plain(answer.Brief.Provenance), wordsAreData: true, tone: Tone(answer.Brief.ProvenanceTone), rows: 3,
-                        action: opens ? Open : null, key: opens ? key : null, opens: opens, chosen: opens && key == screen.Chosen));
+                    lines.Add(answer.Brief.ProvenanceRuns.AnyTheirs
+                        ? new PageLine(answer.Brief.ProvenanceRuns, tone: Tone(answer.Brief.ProvenanceTone), rows: 3,
+                            action: opens ? Open : null, key: opens ? key : null, opens: opens, chosen: opens && key == screen.Chosen)
+                        : new PageLine(IntelligenceText.Plain(answer.Brief.Provenance), wordsAreData: true, tone: Tone(answer.Brief.ProvenanceTone), rows: 3,
+                            action: opens ? Open : null, key: opens ? key : null, opens: opens, chosen: opens && key == screen.Chosen));
                     continue;
                 }
                 for (var index = 0; index < content.Count; index++)
@@ -358,7 +368,7 @@ namespace Halcyonic.Client
             else screen.SideParts = 0;
             if (side?.Parts is (int part, int parts) && parts > 1) footer = footer.WithNext(Next(part, parts));
             else if (pages.Count > 1) footer = footer.WithNext(Next(screen.Page, pages.Count));
-            return new Page(shown, source, footer, side, sourceIsData: true);
+            return new Page(shown, source, footer, side, sourceIsData: true, sourceRuns: sourceRuns);
         }
 
         /// <summary>
@@ -397,8 +407,11 @@ namespace Halcyonic.Client
             screen.SidePart = Math.Min(screen.SidePart, parts.Count - 1);
             var part = parts[screen.SidePart];
             var lines = part.Lines.Select(line => Line(line, room)).ToList();
-            return new SidePanel(subject, lines: lines, source: part.Provenance, parts: parts.Count > 1 ? (screen.SidePart, parts.Count) : ((int, int)?)null,
-                sourceIsData: true);
+            var paged = parts.Count > 1 ? (screen.SidePart, parts.Count) : ((int, int)?)null;
+            // Its source line as runs where a source names its version, which leans (settled 2026-10-08); else as it was, data that may be cut.
+            return part.ProvenanceRuns.AnyTheirs
+                ? new SidePanel(LineWords.Written(subject), lines: lines, source: part.ProvenanceRuns, parts: paged)
+                : new SidePanel(subject, lines: lines, source: part.Provenance, parts: paged, sourceIsData: true);
         }
 
         /// <summary>

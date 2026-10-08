@@ -171,11 +171,13 @@ namespace Halcyonic.Client
     /// <summary>What one section of the workspace shows, in words, so the XR layer only lays it out.</summary>
     public sealed class SectionPresentation
     {
+        /// <param name="provenanceRuns">The provenance as runs, a source's version leaning; Halcyonic's words alone when not given.</param>
         public SectionPresentation(SectionKind kind, string provenance, SectionTone provenanceTone, IReadOnlyList<SectionLine> lines, bool simulated,
-            bool steps = false)
+            bool steps = false, LineWords? provenanceRuns = null)
         {
             Kind = kind;
             Provenance = provenance;
+            ProvenanceRuns = provenanceRuns ?? LineWords.Written(provenance);
             ProvenanceTone = provenanceTone;
             // A source's sentence left blank, as its contract allows, is absent: a line of no words says nothing
             // and can't be drawn.
@@ -192,6 +194,9 @@ namespace Halcyonic.Client
         /// Seorak, and it says "Simulated" for a stand-in's.
         /// </summary>
         public string Provenance { get; }
+
+        /// <summary><see cref="Provenance"/> as runs: "From Salidium " Halcyonic's, the version the source names for itself leaning.</summary>
+        public LineWords ProvenanceRuns { get; }
 
         public SectionTone ProvenanceTone { get; }
 
@@ -595,11 +600,15 @@ namespace Halcyonic.Client
         /// check runs it saw, checks.
         /// </summary>
         public static string UnderstandingProvenance(IntelligenceRead<UnderstandingResponse> read, UnderstandingSource source, DateTimeOffset now, TimeZoneInfo zone,
-            bool checks = false)
+            bool checks = false) => UnderstandingProvenanceRuns(read, source, now, zone, checks).Text;
+
+        /// <summary>Where an answer came from as runs: Halcyonic's words upright, the version Salidium names for itself leaning (settled 2026-10-08).</summary>
+        public static LineWords UnderstandingProvenanceRuns(IntelligenceRead<UnderstandingResponse> read, UnderstandingSource source, DateTimeOffset now,
+            TimeZoneInfo zone, bool checks = false)
         {
             var when = read.Recorded ? "recorded at " + Clock(read.ReadAt, zone, seconds: true) : Ago(source.GeneratedAt, now, zone);
-            if (source.Synthetic) return (checks ? "Simulated checks · " : "Simulated explanation · ") + when;
-            return "From Salidium " + Truncate(Plain(source.Version), 24) + ", " + when;
+            if (source.Synthetic) return LineWords.Written((checks ? "Simulated checks · " : "Simulated explanation · ") + when);
+            return LineWords.Written("From Salidium ") + LineWords.TheirName(Truncate(Plain(source.Version), 24)) + LineWords.Written(", " + when);
         }
 
         /// <summary>Where a measurement came from and when: "From Seorak, read 1 minute ago", or a stand-in's, said to be simulated.</summary>

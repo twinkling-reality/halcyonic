@@ -87,7 +87,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The audit's four screens, built from the client core's own builders, outside text spoofing Halcyonic's words throughout.</summary>
-        private static IEnumerable<(string Name, MenuFrame Frame)> Screens()
+        internal static IEnumerable<(string Name, MenuFrame Frame)> Screens()
         {
             var close = new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close));
             var title = LineWords.TheirName("Your computer refused this headset");

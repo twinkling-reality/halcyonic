@@ -25,7 +25,7 @@ namespace Halcyonic.Client
         public const string CheckWhichOne = "Another folder or project has a name that looks the same. Check where it is and when it changed to be sure it's the one you mean.";
 
         /// <summary>Connect waits while another folder's connection may still be on its way.</summary>
-        /// <remarks>It stands where a prompt's reason does, which holds Halcyonic's words alone, so it names no folder (proposed 2026-10-08).</remarks>
+        /// <remarks>It stands where a prompt's reason does, which holds Halcyonic's words alone, so it names no folder (settled by the coordinator, 2026-10-08).</remarks>
         public static string WaitingOn(ConnectableFolder other) =>
             "Still waiting to hear whether the other folder was connected. Connecting another folder waits until that's known.";
 
@@ -35,7 +35,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string WaitingOn(FolderConnection other) => other.Step.Status == BuildStepStatus.Waiting
             ? WaitingOn(other.Folder)
-            : "Not sure whether the other folder was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart.";
+            : "Not sure whether the other folder was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart the app.";
 
         /// <summary>A name from outside inside one of Halcyonic's sentences, leaning on Halcyonic's ground so it never reads as Halcyonic's words.</summary>
         public static LineWords Named(string name) => LineWords.TheirName(WorkspaceText.Truncate(LabelText.Name(name), NameLimit));
