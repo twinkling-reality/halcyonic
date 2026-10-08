@@ -227,14 +227,14 @@ export function observeEvent(
     }
     case 'permission.asked': {
       const id = nonBlank(data.id);
-      const subject = approvalSubject(
+      const request = approvalRequest(
         data.action,
         data.resources,
         askedCommand(state, data.action, data.source),
       );
-      if (id === null || subject === null || state.approvals.has(id)) return [];
+      if (id === null || request === null || state.approvals.has(id)) return [];
       state.approvals.add(id);
-      return make('runtime.approval.requested', { approval_id: id, subject });
+      return make('runtime.approval.requested', { approval_id: id, ...request });
     }
     case 'permission.replied': {
       const id = nonBlank(data.requestID);
@@ -401,11 +401,17 @@ export function replyOutcome(reply: unknown): ApprovalOutcome | null {
 export const SHELL_TOOL = 'shell';
 
 /**
- * What a shell request's summary starts with when the command it was raised for is not known, so
- * it shows only the parts OpenCode's parse found. At the start, a cut to fit never removes it; the
- * headset offers only Deny for such a request (`WorkspaceText`).
+ * The actions whose resources name in full every path the request would touch, so a request for
+ * one of them is complete as OpenCode lists it (`runtime.approval.requested`'s `complete`). Any
+ * other action's request, an MCP tool's among them, is not.
  */
-export const UNKNOWN_COMMAND = '[whole command not known]';
+const PATH_ACTIONS: ReadonlySet<string> = new Set([
+  'external_directory',
+  'edit',
+  'read',
+  'glob',
+  'grep',
+]);
 
 /**
  * What a shell tool call's input asks to run, as an approval shows it: where and how, in a bracket
@@ -457,25 +463,27 @@ function askedCommand(state: SessionState, action: unknown, source: unknown): st
  * the shell call the request was raised for asks to run (`shellRequest`), whole, when it is known,
  * else the resources OpenCode listed. For a shell command those are only the parts its parse
  * found, which can leave out what else the command runs or writes (opencode-permissions.md), so
- * without the call's request they follow `UNKNOWN_COMMAND`.
+ * without the call's request it is not complete and can only be denied; nor is a request for an
+ * action whose resources are not paths (`PATH_ACTIONS`).
  */
-export function approvalSubject(
+export function approvalRequest(
   action: unknown,
   resources: unknown,
   request: string | null = null,
-): ApprovalSubject | null {
+): { readonly subject: ApprovalSubject; readonly complete: boolean } | null {
   const tool = nonBlank(action);
   if (tool === null) return null;
   const listed = Array.isArray(resources)
     ? resources.filter((item): item is string => typeof item === 'string' && /\S/.test(item))
     : [];
   return {
-    kind: 'tool_use',
-    tool_name: clip(tool, 128),
-    // Whole: the control plane takes credentials out, then cuts it to the contract.
-    summary:
-      request ??
-      `${tool === SHELL_TOOL ? `${UNKNOWN_COMMAND} ` : ''}${listed.length > 0 ? listed.join('\n') : tool}`,
+    subject: {
+      kind: 'tool_use',
+      tool_name: clip(tool, 128),
+      // Whole: the control plane takes credentials out, then cuts it to the contract.
+      summary: request ?? (listed.length > 0 ? listed.join('\n') : tool),
+    },
+    complete: tool === SHELL_TOOL ? request !== null : PATH_ACTIONS.has(tool) && listed.length > 0,
   };
 }
 

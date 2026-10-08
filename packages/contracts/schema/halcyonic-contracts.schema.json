@@ -2428,7 +2428,8 @@
               "type": "object",
               "required": [
                 "approval_id",
-                "subject"
+                "subject",
+                "complete"
               ],
               "properties": {
                 "approval_id": {
@@ -2438,6 +2439,9 @@
                 },
                 "subject": {
                   "$ref": "#/$defs/ApprovalSubject"
+                },
+                "complete": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -5044,6 +5048,7 @@
       "required": [
         "approval_id",
         "subject",
+        "approvable",
         "requested_at"
       ],
       "properties": {
@@ -5054,6 +5059,9 @@
         },
         "subject": {
           "$ref": "#/$defs/ApprovalSubject"
+        },
+        "approvable": {
+          "type": "boolean"
         },
         "requested_at": {
           "type": "string",
@@ -9387,6 +9395,10 @@
         {
           "type": "string",
           "const": "approval_not_found"
+        },
+        {
+          "type": "string",
+          "const": "approval_not_whole"
         },
         {
           "type": "string",

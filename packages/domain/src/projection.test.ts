@@ -41,7 +41,7 @@ describe('execution status is derived from observed facts', () => {
   });
 
   test('turn, test run, approval and completion move through the expected statuses', () => {
-    const { b, apply, execution, scope, status, workstreamView } = setup();
+    const { b, apply, execution, projection, scope, status, workstreamView } = setup();
     apply(execution.event);
     apply(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'native-1' }));
     assert.equal(status(), 'starting', 'a session alone is not a running turn');
@@ -63,9 +63,34 @@ describe('execution status is derived from observed facts', () => {
       b.runtimeEvent(scope, 'runtime.approval.requested', {
         approval_id: 'a1',
         subject: { kind: 'tool_use', tool_name: 'bash', summary: 'Run the migration' },
+        complete: true,
       }),
     );
     assert.equal(status(), 'waiting_for_human');
+    // A complete request can be approved; the view says so.
+    assert.deepEqual(
+      projection.execution(execution.executionId)?.pending_approvals.map((each) => each.approvable),
+      [true],
+    );
+    apply(
+      b.runtimeEvent(scope, 'runtime.approval.requested', {
+        approval_id: 'a2',
+        subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo one' },
+        complete: false,
+      }),
+    );
+    assert.deepEqual(
+      projection
+        .execution(execution.executionId)
+        ?.pending_approvals.map((each) => [each.approval_id, each.approvable]),
+      [
+        ['a1', true],
+        ['a2', false],
+      ],
+    );
+    apply(
+      b.runtimeEvent(scope, 'runtime.approval.resolved', { approval_id: 'a2', decision: 'denied' }),
+    );
     assert.deepEqual(workstreamView()?.attention, {
       level: 'action_required',
       reasons: [
@@ -135,6 +160,7 @@ describe('execution status is derived from observed facts', () => {
       b.runtimeEvent(scope, 'runtime.approval.requested', {
         approval_id: 'a1',
         subject: { kind: 'tool_use', tool_name: 'bash', summary: 'Run it' },
+        complete: true,
       }),
     );
     apply(b.runtimeEvent(scope, 'runtime.turn.interrupted', { turn_id: 't1' }));

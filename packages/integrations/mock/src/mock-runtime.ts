@@ -420,7 +420,7 @@ class MockSession {
     const decision = await new Promise<ApprovalDecision>((resolve, reject) => {
       turn.approval = { id: approval_id, decide: resolve };
       turn.abort.signal.addEventListener('abort', () => reject(abortError()), { once: true });
-      this.#emit('runtime.approval.requested', { approval_id, subject });
+      this.#emit('runtime.approval.requested', { approval_id, subject, complete: true });
     });
     for (const branchStep of decision === 'approve' ? if_approved : if_denied) {
       await this.#scheduler.sleep(branchStep.after_ms, turn.abort.signal);

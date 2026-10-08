@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { after, describe, test } from 'node:test';
 import { type EventEnvelope, parseEventEnvelope } from '@halcyonic/contracts';
+import { Projection } from '@halcyonic/domain';
 import { createUuidV7Generator } from '../ids.ts';
 import { JournalError } from './journal.ts';
 import { JOURNAL_SCHEMA_VERSION, openSqliteJournal } from './sqlite-journal.ts';
@@ -391,6 +392,46 @@ describe('SQLite journal', () => {
     const version = check.prepare('PRAGMA user_version').get() as { user_version: number };
     assert.equal(version.user_version, JOURNAL_SCHEMA_VERSION);
     check.close();
+  });
+
+  test('migration 5 makes an approval request stored before it complete, so it stays approvable', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    journal.close();
+
+    // What a build of schema version 4 wrote: no completeness on approval requests.
+    const db = new DatabaseSync(path);
+    const approvals = "event_type = 'runtime.approval.requested'";
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.complete') WHERE ${approvals}`,
+    );
+    const count = db.prepare(`SELECT COUNT(*) AS count FROM events WHERE ${approvals}`).get() as {
+      count: number;
+    };
+    assert.ok(count.count > 0, 'the trace holds an approval request');
+    db.exec('PRAGMA user_version = 4');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const stored = [...reopened.readAll()];
+    reopened.close();
+    assert.deepEqual(
+      stored.map((each) => each.event),
+      TRACE,
+      'each stored event reads as it was written, an approval request complete',
+    );
+    // Projected up to the request, the approval waits and can be approved.
+    const projection = new Projection();
+    const at = stored.findIndex((each) => each.event.event_type === 'runtime.approval.requested');
+    for (const each of stored.slice(0, at + 1)) projection.apply(each);
+    const requested = stored[at]?.event;
+    assert.ok(requested?.event_type === 'runtime.approval.requested');
+    const pending = projection.executionFacts(requested.execution_id ?? '')?.pendingApprovals;
+    assert.deepEqual(
+      pending?.map((approval) => [approval.approval_id, approval.approvable]),
+      [[requested.payload.approval_id, true]],
+    );
   });
 
   test('a stored event that no longer matches the contract is reported, not trusted', () => {

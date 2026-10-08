@@ -43,6 +43,7 @@ internal sealed class WaitingWork
     {
         ApprovalId = id,
         Subject = new ToolUseSubject { ToolName = "bash", Summary = summary },
+        Approvable = true,
         RequestedAt = requestedAt,
     };
 

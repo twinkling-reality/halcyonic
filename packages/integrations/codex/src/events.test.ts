@@ -181,6 +181,7 @@ describe('Codex 0.157.0 event mapping', () => {
             summary:
               "/bin/zsh -lc 'touch approved.txt && echo created-approved'\nin /workspace/as-b",
           },
+          complete: true,
         },
       },
       {
@@ -235,6 +236,7 @@ describe('Codex 0.157.0 event mapping', () => {
         tool_name: 'fileChange',
         summary: 'add /workspace/as-b/hello.txt',
       },
+      complete: true,
     });
     assert.equal(state.approvals.size, 0);
     assert.equal(state.tools.size, 0);
@@ -392,10 +394,13 @@ describe('Codex approval summaries', () => {
   };
 
   test('come from the structured request: command, input, network access or nothing', () => {
+    const completeness = new Map<string, boolean>();
     const summaryOf = (params: Record<string, unknown>) => {
       const item = request('item/commandExecution/requestApproval', params).observed
         .observations[0];
-      return item?.type === 'runtime.approval.requested' ? item.payload.subject.summary : null;
+      if (item?.type !== 'runtime.approval.requested') return null;
+      completeness.set(item.payload.subject.summary, item.payload.complete);
+      return item.payload.subject.summary;
     };
     assert.equal(
       summaryOf({ kind: 'command', command: 'ls', cwd: '/w', reason: 'The model says: trust me.' }),
@@ -410,6 +415,14 @@ describe('Codex approval summaries', () => {
       'Network access to example.com (https)',
     );
     assert.equal(summaryOf({}), 'Codex did not say which command it wants to run.');
+    assert.deepEqual(Object.fromEntries(completeness), {
+      'ls\nin /w': true,
+      'Send input to a running command: yes': true,
+      'Network access to example.com (https)': true,
+      'Codex did not say which command it wants to run.': false,
+    });
+    assert.equal(summaryOf({ command: 'ls' }), 'ls');
+    assert.equal(completeness.get('ls'), false, 'a command without where it runs');
     // Whole, for the control plane to cut after it takes credentials out.
     assert.equal(summaryOf({ command: 'x'.repeat(3000) }), 'x'.repeat(3000));
     const title = `${'x'.repeat(490)} sk-ant-api03-AbCdEf0123456789`;
@@ -435,6 +448,7 @@ describe('Codex approval summaries', () => {
       item?.type === 'runtime.approval.requested' && item.payload.subject.summary,
       'Codex did not say which files it wants to change.\nand write access under /w for the rest of the session',
     );
+    assert.equal(item?.type === 'runtime.approval.requested' && item.payload.complete, false);
   });
 
   test('other requests raise no approval, so the adapter refuses them', () => {

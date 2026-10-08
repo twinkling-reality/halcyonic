@@ -182,8 +182,9 @@ describe('reconciling a session after the event stream reconnected', () => {
       subject: {
         kind: 'tool_use',
         tool_name: 'shell',
-        summary: '[whole command not known] echo hi',
+        summary: 'echo hi',
       },
+      complete: false,
     });
   });
 
@@ -204,6 +205,7 @@ describe('reconciling a session after the event stream reconnected', () => {
     assert.deepEqual(requested?.payload, {
       approval_id: 'per_3',
       subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo one && echo two > two.txt' },
+      complete: true,
     });
   });
 

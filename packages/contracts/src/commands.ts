@@ -168,6 +168,8 @@ export const RejectionCode = Type.Union([
   Type.Literal('execution_not_found'),
   Type.Literal('runtime_not_found'),
   Type.Literal('approval_not_found'),
+  /** An approve for a request that was never shown whole (`approvable` false): only deny is admitted. */
+  Type.Literal('approval_not_whole'),
   /** The question is not, or no longer, waiting for an answer on this execution. */
   Type.Literal('question_not_found'),
   /** The answers do not fit the questions: one missing or repeated, or an unknown option. */

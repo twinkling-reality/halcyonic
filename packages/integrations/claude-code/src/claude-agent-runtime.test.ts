@@ -853,6 +853,41 @@ describe('observing a turn', () => {
 });
 
 describe('approvals', () => {
+  test('a request is complete only when its summary is all that acts in the call', async () => {
+    const { startConfirmed, observed } = setup();
+    const scripted = await startConfirmed();
+    const cases: [string, Record<string, unknown>, string, boolean][] = [
+      ['Bash', { command: 'ls', timeout: 5000 }, 'ls', true],
+      [
+        'Bash',
+        { command: 'npm test', run_in_background: true },
+        'npm test\nin the background',
+        true,
+      ],
+      ['Bash', { command: 'ls', dangerouslyDisableSandbox: true }, 'ls', false],
+      ['Edit', { file_path: '/w/a.ts', old_string: 'a', new_string: 'b' }, '/w/a.ts', true],
+      ['Write', { file_path: '/w/b.ts', content: 'x' }, '/w/b.ts', true],
+      [
+        'WebFetch',
+        { url: 'https://example.invalid', prompt: 'Read it.' },
+        'https://example.invalid',
+        false,
+      ],
+      ['mcp__tracker__create', { title: 'x', body: 'y' }, '{"title":"x","body":"y"}', true],
+    ];
+    for (const [index, [tool, input, summary, complete]] of cases.entries()) {
+      void scripted.requestPermission(tool, input, `req-c${index}`).catch(() => undefined);
+      await settle();
+      const requested = observed.at(-1);
+      assert.ok(requested?.type === 'runtime.approval.requested', tool);
+      assert.equal(
+        requested.payload.subject.kind === 'tool_use' && requested.payload.subject.summary,
+        summary,
+      );
+      assert.equal(requested.payload.complete, complete, `${tool} ${JSON.stringify(input)}`);
+    }
+  });
+
   test('a permission request waits for a person; approval lets the tool run with its input unchanged', async () => {
     const { adapter, startConfirmed, observed } = setup();
     const scripted = await startConfirmed();
@@ -867,6 +902,7 @@ describe('approvals', () => {
     assert.deepEqual(requested?.payload, {
       approval_id: 'req-1',
       subject: { kind: 'tool_use', tool_name: 'Bash', summary: 'pnpm db:migrate' },
+      complete: true,
     });
 
     await adapter.respondToApproval({

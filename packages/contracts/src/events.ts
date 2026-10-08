@@ -342,7 +342,17 @@ export const RUNTIME_EVENT_PAYLOADS = {
   'runtime.turn.failed': Type.Object({ ...TurnRef, error: ErrorInfo }, strict),
   'runtime.turn.interrupted': Type.Object({ ...TurnRef }, strict),
   'runtime.approval.requested': Type.Object(
-    { approval_id: NativeId, subject: ApprovalSubject },
+    {
+      approval_id: NativeId,
+      subject: ApprovalSubject,
+      /**
+       * Whether the summary shows in full every command that would run, with how and where it
+       * runs, and names every path a change would write. It does not include a change's content.
+       * The adapter says so for what it reports; the control plane makes it false when it cuts the
+       * summary to fit. Only a complete request can be approved.
+       */
+      complete: Type.Boolean(),
+    },
     strict,
   ),
   /** Emitted once the runtime has applied the decision, not when a client sends it. */
