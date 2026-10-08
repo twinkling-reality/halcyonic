@@ -94,6 +94,9 @@ namespace Halcyonic.XR
 
         // The animation, advanced every frame toward the cues' targets.
         private float clock;
+
+        /// <summary>The clock its surface's flow and fog and its sweep ring run on: it stands while things are kept still.</summary>
+        private float surfaceClock;
         private float lift;
         private float squash;
         private float eyeOpen = 1f;
@@ -186,6 +189,14 @@ namespace Halcyonic.XR
             if (first) Advance(0f, true);
         }
 
+#if UNITY_EDITOR
+        /// <summary>For the editor's renders, which run no frames: one frame of <paramref name="seconds"/>, as the headset steps it.</summary>
+        public void AdvanceForRender(float seconds) => Advance(seconds, false);
+
+        /// <summary>For the editor's renders: how its eyes stand and how strong its light is now.</summary>
+        public (float Open, float LookX, float LookY, float Ink, float Halo) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, haloStrength);
+#endif
+
         /// <summary>
         /// While <paramref name="look"/> is true, the character turns to face the person and focuses
         /// its open eyes on them: for the workspace, while the character is hovered or opened. The
@@ -204,6 +215,7 @@ namespace Halcyonic.XR
             bodyColor = new Vector4(color.r, color.g, color.b, 1f);
             eyeLayout = CharacterMeshes.EyeLayout(identity.Shape);
             clock = (float)identity.Phase * 60f;
+            surfaceClock = clock;
 
             body = new GameObject("Body").transform;
             body.SetParent(transform, false);
@@ -253,7 +265,10 @@ namespace Halcyonic.XR
         private void Advance(float deltaTime, bool snap)
         {
             if (cues == null) return;
+            var still = GlazeMotion.Still;
             if (!cues.Paused) clock += deltaTime;
+            // Kept still (ADR 0027), the surface's clock stands, so its flow, its fog and its sweep ring stand where they are.
+            if (!cues.Paused && !still) surfaceClock += deltaTime;
             var t = clock;
 
             // The body's motion.
@@ -308,6 +323,23 @@ namespace Halcyonic.XR
                     roll = -0.05f;
                     break;
             }
+            if (still)
+            {
+                // At its motion's rest pose: no hop, hover, drift, breath or bob; a slump or a stop keeps its own lean.
+                targetLift = HeldLift;
+                targetSquash = cues.Motion switch
+                {
+                    CharacterMotion.Settle => 0.02f,
+                    CharacterMotion.Slump => 0.07f,
+                    CharacterMotion.Frozen => -0.03f,
+                    _ => 0f,
+                };
+                if (cues.Motion != CharacterMotion.Slump && cues.Motion != CharacterMotion.Frozen)
+                {
+                    yaw = 0f;
+                    roll = 0f;
+                }
+            }
 
             // The eyes.
             var targetOpen = 1f;
@@ -358,7 +390,13 @@ namespace Halcyonic.XR
                 targetLookX = 0f;
                 targetLookY = 0f;
             }
-            if (openEyes)
+            if (still)
+            {
+                // Eyes that scan or wander stand at their middle; a working character's still look down.
+                if (cues.Eyes == CharacterEyes.Open || cues.Eyes == CharacterEyes.OnTask || cues.Eyes == CharacterEyes.Scanning || cues.Eyes == CharacterEyes.Unfocused) targetLookX = 0f;
+                if (cues.Eyes == CharacterEyes.Open || cues.Eyes == CharacterEyes.Unfocused) targetLookY = 0f;
+            }
+            if (openEyes && !still)
             {
                 var blinkPeriod = 3.4f + (float)identity.Phase * 1.9f;
                 if (t % blinkPeriod < 0.13f) targetOpen *= 0.1f;
@@ -390,7 +428,8 @@ namespace Halcyonic.XR
             {
                 case CharacterHalo.NeedsYou:
                     targetHaloColor = NeedsYouLight;
-                    targetHalo = 0.75f * (0.8f + 0.25f * Mathf.Sin(t * 3.2f));
+                    // Its pulse stands still when kept still, at the middle of its breath.
+                    targetHalo = 0.75f * (0.8f + (still ? 0f : 0.25f * Mathf.Sin(t * 3.2f)));
                     break;
                 case CharacterHalo.Failed:
                     targetHaloColor = FailedLight;
@@ -432,7 +471,7 @@ namespace Halcyonic.XR
             if (snap) eyeKind = nextEyeKind;
 
             Turn(yaw, roll, snap ? 1f : 1f - Mathf.Exp(-deltaTime * 5f));
-            Apply(t);
+            Apply(surfaceClock);
         }
 
         /// <summary>

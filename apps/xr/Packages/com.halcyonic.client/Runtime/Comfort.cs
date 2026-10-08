@@ -19,8 +19,8 @@ namespace Halcyonic.Client
 
     /// <summary>
     /// The person's comfort settings (ADR 0023), kept on the device: reading text a step larger,
-    /// badges that stand still instead of turning and breathing, and sounds quieter or off. What each
-    /// means for the interface, and the words Settings says them in, are here.
+    /// Keep things still (ADR 0027), which stops everything that keeps moving on its own, and sounds
+    /// quieter or off. What each means for the interface, and the words Settings says them in, are here.
     /// </summary>
     public sealed class Comfort
     {
@@ -38,7 +38,13 @@ namespace Halcyonic.Client
 
         public TextSize Text { get; set; }
 
-        /// <summary>Badges stand still: Starting's and Working's icons don't turn, and Waiting for you doesn't breathe.</summary>
+        /// <summary>
+        /// Keep things still (ADR 0027): nothing keeps moving on its own. A wait shows a still highlight in
+        /// place of its shimmer, Starting's and Working's icons don't turn, Waiting for you doesn't breathe,
+        /// Hold to talk's microphone doesn't pulse, and the characters stand at rest. What the person causes,
+        /// a press, a slide, a file opening, still moves. Saved as before, so a headset that kept badges
+        /// still keeps things still.
+        /// </summary>
         public bool Still { get; set; }
 
         public SoundLevel Sounds { get; set; }
@@ -57,8 +63,8 @@ namespace Halcyonic.Client
         /// <summary>The button that changes the text's size, to the other one.</summary>
         public string TextButton => Text == TextSize.Larger ? "Make text standard" : "Make text larger";
 
-        /// <summary>The button that stops or starts the badges' motion.</summary>
-        public string MotionButton => Still ? "Let badges move" : "Keep badges still";
+        /// <summary>The button that keeps things still, or lets them move again.</summary>
+        public string MotionButton => Still ? "Let things move" : "Keep things still";
 
         /// <summary>The level the sound button steps to: on, quieter, off, and on again.</summary>
         public SoundLevel NextSounds => Sounds switch

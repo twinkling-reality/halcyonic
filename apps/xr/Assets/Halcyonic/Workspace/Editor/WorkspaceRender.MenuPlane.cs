@@ -903,7 +903,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 new PageLine("Comfort", tone: LineTone.Secondary),
                 new PageLine("Text size", fact: "Standard", action: "settings-open-setting", key: "text-size", opens: true, chosen: true),
-                new PageLine("Moving badges", fact: "On", action: "settings-open-setting", key: "moving-badges", opens: true),
+                new PageLine("Motion", fact: "On", action: "settings-open-setting", key: "moving-badges", opens: true),
             },
             side: new SidePanel("Text size", facts: new[] { new SideFact("Now", "The standard size"), new SideFact("A step larger", "Text 15 percent larger, and 3 rows a page") }));
 

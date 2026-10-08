@@ -172,8 +172,11 @@ Stage**, or in batch mode:
 It saves every state at the stage's default distance and height, with the banner and with a peek,
 the demonstration's marked stage, and a desk, each with close-ups at a Quest 3's pixels per degree,
 in `apps/xr/Builds/StageRenders`, and logs how far down the labels end, each badge's width and
-whether its icon shows, and the smallest text (`Halcyonic: stage render ...`). The interface's
-rules it checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md).
+whether its icon shows, and the smallest text (`Halcyonic: stage render ...`). Under Keep things
+still it draws each of the first two stages twice, a second apart (`states-a-kept-still.png`,
+`states-b-kept-still.png`), and fails if any pixel changes, if the same second let move changes
+nothing, if sixty frames kept still allocate, or if Working, Running tests and State unknown have the
+same eyes. The interface's rules it checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md).
 
 Every component of the interface renders in every state, **Halcyonic > Render Every Component**, or
 in batch mode:
@@ -189,11 +192,13 @@ share, or at all while waiting; and if the icon atlas lacks an icon the client c
 shows on no badge, mark or button (`gallery-actions.png` shows every action's), an icon is under a
 degree or has no words beside it, or a label of words draws from the icon atlas. It also draws ADR 0027's
 motion as two strips, `gallery-motion.png` (Sent… and Hold to talk writing down at three points of the
-shimmer's sweep, then under Keep badges still) and `gallery-listening.png` (Hold to talk listening at
+shimmer's sweep, then under Keep things still, its words steady in the active tone) and `gallery-listening.png` (Hold to talk listening at
 three points of its pulse, then still) and `gallery-state.png` (a badge changing from Working to Waiting
-for you at none, a quarter, half and all of its cross-fade, then half under Keep badges still), and fails if a wait's words do not move, are lifted too little
-to see, keep moving once the wait ends or under Keep badges still; if Hold to talk listening is not in the
-active tone, its microphone does not pulse, or pulses still once idle or under Keep badges still; if its
+for you at none, a quarter, half and all of its cross-fade, then half under Keep things still), and fails if a wait's words do not move, are lifted too little
+to see, or keep moving once the wait ends; if under Keep things still a wait's words are not every letter steady
+in the active tone at every point of the sweep, keep that highlight once the wait ends or things move again, or
+the active tone holds under 4.5:1 on the glass over white; if Hold to talk listening is not in the
+active tone, its microphone does not pulse, or pulses still once idle or under Keep things still; if its
 words lean; if a changing badge's pill is not where easing in and out puts it, its word is in neither
 state's colour or drops under 3:1 on the pill at any twentieth of the change either way, it still changes
 once done, or in the editor it cross-fades without a render stepping it; or if a wait adds a renderer, or any of sixty frames of either motion allocates in each of
@@ -1047,7 +1052,7 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
   (`judge-13-new-project-recap`); where the facts need more than a page, the footer's Next page
   turns them. Nothing is sent.
 - **Settings.** A page a group: Your space first (Around you, Your room's layout, The characters, The
-  menu), then Comfort (Text size, Moving badges, Sounds), each changing on this headset only
+  menu), then Comfort (Text size, Motion, Sounds), each changing on this headset only
   (`judge-11-settings`). The release build offers no Your computer, since it never pairs.
 - **Closed.** Close the file and the menu: the bar alone (`judge-14-closed`), reading "Nothing is
   waiting for you." once nothing waits.
@@ -1310,7 +1315,8 @@ For each step write down what you saw and how it felt, in
     character that waits for you: the workspace is a step larger and opens lower, to stay under the
     titles. Can you read its bottom row, and press its bar, without bending your neck? Is tipping
     your head to read the larger panels comfortable, on a Quest 3S above all? Press Keep
-    badges still: Starting's and Working's icons stop turning and Waiting for you stops breathing.
+    things still: Starting's and Working's icons stop turning, Waiting for you stops breathing, a
+    wait's words stand highlighted in the active tone, and the characters stand at rest.
     Press Make sounds quieter, then Turn sounds off, and make a task wait: half as loud, then
     nothing. Quit Halcyonic and start it again: the settings stay. Put them back as they were.
 

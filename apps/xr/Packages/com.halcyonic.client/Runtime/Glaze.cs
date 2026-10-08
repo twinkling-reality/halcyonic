@@ -210,7 +210,7 @@ namespace Halcyonic.Client
         public const float PlateOpacity = 0.96f;
 
         // Motion, in seconds (ADR 0027): only what answers the person or shows a wait moves, nothing bounces
-        // or overshoots, and "Keep badges still" stops every loop.
+        // or overshoots, and "Keep things still" stops everything that keeps moving on its own.
 
         /// <summary>A badge changing state cross-fades this long.</summary>
         public const float StateSeconds = 0.25f;

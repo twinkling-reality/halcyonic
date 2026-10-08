@@ -36,7 +36,7 @@ public class SettingsColumnTests
         settings.Act(Footer.NextPage, null);
         Assert.That(settings.Frame!.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new[]
         {
-            ("Comfort", (string?)null), ("Text size", "Standard"), ("Moving badges", "On"), ("Sounds", "On"),
+            ("Comfort", (string?)null), ("Text size", "Standard"), ("Motion", "On"), ("Sounds", "On"),
         }));
     }
 

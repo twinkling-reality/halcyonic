@@ -8,10 +8,11 @@ namespace Halcyonic.XR.Workspace
     /// <summary>
     /// The person's comfort settings (<see cref="Comfort"/>, ADR 0023), changed in the menu's Settings
     /// under Comfort (<see cref="ComfortSettings"/>) and kept on the device: reading text a step
-    /// larger, badges that stand still, and sounds quieter or off. They take effect as the stage starts
-    /// and the moment one changes: every label takes the text's size (<see cref="GlazeText.SetScale"/>),
-    /// the badges stop or start moving (<see cref="StateBadgeView.Still"/>), and every sound Halcyonic
-    /// plays takes the volume.
+    /// larger, Keep things still, and sounds quieter or off. They take effect as the stage starts and
+    /// the moment one changes: every label takes the text's size (<see cref="GlazeText.SetScale"/>),
+    /// everything that keeps moving on its own stops or starts again, badges, waits and characters alike
+    /// (<see cref="StateBadgeView.Still"/>, the one switch, <see cref="GlazeMotion.Still"/>), and every
+    /// sound Halcyonic plays takes the volume.
     /// </summary>
     public sealed class ComfortControls : MonoBehaviour
     {

@@ -1832,9 +1832,19 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   under the titles; on the stage the titles, the peek and the banner, a step wider so its lines
   stay as many (`StageBanner.WidestDegrees`), take it (`GlazeText.Scale`,
   only for labels made with it), while the badges' words, which stand where space is fixed, keep
-  their size. Keep badges still is the one reduced-motion setting (`GlazeMotion.Still`, ADR 0027): it
-  stops Starting's and Working's icons turning, Waiting for you breathing, every wait's shimmer and
-  Hold to talk's listening pulse, each state still told by colour, icon and words. A badge changing
+  their size. Keep things still is the one reduced-motion setting (`GlazeMotion.Still`, ADR 0027), Settings'
+  Motion row ("On", "Kept still"; its id still `moving-badges`, and `Comfort` saves it as before, so a
+  headset that kept badges still keeps things still). It stops everything that keeps moving on its
+  own: Starting's and Working's icons turning, Waiting for you breathing, Hold to talk's listening
+  pulse, and every wait's shimmer, which becomes a still highlight, every letter steady in the active
+  tone's text colour, as "Listening" is (`GlazeShimmer`, the one place, so every wait marked by
+  `PageLine.Waits` or `Footer.Voiced` gets it with no view code), giving way to the words' own colours
+  once the wait ends or things move again. The characters stand at their motion's rest pose, no hop,
+  hover, drift, breath or bob; their surface's flow and fog and the sweep ring stand on a clock of
+  their own that stops (`CharacterView`'s surface clock); Waiting for you's halo stands at the middle
+  of its pulse; eyes that scan or wander stand at their middle, and a working character's still look
+  down, so Working, Running tests and State unknown still differ by eyes, light and words. What the
+  person causes, a press, a slide, a file opening, still moves. A badge changing
   state cross-fades its pill's colours over `Glaze.StateSeconds` under it too: a change is not a loop.
   Its word stays in whichever state's colour reads more clearly on the pill as drawn, never a blend,
   which would sink into the pill mid-change (in the editor, which runs no frames, a badge changes at

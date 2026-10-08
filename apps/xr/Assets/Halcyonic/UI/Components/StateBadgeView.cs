@@ -68,7 +68,7 @@ namespace Halcyonic.XR.UI
         /// <summary>The pill's height, in its parent's units.</summary>
         public static float PillHeight => Height * PillScale;
 
-        /// <summary>Badges stand still, as the person's comfort settings ask (<see cref="Comfort.Still"/>): no icon turns and nothing breathes; the headset's one reduced-motion switch (<see cref="GlazeMotion.Still"/>).</summary>
+        /// <summary>Keep things still, as the person's comfort settings ask (<see cref="Comfort.Still"/>): no badge's icon turns and nothing breathes, among everything else it stops; the headset's one reduced-motion switch (<see cref="GlazeMotion.Still"/>).</summary>
         public static bool Still
         {
             get => GlazeMotion.Still;
@@ -229,7 +229,7 @@ namespace Halcyonic.XR.UI
         private void Update()
         {
             if (shown == null) return;
-            // Not a loop, so it plays under Keep badges still too: the change is the state the person reads.
+            // Not a loop, so it plays under Keep things still too: the change is the state the person reads.
             if (changing < 1f) Change(Time.unscaledDeltaTime);
             if (Still)
             {
