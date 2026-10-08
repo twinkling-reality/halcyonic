@@ -58,6 +58,20 @@ seated judge with hands only has a decision, a confirmed-in-words answer, failin
 correction and passing checks. That is the satisfying moment, on paper; whether a first-time
 wearer finds it without coaching is the headset session's question.
 
+### The first 60 seconds, 2026-10-08
+
+Since lane C's first visit (2e3627d8) the demonstration opens closed: nothing opens by itself, and a
+judge with hands in their lap sees the stage, the lines above it and the closed bar.
+`JudgeFirstMinuteTests` plays the recording's beginning instant by instant and holds what the
+testing instructions and the video storyboard say: the lines read as above; from 0 s three tasks,
+Not started, and the bar "Nothing is waiting for you."; the two watched tasks Working and Checking
+its work, both Finished this round at 5.3 s; at 6.6 s the directed task alone reads Waiting for you
+and the bar "1 task is waiting for you"; and from then to 60 s nothing on the stage or the bar
+changes, since the beginning holds at its question until it is answered. It fails if the first wait
+comes after 10 seconds, is not the directed task's, or comes before the watched tasks finish.
+`WorkspaceRender`'s `demo-welcome-1-ambient` and `-2-a-task-waits` draw the first and the waiting
+instant from the eyes.
+
 ### The file on the recording (ADR 0026), 2026-10-02
 
 `JudgeFileWalkTests` plays the recording as the headset does and walks the directed task's file
