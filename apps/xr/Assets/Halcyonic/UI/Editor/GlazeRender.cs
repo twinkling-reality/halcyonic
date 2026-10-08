@@ -953,6 +953,7 @@ namespace Halcyonic.XR.UI.Editor
                 (GlazeIcon.CodeFile, "Code"), (GlazeIcon.DatabaseFile, "Database"), (GlazeIcon.DataFile, "Data"),
                 (GlazeIcon.TextFile, "Writing"), (GlazeIcon.ImageFile, "Image"), (GlazeIcon.ScriptFile, "Script"),
                 (GlazeIcon.PackageFile, "Package"), (GlazeIcon.Folder, "Folder"), (GlazeIcon.OpensMore, "Opens more"),
+                (GlazeIcon.Quote, "Their words"),
             };
             for (var index = 0; index < kinds.Length; index++)
             {

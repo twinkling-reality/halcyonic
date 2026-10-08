@@ -246,9 +246,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// Where the runs of outside text in a laid label stand, one box for each row a run reaches, in the
-        /// label's own units from its pivot: from its first letter's left to its last letter's right as it
-        /// leans, and from the row's ascender to its descender, so a ground drawn there hugs the words
-        /// and shows both their edges.
+        /// label's own units from its pivot: from its first letter's left to its last letter's right, upright,
+        /// and from the row's ascender to its descender, so a ground drawn there hugs the words and shows both
+        /// their edges.
         /// </summary>
         public static List<Rect> RunBoxes(TMP_Text label, IReadOnlyList<(int Start, int End)> ranges)
         {
@@ -269,14 +269,40 @@ namespace Halcyonic.XR.UI
                         left = character.bottomLeft.x;
                         right = character.topRight.x;
                     }
+                    // The letters' upright bounds: a ground's padding takes in a leaning letter's overhang where it has room.
                     left = Mathf.Min(left, character.bottomLeft.x);
-                    // A leaning letter's top stands right of its foot by the shear of its height above the middle.
-                    var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
-                    right = Mathf.Max(right, character.topRight.x + Shear(character) * Mathf.Max(0f, character.topRight.y - middle));
+                    right = Mathf.Max(right, character.topRight.x);
                 }
                 if (row >= 0) boxes.Add(Box(info, row, left, right));
             }
             return boxes;
+        }
+
+        /// <summary>
+        /// The grounds for the runs of outside text in a laid label (<see cref="RunBoxes"/>), each reaching
+        /// <paramref name="padding"/> past its words, but never past halfway to a letter of Halcyonic's beside
+        /// it on its row, so a space between the two stays a gap on both sides and Halcyonic's words stand clear.
+        /// </summary>
+        public static List<Rect> RunGrounds(TMP_Text label, IReadOnlyList<(int Start, int End)> ranges, float padding)
+        {
+            var info = label.textInfo;
+            var grounds = new List<Rect>();
+            foreach (var box in RunBoxes(label, ranges))
+            {
+                var left = box.xMin - padding;
+                var right = box.xMax + padding;
+                for (var index = 0; index < info.characterCount; index++)
+                {
+                    var character = info.characterInfo[index];
+                    if (!character.isVisible || InRun(info, index, ranges)) continue;
+                    var line = info.lineInfo[character.lineNumber];
+                    if (line.descender > box.center.y || line.ascender < box.center.y) continue;
+                    if (character.topRight.x <= box.xMin) left = Mathf.Max(left, (character.topRight.x + box.xMin) / 2f);
+                    else if (character.bottomLeft.x >= box.xMax) right = Mathf.Min(right, (character.bottomLeft.x + box.xMax) / 2f);
+                }
+                grounds.Add(Rect.MinMaxRect(left, box.yMin, right, box.yMax));
+            }
+            return grounds;
         }
 
         private static Rect Box(TMP_TextInfo info, int row, float left, float right)
