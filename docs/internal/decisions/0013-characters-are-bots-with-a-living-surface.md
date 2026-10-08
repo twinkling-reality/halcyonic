@@ -67,8 +67,8 @@ The owner chose bots.
 
 | State | Eyes | Body | Light and surface |
 | --- | --- | --- | --- |
-| Working | Lids lowered a little, down on the task | Floats slowly above its ring on a thread of light, leaning toward the work | The orb's satin flow moves across it; its ring and rim in the active tone |
-| Running tests | Scan from side to side | Hovers above its ring | A ring sweeps around it; its ring and rim in the active tone |
+| Working | Lids lowered a little, down on the task | Floats slowly above its ring on a thread of light, leaning toward the work | The orb's satin flow moves across it; its ring and rim in the holo tone |
+| Running tests | Scan from side to side | Hovers above its ring | A ring sweeps around it; its ring and rim in the holo tone |
 | Needs you | Wide, on the person | Comes once to the front of the desk, turns to the person, rises toward their eye level, then breathes | An amber ring and rim |
 | Answered | As its state | One turn about its own axis when the agent confirms it has what the person sent (an answer, a decision or an instruction), then its next state | As its state |
 | Turn finished | Closed | Settles on its ring, no celebration | A green ring and rim, red when its tests failed |
@@ -98,7 +98,11 @@ The owner chose bots.
 - The stage is for now: what waits for the person, what works, and what ended or went quiet
   recently. Work that ended leaves the stage 8 hours later, and work Halcyonic hasn't heard from 24
   hours after it last heard; what waits for the person never leaves. Tasks keeps both under Earlier,
-  and the person can bring one back.
+  and the person can bring one back. In the demonstration nothing ages, since its clock is the
+  recording's.
+- Until the person first opens a file from a character on a headset, a character's glance carries a
+  prompt at its foot: a key cap holding the pinch icon, then Open. It replaces the first-time hint's
+  drawn fingers and "Look, then pinch" (lane V and the coordinator, 2026-10-08).
 - Six characters are built to take little of a 72 Hz frame, above the rules' 60 frames a second:
   noise is baked into a texture instead of computed per pixel, each body is one pass, and nothing
   allocates per frame. The cost is estimated, not yet measured on a headset
