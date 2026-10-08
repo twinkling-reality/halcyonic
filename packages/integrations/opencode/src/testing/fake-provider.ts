@@ -17,6 +17,10 @@ import type { AddressInfo } from 'node:net';
  *   disconnects or `slowChunks` chunks were sent;
  * - last user message contains `FAIL`: HTTP 400, which a client must not retry;
  * - otherwise: a short text answer.
+ *
+ * With `ollama`, it also plays a local Ollama server for OpenCode's Ollama discovery, late: it
+ * serves `GET /api/tags` and `POST /api/show` for one model, each answered `answerMs` after it
+ * arrives.
  */
 export interface FakeProvider {
   /** Base URL to configure as the provider's `baseURL`, ending in `/v1`. */
@@ -39,7 +43,15 @@ export interface FakeProviderRequest {
 export interface FakeProviderOptions {
   readonly slowChunkMs?: number;
   readonly slowChunks?: number;
+  readonly ollama?: { readonly model: string; readonly answerMs: number };
 }
+
+const OLLAMA_DETAILS = {
+  format: 'gguf',
+  family: 'llama',
+  parameter_size: '1B',
+  quantization_level: 'Q4_K_M',
+};
 
 interface ChatMessage {
   readonly role?: unknown;
@@ -76,6 +88,26 @@ export async function startFakeProvider(options: FakeProviderOptions = {}): Prom
           object: 'list',
           data: [{ id: 'fake-model', object: 'model', created: 0, owned_by: 'halcyonic' }],
         });
+        return;
+      }
+      const ollama = options.ollama;
+      if (ollama !== undefined && (path === '/api/tags' || path === '/api/show')) {
+        const body =
+          path === '/api/tags'
+            ? {
+                models: [
+                  {
+                    name: ollama.model,
+                    model: ollama.model,
+                    modified_at: '2026-01-01T00:00:00Z',
+                    size: 1,
+                    digest: 'halcyonic-fake',
+                    details: OLLAMA_DETAILS,
+                  },
+                ],
+              }
+            : { details: OLLAMA_DETAILS, capabilities: ['completion', 'tools'] };
+        setTimeout(() => sendJson(res, 200, body), ollama.answerMs);
         return;
       }
       if (req.method !== 'POST' || path !== '/v1/chat/completions') {
