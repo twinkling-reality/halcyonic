@@ -1502,7 +1502,7 @@ public class FileColumnTests
         var frame = column.Frame!;
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
-            "“The old table is in the way. What should I do with its data?”",
+            "The old table is in the way. What should I do with its data?",
             "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.",
             WorkspaceText.AgentWaits,
         }), "what it asks, why, and that it waits, as for a secret");

@@ -43,15 +43,19 @@ namespace Halcyonic.Client
     /// <summary>What the work needs from the person, as What do you need from me? answers it.</summary>
     public sealed class NeedAnswer
     {
-        public NeedAnswer(string asks, string? request, IReadOnlyList<string> notes)
+        public NeedAnswer(LineWords asks, string? request, IReadOnlyList<string> notes)
         {
-            Asks = asks;
+            AsksRuns = asks;
+            Asks = asks.Text;
             Request = request;
             Notes = notes;
         }
 
         /// <summary>What it asks for, for example "It asks for approval to use bash:".</summary>
         public string Asks { get; }
+
+        /// <summary>What it asks for as runs: a tool's name leans on Halcyonic's ground inside Halcyonic's sentence.</summary>
+        public LineWords AsksRuns { get; }
 
         /// <summary>The request as the runtime reported it, one line by the one rule, or null when it named no tool.</summary>
         public string? Request { get; }
@@ -131,13 +135,18 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Which prompt of the question shows, with its header as the agent wrote it.</summary>
-        public static string PromptHeading(QuestionView question, int prompt)
+        public static string PromptHeading(QuestionView question, int prompt) => PromptHeadingRuns(question, prompt).Text;
+
+        /// <summary>
+        /// Which prompt of the question shows, as runs: Halcyonic's count upright, the header as the agent
+        /// wrote it leaning, so a header such as "Your answers" never reads as Halcyonic's.
+        /// </summary>
+        public static LineWords PromptHeadingRuns(QuestionView question, int prompt)
         {
-            var header = question.Prompts[prompt].Header;
-            var heading = string.IsNullOrWhiteSpace(header) ? "" : OneLine(header!);
-            if (question.Prompts.Count <= 1) return heading.Length == 0 ? "It asks you" : heading;
-            var count = "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + question.Prompts.Count.ToString(CultureInfo.InvariantCulture);
-            return heading.Length == 0 ? count : count + " · " + heading;
+            var heading = LineWords.Theirs(question.Prompts[prompt].Header);
+            if (question.Prompts.Count <= 1) return heading.IsEmpty ? LineWords.Ours("It asks you") : heading;
+            var count = LineWords.Ours("Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + question.Prompts.Count.ToString(CultureInfo.InvariantCulture));
+            return heading.IsEmpty ? count : count + LineWords.Ours(" · ") + heading;
         }
 
         /// <summary>How a prompt is answered, in a few words.</summary>
@@ -350,7 +359,8 @@ namespace Halcyonic.Client
                 notes.Add("Approve and Deny both show the whole request before you confirm.");
             }
             return new NeedAnswer(
-                tool == null ? "It wants your approval." : RunsCommand(tool.ToolName) ? "It wants to run a command:" : "It wants to use " + OneLine(tool.ToolName) + ":",
+                tool == null ? LineWords.Ours("It wants your approval.") : RunsCommand(tool.ToolName) ? LineWords.Ours("It wants to run a command:")
+                    : LineWords.Ours("It wants to use ") + LineWords.TheirName(tool.ToolName) + LineWords.Ours(":"),
                 tool == null ? null : LabelText.Exact(tool.Summary),
                 notes);
         }

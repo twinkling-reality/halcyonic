@@ -73,12 +73,15 @@ public class FileQuestionTests
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
-            "“Which colour scheme should the dashboard use?”",
+            "Which colour scheme should the dashboard use?",
             "Light · Dark text on a light background",
             "Dark · Light text on a dark background",
             FileScreens.TypeMyAnswer,
             "Next question, 2 of 2",
         }));
+        // The agent's question and answers lean beside Halcyonic's quote mark; Halcyonic's own rows stand upright.
+        Assert.That(frame.Lines.Select(line => (line.Runs.AllTheirs, line.Icon == GlazeIcon.Quote)),
+            Is.EqualTo(new[] { (true, true), (true, true), (true, true), (false, false), (false, false) }));
         Assert.That(frame.Lines.Where(line => line.Choice).Select(line => line.Action).Distinct(), Is.EqualTo(new[] { FileScreens.Choose, FileScreens.TypeAnswer }));
         Assert.That(frame.Lines.Any(line => line.Chosen), Is.False, "nothing is chosen until the person chooses");
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, null, FileScreens.SpeakAnswer, FileScreens.SendAnswer }),
@@ -103,7 +106,7 @@ public class FileQuestionTests
         screen.Question.Choose(1);
         screen.Question.NextQuestion(Later(screen));
         var second = Screen(workspace, screen);
-        Assert.That(second.Lines[0].Words, Is.EqualTo("“Which pages should change?”"));
+        Assert.That(second.Lines[0].Words, Is.EqualTo("Which pages should change?"));
         Assert.That(second.Lines.Last().Words, Is.EqualTo(FileScreens.YourAnswers));
         Assert.That(draft.IsChosen(0, "Dark"), Is.True, "an earlier prompt's choice is kept");
 
@@ -634,7 +637,8 @@ public class FileQuestionTests
         var workspace = FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt);
         var screen = new FileScreen { Section = FileSection.Waiting };
         var frame = Screen(workspace, screen);
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "“Which colour scheme should the dashboard use?”" }));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Which colour scheme should the dashboard use?" }));
+        Assert.That(frame.Lines.Single().Runs.AllTheirs, Is.True);
         Assert.That(frame.Lines.Select(line => line.Words), Has.None.EqualTo(FileScreens.NothingWaits));
         var send = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((send.Id, send.Available, send.Reason), Is.EqualTo((FileScreens.SendAnswer, false, (string?)FileScreens.QuestionNotReady)));
