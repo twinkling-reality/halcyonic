@@ -69,7 +69,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Control characters that are not white space, format characters, default ignorable code points
-        /// (Unicode 17.0) and noncharacters, which nothing draws and normalizing can refuse, as ranges of
+        /// (Unicode 17.0), the braille blank, which draws nothing, and noncharacters, which nothing draws and
+        /// normalizing can refuse, as ranges of
         /// first and last code point; planes 15 and 16 are in <see cref="PrivateUse"/>.
         /// </summary>
         private static readonly int[] ShownByCode =
@@ -92,6 +93,7 @@ namespace Halcyonic.Client
             0x200B, 0x200F,
             0x202A, 0x202E,
             0x2060, 0x206F,
+            0x2800, 0x2800,
             0x3164, 0x3164,
             0xFDD0, 0xFDEF,
             0xFE00, 0xFE0F,

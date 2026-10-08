@@ -231,13 +231,14 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A label as its row shows it, for telling answers apart: <see cref="LabelText.Plain"/>, then in
-        /// Unicode's composed form (NFC), compared character for character. White space at the ends or as a
-        /// tab, and one letter written composed or decomposed, read the same; case, width, ligatures and
+        /// Unicode's composed form (NFC), compared character for character. White space at the ends, as a tab
+        /// or as a run of spaces, and one letter written composed or decomposed, read the same; case, width, ligatures and
         /// letters of other scripts that only look alike do not (OPEN_QUESTIONS.md).
         /// </summary>
         public static string AsShown(string? label)
         {
-            var plain = LabelText.Plain(label);
+            // A run of spaces reads as one: "Delete  all" and "Delete all" can't be told apart on a row.
+            var plain = System.Text.RegularExpressions.Regex.Replace(LabelText.Plain(label), " {2,}", " ");
             try
             {
                 return plain.Normalize(NormalizationForm.FormC);

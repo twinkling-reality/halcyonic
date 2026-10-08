@@ -235,7 +235,7 @@ the same definition names, as the JSON Schema document:
   tab or any other white space than the space collapses with the whitespace around it into one
   space, and spaces stay as written; every control and format character, every default ignorable
   code point (a zero width space, a bidirectional override, a variation selector, a tag character),
-  every noncharacter (U+FDD0 to U+FDEF and the last two of each plane, which nothing draws and a
+  the braille blank (U+2800), every noncharacter (U+FDD0 to U+FDEF and the last two of each plane, which nothing draws and a
   normalizer can refuse) and every half of a surrogate pair shows as its code point, as ‹U+202E›; so does every character
   of the Private Use Areas (U+E000 to U+F8FF, planes 15 and 16), as ‹U+E769›, since Halcyonic's
   own icons are drawn from them and text from outside must never draw one among its words;
@@ -575,8 +575,8 @@ the same definition names, as the JSON Schema document:
   (`CommandSubmissions.ApprovalPending`, `WorkspacePresentation.ApprovalInFlight`); the agent's question with its answers as
   rows to choose, Send answer as the main action and Hold to talk beside it. A question with any
   secret prompt, or with a prompt offering two answers whose labels read the same and no other way to answer (`WorkspaceText.OffersALabelTwice`,
-  compared as their rows show them, `WorkspaceText.AsShown`: the NFC form of `LabelText.Plain`, ordinal, so
-  white space at the ends, a tab for a space and a letter composed or decomposed tell none apart; case,
+  compared as their rows show them, `WorkspaceText.AsShown`: the NFC form of `LabelText.Plain`, runs of spaces as one, ordinal, so
+  white space at the ends, a tab for a space, a run of spaces and a letter composed or decomposed tell none apart; case,
   width and ligatures do. An answer names its choice by label alone, so two labels written alike would
   send the label twice, which admission refuses, and between two that only show alike a person can't
   tell which they chose), can't be answered here whatever its adapter
