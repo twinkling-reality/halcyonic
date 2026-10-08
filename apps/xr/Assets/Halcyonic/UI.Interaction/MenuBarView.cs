@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -25,6 +26,9 @@ namespace Halcyonic.XR.UI
         private TextMeshPro capIcon = null!;
         private TextMeshPro open = null!;
         private Vector2 size;
+        private float shown = 1f;
+        private readonly List<Surface> shapes = new List<Surface>();
+        private readonly List<TMP_Text> words = new List<TMP_Text>();
 
         /// <summary>The bar was pressed: <see cref="MenuBar.Open"/>.</summary>
         public event Action<string>? Acted;
@@ -34,6 +38,23 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The bar's one place to press, for the renders' checks.</summary>
         public GlazeButton Target => target;
+
+        /// <summary>
+        /// How far into view the bar is, from 0 to 1, as it appears where a file or the menu closed: by opacity
+        /// alone, its shapes and its words alike. It takes no press until it shows whole.
+        /// </summary>
+        public float Shown
+        {
+            get => shown;
+            set
+            {
+                shown = Mathf.Clamp01(value);
+                GetComponentsInChildren(true, shapes);
+                for (var index = 0; index < shapes.Count; index++) shapes[index].Shown = shown;
+                GetComponentsInChildren(true, words);
+                for (var index = 0; index < words.Count; index++) GlazeText.Show(words[index], shown);
+            }
+        }
 
         /// <summary>A closed bar's height: a target's, and room above and below it.</summary>
         public static float Height => GlazeButton.HeightOf(false) + 2f * GlazeTokens.Units(Glaze.Menu.PromptMarginDegrees);
@@ -46,6 +67,7 @@ namespace Halcyonic.XR.UI
             view.shape = Surface.Create(go.transform, "Shape", Order);
             view.target = GlazeButton.Create(go.transform, "Open the menu", ButtonRole.Row, compact: false, order: Order + 1);
             view.target.Pressed += () => view.Acted?.Invoke(MenuBar.Open);
+            view.target.Accepting = () => view.shown >= 1f;
             view.icon = GlazeIcons.Create(go.transform, "Waits", Glaze.Menu.BodyDegrees, GlazeTokens.Text, Order + 3);
             view.line = GlazeText.Create(go.transform, "Line", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, Order + 3);
             view.line.rectTransform.pivot = new Vector2(0f, 0.5f);

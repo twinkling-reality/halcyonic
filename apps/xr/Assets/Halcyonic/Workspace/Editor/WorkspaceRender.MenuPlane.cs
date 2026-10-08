@@ -542,7 +542,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (plane.LightLine != null && plane.LineShown < 1f) failures.Add(what + ": at the first press taken, its light line has not reached the file.");
                     for (var index = 0; index < view.Parts.Count; index++)
                     {
-                        var due = Glaze.PartShown(view.MovedFor, index, view.DrawsFromLine);
+                        var due = Glaze.PartShown(view.MovedFor, view.ArrivesAt(index), view.DrawsFromLine);
                         if (due < 0.999f)
                         {
                             failures.Add(what + ": its opening ended " + view.MovedFor.ToString("0.000", CultureInfo.InvariantCulture) + " s in, with its " + view.Parts[index].name
@@ -561,9 +561,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (shapes > 0f && shapes < 1f) faintShapes = true;
                     if (words > 0f && words < 1f) faintWords = true;
                     var shown = Mathf.Min(shapes, words);
-                    if (index > 0 && shown > PartShownAsDrawn(parts[index - 1]) + 1e-4f) failures.Add(what + ": " + parts[index].name + " shows more than the part above it; it assembles top to bottom.");
+                    // In its order from the edge the light line meets, no part shows more than one that arrives before it.
+                    for (var other = 0; other < parts.Count; other++)
+                    {
+                        if (view.ArrivesAt(other) < view.ArrivesAt(index) && shown > PartShownAsDrawn(parts[other]) + 1e-4f)
+                        {
+                            failures.Add(what + ": " + parts[index].name + " shows more than " + parts[other].name + ", which arrives before it from the edge the light line meets.");
+                        }
+                    }
                     // Drawn as the one clock of its opening says, its shapes and its words alike.
-                    var due = view.Opening ? Glaze.PartShown(view.MovedFor, index, view.DrawsFromLine) : 1f;
+                    var due = view.Opening ? Glaze.PartShown(view.MovedFor, view.ArrivesAt(index), view.DrawsFromLine) : 1f;
                     if (!offClock && (Mathf.Abs(shapes - due) > 0.01f || Mathf.Abs(words - due) > 0.01f))
                     {
                         offClock = true;
@@ -687,7 +694,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// press, the light line drawing from its character and the parts fading in from the top, then of its
         /// closing. Read from the captured pixels, as the eyes see them: each part's largest shape, its glass, a
         /// tab or a well, at least <see cref="SeenFadeLevels"/> of 255 dimmer at the press than once the file
-        /// shows whole, and as dim again near the end of its closing.
+        /// shows whole, and as dim again near the end of its closing. Its parts arrive from the edge the light line
+        /// meets: 0.12 s in, over a desk the page further along than the subject, elsewhere the subject. Closing,
+        /// stepped at the headset's rate, no bar's words and file's both stand above a tenth of their opacity where
+        /// they overlap; the bar takes no press while it fades in, and shows whole 0.35 s after the close.
         /// </summary>
         private static IEnumerable<string> OpeningStrip(string what, string folder, Camera camera, RenderTexture texture, MenuPlane plane, System.Action before,
             System.Action open, System.Action close)
@@ -713,6 +723,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     frames.Add(Render(camera, texture));
                     if (moment == 0f) pressed = frames[frames.Count - 1];
                     whole = frames[frames.Count - 1];
+                    // Its parts arrive from the edge the light line meets: over a desk the page first, else the subject.
+                    if (moment == 0.12f && view != null && view.Parts.Count > 1)
+                    {
+                        var subject = PartShownAsDrawn(view.Parts[0]);
+                        var page = PartShownAsDrawn(view.Parts[view.Parts.Count - 1]);
+                        var risesToThePage = plane.LightLine != null && plane.Direction.Above;
+                        Debug.Log("Halcyonic: workspace render " + what + ": at 0.12 s the subject shows " + subject.ToString("0.00", CultureInfo.InvariantCulture) + " and the page "
+                            + page.ToString("0.00", CultureInfo.InvariantCulture) + (risesToThePage ? ", the light line rising to the page." : "."));
+                        if (risesToThePage && !(page > subject)) failures.Add(what + ": at 0.12 s, the light line rising to the page, the page is no further along than the subject; it arrives first.");
+                        if (!risesToThePage && !(subject > page)) failures.Add(what + ": at 0.12 s the subject is no further along than the page; from the top, it arrives first.");
+                    }
                 }
                 // Where each part's shapes stand on the render, the area they cover together, read once the file shows whole.
                 var shapes = new List<(string Part, RectInt Rect)>();
@@ -736,14 +757,31 @@ namespace Halcyonic.XR.Workspace.Editor
                 var bar = plane.Bar is MenuBarView closed ? Around(camera, closed.transform, closed.Size, 0.6f, 0.9f) : new RectInt();
                 at = 0f;
                 Texture2D? closing = null;
-                foreach (var moment in new[] { 0.06f, 0.1f, 0.13f, 0.148f })
+                var overlapped = false;
+                foreach (var moment in new[] { 0.06f, 0.1f, 0.13f, 0.148f, 0.2f, 0.35f })
                 {
-                    plane.Advance(moment - at);
-                    at = moment;
+                    // At the headset's rate, so no frame where the bar's words and the file's both show goes unseen.
+                    while (at < moment - 1e-5f)
+                    {
+                        var step = Mathf.Min(1f / 72f, moment - at);
+                        plane.Advance(step);
+                        at += step;
+                        if (!overlapped && view != null && plane.Bar is MenuBarView appearing && WordsOver(camera, view, appearing) is string over)
+                        {
+                            overlapped = true;
+                            failures.Add(what + ": " + at.ToString("0.000", CultureInfo.InvariantCulture) + " s into closing, " + over + "; the bar shows only once the file has left.");
+                        }
+                    }
+                    ForceMeshes(plane.gameObject);
                     frames.Add(Render(camera, texture));
-                    closing = frames[frames.Count - 1];
+                    if (moment == 0.148f) closing = frames[frames.Count - 1];
+                    if (plane.Bar is MenuBarView shown)
+                    {
+                        if (moment == 0.2f && shown.Target.Accepting()) failures.Add(what + ": the bar takes a press at 0.2 s, while it still fades in.");
+                        if (moment == 0.35f && (!shown.Target.Accepting() || shown.Shown < 1f)) failures.Add(what + ": the bar is not whole and taking presses 0.35 s after the file closed.");
+                    }
                 }
-                plane.Advance(Glaze.LeaveSeconds);
+                plane.Advance(Glaze.AfterLeaveSeconds);
                 foreach (var (part, rect) in shapes)
                 {
                     var shown = Brightness(whole!, rect);
@@ -779,6 +817,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var frame in frames) Object.DestroyImmediate(frame);
             }
             return failures;
+        }
+
+        /// <summary>
+        /// The first of the bar's words and of <paramref name="file"/>'s that both stand above a tenth of their
+        /// opacity in rectangles that overlap as the eyes see them, said in words; null where none do.
+        /// </summary>
+        private static string? WordsOver(Camera camera, MenuFrameView file, MenuBarView bar)
+        {
+            if (!file.gameObject.activeInHierarchy || !bar.gameObject.activeInHierarchy) return null;
+            Rect? On(TMP_Text words)
+            {
+                if (!words.gameObject.activeInHierarchy || string.IsNullOrEmpty(words.text) || GlazeText.ShownOf(words) <= 0.1f) return null;
+                if (!words.TryGetComponent<Renderer>(out var drawn) || !drawn.enabled) return null;
+                var bounds = drawn.bounds;
+                var low = camera.WorldToScreenPoint(bounds.min);
+                var high = camera.WorldToScreenPoint(bounds.max);
+                return Rect.MinMaxRect(Mathf.Min(low.x, high.x), Mathf.Min(low.y, high.y), Mathf.Max(low.x, high.x), Mathf.Max(low.y, high.y));
+            }
+            foreach (var barWords in bar.GetComponentsInChildren<TMP_Text>())
+            {
+                if (!(On(barWords) is Rect over)) continue;
+                foreach (var fileWords in file.GetComponentsInChildren<TMP_Text>())
+                {
+                    if (On(fileWords) is Rect under && over.Overlaps(under))
+                    {
+                        return "the bar's \"" + barWords.text + "\" at " + GlazeText.ShownOf(barWords).ToString("0.00", CultureInfo.InvariantCulture) + " stands over the file's \""
+                            + fileWords.text + "\" at " + GlazeText.ShownOf(fileWords).ToString("0.00", CultureInfo.InvariantCulture);
+                    }
+                }
+            }
+            return null;
         }
 
         /// <summary>How much dimmer, of 255, a part's shape must read as the eyes see it before it opens, and near the end of its closing, than whole.</summary>

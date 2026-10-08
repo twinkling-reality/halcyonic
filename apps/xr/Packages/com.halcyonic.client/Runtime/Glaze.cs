@@ -289,6 +289,17 @@ namespace Halcyonic.Client
         /// <summary>How visible what closes still is, <paramref name="seconds"/> into its closing: everything together, eased in, over <see cref="LeaveSeconds"/>.</summary>
         public static float LeftShown(float seconds) => 1f - EaseIn(seconds / LeaveSeconds);
 
+        /// <summary>
+        /// How visible what takes the place of something closing is, as the closed bar where a file stood,
+        /// <paramref name="seconds"/> after the close: nothing until what closes has left, over
+        /// <see cref="LeaveSeconds"/>, then fading in over <see cref="AppearSeconds"/>, eased out, so the two
+        /// never stand over each other.
+        /// </summary>
+        public static float AfterLeaveShown(float seconds) => seconds <= LeaveSeconds ? 0f : EaseOut((seconds - LeaveSeconds) / AppearSeconds);
+
+        /// <summary>How long what takes the place of something closing takes to show whole: <see cref="LeaveSeconds"/> then <see cref="AppearSeconds"/>.</summary>
+        public const float AfterLeaveSeconds = LeaveSeconds + AppearSeconds;
+
         /// <summary>How much of a closing file's light line still stands, <paramref name="seconds"/> into its closing, drawing back over <see cref="UndrawShare"/> of <see cref="LeaveSeconds"/>.</summary>
         public static float LineLeft(float seconds) => 1f - EaseIn(seconds / (UndrawShare * LeaveSeconds));
 

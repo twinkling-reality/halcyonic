@@ -473,7 +473,17 @@ namespace Halcyonic.XR.Workspace
                 }
                 lineTo = null;
                 LeaveLine(lineWas, immediately);
+                // Where something closes, the bar shows only once it has left, then fades in, so the bar's words
+                // never stand over the file's; newly laid otherwise, as the plane starts, it stands whole at once.
+                var barWas = bar.gameObject.activeSelf;
                 bar.Show(menuBar, Glaze.Menu.MenuColumnDegrees);
+                if (!barWas)
+                {
+                    var closing = false;
+                    foreach (var (_, view) in before) closing |= view.Closing;
+                    barFor = closing ? 0f : Glaze.AfterLeaveSeconds;
+                }
+                bar.Shown = Glaze.AfterLeaveShown(barFor);
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
                 Placed = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
                     : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, barSize)).Direction;
@@ -498,8 +508,10 @@ namespace Halcyonic.XR.Workspace
                 var unsettled = false;
                 // Newly on the plane, as opened or back from stepping aside, or another task's file or New project in
                 // the file's place: it opens, taking nothing until every part shows whole, its page counted drawn only
-                // then. A file's light line draws from its character first.
-                if (!WasShown(before, view) || (kind == MenuColumn.File && fileColumn != shownFileColumn)) view.Open(fromLine: view == lineTo && kind == MenuColumn.File, frames);
+                // then. A file's light line draws from its character first, and its parts arrive from the edge the line
+                // meets: the subject, or over a desk, where the line rises to the file's bottom edge, the page.
+                var fromLine = view == lineTo && kind == MenuColumn.File;
+                if (!WasShown(before, view) || (kind == MenuColumn.File && fileColumn != shownFileColumn)) view.Open(fromLine, frames, fromBottom: fromLine && Direction.Above);
                 foreach (var placed in Composition.Parts)
                 {
                     if (placed.Column != c) continue;
@@ -751,6 +763,11 @@ namespace Halcyonic.XR.Workspace
                 else if (view.Closing) view.Step(seconds);
             }
             if (frame) frames++;
+            if (barFor < Glaze.AfterLeaveSeconds && bar.gameObject.activeSelf)
+            {
+                barFor += seconds;
+                bar.Shown = Glaze.AfterLeaveShown(barFor);
+            }
             foreach (var pair in slides)
             {
                 var part = pair.Key;
@@ -919,6 +936,9 @@ namespace Halcyonic.XR.Workspace
             else if (was is (MenuFrameView leaving, CharacterTarget _) && leaving.Closing) leavingLine = was;
             else if (!(leavingLine is (MenuFrameView still, CharacterTarget _) && still.Closing)) leavingLine = null;
         }
+
+        /// <summary>The seconds since the closed bar's place was left by what closed there, as it appears (<see cref="Glaze.AfterLeaveShown"/>).</summary>
+        private float barFor = Glaze.AfterLeaveSeconds;
 
         /// <summary>A closing file the light line draws back from, to its character, until it is gone; null with none.</summary>
         private (MenuFrameView View, CharacterTarget Of)? leavingLine;
