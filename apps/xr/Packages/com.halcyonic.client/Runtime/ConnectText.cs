@@ -37,7 +37,10 @@ namespace Halcyonic.Client
             : "Not sure whether " + Quoted(other.Folder.ProjectName) + " was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart.";
 
         /// <summary>A name from outside inside one of Halcyonic's sentences, quoted so it never reads as Halcyonic's words.</summary>
-        public static string Quoted(string name) => "\u201C" + LabelText.Name(name) + "\u201D";
+        public static string Quoted(string name) => "\u201C" + WorkspaceText.Truncate(LabelText.Name(name), NameLimit) + "\u201D";
+
+        /// <summary>The most of a name a sentence quotes, so Halcyonic's words after it, as what connecting changes, always show whole.</summary>
+        public const int NameLimit = 40;
 
         /// <summary>
         /// What is known about a folder, in one line: "Repository · changed 3 days ago", "Changed 3 days
@@ -56,10 +59,11 @@ namespace Halcyonic.Client
             (folder.LooksLikeAnother ? LooksLikeAnother + " · " : "") + Facts(folder, now, zone) + (manyPlaces ? " · in " + folder.RootName : "");
 
         /// <summary>Above Connect: where the folder is, and what connecting does.</summary>
+        /// <remarks>What connecting never changes comes first, so no name, however long, pushes it past the line's end.</remarks>
         public static string WhatConnectingDoes(ConnectableFolder folder) =>
-            (folder.Folder == null ? "The folder " + Quoted(folder.RawName) + " itself" : "In " + Quoted(ProjectFolder.LabelOf(folder.Root)))
-            + ". Connecting makes a project called " + Quoted(folder.ProjectName)
-            + " that works in this folder. Nothing in it changes until you add a task.";
+            "Nothing in this folder changes until you add a task. "
+            + (folder.Folder == null ? "The folder " + Quoted(folder.RawName) + " itself" : "In " + Quoted(ProjectFolder.LabelOf(folder.Root)))
+            + ". Connecting makes a project called " + Quoted(folder.ProjectName) + " that works in this folder.";
 
         /// <summary>How connecting went: sent is not done, and only the completed record confirms it.</summary>
         public static string Outcome(FolderConnection connection)

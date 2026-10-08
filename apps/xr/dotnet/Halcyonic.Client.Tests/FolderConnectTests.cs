@@ -283,7 +283,13 @@ public class FolderConnectTests
         var offer = FolderConnect.Offers(Listing(Root("Projects", Folder("shop", true, "2026-09-29T11:00:00.000Z")))).Single();
         var before = ConnectScreens.Folder(offer, null, live: true, Now, zone);
         Assert.That((before.Title, before.TitleIsData, before.Lead), Is.EqualTo(("shop", true, "Repository · changed 3 days ago")));
-        Assert.That(before.Rows.Single().Title, Is.EqualTo("In \u201CProjects\u201D. Connecting makes a project called \u201Cshop\u201D that works in this folder. Nothing in it changes until you add a task."));
+        Assert.That(before.Rows.Single().Title, Is.EqualTo("Nothing in this folder changes until you add a task. In \u201CProjects\u201D. Connecting makes a project called \u201Cshop\u201D that works in this folder."));
+        // What connecting never changes comes first, and a name inside the sentence is cut at 40, so neither a long
+        // name nor two push it out of sight (the outside-text audit's gap 10).
+        var named = FolderConnect.Offers(Listing(Root(new string('R', 90), Folder(new string('f', 90), true, "2026-09-29T11:00:00.000Z")))).Single();
+        var sentence = ConnectText.WhatConnectingDoes(named);
+        Assert.That(sentence, Does.StartWith("Nothing in this folder changes until you add a task. In \u201C" + new string('R', 39) + "\u2026\u201D."));
+        Assert.That(ConnectText.Quoted(new string('n', 90)), Is.EqualTo("\u201C" + new string('n', 39) + "\u2026\u201D"));
         Assert.That((before.Actions.Primary!.Id, before.Actions.Primary.Available), Is.EqualTo((ConnectScreens.Connect, true)));
         Assert.That(ConnectScreens.Folder(offer, null, live: false, Now, zone).Actions.Primary!.Available, Is.False, "nothing is sent while away");
 
