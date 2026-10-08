@@ -298,7 +298,11 @@ commands; edits do not ask; subagents stay denied.
   `.GIT/config`, which landed in `.git` (the review, 2026-10-08); the earlier rules for
   `.opencode`, `.claude` and `.agents` had the same gap. The session's rules now deny `edit` on
   `.*` and `*/.*`: every path one of whose parts starts with a dot, in any case, inside the project
-  and outside it, the configuration folders and `.git` among them. The cost: the edit tool cannot
+  and outside it, the configuration folders and `.git` among them. OpenCode resolves the path the
+  model gave before it makes the resource (`path.resolve`, then relative to the task's folder,
+  `core/src/file-access.ts:73-108`, for write, edit and patch alike), so `./notes.txt` is
+  `notes.txt` and is written, and `src/../.git/config` is `.git/config` and is refused (runtime,
+  2026-10-08). The cost: the edit tool cannot
   change `.gitignore`, `.github` or any other dotfile, nor, in a task whose folder is inside a
   repository, a file above it (`../x`); a shell command can, once approved. `opencode.json` and
   `opencode.jsonc` are not hidden, and OpenCode loads them by an exact path the disk resolves in

@@ -1201,6 +1201,8 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
         'sub/.Git/hooks/pre-commit',
         '.OpenCode/plugin/p.ts',
         'OpenCode.json',
+        // OpenCode resolves the path first, so `..` reaches no further.
+        'src/../.git/config',
         // The cost of denying every hidden path: dotfiles need a shell command, which asks.
         '.gitignore',
       ]) {
@@ -1209,11 +1211,14 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
         executions.push(execution);
         assert.equal(existsSync(join(sandbox.project, path)), false, `${path} was written`);
       }
-      // The control: an ordinary file is written, and like every edit here it needs no press.
-      const control = await start(call('write', { path: 'notes.txt', content: 'hello\n' }));
-      await control.next('runtime.turn.completed');
-      executions.push(control);
-      assert.equal(readFileSync(join(sandbox.project, 'notes.txt'), 'utf8'), 'hello\n');
+      // The control: ordinary files are written, `./` paths too, since OpenCode resolves a path
+      // before matching it (core/src/file-access.ts), and like every edit here they need no press.
+      for (const path of ['notes.txt', './more.txt', './src/x.ts']) {
+        const control = await start(call('write', { path, content: 'hello\n' }));
+        await control.next('runtime.turn.completed');
+        executions.push(control);
+        assert.equal(readFileSync(join(sandbox.project, path), 'utf8'), 'hello\n', path);
+      }
       for (const execution of executions) {
         assert.ok(!execution.types().includes('runtime.approval.requested'), 'an edit asked');
       }
