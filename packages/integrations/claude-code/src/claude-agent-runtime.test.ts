@@ -871,9 +871,14 @@ describe('approvals', () => {
         'WebFetch',
         { url: 'https://example.invalid', prompt: 'Read it.' },
         'https://example.invalid',
-        false,
+        true,
       ],
+      ['Read', { file_path: '/w/a.ts', offset: 10, limit: 20 }, '/w/a.ts', true],
+      // Described by one field beside an input that changes where it acts.
+      ['Glob', { pattern: '*.ts', path: '/elsewhere' }, '*.ts', false],
       ['mcp__tracker__create', { title: 'x', body: 'y' }, '{"title":"x","body":"y"}', true],
+      // A name cut to the contract could read as another tool's.
+      [`mcp__${'x'.repeat(130)}`, { title: 'x' }, '{"title":"x"}', false],
     ];
     for (const [index, [tool, input, summary, complete]] of cases.entries()) {
       void scripted.requestPermission(tool, input, `req-c${index}`).catch(() => undefined);

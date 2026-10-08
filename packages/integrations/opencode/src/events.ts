@@ -401,9 +401,12 @@ export function replyOutcome(reply: unknown): ApprovalOutcome | null {
 export const SHELL_TOOL = 'shell';
 
 /**
- * The actions whose resources name in full every path the request would touch, so a request for
- * one of them is complete as OpenCode lists it (`runtime.approval.requested`'s `complete`). Any
- * other action's request, an MCP tool's among them, is not.
+ * The actions whose requests run no command and write nothing that the request does not name, so
+ * a request for one of them is complete as OpenCode lists it (`runtime.approval.requested`'s
+ * `complete`): an edit names the path it writes; `read`, `glob` and `grep` only read (their
+ * resources are a path or a pattern); `external_directory` names a folder, and an edit there asks
+ * again by its own path (`sessionPermissions`). Any other action's request, an MCP tool's among
+ * them, is not complete.
  */
 const PATH_ACTIONS: ReadonlySet<string> = new Set([
   'external_directory',
@@ -483,7 +486,10 @@ export function approvalRequest(
       // Whole: the control plane takes credentials out, then cuts it to the contract.
       summary: request ?? (listed.length > 0 ? listed.join('\n') : tool),
     },
-    complete: tool === SHELL_TOOL ? request !== null : PATH_ACTIONS.has(tool) && listed.length > 0,
+    // A tool's name cut to the contract could read as another's.
+    complete:
+      tool.length <= 128 &&
+      (tool === SHELL_TOOL ? request !== null : PATH_ACTIONS.has(tool) && listed.length > 0),
   };
 }
 

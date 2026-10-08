@@ -1029,13 +1029,16 @@ function askedQuestions(input: Record<string, unknown>): {
 
 /**
  * The inputs of Claude Code's own tools that change neither what runs nor where a change is
- * written, besides the field that describes the call: a command's description and time limit, and
- * a change's content, which a request does not show (`runtime.approval.requested`'s `complete`).
+ * written, besides the field that describes the call: a command's description and time limit, a
+ * read's range and a fetch's question, and a change's content, which a request does not show
+ * (`runtime.approval.requested`'s `complete`).
  */
 const NOT_ACTING_INPUTS: Readonly<Record<string, readonly string[]>> = {
   Bash: ['description', 'timeout', 'run_in_background'],
+  // Reads that run nothing and write nothing: which part of a file, what to ask of a page.
+  Read: ['offset', 'limit'],
+  WebFetch: ['prompt'],
   Edit: ['old_string', 'new_string', 'replace_all'],
-  MultiEdit: ['edits'],
   Write: ['content'],
   NotebookEdit: ['new_source', 'cell_id', 'cell_type', 'edit_mode'],
 };
@@ -1067,7 +1070,10 @@ function approvalRequest(
             ? `${described}\nin the background`
             : described,
     },
-    complete: described === null || others.every((name) => quiet.includes(name)),
+    // A tool's name cut to the contract could read as another's.
+    complete:
+      toolName.length <= 128 &&
+      (described === null || others.every((name) => quiet.includes(name))),
   };
 }
 

@@ -182,19 +182,20 @@ export function admitCommand(
           `Approval ${command.payload.approval_id} is not pending on this execution.`,
         );
       }
-      // What the person could not read whole may be refused, never approved.
-      if (!approval.approvable && command.payload.decision === 'approve') {
-        return reject(
-          scope,
-          'approval_not_whole',
-          'This request was never shown whole, so it can only be denied.',
-        );
-      }
       if (facts.status !== 'waiting_for_human') {
         return reject(
           scope,
           'invalid_state',
           `The execution is ${facts.status}; the approval cannot be answered now.`,
+        );
+      }
+      // What the person could not read whole may be refused, never approved. After the status, so
+      // the deny this suggests is not refused for it.
+      if (!approval.approvable && command.payload.decision === 'approve') {
+        return reject(
+          scope,
+          'approval_not_whole',
+          'This request was never shown whole, so it can only be denied.',
         );
       }
       return { admitted: true, policy, scope, runtime };

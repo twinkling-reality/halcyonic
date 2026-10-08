@@ -246,7 +246,10 @@ commands; edits do not ask; subagents stay denied.
   asked, and a session without Halcyonic's rules on a server of the same settings ran the same
   command unasked. Plugins can, below. The session's ask also outranks a person's own deny, of
   shell or of one command (`git push *`), which becomes an ask. Edits keep OpenCode's own rules,
-  which allow them, so they need no press, except on hidden paths, below.
+  which allow them, so they need no press, except on hidden paths, below, and outside the task's
+  folder: there OpenCode asks for the folder (`external_directory`), which names no file and does
+  not say it writes, so since 2026-10-08 the session also asks for the edit by its absolute path
+  (`edit` on `/*`; runtime: the folder's ask, then the file's, and only then the write).
 - **Plugins can change what runs or turn the ask off** (source): a `shell` `create.before` hook
   runs before the parse and can change the command (`core/src/shell.ts:274`); a `tool`
   `execute.before` hook can change a tool's input after `session.tool.called` was published

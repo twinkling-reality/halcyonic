@@ -133,7 +133,8 @@ const CONFIG_PATHS: readonly string[] = [
  * among them OpenCode's global
  * configuration folder (`OPENCODE_CONFIG_DIR`, or `$XDG_CONFIG_HOME/opencode`, or
  * `~/.config/opencode`; util/src/global-roots.ts) and a file `OPENCODE_CONFIG` names. Other edits
- * keep OpenCode's own rules, so they need no press. A session's rule outranks the person's and the
+ * keep OpenCode's own rules, so they need no press, except one outside the task's folder, which
+ * asks by its own path. A session's rule outranks the person's and the
  * repository's configuration; a saved "always" outranks its ask but not its deny
  * (core/src/permission.ts at v2.0.18; opencode-permissions.md).
  */
@@ -162,6 +163,9 @@ export function sessionPermissions(
   return [
     ...DENIED_TOOLS.map((action) => ({ action, resource: '*', effect: 'deny' as const })),
     { action: 'shell', resource: '*', effect: 'ask' },
+    // An edit outside the task's folder, whose resource is its absolute path, asks by that path:
+    // approving the folder (`external_directory`) names no file and does not say it writes.
+    { action: 'edit', resource: '/*', effect: 'ask' },
     ...paths.map((resource) => ({ action: 'edit', resource, effect: 'deny' as const })),
   ];
 }

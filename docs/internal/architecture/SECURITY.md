@@ -204,7 +204,8 @@ whose configuration and hooks name programs git runs), and to `opencode.json` in
 ([opencode-permissions.md](../validation/opencode-permissions.md)). Shell commands ask the
 person (the owner's decision of 2026-10-08), whatever any settings file says, and the approval
 shows where the command runs and the command the model gave, whole, or offers only Deny when that
-is not known; other edits need no press. A repository's own OpenCode configuration never loads:
+is not known; other edits need no press, except one outside the task's folder, which asks by its
+own path after the folder's own ask. A repository's own OpenCode configuration never loads:
 the adapter launches the server with OpenCode's switch that skips the project's folder and every
 folder above it, so its `opencode.json`, `.opencode` plugins and MCP servers, `.claude` and
 `.agents` take no effect (runtime verified). A plugin in the person's own OpenCode settings, used

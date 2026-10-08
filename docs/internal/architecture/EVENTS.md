@@ -111,11 +111,18 @@ text").
 
 An approval request carries `complete`, defined as: complete: the summary shows in full every
 command that would run, with how and where it runs, and names every path a change would write. It
-does not include a change's content. Each adapter says it for what it reports: OpenCode for a shell
-command whose call it knows, or a request naming paths; Codex unless it did not say the command and
-its folder, the host or the files; Claude Code for the whole input, or for one of its own tools whose
-other inputs do not act ("in the background" follows a Bash command that runs there). The control
-plane makes it false when it cuts the summary. The projection copies it to `ApprovalView.approvable`,
+does not include a change's content. Each adapter says it for what it reports. OpenCode: a shell
+command whose call it knows; a request for paths (an edit, a read, a search, a folder outside the
+task's, an edit there asking again by its own path); nothing else. Codex: a command with its folder
+(input to a running command needs none), any network access it also asks for, and an environment
+that is this computer's; network access by its host; a change whose every file it named, unless it
+also asks for write access under a folder for the rest of the session. Claude Code: its whole input
+as JSON, or one of its own tools described by one field whose other inputs do not act ("in the
+background" follows a Bash command that runs there). Where a Claude Code Bash command runs is
+inferred, not said: the session's folder, or wherever an earlier command moved it. A tool's name cut
+to the contract is not complete. A secret Halcyonic holds still shows as "[redacted: ...]" in a
+complete summary, and an agent could type the same words. The control plane makes it false when it
+cuts the summary. The projection copies it to `ApprovalView.approvable`,
 and admission answers an approve of a request that is not approvable with `approval_not_whole`
 ("This request was never shown whole, so it can only be denied."); a deny is admitted.
 
@@ -170,9 +177,10 @@ To change a contract:
   changed, because the only client in the field is a development build: one generated before
   this change sends `project.create` without `location` and gets 400 `invalid_command` until it is
   rebuilt, since the command's schema requires the explicit null.
-- Migration 5 gives every stored `runtime.approval.requested` the `complete: true` its contract
-  gained on 2026-10-08: a request stored before was offered for approval as it was, so it stays
-  approvable. It runs on the owner's journal the next time the control plane starts. No version
+- Migration 5 gives every stored `runtime.approval.requested` the `complete` its contract gained
+  on 2026-10-08: `true`, as it was offered for approval, unless the headset then offered only Deny
+  for it, its summary ending in " [truncated]" or starting with OpenCode's "[whole command not
+  known]", which become `false`. It runs on the owner's journal the next time the control plane starts. No version
   changed: `ApprovalView.approvable` and the `approval_not_whole` rejection are additions, and the
   only client in the field is a development build, regenerated with them.
 - The question events, `runtime.connection.restored`, `execution.answer_question` and the
