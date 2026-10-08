@@ -5,13 +5,12 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// The first visit (ADR 0026): until a computer's first task, the menu shows one question, "What
-    /// would you like to work on?", with no places, and on the first live visit it opens on it by itself,
-    /// once on this device and never over work already open. The demonstration, which starts with
-    /// recorded work, never asks and opens nothing: it opens ambient. Whether a computer has had a task
-    /// is kept on this device for each journal, since another computer's journal is another one; a
-    /// computer that has had one never asks again here, whatever becomes of its work. The headset keeps
-    /// the first visit under the key the retired entry panel's welcome kept, so no one welcomed before
-    /// is opened on again.
+    /// would you like to work on?", with Settings alone in its row, and opens on it by itself once each
+    /// time the app starts, when the live session is first ready, never over work already open; a
+    /// reconnect doesn't open it again. The demonstration, which starts with recorded work, never asks
+    /// and opens nothing: it opens closed. Whether a computer has had a task is kept on this device for
+    /// each journal, since another computer's journal is another one: a computer that has had one never
+    /// asks again here, whatever becomes of its work, while another computer with none still asks.
     /// </summary>
     public sealed class FirstVisit
     {
@@ -20,17 +19,16 @@ namespace Halcyonic.Client
 
         private readonly List<string> started = new List<string>();
 
-        /// <param name="visited">The device has seen its first visit to the person's computer already.</param>
         /// <param name="started">The journals that have had a task, as <see cref="Started"/> wrote them; anything unreadable is none.</param>
-        public FirstVisit(bool visited, string? started = null)
+        public FirstVisit(string? started = null)
         {
-            Visited = visited;
             foreach (var journal in (started ?? "").Split(' '))
             {
                 if (journal.Length > 0 && !this.started.Contains(journal) && this.started.Count < Journals) this.started.Add(journal);
             }
         }
 
+        /// <summary>This app start's first visit has come: the live session was first ready.</summary>
         public bool Visited { get; private set; }
 
         /// <summary>The journals that have had a task, the most recently seen first, as text for a device preference.</summary>
@@ -60,15 +58,15 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether the menu opens by itself now, on the first question (<paramref name="asks"/>, from
-        /// <see cref="Asks"/>): once the computer's state is known, with nothing open, and once only. A
-        /// first visit to a computer that already has work counts, and opens nothing: later visits open
-        /// closed, as it does. The demonstration's never counts.
+        /// <see cref="Asks"/>): once the computer's state is known, with nothing open, and once only in
+        /// this app start. A first visit to a computer that already has work counts, and opens nothing;
+        /// so does one with something open. The demonstration's never counts.
         /// </summary>
         public bool Due(bool demonstration, bool somethingOpen, bool? asks)
         {
-            if (demonstration || somethingOpen || asks == null || Visited) return false;
+            if (demonstration || asks == null || Visited) return false;
             Visited = true;
-            return asks.Value;
+            return asks.Value && !somethingOpen;
         }
     }
 

@@ -43,23 +43,24 @@ namespace Halcyonic.Client
         /// <summary>In its own place: under the labels in front of the person, under a window's lane beside one, above the characters over a surface.</summary>
         InPlace,
 
-        /// <summary>Above the stage, saying only that the demonstration plays, while the menu stands in its place.</summary>
+        /// <summary>Above the stage, saying only that the demonstration plays, whatever stands in its place: the closed bar or the menu.</summary>
         AboveTheStage,
     }
 
     /// <summary>
     /// Where the stage's banner stands while the menu, a panel or the peek may be where it goes. The peek
     /// always hides it, and a panel, as the open menu, hides it in a live session, which the panel then
-    /// speaks for. In the recorded demonstration a panel raises it above the stage instead, since the
-    /// demonstration's lines stay in view whatever the menu shows (ADR 0012, ADR 0026).
+    /// speaks for. In the recorded demonstration it always stands raised above the stage instead, the
+    /// closed bar or the menu where it would hang, since the demonstration's lines stay in view whatever
+    /// the menu shows (ADR 0012, ADR 0026).
     /// </summary>
     public static class BannerPlace
     {
         public static BannerStand Of(bool demonstration, bool panelCovers, bool peekCovers)
         {
             if (peekCovers) return BannerStand.Hidden;
-            if (!panelCovers) return BannerStand.InPlace;
-            return demonstration ? BannerStand.AboveTheStage : BannerStand.Hidden;
+            if (demonstration) return BannerStand.AboveTheStage;
+            return panelCovers ? BannerStand.Hidden : BannerStand.InPlace;
         }
     }
 }

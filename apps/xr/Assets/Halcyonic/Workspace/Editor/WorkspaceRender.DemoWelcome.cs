@@ -17,14 +17,14 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// The demonstration's first visit (ADR 0026), from the eyes, drawn by the menu's own director: it
-        /// opens ambient, the recorded characters, the demonstration's lines in the banner's own place and
-        /// the closed bar, as the recording begins and again once its directed task waits; then Projects,
-        /// a press from the bar, with the banner raised above the stage while the menu is open. It fails if
-        /// the first visit opens anything or asks the first question, if the closed bar doesn't say what
-        /// waits, if the demonstration's lines would be missing, if a live session's banner would show or
-        /// rise with the menu open, if the lines come within a degree of a character's highest reach, a
-        /// label or the plane, if they leave the field while the menu is read, or if they reach above
-        /// <see cref="RaisedBannerMostDegrees"/>.
+        /// opens closed, the recorded characters and the closed bar, as the recording begins and again once
+        /// its directed task waits; then Projects, from the bar's Open; the stage's banner raised above the
+        /// stage throughout, with the demonstration's lines alone. It fails if the first visit opens
+        /// anything or asks the first question, if the closed bar doesn't say what waits, if the
+        /// demonstration's lines would be missing or hang where the bar or the menu stands, if a live
+        /// session's banner would show or rise with the menu open, if the lines come within a degree of a
+        /// character's highest reach, a label, the bar or the plane, if they leave the field while the menu
+        /// is read, or if they reach above <see cref="RaisedBannerMostDegrees"/>.
         /// </summary>
         private static IEnumerable<string> RenderDemoWelcome(string name, string folder, float radius, float? surfaceDrop)
         {
@@ -87,7 +87,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 // The first visit, as the workspace's director takes it once the recording plays with nothing open:
                 // the demonstration never asks the first question, and opens nothing.
-                var visit = new FirstVisit(visited: false);
+                var visit = new FirstVisit();
                 var asks = visit.Asks(live: true, demonstration: true, state.Journal?.JournalId, state.Workstreams.Count > 0);
                 if (asks != false) failures.Add(name + ": the demonstration's first visit asks the first question.");
                 director.BeforeFirstTask = asks == true;
@@ -112,11 +112,10 @@ namespace Halcyonic.XR.Workspace.Editor
 
                     // Where the stage would stand its banner now, from what covers its place as the director drew it.
                     var stand = BannerPlace.Of(demonstration: true, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
-                    var expected = open ? BannerStand.AboveTheStage : BannerStand.InPlace;
-                    if (stand != expected)
+                    if (stand != BannerStand.AboveTheStage)
                     {
                         failures.Add(what + ": in the demonstration, its lines would be "
-                            + (stand == BannerStand.Hidden ? "missing" : stand == BannerStand.InPlace ? "under the labels, where the menu stands" : "raised over a closed bar") + ".");
+                            + (stand == BannerStand.Hidden ? "missing" : "under the labels, where the " + (open ? "menu" : "closed bar") + " stands") + ".");
                     }
                     var live = BannerPlace.Of(demonstration: false, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
                     if (open && live != BannerStand.Hidden)
@@ -129,17 +128,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add(what + ": the raised banner does not say the demonstration's lines alone.");
                     }
                     // As the stage places it: raised, clear of the characters, then of the panel in its place, by the top the
-                    // plane gives; in its own place, standing over a surface's lineup or hanging under the labels.
+                    // plane gives, which the closed bar alone doesn't give.
                     var panelTop = AmbientCover.PanelTop;
                     if (open && panelTop == null) failures.Add(what + ": the open menu gives no top edge for the raised banner to clear.");
                     var overCharacters = surface.HasValue
                         ? CharacterStage.BannerBottomOnSurface(radius, surfaceDrop!.Value) - surfaceDrop.Value
                         : CharacterStage.BannerBottomAbove(radius, CharacterStage.DefaultHeightFromEyes);
-                    var stands = open || surface.HasValue;
-                    var edge = open ? CharacterStage.RaisedBannerBottom(radius, overCharacters, panelTop)
-                        : surface.HasValue ? overCharacters : CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes);
-                    bannerRoot.position = eyes + new Vector3(0f, edge, radius);
-                    banner.transform.localPosition = new Vector3(0f, stands ? banner.Height : 0f, 0f);
+                    bannerRoot.position = eyes + new Vector3(0f, CharacterStage.RaisedBannerBottom(radius, overCharacters, panelTop), radius);
+                    banner.transform.localPosition = new Vector3(0f, banner.Height, 0f);
                     banner.gameObject.SetActive(stand != BannerStand.Hidden);
                     ForceMeshes(root);
 
@@ -161,7 +157,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         .Select(y => plate.Root.position + plate.Root.right * (x * plate.Size.x) + plate.Root.up * (y * plate.Size.y))).ToList();
                     var elevations = corners.Select(corner => FieldChecks.ElevationOf(eyes, corner)).ToList();
                     var top = elevations.Max();
-                    if (open && top > RaisedBannerMostDegrees) failures.Add(what + ": the demonstration's lines reach " + GlazeChecks.Degrees(top) + " degrees above eye level, over " + RaisedBannerMostDegrees.ToString(CultureInfo.InvariantCulture) + ".");
+                    if (top > RaisedBannerMostDegrees) failures.Add(what + ": the demonstration's lines reach " + GlazeChecks.Degrees(top) + " degrees above eye level, over " + RaisedBannerMostDegrees.ToString(CultureInfo.InvariantCulture) + ".");
                     Debug.Log("Halcyonic: workspace render " + what + ": the demonstration's lines stand from " + GlazeChecks.Degrees(elevations.Min()) + " to "
                         + GlazeChecks.Degrees(top) + " degrees above eye level; the plane's top edge stands at " + (panelTop == null ? "none" : GlazeChecks.Degrees(panelTop.Value)) + ".");
                     // In the field while the person reads the menu, the head pitched as the plane's checks take it.

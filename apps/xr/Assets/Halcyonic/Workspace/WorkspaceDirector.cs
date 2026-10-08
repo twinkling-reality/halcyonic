@@ -68,9 +68,6 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Which projects the stage shows, for each journal, kept on the device under the key the project rail kept it under.</summary>
         private const string VisibilityPreference = "halcyonic.stage.visibility";
 
-        /// <summary>Set once the first visit to the person's computer has come, under the key the entry panel's welcome kept, so no one welcomed before is opened on again.</summary>
-        private const string VisitedPreference = "halcyonic.entry.welcomed";
-
         /// <summary>The journals of the computers that have had a task, which the first question never asks again (<see cref="FirstVisit.Started"/>).</summary>
         private const string StartedPreference = "halcyonic.entry.started";
 
@@ -112,7 +109,7 @@ namespace Halcyonic.XR.Workspace
             visibility = StageVisibility.Load(PlayerPrefs.GetString(VisibilityPreference, ""));
             savedVisibility = visibility.Version;
             stage.Visibility = visibility;
-            firstVisit = new FirstVisit(PlayerPrefs.GetInt(VisitedPreference, 0) == 1, PlayerPrefs.GetString(StartedPreference, ""));
+            firstVisit = new FirstVisit(PlayerPrefs.GetString(StartedPreference, ""));
             // The same client the session introduces itself as (ControlPlaneConnection).
             commands = new CommandFactory(new ClientInfo
             {
@@ -419,8 +416,8 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// The first visit (ADR 0026): until the computer's first task, the menu asks the first question in
-        /// place of its places, decided only once its live state is known, and on the first visit opens on
-        /// it by itself, once, never over work already open. The demonstration never asks and opens nothing.
+        /// place of its places, decided only once its live state is known, and opens on it by itself once
+        /// each app start, never over work already open. The demonstration never asks and opens nothing.
         /// </summary>
         private void OpenOnFirstVisit()
         {
@@ -436,14 +433,7 @@ namespace Halcyonic.XR.Workspace
                 PlayerPrefs.Save();
             }
             if (asks is bool known) menu.BeforeFirstTask = known;
-            var visited = firstVisit.Visited;
-            var due = firstVisit.Due(demonstration, OpenWorkstream != null || menu.BesideOpen, asks);
-            if (firstVisit.Visited != visited)
-            {
-                PlayerPrefs.SetInt(VisitedPreference, 1);
-                PlayerPrefs.Save();
-            }
-            if (due) menu.Open();
+            if (firstVisit.Due(demonstration, OpenWorkstream != null || menu.BesideOpen, asks)) menu.Open();
         }
 
         /// <summary>Every project and its work as the stage counts it, the same object until the state or what the stage shows changes.</summary>

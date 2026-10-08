@@ -231,7 +231,7 @@ public class JudgeMenuWalkTests
         player.Session.Start();
         var host = new DemonstrationMenuHost(player, text);
         var navigator = host.Navigator;
-        var visit = new FirstVisit(visited: false);
+        var visit = new FirstVisit();
         await Pumping.Until(player.Session, session => session.Status.IsLive, "the recording welcomes the headset");
 
         // As the workspace's director does once the demonstration plays: it never asks the first question, and opens nothing.

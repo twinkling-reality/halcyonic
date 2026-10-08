@@ -166,7 +166,7 @@ purpose; the token in use from then on never touched shared storage.
 
 ## The demonstration's first visit ([competition-judge-build.md](../validation/competition-judge-build.md))
 
-The demonstration opens ambient (ADR 0026, 2026-10-08): the recorded characters, its two lines
+The demonstration opens closed (ADR 0026, 2026-10-08): the recorded characters, its two lines
 above the stage and the closed bar, with nothing open by itself and no first question, since the
 recording starts with its work. Later steps play the demonstration too (a token set aside, a
 connection that fails before it was live), so see it here first, as a judge does on the release
@@ -186,11 +186,11 @@ git grep -nF "if (demonstration) return false;" -- apps/xr/Packages/com.halcyoni
 2. **The welcome.** Touch nothing. Pass: nothing opens by itself. Every character's label reads
    "Not started" with the Demo mark, the closed bar stands under the stage, and the stage's lines,
    "Demo: recorded work played on this headset. Nothing here is live." and "It follows your answers.
-   Nothing reaches an agent.", hang under the labels, clear of every body and of the bar. Capture.
+   Nothing reaches an agent.", stand above the characters, clear of every body and of the bar, and
+   read without leaning back. Capture.
 3. **Work starts.** Within about a second two characters start working. Open the bar, then
    Projects: its one row reads "Storefront API" and "2 tasks running", with New project at its
-   right, and the lines rise above the characters, clear of every body and of the menu, and read
-   without leaning back. If present (this lists `ProjectsText.cs`), press the row while they work,
+   right, and the lines stay above the characters, clear of every body and of the menu. If present (this lists `ProjectsText.cs`), press the row while they work,
    within about 5 seconds: its side panel's Its work reads "2 tasks running, 1 not started". Close
    details.
    ```bash
@@ -201,9 +201,9 @@ git grep -nF "if (demonstration) return false;" -- apps/xr/Packages/com.halcyoni
    cross-fade, never a jump; Tasks, at the menu's top, takes its amber dot; the menu stays on
    Projects; and the raised lines stay clear of the risen character. Capture. If present (step 3),
    the row's side panel reads "1 task waiting for you, 2 paused".
-5. **The lines come back down.** Close the menu: the bar stands under the stage, and the lines hang
-   under the labels again. Look at a character until its peek shows: the lines step aside for it.
-   Open the menu again: they rise again.
+5. **The lines stay up.** Close the menu: the bar stands under the stage, and the lines stay above
+   the characters, clear of the bar. Look at a character until its peek shows: the lines step aside
+   for it, and come back above the stage when it goes.
 6. **Log.** `adb logcat -d -s Unity | grep "Halcyonic: demonstration plays from its beginning"`:
    one line. Put the token back and restart the app:
    ```bash
@@ -547,7 +547,7 @@ Record in network-pairing.md, and in the pinned transports' row of OPEN_QUESTION
    headset-token-storage.md.
 2. **The walk.** Hands only, no token, no pairing: the walk in
    [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The demonstration judges see". Its welcome was seen in
-   "The demonstration's first visit", which opens ambient, so the walk starts from the closed bar. Look at the timeline in
+   "The demonstration's first visit", which opens closed, so the walk starts from the closed bar. Look at the timeline in
    competition-judge-build.md. Pass: each beat when the timeline says. Record: whether a newcomer
    finds the satisfying moment, the field of view split as the headset shows it, and a clean resume
    after sleep, the system menu and another app.

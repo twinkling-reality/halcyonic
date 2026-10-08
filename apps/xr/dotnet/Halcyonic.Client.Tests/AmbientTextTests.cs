@@ -43,12 +43,12 @@ public class AmbientTextTests
     }
 
     [Test]
-    public void TheDemonstrationsLinesStandAboveTheStageWhileTheMenuIsOpenAndALiveSessionsStepAside()
+    public void TheDemonstrationsLinesAlwaysStandAboveTheStageAndALiveSessionsStepAsideForTheMenu()
     {
         Assert.That(BannerPlace.Of(demonstration: true, panelCovers: true, peekCovers: false), Is.EqualTo(BannerStand.AboveTheStage));
         Assert.That(BannerPlace.Of(demonstration: false, panelCovers: true, peekCovers: false), Is.EqualTo(BannerStand.Hidden),
             "a live session's banner never rises: the menu speaks for it");
-        Assert.That(BannerPlace.Of(demonstration: true, panelCovers: false, peekCovers: false), Is.EqualTo(BannerStand.InPlace), "the closed bar leaves it be");
+        Assert.That(BannerPlace.Of(demonstration: true, panelCovers: false, peekCovers: false), Is.EqualTo(BannerStand.AboveTheStage), "raised over the closed bar too, which stands where it would hang");
         Assert.That(BannerPlace.Of(demonstration: false, panelCovers: false, peekCovers: false), Is.EqualTo(BannerStand.InPlace));
         foreach (var demonstration in new[] { true, false })
         {

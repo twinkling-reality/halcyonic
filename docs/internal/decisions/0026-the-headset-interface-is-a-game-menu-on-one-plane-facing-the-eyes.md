@@ -215,8 +215,10 @@ coordinator's first-visit words:
   something waits, else the place last open.
 - **The demonstration's two lines stay on the line above the stage**, which the menu does not touch
   (ADR 0012). The stage's banner that carries them hangs under the labels, where the open menu
-  stands, and steps aside for it in a live session. In the demonstration it rises instead, while the
-  menu or a file is open: it stands a little more than a degree over the highest a risen character
+  stands, and steps aside for it in a live session. In the demonstration it stands raised instead,
+  whatever is open, the closed bar included, which stands where it would hang (the coordinator,
+  2026-10-08, after the render found the lines overlapping the bar once the demonstration opened
+  closed): it stands a little more than a degree over the highest a risen character
   reaches, as it stands over a surface, and over the open plane's top edge, which over a desk's
   lineup stands where it would; it says the demonstration's lines alone, since the menu says what
   waits (the coordinator, 2026-10-07). The peek still takes its place. Amended 2026-10-08: the stage's
