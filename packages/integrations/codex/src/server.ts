@@ -325,6 +325,8 @@ export class CodexServer {
  * no thread exists yet.
  */
 export async function launchServer(options: LaunchOptions): Promise<CodexServer> {
+  // One deadline for the whole start: the version check, confirming the process and initialize.
+  const deadline = Date.now() + options.startupTimeoutMs;
   const version = await readVersion(options, Math.min(options.startupTimeoutMs, 10_000));
   if (version !== CODEX_VERSION) throw unsupported(options.binaryPath, version);
   const child = spawn(options.binaryPath, APP_SERVER_ARGUMENTS, {
@@ -347,11 +349,11 @@ export async function launchServer(options: LaunchOptions): Promise<CodexServer>
   const rpc = new RpcConnection(child.stdout, child.stdin, options.handlers);
   const server = new CodexServer(child, pid, rpc, options.recordFile);
   try {
-    const record = await identify(server, options.binaryPath);
+    const record = await identify(server, options.binaryPath, deadline);
     await writeServerRecord(options.recordFile, record);
     server.watch(record);
     const params: InitializeParams = { clientInfo: CLIENT_INFO, capabilities: null };
-    const result = await rpc.request('initialize', params, options.startupTimeoutMs);
+    const result = await rpc.request('initialize', params, Math.max(1, deadline - Date.now()));
     const agent = isRecord(result) && typeof result.userAgent === 'string' ? result.userAgent : '';
     const reported = new RegExp(`^${CLIENT_INFO.name}/(\\S+) `).exec(agent)?.[1] ?? 'unknown';
     if (reported !== CODEX_VERSION) throw unsupported(options.binaryPath, reported);
@@ -401,9 +403,23 @@ function unsupported(binaryPath: string, version: string): RuntimeActionError {
   );
 }
 
-/** Reads the launched process's identity. Until exec completes, ps may still show the parent. */
-async function identify(server: CodexServer, binaryPath: string): Promise<ServerRecord> {
-  for (let attempt = 0; attempt < 100 && server.exitStatus === null; attempt += 1) {
+/** The pauses between asks of ps while confirming a launched process, growing from first to last. */
+const IDENTIFY_FIRST_PAUSE_MS = 20;
+const IDENTIFY_LAST_PAUSE_MS = 250;
+
+/**
+ * Reads the launched process's identity. Until exec completes, ps may still show the parent, so it
+ * asks ps until it confirms the process, the process exits, or the start's deadline passes, never
+ * a fixed number of times: on a loaded Mac exec can take longer than a hundred quick asks. The asks
+ * back off from 20 to 250 ms, so a process that never matches does not keep ps busy.
+ */
+async function identify(
+  server: CodexServer,
+  binaryPath: string,
+  deadline: number,
+): Promise<ServerRecord> {
+  let pause = IDENTIFY_FIRST_PAUSE_MS;
+  while (server.exitStatus === null && Date.now() < deadline) {
     const identity = await readProcessIdentity(server.pid);
     if (identity !== null && runsAppServer(identity.command, binaryPath)) {
       return {
@@ -413,7 +429,8 @@ async function identify(server: CodexServer, binaryPath: string): Promise<Server
         startedAt: identity.startedAt,
       };
     }
-    await delay(20);
+    await delay(Math.max(0, Math.min(pause, deadline - Date.now())));
+    pause = Math.min(pause * 2, IDENTIFY_LAST_PAUSE_MS);
   }
   throw new Error(`could not confirm with ps that process ${server.pid} runs ${binaryPath}`);
 }
