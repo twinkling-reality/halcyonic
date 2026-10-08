@@ -1530,6 +1530,7 @@ public class FileColumnTests
             ("Keep it", "Keep\tit"),
             ("Keep it", "Keep\n it"),
             ("Caf\u00E9", "Cafe\u0301"),
+            ("Delete all", "Delete  all"),
         })
         {
             question.Prompts[0].Options[0].Label = first;
@@ -1544,6 +1545,7 @@ public class FileColumnTests
             ("Yes", "\uFF39es"),
             ("file", "\uFB01le"),
             ("Yes", "Ye\u200Bs"),
+            ("Yes", "Yes\u2800"),
         })
         {
             question.Prompts[0].Options[0].Label = first;
