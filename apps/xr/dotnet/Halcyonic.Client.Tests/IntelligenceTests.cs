@@ -517,6 +517,7 @@ public class IntelligenceFeedTests
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unreachable, new Uri("http://127.0.0.1:47800/")))),
                 "your computer didn't answer. Press Refresh to try again."),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), "something went wrong. Press Refresh to try again."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new HandshakeFailedException(Leak, null))), "something went wrong. Press Refresh to try again."),
             (new Newtonsoft.Json.JsonReaderException(Leak), IntelligenceText.AfterColon(ConnectionText.Unreadable)),
             (new InvalidOperationException(Leak), "something went wrong. Press Refresh to try again."),
         };
