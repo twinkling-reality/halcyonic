@@ -193,6 +193,27 @@ only loopback ports (source).
     reported lost. A `session.created` on its server that no creation of the adapter's claims
     stops every task there and the server. The end to end suite makes each change through the API
     and checks the task stops. The adapter reacts after a change; it does not prevent it.
+  - **Nothing internal trips these checks in Halcyonic's setup** (source): a session is created
+    only by the subagent tool (`core/src/tool/plugin/subagent.ts:188`, denied), a configured
+    command whose agent is a subagent (`core/src/config/plugin/command.ts:101`), which runs only
+    through `POST /api/session/:id/command`, never called by the adapter, a plugin through the
+    plugin host (`core/src/plugin/host.ts:521`), which no built-in plugin does, and the API's own
+    create, fork and import. Compaction (`core/src/session/compaction.ts`) and title generation
+    create none; an agent switch emits `session.agent.selected`. `session.permissions` comes only
+    from `PATCH` (`server/src/handlers/session.ts:275`) and the plugin host
+    (`core/src/plugin/host.ts:541`). So only an API call with the password, or a plugin the
+    person configured, stops a task. Runtime, 2026-10-08: a task through the adapter, its tamper
+    checks live, on `qwen3:4b-instruct` with OpenCode told the model has 6,000 tokens of context,
+    read six files of about 1,300 tokens each, then had an explicit `POST /api/session/:id/compact`
+    and a second turn: both turns completed with tool calls, the session's messages held ten
+    compaction marks (one explicit compact alone left three in an earlier run), and nothing was
+    stopped as tampered. The model was unloaded afterwards.
+  - **A race seen along the way:** a start right after launch failed its first turn with
+    `provider_no_route` ("Unsupported package for ollama/qwen3:4b-instruct") when the
+    configuration named the model with its limits, as Halcyonic's own OpenCode settings do: the
+    model is listed from the configuration before Ollama's discovery gives it a package, so the
+    adapter's wait for a listed model can pass too early. Not fixed here
+    ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
   - Stdio mode would keep the password out of the server's environment altogether; it would move
     the adapter off HTTP ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **What the shared data folder still lets through:** Halcyonic's OpenCode uses the person's data
