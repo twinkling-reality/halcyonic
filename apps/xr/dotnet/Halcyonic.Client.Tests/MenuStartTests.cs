@@ -12,7 +12,7 @@ public class MenuStartTests
     [Test]
     public void TheFirstQuestionIsAskedOnlyOnceTheComputersStateIsKnownAndItHasHadNoTask()
     {
-        var visit = new FirstVisit(visited: false);
+        var visit = new FirstVisit();
         Assert.That(visit.Asks(live: false, demonstration: false, Journal, anyTask: false), Is.Null, "not connected, or reconnecting on a stale state: nothing is decided");
         Assert.That(visit.Asks(live: true, demonstration: false, journalId: null, anyTask: false), Is.Null, "nothing is decided before the first snapshot");
         Assert.That(visit.Asks(live: true, demonstration: true, Journal, anyTask: false), Is.False, "the demonstration never asks: it opens ambient");
@@ -23,21 +23,21 @@ public class MenuStartTests
     [Test]
     public void AComputerThatHasHadATaskIsNeverAskedAgainOnThisHeadsetWhateverBecomesOfItsWork()
     {
-        var visit = new FirstVisit(visited: true);
+        var visit = new FirstVisit();
         Assert.That(visit.Asks(live: true, demonstration: false, Journal, anyTask: true), Is.False);
         Assert.That(visit.Started, Is.EqualTo(Journal));
         Assert.That(visit.Asks(live: true, demonstration: false, Journal, anyTask: false), Is.False, "its work gone, it still had a task");
         Assert.That(visit.Asks(live: true, demonstration: false, Another, anyTask: false), Is.True, "another computer's journal is another first visit");
 
-        var kept = new FirstVisit(visited: true, started: visit.Started);
+        var kept = new FirstVisit(visit.Started);
         Assert.That(kept.Asks(live: true, demonstration: false, Journal, anyTask: false), Is.False, "kept on the device");
-        Assert.That(new FirstVisit(visited: true, started: "  ").Asks(live: true, demonstration: false, Journal, anyTask: false), Is.True, "nothing kept is no task");
+        Assert.That(new FirstVisit("  ").Asks(live: true, demonstration: false, Journal, anyTask: false), Is.True, "nothing kept is no task");
     }
 
     [Test]
     public void TheDeviceRemembersTheMostRecentJournalsThatHadATask()
     {
-        var visit = new FirstVisit(visited: true);
+        var visit = new FirstVisit();
         var journals = Enumerable.Range(0, FirstVisit.Journals + 1).Select(index => "journal-" + index).ToList();
         foreach (var journal in journals) visit.Asks(live: true, demonstration: false, journal, anyTask: true);
         Assert.That(visit.Started.Split(' '), Has.Length.EqualTo(FirstVisit.Journals));
@@ -47,30 +47,27 @@ public class MenuStartTests
     }
 
     [Test]
-    public void TheFirstVisitOpensOnTheQuestionOnceWithNothingOpen()
+    public void TheQuestionOpensByItselfOnceAnAppStartWhenTheLiveStateIsFirstReady()
     {
-        var visit = new FirstVisit(visited: false);
+        var visit = new FirstVisit();
         Assert.That(visit.Due(demonstration: false, somethingOpen: false, asks: null), Is.False, "not before the computer's state is known");
-        Assert.That(visit.Due(demonstration: false, somethingOpen: true, asks: true), Is.False, "never over work already open");
-        Assert.That(visit.Due(demonstration: true, somethingOpen: false, asks: false), Is.False, "the demonstration opens ambient");
-        Assert.That(visit.Visited, Is.False, "none of those counts as the visit");
+        Assert.That(visit.Due(demonstration: true, somethingOpen: false, asks: false), Is.False, "the demonstration opens closed");
+        Assert.That(visit.Visited, Is.False, "neither counts as the visit");
         Assert.That(visit.Due(demonstration: false, somethingOpen: false, asks: true), Is.True);
         Assert.That(visit.Visited, Is.True);
-        Assert.That(visit.Due(demonstration: false, somethingOpen: false, asks: true), Is.False, "once only");
+        Assert.That(visit.Due(demonstration: false, somethingOpen: false, asks: true), Is.False, "a reconnect doesn't open it again");
+        Assert.That(new FirstVisit().Due(demonstration: false, somethingOpen: false, asks: true), Is.True, "the next app start, still with no task, opens it again");
     }
 
     [Test]
-    public void AFirstVisitToAComputerWithWorkCountsAndOpensClosed()
+    public void AFirstVisitWithWorkOrSomethingOpenCountsAndOpensNothing()
     {
-        var visit = new FirstVisit(visited: false);
-        Assert.That(visit.Due(demonstration: false, somethingOpen: false, asks: false), Is.False, "it opens closed, as later visits do");
-        Assert.That(visit.Visited, Is.True);
-    }
-
-    [Test]
-    public void ADeviceThatWasWelcomedBeforeIsNotOpenedOnAgain()
-    {
-        Assert.That(new FirstVisit(visited: true).Due(demonstration: false, somethingOpen: false, asks: true), Is.False);
+        var withWork = new FirstVisit();
+        Assert.That(withWork.Due(demonstration: false, somethingOpen: false, asks: false), Is.False, "it opens closed");
+        Assert.That(withWork.Visited, Is.True);
+        var busy = new FirstVisit();
+        Assert.That(busy.Due(demonstration: false, somethingOpen: true, asks: true), Is.False, "never over work already open");
+        Assert.That(busy.Due(demonstration: false, somethingOpen: false, asks: true), Is.False, "nor once it closes: the visit has come");
     }
 
     private static ClientProjection State() => new Portfolio()

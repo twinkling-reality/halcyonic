@@ -135,14 +135,13 @@ that the companion is an AI.
 
 Then the demonstration's first visit, on the far and desk stages with the 3S's field:
 `far-3s-demo-welcome-1-ambient`, `-2-a-task-waits` and `-3-projects`, and the same for `desk-3s`,
-at each text size. It opens ambient: the recorded characters, the closed bar and the
-demonstration's lines in the banner's own place, as the recording begins and once its directed task
-waits; then Projects, a press from the bar, with the banner raised above the characters and the
-demonstration's lines alone. It fails if the first visit asks the first question or opens anything,
+at each text size. It opens closed: the recorded characters and the closed bar, as the recording
+begins and once its directed task waits; then Projects, from the bar's Open; the banner raised
+above the characters throughout, with the demonstration's lines alone. It fails if the first visit asks the first question or opens anything,
 if the closed bar doesn't say what waits, if the demonstration's lines would be missing, or a live
 session's banner would show or rise with the menu open; if the lines come within a degree of a
 character's highest reach, risen and moving, of a label, the bar or the plane; if they leave the
-field while the menu is read; if, raised, they reach more than 20 degrees above eye level; or if
+field while the menu is read; if they reach more than 20 degrees above eye level; or if
 Tasks does not take the amber dot when the task waits. The log says from how high to how high the
 lines stand.
 
@@ -1020,9 +1019,9 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
 
 - **The line.** Above the stage: "Demo: recorded work played on this headset. Nothing here is
   live." and "It follows your answers. Nothing reaches an agent." Every character carries the Demo
-  mark. While the menu is open the line rises over the characters, a degree above the highest a
-  risen one reaches, and the peek still hides it.
-- **The welcome.** The demonstration opens ambient: the recorded characters, the line above the
+  mark. The line stands over the characters, a degree above the highest a risen one reaches, with the
+  menu open or closed, and the peek still hides it.
+- **The welcome.** The demonstration opens closed: the recorded characters, the line above the
   stage and the closed bar (`demo-welcome-1-ambient`); nothing opens by itself, and the first
   question never shows, since the recording starts with its work. When the task below comes to wait,
   the bar says so (`demo-welcome-2-a-task-waits`). Projects, with the recording's projects and New

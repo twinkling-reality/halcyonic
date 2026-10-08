@@ -1817,10 +1817,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   a task, the 8 most recently seen: a journal is one computer's, so the plate never asks again on
   that computer, and another computer, or one whose journal starts afresh, has its own first visit.
   A key for the whole device would ask nothing of a second computer with no work, which still needs
-  the plate. On the first visit, with nothing open, the director opens the menu on the plate by
-  itself, once, under the key the retired entry panel's welcome kept, so no one welcomed before is
-  opened on again; a first visit to a computer with work counts and opens nothing. The
-  demonstration never asks and opens nothing: it opens ambient. While the computer has no task at
+  the plate. The director opens the menu on the plate by itself once each app start, when the live
+  state is first ready with nothing open; a reconnect doesn't open it again, and a first visit to a
+  computer with work counts and opens nothing. Nothing else about the visit is kept: the retired
+  `halcyonic.entry.welcomed` and `halcyonic.demo.welcomed` are no longer read. The demonstration
+  never asks and opens nothing: it opens closed, its lines raised above the stage over the bar. While the computer has no task at
   all the closed bar says "Nothing is running yet" (`TasksText.NothingRunning`).
 - **Settings:** the menu's Settings (`SettingsColumn`, above): Your space, from `SpaceSettings`
   (the room shown and what it offers, given by the room's controls, where the characters stand, and

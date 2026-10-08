@@ -89,7 +89,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 MenuFrame? Menu() => navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu;
 
                 // The first visit, as the workspace's director takes it once the computer's state is known with nothing open.
-                var visit = new FirstVisit(visited: false);
+                var visit = new FirstVisit();
                 var asks = visit.Asks(live: true, demonstration: false, state.Journal?.JournalId, state.Workstreams.Count > 0);
                 if (asks != true) failures.Add(name + ": a computer with no task is not asked the first question.");
                 director.BeforeFirstTask = asks == true;
