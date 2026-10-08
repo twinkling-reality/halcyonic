@@ -279,9 +279,10 @@ the same definition names, as the JSON Schema document:
   workspace reports which part of it shows (`RequestShown`), each part turned to starts the 15
   seconds again, and until the last part has shown the question says to read the whole request
   first (`CanConfirm` is false) and a confirmation sends nothing and stays armed. Denying needs no
-  reading, since refusing what one has not read in full can do no harm. A request the control plane
-  cut to fit its limit ("[truncated]", `WorkspaceText.CutShort`) was never shown whole, so it offers
-  only Deny, and says why. An approval's request shows by `LabelText.Exact`: `Plain`, except that a
+  reading, since refusing what one has not read in full can do no harm. A request never shown whole
+  offers only Deny, and says why (`WorkspaceText.OnlyDeny`): one the control plane cut to fit its
+  limit ("[truncated]"), or an OpenCode shell request whose adapter could not learn the command,
+  marked "[whole command not known]" before the parts OpenCode's parse found. An approval's request shows by `LabelText.Exact`: `Plain`, except that a
   line break, a tab and every other white space but the space shows as its code point, as
   ‹U+000A›, so two commands on two lines never read as one. Instruct asks for text
   first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless

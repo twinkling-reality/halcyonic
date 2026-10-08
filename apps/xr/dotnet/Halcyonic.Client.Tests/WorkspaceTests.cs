@@ -298,7 +298,7 @@ public class WorkspacePresenterTests
     }
 
     [Test]
-    public void ARequestShowsEveryLineBreakAndOneCutToFitCanOnlyBeDenied()
+    public void ARequestShowsEveryLineBreakAndOneNotShownWholeCanOnlyBeDenied()
     {
         var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");
         WorkspacePresentation Asking(string summary)
@@ -323,8 +323,15 @@ public class WorkspacePresenterTests
         var cut = Asking("echo start " + new string('x', 1980) + " [truncated]");
         Assert.That(cut.Actions, Does.Contain(WorkspaceAction.Deny));
         Assert.That(cut.Actions, Does.Not.Contain(WorkspaceAction.Approve));
-        Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Does.Contain("It's too long to show you whole, so you can only deny it."));
+        Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Does.Contain("This command is too long to show you whole, so you can only deny it."));
         Assert.That(WorkspaceText.NeedFromYou(cut)!.Notes, Has.None.Contains("Approve"));
+
+        // OpenCode's adapter marks a shell request whose whole command it could not learn.
+        var unknown = Asking("[whole command not known] echo start\nrm -rf build");
+        Assert.That(unknown.Actions, Does.Contain(WorkspaceAction.Deny));
+        Assert.That(unknown.Actions, Does.Not.Contain(WorkspaceAction.Approve));
+        Assert.That(WorkspaceText.NeedFromYou(unknown)!.Notes, Does.Contain("Your computer couldn't get the whole command, so you can only deny it."));
+        Assert.That(WorkspaceText.NeedFromYou(unknown)!.Notes, Has.None.Contains("Approve"));
     }
 
     [Test]

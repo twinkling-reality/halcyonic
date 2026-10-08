@@ -27,6 +27,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { type HttpResponse, type OpenCodeClient, TransportError } from './client.ts';
 import {
+  askedCall,
   createSessionState,
   decodeEvent,
   endTurn,
@@ -37,7 +38,8 @@ import {
   observeEvent,
   type SessionState,
   SHELL_TOOL,
-  shellCommand,
+  shellCallKey,
+  shellRequest,
   toTimestamp,
 } from './events.ts';
 import {
@@ -89,29 +91,38 @@ export interface PermissionRule {
  */
 export const DENIED_TOOLS: readonly string[] = ['execute', 'webfetch', 'websearch', 'subagent'];
 
+/** Every spelling of a name by the case of its letters, for a disk that ignores case. */
+function caseSpellings(name: string): string[] {
+  return [...name].reduce<string[]>(
+    (spellings, character) =>
+      spellings.flatMap((spelling) =>
+        character.toLowerCase() === character.toUpperCase()
+          ? [spelling + character]
+          : [spelling + character.toLowerCase(), spelling + character.toUpperCase()],
+      ),
+    [''],
+  );
+}
+
 /**
  * The paths OpenCode 2.0.18 reads its configuration from, as `edit` resources (relative to the
- * session's folder, or absolute outside it): in the folder and every folder above it, `.opencode`
+ * session's folder, or absolute outside it), and a repository's `.git`, all denied as hidden
+ * paths: every path one of whose parts starts with a dot, `*` matching `/` too
+ * (core/src/util/wildcard.ts). In the folder and every folder above it OpenCode reads `.opencode`
  * (whose plugins load as server code), `.claude`, `.agents`, `opencode.json` and `opencode.jsonc`
- * (core/src/config/discovery.ts), and `~/.claude` and `~/.agents`, which `*` covers, since it
- * matches `/` too (core/src/util/wildcard.ts). OpenCode watches them and reloads MCP servers and
- * plugins, so an edit there could add either. Also a repository's `.git`, file or folder: its
- * configuration and hooks name programs that git runs, so an edit there would run code when a
- * person approves a git command that looks harmless.
+ * (core/src/config/discovery.ts), and `~/.claude` and `~/.agents`; it watches them and reloads MCP
+ * servers and plugins, so an edit there could add either. A `.git` file or folder names programs
+ * git runs, so an edit there would run code when a person approves a git command that looks
+ * harmless. OpenCode matches resources by case on macOS, whose disk does not, so a rule for one
+ * name misses its other spellings; a rule for every hidden path has none. `opencode.json` and
+ * `opencode.jsonc` are not hidden, so every spelling of `opencode` by case is denied with any
+ * extension of four letters or more (opencode-permissions.md). The cost: the edit tool cannot
+ * change any dotfile, such as `.gitignore`; a shell command can, once the person approves it.
  */
 const CONFIG_PATHS: readonly string[] = [
-  '.opencode/*',
-  '*/.opencode/*',
-  '.claude/*',
-  '*/.claude/*',
-  '.agents/*',
-  '*/.agents/*',
-  'opencode.json*',
-  '*/opencode.json*',
-  '.git',
-  '.git/*',
-  '*/.git',
-  '*/.git/*',
+  '.*',
+  '*/.*',
+  ...caseSpellings('opencode').flatMap((name) => [`${name}.????*`, `*/${name}.????*`]),
 ];
 
 /**
@@ -1251,9 +1262,9 @@ function readiness(): Readiness {
 }
 
 /** Reads a session in the order `SessionSnapshot` documents: each read can only be newer. */
-async function readSnapshot(
-  client: OpenCodeClient,
-  session: HostedSession,
+export async function readSnapshot(
+  client: Pick<OpenCodeClient, 'request'>,
+  session: Pick<HostedSession, 'sessionId' | 'state'>,
 ): Promise<SessionSnapshot> {
   const base = `/api/session/${encodeURIComponent(session.sessionId)}`;
   const inbox = new Set<string>();
@@ -1288,17 +1299,13 @@ async function readSnapshot(
   // The tool call each pending shell request was raised for, whose command it shows.
   const askedBy = new Map<string, string>();
   for (const item of permissions) {
-    if (!isRecord(item) || typeof item.id !== 'string' || item.action !== SHELL_TOOL) continue;
-    if (
-      isRecord(item.source) &&
-      item.source.type === 'tool' &&
-      typeof item.source.id === 'string'
-    ) {
-      askedBy.set(item.id, item.source.id);
-    }
+    if (!isRecord(item) || typeof item.id !== 'string') continue;
+    const call = askedCall(item.action, item.source);
+    if (call !== null) askedBy.set(item.id, call);
   }
   const toolStatus = new Map<string, string>();
-  const commands = new Map<string, string>();
+  // Newest first, as OpenCode lists messages; a call id seen again in an older message is not it.
+  const commands = new Map<string, string | null>();
   if ((running && session.state.tools.size > 0) || askedBy.size > 0) {
     const messages = await readData(client, `${base}/message`);
     for (const item of Array.isArray(messages) ? messages : []) {
@@ -1308,11 +1315,14 @@ async function readSnapshot(
         if (isRecord(part.state) && typeof part.state.status === 'string') {
           toolStatus.set(part.id, part.state.status);
         }
-        const command =
+        const call = shellCallKey(item.id, part.id);
+        if (call === null || commands.has(call)) continue;
+        commands.set(
+          call,
           part.name === SHELL_TOOL && isRecord(part.state) && isRecord(part.state.input)
-            ? shellCommand(part.state.input)
-            : null;
-        if (command !== null) commands.set(part.id, command);
+            ? shellRequest(part.state.input)
+            : null,
+        );
       }
     }
   }
@@ -1323,7 +1333,9 @@ async function readSnapshot(
     const command =
       call === undefined
         ? null
-        : (commands.get(call) ?? session.state.shellCalls.get(call) ?? null);
+        : commands.has(call)
+          ? (commands.get(call) ?? null)
+          : (session.state.shellCalls.get(call) ?? null);
     pending.push({ id: item.id, action: item.action, resources: item.resources, command });
   }
   return {
@@ -1338,7 +1350,7 @@ async function readSnapshot(
   };
 }
 
-async function readData(client: OpenCodeClient, path: string): Promise<unknown> {
+async function readData(client: Pick<OpenCodeClient, 'request'>, path: string): Promise<unknown> {
   const response = await client.request('GET', path, { timeoutMs: READ_TIMEOUT_MS });
   if (response.status !== 200 || !isRecord(response.body) || !('data' in response.body)) {
     throw new Error(`GET ${path} answered ${response.status}`);

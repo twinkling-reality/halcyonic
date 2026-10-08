@@ -281,10 +281,24 @@ namespace Halcyonic.Client
         private static bool IsCut(string? text) => text != null && text.Contains("[truncated]");
 
         /// <summary>
-        /// Whether the control plane cut an approval's request to fit, so the person could never read
-        /// all of what it would run: such a request can only be denied.
+        /// What an OpenCode shell request's summary starts with when its adapter could not learn the
+        /// whole command, so it shows only the parts OpenCode found in it (the adapter's UNKNOWN_COMMAND).
         /// </summary>
-        public static bool CutShort(ApprovalView approval) => approval.Subject is ToolUseSubject tool && IsCut(tool.Summary);
+        public const string UnknownCommand = "[whole command not known]";
+
+        /// <summary>
+        /// Why an approval's request can only be denied, or null when it can be approved: the control
+        /// plane cut it to fit, or its whole command is not known, so the person could never read all
+        /// of what it would run.
+        /// </summary>
+        public static string? OnlyDeny(ApprovalView approval) => approval.Subject is ToolUseSubject tool
+            ? IsCut(tool.Summary) ? TooLongToShow
+                : tool.Summary.Contains(UnknownCommand) ? CommandNotKnown
+                : null
+            : null;
+
+        public const string TooLongToShow = "This command is too long to show you whole, so you can only deny it.";
+        public const string CommandNotKnown = "Your computer couldn't get the whole command, so you can only deny it.";
 
         /// <summary>The goal line under the status: the workstream's objective.</summary>
         public static string Goal(WorkspacePresentation workspace) => "Goal: " + Objective(workspace);
@@ -325,9 +339,9 @@ namespace Halcyonic.Client
             var notes = new List<string>();
             var waiting = workspace.Execution?.PendingApprovals.Count ?? 0;
             if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests are waiting. This is the oldest.");
-            if (CutShort(approval))
+            if (OnlyDeny(approval) is string onlyDeny)
             {
-                notes.Add("It's too long to show you whole, so you can only deny it.");
+                notes.Add(onlyDeny);
                 notes.Add("Deny refuses; it may try another way.");
                 notes.Add("Your answer counts once the agent confirms it.");
             }

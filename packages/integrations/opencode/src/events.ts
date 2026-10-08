@@ -91,9 +91,9 @@ export interface SessionState {
   /** Tool calls that started and have not finished. */
   readonly tools: Set<string>;
   /**
-   * Shell tool calls that have not finished, by tool call id, with the command the model gave once
-   * OpenCode published the call (`session.tool.called`, which it does before the tool runs): what
-   * an approval of the call shows, whole, in place of the parts OpenCode's parse found in it.
+   * Shell tool calls that have not finished, by `shellCallKey`, with what an approval of the call
+   * shows (`shellRequest`) once OpenCode published the call (`session.tool.called`, which it does
+   * before the tool runs), in place of the parts OpenCode's parse found in it.
    */
   readonly shellCalls: Map<string, string | null>;
   /** Pending forms, the agent's questions (ADR 0022), with what answering them needs. */
@@ -173,15 +173,13 @@ export function observeEvent(
     return [];
   }
   // A shell call's command is kept whenever it is seen, for the approval that may follow it.
-  if (event.type === 'session.tool.input.started' && data.name === SHELL_TOOL) {
-    const id = nonBlank(data.id);
-    if (id !== null && !state.shellCalls.has(id)) state.shellCalls.set(id, null);
-  } else if (event.type === 'session.tool.called') {
-    const id = nonBlank(data.id);
-    const command = isRecord(data.input) ? shellCommand(data.input) : null;
-    if (id !== null && state.shellCalls.has(id) && command !== null) {
-      state.shellCalls.set(id, command);
-    }
+  // A call id comes from the provider, so a call is known by its message's id and its own.
+  const call = shellCallKey(data.assistantMessageID, data.id);
+  if (event.type === 'session.tool.input.started' && call !== null) {
+    if (data.name === SHELL_TOOL) state.shellCalls.set(call, null);
+    else state.shellCalls.delete(call);
+  } else if (event.type === 'session.tool.called' && call !== null && state.shellCalls.has(call)) {
+    state.shellCalls.set(call, isRecord(data.input) ? shellRequest(data.input) : null);
   }
   // Agent text is history, not state, so it is reported even from a settled stretch.
   if (
@@ -282,7 +280,7 @@ export function observeEvent(
     case 'session.tool.success':
     case 'session.tool.failed': {
       const id = nonBlank(data.id);
-      if (id !== null) state.shellCalls.delete(id);
+      if (call !== null) state.shellCalls.delete(call);
       if (id === null || !state.tools.has(id)) return [];
       state.tools.delete(id);
       return make('runtime.tool.completed', {
@@ -402,31 +400,69 @@ export function replyOutcome(reply: unknown): ApprovalOutcome | null {
 /** The name of OpenCode 2.0.18's shell tool, which is also the action its permission asks. */
 export const SHELL_TOOL = 'shell';
 
-/** The command a shell tool call's input gives, exactly as the model wrote it, or null. */
-export function shellCommand(input: Readonly<Record<string, unknown>>): string | null {
-  return typeof input.command === 'string' && /\S/.test(input.command) ? input.command : null;
-}
-
 /**
- * The command a shell permission request was raised for, when the request names the tool call
- * (`source`, `{type: "tool", id}`) and that call's command is known.
+ * What a shell request's summary starts with when the command it was raised for is not known, so
+ * it shows only the parts OpenCode's parse found. At the start, a cut to fit never removes it; the
+ * headset offers only Deny for such a request (`WorkspaceText`).
  */
-function askedCommand(state: SessionState, action: unknown, source: unknown): string | null {
-  if (action !== SHELL_TOOL || !isRecord(source) || source.type !== 'tool') return null;
-  const id = nonBlank(source.id);
-  return id === null ? null : (state.shellCalls.get(id) ?? null);
+export const UNKNOWN_COMMAND = '[whole command not known]';
+
+/**
+ * What a shell tool call's input asks to run, as an approval shows it: where and how, in a bracket
+ * that always comes first, so a command that itself starts with a bracket always follows the real
+ * one, "[in the task's folder]" or "[in "<workdir as given>"]", with ", in the background" inside it
+ * when it applies; then the command exactly as the model wrote it. Null when the input does not
+ * say it plainly: no command, or a workdir or background of another type than OpenCode's schema
+ * takes, which it could repair into one after the ask, or a workdir with a bracket in it.
+ */
+export function shellRequest(input: Readonly<Record<string, unknown>>): string | null {
+  const command = input.command;
+  const workdir = input.workdir;
+  const background = input.background;
+  if (typeof command !== 'string' || !/\S/.test(command)) return null;
+  if (workdir !== undefined && (typeof workdir !== 'string' || /[[\]]/.test(workdir))) return null;
+  if (background !== undefined && typeof background !== 'boolean') return null;
+  // Quoted, so no folder's name can read as the task's folder.
+  const where =
+    workdir === undefined || workdir === ''
+      ? "in the task's folder"
+      : `in ${JSON.stringify(workdir)}`;
+  return `[${where}${background === true ? ', in the background' : ''}] ${command}`;
+}
+
+/** A tool call's key: its assistant message's id and its own, or null without either. */
+export function shellCallKey(messageId: unknown, callId: unknown): string | null {
+  const message = nonBlank(messageId);
+  const id = nonBlank(callId);
+  return message === null || id === null ? null : `${message}\u0000${id}`;
 }
 
 /**
- * A permission request as a tool use: its action names the tool, and what it would touch is the
- * shell command the request was raised for, whole, when it is known, else the resources OpenCode
- * listed. For a shell command those are only the parts its parse found, which can leave out what
- * else the command runs or writes (opencode-permissions.md), so the command itself is preferred.
+ * The tool call a shell permission request names (`source`, `{type: "tool", messageID, id}`),
+ * as its key, or null for another action or a request that names none.
+ */
+export function askedCall(action: unknown, source: unknown): string | null {
+  if (action !== SHELL_TOOL || !isRecord(source) || source.type !== 'tool') return null;
+  return shellCallKey(source.messageID, source.id);
+}
+
+/** What the shell call a permission request names asks to run, when it is known. */
+function askedCommand(state: SessionState, action: unknown, source: unknown): string | null {
+  const call = askedCall(action, source);
+  return call === null ? null : (state.shellCalls.get(call) ?? null);
+}
+
+/**
+ * A permission request as a tool use: its action names the tool, and what it would touch is what
+ * the shell call the request was raised for asks to run (`shellRequest`), whole, when it is known,
+ * else the resources OpenCode listed. For a shell command those are only the parts its parse
+ * found, which can leave out what else the command runs or writes (opencode-permissions.md), so
+ * without the call's request they follow `UNKNOWN_COMMAND`.
  */
 export function approvalSubject(
   action: unknown,
   resources: unknown,
-  command: string | null = null,
+  request: string | null = null,
 ): ApprovalSubject | null {
   const tool = nonBlank(action);
   if (tool === null) return null;
@@ -437,7 +473,9 @@ export function approvalSubject(
     kind: 'tool_use',
     tool_name: clip(tool, 128),
     // Whole: the control plane takes credentials out, then cuts it to the contract.
-    summary: command ?? (listed.length > 0 ? listed.join('\n') : tool),
+    summary:
+      request ??
+      `${tool === SHELL_TOOL ? `${UNKNOWN_COMMAND} ` : ''}${listed.length > 0 ? listed.join('\n') : tool}`,
   };
 }
 

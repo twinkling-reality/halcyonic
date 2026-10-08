@@ -44,7 +44,7 @@ export interface PendingPermission {
   readonly id: string;
   readonly action: unknown;
   readonly resources: unknown;
-  /** For a shell request, the command of the tool call it was raised for, when that is known. */
+  /** For a shell request, what the tool call it was raised for asks to run, when that is known. */
   readonly command: string | null;
 }
 

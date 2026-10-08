@@ -179,7 +179,11 @@ describe('reconciling a session after the event stream reconnected', () => {
     );
     assert.deepEqual(observations[1]?.payload, {
       approval_id: 'per_2',
-      subject: { kind: 'tool_use', tool_name: 'shell', summary: 'echo hi' },
+      subject: {
+        kind: 'tool_use',
+        tool_name: 'shell',
+        summary: '[whole command not known] echo hi',
+      },
     });
   });
 

@@ -409,7 +409,7 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Agent apps'), 'Look at this');
     assert.match(
       text(machine),
-      /OpenCode uses your own OpenCode settings\. Halcyonic doesn't read them, so it can't tell whether they put OpenCode on a model this Mac serves\./,
+      /Halcyonic can't tell whether your own settings put OpenCode on a model this computer serves\./,
     );
     assert.match(text(machine), /pnpm mac-setup local-model qwen3\.6:35b-a3b-nvfp4/);
   });

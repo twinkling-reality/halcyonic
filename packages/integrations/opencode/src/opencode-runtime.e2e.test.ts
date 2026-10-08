@@ -333,7 +333,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.deepEqual(requested.payload.subject, {
       kind: 'tool_use',
       tool_name: 'shell',
-      summary: FAKE_SHELL_COMMAND,
+      summary: `[in the task's folder] ${FAKE_SHELL_COMMAND}`,
     });
     await runtime.respondToApproval({
       execution: execution.context,
@@ -1182,7 +1182,7 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
   );
 
   test(
-    'a write to a path OpenCode reads its configuration from, or to .git, is refused; any other is not, and none asks',
+    'a write to a hidden path or to opencode.json, in any case, is refused; any other is not, and none asks',
     SLOW_TEST,
     async (t) => {
       const { sandbox, start } = await harness(t);
@@ -1196,6 +1196,13 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
         '.git/config',
         '.git/hooks/pre-commit',
         'sub/.git/config',
+        // The disk ignores case, OpenCode's matching does not; every spelling is hidden.
+        '.GIT/config',
+        'sub/.Git/hooks/pre-commit',
+        '.OpenCode/plugin/p.ts',
+        'OpenCode.json',
+        // The cost of denying every hidden path: dotfiles need a shell command, which asks.
+        '.gitignore',
       ]) {
         const execution = await start(call('write', { path, content: 'export default {}\n' }));
         await execution.next('runtime.turn.completed');
@@ -1463,6 +1470,8 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
 }, () => {
   // OpenCode's parse lists this as "echo start" and "printf ran", without where it writes.
   const COMMAND = 'echo start && printf ran > ran.txt';
+  // What the person reads before Yes: where it runs, then the command itself.
+  const SHOWN = `[in the task's folder] ${COMMAND}`;
   const ran = (sandbox: OpenCodeSandbox) => join(sandbox.project, 'ran.txt');
   const location = (sandbox: OpenCodeSandbox) =>
     `?location%5Bdirectory%5D=${encodeURIComponent(sandbox.project)}`;
@@ -1500,7 +1509,7 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
       const execution = await start(call('shell', { command: COMMAND }));
       const request = await asked(execution);
       // What the person reads before Yes is the command itself.
-      assert.deepEqual(request.subject, { kind: 'tool_use', tool_name: 'shell', summary: COMMAND });
+      assert.deepEqual(request.subject, { kind: 'tool_use', tool_name: 'shell', summary: SHOWN });
       await delay(500);
       assert.equal(existsSync(ran(sandbox)), false, 'the command ran before Yes');
       await runtime.respondToApproval({
@@ -1517,7 +1526,7 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
       assert.deepEqual((saved.body as { data: unknown[] }).data, [], 'a rule was saved');
       const again = await start(call('shell', { command: COMMAND }));
       const second = await asked(again);
-      assert.equal(second.subject.kind === 'tool_use' && second.subject.summary, COMMAND);
+      assert.equal(second.subject.kind === 'tool_use' && second.subject.summary, SHOWN);
       await runtime.respondToApproval({
         execution: again.context,
         approval_id: second.approval_id,
@@ -1558,7 +1567,7 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
 
       const execution = await start(call('shell', { command: COMMAND }));
       const request = await asked(execution);
-      assert.equal(request.subject.kind === 'tool_use' && request.subject.summary, COMMAND);
+      assert.equal(request.subject.kind === 'tool_use' && request.subject.summary, SHOWN);
       await runtime.respondToApproval({
         execution: execution.context,
         approval_id: request.approval_id,
