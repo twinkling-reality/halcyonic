@@ -562,6 +562,23 @@ namespace Halcyonic.Client
         internal static SectionLine Remaining(UnderstandingRemainingItem item)
         {
             var text = IntelligenceText.Plain(item.Text);
+            if (item.Source == UnderstandingRemainingItemSource.Agent && item.Status != UnderstandingRemainingItemStatus.Reported)
+            {
+                // The agent's own words, whatever the source's tag: reported, quoted and attributed (AGENTS.md;
+                // settled by the coordinator, 2026-10-07).
+                var lead = item.Status switch
+                {
+                    UnderstandingRemainingItemStatus.Failing => "Failing",
+                    UnderstandingRemainingItemStatus.InProgress => "In progress",
+                    _ => "To do",
+                };
+                return new SectionLine("reported", lead + ", the agent says: “" + text + "”", SectionTone.Claim,
+                    words: lead + ": “" + text + "”", chip: "Agent says");
+            }
+            if (item.Source == UnderstandingRemainingItemSource.Agent)
+            {
+                return new SectionLine("reported", "Still to do, the agent says: “" + text + "”", SectionTone.Claim, words: "Still to do: “" + text + "”", chip: "Agent says");
+            }
             return item.Status switch
             {
                 UnderstandingRemainingItemStatus.Reported => new SectionLine(Word(item.Epistemic), "Still to do, the agent says: “" + text + "”", SectionTone.Claim,
@@ -578,12 +595,16 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A statement as a line: quoted, leaning, its class kept. A reported statement's chip says who
-        /// said it, and its words are the quote alone; one the source observed goes without a chip.
+        /// said it, and its words are the quote alone; one the source observed goes without a chip. An agent's
+        /// or a subagent's is always reported.
         /// </summary>
         internal static SectionLine QuoteLine(UnderstandingStatement statement, int rows, string? lead = null)
         {
             var quoted = "“" + IntelligenceText.Plain(statement.Text) + "”";
-            var evidence = SectionLine.EvidenceOf(Word(statement.Epistemic));
+            // An agent's or a subagent's words are reported, never observed, whatever the source tagged them (AGENTS.md).
+            var byAgent = statement.Author == UnderstandingStatementAuthor.Agent || statement.Author == UnderstandingStatementAuthor.Subagent;
+            var tag = byAgent ? "reported" : Word(statement.Epistemic);
+            var evidence = SectionLine.EvidenceOf(tag);
             var chip = evidence == Evidence.Reported
                 ? statement.Author switch
                 {
@@ -592,7 +613,7 @@ namespace Halcyonic.Client
                     _ => "Author unknown",
                 }
                 : SectionLine.ChipOf(evidence);
-            return new SectionLine(Word(statement.Epistemic), (lead ?? "") + Quote(statement), SectionTone.Claim, rows: rows, evidence: evidence,
+            return new SectionLine(tag, (lead ?? "") + Quote(statement), SectionTone.Claim, rows: rows, evidence: evidence,
                 words: (lead ?? "") + quoted, chip: chip);
         }
 

@@ -550,8 +550,35 @@ public class UnderstandingAnswersTests
                 understanding["remaining"]!["items"]![0]!["epistemic"] = word;
             });
             Assert.That(Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), "Planned").Tag, Is.EqualTo(word));
-            Assert.That(Answers.Understand(UnderstandPrompt.WhyChanged, json).Lines[0].Tag, Is.EqualTo(word), "shown as the source classed it, reported or not");
+            // The reason is the agent's words, so it is reported whatever the source tagged it (AGENTS.md; the outside-text audit's gap 2).
+            Assert.That(Answers.Understand(UnderstandPrompt.WhyChanged, json).Lines[0].Tag, Is.EqualTo("reported"), "an agent's words are never upgraded");
             Assert.That(Intelligence.Line(Answers.Checked(json, ControlPlaneApiTests.Available), "Tests passed").Tag, Is.EqualTo(word));
+        }
+    }
+
+    /// <summary>
+    /// An agent's words are reported, quoted and attributed whatever the source tagged them: a statement and a
+    /// remaining item from the agent never show as observed (AGENTS.md; settled by the coordinator, 2026-10-07).
+    /// </summary>
+    [Test]
+    public void AnAgentsWordsAreAlwaysAttributedToIt()
+    {
+        foreach (var (status, lead) in new[] { ("failing", "Failing"), ("in_progress", "In progress"), ("pending", "To do"), ("reported", "Still to do") })
+        {
+            var json = Intelligence.Edit(Intelligence.Verified, response =>
+            {
+                var understanding = Intelligence.UnderstandingOf(response);
+                understanding["verification"]!["statements"]![0]!["epistemic"] = "observed";
+                var item = (JObject)understanding["remaining"]!["items"]![0]!;
+                item["source"] = "agent";
+                item["status"] = status;
+                item["epistemic"] = "observed";
+            });
+            var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), lead + ", the agent says: ");
+            Assert.That((line.Text, line.Words, line.Chip, line.Tone),
+                Is.EqualTo((lead + ", the agent says: “Document refund behaviour for support”", lead + ": “Document refund behaviour for support”", "Agent says", SectionTone.Claim)), status);
+            var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith("Agent says: “All tests pass.", StringComparison.Ordinal));
+            Assert.That((statement.Tag, statement.Chip), Is.EqualTo(("reported", "Agent says")), "a statement the source tagged observed");
         }
     }
 
@@ -1010,9 +1037,12 @@ public class EvidenceTests
         var subagent = Brief(UnderstandPrompt.WhyChanged, With("subagent", "reported")).Lines[0];
         Assert.That((subagent.Chip, subagent.Tone), Is.EqualTo(("Subagent says", SectionTone.Claim)));
         Assert.That(Brief(UnderstandPrompt.WhyChanged, With("null", "reported")).Lines[0].Chip, Is.EqualTo("Author unknown"));
+        // A subagent's words are its own, whatever the source tagged them (AGENTS.md; the outside-text audit's gap 2).
         var observed = Brief(UnderstandPrompt.WhyChanged, With("subagent", "observed")).Lines[0];
-        Assert.That((observed.Evidence, observed.Chip, observed.Tone), Is.EqualTo((Evidence.Observed, (string?)null, SectionTone.Claim)),
-            "a subagent's description the source observed keeps its class, and still leans as someone's words");
+        Assert.That((observed.Evidence, observed.Chip, observed.Tone), Is.EqualTo((Evidence.Reported, "Subagent says", SectionTone.Claim)),
+            "a subagent's description the source tagged observed is still reported, and leans as its words");
+        var unknown = Brief(UnderstandPrompt.WhyChanged, With("null", "observed")).Lines[0];
+        Assert.That((unknown.Evidence, unknown.Chip), Is.EqualTo((Evidence.Observed, (string?)null)), "words of no known author keep the source's class");
     }
 
     [Test]

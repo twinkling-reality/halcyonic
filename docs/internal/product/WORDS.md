@@ -91,7 +91,7 @@ Halcyonic's own words go without one. The words below were settled by the coordi
 
 | The line is | Chip | Instead of |
 | --- | --- | --- |
-| The agent's own words | Agent says | |
+| The agent's own words, whatever the source tagged them, and what it says is left: "Still to do, the agent says: “…”", "Failing, the agent says: “…”", "In progress, the agent says: “…”", "To do, the agent says: “…”" (2026-10-07) | Agent says | |
 | A subagent's own words | Subagent says | |
 | Words whose author the source does not know | Author unknown | Quoted |
 | A model's account of the work, after it | Model explains | Explanation |
