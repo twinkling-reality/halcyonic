@@ -34,8 +34,10 @@ can do next.
 8. **The agent's words are its own**, marked as theirs and never restated as fact: tagged by their
    claim's chip ("Agent says" in a section) and leaning. Since 2026-10-08 (the owner, ADR 0026)
    Halcyonic adds no quotes or leads such as "It says:" around them: they lean on a ground only
-   Halcyonic draws wherever they meet our words, and they are cut first. Lane W's batch B applies it;
-   until it lands, the workspace's log still reads "It says: “…”".
+   Halcyonic draws wherever they meet our words, and they are cut first. The same holds for all text
+   Halcyonic didn't write, a title, a name, a label, a source's sentence and the person's own typed or
+   heard words included (lane V's ruling, 2026-10-08): it leans, never quoted, and where we can word it
+   so it comes after our words. Applied by lane W's batch B (the table "Words from outside" below).
 9. **No exclamation marks, emoji, em dashes or capitals for emphasis.** Numerals for numbers.
 10. **Practice, Demo, Recorded and Last known** are said wherever they apply, beside a state and
     never inside its word.
@@ -95,7 +97,7 @@ Halcyonic's own words go without one. The words below were settled by the coordi
 
 | The line is | Chip | Instead of |
 | --- | --- | --- |
-| The agent's own words, whatever the source tagged them, and what it says is left: "Still to do, the agent says: “…”", "Failing, the agent says: “…”", "In progress, the agent says: “…”", "To do, the agent says: “…”" (2026-10-07) | Agent says | |
+| The agent's own words, whatever the source tagged them, and what it says is left: beside the chip, "Still to do: {x}", "Failing: {x}", "In progress: {x}", "To do: {x}", its words leaning, never quoted (2026-10-08); where no chip shows, "Failing, the agent says: “…”" and the like (2026-10-07) | Agent says | |
 | A subagent's own words | Subagent says | |
 | Words whose author the source does not know | Author unknown | Quoted |
 | A model's account of the work, after it | Model explains | Explanation |
@@ -130,7 +132,7 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 | Send answer's reason while a chosen cut answer or a long typed one isn't read whole | Read the whole answer you chose first. | |
 | Send answer's reason while a page of Your answers isn't drawn | Read all your answers first. | |
 | The row paging Your answers | Your answers, 2 of 2; from the last page, Your answers, 1 of 2 | |
-| The row for the person's own answer | Type my answer; once typed, Your answer: "…", chosen | Type an answer; Typed: … |
+| The row for the person's own answer | Type my answer; once typed or heard, Your answer: {words}, chosen, the words leaning (2026-10-08) | Type an answer; Typed: …; Your answer: “…” |
 
 ### Steering from a file
 
@@ -159,7 +161,7 @@ surface goes back to them.
 | Kind | Pattern | Example |
 | --- | --- | --- |
 | A peek | {badge}, then the reason without the state's words | Waiting for you · It wants to run: make migrate |
-| Nothing waiting | Nothing is waiting for you. Latest: {activity}. | Nothing is waiting for you. Latest: edit: src/auth/rate-limit.ts |
+| Nothing waiting | Nothing is waiting for you. Latest: {activity}, a name or the agent's message in it leaning, the agent's beside "Agent says" | Nothing is waiting for you. Latest: Used edit: src/auth/rate-limit.ts |
 | Sent | Sent. Waiting for {who}… | Sent. Waiting for the agent… |
 | Still on its way | Sent…, unavailable, where the action that sent it stood | Sent… |
 | Confirmed | Confirmed: {what}. | Confirmed: it has your answer. |
@@ -172,7 +174,7 @@ surface goes back to them.
 | Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
 | Locked final press | Read to part {n} first | Read to part 3 first |
 | Kept while away | Still open: {panel} | Still open: Create a project |
-| The companion's words | The companion says: “{line}”, quoted and leaning, never in our voice; its view as its opinion | The companion thinks this is unclear. |
+| The companion's words | {line}, leaning on its ground under Halcyonic's quote mark, never in our voice; the page's source line names the companion; its view as its opinion, in our words | The companion thinks this is unclear. |
 
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
 the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, the
@@ -185,7 +187,7 @@ replaces the entry panel's screens. Routine wording, settled by the coordinator,
 
 | Where | Old | New | Settled |
 | --- | --- | --- | --- |
-| A file's instruction armed to send, heard through Hold to talk or typed for a policy's review | "Your computer heard: “…” Send it?" or "Tell it this? “…”", the words inside the question, cut at three rows | The words quoted above, in parts as a request is, each but the last ending in "Next part, 2 of 3", then "Read to part 3 first" until the last part has shown, then "Your computer heard the words above. Send them?" or "Tell it the words above?"; a Yes refused before then, as a backstop, says "Nothing was sent: read to the last part first." | 2026-10-04, by the coordinator |
+| A file's instruction armed to send, heard through Hold to talk or typed for a policy's review | "Your computer heard: “…” Send it?" or "Tell it this? “…”", the words inside the question, cut at three rows | The words above (since 2026-10-08 leaning, never quoted), in parts as a request is, each but the last ending in "Next part, 2 of 3", then "Read to part 3 first" until the last part has shown, then "Your computer heard the words above. Send them?" or "Tell it the words above?"; a Yes refused before then, as a backstop, says "Nothing was sent: read to the last part first." | 2026-10-04, by the coordinator |
 | A file's question offering two answers by one label, as "Yes" to keep the data and "Yes" to delete it | None: both rows showed, and either sent "Yes" twice, which your computer refused, so it could never be answered | "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.", then "It's waiting for an answer." and Stop, as a question asking for a secret shows; no answer rows and no Hold to talk | 2026-10-04, by the coordinator |
 | A file's question where some answers read the same, as "Yes" to keep the data and "Yes " to delete it, beside other ways to answer | The whole question couldn't be answered here: "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on." | Those rows show and can't be chosen; under them "Answers that read the same can't be chosen here. Press Stop if you meant one of them.", with Stop on the page (without Stop to offer, the first sentence alone); words typed or heard that read the same as one of them, a notice: "Your answer reads the same as answers that can't be chosen here. Answer another way, or press Stop if you meant one of them." ("Answer another way." where Stop isn't on the page); a prompt left with no way to answer keeps the row above | 2026-10-07, by the coordinator |
 | Why it can't tell what a task is doing, on the character, its peek and the file's Activity | "Can't tell what it's doing: {the reason's message}", an agent app's diagnostic, as "After the OpenCode event stream reconnected, the session could not be read (GET /api/session/…)"; in the log "Lost contact with the runtime: {message}" and "State unknown: {message}" | By the reason's code: "Can't tell what it's doing: your computer lost touch with the agent app.", "…: your computer restarted and lost touch with the agent app.", "…: not sure it started."; any other code "Can't tell what it's doing right now."; the log's line for a lost connection "Your computer lost touch with the agent app." | 2026-10-04, by the coordinator |
@@ -260,3 +262,30 @@ replaces the entry panel's screens. Routine wording, settled by the coordinator,
 | Start building while a build is on its way, its reason as the page's last line | None: Start building did nothing and said nothing | Already starting. Wait to hear how it went. | The coordinator, 2026-10-02 |
 | A place, where two share a name | "Projects" and "Projects", told apart by nothing | "Projects (person)" and "Projects (Work)": the place's own name, then the nearest folder above that tells them apart; where one is not enough, more, in path order, "Projects (Personal, Work)"; where nothing above tells them apart, a number, "Projects (old) 2"; never a path. The host names them (`label`), so Projects, New project and every listing say the same | 2026-10-02, by the coordinator |
 | A kept choice whose place is gone | The old place name, kept with the draft | "{folder}, in a place your computer no longer lists" | 2026-10-02, by the coordinator |
+
+## Words from outside
+
+Lane V's treatment, picked by the owner on 2026-10-08 ([ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md)),
+applied by lane W's batch B. {x} is text Halcyonic didn't write: it leans, on a ground where it meets
+our words, under our quote mark where a row or a block is all of it, and is cut before our words.
+Settled by the coordinator on 2026-10-08, old beside new.
+
+| Where | Old | New |
+| --- | --- | --- |
+| Activity's agent message | “{message}” with "Agent says" | {message} with "Agent says", under our quote mark |
+| Activity: a start asked for | Asked {app} to start | Asked to start on {app} |
+| Activity: a tool starting | {tool}: {title}, or {tool} | Used {tool}: {title}, or Used {tool} |
+| Activity: a tool done | {tool} succeeded, {tool} failed | Succeeded: {tool}, Failed: {tool}; with no name, A tool succeeded, A tool failed |
+| A file's Doing, the latest line | Latest: It says: “{message}” | Latest: {message}, with "Agent says" |
+| An agent's question, its answers, a header | “{question}”; answers as plain rows | {question} as a block under our quote mark; each answer a row of theirs under it |
+| The companion's question and reply | The companion says: “{line}” | {line} under our quote mark; the source line names the companion |
+| Seorak's measured checks | {label}: 23 passed of 24 runs (96%) | 23 passed of 24 runs (96%): {label} |
+| The measurement's lines in a file | (no part named) | Checks: …, Cost: About $1.20. {note}, Outcome: … |
+| A statement or an item beside its chip | Failing: “{x}”, “{x}” | Failing: {x}, {x} |
+| The system keyboard's prompt for an instruction | What to tell it: {title} | What to tell it; what it holds, shown by LabelText's plain rule |
+| The usage reading's side panel | Seen, Resets, Account | Agent app: {agent}, then Seen, Resets, Account |
+| Your answer and the person's instructions | Your answer: “{words}”; “{instruction}” above the question | Your answer: {words}; {instruction} above the question, leaning |
+| Connect's sentences and Projects' facts | “{name}” | {name}, cut at 40 |
+| Connect's reason while another folder's connection is unsettled | Still waiting to hear whether “{project}” was connected. … | Still waiting to hear whether the other folder was connected. Connecting another folder waits until that's known. Once it can't be known: Not sure whether the other folder was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart the app. (a prompt's reason holds our words alone) |
+| A provenance line | From Salidium {version}, 2 minutes ago | The same words, {version} leaning on its ground: a source names its own version |
+| Unchanged, now marked | Started on {app}; Tests started: {label}; Tests passed: {summary}; Approval requested to use {tool}: {summary}; It wants to use {tool}:; Tests passed at 14:02: {label}; Still open: {title}; New task in {name}; New folder in {root}; Directly in {root}; In {root}; Files go straight into {root}; From now on, … | The same words, {x} leaning on its ground |

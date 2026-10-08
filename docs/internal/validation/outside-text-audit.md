@@ -149,7 +149,18 @@ a test that fails without it; this record says which have landed.
 - **Gap 13:** one cut (`WorkspaceText.Truncate`, `Prefix`) never splits a code point `Plain` shows; a branch is cut at 40; a changed file reads by its name before its counts, its path beneath; "Still open" is made plain before it is cut.
 - **With them:** every statement and every item said to be the agent's is reported; a source's sentence that shows as nothing where no check was seen or nothing was measured says "Nothing measured."; a task stopped as runtime_tampered says so.
 
-**Waiting:** batch B (gaps 3, 6, 7, 9, 11) waits for lane V's treatment of outside words beside Halcyonic's own. Of gap 14, the measurement's part names in the file column, the usage reading's agent and the companion's inner quote are left for batch B, which redraws those lines.
+**Landed (batch B, 2026-10-08):** lane V's treatment, the owner's pick: Halcyonic's words upright,
+everything else leaning, on a ground only Halcyonic draws where it meets our words, Halcyonic's quote
+mark (format_quote) beside a row or block all of it, no quotes or leads of ours, and outside text cut
+first (`LineWords`, `GlazeRuns`; XR_CLIENT.md's `LineWords` and Words paragraphs).
+- **Gap 3:** the agent's and the companion's answers are rows of theirs under the quote mark; a header leans as a subject and in "{header}: {labels}".
+- **Gap 6:** Activity's lines put Halcyonic's words first and the runtime's after them ("Used {tool}: {title}", "Succeeded: {tool}", "Asked to start on {app}"); the agent's message, the approval's request and "It wants to use {tool}:" lean; the peek's words are runs for the stage's label (`PeekCard.ReasonRuns`), a failed check's summary alone after the badge.
+- **Gap 7:** a source's sentence alone is a block of theirs; a run's and Seorak's labels come last ("23 passed of 24 runs (96%): {label}"); the review line, names, branches, commits and the provenance line's version lean.
+- **Gap 9:** titles lean in the file's subject, Tasks' rows, "Still open: {title}" on the banner and "New task in {name}"; the system keyboard's prompt holds Halcyonic's words alone ("What to tell it") and whatever it is given to hold is shown by `LabelText.Plain` first.
+- **Gap 11:** New project's folders lean beside Halcyonic's folder icon, places on a ground in Halcyonic's options, and a name that reads like another option carries "Look-alike name".
+- **Gap 14:** the measurement's lines are led by "Checks:", "Cost:" and "Outcome:"; the usage reading's side panel names its agent app; the companion's inner quote is gone with the quotes.
+- **With them:** the person's own typed and heard words lean too, never quoted (lane V's ruling); the review before Start building leans every value from outside and keeps Halcyonic's fallbacks upright, so a model named "chosen by the agent app" can't pass for one; Connect's reasons name no folder, since a prompt's reason holds Halcyonic's words alone.
+- **Left:** the editor-only old panel (`WorkspaceScreens`, `ConnectScreens`) still quotes; the glance (Java) and the stage's plate apply the lean when lane U rewrites them.
 
 ## Not verified
 
