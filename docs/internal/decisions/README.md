@@ -25,7 +25,7 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0010](0010-external-intelligence-is-read-through.md) | External intelligence is read through, not journaled | Accepted |
 | [0011](0011-codex-app-server-stable-surface.md) | Target Codex's app-server stable surface, pinned, on a server Halcyonic launches | Accepted |
 | [0012](0012-judges-run-a-labeled-demonstration-on-the-headset.md) | Judges run a labeled demonstration on the headset, rather than reach a hosted control plane | Accepted |
-| [0013](0013-characters-are-bots-with-a-living-surface.md) | Characters are bots whose eyes, motion and light carry state | Accepted |
+| [0013](0013-characters-are-bots-with-a-living-surface.md) | Characters are bots whose eyes, motion and light carry state | Accepted; amended 2026-10-08 |
 | [0014](0014-hand-interaction-through-the-interaction-sdk.md) | Open work in place with hands, through Meta's Interaction SDK | Accepted |
 | [0015](0015-the-stage-stands-on-the-persons-desk.md) | The stage stands on the person's desk, found with MRUK and kept with a spatial anchor | Accepted |
 | [0016](0016-a-person-chooses-a-runtimes-model-from-its-own-list.md) | A person chooses a runtime's model from the runtime's own list | Accepted |
@@ -38,4 +38,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0024](0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md) | The Mac's settings live in one file only its owner can write, and never start paid model use | Proposed |
 | [0025](0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md) | Create's companion is a local model the control plane asks one reply at a time, and its exchange stays on the headset | Accepted |
 | [0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md) | The headset's interface is a game menu of places, sections and prompts, on one plane facing the eyes | Accepted |
-| [0027](0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md) | The headset moves only to answer the person or to show a wait | Accepted |
+| [0027](0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md) | The headset moves only to answer the person or to show a wait | Accepted; amended 2026-10-08 |
