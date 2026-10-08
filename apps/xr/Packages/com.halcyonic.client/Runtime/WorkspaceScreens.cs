@@ -461,6 +461,8 @@ namespace Halcyonic.Client
                     Chosen = chosen,
                     Action = Choose,
                     Key = index.ToString(CultureInfo.InvariantCulture),
+                    // One that reads the same as another shows, and can't be chosen, as the file's Waiting draws it.
+                    Available = !WorkspaceText.ReadsAlike(asked, index),
                 };
             }
             var typed = draft.Typed(prompt);

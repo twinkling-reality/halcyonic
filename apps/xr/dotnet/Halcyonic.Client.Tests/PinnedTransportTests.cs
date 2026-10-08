@@ -285,6 +285,9 @@ public class PinnedTransportTests
             "Nothing answered at 127.0.0.1:" + free + ". Check the address, and that your computer and this device share a network.")));
         var unnamed = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("halcyonic-test.invalid", 47801, "12345678", "Quest 3"));
         Assert.That(unnamed!.Code, Is.EqualTo("unreachable"), "a name that doesn't resolve");
+        // A handshake that ended with no certificate set up no secure connection either.
+        Assert.That(() => PinnedConnection.Presented(null), Throws.InstanceOf<HandshakeFailedException>());
+        Assert.That(PinnedConnection.Presented("ab"), Is.EqualTo("ab"));
     }
 
     [Test]
