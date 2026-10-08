@@ -309,6 +309,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(what + ": a ground lacks its padding.");
                 }
             }
+            var boxes = GlazeText.RunBoxes(label, theirs);
             for (var index = 0; index < info.characterCount; index++)
             {
                 var character = info.characterInfo[index];
@@ -318,6 +319,26 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     failures.Add(what + ": Halcyonic's letter '" + character.character + "' touches a ground under outside text.");
                     break;
+                }
+                // Beside a run on its row, Halcyonic's letter keeps a clear gap to the ground: at least 40 percent of
+                // the space between its letter and the run's, so the ground never crowds Halcyonic's words.
+                foreach (var box in boxes)
+                {
+                    var placedBox = Rect.MinMaxRect(at.x + box.xMin, at.y + box.yMin, at.x + box.xMax, at.y + box.yMax);
+                    if (glyph.center.y < placedBox.yMin || glyph.center.y > placedBox.yMax) continue;
+                    var before = glyph.xMax <= placedBox.xMin;
+                    var after = glyph.xMin >= placedBox.xMax;
+                    if (!before && !after) continue;
+                    var space = before ? placedBox.xMin - glyph.xMax : glyph.xMin - placedBox.xMax;
+                    if (space > 3f * GlazeRuns.GroundPadding) continue;
+                    var nearest = grounds.Where(ground => ground.gameObject.activeSelf && Placed(ground).Overlaps(placedBox))
+                        .Select(ground => before ? Placed(ground).xMin - glyph.xMax : glyph.xMin - Placed(ground).xMax).DefaultIfEmpty(space).Min();
+                    if (nearest < 0.4f * space - 1e-4f)
+                    {
+                        failures.Add(what + ": a ground crowds Halcyonic's letter '" + character.character + "' beside it.");
+                        index = info.characterCount;
+                        break;
+                    }
                 }
             }
             return failures;
