@@ -257,14 +257,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var beside in new[] { fact, chip })
                 {
                     if (beside == null) continue;
-                    var at = beside.transform.localPosition;
+                    var besideAt = beside.transform.localPosition;
                     var bounds = beside.textBounds;
-                    var area = Rect.MinMaxRect(at.x + bounds.min.x, at.y + bounds.min.y, at.x + bounds.max.x, at.y + bounds.max.y);
-                    foreach (var ground in grounds)
+                    var area = Rect.MinMaxRect(besideAt.x + bounds.min.x, besideAt.y + bounds.min.y, besideAt.x + bounds.max.x, besideAt.y + bounds.max.y);
+                    foreach (var drawn in grounds)
                     {
-                        if (!ground.gameObject.activeSelf || model.FactRuns?.AnyTheirs == true && beside == fact) continue;
-                        var centre = ground.transform.localPosition;
-                        var placed = new Rect(centre.x - ground.Size.x / 2f, centre.y - ground.Size.y / 2f, ground.Size.x, ground.Size.y);
+                        if (!drawn.gameObject.activeSelf || model.FactRuns?.AnyTheirs == true && beside == fact) continue;
+                        var centre = drawn.transform.localPosition;
+                        var placed = new Rect(centre.x - drawn.Size.x / 2f, centre.y - drawn.Size.y / 2f, drawn.Size.x, drawn.Size.y);
                         if (placed.Overlaps(area)) failures.Add(what + ": a ground runs under \"" + beside.text + "\", which is Halcyonic's.");
                     }
                 }
