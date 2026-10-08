@@ -115,8 +115,7 @@ Codex reads before it would record a folder it can write as trusted, and a start
 `config/read` from the folder shows a project layer that would load. Codex is never launched while
 `/etc/codex` or a `com.openai.codex` managed-preferences file exists, and is refused when
 `config/read` shows a device-profile, enterprise, managed-file or non-empty system layer; a refusal
-after a launch is remembered until the control plane restarts. Skills from a project or the
-person's `~/.agents/skills` are still discovered: 0.157.0 has no setting that stops discovery.
-Whether `skills.include_instructions = false` (with `features.skill_search = false`) keeps them out
-of what the model sees is a runtime check still to make. The decision is
-otherwise unchanged.
+after a launch is remembered until the control plane restarts. Skills from a project, the
+person's `~/.agents/skills` and Codex's own are still discovered, since 0.157.0 has no setting that
+stops discovery, but `skills.include_instructions=false`, among the launch's checked settings, keeps
+every one out of what a thread sends the model. The decision is otherwise unchanged.
