@@ -818,8 +818,12 @@ namespace Halcyonic.Client
             }
             if (current.Count > 0 || pages.Count == 0) pages.Add(current);
             Balance(pages, rows, room);
+            // A page that starts with another source's own line, as the evaluation source's measurement does, is that
+            // source's page: its provenance is that line, never the section's own source's.
             return pages
-                .Select(lines => new SectionPresentation(section.Kind, section.Provenance, section.ProvenanceTone, lines, section.Simulated, section.Steps))
+                .Select(lines => lines.Count > 0 && lines[0].Source && lines[0].StartsPage
+                    ? new SectionPresentation(section.Kind, lines[0].Text, lines[0].Tone, lines.Skip(1).ToList(), section.Simulated, section.Steps)
+                    : new SectionPresentation(section.Kind, section.Provenance, section.ProvenanceTone, lines, section.Simulated, section.Steps))
                 .ToList();
         }
 
