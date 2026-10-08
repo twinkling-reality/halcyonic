@@ -453,11 +453,25 @@ them again at `dced6316` (26 tests, all passing), with the fake provider on loop
   managed-file or non-empty system layer; and remembers only those after-launch refusals, so no
   list or start launches Codex again under them, while a refusal before launch lifts once the
   path is gone.
-- **Skills, which still load:** 0.157.0 discovers skills from an untrusted project
-  (`.codex/skills`, `.agents/skills`) and from `~/.agents/skills` (`codex-rs/config/src/state.rs`,
+- **Skills:** 0.157.0 discovers skills from an untrusted project (`.codex/skills`,
+  `.agents/skills`) and from `~/.agents/skills` (`codex-rs/config/src/state.rs`,
   `codex-rs/ext/skills/src/host_roots.rs`), and its `skills` settings
   (`codex-rs/config/src/skills_config.rs`: `bundled`, `include_instructions`,
-  `max_context_tokens`, per-skill rules) have none that turns discovery off.
+  `max_context_tokens`, per-skill rules) have none that turns discovery off. What reaches the
+  model was read from the fake provider's requests (runtime test, 2026-10-07, a bare app-server
+  with the adapter's arguments, a git project with a skill in `.codex/skills` and one in
+  `.agents/skills`, one in the home's `~/.agents/skills`, the project untrusted as the adapter
+  marks it):
+  - **By default** the one request of a turn listed all three probe skills, untrusted project
+    and all, with Codex's bundled ones (`imagegen`, `openai-docs`, `plugin-creator`,
+    `skill-creator`, `skill-installer`), under "A skill is a set of local instructions to follow
+    that is stored in a `SKILL.md` file"; the word "skill" appeared 59 times.
+  - **With `skills.include_instructions = false`** none of them, and the word "skill" not once,
+    in the request; `config/read` reported `skills: {"include_instructions": false}`. Adding
+    `features.skill_search = false` changed nothing further, so it is not used.
+  - The adapter now passes `skills.include_instructions=false` on every launch and checks it;
+    the end to end test E5 plants the same three skills and fails if any name, `SKILL.md` or
+    `skill-installer` reaches the provider.
 
 ## Speed and memory
 

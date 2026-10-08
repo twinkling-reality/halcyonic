@@ -54,7 +54,7 @@ has on by default that reach the network or another app (`apps`, `remote_plugin`
 `computer_use`, `skill_mcp_dependency_install`, `tool_suggest`, `daemon_auto_start`,
 `system_proxy_fallback`) set to false, `check_for_update_on_startup=false`,
 `analytics.enabled=false` (the analytics events client, and the metrics sent to ab.chatgpt.com),
-`web_search="disabled"`, and `cli_auth_credentials_store="file"` and
+`web_search="disabled"`, `skills.include_instructions=false` (below), and `cli_auth_credentials_store="file"` and
 `mcp_oauth_credentials_store="file"`, so no credential is read from the keychain. Codex ranks
 its configuration layers by precedence (`codex-rs/config/src/config_layer_source.rs` at
 rust-v0.157.0): a device profile's settings 0, `/etc/codex/config.toml` 10, enterprise-managed
@@ -137,15 +137,16 @@ reason, as when the home records the project as trusted. The end to end suite ch
 project whose own settings start an MCP server that leaves a mark, from the repository's root and
 from a folder below it.
 
-Skills are the exception: Codex 0.157.0 discovers them from an untrusted project too
-(`.codex/skills`, `.agents/skills`) and from `~/.agents/skills` in the person's home
-(`codex-rs/config/src/state.rs` and `codex-rs/ext/skills/src/host_roots.rs`), and has no setting
-that turns discovery off (`skills` takes only `bundled`, `include_instructions`,
-`max_context_tokens` and per-skill rules, `codex-rs/config/src/skills_config.rs`). A skill is
-instructions the model may follow, so what it asks for still goes through the thread's sandbox and
-approvals. Whether `skills.include_instructions = false`, perhaps with
-`features.skill_search = false`, keeps discovered skills out of what the model sees is a runtime
-check still to make.
+Skills never reach the model. Codex 0.157.0 discovers them from an untrusted project too
+(`.codex/skills`, `.agents/skills`), from `~/.agents/skills` in the person's home and from its own
+bundled ones (`codex-rs/config/src/state.rs` and `codex-rs/ext/skills/src/host_roots.rs`), and has
+no setting that turns discovery off (`skills` takes only `bundled`, `include_instructions`,
+`max_context_tokens` and per-skill rules, `codex-rs/config/src/skills_config.rs`). By default it
+lists every one of them to the model, the bundled skill installer among them. So every launch
+passes `skills.include_instructions=false`, checked in `config/read` with the other local-only
+settings; with it, no skill, and no mention of skills, reaches what a thread sends the provider
+(the end to end suite's E5, [local-models.md](../validation/local-models.md)). Codex still reads
+the skill files.
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
 `halcyonic`, a user agent with the Codex version and the operating system, and turn metadata with
