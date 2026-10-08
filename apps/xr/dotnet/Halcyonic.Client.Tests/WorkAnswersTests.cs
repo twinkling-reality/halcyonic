@@ -210,6 +210,11 @@ public class WhatChangedTests
         }), "a file with no repository path keeps its name; an exact count reads as before");
         var path = Answers.Understand(UnderstandPrompt.WhatChanged, json).Lines[2];
         Assert.That((path.Detail, path.Tone), Is.EqualTo((true, SectionTone.Secondary)), "the path details the file's line");
+        // A long name is cut at 40, so its counts, "or more" included, always show.
+        var name = new string('n', 77) + ".ts";
+        var longer = Intelligence.Edit(json, response => ((JArray)Intelligence.UnderstandingOf(response)["changes"]!["files"]!)[0]!["repository_path"] = name);
+        Assert.That(Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhatChanged, longer))[1],
+            Is.EqualTo("Edited: " + new string('n', 39) + "\u2026 (+5 \u22121 or more)"));
     }
 
     [Test]

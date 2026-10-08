@@ -577,10 +577,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 var section = InStaticAtlas(answer(room), font, swapped);
                 screen.ReadAnswer(section, room);
                 // A page under another source's provenance, as the measurement's, shows that source's line as its
-                // heading rather than as its first line (AnswerPages.Split): it counts as one of the page's lines. A page of
-                // its heading alone, a source's why it has no answer beside another's measurement, holds what it must.
-                if (screen.AnswerPages.Count > 1
-                    && screen.AnswerPages.Any(page => page.Lines.Count > 0 && page.Lines.Count + (page.Provenance == section.Provenance ? 0 : 1) < 3))
+                // heading rather than as its first line (AnswerPages.Split): it counts as one of the page's lines. The page of
+                // its heading alone before another source's page, a source's why it has no answer, holds what it must.
+                var pages = screen.AnswerPages;
+                bool HeadingAlone(int index) => pages[index].Lines.Count == 0 && index + 1 < pages.Count && pages[index + 1].Provenance != section.Provenance;
+                if (pages.Count > 1 && Enumerable.Range(0, pages.Count)
+                        .Any(index => !HeadingAlone(index) && pages[index].Lines.Count + (pages[index].Provenance == section.Provenance ? 0 : 1) < 3))
                 {
                     failures.Add(view.Name + " " + suffix + ": a page of an answer that pages shows fewer than 3 lines (" + room.Rows + " rows a page).");
                 }
