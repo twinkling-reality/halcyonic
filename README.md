@@ -1,7 +1,5 @@
 # Halcyonic
 
-Build software with AI agents in VR.
-
 Halcyonic turns autonomous units of software work into persistent spatial objects. A Workstream
 lives in your space as a small character you can ignore, glance at, or open into a focused
 workspace to understand the work, evaluate it and direct it. Agent runtimes such as Claude Code,

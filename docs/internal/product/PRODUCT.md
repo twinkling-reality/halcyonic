@@ -3,12 +3,6 @@
 Canonical product definition. "Halcyonic" is a working name and has not been legally or
 commercially cleared; no technical decision depends on it.
 
-## In one sentence
-
-Build software with AI agents in VR.
-
-The sentence names the category, not the difference. The difference has to be demonstrated.
-
 ## Thesis
 
 Software development is moving from a person continuously editing code toward a person who
