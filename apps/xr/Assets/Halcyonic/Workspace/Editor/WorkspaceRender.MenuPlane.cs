@@ -502,9 +502,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// A file opened after <paramref name="before"/> by <paramref name="open"/>, stepped frame by frame at
         /// <paramref name="frameSeconds"/>, its prompt <paramref name="asks"/> pressed as a hand presses it every
-        /// frame with its own settling long past: the opening shows its parts partly faded, top to bottom, its light
-        /// line drawing from the character where one stands, and the first press taken finds every shape and
-        /// every word on the file whole and nothing on the plane still sliding.
+        /// frame with its own settling long past: the opening shows its shapes and its words partly faded, top to
+        /// bottom, each part as drawn following its fade on the view's one clock of its opening, its light line
+        /// drawing from the character where one stands; and the first press taken finds every shape and every word
+        /// on the file whole, nothing on the plane still sliding, and that clock past the end of every part's fade,
+        /// so the opening never ends on a pop before its fade has run.
         /// </summary>
         private static IEnumerable<string> FirstPressFindsItWhole(string what, MenuPlane plane, float frameSeconds, System.Action before, System.Action open, string asks,
             List<string> taken)
@@ -520,8 +522,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.Add(what + ": no file asking " + asks + " stands on the plane.");
                 return failures;
             }
-            var faint = false;
+            var faintShapes = false;
+            var faintWords = false;
             var lineDrew = false;
+            var offClock = false;
             for (var frame = 0; frame < 200; frame++)
             {
                 SettleLongAgo(view);
@@ -536,16 +540,37 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(NotWhole(what + ", at the first press taken", view));
                     if (plane.Sliding) failures.Add(what + ": at the first press taken, parts of the plane are still sliding to their places.");
                     if (plane.LightLine != null && plane.LineShown < 1f) failures.Add(what + ": at the first press taken, its light line has not reached the file.");
-                    if (!faint) failures.Add(what + ": no frame showed a part partly faded, so it never assembled.");
+                    for (var index = 0; index < view.Parts.Count; index++)
+                    {
+                        var due = Glaze.PartShown(view.MovedFor, index, view.DrawsFromLine);
+                        if (due < 0.999f)
+                        {
+                            failures.Add(what + ": its opening ended " + view.MovedFor.ToString("0.000", CultureInfo.InvariantCulture) + " s in, with its " + view.Parts[index].name
+                                + " faded in only to " + due.ToString("0.000", CultureInfo.InvariantCulture) + ", so it shows whole on a jump the moment it takes presses.");
+                        }
+                    }
+                    if (!faintShapes) failures.Add(what + ": no frame showed a part's shapes partly faded, so they never assembled.");
+                    if (!faintWords) failures.Add(what + ": no frame showed a part's words partly faded, so they never assembled.");
                     if (plane.LightLine != null && !lineDrew) failures.Add(what + ": its light line stood whole from the first frame; it draws from the character.");
                     return failures;
                 }
                 var parts = view.Parts;
                 for (var index = 0; index < parts.Count; index++)
                 {
-                    var shown = PartShownAsDrawn(parts[index]);
-                    if (shown > 0f && shown < 1f) faint = true;
+                    var (shapes, words) = ShapesAndWordsShown(parts[index]);
+                    if (shapes > 0f && shapes < 1f) faintShapes = true;
+                    if (words > 0f && words < 1f) faintWords = true;
+                    var shown = Mathf.Min(shapes, words);
                     if (index > 0 && shown > PartShownAsDrawn(parts[index - 1]) + 1e-4f) failures.Add(what + ": " + parts[index].name + " shows more than the part above it; it assembles top to bottom.");
+                    // Drawn as the one clock of its opening says, its shapes and its words alike.
+                    var due = view.Opening ? Glaze.PartShown(view.MovedFor, index, view.DrawsFromLine) : 1f;
+                    if (!offClock && (Mathf.Abs(shapes - due) > 0.01f || Mathf.Abs(words - due) > 0.01f))
+                    {
+                        offClock = true;
+                        failures.Add(what + ": " + view.MovedFor.ToString("0.000", CultureInfo.InvariantCulture) + " s into its opening, its " + parts[index].name + " is drawn at "
+                            + shapes.ToString("0.000", CultureInfo.InvariantCulture) + " (shapes) and " + words.ToString("0.000", CultureInfo.InvariantCulture)
+                            + " (words), not the " + due.ToString("0.000", CultureInfo.InvariantCulture) + " its opening's clock gives.");
+                    }
                 }
                 if (plane.LightLine != null && plane.LineShown < 1f) lineDrew = true;
                 plane.FrameForRender(frameSeconds);
@@ -557,10 +582,18 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>How visible <paramref name="part"/> is as drawn: the least of its shown shapes and words.</summary>
         private static float PartShownAsDrawn(Transform part)
         {
-            var least = 1f;
-            foreach (var shape in part.GetComponentsInChildren<Surface>()) least = Mathf.Min(least, shape.Shown);
-            foreach (var words in part.GetComponentsInChildren<TMP_Text>()) least = Mathf.Min(least, GlazeText.ShownOf(words));
-            return least;
+            var (shapes, words) = ShapesAndWordsShown(part);
+            return Mathf.Min(shapes, words);
+        }
+
+        /// <summary>How visible <paramref name="part"/>'s shown shapes are as drawn, the least of them, and its shown words; 1 for none.</summary>
+        private static (float Shapes, float Words) ShapesAndWordsShown(Transform part)
+        {
+            var shapes = 1f;
+            var words = 1f;
+            foreach (var shape in part.GetComponentsInChildren<Surface>()) shapes = Mathf.Min(shapes, shape.Shown);
+            foreach (var label in part.GetComponentsInChildren<TMP_Text>()) words = Mathf.Min(words, GlazeText.ShownOf(label));
+            return (shapes, words);
         }
 
         /// <summary>Every shape and word <paramref name="view"/> shows that is not drawn whole.</summary>
