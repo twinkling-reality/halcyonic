@@ -5,7 +5,8 @@ off the headset instead of discovering how to run it. Everything here has passed
 session shows what only the headset can. It covers the access token, the demonstration's first
 visit, the loopback proof, the glance, the menu plane's comfort, motion, the words Hold to talk
 writes for one word, labels that read alike, Codex on a local model, a paired request that times
-out and the judge's path, and points to the other checks on a Quest to fit in where time allows.
+out, the judge's path and the experience from the eyes, and points to the other checks on a Quest to
+fit in where time allows.
 A check for work not yet on main says "if present" and how to tell; where the session's commit
 lacks it, record "not in this build" and go on. Each step says what to do, what to look at, what passes, and where to
 record it. Setup happens once at the start and teardown once at the end; the few steps that change
@@ -562,6 +563,102 @@ Record in network-pairing.md, and in the pinned transports' row of OPEN_QUESTION
       didn't confirm in time. Press it again." Last, press Stop and "Yes, stop", and record what the
       task shows; restart the app before walking the demonstration again.
 
+### 11. The experience, from the eyes (ADR 0013, ADR 0026, ADR 0027; the owner's picks of 2026-10-08)
+
+About 20 minutes with the headset kept on, after the checks above, so the owner judges what was built from
+"One kit, four forms" and its outside words against their own tests: clean, makes sense, not crowded,
+distinct, and "wow this is the future". Lane V wrote it; the owner's words on each step are the record.
+Whoever is at the Mac runs the commands and writes down what the owner says. Each part names what it
+needs; where the build lacks it, record "not in this build" and go on. What is in, from the session's
+commit:
+
+```bash
+git grep -nF "PartsAfterDraw" -- apps/xr/Packages/com.halcyonic.client/Runtime/Glaze.cs
+git grep -nF "Keep things still" -- apps/xr/Packages/com.halcyonic.client/Runtime/Comfort.cs
+git grep -nF "BlinkSeconds" -- apps/xr/Packages/com.halcyonic.client/Runtime/Glaze.cs
+git grep -nF "Something new" -- apps/xr/Packages/com.halcyonic.client/Runtime/
+git grep -nF "format_quote" -- apps/xr/tools/glaze_icons.py
+git log --oneline -40
+```
+
+The first lines say the opening, Keep things still, the stage's new look, the first visit and outside
+words are in; the log names the rest by its lane's words (looking back, places and travel, the
+spatializer, and the trials behind development settings). Keep OVR Metrics' frame rate in view
+throughout: it stays at 72 with six characters on the stage, or the part where it drops is recorded and
+the trials are skipped.
+
+**A. The first minute** (the first visit; needs a computer with no task). Stop the control plane and
+start it on a fresh data folder holding a copy of the Mac's settings, never printed:
+
+```bash
+mkdir -m 700 ~/halcyonic-fresh && cp -p ~/.halcyonic/settings.json ~/halcyonic-fresh/
+HALCYONIC_DATA_DIR=~/halcyonic-fresh pnpm start
+```
+
+It makes its own access token: put it on the headset as check 1's step 5 does, then restart the app.
+1. **Put it on.** Pass: one plate below eye level asks "What would you like to work on?", Something new
+   chosen, A project on your computer under it, and Close, Hold to talk and Start a project; nothing on
+   the stage; "Connected to your computer" above the stage for about 3 seconds, then gone. The plate's
+   parts arrive top to bottom in about a quarter of a second, nothing sliding.
+2. **Settings from the plate.** Settings stands alone at the right end of the row of places. Choose it,
+   make text larger and standard again, then Close. Pass: the bar reads "Nothing is running yet"; its
+   Open brings the plate back.
+3. **Say the idea.** Hold Hold to talk, say a short idea, let go. Pass: New project opens alone on Your
+   idea, the words as yours. Close it there; the full start is check 10's ground.
+4. **The owner's judgement.** Is it clear what to do, calm, and does an empty desk read as broken?
+
+Stop the control plane, start it again on `~/.halcyonic` (`pnpm start`), put its token back as before,
+restart the app, and remove the fresh folder at the end ("Close").
+
+**B. The stage, by eye** (the owner's own tasks; the stage's new look, then looking back).
+5. **At rest.** Look across the stage without stopping on a character. Pass: each stands on its ring on
+   the desk with a soft shadow under it, no glow behind it; the ring's colour and the pill's word say
+   its state; no title shows; working ones float slowly on a thread of light and blink now and then.
+6. **A look back.** Rest your eyes on a working character for half a second. Pass: its eyes come to you,
+   then it turns and lifts a little; its label grows into the glance: the pill, its title leaning, what
+   its agent last said under Agent says, its project. Look away: it holds your look for half a second,
+   then goes back to its work. Look at a Can't tell yet or Couldn't finish: it doesn't answer.
+7. **A sweep.** Turn your head slowly across the whole stage and back. Pass: nothing looks back at you
+   unless you stopped on it. Count any that did.
+8. **The owner's judgement.** Alive, or busy? Does a look back feel like being noticed, or watched? Is
+   the floating calm in the corner of the eye?
+
+**C. A question, from start to confirmation.** `pnpm demo --scenario question_asked` on the Mac.
+9. **Where the sound comes from.** Before it comes, close your eyes. When Waiting for you sounds, point
+   at it, then open them. Pass: you point at the character. If lane M7's spatializer is in, do it once
+   with it and once with panning, its setting switched at the Mac, and say which you could place.
+10. **It comes to you.** Pass: it comes once to the front of the desk, amber, looking at you; its
+    project-mates look at it once as it goes; its glance shows its question under Agent asks.
+11. **Its file.** Pinch it. Pass: a line of light draws from it, then the file's parts arrive top to
+    bottom, alone, the menu staying closed. Is a third of a second too slow?
+12. **The answer.** Choose one and Send answer. Pass: the cap sinks at once, "Sent…" shimmers, and only
+    when your computer confirms does the character turn once and go back to work.
+13. **A request.** `pnpm demo --scenario approval_required`, then the same path with Approve. Pass: the
+    request's own words lean on their ground; Halcyonic's stand upright.
+
+**D. Keep things still.** Settings, Comfort, Motion, Keep things still; then 10 to 12 again.
+14. Pass: nothing floats, blinks, breathes or shimmers; "Sent…" stands in the active blue; a character
+    fades from home to the front instead of travelling and makes no turn; a look back moves only its
+    eyes; presses and the file's opening remain. Put it back: Let things move.
+
+**E. Words from outside, over a bright room.** Face a window or a lit wall.
+15. Pass: a leaning title and an agent's answer read at a glance on the plane and on a glance, and the
+    ground's edges show; the owner says whether the slant blurs at the smallest size.
+
+**F. The trials, behind development settings** (only if present; one at a time).
+16. **Hands in front.** With depth occlusion on, move a hand slowly in front of a character. Pass: the
+    hand hides it cleanly; record flicker at its edges and the frame rate.
+17. **The room quieting.** With it on, open a file. Pass, or not: the owner says whether the darker room
+    helps focus or feels heavy. It stays off unless they ask to keep it.
+
+**G. The verdict.** In the owner's words: which moments felt like the future, which felt fake, busy or
+crowded, and what to cut before the judge build.
+
+Record in quest-3-device.md as its own session; the owner's words beside each step; the values to change
+(the look's dwell, the opening's time, the travel speed, the float) in ADR 0013's and ADR 0027's
+consequences; and the OPEN_QUESTIONS.md rows on calm motion, outside words over a bright room, and the
+shimmer under Keep things still, each resolved or narrowed as its own rule says.
+
 ## Where time allows
 
 Each is its own section with what to see and record; fit them in between blocks, with the
@@ -593,6 +690,8 @@ development build and the token in place:
    com.oculus.vrpowermanager.automation_disable` if the headset was kept awake, and remove the sound
    option file if it was made ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Beside a window on a Quest").
 5. `adb kill-server`. The Mac's adb server answers every local account while it runs.
+   If check 11's first part made `~/halcyonic-fresh`, stop any control plane using it and remove it:
+   `rm -rf ~/halcyonic-fresh`.
 6. Pull the captures to a folder outside the repository:
    ```bash
    adb pull /sdcard/Oculus/Screenshots ~/halcyonic-captures
