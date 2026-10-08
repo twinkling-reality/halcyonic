@@ -26,10 +26,10 @@ namespace Halcyonic.Client
         public const string HeardNote = "This is what " + HostText.Your + " heard. Check it before you go on.";
         public const string HeardAnswer = "This is what " + HostText.Your + " heard. Check it, then press Send answer.";
 
-        /// <summary>A voice answer heard after the question it was spoken for gave way to another, or to another prompt: dropped (settled by the coordinator, 2026-10-04).</summary>
-        /// <summary>The first question's idea, heard as New project opened on a later step of a draft kept from before.</summary>
-        public const string NotOnYourIdea = "Nothing was typed: this project is past Your idea. Choose Your idea above, then hold to talk again.";
+        /// <summary>The first question's idea, heard as New project opened on a later step of a draft kept from before: dropped (settled by the coordinator, 2026-10-08).</summary>
+        public const string NotOnYourIdea = "Nothing was typed: this project has moved on from Your idea. Choose Your idea above, then hold to talk again.";
 
+        /// <summary>A voice answer heard after the question it was spoken for gave way to another, or to another prompt: dropped (settled by the coordinator, 2026-10-04).</summary>
         public const string QuestionChangedWhileSpeaking = "Nothing was typed: the question changed while you spoke. Read it again.";
 
         public const string NothingHeard = "I didn't catch anything. Hold the button while you talk, or type instead.";

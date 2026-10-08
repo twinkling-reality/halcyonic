@@ -694,6 +694,8 @@ namespace Halcyonic.XR.Workspace
         {
             OpenNewProject(null, null);
             if (heard == null || !(navigator.Beside is NewProjectFlow flow)) return;
+            // Its frame settles the step it shows, as a kept draft's Questions or Build may turn out to be Your idea.
+            _ = flow.Frame;
             if (flow.Step == NewProjectStep.YourIdea) flow.Heard(heard);
             else flow.Said(VoiceText.NotOnYourIdea);
         }
