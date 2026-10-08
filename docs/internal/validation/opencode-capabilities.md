@@ -170,7 +170,9 @@ the control plane; the runs, the network and the measurements are in
   deep object (`?location%5Bdirectory%5D=...`), and each location settles separately. Right after
   launch they list nothing, then the models of the built-in catalog, then those discovered from
   local servers such as Ollama; a session prompted before its model is listed fails with
-  `provider.no-route`. The adapter waits for a named model to be listed. Each listed model carries
+  `provider.no-route`, and so does one prompted with a model the configuration names while it is
+  listed without a package ([local-models.md](local-models.md)). The adapter waits for a named
+  model to be listed with a package. Each listed model carries
   its provider's settings, API key included, its headers and its request body, so the adapter reads
   only the fields it needs.
 - **Defaults.** The default agent allows every action except reading `.env` files and working

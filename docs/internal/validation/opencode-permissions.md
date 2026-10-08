@@ -212,8 +212,8 @@ only loopback ports (source).
     `provider_no_route` ("Unsupported package for ollama/qwen3:4b-instruct") when the
     configuration named the model with its limits, as Halcyonic's own OpenCode settings do: the
     model is listed from the configuration before Ollama's discovery gives it a package, so the
-    adapter's wait for a listed model can pass too early. Not fixed here
-    ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+    adapter's wait for a listed model can pass too early. Fixed since: the adapter waits for the
+    model to have a package ([local-models.md](local-models.md), "Listed is not yet runnable").
   - Stdio mode would keep the password out of the server's environment altogether; it would move
     the adapter off HTTP ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **What the shared data folder still lets through:** Halcyonic's OpenCode uses the person's data
