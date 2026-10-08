@@ -1614,7 +1614,12 @@ public class FileColumnTests
         Assert.That(draft.Typed(0), Is.Null, "heard alike, the same");
         Assert.That(draft.Type(0, "Yes", stopOnPage: false), Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."));
         Assert.That(draft.Type(0, "Yes, but keep a copy"), Is.Null, "other words are an answer");
-        Assert.That(draft.Type(0, "yes"), Is.Null, "case tells answers apart");
+        // Refused more loosely than answers are told apart: speech writes "Yes." for "Yes", and the agent reads words as it likes.
+        foreach (var heard in new[] { " Yes.", "yes", "YES!", "Yes ?", "yes,", "Yes \t" })
+        {
+            Assert.That(draft.Type(0, heard), Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."), heard);
+        }
+        Assert.That(draft.Type(0, "Yes please"), Is.Null, "other words are an answer");
 
         // The answer that reads like no other is chosen and sent as ever.
         draft.Type(0, null);

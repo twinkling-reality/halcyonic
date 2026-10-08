@@ -585,7 +585,8 @@ the same definition names, as the JSON Schema document:
   left, the answers that read alike show as rows that can't be chosen (`WorkspaceText.ReadsAlike`;
   `QuestionDraft.Choose` takes none of them), a line under the prompt's answers says why, counted in
   every page of them (`FileQuestion.AlikeRows`), Stop stands on Waiting as the way to the one meant,
-  and words typed or heard that read the same as one of them are refused (`QuestionDraft.Type`), so no
+  and words typed or heard that read the same as one of them, compared more loosely, case and a trailing
+  . ! ? or , aside, since speech writes "Yes." for "Yes", are refused (`QuestionDraft.Type`), so no
   path sends such a label; Sent… in its place, taking no press, while an answer sent may still take effect.
   The question shows a prompt at a time (`FileQuestion`). A question longer than two rows, or one
   whose own page leaves fewer pages in all (its answers' pages then holding more answers each),
