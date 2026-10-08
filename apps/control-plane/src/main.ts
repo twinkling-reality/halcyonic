@@ -68,6 +68,8 @@ async function main(): Promise<void> {
     path: join(config.dataDir, 'control-plane.db'),
     originIfNew: 'live',
     ids,
+    onMigrated: (from, to) =>
+      app.log.info({ from, to }, `journal migrated from version ${from} to ${to}`),
   });
   if (journal.info.origin !== 'live') {
     journal.close();
