@@ -156,6 +156,46 @@ describe('OpenCode start failures', () => {
       },
     );
   });
+
+  test('a stand-in slower to fail than the confirmation by ps still reports its exit, never its output', async (t) => {
+    const directory = temporary(t);
+    const secret = 'sk-FAKE-not-real-0123456789';
+    // As a loaded Mac makes any start slow: the stand-in fails only after 6 s, longer than ps
+    // could be asked a hundred times.
+    const binary = join(directory, 'opencode');
+    writeFileSync(
+      binary,
+      '#!/usr/bin/env node\nAtomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 6000);\nprocess.stderr.write(\'{"apiKey":"\' + process.env.FAKE_SECRET + \'"}\\n\');\nprocess.exit(1);\n',
+      { mode: 0o755 },
+    );
+    const runtime = new OpenCodeRuntimeAdapter({
+      binaryPath: binary,
+      serverRecordFile: join(directory, 'server.json'),
+      directoryPolicy: allowOnly(directory),
+      env: {
+        PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
+        FAKE_SECRET: secret,
+      },
+    });
+    t.after(() => runtime.close());
+    await assert.rejects(
+      runtime.startExecution({
+        execution: TEST_EXECUTION,
+        instruction: 'Do the work.',
+        options: {},
+        model_ref: null,
+        directory,
+        emit: () => undefined,
+      }),
+      (error: unknown) => {
+        const message = (error as Error).message;
+        assert.ok(actionError('runtime_unavailable')(error), message);
+        assert.match(message, /exited during startup \(exit code 1\)/);
+        assert.ok(!message.includes('sk-FAKE'), message);
+        return true;
+      },
+    );
+  });
 });
 
 describe("OpenCode and the project's folder", () => {

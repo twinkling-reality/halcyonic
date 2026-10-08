@@ -218,7 +218,7 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
     password,
   );
   try {
-    const record = await identify(server, options.binaryPath, port);
+    const record = await identify(server, options.binaryPath, port, options.startupTimeoutMs);
     await writeServerRecord(options.recordFile, record);
     server.watch(record);
     await waitUntilReady(server, options);
@@ -236,14 +236,21 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
   }
 }
 
-/** Reads the launched process's identity. Until exec completes, ps may still show the parent. */
+/**
+ * Reads the launched process's identity. Until exec completes, ps may still show the parent. It
+ * asks until ps confirms it, the process exits, or the startup time is up, never a fixed number of
+ * times: on a loaded Mac a start that fails takes longer to exit than a hundred quick asks, and its
+ * exit, not ps, says what happened.
+ */
 async function identify(
   server: OpenCodeServer,
   binaryPath: string,
   port: number,
+  timeoutMs: number,
 ): Promise<ServerRecord> {
   const binary = binaryPath.trim().split(/\s+/).join(' ');
-  for (let attempt = 0; attempt < 100 && server.exitStatus === null; attempt += 1) {
+  const deadline = Date.now() + timeoutMs;
+  while (server.exitStatus === null && Date.now() < deadline) {
     const identity = await readProcessIdentity(server.pid);
     if (identity?.command.startsWith(`${binary} `)) {
       return {
