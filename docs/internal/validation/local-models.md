@@ -558,6 +558,41 @@ tokens a second; the cause was not found.
 - Codex truncates a command's output before the model sees it, so an agent that reads a large file
   in large pieces answers from part of it without saying so.
 
+## Codex registered on the owner's Mac (2026-10-08)
+
+Run from the main checkout at `782256b4`, one step at a time, at the coordinator's go; no
+setting or secret was printed, only field names and the checks' results.
+
+- **Before:** no `~/.halcyonic/settings.json` and no `HALCYONIC_` variable in any shell profile,
+  so no folder, agent app or setting was recorded; `pnpm mac-setup` said OpenCode 2.0.18 and
+  Codex 0.157.0 were "installed and checked, but not set up". Halcyonic's own OpenCode settings
+  existed from 2026-09-30 (on `ollama/qwen3.6:35b-a3b-nvfp4`), unused; no
+  `~/.halcyonic/codex-home`. The Codex binary's SHA-256 matched the pin (`ad0be20d...3714`). Ollama
+  answered on loopback with `qwen3.6:35b-a3b-nvfp4` and nothing loaded; no `/etc/codex` and no
+  Codex managed preferences.
+- **`pnpm mac-setup agent-apps`** recorded both binaries, each the pinned copy, in a new
+  `settings.json` (mode 600: `format`, `HALCYONIC_OPENCODE_BIN`, `HALCYONIC_CODEX_BIN`).
+- **`pnpm mac-setup local-model qwen3.6:35b-a3b-nvfp4`** replaced Halcyonic's own OpenCode settings
+  (`model` and `small_model` that model, `permissions`, `providers`), made
+  `~/.halcyonic/codex-home` (mode 700) with a `config.toml` (mode 600: `model_provider`, `model`,
+  `model_context_window`, `model_auto_compact_token_limit`), and added
+  `HALCYONIC_OPENCODE_CONFIG_HOME` to the settings. The earlier OpenCode settings file was kept
+  aside first, privately.
+- **A start** of the control plane, stopped at once: runtimes `mock`, `opencode`, `codex`; both
+  agent binaries `matches`; the three settings in use; no project root yet (the owner's to
+  choose). It rebuilt 205 events, marked 2 executions from earlier sessions unknown, and migrated
+  the journal to schema version 5 without a log line (one is logged since): all 4 stored approval
+  requests read `complete: true`.
+- **The Codex network probe** (`LOCAL_DEVELOPMENT.md`, "On every Codex upgrade") on
+  `qwen3.6:35b-a3b-nvfp4`, at a 1-minute load of 9 and 75% memory free: passed. 157 samples, 118
+  through startup and a minute idle; nothing beyond loopback from any process of Codex's tree; the
+  connection to Ollama seen (`127.0.0.1:11434`) as the positive control. The model was unloaded
+  after (`keep_alive` 0), and Ollama listed none loaded.
+- **After:** Codex and OpenCode are registered on Halcyonic's own settings, local-only, and ready
+  for the headset session once a folder is allowed; the owner's own `~/.codex` and
+  `~/.config/opencode` were not touched. Ollama's own settings (`OLLAMA_CONTEXT_LENGTH=65536` and
+  the rest) are applied when it is restarted for the headset session.
+
 ## Not verified
 
 - OpenCode compacting a local model's context before Ollama's memory runs out without a configured
