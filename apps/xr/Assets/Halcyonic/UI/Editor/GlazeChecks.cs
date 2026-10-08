@@ -582,8 +582,12 @@ namespace Halcyonic.XR.UI.Editor
         /// editor's other threads, which once counted bytes for a motion that allocates none, and this
         /// editor's Mono counts nothing for one thread alone (both seen 2026-10-07), so only a step that
         /// allocated in every try is the step's own: another thread's allocation does not come again at
-        /// the same step. Returns how many steps allocated in every try and in some, and the bytes of the
-        /// quietest try on every thread; null where this editor counts no allocation at all.
+        /// the same step. A thread that allocates without pause, as the editor importing after files change
+        /// (seen 2026-10-07, 38 of 60 frames at a load over 100), can still land in every try, so a round that
+        /// finds any step allocating is measured again after a pause, up to three rounds: what the step
+        /// allocates comes back in every round. Returns the quietest round's steps that allocated in every try
+        /// and in some, and its quietest try's bytes on every thread; null where this editor counts no
+        /// allocation at all.
         /// </summary>
         public static (int Every, int Some, long Bytes)? Allocations(Action<int> step, int steps)
         {
@@ -596,19 +600,28 @@ namespace Halcyonic.XR.UI.Editor
             var kept = new byte[256];
             GC.KeepAlive(kept);
             if (calls.CurrentValue - probe < 1) return null;
-            var bytes = long.MaxValue;
-            for (var attempt = 0; attempt < Tries; attempt++)
+            (int Every, int Some, long Bytes)? quietest = null;
+            for (var round = 0; round < 3; round++)
             {
-                var before = allocated.CurrentValue;
-                for (var index = 0; index < steps; index++)
+                if (round > 0) System.Threading.Thread.Sleep(250);
+                Array.Clear(allocating, 0, steps);
+                var bytes = long.MaxValue;
+                for (var attempt = 0; attempt < Tries; attempt++)
                 {
-                    var count = calls.CurrentValue;
-                    step(index);
-                    if (calls.CurrentValue > count) allocating[index]++;
+                    var before = allocated.CurrentValue;
+                    for (var index = 0; index < steps; index++)
+                    {
+                        var count = calls.CurrentValue;
+                        step(index);
+                        if (calls.CurrentValue > count) allocating[index]++;
+                    }
+                    bytes = Math.Min(bytes, allocated.CurrentValue - before);
                 }
-                bytes = Math.Min(bytes, allocated.CurrentValue - before);
+                var found = (allocating.Count(tries => tries == Tries), allocating.Count(tries => tries > 0), bytes);
+                if (quietest == null || found.Item1 < quietest.Value.Every) quietest = found;
+                if (quietest.Value.Every == 0) break;
             }
-            return (allocating.Count(tries => tries == Tries), allocating.Count(tries => tries > 0), bytes);
+            return quietest;
         }
 
         /// <summary>

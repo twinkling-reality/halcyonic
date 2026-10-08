@@ -199,7 +199,9 @@ state's colour or drops under 3:1 on the pill at any twentieth of the change eit
 once done, or in the editor it cross-fades without a render stepping it; or if a wait adds a renderer, or any of sixty frames of either motion allocates in each of
 three tries (a badge's change as well). Unity's count of allocations takes in the editor's other threads, and this editor's Mono
 counts nothing for one thread alone, so only an allocation that comes again at the same frame is the
-motion's; the log gives the frames and the quietest try's bytes.
+motion's. A round that finds any is measured again after a pause, up to three rounds, since a thread
+allocating without pause (the editor importing after files change) can land in every try; the log gives
+the quietest round's frames and its quietest try's bytes.
 
 The headset redesign's frames (ADR 0026) render the same way, **Halcyonic > Render the Redesign
 Directions**, or in batch mode:
