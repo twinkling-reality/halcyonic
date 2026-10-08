@@ -77,7 +77,8 @@ which only you can read or change, and Halcyonic reads it when it starts
 
    OpenCode then starts on that model when none is chosen, asks you before every shell command, which
    is how its approvals reach the headset, and cannot fetch from the web; your own OpenCode settings
-   are left as they are. Codex gets the same model in a home of its own, `~/.halcyonic/codex-home`:
+   are left as they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code
+   Mode, web fetch and web search turned off. Codex gets the same model in a home of its own, `~/.halcyonic/codex-home`:
    it runs only on models this Mac serves, never signed in, and your own `~/.codex` is left as it
    is ([Codex](#codex)). Claude Agent runs only on Anthropic's remote service and is paid with your API
    key, so the setup never turns it on; see [Run real agents](#run-real-agents).

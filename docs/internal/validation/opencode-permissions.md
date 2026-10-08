@@ -143,6 +143,28 @@ only loopback ports (source).
 - Nothing becomes slower otherwise: rules are evaluated in the server, and a denied tool is simply
   not offered.
 
+## What Halcyonic does, and what moving the data folder would cost (2026-10-07)
+
+- **Built:** every session the adapter creates carries `execute`, `webfetch` and `websearch` deny
+  (`SESSION_PERMISSIONS`, on `POST /api/session`; never replaced later, so no `PATCH`). The end to
+  end suite checks that none of the three is offered to the model and that the session, read
+  back, holds the three rules; that Code Mode's `fetch` reaches a loopback listener from a session
+  made without them on the same server and never from Halcyonic's; and, as for Codex, that no
+  OpenCode process holds a socket beyond loopback through startup, a minute idle and a full run,
+  with the connection to the scripted provider seen as the probe's positive control.
+- **Moving OpenCode's data folder** (not done): Salidium reads OpenCode's sessions straight from
+  `$XDG_DATA_HOME/opencode/opencode.db`, `XDG_DATA_HOME` if absolute, else
+  `~/.local/share` (Salidium `abb7a93`, `packages/adapters/opencode/src/storeSource.ts:58-66`),
+  read only, through `node:sqlite` with only three tables allowed (`storeAccess.ts:18-40`,
+  `119-126`), every session with no filter (`records.ts:111-114`), one database at a time
+  (`storeSource.ts:339-343`); it never connects to an OpenCode server or installs a plugin
+  (`openCodeAdapter.ts:10-12`), and its OpenCode source is off by default (`daemonConfig.ts:65`).
+  Seorak does not observe OpenCode at all (`e4f33e92`: only a label in
+  `packages/types/src/identity.ts:129`). So a data folder of Halcyonic's own would cost Understand
+  for OpenCode tasks, as Codex's home does, for a person who turned Salidium's OpenCode source on,
+  and would gain: no saved "always", Console login or provider connection from the person's own
+  OpenCode applying to Halcyonic's sessions.
+
 ## Not verified
 
 - Tools called from within Code Mode, and whether they ask: with `execute` denied they cannot run.
