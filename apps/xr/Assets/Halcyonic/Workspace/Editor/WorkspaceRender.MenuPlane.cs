@@ -83,7 +83,11 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 // A cut answer chosen: its side panel slides out, and the menu steps aside to the left. Each move
                 // is seen a quarter of its own time in: the menu leaving eases in, the file moving eases in and out.
+                var shifting = FindView(plane, "File");
+                if (shifting != null) SettleLongAgo(shifting);
                 plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: true, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                // The file moving over for its side panel takes no press as it slides: its buttons wait to settle again.
+                if (shifting != null && plane.Shown.Any(column => column.View == shifting)) failures.AddRange(WaitsToSettle(name + " file moving over for its side panel", shifting));
                 plane.Advance(Glaze.LeaveSeconds / 4f);
                 var menuView = plane.Shown.All(column => column.Kind != MenuColumn.Menu) ? FindView(plane, "Menu") : null;
                 var menuQuarter = menuView != null && menuView.Parts.Count > 0 ? menuView.Parts[0].position : (Vector3?)null;
@@ -180,9 +184,23 @@ namespace Halcyonic.XR.Workspace.Editor
                 plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
                 ShowOf(oneTask);
                 if (plane.Opening(MenuColumn.File)) failures.Add(name + ": the same task's file laid again opens anew.");
+                var swapTaken = new List<string>();
+                var swapDrawn = 0;
+                System.Action<MenuColumn, string, string?, MenuFrame?, SidePanel?> swapActed = (kind, action, key, frame, side) => swapTaken.Add(action);
+                System.Action<MenuColumn, MenuFrameView> swapLaid = (kind, view) => { if (kind == MenuColumn.File) swapDrawn++; };
+                plane.Acted += swapActed;
+                plane.Drawn += swapLaid;
                 ShowOf(anotherTask);
                 if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": another task's file taking the file's place is not opening, so it takes presses before it shows.");
+                if (swapDrawn > 0) failures.Add(name + ": another task's file taking the file's place was counted drawn before it showed whole.");
+                FindView(plane, "File")?.PressForRender("send");
+                if (swapTaken.Count > 0) failures.Add(name + ": another task's file taking the file's place took " + string.Join(", ", swapTaken) + " as it opened.");
                 plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
+                if (swapDrawn != 1) failures.Add(name + ": another task's file taking the file's place was counted drawn " + swapDrawn + " times as it opened, not once.");
+                plane.Acted -= swapActed;
+                plane.Drawn -= swapLaid;
+
+                failures.AddRange(TapCountsWhatItStillIs(name, root.transform));
 
                 // The waiting task's file assembling from its character, then closing to the bar.
                 OpeningStrip(name + " opening", folder, camera, texture, plane,
@@ -549,6 +567,49 @@ namespace Halcyonic.XR.Workspace.Editor
         private static IEnumerable<string> NotWhole(string what, MenuFrameView view) => view.Parts
             .Where(part => PartShownAsDrawn(part) < 1f)
             .Select(part => what + ": its " + part.name + " is drawn at " + PartShownAsDrawn(part).ToString("0.000", CultureInfo.InvariantCulture) + " of its opacity.");
+
+        /// <summary>
+        /// A short tap on a hold prompt, let go before its hold starts, counts as a press only of what the button
+        /// still is: taken on a settled Hold to talk, and dropped where the button took new words and a new kind
+        /// under the hand, as a slot turning into Yes.
+        /// </summary>
+        private static IEnumerable<string> TapCountsWhatItStillIs(string name, Transform parent)
+        {
+            var failures = new List<string>();
+            var holder = new GameObject("Tap check");
+            holder.transform.SetParent(parent, false);
+            try
+            {
+                var button = GlazeButton.Create(holder.transform, "Prompt", ButtonRole.Prompt);
+                button.Holds = true;
+                button.ShowPrompt("Hold to talk", GlazeIcon.HoldToTalk, Vector2.zero, button.MeasurePrompt("Hold to talk", false), false);
+                var presses = 0;
+                button.Pressed += () => presses++;
+                void Tap(System.Action? underTheHand)
+                {
+                    ShownAt.SetValue(button, SettledLongAgo);
+                    var at = button.transform.position;
+                    button.Target.PointerForRender(9, Oculus.Interaction.PointerEventType.Select, at);
+                    underTheHand?.Invoke();
+                    button.Target.PointerForRender(9, Oculus.Interaction.PointerEventType.Unselect, at);
+                    button.Target.PointerForRender(9, Oculus.Interaction.PointerEventType.Unhover, at);
+                }
+                Tap(null);
+                if (presses != 1) failures.Add(name + ": a short tap on a settled Hold to talk was taken " + presses + " times, not once.");
+                presses = 0;
+                Tap(() =>
+                {
+                    button.Holds = false;
+                    button.ShowPrompt("Yes", GlazeIcon.Approve, Vector2.zero, button.MeasurePrompt("Yes", true), true);
+                });
+                if (presses > 0) failures.Add(name + ": a short tap begun on Hold to talk, let go once the button had turned into Yes, pressed Yes.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(holder);
+            }
+            return failures;
+        }
 
         /// <summary>
         /// A frame of a file's opening, and of its closing, allocates nothing (ADR 0027): twenty frames of each, each
