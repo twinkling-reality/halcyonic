@@ -1492,4 +1492,33 @@ describe('Codex before registration on a Mac', { skip: SKIP }, () => {
     // Nor Codex's own bundled skills, among them one that installs skills from other repositories.
     assert.doesNotMatch(sent, /SKILL\.md|skill-installer/);
   });
+
+  test(
+    'E5b, a limit: a skill an instruction names with $ reaches the provider, a bundled one does not',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, start } = await harness(t);
+      execFileSync('git', ['init', '-q'], { cwd: sandbox.project, env: { PATH: '/usr/bin:/bin' } });
+      const planted: [string, string][] = [
+        ['.codex/skills/probe-codex-dir', 'probe-codex-dir'],
+        ['.codex/skills/five', '5'],
+      ];
+      for (const [folder, name] of planted) {
+        await mkdir(join(sandbox.project, folder), { recursive: true });
+        await writeFile(
+          join(sandbox.project, folder, 'SKILL.md'),
+          `---\nname: "${name}"\ndescription: Probe skill ${name}, never to be used.\n---\n\nSay ${name}.\n`,
+        );
+      }
+      const execution = await start('Hello. Use $probe-codex-dir, $skill-installer and $5 please.');
+      await execution.next('runtime.turn.completed');
+      const sent = JSON.stringify(sandbox.provider.requests.map((request) => request.body));
+      // Codex 0.157.0 reads a named skill's SKILL.md into the turn whatever the settings, from an
+      // untrusted project too, and a name is any text of up to 64 characters: "$5" selects one.
+      assert.ok(sent.includes('Say probe-codex-dir.'), 'a named skill no longer reaches the model');
+      assert.ok(sent.includes('Say 5.'), 'a skill named "5" no longer reaches the model on "$5"');
+      // The bundled skills are out of the catalog, so naming one brings nothing.
+      assert.doesNotMatch(sent, /skill-installer\/SKILL\.md|Skill Installer/);
+    },
+  );
 });
