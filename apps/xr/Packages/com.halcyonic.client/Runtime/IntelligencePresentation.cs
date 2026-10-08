@@ -494,9 +494,10 @@ namespace Halcyonic.Client
             ControlPlaneRequestException { Code: "too_many_requests", Status: 429 }
                 => "your computer is turning this headset away for a minute after too many tries. Press Refresh after a minute.",
             _ when Within<Newtonsoft.Json.JsonException>(error) != null => AfterColon(ConnectionText.Unreadable),
-            // Something answered, with what isn't HTTP or too much of it: never "didn't answer".
+            // Something answered, with what isn't HTTP or too much of it, or took the connection and set up no secure
+            // one: never "didn't answer".
             _ when Within<System.IO.InvalidDataException>(error) != null || Within<FormatException>(error) != null || Within<OverflowException>(error) != null
-                => SomethingWentWrong,
+                || Within<HandshakeFailedException>(error) != null => SomethingWentWrong,
             ControlPlaneRequestException { Code: null, InnerException: System.Net.Http.HttpRequestException } => DidntAnswer,
             _ => SomethingWentWrong,
         };
