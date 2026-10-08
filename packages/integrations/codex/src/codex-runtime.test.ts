@@ -640,6 +640,7 @@ describe('Codex runtime against a stand-in binary', () => {
       'check_for_update_on_startup=false',
       'analytics.enabled=false',
       'web_search="disabled"',
+      'skills.include_instructions=false',
       'cli_auth_credentials_store="file"',
       'mcp_oauth_credentials_store="file"',
     ]);
