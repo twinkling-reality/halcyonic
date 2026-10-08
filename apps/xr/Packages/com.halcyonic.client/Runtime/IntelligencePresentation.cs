@@ -269,7 +269,7 @@ namespace Halcyonic.Client
             }
             else if (lens.ByKind.Count == 0)
             {
-                lines.Add(new SectionLine("Checks", IntelligenceText.Plain(lens.EmptyReason ?? "Nothing measured."), SectionTone.Secondary));
+                lines.Add(new SectionLine("Checks", IntelligenceText.PlainOr(lens.EmptyReason, IntelligenceText.NothingMeasured), SectionTone.Secondary));
             }
             else
             {
@@ -514,6 +514,12 @@ namespace Halcyonic.Client
         /// One of the app's own sentences, reused after a colon: its first letter lowered, the rest as it is
         /// ("Couldn't read the evaluation: your computer sent something this app can't read. ...").
         /// </summary>
+        /// <summary>Said where a source measured nothing, or said so in words that show as nothing (settled by the coordinator, 2026-10-08).</summary>
+        public const string NothingMeasured = "Nothing measured.";
+
+        /// <summary>A source's sentence made plain, or Halcyonic's own words where it shows as nothing, so the fact it states is never left unsaid.</summary>
+        public static string PlainOr(string? text, string instead) => Plain(text) is { Length: > 0 } plain ? plain : instead;
+
         public static string AfterColon(string sentence) =>
             sentence.Length == 0 ? sentence : char.ToLowerInvariant(sentence[0]).ToString() + sentence.Substring(1);
 
