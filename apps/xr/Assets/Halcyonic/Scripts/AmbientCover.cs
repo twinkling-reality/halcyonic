@@ -22,6 +22,7 @@ namespace Halcyonic.XR
 
         private Func<string?>? openAs;
         private Func<float?>? top;
+        private Func<float?>? barTop;
 
         /// <summary>A foreground panel, rather than the peek.</summary>
         public bool Panel { get; private set; }
@@ -73,6 +74,31 @@ namespace Halcyonic.XR
             }
         }
 
+        /// <summary>
+        /// The highest the closed bar reaches while it stands alone, in degrees from eye level, as the menu's
+        /// plane gives it, though it covers nothing; null while it doesn't stand alone.
+        /// </summary>
+        public static float? BarTop
+        {
+            get
+            {
+                float? highest = null;
+                foreach (var cover in every)
+                {
+                    if (cover == null || cover.barTop?.Invoke() is not float reaches) continue;
+                    if (highest == null || reaches > highest.Value) highest = reaches;
+                }
+                return highest;
+            }
+        }
+
+        /// <summary>
+        /// What the demonstration's raised banner stands clear above, besides the characters: the highest
+        /// panel showing (<see cref="PanelTop"/>), else the closed bar alone (<see cref="BarTop"/>), which
+        /// over a desk's risen character stands where the banner would.
+        /// </summary>
+        public static float? RaisedOver => PanelTop ?? BarTop;
+
         /// <summary>Raised when something starts or stops covering the banner's place.</summary>
         public static event Action? Changed;
 
@@ -96,14 +122,16 @@ namespace Halcyonic.XR
         /// <summary>
         /// Marks <paramref name="owner"/> as covering the banner's place while it is active. A panel
         /// gives <paramref name="openAs"/>, its name while it is open, folded or not, and null while it is closed,
-        /// and may give <paramref name="top"/>, the highest it reaches in degrees from eye level (<see cref="PanelTop"/>).
+        /// and may give <paramref name="top"/>, the highest it reaches in degrees from eye level (<see cref="PanelTop"/>),
+        /// and <paramref name="barTop"/>, the highest its closed bar reaches while it stands alone (<see cref="BarTop"/>).
         /// </summary>
-        public static AmbientCover Add(GameObject owner, bool panel, Func<string?>? openAs = null, Func<float?>? top = null)
+        public static AmbientCover Add(GameObject owner, bool panel, Func<string?>? openAs = null, Func<float?>? top = null, Func<float?>? barTop = null)
         {
             var cover = owner.AddComponent<AmbientCover>();
             cover.Panel = panel;
             cover.openAs = openAs;
             cover.top = top;
+            cover.barTop = barTop;
             every.Add(cover);
             return cover;
         }

@@ -219,8 +219,8 @@ coordinator's first-visit words:
   whatever is open, the closed bar included, which stands where it would hang (the coordinator,
   2026-10-08, after the render found the lines overlapping the bar once the demonstration opened
   closed): it stands a little more than a degree over the highest a risen character
-  reaches, as it stands over a surface, and over the open plane's top edge, which over a desk's
-  lineup stands where it would; it says the demonstration's lines alone, since the menu says what
+  reaches, as it stands over a surface, and over the open plane's top edge, or the closed bar's,
+  which over a desk's lineup stand where it would; it says the demonstration's lines alone, since the menu says what
   waits (the coordinator, 2026-10-07). The peek still takes its place. Amended 2026-10-08: the stage's
   lines stand raised above the stage always, live too (below).
 - **The stage keeps its own sizes**, its labels' 20 dp titles and 16 dp badges, sized for its
