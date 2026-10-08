@@ -2,9 +2,12 @@
 
 One session on a Meta Quest, in one order, so the session refines what is already built and tested
 off the headset instead of discovering how to run it. Everything here has passed on the Mac; the
-session shows what only the headset can. It covers the access token, the loopback proof, the
-glance, the menu plane's comfort and the judge's path, and points to the other checks on a Quest to
-fit in where time allows. Each step says what to do, what to look at, what passes, and where to
+session shows what only the headset can. It covers the access token, the demonstration's first
+visit, the loopback proof, the glance, the menu plane's comfort, motion, the words Hold to talk
+writes for one word, labels that read alike, Codex on a local model, a paired request that times
+out and the judge's path, and points to the other checks on a Quest to fit in where time allows.
+A check for work not yet on main says "if present" and how to tell; where the session's commit
+lacks it, record "not in this build" and go on. Each step says what to do, what to look at, what passes, and where to
 record it. Setup happens once at the start and teardown once at the end; the few steps that change
 the setup on purpose say how to put it back.
 
@@ -51,7 +54,13 @@ Rules for the whole session:
   the sixth session, with no focus change logged; the boundary showing passthrough in the app's
   place is likely, not verified ([quest-3-device.md](../validation/quest-3-device.md)).
 - Run the control plane without `--watch` (`pnpm start`), so a merge doesn't restart it mid-session.
-- Keep captures out of the repository.
+- Keep captures out of the repository. `adb exec-out screencap` does not work on a Quest; Meta's
+  capture service saves the wearer's view, so whoever is at the Mac runs this where a step says
+  "capture", and the pictures are pulled once at the end ("Close"):
+  ```bash
+  adb shell am startservice -n com.oculus.metacam/.capture.CaptureService -a TAKE_SCREENSHOT
+  ```
+  A capture is a still: for motion, write down what you saw.
 - Record as you go, in the record each step names. At the end, move what was shown from "Not
   verified" to "Verified" with the date, the main commit and the headset's model and OS build, and
   resolve each answered row of [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md) as its own rule says.
@@ -67,7 +76,7 @@ Rules for the whole session:
    Pass: the log's `Halcyonic: built Builds/Halcyonic.apk …` line, which comes after Unity's own
    `Build Finished, Result: Success.` and the build's glance check (an exit status of 134 after
    `Exiting batchmode successfully now!` is harmless).
-3. **The release APK**, for the judge's path (step 5), right after, so Unity runs twice before the
+3. **The release APK**, for the judge's path (check 10), right after, so Unity runs twice before the
    session and never during it. Leave `HALCYONIC_VERSION_CODE` unset, so it keeps the project's code
    and installs over the development build and back:
    ```bash
@@ -83,8 +92,31 @@ Rules for the whole session:
    models (Ollama answering), voice, the companion and Salidium's credential. Ollama runs as
    [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) says (`OLLAMA_CONTEXT_LENGTH=65536 OLLAMA_NO_CLOUD=1
    ollama serve`, and `OLLAMA_MAX_LOADED_MODELS=2` with the companion); Salidium is 0.6.0 or later
-   and running ("Connect Salidium"). Pass: nothing it flags matters for this session. Record what it
-   flagged.
+   and running ("Connect Salidium"). Pass: nothing it flags matters for this session; voice is set
+   up for checks 5 and 6, and a local model for check 8. Record what it flagged.
+6. **Labels that read alike, if present** (check 7). This lists `WorkspaceText.cs`; no line means
+   the session's commit lacks them, so skip this step and check 7:
+   ```bash
+   git grep -nF "AsShown(" -- apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs
+   ```
+   Copy the mock runtime's scenarios outside the repository and give `question_asked`'s first
+   question four answers: "Café" with its accent composed (U+00E9), "Café" with it decomposed (an e
+   then U+0301), a noncharacter (U+FFFE) alone, and "Dark":
+   ```bash
+   rm -rf ~/halcyonic-scenarios && cp -R fixtures/scenarios ~/halcyonic-scenarios
+   python3 - <<'EOF'
+   import json, pathlib
+   path = pathlib.Path.home() / 'halcyonic-scenarios' / 'question_asked.json'
+   scenario = json.loads(path.read_text())
+   scenario['steps'][1]['await_answer']['prompts'][0]['options'] = [
+       {'label': 'Caf\u00e9', 'description': 'The accent composed'},
+       {'label': 'Cafe\u0301', 'description': 'The accent decomposed'},
+       {'label': '\ufffe', 'description': 'A noncharacter'},
+       {'label': 'Dark', 'description': 'Light text on a dark background'},
+   ]
+   path.write_text(json.dumps(scenario, ensure_ascii=True, indent=1))
+   EOF
+   ```
 
 ## Connect
 
@@ -130,6 +162,56 @@ Rules for the whole session:
 
 The token is replaced once, in step 1.5, after the move check has put one on shared storage on
 purpose; the token in use from then on never touched shared storage.
+
+## The demonstration's first visit ([competition-judge-build.md](../validation/competition-judge-build.md))
+
+The first time the demonstration plays on a headset, the menu opens by itself on Projects, once
+(ADR 0026). Later steps play the demonstration too (a token set aside, a connection that fails
+before it was live), and the headset remembers the visit in the app's data, so see it here, before
+any of them. A judge sees it the same way on the release build. Check the build has it: this lists
+`WorkspaceDirector.cs`, and no line means record "not in this build" and go on to the checks.
+
+```bash
+git grep -nF "halcyonic.demo.welcomed" -- apps/xr/Assets
+```
+
+1. **Play the demonstration.** Set the token aside and restart the app:
+   ```bash
+   adb shell run-as com.halcyonic.xr mv files/access-token files/access-token.off
+   adb shell am force-stop com.halcyonic.xr
+   adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
+   ```
+2. **The welcome.** Touch nothing. Pass: the menu opens on Projects, under "What would you like to
+   work on?", with New project at its right. Its one row reads "Storefront API" and "3 tasks not
+   started", and every character's label reads "Not started" with the Demo mark. The stage's lines,
+   "Demo: recorded work played on this headset. Nothing here is live." and "It follows your answers.
+   Nothing reaches an agent.", stand above the characters, clear of every body and of the menu, and
+   read without leaning back. Capture.
+3. **Work starts.** Within about a second two characters start working, and the row reads "2 tasks
+   running". If present (this lists `ProjectsText.cs`), press the row while they work, within about
+   5 seconds: its side panel's Its work reads "2 tasks running, 1 not started". Close details.
+   ```bash
+   git grep -nF "var paused = project.Work - project.NeedsYou" -- apps/xr/Packages/com.halcyonic.client/Runtime/ProjectsText.cs
+   ```
+4. **A task comes to wait.** At about 7 seconds "Add rate limiting to the sign-in endpoint" waits.
+   Pass: its character rises and its badge changes from Working to Waiting for you as a quick
+   cross-fade, never a jump; Tasks, at the menu's top, takes its amber dot; the menu stays on
+   Projects; and the raised lines stay clear of the risen character. Capture. If present (step 3),
+   the row's side panel reads "1 task waiting for you, 2 paused".
+5. **The lines come back down.** Close the menu: the bar stands under the stage, and the lines hang
+   under the labels again. Look at a character until its peek shows: the lines step aside for it.
+   Open the menu again: they rise again.
+6. **Log.** `adb logcat -d -s Unity | grep "Halcyonic: demonstration plays from its beginning"`:
+   one line. Put the token back and restart the app:
+   ```bash
+   adb shell run-as com.halcyonic.xr mv files/access-token.off files/access-token
+   adb shell am force-stop com.halcyonic.xr
+   adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
+   ```
+   `pnpm quest:check`: live again.
+
+Record in competition-judge-build.md: the welcome as a judge first sees it, and whether the raised
+lines read as part of the stage.
 
 ## The checks
 
@@ -345,7 +427,104 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 
 `pnpm quest:check`: live again.
 
-### 5. The judge's path, on the release build ([competition-judge-build.md](../validation/competition-judge-build.md))
+### 5. Motion ([quest-3-device.md](../validation/quest-3-device.md), ADR 0027)
+
+In the sixth session the owner said "nothing moves". Since ADR 0027 the interface moves to answer the
+person and to show a wait, and nothing else. Check the build has it: this lists `Glaze.cs`, and no
+line means record "not in this build".
+
+```bash
+git grep -nF "ListeningPulseSeconds" -- apps/xr/Packages/com.halcyonic.client/Runtime/Glaze.cs
+```
+
+Live, on the development build with the token in place, voice set up on the Mac.
+1. **Slides.** Open the menu from its bar, then a task's file from Tasks, then close the file and
+   the menu. Pass: each part slides a short way into place, easing in and out, nothing overshoots
+   or bounces, and nothing moves while you read.
+2. **A state changing.** `pnpm demo --scenario approval_required` on the Mac. Pass: the character's
+   badge goes from Working to Waiting for you as a quick cross-fade, its word readable throughout,
+   then Waiting for you breathes.
+3. **Hold to talk's three states.** `pnpm demo --scenario question_asked`, then open its file on
+   Waiting. Hold Hold to talk. Pass: it reads "Listening", its cap filled and its words in the
+   active blue, its microphone pulsing; capture while held. Say "Dark", let go. Pass: it shows the
+   transcribe icon and "Writing down", a band of brightness sweeping across its words; capture. It
+   keeps its width and place throughout, and no line is added to the page.
+4. **Keep badges still.** Settings, Comfort, Keep badges still, then steps 2 and 3 again. Pass:
+   the breath, the turning icons, the microphone's pulse and the shimmer stop, each state still
+   told by its colour, icon and words; slides, presses and the badge's cross-fade remain. Put it
+   back: Let badges move.
+5. **The owner's judgement.** Does it move enough now, too much, or anywhere it shouldn't? Does the
+   shimmer read as noise beside the agent's own words, or the pulse draw the eye from the page?
+
+Record in quest-3-device.md, beside the sixth session's "nothing moves", and any value to change in
+ADR 0027's consequences.
+
+### 6. The words heard for one word ([voice-transcription.md](../validation/voice-transcription.md))
+
+On the same `question_asked` file, on its colour scheme question (its answers are Light and Dark,
+and it takes typed words). For each of "Dark", "Dark", "Dark", "Light" and "Yes": hold Hold to talk,
+say the one word, let go, and read what lands in the typed row, character for character: a capital
+added or not, a period or any other mark at its end. Capture one. Record each word before the next
+hold, and send nothing until the last; then press Send answer and record what the file says was sent.
+
+Record the words exactly as shown, never the clip, in voice-transcription.md: they decide whether a
+spoken answer can match an answer's label as written.
+
+### 7. Labels that read alike, under IL2CPP (if present)
+
+Only with Prepare step 6 done. The headset compares answers as their rows show them, composed with
+Mono's `String.Normalize(NormalizationForm.FormC)`, which only an IL2CPP build on the headset runs.
+Stop the control plane and start it on the scenarios' copy:
+
+```bash
+HALCYONIC_MOCK_SCENARIOS_DIR="$HOME/halcyonic-scenarios" pnpm start
+```
+
+If it refuses the copy, record its message: the labels never reached the headset. Then
+`pnpm demo --scenario question_asked`, and open its file on Waiting.
+1. **The two Cafés.** Pass: they show as rows that can't be chosen, a line under the answers says
+   why, and Stop stands on Waiting as the way on; "Dark" can be chosen. That they read alike means
+   `Normalize` composed the decomposed one on the headset. Capture.
+2. **The noncharacter.** Pass: its row shows ‹U+FFFE›, and the file draws its page.
+3. **The log.** `adb logcat -d -s Unity | grep -i -E "exception|normaliz"`: nothing from the file.
+   Record any line whole.
+
+Stop the control plane and `pnpm start` it again without the variable. Record in
+quest-3-device.md: whether `String.Normalize` composed under IL2CPP, and what U+FFFE did.
+
+### 8. Codex as a second agent app, on a local model (if registered)
+
+Codex runs only on a model the Mac serves ([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md#codex)).
+Pass first: the control plane's `control plane ready` line lists the runtime `codex`, and its
+`agent_binaries` reads `matches` for it. Otherwise record "not registered" and go on.
+
+In a project with a folder, add a task (Projects, the project, Add a task), choose Codex and the
+local model in More options, and start it with a small change, such as adding a README line.
+Pass: its character starts and works under Codex's name with no Practice mark; whatever it asks
+waits in its file and is answered there; its round finishes, or says why it couldn't; its
+Activity shows what it did. Capture its file once it has finished.
+
+Record in [codex-capabilities.md](../validation/codex-capabilities.md) and
+[local-models.md](../validation/local-models.md): how long to its first activity and to the
+round's end, what it asked, and whether the local model finished the change.
+
+### 9. A paired request that times out (if the session pairs, [network-pairing.md](../validation/network-pairing.md))
+
+After [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Pairing checks on a Quest", with the headset paired
+and live over Wi-Fi, and the app restarted so no file's earlier activity has been read yet. A
+request over the pinned transport (`PinnedHttpHandler`) that outlives its 15 seconds should end
+cancelled, and Mono may fault instead.
+1. Pause the control plane: `kill -STOP $(lsof -tiTCP:47800 -sTCP:LISTEN)`.
+2. At once, press a character to open its file. Its Activity reads earlier activity, and after
+   about 15 seconds says "earlier activity unavailable, reopen to try again".
+3. `adb logcat -d -s Unity | grep "earlier activity could not be read"`. Pass: it names
+   `TaskCanceledException` or `OperationCanceledException`, a cancel. Any other type means Mono
+   faulted where the handler expects a cancel: record it whole.
+4. `kill -CONT $(lsof -tiTCP:47800 -sTCP:LISTEN)`: live again within the retry delay.
+
+Record in network-pairing.md, and in the pinned transports' row of OPEN_QUESTIONS.md.
+
+### 10. The judge's path, on the release build ([competition-judge-build.md](../validation/competition-judge-build.md))
 
 1. **A release build over development data.** Set the token aside (a release build still reads a
    private token), stop the control plane, put a token-shaped stand-in at the old place (the release
@@ -362,7 +541,8 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
    remove reads as in step 1.2; remove it from the Mac the same way. Record in
    headset-token-storage.md.
 2. **The walk.** Hands only, no token, no pairing: the walk in
-   [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The demonstration judges see". Look at the timeline in
+   [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The demonstration judges see". Its welcome was seen in
+   "The demonstration's first visit" and doesn't come again, so the walk starts from the closed bar. Look at the timeline in
    competition-judge-build.md. Pass: each beat when the timeline says. Record: whether a newcomer
    finds the satisfying moment, the field of view split as the headset shows it, and a clean resume
    after sleep, the system menu and another app.
@@ -413,5 +593,9 @@ development build and the token in place:
    com.oculus.vrpowermanager.automation_disable` if the headset was kept awake, and remove the sound
    option file if it was made ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Beside a window on a Quest").
 5. `adb kill-server`. The Mac's adb server answers every local account while it runs.
-6. Record: the validation records above, the OPEN_QUESTIONS rows the session answered, and the
+6. Pull the captures to a folder outside the repository:
+   ```bash
+   adb pull /sdcard/Oculus/Screenshots ~/halcyonic-captures
+   ```
+7. Record: the validation records above, the OPEN_QUESTIONS rows the session answered, and the
    commit, date and headset.

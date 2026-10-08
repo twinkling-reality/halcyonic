@@ -24,7 +24,7 @@ changes, the matching document changes in the same commit.
 | Architecture | [architecture/XR_CLIENT.md](architecture/XR_CLIENT.md) | The Unity client's layers, C# contracts, session, threading and verification |
 | Operations | [runbooks/LOCAL_DEVELOPMENT.md](runbooks/LOCAL_DEVELOPMENT.md) | Running, replaying, recording, resetting |
 | Operations | [runbooks/XR_DEVELOPMENT.md](runbooks/XR_DEVELOPMENT.md) | Installing Unity, opening the XR project, running it against the control plane |
-| Operations | [runbooks/HEADSET_SESSION.md](runbooks/HEADSET_SESSION.md) | One headset session in order: prepare, connect, the access token, the loopback proof, the glance, the menu plane's comfort and the judge's path, close, with pointers to the other checks on a Quest; `pnpm quest:check` for what needs no person |
+| Operations | [runbooks/HEADSET_SESSION.md](runbooks/HEADSET_SESSION.md) | One headset session in order: prepare, connect, the demonstration's first visit, the access token, the loopback proof, the glance, the menu plane's comfort, motion, the words Hold to talk writes for one word, labels that read alike, Codex on a local model, a paired request that times out and the judge's path, close, with pointers to the other checks on a Quest; `pnpm quest:check` for what needs no person |
 
 ## Decision records
 
