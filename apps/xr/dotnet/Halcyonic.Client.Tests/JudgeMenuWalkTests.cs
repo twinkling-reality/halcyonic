@@ -461,8 +461,8 @@ public class JudgeMenuWalkTests
         // Questions: the companion's words quoted as its own, said to be recorded, and only the recorded answer to press.
         (_, step) = host.Draw();
         Assert.That(step!.Source, Is.EqualTo(CompanionText.Recorded));
-        Assert.That(step.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)), Is.True,
-            "the companion's words are quoted as its own");
+        Assert.That(step.Lines.Any(line => line.Runs.AllTheirs && line.Action == null), Is.True,
+            "the companion's words lean as its own");
         // Where the page holds the quote alone, as at the larger size here, the suggestions are a turn of the page away.
         var questions = step;
         for (var turned = 0; turned < 10 && !questions.Lines.Any(line => line.Action == NewProjectScreens.ChooseSuggestion)

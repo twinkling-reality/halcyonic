@@ -448,7 +448,7 @@ namespace Halcyonic.Client
             // The request an approval answers, or an instruction's words, read whole before its Yes.
             if (Steering.ToRead(presentation) is string request)
             {
-                Screen.ReadRequest(request, host.RowsOf(new PageLine(request, wordsAreData: true), Glaze.Menu.FileColumnDegrees),
+                Screen.ReadRequest(request, host.RowsOf(FileScreens.RequestLine(Steering, request), Glaze.Menu.FileColumnDegrees),
                     RequestPartRows(FileScreens.AllAsks(Steering), budget), Steering);
             }
 
@@ -499,11 +499,10 @@ namespace Halcyonic.Client
             {
                 measures = asked.Prompts.Select(prompt =>
                 {
-                    var answers = prompt.Options.Select(FileScreens.AnswerWords).ToList();
                     return new PromptMeasure(
-                        host.RowsOf(new PageLine("“" + WorkspaceText.OneLine(prompt.Text) + "”", wordsAreData: true), File),
-                        answers.Select(words => host.RowsOf(new PageLine(words, wordsAreData: true, action: FileScreens.Choose, key: "0", choice: true), File)).ToList(),
-                        answers.Select(words => host.RowsOf(new PageLine(words, wordsAreData: true), Side)).ToList());
+                        host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
+                        prompt.Options.Select(option => host.RowsOf(FileScreens.AnswerRow(option, "0"), File)).ToList(),
+                        prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList());
                 }).ToList();
                 measuredFor = asked;
                 measuredAt = host.TextSize;
@@ -514,12 +513,12 @@ namespace Halcyonic.Client
                 if (!(asked.Typed(prompt) is string typed)) continue;
                 Screen.Question.MeasureTyped(prompt,
                     host.RowsOf(new PageLine(FileScreens.TypedWords(typed), wordsAreData: true, action: FileScreens.TypeAnswer, key: "0", choice: true, chosen: true), File),
-                    host.RowsOf(new PageLine("“" + WorkspaceText.OneLine(typed) + "”", wordsAreData: true), Side));
+                    host.RowsOf(FileScreens.SideAnswerLine(null, typed), Side));
             }
             if (asked.Prompts.Count > 1)
             {
                 Screen.Question.MeasureReview(Enumerable.Range(0, asked.Prompts.Count)
-                    .Select(prompt => host.RowsOf(new PageLine(FileScreens.ReviewWords(asked, prompt), wordsAreData: true, action: FileScreens.GoToQuestion, key: "0"), File))
+                    .Select(prompt => host.RowsOf(FileScreens.ReviewRow(asked, prompt), File))
                     .ToList());
             }
         }

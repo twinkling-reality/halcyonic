@@ -14,12 +14,13 @@ namespace Halcyonic.Client
     {
         /// <summary>
         /// What the recap says first when the companion has just proposed it: its view, when it found
-        /// the idea unclear or not buildable, then its line, quoted and tagged as its own.
+        /// the idea unclear or not buildable, in Halcyonic's words, then its line, leaning on Halcyonic's
+        /// ground; the page's source line says it is the companion's.
         /// </summary>
-        public static string Proposed(ProposeReply reply)
+        public static LineWords Proposed(ProposeReply reply)
         {
             var view = CompanionText.View(reply.View);
-            return (view == null ? "" : view + " ") + CompanionText.Says(reply.Line);
+            return (view == null ? LineWords.None : LineWords.Ours(view + " ")) + LineWords.Theirs(reply.Line);
         }
 
         /// <summary>

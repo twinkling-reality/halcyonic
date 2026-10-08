@@ -406,7 +406,7 @@ namespace Halcyonic.Client
                 var quote = Asked(ask, withLine: !notBuildable);
                 // At most a third row: the view measures the real words and grows to it rather than cut the question.
                 // Where its answers page, a page after its own repeats it by its first rows, cut, where they fit.
-                if (head != 0) lines.Add(new PageLine(quote, wordsAreData: true, claim: true, rows: head ?? QuoteRows + 1));
+                if (head != 0) lines.Add(new PageLine(quote, rows: head ?? QuoteRows + 1));
                 if (answers != null && answers.OwnPage)
                 {
                     lines.Add(answers.Row());
@@ -417,7 +417,7 @@ namespace Halcyonic.Client
                 for (var index = 0; index < choices.Count; index++)
                 {
                     if (answers != null && !answers.Shows(index)) continue;
-                    lines.Add(new PageLine(LabelText.Plain(choices[index]), wordsAreData: true, action: ChooseSuggestion,
+                    lines.Add(new PageLine(LineWords.Theirs(choices[index]), action: ChooseSuggestion,
                         key: AnswerKey(exchange.Generation, choices[index]), choice: true,
                         chosen: exchange.Chosen == CompanionAnswerRow.Suggestion && exchange.ChosenSuggestion == index,
                         available: recorded ? choices[index] == recordedAnswer : exchange.CanSay, rows: 2));
@@ -457,7 +457,7 @@ namespace Halcyonic.Client
             else
             {
                 // The companion has proposed: its recap is made, and Make the recap only opens it.
-                if (exchange.Latest is CompanionReply reply) lines.Add(new PageLine(CompanionText.Says(reply.Line), wordsAreData: true, claim: true, rows: 3));
+                if (exchange.Latest is CompanionReply reply) lines.Add(new PageLine(LineWords.Theirs(reply.Line), rows: 3));
                 main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true);
                 answering = false;
             }
@@ -506,12 +506,13 @@ namespace Halcyonic.Client
         /// <see cref="QuoteRows"/> rows and <paramref name="withLine"/>; else the question alone, so the
         /// line drops first and the question is never cut.
         /// </summary>
-        public static string Asked(AskReply ask, bool withLine = true)
+        public static LineWords Asked(AskReply ask, bool withLine = true)
         {
-            var question = CompanionText.Says(ask.Question?.Text ?? "");
+            var question = LineWords.Theirs(ask.Question?.Text);
+            if (question.IsEmpty) return LineWords.TheirName(ask.Line);
             if (!withLine) return question;
-            var both = CompanionText.Says(LabelText.Plain(ask.Line) + " " + LabelText.Plain(ask.Question?.Text));
-            return Rows(both) <= QuoteRows ? both : question;
+            var both = LineWords.Theirs(LabelText.Plain(ask.Line) + " " + LabelText.Plain(ask.Question?.Text));
+            return Rows(both.Text) <= QuoteRows ? both : question;
         }
 
         /// <summary>The rows <paramref name="text"/> takes at the content's size, about.</summary>
@@ -588,7 +589,7 @@ namespace Halcyonic.Client
             if (existing && chosen == RecapFact.Name) chosen = null;
             var lines = new List<PageLine>();
             if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 2));
-            else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), wordsAreData: true, claim: true, rows: 2));
+            else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), rows: 2));
             else lines.Add(new PageLine(EntryScreens.Moves(idea, currentFolder) ? EntryText.RebindWarning : EntryText.RecapLine, tone: LineTone.Secondary, rows: 2));
             var named = idea.Name.Length > 0;
             lines.Add(existing

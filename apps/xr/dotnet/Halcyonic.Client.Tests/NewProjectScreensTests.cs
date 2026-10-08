@@ -120,12 +120,14 @@ public class NewProjectScreensTests
         Assert.That(frame.Source, Is.EqualTo(CompanionText.Note), "the note that it is an AI is the page's source line");
         Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Questions"));
         var quote = frame.Lines[0];
-        Assert.That(quote.Claim && quote.WordsAreData, Is.True);
-        Assert.That(quote.Words, Does.StartWith("The companion says: “").And.EndWith("”"));
-        Assert.That(quote.Drawn, Does.StartWith("The companion says: “"), "Halcyonic's attribution stays outside the companion's quotes");
+        // The companion's words alone, leaning beside Halcyonic's quote mark; the source line says whose they are.
+        Assert.That((quote.Runs.AllTheirs, quote.Icon), Is.EqualTo((true, (GlazeIcon?)GlazeIcon.Quote)));
+        Assert.That(quote.Words, Does.Not.Contain("“").And.Not.Contain("The companion says"));
         Assert.That(quote.Rows, Is.EqualTo(NewProjectScreens.QuoteRows + 1), "two rows, and room for a third rather than cut");
         Assert.That(Answers(frame).Select(line => line.Words),
             Is.EqualTo(new[] { "Each runner", "One organiser", CompanionText.TypeAnswer, CompanionText.GoOnWithout }));
+        Assert.That(Answers(frame).Select(line => line.Runs.AllTheirs), Is.EqualTo(new[] { true, true, false, false }),
+            "the companion's choices lean beside Halcyonic's quote mark, Halcyonic's own rows stand upright");
         Assert.That(Answers(frame).Take(2).Select(line => line.Key),
             Is.EqualTo(new[] { NewProjectScreens.AnswerKey(exchange.Generation, "Each runner"), NewProjectScreens.AnswerKey(exchange.Generation, "One organiser") }),
             "keyed by the question and their own words, so a press on a frame drawn before a new reply takes nothing on it");
@@ -171,15 +173,15 @@ public class NewProjectScreensTests
     {
         var shortReply = Companions.Ask("Who enters?");
         shortReply.Line = "Fits a page.";
-        Assert.That(NewProjectScreens.Asked(shortReply), Is.EqualTo("The companion says: “Fits a page. Who enters?”"));
+        Assert.That(NewProjectScreens.Asked(shortReply).ToString(), Is.EqualTo("[Fits a page. Who enters?]"));
         var longLine = Companions.Ask("Who enters the times?");
         longLine.Line = new string('l', 120);
-        Assert.That(NewProjectScreens.Asked(longLine), Is.EqualTo("The companion says: “Who enters the times?”"));
+        Assert.That(NewProjectScreens.Asked(longLine).ToString(), Is.EqualTo("[Who enters the times?]"));
         // The widest letters: lane V measured 66 of them in the quote's two rows, so the longest such question needs a third.
         var widest = string.Concat(Enumerable.Repeat("WMW ", CompanionExchange.QuestionLimit / 4)).TrimEnd() + "?";
         Assert.That(widest.Length, Is.LessThanOrEqualTo(CompanionExchange.QuestionLimit));
         var frame = Questions(Asked(out _, Companions.Ask(widest)));
-        Assert.That(frame.Lines[0].Words, Is.EqualTo("The companion says: “" + widest + "”"), "the longest question the contract allows, whole and alone");
+        Assert.That(frame.Lines[0].Words, Is.EqualTo(widest), "the longest question the contract allows, whole and alone");
         Assert.That(frame.Lines[0].Rows, Is.EqualTo(NewProjectScreens.QuoteRows + 1), "room to grow to a third row rather than end in an ellipsis");
 
         var unclear = Questions(Asked(out _));
@@ -189,7 +191,7 @@ public class NewProjectScreensTests
         frame = Questions(Asked(out _, notBuildable));
         Assert.That(frame.Lines[0].Words, Is.EqualTo(CompanionText.ThinksNotBuildable));
         Assert.That(frame.Lines[0].Tone, Is.EqualTo(LineTone.Secondary));
-        Assert.That(frame.Lines[1].Words, Is.EqualTo("The companion says: “Is this for a computer?”"), "with its view, the question alone");
+        Assert.That(frame.Lines[1].Words, Is.EqualTo("Is this for a computer?"), "with its view, the question alone");
     }
 
     [Test]
@@ -411,8 +413,8 @@ public class NewProjectRecapTests
         HoldsThreePrompts(frame);
         Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Recap"));
         Assert.That(frame.Sections.Last().Reached, Is.False, "something is missing, so Start building can't be chosen");
-        Assert.That(frame.Lines[0].Claim && frame.Lines[0].WordsAreData, Is.True, "the companion's proposal, quoted as its own");
-        Assert.That(frame.Lines[0].Words, Does.Contain("The companion says: “That is clear enough to start.”"));
+        Assert.That(frame.Lines[0].Runs.Runs.Last().Theirs && frame.Lines[0].WordsAreData, Is.True, "the companion's proposal, leaning as its own");
+        Assert.That(frame.Lines[0].Runs.Runs.Last().Text, Is.EqualTo("That is clear enough to start."));
         Assert.That(frame.Source, Is.EqualTo(CompanionText.Note), "its words show, so the note that it is an AI is the source");
         Assert.That(Fact(frame, RecapFact.Name).Words, Is.EqualTo("Race Times"));
         Assert.That(Fact(frame, RecapFact.Name).Fact, Is.EqualTo(CompanionText.SuggestedShort));

@@ -95,7 +95,7 @@ namespace Halcyonic.Client
         /// </summary>
         private static Page NotLaidOut(WorkspacePresentation workspace, QuestionView pending, string source)
         {
-            var lines = new[] { new PageLine("“" + WorkspaceText.OneLine(pending.Prompts[0].Text) + "”", wordsAreData: true, claim: true, rows: FileQuestion.QuestionRows) };
+            var lines = new[] { new PageLine(QuestionWords(pending.Prompts[0]), rows: FileQuestion.QuestionRows) };
             var actions = workspace.Actions;
             var send = actions.Contains(WorkspaceAction.Answer)
                 ? new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true, available: false,
@@ -145,9 +145,9 @@ namespace Halcyonic.Client
         private static Page Approval(WorkspacePresentation workspace, NeedAnswer need, AnswerRoom room, string source)
         {
             var rows = WithSource(room).Rows;
-            var lines = new List<PageLine> { new PageLine(need.Asks, wordsAreData: true, tone: LineTone.Waiting) };
+            var lines = new List<PageLine> { new PageLine(need.AsksRuns, tone: LineTone.Waiting) };
             // The request as much as fits under what it wants; Approve and Deny show it whole.
-            if (need.Request != null) lines.Add(new PageLine(need.Request, wordsAreData: true, rows: Math.Max(1, Math.Min(RequestRows, rows - 1))));
+            if (need.Request != null) lines.Add(new PageLine(LineWords.Theirs(need.Request), rows: Math.Max(1, Math.Min(RequestRows, rows - 1))));
             var footer = ApprovalFooter(workspace);
             if (footer[PromptSlot.FarRight] == null && footer[PromptSlot.Secondary] == null && WorkspaceText.WhyNoActions(workspace) is string why)
             {
@@ -178,7 +178,7 @@ namespace Halcyonic.Client
             var perPart = measured ? screen.RequestPartRows : RequestRows;
             var parts = measured ? screen.RequestParts : 1;
             var part = measured ? screen.RequestPart : 0;
-            var lines = new List<PageLine> { new PageLine(request, wordsAreData: true, rows: perPart, fromRow: part * perPart) };
+            var lines = new List<PageLine> { RequestLine(steering, request, perPart, part * perPart) };
             if (parts > 1) lines.Add(new PageLine(NextPartWords(part, parts), action: NextPart, key: RequestKey));
             lines.Add(new PageLine(Asks(steering, workspace, parts), tone: LineTone.Secondary, rows: 2));
             // Approve's Yes, and an instruction's, only once all of it has shown: until the layout
@@ -188,6 +188,19 @@ namespace Halcyonic.Client
             var yes = measured && steering.CanConfirm ? YesFor(armed) : null;
             return new Page(lines, source, Footer.Confirm(before, pressed, yes, CancelConfirm));
         }
+
+        /// <summary>
+        /// The request a confirmation reads whole, as its parts show it: an approval's request is the agent
+        /// app's, all outside text, a block leaning on Halcyonic's ground; an instruction's words are the
+        /// person's own, upright in their quotes.
+        /// </summary>
+        public static PageLine RequestLine(WorkspaceSteering steering, string request, int rows = 1, int? fromRow = null) =>
+            steering.Armed == WorkspaceAction.Instruct
+                ? new PageLine(request, wordsAreData: true, rows: rows, fromRow: fromRow)
+                : new PageLine(LineWords.Theirs(request), rows: rows, fromRow: fromRow);
+
+        /// <summary>The agent's question as its lines show it: its words alone, leaning beside Halcyonic's quote mark, never quoted.</summary>
+        public static LineWords QuestionWords(QuestionPrompt asked) => LineWords.Theirs(asked.Text);
 
         /// <summary>The agent's question the person reads here, while it is the one the work shows.</summary>
         private static QuestionDraft? Asked(WorkspacePresentation workspace, FileScreen screen)
@@ -237,12 +250,26 @@ namespace Halcyonic.Client
         /// A prompt's answer as the page of the person's answers shows it, whole: its name, then each label
         /// chosen and the words typed. The layout measures exactly these words (<see cref="FileQuestion.MeasureReview"/>).
         /// </summary>
-        public static string ReviewWords(QuestionDraft draft, int prompt)
+        public static string ReviewWords(QuestionDraft draft, int prompt) => ReviewRuns(draft, prompt).Text;
+
+        /// <summary>
+        /// A prompt's answer on the page of the person's answers, as runs: its name, the agent's header
+        /// leaning, then each label chosen, the agent's, leaning, and the words typed, the person's,
+        /// upright in their quotes.
+        /// </summary>
+        public static LineWords ReviewRuns(QuestionDraft draft, int prompt) =>
+            NameRuns(draft.Question, prompt) + LineWords.Ours(": ") + Given(draft, prompt, LineWords.Ours("Not answered"));
+
+        /// <summary>The answers given to a prompt, the agent's labels leaning and the person's words upright, or <paramref name="none"/>.</summary>
+        private static LineWords Given(QuestionDraft draft, int prompt, LineWords none)
         {
             var asked = draft.Prompts[prompt];
-            var given = asked.Options.Where(option => draft.IsChosen(prompt, option.Label)).Select(option => WorkspaceText.OneLine(option.Label)).ToList();
-            if (draft.Typed(prompt) is string typed) given.Add("“" + WorkspaceText.OneLine(typed) + "”");
-            return Name(draft.Question, prompt) + ": " + (given.Count == 0 ? "Not answered" : string.Join(", ", given));
+            var given = asked.Options.Where(option => draft.IsChosen(prompt, option.Label)).Select(option => LineWords.TheirName(option.Label)).ToList();
+            if (draft.Typed(prompt) is string typed) given.Add(LineWords.Ours("“" + WorkspaceText.OneLine(typed) + "”"));
+            if (given.Count == 0) return none;
+            var joined = given[0];
+            for (var index = 1; index < given.Count; index++) joined = joined + LineWords.Ours(", ") + given[index];
+            return joined;
         }
 
         /// <summary>
@@ -330,15 +357,15 @@ namespace Halcyonic.Client
             if (question.Reviewing) return YourAnswersPage(workspace, screen, draft, source);
             var prompt = question.Prompt;
             var asked = draft.Prompts[prompt];
-            // The agent's words: quoted and leaning, as its messages are.
-            var text = "“" + WorkspaceText.OneLine(asked.Text) + "”";
+            // The agent's words, leaning beside Halcyonic's quote mark, as its messages are.
+            var text = QuestionWords(asked);
             if (!WorkspaceText.Answerable(draft.Question))
             {
                 // Nothing can be answered here, so nothing is read through to: what it asks, why it
                 // can't be answered, and Stop, the way on.
                 return new Page(new[]
                 {
-                    new PageLine(text, wordsAreData: true, claim: true, rows: FileQuestion.QuestionRows),
+                    new PageLine(text, rows: FileQuestion.QuestionRows),
                     new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary),
                     new PageLine(WorkspaceText.AgentWaits, tone: LineTone.Secondary),
                 }, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
@@ -349,14 +376,14 @@ namespace Halcyonic.Client
                 var parts = question.QuestionParts(prompt);
                 var partLines = new List<PageLine>
                 {
-                    new PageLine(text, wordsAreData: true, claim: true, rows: perPart, fromRow: part * perPart),
+                    new PageLine(text, rows: perPart, fromRow: part * perPart),
                     new PageLine(QuestionPartWords(part, parts, question.Pages), action: NextPart, key: QuestionKey),
                 };
                 return new Page(partLines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
             }
             var lines = new List<PageLine>();
             // The question heads its answers where it leaves room for one; a long one by its first row.
-            if (question.HeadRows(prompt) > 0) lines.Add(new PageLine(text, wordsAreData: true, claim: true, rows: question.HeadRows(prompt)));
+            if (question.HeadRows(prompt) > 0) lines.Add(new PageLine(text, rows: question.HeadRows(prompt)));
             if (!WorkspaceText.Answerable(draft.Question))
             {
                 lines.Add(new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary));
@@ -390,12 +417,11 @@ namespace Halcyonic.Client
             {
                 // All the words of the chosen cut answer, or of the typed one, beside the page, in parts
                 // where they don't fit; the footer's Next page turns them, in Hold to talk's place.
-                var words = open < asked.Options.Count ? AnswerWords(asked.Options[open]) : "“" + WorkspaceText.OneLine(draft.Typed(prompt) ?? "") + "”";
                 var perPart = question.SidePartRows;
                 var parts = question.SideParts;
-                side = new SidePanel(Name(draft.Question, prompt), subjectIsData: true,
-                    lines: new[] { new PageLine(words, wordsAreData: true, rows: perPart, fromRow: question.SidePart * perPart) },
-                    source: source, parts: parts > 1 ? (question.SidePart, parts) : ((int, int)?)null);
+                side = new SidePanel(NameRuns(draft.Question, prompt),
+                    lines: new[] { SideAnswerLine(open < asked.Options.Count ? asked.Options[open] : null, draft.Typed(prompt), perPart, question.SidePart * perPart) },
+                    source: LineWords.Written(source), parts: parts > 1 ? (question.SidePart, parts) : ((int, int)?)null);
                 if (parts > 1 && footer[PromptSlot.FarRight] is Prompt main && main.Main)
                 {
                     footer = new Footer(footer[PromptSlot.Close], footer[PromptSlot.Rare], farRight: main)
@@ -404,6 +430,21 @@ namespace Halcyonic.Client
             }
             return new Page(lines, source, footer, side, ofQuestion: true);
         }
+
+        /// <summary>
+        /// A chosen answer's words beside the page, all of them: the agent's answer, leaning beside
+        /// Halcyonic's quote mark, or the person's typed words, upright in their quotes.
+        /// </summary>
+        public static PageLine SideAnswerLine(QuestionOption? option, string? typed, int rows = 1, int? fromRow = null) => option != null
+            ? new PageLine(AnswerRuns(option), rows: rows, fromRow: fromRow)
+            : new PageLine("“" + WorkspaceText.OneLine(typed ?? "") + "”", wordsAreData: true, rows: rows, fromRow: fromRow);
+
+        /// <summary>An answer as its row shows it: the agent's label and description, all outside text, leaning beside Halcyonic's quote mark.</summary>
+        public static LineWords AnswerRuns(QuestionOption option) => LineWords.Theirs(AnswerWords(option));
+
+        /// <summary>An answer's row to choose, as the page draws it and the layout measures it.</summary>
+        public static PageLine AnswerRow(QuestionOption option, string key, bool chosen = false, bool available = true, int rows = 1) =>
+            new PageLine(AnswerRuns(option), action: Choose, key: key, choice: true, chosen: chosen, available: available, rows: rows);
 
         /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
         public static string AnswerWords(QuestionOption option) =>
@@ -414,15 +455,14 @@ namespace Halcyonic.Client
         {
             var option = draft.Prompts[prompt].Options[index];
             // One that reads the same as another shows, and can't be chosen.
-            return new PageLine(AnswerWords(option), wordsAreData: true, action: Choose,
-                key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: draft.IsChosen(prompt, option.Label),
-                available: !WorkspaceText.ReadsAlike(draft.Prompts[prompt], index), rows: question.AnswerShows(prompt, index));
+            return AnswerRow(option, index.ToString(CultureInfo.InvariantCulture), draft.IsChosen(prompt, option.Label),
+                !WorkspaceText.ReadsAlike(draft.Prompts[prompt], index), question.AnswerShows(prompt, index));
         }
 
         /// <summary>A prompt's name on the person's answers: its header as the agent wrote it, else which question it is.</summary>
-        private static string Name(QuestionView question, int prompt) => string.IsNullOrWhiteSpace(question.Prompts[prompt].Header)
-            ? "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture)
-            : WorkspaceText.OneLine(question.Prompts[prompt].Header!);
+        private static LineWords NameRuns(QuestionView question, int prompt) => LineWords.Theirs(question.Prompts[prompt].Header) is { IsEmpty: false } header
+            ? header
+            : LineWords.Ours("Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture));
 
         /// <summary>
         /// The person's answers to a question of several prompts, the only page it sends from: each
@@ -432,11 +472,14 @@ namespace Halcyonic.Client
         private static Page YourAnswersPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
         {
             var question = screen.Question;
-            var lines = question.Reviewed.Select(prompt => new PageLine(ReviewWords(draft, prompt), wordsAreData: true,
-                action: GoToQuestion, key: prompt.ToString(CultureInfo.InvariantCulture), rows: question.ReviewShows(prompt), fromRow: 0)).ToList();
+            var lines = question.Reviewed.Select(prompt => ReviewRow(draft, prompt, question.ReviewShows(prompt))).ToList();
             if (question.Pages > 1) lines.Add(new PageLine(YourAnswersWords(question.Page, question.Pages), action: MoreAnswers));
             return new Page(lines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
         }
+
+        /// <summary>A prompt's answer on the page of the person's answers, a row back to that prompt, as the page draws it and the layout measures it.</summary>
+        public static PageLine ReviewRow(QuestionDraft draft, int prompt, int rows = 1) =>
+            new PageLine(ReviewRuns(draft, prompt), action: GoToQuestion, key: prompt.ToString(CultureInfo.InvariantCulture), rows: rows, fromRow: 0);
 
         /// <summary>The answers about to be sent, a line for each prompt, and the question the confirmation asks.</summary>
         private static Page Answers(QuestionDraft draft, WorkspaceSteering steering, WorkspacePresentation workspace, Footer before, string source)
@@ -444,10 +487,7 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>();
             for (var prompt = 0; prompt < draft.Prompts.Count; prompt++)
             {
-                var asked = draft.Prompts[prompt];
-                var given = asked.Options.Where(option => draft.IsChosen(prompt, option.Label)).Select(option => WorkspaceText.OneLine(option.Label)).ToList();
-                if (draft.Typed(prompt) is string typed) given.Add("“" + WorkspaceText.OneLine(typed) + "”");
-                lines.Add(new PageLine(WorkspaceText.PromptHeading(draft.Question, prompt) + ": " + string.Join(", ", given), wordsAreData: true, rows: 2));
+                lines.Add(new PageLine(WorkspaceText.PromptHeadingRuns(draft.Question, prompt) + LineWords.Ours(": ") + Given(draft, prompt, LineWords.None), rows: 2));
             }
             lines.Add(new PageLine(steering.Prompt(workspace)!, tone: LineTone.Secondary));
             return new Page(lines, source, Footer.Confirm(before, PromptSlot.FarRight, YesFor(WorkspaceAction.Answer), CancelConfirm));

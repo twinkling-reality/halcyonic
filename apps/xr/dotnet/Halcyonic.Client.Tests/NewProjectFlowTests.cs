@@ -1134,7 +1134,7 @@ public class NewProjectFlowTests
         // Questions: the companion's words quoted as its own, said to be recorded, and only the recorded answer offered.
         var questions = flow.Frame!;
         Assert.That(questions.Source, Is.EqualTo(CompanionText.Recorded));
-        Assert.That(questions.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)), Is.True);
+        Assert.That(questions.Lines.Any(line => line.Runs.AllTheirs && line.Action == null), Is.True);
         // Where the question takes a page of its own first, on to its answers.
         for (var turned = 0; turned < 4 && !questions.Lines.Any(line => line.Action == NewProjectScreens.ChooseSuggestion) && Turn(questions) is { } next; turned++)
         {
@@ -1380,7 +1380,7 @@ public class NewProjectFlowTests
 
         var pages = Pages(flow);
         Assert.That(pages, Has.Count.GreaterThan(1), "four long answers need more than a page at the larger size");
-        Assert.That(pages[0].Lines.Any(line => line.Claim), Is.True, "the question first, whole");
+        Assert.That(pages[0].Lines.Any(line => line.Runs.AllTheirs && line.Action == null), Is.True, "the question first, whole");
         Assert.That(pages.SelectMany(page => page.Lines).Count(line => line.Action == NewProjectScreens.ChooseSuggestion), Is.EqualTo(4), "no answer left out");
         FitsEveryPage(flow, host, "the companion's question");
         host.TextSize = TextSize.Larger;
