@@ -1,6 +1,7 @@
 # ADR 0026: The headset's interface is a game menu of places, sections and prompts, on one plane facing the eyes
 
-- Status: Accepted on 2026-10-02 by the owner, with the split header.
+- Status: Accepted on 2026-10-02 by the owner, with the split header; notes added from the owner's picks
+  on 2026-10-08.
 - Date: 2026-10-02
 
 ## Context
@@ -126,7 +127,8 @@ today and, once built, in lane U's renders of every surface:
   (`UnderstandingPresenter`, `CheckedPresenter` and `AnswerRoom`, `AnswerDepth` giving a section's
   brief lines and a side panel's full ones) with lane W's truth rules: each claim keeps its class, a
   line without a chip only for observed facts with the source named on every page, Inferred always
-  chipped, the agent's words quoted, and each Seorak part's own availability, coverage and freshness;
+  chipped, the agent's words marked as theirs (leaning on a ground only Halcyonic draws, since
+  2026-10-08, below), and each Seorak part's own availability, coverage and freshness;
   `EntryScreens`' flows, `NewWorkDraft`, `NewWorkReview`, `NewWorkSubmission`, `ProjectIdea`,
   `FolderConnect` and `ConnectScreens`; and the companion's `CompanionExchange`, `CompanionText` and
   `CreationDraft` ([ADR 0025](0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)).
@@ -206,14 +208,8 @@ coordinator's first-visit words:
   answer.
 - **The companion's note that it is an AI is the source line** of any page showing its words. New
   project's row of steps is the way back; there is no Back prompt.
-- **The first visit opens the menu on Projects.** Its subject asks "What would you like to work on?",
-  and New project is its main prompt. While New project is open, the Tasks place keeps its amber dot
-  and the waiting character its badge, and nothing interrupts the steps. The demonstration has a
-  first visit of its own (the owner, 2026-10-07): once it plays, the menu opens on Projects there
-  too, with the demonstration's projects and New project's recorded companion, and a task that comes
-  to wait meanwhile takes Tasks' amber dot without moving the menu. The headset keeps each first visit
-  apart, so a person who saw the demonstration still finds Projects open on their first visit to their
-  own computer.
+- **The first visit** opened the menu on Projects, and the demonstration had a first visit of its own
+  that opened Projects too (the owner, 2026-10-07). Both were replaced on 2026-10-08, below.
 - **Closed, the menu is one rounded shape** on the plane's top line: its subject at 18 dp, saying what
   waits or that nothing is waiting, and an Open prompt at its right. Pressing it opens Tasks when
   something waits, else the place last open.
@@ -367,6 +363,76 @@ coordinator's first-visit words:
   row's action, Start over's Yes and Start building are safe in place, so a side panel standing in
   the recap's place carries them. The workspace render lays every New project footer at both text
   sizes and fails on four prompts or a footer that doesn't fit.
+
+### Decided on 2026-10-08, from the owner's picks
+
+On 2026-10-08 the owner picked the recommended options of lane V's proposal "One kit, four forms" and of
+its page on outside words, "Whose words" (both outside the repository). These notes record what they
+change here; [ADR 0013](0013-characters-are-bots-with-a-living-surface.md) and
+[ADR 0027](0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md) carry the characters and
+the motion. None of it is built yet; lanes U, C and W build it, each step with its renders.
+
+- **The first visit is one question.** On a headset's first visit to a computer with no task at all,
+  one plate asks "What would you like to work on?", with two rows, Something new and A project on
+  your computer, and Something new chosen as it opens. The chosen row sets the main action, Start a
+  project or Show my projects; with Something new, Hold to talk stands beside it, and the words it
+  hears land in New project's Your idea as the person's own. Neither row has a chevron, since both
+  only choose. Start a project opens New project alone in the plate's place, and Show my projects
+  opens Projects alone with its folders.
+  - The row of places holds Settings alone, at its right end, in the slot it keeps once Tasks,
+    Projects and Usage join it with the first task (lane V, after the pick, so Text size, Reset
+    position and pairing stay one press away). On the plate and on Projects alone nothing in it is
+    lit, since neither is a place yet.
+  - Close folds to the bar, which reads "Nothing is running yet", and while there is no task its Open
+    brings the plate back. The stage shows nothing, the first-time hint hides while there is no
+    character, and the banner steps aside for the plate as it does for the menu.
+  - Once a task exists the first visit is over for that computer on that headset: every later visit
+    opens closed, the bar and the characters, and a first visit to a computer that already has work
+    opens closed with its places.
+  - The demonstration's first visit opens closed too (the owner, 2026-10-08): its recorded characters
+    at work, its two lines above the stage and the bar saying what waits. Projects and New project's
+    recorded companion stay one press away, and the headset still keeps each first visit apart.
+- **A task opened from its character opens its file alone,** and the menu stays closed until the
+  person opens it. A task chosen in Tasks still slides out beside the menu.
+- **A grip under the plane and under the bar.** Holding it and moving drags the whole plane round
+  the eyes, still facing them, as holding a file's subject does (`PanelDrag`); its target keeps the
+  60 dp hit area. Reset position stays in Settings' Your space.
+- **Where tasks wait is asked once,** the first time another window takes focus and the person comes
+  back: "Where should your tasks wait?", with Below my screen, On my right and On my left, and the
+  main action Keep them here, Move them right or Move them left, which moves the bar, files and
+  characters together. Close leaves them, and the question is not asked again. Without a desk the
+  answer picks today's arrangements, Either side of a window, or Room for a window turned to that
+  side. Settings can change it later, by a row that replaces The characters.
+- **Characters an open file would hide step aside** along the desk, and come back when it closes.
+- **Tasks keeps what left the stage under Earlier,** newest first, after what waits, what works and
+  what ended recently ([ADR 0013](0013-characters-are-bots-with-a-living-surface.md)'s stage for now).
+  An Earlier row's small fact is its age with its noun, "Ended 2 days ago" or "Last heard 3 days ago",
+  in place of its project: the one exception to one kind of small fact a list, since there the age
+  is what tells the rows apart. Opening one brings its character back while its file is open, and
+  Keep on stage keeps it there, the secondary prompt beside the main action, or the main action where
+  the page has none.
+  - When 3 or more quiet tasks would take the stage as a session starts, a plate asks once: "4 tasks
+    haven't been heard from since Monday." ("for over a week" past 6 days), then "Move them to
+    Earlier? Tasks keeps them, and you can bring any back.", with Move to Earlier as its main action.
+    Close leaves them and never asks again about those tasks.
+  - The headset keeps what moved, as Hide from stage does; whether every headset should share it is
+    open ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). In the demonstration nothing ages, since
+    its clock is the recording's.
+- **Words from outside lean, on a ground only Halcyonic draws.** Halcyonic's own words stand upright;
+  text it didn't write leans. Where it meets Halcyonic's words it sits on a ground only Halcyonic
+  draws:
+  - inside one of Halcyonic's sentences, on a token, a faint ground hugging the words so both edges
+    show, and last in the sentence where the words can be put so;
+  - in a row that is all theirs, as an agent's answer or a folder's name, with Halcyonic's quote mark
+    (`format_quote`) in the icon column where it is free, or Halcyonic's icon for the thing;
+  - a block of theirs, as the agent's question or a source's summary, on one ground with the quote
+    mark at its corner, its source on the page's source line;
+  - a title in its own plate leans, the plate its ground, and the pill on its edge stays upright.
+
+  Pills, the light line, prompts, places and sections carry Halcyonic's words only. Halcyonic adds no
+  quotes and no leads such as "It says:"; a claim's chip stays as its class, never the only mark; and
+  theirs is cut first, inside its ground. Lane W applies it as batch B of the outside-text audit
+  ([outside-text-audit.md](../validation/outside-text-audit.md)).
 
 ## Alternatives considered
 
