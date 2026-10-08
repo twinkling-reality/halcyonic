@@ -197,11 +197,16 @@ public class WhatChangedTests
             files[1]!["lines_removed_exact"] = true;
         });
         var texts = Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhatChanged, json));
-        Assert.That(texts.Skip(1).Take(2), Is.EqualTo(new[]
+        // Its name and counts first, which a long path would push past the line's end, and the path beneath (the
+        // outside-text audit's gap 13).
+        Assert.That(texts.Skip(1).Take(3), Is.EqualTo(new[]
         {
-            "Edited: src/payments/refunds.ts (+5 −1 or more)",
+            "Edited: refunds.ts (+5 −1 or more)",
+            "src/payments/refunds.ts",
             "Edited: ChargeService.test.ts (+6 −0)",
         }), "a file with no repository path keeps its name; an exact count reads as before");
+        var path = Answers.Understand(UnderstandPrompt.WhatChanged, json).Lines[2];
+        Assert.That((path.Detail, path.Tone), Is.EqualTo((true, SectionTone.Secondary)), "the path details the file's line");
     }
 
     [Test]
@@ -229,6 +234,10 @@ public class WhatChangedTests
         Assert.That(Line(Anchor(null, null), null), Is.EqualTo("Started in a repository with no commits yet"));
         Assert.That(Line(Anchor(null, "main"), Anchor(B, "main")), Is.EqualTo("From a repository with no commits yet to 8b1e4d7 on main"));
         Assert.That(Line(null, null), Is.Null, "nothing is said when the source saw neither boundary");
+        // A branch is cut at 40 characters, so the line's words around it stay whole (the outside-text audit's gap 13).
+        var branch = "feature/" + new string('b', 52);
+        Assert.That(Line(null, Anchor(B, branch)), Is.EqualTo("At commit 8b1e4d7 on " + WorkspaceText.Truncate(branch, 40)));
+        Assert.That(WorkspaceText.Truncate(branch, 40).Length, Is.EqualTo(40));
         var json = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["revision"] =
             JObject.Parse("{\"at_start\":null,\"at_latest_turn_end\":" + Anchor(B, "main") + "}"));
         var line = Answers.Understand(UnderstandPrompt.WhatChanged, json).Lines[1];

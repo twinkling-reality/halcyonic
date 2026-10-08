@@ -37,6 +37,9 @@ public class AmbientTextTests
         var title = new string('T', 80);
         Assert.That(AmbientText.StillOpen(title), Is.EqualTo("Still open: " + IntelligenceText.Truncate(title, AmbientText.StillOpenLimit)));
         Assert.That(AmbientText.StillOpen(title).Length, Is.LessThan(50));
+        // Made plain before it is cut, so what it shows never runs past the limit or splits a code point.
+        var hidden = new string('T', 25) + "\u202E" + new string('T', 20);
+        Assert.That(AmbientText.StillOpen(hidden), Is.EqualTo("Still open: " + new string('T', 25) + "…"));
     }
 
     [Test]

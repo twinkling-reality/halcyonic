@@ -28,9 +28,10 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// "Still open: Create a project": the panel that was open when it folded, kept as it was. Its
-        /// name can be text from outside, as a task's title, so it is cut short past <see cref="StillOpenLimit"/>.
+        /// name can be text from outside, as a task's title, so it is made plain first and then cut short past
+        /// <see cref="StillOpenLimit"/>, never inside a code point it shows.
         /// </summary>
-        public static string StillOpen(string panel) => "Still open: " + IntelligenceText.Truncate(panel, StillOpenLimit);
+        public static string StillOpen(string panel) => "Still open: " + IntelligenceText.Truncate(LabelText.Plain(panel), StillOpenLimit);
     }
 
     /// <summary>Where the stage's banner stands (<see cref="BannerPlace"/>).</summary>
