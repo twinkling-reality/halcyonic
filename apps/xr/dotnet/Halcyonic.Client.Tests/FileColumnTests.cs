@@ -1639,6 +1639,11 @@ public class FileColumnTests
         for (var draw = 0; draw < 3; draw++) Draw(other, unstoppable);
         Assert.That(unstoppable.Frame!.Lines.Select(line => line.Words), Does.Contain("Answers that read the same can't be chosen here."));
         Assert.That(unstoppable.Frame!.Footer[PromptSlot.Rare], Is.Null);
+        unstoppable.Act(FileScreens.TypeAnswer, "3");
+        other.Keyboard!.Value.Done("Yes.");
+        Assert.That(unstoppable.Screen.Notice, Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."),
+            "never Stop where the page offers none");
+        Assert.That(unstoppable.Screen.Question.Draft!.Typed(0), Is.Null);
     }
 
     /// <summary>
