@@ -58,6 +58,11 @@ namespace Halcyonic.XR.UI
         /// <summary>The grounds under outside text in the subject, and in the source line.</summary>
         private readonly List<Surface> subjectGrounds = new List<Surface>();
         private readonly List<Surface> sourceGrounds = new List<Surface>();
+
+        /// <summary>How many grounds the view has made, and how many it had when it last gathered its parts to fade.</summary>
+        private int GroundsMade => subjectGrounds.Count + sourceGrounds.Count + lines.Sum(line => line.WordGrounds.Count + line.FactGrounds.Count);
+
+        private int groundsGathered;
         private FooterView footer = null!;
         private MenuFrame? frame;
         private SidePanel? side;
@@ -371,6 +376,8 @@ namespace Halcyonic.XR.UI
         public void Settle(PlanePart placed, float zoom)
         {
             LayContent(placed.Height / zoom, new Vector2(placed.Right, placed.Up), zoom);
+            // A ground under outside text first made as the plane lays the page fades with its part too.
+            if (GroundsMade != groundsGathered) Gather();
             // Opening, its page shows whole only as the opening ends, and only then counts as drawn.
             if (motion == Motion.Opening) drawnOwed = true;
             else Drawn?.Invoke(this);
@@ -516,6 +523,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private void Gather()
         {
+            groundsGathered = GroundsMade;
             fadingShapes.Clear();
             fadingWords.Clear();
             var parts = Parts;
