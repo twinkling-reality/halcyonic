@@ -70,15 +70,21 @@ speed and the turn on confirmation are lane V's own.
    An opening runs on them, with two shares beside them: `PartsAfterDraw`, 0.55, and
    `UndrawShare`, 0.9.
 
-   - A file opened out of its character draws its light line over Draw, easing out. Its part i (the
-     subject, the sections, then the page with its footer) starts PartsAfterDraw × Draw + i ×
-     Stagger after the press and fades in over Appear, easing out: 0.359 s for a file's three parts.
-   - A column with no character to come from, as the menu from the bar or New project, has no line
-     to wait for, so its part i starts at i × Stagger: 0.26 s for three parts.
+   - A file opened out of its character draws its light line over Draw, easing out. Its parts arrive
+     in order from the edge the line meets, so the file grows out of the character: where the line
+     drops to the subject, the subject, the sections, then the page with its footer; over a desk,
+     where the line rises to the file's bottom edge (ADR 0026), the page first and the subject last.
+     Part i, counted from the line's end, starts PartsAfterDraw × Draw + i × Stagger after the press
+     and fades in over Appear, easing out: 0.359 s for a file's three parts.
+   - A column with no line to wait for, as the menu from the bar, New project, or a file beside a
+     window, where no line is drawn, starts its part i, top to bottom, at i × Stagger: 0.26 s for
+     three parts.
    - Another task's file, or New project, taking the open file's place assembles again, from its
      own character where it has one.
    - Closing fades everything together over Leave, easing in, and the line draws back over
-     UndrawShare × Leave.
+     UndrawShare × Leave. What comes back in its place, as the closed bar, starts its Appear only
+     once the closing has ended, so words never stand over words: 0.35 s from the press to the
+     whole bar (lane V, after lane U's first renders showed the bar over a fading file).
    - The menu coming back from stepping aside fades in over Appear as it slides.
    - A place, a section or a page changing, or a side panel showing another row, does not animate;
      its buttons keep their settle before they take a press.
@@ -175,7 +181,9 @@ moves.
 Added with the 2026-10-08 amendment, each with the view that brings it:
 
 - An opening strip: a file at points through its opening, its line drawn first and its parts arriving
-  top to bottom by opacity alone, none moving; a column with no character, the same without a line.
+  in order from the line's end by opacity alone, none moving, on a desk and on the far stage; a column
+  with no line, top to bottom. A closing strip through to the bar: no frame where the bar's words and
+  the file's both stand above a tenth of their opacity where they overlap.
 - A stage strip: a character travelling at a quarter, half and the end of its path, and under Keep
   things still no position change, only a fade; a turn only after the render's journal records the
   agent's confirmation, and none on a command only sent.
