@@ -239,6 +239,30 @@ Before an upload, still the owner's: a release key, a version code above every e
 (now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and
 the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
 
+## Testing instructions for judges (draft for the owner, 2026-10-08)
+
+For the submission form, written for the ambient first visit and the kit's first-open prompt that
+the owner approved on 2026-10-08; to be checked against the judge build at the freeze. No brand
+names.
+
+> Halcyonic lets you see and direct AI agents building software, from where you sit. This build
+> plays a recorded demo on the headset: it needs no computer, account or network, and nothing you
+> do reaches an agent.
+>
+> 1. Sit down and use your hands; no controllers are needed.
+> 2. Three characters stand in front of you, each a task an agent is working on. The line above them
+>    says the demo is recorded.
+> 3. After a few seconds one of them reads "Waiting for you". Look at it and pinch to open its file.
+> 4. The agent asks a question: pinch an answer, then Send answer.
+> 5. It then asks to run a command: read the request to its end, then approve it.
+> 6. A check fails. Look through Changes and Checks, then use Tell it to send one of the offered
+>    instructions. The agent goes again and the checks pass.
+> 7. Close puts the file away. From the menu you can also try Projects (New project talks an idea
+>    through with an AI companion), Usage and Settings.
+>
+> The demo waits for you at every decision and while a file is open, and starts again by itself
+> after it ends. Taking the headset off and on picks up where you were.
+
 ## Consequences
 
 - The judge path works end to end off the device, through the menu of ADR 0026, and its words name
