@@ -174,13 +174,16 @@ namespace Halcyonic.Client
         /// of outside text takes Halcyonic's quote mark in its icon column where no icon of its own
         /// stands there (<see cref="GlazeIcon.Quote"/>).
         /// </summary>
-        public PageLine(LineWords words, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
+        /// <param name="fact">A small fact at the line's right, as runs: a name from outside leans, as the words' do.</param>
+        public PageLine(LineWords words, GlazeIcon? icon = null, LineWords? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, string? action = null, string? key = null, bool opens = false, bool choice = false,
-            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false, bool besideNext = false,
+            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool besideNext = false,
             bool waits = false)
-            : this(words, words.AnyTheirs, icon ?? (words.AllTheirs ? GlazeIcon.Quote : (GlazeIcon?)null), fact, tone, chip, false, action, key, opens,
-                choice, chosen, available, rows, fromRow, factIsData, besideNext, waits)
+            : this(words ?? throw new ArgumentNullException(nameof(words)), words.AnyTheirs, icon ?? (words.AllTheirs ? GlazeIcon.Quote : (GlazeIcon?)null),
+                fact == null || fact.IsEmpty ? null : fact.Text, tone, chip, false, action, key, opens, choice, chosen, available, rows, fromRow,
+                fact?.AnyTheirs == true, besideNext, waits)
         {
+            if (fact != null && !fact.IsEmpty) FactRuns = fact;
         }
 
         private PageLine(LineWords words, bool wordsAreData, GlazeIcon? icon, string? fact, LineTone tone,
@@ -205,6 +208,7 @@ namespace Halcyonic.Client
             WordsAreData = wordsAreData;
             Icon = icon;
             Fact = fact;
+            FactRuns = fact == null ? null : LineWords.Written(factIsData ? LabelText.Name(fact) : fact);
             FactIsData = factIsData;
             BesideNext = besideNext;
             Waits = waits;
@@ -231,6 +235,9 @@ namespace Halcyonic.Client
         public GlazeIcon? Icon { get; }
 
         public string? Fact { get; }
+
+        /// <summary>Its fact as runs, as shown: a fact from outside given as a string is shown by <see cref="LabelText.Name"/>.</summary>
+        public LineWords? FactRuns { get; }
 
         /// <summary>The fact holds text from outside, as a place's name, shown by <see cref="LabelText"/>'s rule before it is given.</summary>
         public bool FactIsData { get; }
@@ -285,11 +292,22 @@ namespace Halcyonic.Client
             Name = name;
             Value = value ?? throw new ArgumentNullException(nameof(value));
             ValueIsData = valueIsData;
+            ValueRuns = LineWords.Written(valueIsData ? LabelText.Name(value) : value);
+        }
+
+        /// <summary>A fact whose value is runs, Halcyonic's words and outside text (<see cref="LineWords"/>), as a name from outside.</summary>
+        public SideFact(string name, LineWords value)
+            : this(name, value?.Text ?? throw new ArgumentNullException(nameof(value)), value.AnyTheirs)
+        {
+            ValueRuns = value;
         }
 
         public string Name { get; }
 
         public string Value { get; }
+
+        /// <summary>Its value as runs, as shown; one of Halcyonic's for a value given as a string.</summary>
+        public LineWords ValueRuns { get; }
 
         public bool ValueIsData { get; }
     }
@@ -312,23 +330,44 @@ namespace Halcyonic.Client
         /// <param name="sourceIsData">The source line is text from outside, as an answer's provenance or an error a service returned.</param>
         public SidePanel(string subject, bool subjectIsData = false, IReadOnlyList<SideFact>? facts = null, IReadOnlyList<PageLine>? lines = null,
             string? source = null, (int Part, int Parts)? parts = null, bool sourceIsData = false)
+            : this(LineWords.Written(subject), subjectIsData, facts, lines, source == null ? null : LineWords.Written(source), parts, sourceIsData)
         {
-            if (string.IsNullOrWhiteSpace(subject)) throw new ArgumentException("A side panel has its subject.", nameof(subject));
+        }
+
+        /// <summary>A side panel whose subject and source line are runs, Halcyonic's words and outside text (<see cref="LineWords"/>).</summary>
+        public SidePanel(LineWords subject, IReadOnlyList<SideFact>? facts = null, IReadOnlyList<PageLine>? lines = null, LineWords? source = null,
+            (int Part, int Parts)? parts = null)
+            : this(subject ?? throw new ArgumentNullException(nameof(subject)), subject.AnyTheirs, facts, lines, source, parts, source?.AnyTheirs == true)
+        {
+        }
+
+        private SidePanel(LineWords subject, bool subjectIsData, IReadOnlyList<SideFact>? facts, IReadOnlyList<PageLine>? lines,
+            LineWords? source, (int Part, int Parts)? parts, bool sourceIsData)
+        {
+            if (string.IsNullOrWhiteSpace(subject.Text)) throw new ArgumentException("A side panel has its subject.", nameof(subject));
             facts ??= Array.Empty<SideFact>();
             lines ??= Array.Empty<PageLine>();
             if (facts.Count > 0 && lines.Count > 0) throw new ArgumentException("A side panel shows facts or lines, not both.", nameof(lines));
             if (lines.Any(line => line.Action != null)) throw new ArgumentException("A side panel holds nothing to press but its own Close.", nameof(lines));
             if (parts is (int part, int count) && (count < 1 || part < 0 || part >= count)) throw new ArgumentOutOfRangeException(nameof(parts), parts, "A part is one of its parts.");
-            Subject = subject;
+            SubjectRuns = subject;
+            Subject = subject.Text;
             SubjectIsData = subjectIsData;
             Facts = facts;
             Lines = lines;
-            Source = source;
+            SourceRuns = source == null || source.IsEmpty ? null : source;
+            Source = SourceRuns?.Text;
             SourceIsData = sourceIsData;
             Parts = parts;
         }
 
         public string Subject { get; }
+
+        /// <summary>Its subject as runs; one of Halcyonic's for a subject given as a string.</summary>
+        public LineWords SubjectRuns { get; }
+
+        /// <summary>Its source line as runs, or null; one of Halcyonic's for a source given as a string.</summary>
+        public LineWords? SourceRuns { get; }
 
         public bool SubjectIsData { get; }
 
@@ -711,8 +750,27 @@ namespace Halcyonic.Client
         public MenuFrame(string subject, Footer footer, bool subjectIsData = false, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
             IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false,
             int? sectionSlots = null)
+            : this(subjectIsData ? LineWords.TheirName(subject) : LineWords.Written(subject), footer, subjectIsData, pill, sections, lines,
+                source == null ? null : LineWords.Written(source), side, sourceIsData, subjectWaits, sectionSlots)
         {
-            if (string.IsNullOrWhiteSpace(subject)) throw new ArgumentException("A frame has its subject.", nameof(subject));
+        }
+
+        /// <summary>
+        /// A frame whose subject and source line are runs, Halcyonic's words and outside text
+        /// (<see cref="LineWords"/>): a task's title, all outside text, leans in its plate, which is its
+        /// ground; a name inside Halcyonic's subject leans on a ground of its own.
+        /// </summary>
+        public MenuFrame(LineWords subject, Footer footer, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
+            IReadOnlyList<PageLine>? lines = null, LineWords? source = null, SidePanel? side = null, bool subjectWaits = false)
+            : this(subject ?? throw new ArgumentNullException(nameof(subject)), footer, subject.AnyTheirs, pill, sections, lines, source, side,
+                source?.AnyTheirs == true, subjectWaits)
+        {
+        }
+
+        private MenuFrame(LineWords subject, Footer footer, bool subjectIsData, StateBadge? pill, IReadOnlyList<FrameSection>? sections,
+            IReadOnlyList<PageLine>? lines, LineWords? source, SidePanel? side, bool sourceIsData, bool subjectWaits, int? sectionSlots = null)
+        {
+            if (string.IsNullOrWhiteSpace(subject.Text)) throw new ArgumentException("A frame has its subject.", nameof(subject));
             sections ??= Array.Empty<FrameSection>();
             lines ??= Array.Empty<PageLine>();
             var slots = sectionSlots ?? sections.Count;
@@ -726,15 +784,17 @@ namespace Halcyonic.Client
             {
                 throw new ArgumentException("A side panel slides out from the chosen line that opens it, or from a chosen answer cut to fit.", nameof(side));
             }
-            if (source != null && string.IsNullOrWhiteSpace(source)) throw new ArgumentException("A source line has its words, or is null.", nameof(source));
-            Subject = subject;
+            if (source != null && string.IsNullOrWhiteSpace(source.Text)) throw new ArgumentException("A source line has its words, or is null.", nameof(source));
+            SubjectRuns = subject;
+            Subject = subject.Text;
             SubjectIsData = subjectIsData;
             SubjectWaits = subjectWaits;
             Pill = pill;
             Sections = sections;
             SectionSlots = slots;
             Lines = lines;
-            Source = source;
+            SourceRuns = source;
+            Source = source?.Text;
             SourceIsData = sourceIsData;
             Side = side;
             Footer = footer ?? throw new ArgumentNullException(nameof(footer));
@@ -743,9 +803,15 @@ namespace Halcyonic.Client
         /// <summary>This frame with <paramref name="sections"/> in place of its own, as the menu's places on a place's page.</summary>
         /// <param name="slots">How many slots the row is laid in, the sections given standing in the last of them; as many as there are when null.</param>
         public MenuFrame WithSections(IReadOnlyList<FrameSection> sections, int? slots = null) =>
-            new MenuFrame(Subject, Footer, SubjectIsData, Pill, sections, Lines, Source, Side, SourceIsData, SubjectWaits, slots);
+            new MenuFrame(SubjectRuns, Footer, SubjectIsData, Pill, sections, Lines, SourceRuns, Side, SourceIsData, SubjectWaits, slots);
 
         public string Subject { get; }
+
+        /// <summary>Its subject as runs; one of Halcyonic's for a subject given as a string.</summary>
+        public LineWords SubjectRuns { get; }
+
+        /// <summary>Its source line as runs, or null; one of Halcyonic's for a source given as a string.</summary>
+        public LineWords? SourceRuns { get; }
 
         public bool SubjectIsData { get; }
 

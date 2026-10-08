@@ -198,18 +198,91 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static void Lean(TMP_TextInfo info)
         {
+            for (var index = 0; index < info.characterCount; index++) Lean(info, index);
+        }
+
+        /// <summary>
+        /// Leans only the letters of outside text in a line of runs (<see cref="LineWords"/>): those whose
+        /// place in the label's text falls in one of <paramref name="ranges"/>, each a run's first
+        /// character and the one past its last, as <see cref="LineWords.ForTextMeshPro"/> gives them.
+        /// Called from the label's OnPreRenderText; Halcyonic's letters stay upright.
+        /// </summary>
+        public static void Lean(TMP_TextInfo info, IReadOnlyList<(int Start, int End)> ranges)
+        {
             for (var index = 0; index < info.characterCount; index++)
             {
-                var character = info.characterInfo[index];
-                if (!character.isVisible) continue;
-                // About the middle of a capital, as TextMeshPro shears, so the letter keeps its place.
-                var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
-                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
-                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
-                {
-                    vertices[corner].x += LeanShear * (vertices[corner].y - middle);
-                }
+                if (InRun(info, index, ranges)) Lean(info, index);
             }
+        }
+
+        /// <summary>
+        /// Whether the label's character <paramref name="index"/> is outside text: its place in the
+        /// label's text falls in one of <paramref name="ranges"/>. The ellipsis TextMeshPro draws where a
+        /// line runs over stands in the place of the character it replaced, so it belongs where that
+        /// one did: a line ending in outside text is cut inside it.
+        /// </summary>
+        public static bool InRun(TMP_TextInfo info, int index, IReadOnlyList<(int Start, int End)> ranges)
+        {
+            var at = info.characterInfo[index].index;
+            for (var each = 0; each < ranges.Count; each++)
+            {
+                if (at >= ranges[each].Start && at < ranges[each].End) return true;
+            }
+            return false;
+        }
+
+        private static void Lean(TMP_TextInfo info, int index)
+        {
+            var character = info.characterInfo[index];
+            if (!character.isVisible) return;
+            // About the middle of a capital, as TextMeshPro shears, so the letter keeps its place.
+            var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
+            var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+            for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
+            {
+                vertices[corner].x += LeanShear * (vertices[corner].y - middle);
+            }
+        }
+
+        /// <summary>
+        /// Where the runs of outside text in a laid label stand, one box for each row a run reaches, in the
+        /// label's own units from its pivot: from its first letter's left to its last letter's right as it
+        /// leans, and from the row's ascender to its descender, so a ground drawn there hugs the words
+        /// and shows both their edges.
+        /// </summary>
+        public static List<Rect> RunBoxes(TMP_Text label, IReadOnlyList<(int Start, int End)> ranges)
+        {
+            var boxes = new List<Rect>();
+            var info = label.textInfo;
+            for (var each = 0; each < ranges.Count; each++)
+            {
+                var row = -1;
+                float left = 0f, right = 0f;
+                for (var index = 0; index < info.characterCount; index++)
+                {
+                    var character = info.characterInfo[index];
+                    if (!character.isVisible || character.index < ranges[each].Start || character.index >= ranges[each].End) continue;
+                    if (character.lineNumber != row)
+                    {
+                        if (row >= 0) boxes.Add(Box(info, row, left, right));
+                        row = character.lineNumber;
+                        left = character.bottomLeft.x;
+                        right = character.topRight.x;
+                    }
+                    left = Mathf.Min(left, character.bottomLeft.x);
+                    // A leaning letter's top stands right of its foot by the shear of its height above the middle.
+                    var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
+                    right = Mathf.Max(right, character.topRight.x + LeanShear * Mathf.Max(0f, character.topRight.y - middle));
+                }
+                if (row >= 0) boxes.Add(Box(info, row, left, right));
+            }
+            return boxes;
+        }
+
+        private static Rect Box(TMP_TextInfo info, int row, float left, float right)
+        {
+            var line = info.lineInfo[row];
+            return Rect.MinMaxRect(left, line.descender, right, line.ascender);
         }
 
         /// <summary>How far a leaning letter's top stands right of its foot, for each unit of its height.</summary>
