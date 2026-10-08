@@ -293,7 +293,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
-      sandbox: { projectRoots: [directory], unreadable: [] },
+      sandbox: { loopbackPorts: [], projectRoots: [directory], unreadable: [] },
     });
     t.after(() => runtime.close());
     await assert.rejects(
@@ -335,7 +335,7 @@ describe('OpenCode start failures', () => {
         PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
         FAKE_SECRET: secret,
       },
-      sandbox: { projectRoots: [directory], unreadable: [] },
+      sandbox: { loopbackPorts: [], projectRoots: [directory], unreadable: [] },
     });
     t.after(() => runtime.close());
     await assert.rejects(

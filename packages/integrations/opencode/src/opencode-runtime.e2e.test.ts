@@ -56,10 +56,21 @@ let executionCount = 0;
 function sandboxOf(sandbox: OpenCodeSandbox) {
   return process.platform === 'darwin'
     ? {
+        loopbackPorts: loopbackPorts(sandbox),
         projectRoots: [sandbox.project],
         unreadable: [...personalSecrets(sandbox.env.HOME ?? ''), join(sandbox.root, 'halcyonic')],
       }
     : null;
+}
+
+/**
+ * The loopback ports a sandboxed server may reach in the sandbox: the scripted provider's, which
+ * also plays Ollama, and the proxy trap's, so an attempt to leave is still recorded.
+ */
+function loopbackPorts(sandbox: OpenCodeSandbox): number[] {
+  return [sandbox.provider.baseUrl, sandbox.env.HTTP_PROXY ?? ''].map((url) =>
+    Number(new URL(url).port),
+  );
 }
 
 /** Collects the observations of one execution. */
@@ -193,6 +204,7 @@ async function crashHost(t: TestContext, sandbox: OpenCodeSandbox) {
         recordFile: sandbox.recordFile,
         env: sandbox.env,
         directory: sandbox.project,
+        loopbackPorts: loopbackPorts(sandbox),
       }),
     ],
     { stdio: ['pipe', 'pipe', 'inherit'] },
@@ -1827,7 +1839,7 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
   skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
 }, () => {
   test(
-    'an approved command cannot write outside the project, read a credential, reach beyond loopback, or loosen the sandbox',
+    'an approved command cannot write outside the project, read a credential, reach another program or beyond this Mac, or loosen the sandbox',
     SLOW_TEST,
     async (t) => {
       const { runtime, sandbox, start } = await harness(t);
@@ -1839,10 +1851,16 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
       writeFileSync(credential, 'stand-in-credential-7f3a\n', { mode: 0o600 });
       const profile = join(sandbox.root, 'halcyonic', 'opencode-sandbox.sb');
       const results = join(sandbox.project, 'results.txt');
+      // Another program listening on this Mac, as a debugger or a database would.
+      const listener = createServer((_request, response) => response.end('reached'));
+      await new Promise<void>((resolve) => listener.listen(0, '127.0.0.1', () => resolve()));
+      t.after(() => new Promise<void>((resolve) => listener.close(() => resolve())));
+      const local = (listener.address() as AddressInfo).port;
       const command = [
         `echo out > ${outside}/written.txt; echo "write=$?" >> ${results}`,
         `cat ${credential} >> ${results} 2>/dev/null; echo "read=$?" >> ${results}`,
         `curl --noproxy '*' -s --max-time 5 -o /dev/null -w 'net=%{http_code}' http://1.1.1.1/ >> ${results}; echo " curl=$?" >> ${results}`,
+        `curl --noproxy '*' -s --max-time 5 -o /dev/null -w ' local=%{http_code}' http://127.0.0.1:${local}/ >> ${results}; echo " curl=$?" >> ${results}`,
         `/usr/bin/sandbox-exec -p '(version 1)(allow default)' /bin/sh -c 'echo loose > ${outside}/loosened.txt'; echo "nested=$?" >> ${results}`,
         `echo '(version 1)(allow default)' > ${profile}; echo "profile=$?" >> ${results}`,
         `echo inside > inside.txt`,
@@ -1869,6 +1887,7 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
       );
       assert.ok(!said.includes('stand-in-credential'), 'read the credential');
       assert.match(said, /net=000/, 'reached beyond loopback');
+      assert.match(said, /local=000/, 'reached another program listening on this Mac');
       assert.match(
         readFileSync(profile, 'utf8'),
         /\(deny network-outbound\)/,

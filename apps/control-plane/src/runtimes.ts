@@ -71,7 +71,12 @@ export function createRuntimeAdapters(
         env: openCodeEnvironment(config, additions),
         sandbox:
           process.platform === 'darwin'
-            ? openCodeSandbox(config, dependencies.dataDir, dependencies.environment.HOME ?? '')
+            ? openCodeSandbox(
+                config,
+                dependencies.dataDir,
+                dependencies.environment.HOME ?? '',
+                openCodeEnvironment(config, additions),
+              )
             : null,
       }),
     );
@@ -100,8 +105,10 @@ export function openCodeSandbox(
   config: Pick<ControlPlaneConfig, 'projectRoots' | 'opencodeConfigHome' | 'opencodeBinary'>,
   dataDir: string,
   home: string,
+  environment: Readonly<Record<string, string>> = {},
 ) {
   return {
+    loopbackPorts: [ollamaPort(environment.OLLAMA_HOST)],
     projectRoots: config.projectRoots,
     unreadable: [dataDir, ...(home === '' ? [] : personalSecrets(home))],
     readable: [
@@ -110,6 +117,17 @@ export function openCodeSandbox(
       ...(config.opencodeBinary === null ? [] : [config.opencodeBinary]),
     ],
   };
+}
+
+/**
+ * The port OpenCode reaches Ollama on: OLLAMA_HOST's when the agents' environment passes one
+ * (`host:port`, `:port`, or a URL), else Ollama's default, 11434.
+ */
+export function ollamaPort(host: string | undefined): number {
+  const given = host?.trim() ?? '';
+  const port = /:(\d{1,5})\/?$/.exec(given)?.[1];
+  const number = port === undefined ? Number.NaN : Number(port);
+  return Number.isInteger(number) && number > 0 && number < 65536 ? number : 11434;
 }
 
 /**
