@@ -34,7 +34,21 @@ export function probeNetwork(root: number, binaryPath: string, intervalMs = 200)
   const loop = (async () => {
     while (running) {
       try {
-        const tree = await below(root);
+        // Below the test, and any process running the binary with its own descendants, so one
+        // that left the tree (reparented to launchd) is watched too.
+        const running = (await run('pgrep', ['-f', `^${literal(binaryPath)}( |$)`]))
+          .split('\n')
+          .map(Number)
+          .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+        const seen = new Map<number, { pid: number; command: string }>();
+        for (const entry of await below(root)) seen.set(entry.pid, entry);
+        const all = await table();
+        for (const pid of running) {
+          const self = all.find((row) => row.pid === pid);
+          if (self !== undefined) seen.set(pid, { pid, command: self.command });
+          for (const entry of descend(all, pid)) seen.set(entry.pid, entry);
+        }
+        const tree = [...seen.values()];
         if (tree.length > 0) {
           const sockets = await run('lsof', [
             '-nP',
@@ -91,9 +105,20 @@ export function probeNetwork(root: number, binaryPath: string, intervalMs = 200)
   };
 }
 
-/** The processes below `root`, followed through their parents, with their command lines. */
-async function below(root: number): Promise<{ pid: number; command: string }[]> {
-  const rows = (await run('ps', ['-A', '-o', 'pid=,ppid=,args=']))
+/** An extended regular expression, the kind pgrep takes, that matches `text` literally. */
+function literal(text: string): string {
+  return text.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
+}
+
+interface Row {
+  readonly pid: number;
+  readonly parent: number;
+  readonly command: string;
+}
+
+/** Every process, with its parent and command line. */
+async function table(): Promise<Row[]> {
+  return (await run('ps', ['-A', '-o', 'pid=,ppid=,args=']))
     .split('\n')
     .map((line) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line))
     .filter((match): match is RegExpExecArray => match !== null)
@@ -102,6 +127,14 @@ async function below(root: number): Promise<{ pid: number; command: string }[]> 
       parent: Number(match[2]),
       command: match[3] as string,
     }));
+}
+
+/** The processes below `root`, followed through their parents, with their command lines. */
+async function below(root: number): Promise<{ pid: number; command: string }[]> {
+  return descend(await table(), root);
+}
+
+function descend(rows: readonly Row[], root: number): { pid: number; command: string }[] {
   const found = new Set([root]);
   const result: { pid: number; command: string }[] = [];
   for (let grew = true; grew; ) {

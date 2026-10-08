@@ -1,4 +1,5 @@
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
   ApprovalDecision,
@@ -62,23 +63,78 @@ import {
 } from './server-record.ts';
 import { SseParser } from './sse.ts';
 
-/**
- * The permission rules every session Halcyonic creates carries, after every configuration file's:
- * the tools that reach the network whatever the model is, denied, so a task on a model on this
- * Mac sends nothing off it through them (opencode-permissions.md). Code Mode's `execute` runs
- * JavaScript with a `fetch` no permission covers; `webfetch` and `websearch` are the web tools. A
- * tool every rule denies is not offered to the model at all. A session's deny outranks the
- * person's configuration and any saved "always" (core/src/permission.ts at v2.0.18).
- */
-export const SESSION_PERMISSIONS: readonly {
+/** A permission rule, as OpenCode 2.0.18 takes it (schema/src/permission.ts). */
+export interface PermissionRule {
   readonly action: string;
   readonly resource: string;
   readonly effect: 'allow' | 'ask' | 'deny';
-}[] = [
-  { action: 'execute', resource: '*', effect: 'deny' },
-  { action: 'webfetch', resource: '*', effect: 'deny' },
-  { action: 'websearch', resource: '*', effect: 'deny' },
+}
+
+/**
+ * The tools every session Halcyonic creates denies outright: those that reach the network, or
+ * send work to another model, whatever the session's model is (opencode-permissions.md). Code
+ * Mode's `execute` runs JavaScript with a `fetch` no permission covers; `webfetch` and `websearch`
+ * are the web tools; `subagent` can run a child session on any model OpenCode lists, hosted ones
+ * among them, and its asks never reach the headset. A tool every rule denies is not offered to the
+ * model at all.
+ */
+export const DENIED_TOOLS: readonly string[] = ['execute', 'webfetch', 'websearch', 'subagent'];
+
+/**
+ * The paths OpenCode 2.0.18 reads its configuration from, as `edit` resources (relative to the
+ * session's folder, or absolute outside it): in the folder and every folder above it, `.opencode`
+ * (whose plugins load as server code), `.claude`, `.agents`, `opencode.json` and `opencode.jsonc`
+ * (core/src/config/discovery.ts), and `~/.claude` and `~/.agents`, which `*` covers, since it
+ * matches `/` too (core/src/util/wildcard.ts). OpenCode watches them and reloads MCP servers and
+ * plugins, so an edit there could add either.
+ */
+const CONFIG_PATHS: readonly string[] = [
+  '.opencode/*',
+  '*/.opencode/*',
+  '.claude/*',
+  '*/.claude/*',
+  '.agents/*',
+  '*/.agents/*',
+  'opencode.json*',
+  '*/opencode.json*',
 ];
+
+/**
+ * The permission rules every session Halcyonic creates carries, after every configuration file's:
+ * the tools above denied, and edits to any path OpenCode reads its configuration from denied,
+ * among them OpenCode's global configuration folder (`OPENCODE_CONFIG_DIR`, or
+ * `$XDG_CONFIG_HOME/opencode`, or `~/.config/opencode`; util/src/global-roots.ts) and a file
+ * `OPENCODE_CONFIG` names. A session's deny outranks the person's configuration and any saved
+ * "always" (core/src/permission.ts at v2.0.18). A shell command can still write those paths unless
+ * shell commands ask.
+ */
+export function sessionPermissions(
+  environment: Readonly<Record<string, string>>,
+): PermissionRule[] {
+  const configHome =
+    environment.XDG_CONFIG_HOME !== undefined && environment.XDG_CONFIG_HOME !== ''
+      ? environment.XDG_CONFIG_HOME
+      : environment.HOME !== undefined && environment.HOME !== ''
+        ? join(environment.HOME, '.config')
+        : null;
+  const globalFolder =
+    environment.OPENCODE_CONFIG_DIR !== undefined && environment.OPENCODE_CONFIG_DIR !== ''
+      ? environment.OPENCODE_CONFIG_DIR
+      : configHome === null
+        ? null
+        : join(configHome, 'opencode');
+  const paths = [
+    ...CONFIG_PATHS,
+    ...(globalFolder === null ? [] : [`${globalFolder}/*`]),
+    ...(environment.OPENCODE_CONFIG !== undefined && environment.OPENCODE_CONFIG !== ''
+      ? [environment.OPENCODE_CONFIG]
+      : []),
+  ];
+  return [
+    ...DENIED_TOOLS.map((action) => ({ action, resource: '*', effect: 'deny' as const })),
+    ...paths.map((resource) => ({ action: 'edit', resource, effect: 'deny' as const })),
+  ];
+}
 
 /**
  * Verified against OpenCode 2.0.18. Instructions while a turn runs use OpenCode's `steer`
@@ -354,7 +410,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
       // directory reached through a symbolic link.
       location: { directory },
-      permissions: SESSION_PERMISSIONS,
+      permissions: sessionPermissions(this.#environment),
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
     const created = await send(connection, 'POST', '/api/session', body, 'runtime_refused');

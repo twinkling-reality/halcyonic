@@ -17,7 +17,11 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
-import { OPENCODE_CAPABILITIES, OpenCodeRuntimeAdapter } from './opencode-runtime.ts';
+import {
+  OPENCODE_CAPABILITIES,
+  OpenCodeRuntimeAdapter,
+  sessionPermissions,
+} from './opencode-runtime.ts';
 import { buildEnvironment, INHERITED_VARIABLES, launchServer } from './server.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { TEST_EXECUTION } from './testing/observations.ts';
@@ -113,6 +117,43 @@ describe('OpenCode start options', () => {
         message: `${modelRef} is not a model OpenCode lists.`,
       });
     }
+  });
+});
+
+describe('OpenCode session rules', () => {
+  test('deny the network tools and subagents, and edits to every path OpenCode reads its configuration from', () => {
+    const rules = sessionPermissions({ HOME: '/Users/someone', PATH: '/usr/bin' });
+    const denied = (action: string) =>
+      rules
+        .filter((rule) => rule.action === action && rule.effect === 'deny')
+        .map((rule) => rule.resource);
+    for (const tool of ['execute', 'webfetch', 'websearch', 'subagent']) {
+      assert.deepEqual(denied(tool), ['*'], tool);
+    }
+    assert.deepEqual(denied('edit'), [
+      '.opencode/*',
+      '*/.opencode/*',
+      '.claude/*',
+      '*/.claude/*',
+      '.agents/*',
+      '*/.agents/*',
+      'opencode.json*',
+      '*/opencode.json*',
+      '/Users/someone/.config/opencode/*',
+    ]);
+    assert.ok(rules.every((rule) => rule.effect === 'deny'));
+    // OpenCode's global folder follows XDG_CONFIG_HOME, then OPENCODE_CONFIG_DIR; a file
+    // OPENCODE_CONFIG names is denied too.
+    assert.ok(denied.call(null, 'edit').includes('/Users/someone/.config/opencode/*'));
+    const xdg = sessionPermissions({ HOME: '/h', XDG_CONFIG_HOME: '/x' });
+    assert.ok(xdg.some((rule) => rule.action === 'edit' && rule.resource === '/x/opencode/*'));
+    const own = sessionPermissions({
+      HOME: '/h',
+      OPENCODE_CONFIG_DIR: '/d',
+      OPENCODE_CONFIG: '/f.json',
+    });
+    assert.ok(own.some((rule) => rule.action === 'edit' && rule.resource === '/d/*'));
+    assert.ok(own.some((rule) => rule.action === 'edit' && rule.resource === '/f.json'));
   });
 });
 
