@@ -68,6 +68,12 @@ namespace Halcyonic.Client
         public IMenuColumn? Beside { get; private set; }
 
         /// <summary>
+        /// Anything stands on the plane: the menu, or a column beside it, with any side panel in front of
+        /// either; false once everything has folded to the bar.
+        /// </summary>
+        public bool ShowsAnything => IsOpen || Beside != null;
+
+        /// <summary>
         /// The menu's details stand in front of the column beside it: the menu's chosen row opened its side
         /// panel, so that column steps aside off the plane until they close, and nothing on its last drawn
         /// frame counts meanwhile. Whether the menu's details stand is as in the frames handed out last

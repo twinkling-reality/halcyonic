@@ -58,8 +58,8 @@ namespace Halcyonic.XR
         public DemonstrationReads? DemonstrationReads => sessions?.Player?.Reads;
 
         /// <summary>
-        /// A task's file is open, as the workspace's director says: the demonstration's timed holds wait
-        /// for it to close, then run whole (<see cref="DemonstrationPlayer.Reading"/>).
+        /// Something is open on the plane, as the workspace's director says: the demonstration's timed
+        /// holds wait for it to fold to the bar, then run whole (<see cref="DemonstrationPlayer.Reading"/>).
         /// </summary>
         public bool Reading { get; set; }
 

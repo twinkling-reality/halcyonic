@@ -359,8 +359,8 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// A task's file opened or closed (<see cref="DemonstrationPlayer.Reading"/>). Where a final state
-        /// holds, its hold runs whole from the close, however long the file was open.
+        /// Something opened on the plane, or everything folded to the bar (<see cref="DemonstrationPlayer.Reading"/>).
+        /// Where a final state holds, its hold runs whole from the fold, however long it was open.
         /// </summary>
         internal void ReadingChanged(bool reading)
         {
