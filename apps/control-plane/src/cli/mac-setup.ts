@@ -1127,7 +1127,7 @@ class MacSetup {
     const next = { ...settings, HALCYONIC_OPENCODE_CONFIG_HOME: home };
     this.#save(next);
     io.print(
-      `${replaced ? "Replaced Halcyonic's own OpenCode settings" : 'OpenCode now has settings of its own for Halcyonic'}: ${model.name} on this Mac when no model is chosen, a question to you before any shell command, and no fetching from the web. Your own OpenCode settings are left as they are.`,
+      `${replaced ? "Replaced Halcyonic's own OpenCode settings" : 'OpenCode now has settings of its own for Halcyonic'}: ${model.name} on this Mac when no model is chosen, and no fetching from the web. Your own OpenCode settings are left as they are.`,
     );
     io.print(
       `${codexReplaced ? "Replaced Halcyonic's own Codex settings" : 'Codex now has settings of its own for Halcyonic, in a folder of its own'}: ${model.name} on this Mac. Your own Codex settings are left as they are.`,

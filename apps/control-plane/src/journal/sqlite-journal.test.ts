@@ -482,6 +482,21 @@ describe('SQLite journal', () => {
     );
   });
 
+  test('opening says once when it migrated the journal, and from which version', () => {
+    const path = freshPath();
+    const told: [number, number][] = [];
+    const onMigrated = (from: number, to: number) => told.push([from, to]);
+    openSqliteJournal({ path, originIfNew: 'live', ids, onMigrated }).close();
+    assert.deepEqual(told, [[0, JOURNAL_SCHEMA_VERSION]], 'a new journal');
+    openSqliteJournal({ path, originIfNew: 'live', ids, onMigrated }).close();
+    assert.equal(told.length, 1, 'one already current says nothing');
+    const db = new DatabaseSync(path);
+    db.exec(`PRAGMA user_version = ${JOURNAL_SCHEMA_VERSION - 1}`);
+    db.close();
+    openSqliteJournal({ path, originIfNew: 'live', ids, onMigrated }).close();
+    assert.deepEqual(told.at(-1), [JOURNAL_SCHEMA_VERSION - 1, JOURNAL_SCHEMA_VERSION]);
+  });
+
   test('a stored event that no longer matches the contract is reported, not trusted', () => {
     const path = freshPath();
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });

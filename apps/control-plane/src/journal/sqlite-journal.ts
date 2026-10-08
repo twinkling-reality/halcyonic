@@ -114,6 +114,8 @@ export interface OpenJournalOptions {
   /** Recorded only when the journal is created; an existing journal keeps its origin. */
   readonly originIfNew: JournalInfo['origin'];
   readonly ids: IdGenerator;
+  /** Told once when opening ran migrations: the schema version before and after. */
+  readonly onMigrated?: (from: number, to: number) => void;
 }
 
 export function openSqliteJournal(options: OpenJournalOptions): EventJournal {
@@ -124,7 +126,8 @@ export function openSqliteJournal(options: OpenJournalOptions): EventJournal {
     // FULL makes every committed event durable across power loss, not only process crashes.
     db.exec('PRAGMA synchronous = FULL');
     db.exec('PRAGMA busy_timeout = 5000');
-    migrate(db);
+    const from = migrate(db);
+    if (from < MIGRATIONS.length) options.onMigrated?.(from, MIGRATIONS.length);
     const info = readOrCreateInfo(db, options);
     return new SqliteJournal(db, info);
   } catch (error) {
@@ -143,7 +146,8 @@ function restrictToOwner(path: string): void {
   chmodSync(path, 0o600);
 }
 
-function migrate(db: DatabaseSync): void {
+/** Runs every migration the journal has not had, and returns the version it had. */
+function migrate(db: DatabaseSync): number {
   const row = db.prepare('PRAGMA user_version').get() as { user_version: number } | undefined;
   const current = row?.user_version ?? 0;
   if (current > MIGRATIONS.length) {
@@ -162,6 +166,7 @@ function migrate(db: DatabaseSync): void {
       throw error;
     }
   }
+  return current;
 }
 
 function readOrCreateInfo(db: DatabaseSync, options: OpenJournalOptions): JournalInfo {
