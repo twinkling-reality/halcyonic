@@ -243,9 +243,11 @@ namespace Halcyonic.Client
             {
                 return plain.Normalize(NormalizationForm.FormC);
             }
-            catch (ArgumentException)
+            catch (Exception)
             {
-                // Whatever a runtime's normalizer refuses is compared as shown, so drawing a question never fails.
+                // Whatever a runtime's normalizer refuses is compared as shown, so drawing a question never fails:
+                // on .NET that is an ArgumentException, and on the headset a broken normalizer (Mono's checks
+                // nothing) fails as anything, a type initializer or an unsupported internal call.
                 return plain;
             }
         }

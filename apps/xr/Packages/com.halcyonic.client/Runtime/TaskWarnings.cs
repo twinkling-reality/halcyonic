@@ -72,9 +72,10 @@ namespace Halcyonic.Client
             {
                 folded = text.Normalize(NormalizationForm.FormKC);
             }
-            catch (ArgumentException)
+            catch (Exception)
             {
-                // Half a surrogate pair cannot be normalized; the review spells it as its code point.
+                // Half a surrogate pair cannot be normalized; the review spells it as its code point. Any other
+                // failure, as of a broken normalizer on the headset, leaves the text as written too.
                 folded = text;
             }
             var visible = new StringBuilder(folded.Length);

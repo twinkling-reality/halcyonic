@@ -32,6 +32,17 @@ public class LabelTextTests
         "",
     };
 
+    /// <summary>
+    /// The platform's own behaviour Plain guards against: .NET's normalizer refuses a noncharacter, so a label must
+    /// reach it with every noncharacter shown by code point (the review of lane W's labels).
+    /// </summary>
+    [Test]
+    public void TheNormalizerRefusesANoncharacterThatPlainShowsByCode()
+    {
+        Assert.Throws<ArgumentException>(() => "Yes\uFFFE".Normalize(System.Text.NormalizationForm.FormC));
+        Assert.That(LabelText.Plain("Yes\uFFFE").Normalize(System.Text.NormalizationForm.FormC), Is.EqualTo("Yes\u2039U+FFFE\u203A"));
+    }
+
     /// <summary>Noncharacters, which nothing draws and a normalizer can refuse, show as their code points (the review of lane W's labels).</summary>
     [Test]
     public void NoncharactersShowAsTheirCodePoints()

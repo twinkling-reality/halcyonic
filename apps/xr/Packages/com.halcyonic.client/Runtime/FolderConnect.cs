@@ -163,9 +163,10 @@ namespace Halcyonic.Client
             {
                 folded = text.Normalize(System.Text.NormalizationForm.FormKC).ToLowerInvariant();
             }
-            catch (ArgumentException)
+            catch (Exception)
             {
-                // What the normalizer refuses is compared as written, so listing folders never fails.
+                // What the normalizer refuses, or a broken normalizer on the headset fails at, is compared as
+                // written, so listing folders never fails.
                 folded = text.ToLowerInvariant();
             }
             var kept = new System.Text.StringBuilder(folded.Length);
