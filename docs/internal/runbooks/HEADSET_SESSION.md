@@ -625,8 +625,17 @@ restart the app, and remove the fresh folder at the end ("Close").
 
 **C. A question, from start to confirmation.** `pnpm demo --scenario question_asked` on the Mac.
 9. **Where the sound comes from.** Before it comes, close your eyes. When Waiting for you sounds, point
-   at it, then open them. Pass: you point at the character. If lane M7's spatializer is in, do it once
-   with it and once with panning, its setting switched at the Mac, and say which you could place.
+   at it, then open them. Pass: you point at the character. Do it once with the spatializer (the
+   `Halcyonic: sound placed by Meta XR Audio's head-related spatializer` line at start) and once with
+   panning: run `adb shell touch /sdcard/Android/data/com.halcyonic.xr/files/sound-panned`, restart
+   the app, and the line says "sound placed by Unity's panning, because of the option sound-panned".
+   Say which you could place, and whether a cue above or behind read as above or behind. Then the
+   cost, with six characters on the stage and their cues sounding, each way for a minute:
+   `adb shell top -H -b -d 1 -n 60 -p $(adb shell pidof com.halcyonic.xr) > ~/halcyonic-captures/audio-<way>.txt`,
+   reading the audio mixer thread's share (Unity's FMOD mixer thread; record its name as `top` shows
+   it). Keep the spatializer only if it is clearly better by ear and its extra cost stays under 1 ms
+   of CPU a frame (about 7% of one core at 72 frames a second). Remove the option file afterwards
+   (`adb shell rm` the same path).
 10. **It comes to you.** Pass: it comes once to the front of the desk, amber, looking at you; its
     project-mates look at it once as it goes; its glance shows its question under Agent asks.
 11. **Its file.** Pinch it. Pass: a line of light draws from it, then the file's parts arrive top to

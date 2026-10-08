@@ -239,6 +239,21 @@ Before an upload, still the owner's: a release key, a version code above every e
 (now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and
 the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
 
+## What the release build reports
+
+Meta's SDKs in the release build hand events to the headset's own system services. Three paths:
+
+| SDK | Path | Since |
+| --- | --- | --- |
+| Core SDK | `OVRPlugin.SendUnifiedEvent`, which MRUK uses on each scene load, marked non-essential ([mixed-reality-room.md](mixed-reality-room.md)) | The first release build |
+| Interaction SDK | `libISDKEngineTelemetry.so`, through Horizon OS's telemetry handler (`horizonosx::migration::telemetry::CorendkTelemetryHandler`) | The first release build |
+| Meta XR Audio | `libMetaXRAudioUnity.so` calls `com.oculus.os.UnifiedTelemetryLogger` and `AnalyticsEvent` over JNI (`MetaXRAudio::initializeTelemetry`); no setting turns it off ([meta-xr-audio.md](meta-xr-audio.md)) | 2026-10-08 |
+
+No URL or network call appears in Meta XR Audio's library or scripts; for the other two that was not
+checked. What the system services do with these events, and under which consent, is Meta's and was
+not verified. The coordinator accepted the third path on 2026-10-08, with the owner's leave, because
+it goes only to the system service that already receives the Interaction SDK's.
+
 ## Testing instructions for judges (draft for the owner, 2026-10-08)
 
 For the submission form, written for the ambient first visit and the kit's first-open prompt that

@@ -1,0 +1,16 @@
+{
+  "name": "Halcyonic.XR.Sound.Editor",
+  "rootNamespace": "Halcyonic.XR.Sound.Editor",
+  "references": [
+    "Halcyonic.XR.Sound"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
