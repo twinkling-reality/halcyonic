@@ -68,21 +68,21 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// A project's work in full, for its side panel, what waits for the person first, naming tasks
-        /// once: "1 task waiting for you, 1 to look at, 2 running", or "No work yet", "3 tasks paused",
-        /// "1 task paused, 2 not started", "3 tasks not started".
+        /// A project's work in full, for its side panel: every task, what waits for the person first,
+        /// then what to look at, what runs, what ran and rests, and what never started, naming tasks
+        /// once: "1 task waiting for you, 2 paused", "2 tasks running, 1 not started", at most "1 task
+        /// waiting for you, 1 to look at, 1 running, 1 paused, 1 not started"; or "No work yet".
         /// </summary>
         public static string Work(ProjectSummary project)
         {
+            if (project.Work == 0) return "No work yet";
             var parts = new System.Collections.Generic.List<string>();
             string Counted(int count) => parts.Count == 0 ? Tasks(count) : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var paused = project.Work - project.NeedsYou - project.Notice - project.Active - project.NotStarted;
             if (project.NeedsYou > 0) parts.Add(Counted(project.NeedsYou) + " waiting for you");
             if (project.Notice > 0) parts.Add(Counted(project.Notice) + " to look at");
             if (project.Active > 0) parts.Add(Counted(project.Active) + " running");
-            if (parts.Count > 0) return string.Join(", ", parts);
-            if (project.Work == 0) return "No work yet";
-            // All at rest: those that ran and rest, then those never started.
-            if (project.Work > project.NotStarted) parts.Add(Counted(project.Work - project.NotStarted) + " paused");
+            if (paused > 0) parts.Add(Counted(paused) + " paused");
             if (project.NotStarted > 0) parts.Add(Counted(project.NotStarted) + " not started");
             return string.Join(", ", parts);
         }

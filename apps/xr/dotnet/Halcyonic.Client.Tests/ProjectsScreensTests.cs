@@ -309,6 +309,29 @@ public class ProjectsScreensTests
     }
 
     [Test]
+    public void ItsWorkNamesEveryTaskInOrderWhileTheRowNamesWhatMattersMost()
+    {
+        ProjectSummary Of(params WorkstreamStatus[] statuses)
+        {
+            var portfolio = new Portfolio().Project("p", "Storefront API");
+            for (var index = 0; index < statuses.Length; index++) portfolio.Work("w" + index, "p", statuses[index]);
+            return WorkOverview.Of(portfolio.Apply(), new StageVisibility(), _ => true).Projects.Single();
+        }
+        // The demonstration's first seconds: two working, the third not started yet.
+        var starting = Of(WorkstreamStatus.Running, WorkstreamStatus.Running, WorkstreamStatus.Created);
+        Assert.That((ProjectsText.ProjectFact(starting), ProjectsText.Work(starting)), Is.EqualTo(("2 tasks running", "2 tasks running, 1 not started")));
+        // Then the third waits and the two have finished.
+        var asked = Of(WorkstreamStatus.WaitingForHuman, WorkstreamStatus.Completed, WorkstreamStatus.Completed);
+        Assert.That((ProjectsText.ProjectFact(asked), ProjectsText.Work(asked)), Is.EqualTo(("1 task waiting", "1 task waiting for you, 2 paused")));
+        var every = Of(WorkstreamStatus.WaitingForHuman, WorkstreamStatus.Failed, WorkstreamStatus.Running, WorkstreamStatus.Interrupted, WorkstreamStatus.Created);
+        Assert.That((ProjectsText.ProjectFact(every), ProjectsText.Work(every)), Is.EqualTo(("1 task waiting", "1 task waiting for you, 1 to look at, 1 running, 1 paused, 1 not started")),
+            "every kind, in order, the noun on the first count only");
+        var many = Of(WorkstreamStatus.Running, WorkstreamStatus.Running, WorkstreamStatus.Completed, WorkstreamStatus.Completed, WorkstreamStatus.Completed);
+        Assert.That(ProjectsText.Work(many), Is.EqualTo("2 tasks running, 3 paused"));
+        Assert.That(ProjectsText.Work(Of()), Is.EqualTo("No work yet"));
+    }
+
+    [Test]
     public void FactsKeepTheirNounAndNeverReadAsFragments()
     {
         foreach (var project in Overview().Projects)
