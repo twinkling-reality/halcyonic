@@ -80,7 +80,8 @@ namespace Halcyonic.Client
         {
             get
             {
-                var line = MoreReasons > 0 ? Reason + " (+" + MoreReasons + " more)" : Reason;
+                // How many more first, so the reason's own words, which can be outside text, never cut it off.
+                var line = MoreReasons > 0 ? "+" + MoreReasons + " more · " + Reason : Reason;
                 if (!Badge.LastKnown) return line;
                 return line.Length == 0 ? LastKnown + "." : LastKnown + ": " + line;
             }

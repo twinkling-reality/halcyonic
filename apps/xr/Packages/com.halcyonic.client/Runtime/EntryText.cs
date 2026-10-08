@@ -149,7 +149,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static string FolderFact(ProjectLocation? current, ProjectFolder? chosen, bool needed)
         {
-            if (chosen != null && current != null) return LabelText.Plain(current.Name) + " now, " + chosen.Describe() + " from now on";
+            // Halcyonic's own words first, so a long name never pushes them past the line's end (settled by the coordinator, 2026-10-08).
+            if (chosen != null && current != null) return "From now on, " + chosen.Describe() + "; " + LabelText.Plain(current.Name) + " now";
             if (chosen != null) return chosen.Describe(startOfLine: true);
             if (current != null) return LabelText.Plain(current.Name) + ", the project's folder";
             return needed ? "Not chosen yet" : "Not needed";
@@ -398,7 +399,7 @@ namespace Halcyonic.Client
         /// </summary>
         /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Name"/>, which never leaves it empty; false leaves it as it is, for a review that spells it itself.</param>
         public static string RuntimeName(RuntimeDescriptor runtime, bool live = false, bool plain = true) =>
-            runtime.Synthetic && live ? PracticeRun : (plain ? LabelText.Name(runtime.DisplayName) : runtime.DisplayName) + (runtime.Synthetic ? " (simulated)" : "");
+            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated: " : "") + (plain ? LabelText.Name(runtime.DisplayName) : runtime.DisplayName);
 
         /// <summary>The runtimes offered in Create: real ones first, by name, and simulated ones after them.</summary>
         public static List<RuntimeDescriptor> RuntimeChoices(IEnumerable<RuntimeDescriptor> runtimes) =>

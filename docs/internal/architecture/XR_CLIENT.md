@@ -179,7 +179,7 @@ the same definition names, as the JSON Schema document:
   secondary tone so the shimmer's lift shows on them.
 - **`CharacterLabel`** is what a character's label shows, three parts kept apart: the title, the
   state badge and the marks. **`PeekCard`** is what the peek shows: the badge and marks, the first
-  reason with more to say than the state, with how many more wait ("(+1 more)"), else what it did
+  reason with more to say than the state, with how many more wait first ("+1 more · …"), else what it did
   last; "Last known:" before it while the session is not live; what the marks mean ("Practice run:
   nothing is built."); and what opening it is for ("Open it to answer.", "Open it to see what it did.").
 - **`CharacterCues`** turns a presentation into what the character shows: its eyes, its motion, its

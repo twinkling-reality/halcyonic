@@ -382,7 +382,7 @@ public class CharacterLabelTests
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
             new[] { "It wants to run: Run the migration", "Asks you: Which colour?" }, approvals: 1);
         var peek = PeekCard.Of(Workspace(character));
-        Assert.That(peek.ReasonLine, Is.EqualTo("It wants to run: Run the migration (+1 more)"));
+        Assert.That(peek.ReasonLine, Is.EqualTo("+1 more · It wants to run: Run the migration"));
         Assert.That(peek.Next, Is.EqualTo("Open it to answer."));
     }
 

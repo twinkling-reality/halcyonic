@@ -120,7 +120,7 @@ public class ProjectFolderTests
         Assert.That(EntryText.FolderFact(null, null, needed: false), Is.EqualTo("Not needed"));
         Assert.That(EntryText.FolderFact(null, chosen, needed: true), Is.EqualTo("A new folder, recipes, in Projects"));
         Assert.That(EntryText.FolderFact(current, null, needed: true), Is.EqualTo("old, the project's folder"));
-        Assert.That(EntryText.FolderFact(current, chosen, needed: true), Is.EqualTo("old now, a new folder, recipes, in Projects from now on"));
+        Assert.That(EntryText.FolderFact(current, chosen, needed: true), Is.EqualTo("From now on, a new folder, recipes, in Projects; old now"));
         var shop = Root("Projects", LocationRootStatus.Available, "shop");
         Assert.That(EntryText.FolderFact(null, ProjectFolder.Existing(shop, shop.Folders[0]), needed: true), Is.EqualTo("shop in Projects"),
             "a name from the file system starts the line as it is");
