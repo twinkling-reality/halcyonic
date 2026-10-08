@@ -1054,8 +1054,8 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
 - **The end.** Once the story has ended the line adds "This recording has ended and starts again
   shortly.", and about 20 seconds later the characters go back to Not started and it plays again,
   never Disconnected or Last known on the way. Unanswered instructions give way after a minute.
-  Neither wait runs while a task's file is open: keep the file open past both and nothing moves on;
-  close it and the wait runs whole from the close.
+  Neither wait runs while anything is open on the plane (the menu, a file, New project): keep one
+  open past both and nothing moves on; close everything to the bar and the wait runs whole from then.
 - **Sleep.** Take the headset off until it sleeps and put it back on, or open the system menu and
   come back: the demonstration goes on where it stood, with no Disconnected and no rewind; only a
   recording that had reached its end starts again.
