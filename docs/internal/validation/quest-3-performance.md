@@ -56,6 +56,15 @@ details beside What is it doing?, the short titles beside a window, and Settings
   any icon: 64 for the stage, 28 for a panel). A badge too long for its icon on the stage, and a
   bar too full for its actions' icons, draw none. Show details adds its button to a workspace (2),
   and beside a window each short title its line and plate (2 a character).
+- Words from outside (the outside-text audit's batch B, 2026-10-08), measured in one run on a task's
+  file, its checks page, first with every word upright and then with its outside text leaning on its
+  grounds: the column's own draws go from 18 to 26 and everything showing from 58 to 66, for two of
+  Halcyonic's quote marks and six grounds under six runs of outside text, about 1.3 draws a run (lane V
+  estimated about 2). The lean itself costs nothing to draw: it moves a label's vertices. `MenuDirector` lays
+  the plane again only when something marks it changed (the navigator, the voice, focus), never on a
+  timer, so the old panels' half-second check of an unchanged screen is not asked of it (MeasureRender
+  reports these two scenes' draws only); showing it again builds its small facts' meshes again even with every word
+  upright, and a line cut inside its outside text once more.
 - The characters are nearly all the geometry: six bodies are about 32,000 triangles, a panel about
   500 to 900. Their shader's cost is estimated in [character-rendering.md](character-rendering.md).
 

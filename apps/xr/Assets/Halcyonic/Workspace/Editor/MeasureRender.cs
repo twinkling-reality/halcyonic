@@ -185,8 +185,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     var file = MenuFrameView.Create(root.transform, "File column");
                     var side = MenuFrameView.Create(root.transform, "Side panel");
                     FileRender.Lay(frame, file, side, eyes);
-                    // Its draws only: the plane lays a column again as its frame changes, not on the old panels'
-                    // half-second timer, so showing an unchanged screen again isn't asked of it here.
+                    // Its draws only: MenuDirector lays the plane again only when something marks it changed, never on
+                    // the old panels' half-second timer, so showing an unchanged screen again isn't asked of it here.
                     return (file.gameObject, null);
                 });
             }
