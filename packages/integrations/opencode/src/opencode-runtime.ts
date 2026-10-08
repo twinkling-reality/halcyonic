@@ -1309,16 +1309,24 @@ export async function readSnapshot(
     if (call !== null) askedBy.set(item.id, call);
   }
   const toolStatus = new Map<string, string>();
+  const toolNames = new Map<string, string>();
   // Newest first, as OpenCode lists messages; a call id seen again in an older message is not it.
   const commands = new Map<string, string | null>();
-  if ((running && session.state.tools.size > 0) || askedBy.size > 0) {
+  // Read whenever the session runs: a call that started while the stream was down is only there.
+  if (running || askedBy.size > 0) {
     const messages = await readData(client, `${base}/message`);
     for (const item of Array.isArray(messages) ? messages : []) {
       if (!isRecord(item) || item.type !== 'assistant' || !Array.isArray(item.content)) continue;
       for (const part of item.content) {
         if (!isRecord(part) || part.type !== 'tool' || typeof part.id !== 'string') continue;
-        if (isRecord(part.state) && typeof part.state.status === 'string') {
+        if (
+          isRecord(part.state) &&
+          typeof part.state.status === 'string' &&
+          !toolStatus.has(part.id)
+        ) {
           toolStatus.set(part.id, part.state.status);
+          if (typeof part.name === 'string' && /\S/.test(part.name))
+            toolNames.set(part.id, part.name);
         }
         const call = shellCallKey(item.id, part.id);
         if (call === null || commands.has(call)) continue;
@@ -1350,6 +1358,7 @@ export async function readSnapshot(
     outcome: typeof info.outcome === 'string' ? info.outcome : null,
     idleAt: isRecord(info.time) && typeof info.time.idle === 'number' ? info.time.idle : null,
     toolStatus,
+    toolNames,
     forms: pendingForms,
     settledForms,
   };

@@ -661,7 +661,14 @@ describe('Codex event mapping edge cases', () => {
       turn: { id: 'c', status: 'failed', error: { message: long } },
     }).observations[0];
     assert.equal(wordy?.type === 'runtime.turn.failed' && wordy.payload.error.message, long);
-    for (const type of ['reasoning', 'plan', 'userMessage', 'contextCompaction', 'hookPrompt']) {
+    for (const type of [
+      'reasoning',
+      'plan',
+      'userMessage',
+      'contextCompaction',
+      'hookPrompt',
+      'subAgentActivity',
+    ]) {
       assert.deepEqual(
         notify(state, 'item/started', { turnId: 'b', item: { type, id: type } }).observations,
         [],
@@ -688,11 +695,23 @@ describe('Codex event mapping edge cases', () => {
       item: { type: 'mcpToolCall', id: 'm1', status: 'failed' },
     }).observations[0];
     assert.equal(mcpEnded?.type === 'runtime.tool.completed' && mcpEnded.payload.outcome, 'failed');
+    // Interrupted, or any status but completed, is not a success.
+    notify(state, 'item/started', {
+      turnId: 'b',
+      item: { type: 'collabAgentToolCall', id: 'c1', status: 'inProgress' },
+    });
+    const interrupted = notify(state, 'item/completed', {
+      turnId: 'b',
+      item: { type: 'collabAgentToolCall', id: 'c1', status: 'interrupted' },
+    }).observations[0];
+    assert.equal(
+      interrupted?.type === 'runtime.tool.completed' && interrupted.payload.outcome,
+      'failed',
+    );
     for (const [type, extra, title] of [
       ['webSearch', { query: 'weather' }, 'weather'],
       ['imageView', { path: '/w/a.png' }, '/w/a.png'],
       ['sleep', {}, null],
-      ['subAgentActivity', {}, null],
     ] as const) {
       const started = notify(state, 'item/started', {
         turnId: 'b',

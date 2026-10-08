@@ -72,6 +72,28 @@ describe('whether a tool call runs is said only from the facts', () => {
       assert.equal(activity(), 'none');
     }
   });
+
+  test("a test run is work under way, and a call opened between turns is not the next turn's", () => {
+    const { b, apply, execution, projection, scope } = setup(true);
+    const activity = () => projection.execution(execution.executionId)?.tool_activity;
+    apply(execution.event);
+    apply(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'native-1' }));
+    apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    apply(b.runtimeEvent(scope, 'runtime.test_run.started', { test_run_id: 'r1', label: null }));
+    assert.equal(activity(), 'running', 'a test run with no tool call open');
+    apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    // Reported after its turn ended, as a background call can be: its end may never come.
+    apply(
+      b.runtimeEvent(scope, 'runtime.tool.started', {
+        tool_call_id: 'late',
+        tool_name: 'shell',
+        title: null,
+      }),
+    );
+    assert.equal(activity(), 'none', 'no turn');
+    apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't2' }));
+    assert.equal(activity(), 'none', 'the next turn starts with nothing open');
+  });
 });
 
 describe('execution status is derived from observed facts', () => {

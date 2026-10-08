@@ -450,9 +450,9 @@ namespace Halcyonic.Contracts
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ExecutionViewToolActivity
     {
+        [EnumMember(Value = "unknown")] Unknown,
         [EnumMember(Value = "running")] Running,
         [EnumMember(Value = "none")] None,
-        [EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class TestRunView
