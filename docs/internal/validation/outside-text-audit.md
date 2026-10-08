@@ -143,7 +143,13 @@ a test that fails without it; this record says which have landed.
 - **Gap 5:** a refusal coded `demonstration` is said in its own words only while the demonstration shows (`CommandSubmissions.Demonstration`).
 - **Gap 8:** each page of an answer carries its own source's provenance, and the measurement opens even when the understanding source had no answer.
 
-**Waiting:** batch B (gaps 3, 6, 7, 9, 11) waits for lane V's treatment of outside words beside Halcyonic's own. Batch C (gaps 10, 12, 13, 14) follows A.
+**Landed (batch C, 2026-10-08):**
+- **Gap 10:** what connecting never changes comes first, and a name inside Connect's sentences is cut at 40 characters.
+- **Gap 12:** Halcyonic's words come before outside ones: "Simulated: {name}", "From now on, …", "+1 more · …".
+- **Gap 13:** one cut (`WorkspaceText.Truncate`, `Prefix`) never splits a code point `Plain` shows; a branch is cut at 40; a changed file reads by its name before its counts, its path beneath; "Still open" is made plain before it is cut.
+- **With them:** every statement and every item said to be the agent's is reported; a source's sentence that shows as nothing where no check was seen or nothing was measured says "Nothing measured."; a task stopped as runtime_tampered says so.
+
+**Waiting:** batch B (gaps 3, 6, 7, 9, 11) waits for lane V's treatment of outside words beside Halcyonic's own. Of gap 14, the measurement's part names in the file column, the usage reading's agent and the companion's inner quote are left for batch B, which redraws those lines.
 
 ## Not verified
 
