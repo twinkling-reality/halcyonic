@@ -68,8 +68,9 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
-        /// Control characters that are not white space, format characters and default ignorable code
-        /// points (Unicode 17.0), as ranges of first and last code point.
+        /// Control characters that are not white space, format characters, default ignorable code points
+        /// (Unicode 17.0) and noncharacters, which nothing draws and normalizing can refuse, as ranges of
+        /// first and last code point; planes 15 and 16 are in <see cref="PrivateUse"/>.
         /// </summary>
         private static readonly int[] ShownByCode =
         {
@@ -92,16 +93,32 @@ namespace Halcyonic.Client
             0x202A, 0x202E,
             0x2060, 0x206F,
             0x3164, 0x3164,
+            0xFDD0, 0xFDEF,
             0xFE00, 0xFE0F,
             0xFEFF, 0xFEFF,
             0xFFA0, 0xFFA0,
             0xFFF0, 0xFFFB,
+            0xFFFE, 0xFFFF,
             0x110BD, 0x110BD,
             0x110CD, 0x110CD,
             0x13430, 0x1343F,
             0x1BCA0, 0x1BCA3,
             0x1D173, 0x1D17A,
+            0x1FFFE, 0x1FFFF,
+            0x2FFFE, 0x2FFFF,
+            0x3FFFE, 0x3FFFF,
+            0x4FFFE, 0x4FFFF,
+            0x5FFFE, 0x5FFFF,
+            0x6FFFE, 0x6FFFF,
+            0x7FFFE, 0x7FFFF,
+            0x8FFFE, 0x8FFFF,
+            0x9FFFE, 0x9FFFF,
+            0xAFFFE, 0xAFFFF,
+            0xBFFFE, 0xBFFFF,
+            0xCFFFE, 0xCFFFF,
+            0xDFFFE, 0xDFFFF,
             0xE0000, 0xE0FFF,
+            0xEFFFE, 0xEFFFF,
         };
 
         /// <summary>

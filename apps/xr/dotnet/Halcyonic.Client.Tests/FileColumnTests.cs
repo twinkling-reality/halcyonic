@@ -1634,6 +1634,29 @@ public class FileColumnTests
         Assert.That(unstoppable.Frame!.Footer[PromptSlot.Rare], Is.Null);
     }
 
+    /// <summary>
+    /// A label holding what a normalizer refuses, as a noncharacter copied from a file, never stops the task's file
+    /// being drawn: the question stays answerable and stoppable (the review of lane W's labels, M1).
+    /// </summary>
+    [Test]
+    public void ALabelANormalizerRefusesNeverStopsTheFileBeingDrawn()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts.RemoveAt(1);
+        question.Prompts[0].Options = new List<QuestionOption> { new() { Label = "Yes\uFFFE" }, new() { Label = "No" } };
+        Assert.That(() => WorkspaceText.AsShown("Yes\uFFFE"), Throws.Nothing);
+        Assert.That(WorkspaceText.AsShown("Yes\uFFFE"), Is.EqualTo("Yes\u2039U+FFFE\u203A"));
+        var work = new AskingWork(question);
+        Assert.That(work.Present().Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt), "built, answerable and stoppable");
+        var host = new FileMenuHost();
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
+        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        Assert.That(column.Frame!.Lines.Where(line => line.Action == FileScreens.Choose).Select(line => (line.Words, line.Available)),
+            Is.EqualTo(new[] { ("Yes\u2039U+FFFE\u203A", true), ("No", true) }));
+        column.Act(FileScreens.Choose, "0");
+        Assert.That(column.Screen.Question.Draft!.Build().Single().Selected, Is.EqualTo(new[] { "Yes\uFFFE" }), "the raw label is what is sent");
+    }
+
     /// <summary>A prompt whose every answer reads like another, with nothing to type, leaves no way to answer: as before L2.</summary>
     [Test]
     public void APromptLeftWithNoWayToAnswerKeepsTheQuestionUnanswerable()
