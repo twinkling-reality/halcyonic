@@ -198,6 +198,31 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// Text whose every character can change what happens, such as a command a person approves,
+        /// by <see cref="Plain"/>'s rule, except that no white space but the space collapses: a line
+        /// break, a tab or any other white space character shows as its code point, such as ‹U+000A›,
+        /// so two commands on two lines never read as one, and a tab or a no-break space never reads
+        /// as a space. Applying it again changes nothing.
+        /// </summary>
+        public static string Exact(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            var result = new StringBuilder(text!.Length);
+            foreach (var unit in text)
+            {
+                if (unit != ' ' && In(WhiteSpace, unit))
+                {
+                    result.Append("‹U+").Append(((int)unit).ToString("X4", CultureInfo.InvariantCulture)).Append('›');
+                }
+                else
+                {
+                    result.Append(unit);
+                }
+            }
+            return Plain(result.ToString());
+        }
+
+        /// <summary>
         /// <see cref="Plain"/> text for a TextMeshPro label with rich text off and escape parsing on:
         /// every backslash doubled, since such a label shows a doubled backslash as one and turns
         /// every other backslash sequence into another character. Set it on the label exactly once.

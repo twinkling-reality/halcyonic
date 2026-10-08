@@ -280,6 +280,12 @@ namespace Halcyonic.Client
 
         private static bool IsCut(string? text) => text != null && text.Contains("[truncated]");
 
+        /// <summary>
+        /// Whether the control plane cut an approval's request to fit, so the person could never read
+        /// all of what it would run: such a request can only be denied.
+        /// </summary>
+        public static bool CutShort(ApprovalView approval) => approval.Subject is ToolUseSubject tool && IsCut(tool.Summary);
+
         /// <summary>The goal line under the status: the workstream's objective.</summary>
         public static string Goal(WorkspacePresentation workspace) => "Goal: " + Objective(workspace);
 
@@ -319,12 +325,21 @@ namespace Halcyonic.Client
             var notes = new List<string>();
             var waiting = workspace.Execution?.PendingApprovals.Count ?? 0;
             if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests are waiting. This is the oldest.");
-            notes.Add("Approve lets it go ahead. Deny refuses; it may try another way.");
-            notes.Add("Your answer counts once the agent confirms it.");
-            notes.Add("Approve and Deny both show the whole request before you confirm.");
+            if (CutShort(approval))
+            {
+                notes.Add("It's too long to show you whole, so you can only deny it.");
+                notes.Add("Deny refuses; it may try another way.");
+                notes.Add("Your answer counts once the agent confirms it.");
+            }
+            else
+            {
+                notes.Add("Approve lets it go ahead. Deny refuses; it may try another way.");
+                notes.Add("Your answer counts once the agent confirms it.");
+                notes.Add("Approve and Deny both show the whole request before you confirm.");
+            }
             return new NeedAnswer(
                 tool == null ? "It wants your approval." : RunsCommand(tool.ToolName) ? "It wants to run a command:" : "It wants to use " + OneLine(tool.ToolName) + ":",
-                tool == null ? null : OneLine(tool.Summary),
+                tool == null ? null : LabelText.Exact(tool.Summary),
                 notes);
         }
 
@@ -589,7 +604,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Request(ApprovalView? approval) => approval?.Subject switch
         {
-            ToolUseSubject tool => OneLine(tool.ToolName) + ": " + OneLine(tool.Summary),
+            ToolUseSubject tool => OneLine(tool.ToolName) + ": " + LabelText.Exact(tool.Summary),
             _ => "It wants your approval.",
         };
 

@@ -133,6 +133,22 @@ public class LabelTextTests
     }
 
     [Test]
+    public void ExactTextShowsEveryWhiteSpaceButTheSpaceByItsCode()
+    {
+        Assert.That(LabelText.Exact("echo a\nrm -rf x"), Is.EqualTo("echo a‹U+000A›rm -rf x"), "two commands never read as one");
+        Assert.That(LabelText.Exact("a\r\nb\tc\u00A0d\u2028e"), Is.EqualTo("a‹U+000D›‹U+000A›b‹U+0009›c‹U+00A0›d‹U+2028›e"));
+        Assert.That(LabelText.Exact("  two  spaces  "), Is.EqualTo("two  spaces"), "spaces stay as written, none at either end");
+        Assert.That(LabelText.Exact("rm\u200B -rf"), Is.EqualTo("rm‹U+200B› -rf"), "the rest is Plain's rule");
+        Assert.That(LabelText.Exact(null), Is.EqualTo(""));
+        foreach (var text in Hostile)
+        {
+            var exact = LabelText.Exact(text);
+            Assert.That(LabelText.Exact(exact), Is.EqualTo(exact), "twice changes nothing");
+            Assert.That(LabelText.Plain(exact), Is.EqualTo(exact), "a label's own Plain changes nothing");
+        }
+    }
+
+    [Test]
     public void TextForATextMeshProLabelHasEveryBackslashDoubled()
     {
         Assert.That(LabelText.ForTextMeshPro(@"a\nb \u003C \U0001F600 \\ end\"), Is.EqualTo(@"a\\nb \\u003C \\U0001F600 \\\\ end\\"));
