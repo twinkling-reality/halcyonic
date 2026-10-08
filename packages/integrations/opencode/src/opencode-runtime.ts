@@ -358,6 +358,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       capabilities: OPENCODE_CAPABILITIES,
       model_choice: 'listed',
       uses_project_location: true,
+      reports_tool_activity: true,
     };
   }
 

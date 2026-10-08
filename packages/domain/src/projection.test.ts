@@ -12,9 +12,9 @@ import { Projection } from './projection.ts';
 import { SHOWN_QUESTIONS } from './questions.ts';
 import { EventBuilder } from './testing/events.ts';
 
-function setup() {
+function setup(reportsToolActivity = false) {
   const b = new EventBuilder();
-  const projection = new Projection();
+  const projection = new Projection({ reportsToolActivity: () => reportsToolActivity });
   const apply = (...events: StoredEvent[]) => events.map((event) => projection.apply(event));
   const project = b.project();
   const workstream = b.workstream(project.projectId);
@@ -29,6 +29,50 @@ function setup() {
   const workstreamView = () => projection.workstream(workstream.workstreamId);
   return { b, projection, apply, execution, scope, status, workstreamView };
 }
+
+describe('whether a tool call runs is said only from the facts', () => {
+  test('running while a call is open, none between calls only where every call is reported, else unknown', () => {
+    for (const reports of [true, false]) {
+      const { b, apply, execution, projection, scope } = setup(reports);
+      const activity = () => projection.execution(execution.executionId)?.tool_activity;
+      apply(execution.event);
+      apply(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'native-1' }));
+      assert.equal(activity(), 'none', 'no turn, nothing runs');
+      apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+      assert.equal(activity(), reports ? 'none' : 'unknown', 'a turn with no call open');
+      apply(
+        b.runtimeEvent(scope, 'runtime.tool.started', {
+          tool_call_id: 'c1',
+          tool_name: 'shell',
+          title: null,
+        }),
+      );
+      assert.equal(activity(), 'running');
+      // A lost connection makes the open call stale.
+      apply(b.runtimeEvent(scope, 'runtime.connection.lost', { reason: 'Gone.' }));
+      assert.equal(activity(), 'unknown');
+      apply(b.runtimeEvent(scope, 'runtime.connection.restored', { reason: 'Back.' }));
+      assert.equal(activity(), 'running');
+      apply(
+        b.runtimeEvent(scope, 'runtime.tool.completed', {
+          tool_call_id: 'c1',
+          outcome: 'succeeded',
+        }),
+      );
+      assert.equal(activity(), reports ? 'none' : 'unknown');
+      apply(
+        b.runtimeEvent(scope, 'runtime.tool.started', {
+          tool_call_id: 'c2',
+          tool_name: 'shell',
+          title: null,
+        }),
+      );
+      // A turn that ends closes every call it left open.
+      apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+      assert.equal(activity(), 'none');
+    }
+  });
+});
 
 describe('execution status is derived from observed facts', () => {
   test('a workstream is created until it has an execution, then reports that execution', () => {

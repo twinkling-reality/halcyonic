@@ -55,6 +55,7 @@ function folderRuntime(locations: HostLocations) {
     },
     model_choice: 'none',
     uses_project_location: true,
+    reports_tool_activity: false,
   };
   const adapter: RuntimeAdapter = {
     descriptor,

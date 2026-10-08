@@ -119,7 +119,25 @@ export function endTurn(
   state.activeTestRun = null;
 }
 
-export function toExecutionView(state: ExecutionState): ExecutionView {
+/**
+ * Whether a tool call runs, from the facts alone (`ExecutionView`'s `tool_activity`): an open call
+ * counts only in an active turn whose status is not `unknown`, and none open counts as none only
+ * on a runtime that reports every tool call it makes.
+ */
+export function deriveToolActivity(
+  state: ExecutionState,
+  reportsToolActivity: boolean,
+): ExecutionView['tool_activity'] {
+  if (state.activeTurn === null) return 'none';
+  if (deriveExecutionStatus(state) === 'unknown') return 'unknown';
+  if (state.activeTools.size > 0) return 'running';
+  return reportsToolActivity ? 'none' : 'unknown';
+}
+
+export function toExecutionView(
+  state: ExecutionState,
+  reportsToolActivity: boolean,
+): ExecutionView {
   return {
     execution_id: state.executionId,
     workstream_id: state.workstreamId,
@@ -134,6 +152,7 @@ export function toExecutionView(state: ExecutionState): ExecutionView {
     pending_approvals: [...state.pendingApprovals.values()],
     pending_questions: shownQuestions(state.pendingQuestions),
     active_tools: [...state.activeTools.values()],
+    tool_activity: deriveToolActivity(state, reportsToolActivity),
     active_test_run: state.activeTestRun,
     last_test_run: state.lastTestRun,
     turn_count: state.turnCount,

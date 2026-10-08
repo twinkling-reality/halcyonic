@@ -155,6 +155,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       capabilities: CLAUDE_AGENT_CAPABILITIES,
       model_choice: 'listed',
       uses_project_location: true,
+      reports_tool_activity: true,
     };
   }
 

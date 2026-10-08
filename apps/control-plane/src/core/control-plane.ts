@@ -40,7 +40,11 @@ export interface ControlPlaneOptions {
  */
 export class ControlPlane {
   readonly journal: EventJournal;
-  readonly projection = new Projection();
+  // Whether a runtime reports every tool call it makes, read from its descriptor when asked.
+  readonly projection = new Projection({
+    reportsToolActivity: (runtimeId) =>
+      this.registry.get(runtimeId)?.reports_tool_activity === true,
+  });
   readonly publisher: EventPublisher;
   readonly registry = new RuntimeRegistry();
   readonly recorder: Recorder;

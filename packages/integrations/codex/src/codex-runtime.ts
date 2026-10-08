@@ -265,6 +265,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       capabilities: { ...CODEX_CAPABILITIES, answer_question: this.#answerQuestions },
       model_choice: 'listed',
       uses_project_location: true,
+      reports_tool_activity: true,
     };
   }
 

@@ -32,6 +32,7 @@ const STALLED: RuntimeAdapter = {
     },
     model_choice: 'none',
     uses_project_location: false,
+    reports_tool_activity: false,
   },
   validateStartOptions: () => ({ ok: true }),
   startExecution: () => new Promise(() => {}),

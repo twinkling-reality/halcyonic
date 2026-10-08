@@ -447,6 +447,14 @@ namespace Halcyonic.Contracts
         public string StartedAt { get; set; } = default!;
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ExecutionViewToolActivity
+    {
+        [EnumMember(Value = "running")] Running,
+        [EnumMember(Value = "none")] None,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
     public sealed class TestRunView
     {
         [JsonProperty("test_run_id", Required = Required.Always)]
@@ -525,6 +533,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("active_tools", Required = Required.Always)]
         public List<ToolActivityView> ActiveTools { get; set; } = new List<ToolActivityView>();
+
+        [JsonProperty("tool_activity", Required = Required.Always)]
+        public ExecutionViewToolActivity ToolActivity { get; set; }
 
         [JsonProperty("active_test_run", Required = Required.AllowNull)]
         public TestRunView? ActiveTestRun { get; set; }
@@ -761,6 +772,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("uses_project_location", Required = Required.Always)]
         public bool UsesProjectLocation { get; set; }
+
+        [JsonProperty("reports_tool_activity", Required = Required.Always)]
+        public bool ReportsToolActivity { get; set; }
     }
 
     public sealed class Snapshot

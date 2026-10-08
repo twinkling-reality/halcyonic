@@ -109,13 +109,30 @@ class ChangeSet {
  * Current state, rebuilt by applying journaled events in position order. Applying the same
  * journal always produces the same state; that is what makes the journal the source of truth.
  */
+export interface ProjectionOptions {
+  /**
+   * Whether the runtime with this id reports every tool call it makes (its descriptor's
+   * `reports_tool_activity`). Without it, or for a runtime it does not know, none does, so a
+   * running execution's `tool_activity` is `unknown` rather than `none`.
+   */
+  readonly reportsToolActivity?: (runtimeId: string) => boolean;
+}
+
 export class Projection {
   #position = 0;
+  readonly #reportsToolActivity: (runtimeId: string) => boolean;
   readonly #projects = new Map<ProjectId, ProjectState>();
   readonly #workstreams = new Map<WorkstreamId, WorkstreamState>();
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
   readonly #devices = new DeviceRegistry();
+
+  constructor(options: ProjectionOptions = {}) {
+    this.#reportsToolActivity = options.reportsToolActivity ?? (() => false);
+  }
+
+  #view = (state: ExecutionState): ExecutionView =>
+    toExecutionView(state, this.#reportsToolActivity(state.runtime.runtime_id));
 
   /** Position of the last applied event, 0 before any. */
   get position(): number {
@@ -149,7 +166,7 @@ export class Projection {
 
   execution(executionId: string): ExecutionView | undefined {
     const state = this.#executions.get(executionId as ExecutionId);
-    return state === undefined ? undefined : toExecutionView(state);
+    return state === undefined ? undefined : this.#view(state);
   }
 
   command(commandId: string): CommandView | undefined {
@@ -172,7 +189,7 @@ export class Projection {
   }
 
   executions(): ExecutionView[] {
-    return [...this.#executions.values()].map(toExecutionView);
+    return [...this.#executions.values()].map(this.#view);
   }
 
   /** Commands still awaiting an outcome, plus the most recent `finishedLimit` finished ones. */
@@ -580,7 +597,7 @@ export class Projection {
     return {
       projects: pick(changes.projects, this.#projects, toProjectView),
       workstreams: pick(changes.workstreams, this.#workstreams, (ws) => this.#workstreamView(ws)),
-      executions: pick(changes.executions, this.#executions, toExecutionView),
+      executions: pick(changes.executions, this.#executions, this.#view),
       commands: pick(changes.commands, this.#commands, toCommandView),
     };
   }

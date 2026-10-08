@@ -35,6 +35,7 @@ function listingRuntime(
       },
       model_choice: 'listed',
       uses_project_location: false,
+      reports_tool_activity: false,
     },
     validateStartOptions: () => ({ ok: true }),
     listModels,
