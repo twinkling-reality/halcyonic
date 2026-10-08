@@ -1250,7 +1250,7 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
   );
 
   test(
-    'a write outside the folder asks for the folder, then for the file by its path, and only then writes',
+    'a write outside the folder asks for the folder, then for the file by its path, and the sandbox still refuses it',
     SLOW_TEST,
     async (t) => {
       const { runtime, sandbox, start } = await harness(t);
@@ -1277,7 +1277,9 @@ describe('OpenCode on a model on this Mac: its network tools are denied, and the
       assert.deepEqual(file.subject, { kind: 'tool_use', tool_name: 'edit', summary: outside });
       assert.equal(file.complete, true);
       await execution.next('runtime.turn.completed');
-      assert.equal(readFileSync(outside, 'utf8'), 'hello\n');
+      // Approved twice, it is still outside the project roots, which the sandbox alone lets it
+      // write (ADR 0028); without the sandbox, the asks are all that stand before it.
+      assert.equal(existsSync(outside), process.platform !== 'darwin');
     },
   );
 
