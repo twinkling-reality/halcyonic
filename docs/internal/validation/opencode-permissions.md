@@ -145,13 +145,61 @@ only loopback ports (source).
 
 ## What Halcyonic does, and what moving the data folder would cost (2026-10-07)
 
-- **Built:** every session the adapter creates carries `execute`, `webfetch` and `websearch` deny
-  (`SESSION_PERMISSIONS`, on `POST /api/session`; never replaced later, so no `PATCH`). The end to
-  end suite checks that none of the three is offered to the model and that the session, read
-  back, holds the three rules; that Code Mode's `fetch` reaches a loopback listener from a session
-  made without them on the same server and never from Halcyonic's; and, as for Codex, that no
-  OpenCode process holds a socket beyond loopback through startup, a minute idle and a full run,
-  with the connection to the scripted provider seen as the probe's positive control.
+- **Built, 2026-10-07, after the security review:** every session the adapter creates carries
+  rules that deny `execute`, `webfetch`, `websearch` and `subagent`, and deny `edit` on every path
+  OpenCode reads its configuration from (`sessionPermissions`, sent on `POST /api/session`; never
+  replaced, so no `PATCH`).
+  - **`subagent`:** its `model` input ("providerID/modelID") is resolved against every model
+    OpenCode lists (`core/src/tool/plugin/subagent.ts:36-39`, `:75-87`, `:168`, `:183`), keyless
+    OpenCode Zen and any provider stored in the data folder among them, so a repository file could
+    have the model delegate its code and files to a hosted model. Denying it also ends the child
+    sessions whose asks the adapter never sees.
+  - **Configuration paths:** in the session's folder and every folder above it, OpenCode reads
+    `.opencode` (whose plugins load as server code), `.claude`, `.agents`, `opencode.json` and
+    `opencode.jsonc`, and `~/.claude`, `~/.agents` and its global folder
+    (`core/src/config/discovery.ts:23-84`; `OPENCODE_CONFIG_DIR`, else
+    `$XDG_CONFIG_HOME/opencode`, else `~/.config/opencode`, `util/src/global-roots.ts`), watching
+    them even before they exist and reloading MCP servers on a change (`config/watch.ts:8-39`,
+    `config/plugin/mcp.ts:17-57`). Edits are not asked, so the model could write a plugin. The
+    rules deny `edit` on `.opencode/*`, `*/.opencode/*`, `.claude/*`, `*/.claude/*`, `.agents/*`,
+    `*/.agents/*`, `opencode.json*`, `*/opencode.json*`, the global folder and an `OPENCODE_CONFIG`
+    file; `*` matches `/` too (`core/src/util/wildcard.ts`). **A shell command can still write
+    those paths** unless shell commands ask, which is the owner's question.
+  - **The end to end suite checks:** that none of the denied tools is offered to the model and
+    that the session, read back, holds the rules; that writes to `.opencode/plugin/planted.ts`,
+    `opencode.json`, `sub/.opencode/plugins/p.ts` and `.agents/skills/x/SKILL.md` are refused while
+    `notes.txt` is written; that Code Mode's `fetch` reaches a loopback listener from a session
+    made without the rules on the same server and never from Halcyonic's; and the network probe:
+    nothing beyond loopback from the OpenCode server's tree, or any process of the binary, through
+    startup, a minute idle and a full run, with the connection to the scripted provider seen as
+    the positive control, and, as the negative control, a server launched without the catalog
+    switch seen reaching beyond loopback when a folder is loaded (skipped when
+    `models.opencode.ai` does not resolve).
+- **The server's password is not secret from what the agent runs** (runtime, 2026-10-07, a shell
+  call printing only a length and a count): the adapter passes it in `OPENCODE_PASSWORD`, and
+  OpenCode deletes it only in stdio mode (`cli/src/server-process.ts:72-77`), so a command saw a
+  length of 43; `ps -wwE` on the server's process showed it too, since any process of the same
+  user can read another's starting environment. With it, a command could use the loopback API to
+  replace its session's rules, answer its own asks, or open a session without rules. So:
+  - every session gets an environment of its own without the password (`PUT
+    /api/session/:id/environment`, which replaces what shell commands get,
+    `protocol/src/groups/session.ts:871-880`, `core/src/shell.ts:268-272`; it lives in memory, and
+    sessions do not outlive a server restart). A command then saw a length of 0, but `ps -wwE`
+    still showed it: defence in depth only;
+  - the adapter stops a task when something else changes what it may do: a `session.permissions`
+    event on its session (it never sets rules after creation), or an approval answered "once" or
+    "always" that it did not send (a reject, which also settles the session's other requests,
+    never lets anything run). A running turn fails with `runtime_tampered`; a task at rest is
+    reported lost. A `session.created` on its server that no creation of the adapter's claims
+    stops every task there and the server. The end to end suite makes each change through the API
+    and checks the task stops. The adapter reacts after a change; it does not prevent it.
+  - Stdio mode would keep the password out of the server's environment altogether; it would move
+    the adapter off HTTP ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- **What the shared data folder still lets through:** Halcyonic's OpenCode uses the person's data
+  folder, so a saved "always" from the person's own OpenCode for the project (for example `curl *`
+  for a shell command) skips a session's ask, a stored OpenCode Console login makes the server
+  fetch configuration, policies, MCP servers and search from opencode.ai every minute, and stored
+  providers are listed (as remote). The session's denies still hold over a saved "always".
 - **Moving OpenCode's data folder** (not done): Salidium reads OpenCode's sessions straight from
   `$XDG_DATA_HOME/opencode/opencode.db`, `XDG_DATA_HOME` if absolute, else
   `~/.local/share` (Salidium `abb7a93`, `packages/adapters/opencode/src/storeSource.ts:58-66`),

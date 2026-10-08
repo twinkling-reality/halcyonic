@@ -196,10 +196,18 @@ configured model it uses a free hosted model of its own service (OpenCode Zen) e
 models are listed, and it runs every tool without asking, `webfetch` and `websearch` included,
 unless its permissions say otherwise. Every session Halcyonic creates carries rules of its own,
 which outrank every configuration file and any saved "always": `execute` (Code Mode, whose
-JavaScript `fetch` no permission covers), `webfetch` and `websearch` are denied, so none is offered
-to the model ([opencode-permissions.md](../validation/opencode-permissions.md)). Whether sessions
-should also ask before shell commands and edits is the owner's question, and a subagent's ask is
-not yet followed ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Halcyonic's OpenCode server
+JavaScript `fetch` no permission covers), `webfetch`, `websearch` and `subagent` (whose `model`
+input can send a child session to any listed model, hosted ones among them) are denied, so none is
+offered to the model, and so are edits to every path OpenCode reads its configuration, plugins and
+MCP servers from ([opencode-permissions.md](../validation/opencode-permissions.md)). This is not
+yet local-only: a shell command can still write those paths, or reach the network, unless shell
+commands ask, which with edits is the owner's question
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The server's password, passed in
+`OPENCODE_PASSWORD`, is not secret from commands the agent runs: each session's own environment
+leaves it out, but any process of the same user can read the server's starting environment
+(`ps -wwE`). So the adapter stops a task whose rules change, or whose request is approved, without
+it, and stops the whole server when a session it did not open appears there; it reacts after the
+change rather than preventing it. Halcyonic's OpenCode server
 uses the person's own OpenCode data folder, so a saved "always", a Console login or a provider
 connection from their own OpenCode applies to its sessions, and Salidium reads those sessions from
 it. When `HALCYONIC_OPENCODE_CONFIG_HOME`
