@@ -625,17 +625,35 @@ restart the app, and remove the fresh folder at the end ("Close").
 
 **C. A question, from start to confirmation.** `pnpm demo --scenario question_asked` on the Mac.
 9. **Where the sound comes from.** Before it comes, close your eyes. When Waiting for you sounds, point
-   at it, then open them. Pass: you point at the character. Do it once with the spatializer (the
-   `Halcyonic: sound placed by Meta XR Audio's head-related spatializer` line at start) and once with
-   panning: run `adb shell touch /sdcard/Android/data/com.halcyonic.xr/files/sound-panned`, restart
-   the app, and the line says "sound placed by Unity's panning, because of the option sound-panned".
-   Say which you could place, and whether a cue above or behind read as above or behind. Then the
-   cost, with six characters on the stage and their cues sounding, each way for a minute:
+   at it, then open them. Pass: you point at the character. Do it once with the spatializer, then
+   once with Unity's panning, and say which you could place, and whether a cue above or behind read
+   as above or behind. The start's log line says which is in use:
+   `adb logcat -s Unity | grep --line-buffered "Halcyonic: sound placed by"`, "Meta XR Audio's
+   head-related spatializer" or "Unity's panning, because of the option sound-panned". The option is
+   a file in the app's data directory, `Application.persistentDataPath`, which on the headset is
+   shared storage, as for the while-away option, not the private folder `run-as` reaches (the
+   token's). To pan:
+   ```bash
+   adb shell touch /sdcard/Android/data/com.halcyonic.xr/files/sound-panned
+   adb shell ls -l /sdcard/Android/data/com.halcyonic.xr/files/sound-panned
+   adb shell am force-stop com.halcyonic.xr
+   adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
+   ```
+   To go back to the spatializer, and before the session ends:
+   ```bash
+   adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/sound-panned
+   adb shell am force-stop com.halcyonic.xr
+   adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
+   ```
+   Then the cost, with six characters on the stage and their cues sounding, each way for a minute:
    `adb shell top -H -b -d 1 -n 60 -p $(adb shell pidof com.halcyonic.xr) > ~/halcyonic-captures/audio-<way>.txt`,
    reading the audio mixer thread's share (Unity's FMOD mixer thread; record its name as `top` shows
    it). Keep the spatializer only if it is clearly better by ear and its extra cost stays under 1 ms
-   of CPU a frame (about 7% of one core at 72 frames a second). Remove the option file afterwards
-   (`adb shell rm` the same path).
+   of CPU a frame (about 7% of one core at 72 frames a second). If it is silent, distorts or crashes
+   while cues play, put the file in place as above: every cue then goes through Unity's panning, with
+   no rebuild. If the app crashes at start before any cue, the file cannot help, since Unity loads
+   the spatializer as its audio starts: install the previous APK and record the crash
+   (`adb logcat -b crash`).
 10. **It comes to you.** Pass: it comes once to the front of the desk, amber, looking at you; its
     project-mates look at it once as it goes; its glance shows its question under Agent asks.
 11. **Its file.** Pinch it. Pass: a line of light draws from it, then the file's parts arrive top to
@@ -697,7 +715,8 @@ development build and the token in place:
 3. `pnpm quest:check -- --closed`. Pass: every line passes.
 4. Undo what the session turned on: `adb shell am broadcast -a
    com.oculus.vrpowermanager.automation_disable` if the headset was kept awake, and remove the sound
-   option file if it was made ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Beside a window on a Quest").
+   option files if they were made: the while-away one ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Beside
+   a window on a Quest") and `sound-panned` (check 11, step 9).
 5. `adb kill-server`. The Mac's adb server answers every local account while it runs.
    If check 11's first part made `~/halcyonic-fresh`, stop any control plane using it and remove it:
    `rm -rf ~/halcyonic-fresh`.
