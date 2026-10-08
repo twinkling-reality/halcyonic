@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 import { OpenCodeClient, TransportError } from './client.ts';
 import { isRecord } from './events.ts';
+import { SANDBOX_EXEC } from './sandbox-profile.ts';
 import {
   readProcessIdentity,
   removeServerRecord,
@@ -107,6 +108,12 @@ export interface LaunchOptions {
   readonly port: number | null;
   readonly cwd: string;
   readonly startupTimeoutMs: number;
+  /**
+   * A Seatbelt profile file the server runs under, and everything it starts with it (ADR 0028),
+   * through `/usr/bin/sandbox-exec`, which then runs the binary in its own place. Null runs it
+   * unsandboxed.
+   */
+  readonly sandboxProfile?: string | null;
 }
 
 /**
@@ -210,9 +217,11 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
   const deadline = Date.now() + options.startupTimeoutMs;
   const port = options.port ?? (await freeLoopbackPort());
   const password = randomBytes(32).toString('base64url');
+  const serve = ['serve', '--hostname', LOOPBACK, '--port', String(port)];
+  const sandboxed = options.sandboxProfile !== undefined && options.sandboxProfile !== null;
   const child = spawn(
-    options.binaryPath,
-    ['serve', '--hostname', LOOPBACK, '--port', String(port)],
+    sandboxed ? SANDBOX_EXEC : options.binaryPath,
+    sandboxed ? ['-f', options.sandboxProfile as string, options.binaryPath, ...serve] : serve,
     {
       cwd: options.cwd,
       env: { ...options.environment, OPENCODE_PASSWORD: password },

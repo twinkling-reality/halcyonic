@@ -27,6 +27,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { OpenCodeClient } from './client.ts';
 import { OpenCodeRuntimeAdapter, type OpenCodeRuntimeOptions } from './opencode-runtime.ts';
+import { personalSecrets } from './sandbox-profile.ts';
 import { buildEnvironment, launchServer } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
@@ -46,6 +47,20 @@ const CRASH_HOST = fileURLToPath(new URL('./testing/crash-host.ts', import.meta.
 const SLOW_TEST = { timeout: 120_000 };
 
 let executionCount = 0;
+
+/**
+ * The Seatbelt sandbox the adapter runs the server in on macOS (ADR 0028), as the control plane
+ * gives it: the project folder writable, and the sandbox home's secrets and Halcyonic's stand-in
+ * credentials unreadable.
+ */
+function sandboxOf(sandbox: OpenCodeSandbox) {
+  return process.platform === 'darwin'
+    ? {
+        projectRoots: [sandbox.project],
+        unreadable: [...personalSecrets(sandbox.env.HOME ?? ''), join(sandbox.root, 'halcyonic')],
+      }
+    : null;
+}
 
 /** Collects the observations of one execution. */
 class Execution {
@@ -131,6 +146,7 @@ async function harness(
     serverRecordFile: sandbox.recordFile,
     directoryPolicy: allowOnly(sandbox.project),
     env: sandbox.env,
+    sandbox: sandboxOf(sandbox),
     ...setup.runtime,
   });
   t.after(async () => {
@@ -762,6 +778,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         serverRecordFile: sandbox.recordFile,
         directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
+        sandbox: sandboxOf(sandbox),
       });
       t.after(() => runtime.close());
       assert.deepEqual(await runtime.stopStaleServer(), {
@@ -812,6 +829,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         serverRecordFile: sandbox.recordFile,
         directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
+        sandbox: sandboxOf(sandbox),
       });
       t.after(() => runtime.close());
       assert.deepEqual(await runtime.stopStaleServer(), {
@@ -1690,6 +1708,7 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
         serverRecordFile: sandbox.recordFile,
         directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
+        sandbox: sandboxOf(sandbox),
       });
       t.after(() => runtime.close());
       const execution = new Execution();
@@ -1800,4 +1819,61 @@ describe("A repository's own OpenCode configuration never loads into Halcyonic's
     const theirs = await listed(bare.client);
     assert.ok(theirs.includes('probe'), `not listed without the switch: ${theirs.slice(0, 400)}`);
   });
+});
+
+describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
+  skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
+}, () => {
+  test(
+    'an approved command cannot write outside the project, read a credential, reach beyond loopback, or loosen the sandbox',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const outside = join(sandbox.root, 'outside');
+      mkdirSync(outside);
+      // A stand-in for Halcyonic's access token, beside the server's record and its profile.
+      const credential = join(sandbox.root, 'halcyonic', 'access-token');
+      mkdirSync(join(sandbox.root, 'halcyonic'), { recursive: true });
+      writeFileSync(credential, 'stand-in-credential-7f3a\n', { mode: 0o600 });
+      const profile = join(sandbox.root, 'halcyonic', 'opencode-sandbox.sb');
+      const results = join(sandbox.project, 'results.txt');
+      const command = [
+        `echo out > ${outside}/written.txt; echo "write=$?" >> ${results}`,
+        `cat ${credential} >> ${results} 2>/dev/null; echo "read=$?" >> ${results}`,
+        `curl --noproxy '*' -s --max-time 5 -o /dev/null -w 'net=%{http_code}' http://1.1.1.1/ >> ${results}; echo " curl=$?" >> ${results}`,
+        `/usr/bin/sandbox-exec -p '(version 1)(allow default)' /bin/sh -c 'echo loose > ${outside}/loosened.txt'; echo "nested=$?" >> ${results}`,
+        `echo '(version 1)(allow default)' > ${profile}; echo "profile=$?" >> ${results}`,
+        `echo inside > inside.txt`,
+      ].join('\n');
+      const execution = await start(call('shell', { command }));
+      const asked = await execution.next('runtime.approval.requested');
+      assert.ok(asked.type === 'runtime.approval.requested');
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: asked.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed');
+      const said = readFileSync(results, 'utf8');
+      t.diagnostic(said);
+      // The control: the command ran, and wrote inside the project.
+      assert.equal(readFileSync(join(sandbox.project, 'inside.txt'), 'utf8'), 'inside\n');
+      assert.equal(existsSync(join(outside, 'written.txt')), false, 'wrote outside the project');
+      assert.equal(
+        existsSync(join(outside, 'loosened.txt')),
+        false,
+        'a nested sandbox loosened it',
+      );
+      assert.ok(!said.includes('stand-in-credential'), 'read the credential');
+      assert.match(said, /net=000/, 'reached beyond loopback');
+      assert.match(
+        readFileSync(profile, 'utf8'),
+        /\(deny network-outbound\)/,
+        'rewrote its profile',
+      );
+      const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
+      assert.ok(!sent.includes('stand-in-credential'), 'the credential reached the model');
+    },
+  );
 });
