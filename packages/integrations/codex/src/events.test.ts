@@ -661,10 +661,53 @@ describe('Codex event mapping edge cases', () => {
       turn: { id: 'c', status: 'failed', error: { message: long } },
     }).observations[0];
     assert.equal(wordy?.type === 'runtime.turn.failed' && wordy.payload.error.message, long);
-    for (const type of ['reasoning', 'mcpToolCall', 'webSearch', 'plan', 'userMessage']) {
+    for (const type of ['reasoning', 'plan', 'userMessage', 'contextCompaction', 'hookPrompt']) {
       assert.deepEqual(
         notify(state, 'item/started', { turnId: 'b', item: { type, id: type } }).observations,
         [],
+      );
+    }
+    // Every other tool item is a tool call, so none runs unreported.
+    const mcp = notify(state, 'item/started', {
+      turnId: 'b',
+      item: {
+        type: 'mcpToolCall',
+        id: 'm1',
+        server: 'tracker',
+        tool: 'create',
+        status: 'inProgress',
+      },
+    }).observations[0];
+    assert.deepEqual(mcp?.type === 'runtime.tool.started' && mcp.payload, {
+      tool_call_id: 'm1',
+      tool_name: 'mcpToolCall',
+      title: 'tracker create',
+    });
+    const mcpEnded = notify(state, 'item/completed', {
+      turnId: 'b',
+      item: { type: 'mcpToolCall', id: 'm1', status: 'failed' },
+    }).observations[0];
+    assert.equal(mcpEnded?.type === 'runtime.tool.completed' && mcpEnded.payload.outcome, 'failed');
+    for (const [type, extra, title] of [
+      ['webSearch', { query: 'weather' }, 'weather'],
+      ['imageView', { path: '/w/a.png' }, '/w/a.png'],
+      ['sleep', {}, null],
+      ['subAgentActivity', {}, null],
+    ] as const) {
+      const started = notify(state, 'item/started', {
+        turnId: 'b',
+        item: { type, id: `${type}-1`, ...extra },
+      }).observations[0];
+      assert.equal(started?.type === 'runtime.tool.started' && started.payload.title, title, type);
+      // One without a status ends when Codex says it completed.
+      const ended = notify(state, 'item/completed', {
+        turnId: 'b',
+        item: { type, id: `${type}-1` },
+      }).observations[0];
+      assert.equal(
+        ended?.type === 'runtime.tool.completed' && ended.payload.outcome,
+        'succeeded',
+        type,
       );
     }
     assert.deepEqual(

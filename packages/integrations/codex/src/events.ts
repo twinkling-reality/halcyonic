@@ -192,14 +192,16 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
       const turnId = nonBlank(params.turnId);
       if (id === null || turnId === null) return none;
       if (item.type === 'fileChange') state.fileChanges.set(id, describeChanges(item.changes));
-      if ((item.type !== 'commandExecution' && item.type !== 'fileChange') || state.tools.has(id)) {
+      if (typeof item.type !== 'string' || !TOOL_ITEMS.has(item.type) || state.tools.has(id)) {
         return none;
       }
       state.tools.add(id);
       const title =
         item.type === 'commandExecution'
           ? nonBlank(item.command)
-          : (state.fileChanges.get(id)?.text ?? null);
+          : item.type === 'fileChange'
+            ? (state.fileChanges.get(id)?.text ?? null)
+            : toolItemTitle(item);
       return {
         observations: [
           make(
@@ -233,12 +235,15 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
         };
       }
       // A command is completed when it exited 0 and failed otherwise; a declined one never ran.
+      // Another tool item ends when Codex says it completed, failed only when it says so.
       const outcome =
         item.status === 'completed'
           ? 'succeeded'
           : item.status === 'failed' || item.status === 'declined'
             ? 'failed'
-            : null;
+            : item.type !== 'commandExecution' && item.type !== 'fileChange'
+              ? 'succeeded'
+              : null;
       if (outcome === null || !state.tools.delete(id)) return none;
       state.fileChanges.delete(id);
       return {
@@ -603,6 +608,37 @@ function fileChangeSummary(
 }
 
 const NO_CHANGES_NAMED = 'Codex did not say which files it wants to change.';
+
+/**
+ * Every item type of Codex 0.157.0's `v2/ThreadItem.ts` that is a tool call, each reported as
+ * `runtime.tool.started` and `runtime.tool.completed` named by its type, so the adapter reports
+ * every tool call Codex makes (`reports_tool_activity`). The others are its words, its reasoning,
+ * its plan, the person's message, compaction, review mode, hooks and a function's output.
+ */
+const TOOL_ITEMS: ReadonlySet<string> = new Set([
+  'commandExecution',
+  'fileChange',
+  'mcpToolCall',
+  'dynamicToolCall',
+  'collabAgentToolCall',
+  'webSearch',
+  'imageGeneration',
+  'imageView',
+  'sleep',
+  'subAgentActivity',
+]);
+
+/** What a tool item other than a command or a change does, from the field that says it, if any. */
+function toolItemTitle(item: Readonly<Record<string, unknown>>): string | null {
+  if (item.type === 'mcpToolCall') {
+    const server = nonBlank(item.server);
+    const tool = nonBlank(item.tool);
+    return server !== null && tool !== null ? `${server} ${tool}` : tool;
+  }
+  if (item.type === 'webSearch') return nonBlank(item.query);
+  if (item.type === 'imageView') return nonBlank(item.path);
+  return null;
+}
 
 /**
  * The files a file change item touches, one line each, from `v2/FileUpdateChange.ts`; complete

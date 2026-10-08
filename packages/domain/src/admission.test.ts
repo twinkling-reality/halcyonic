@@ -33,6 +33,7 @@ function catalog(
     capabilities,
     model_choice: modelChoice,
     uses_project_location: usesProjectLocation,
+    reports_tool_activity: false,
   };
   return { get: (id) => (id === 'mock' ? descriptor : undefined) };
 }

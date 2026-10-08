@@ -171,7 +171,10 @@ Neither read is a runtime capability, a journal event or a source of Workstream 
 9. Make sure an agent process cannot outlive the control plane unsupervised: stop it on close and on
    the control plane's exit, and say plainly in the validation record what a hard kill leaves
    running.
-10. Declare `model_choice: 'listed'` only for a runtime that lists its own models. Read the list
+10. Declare `reports_tool_activity` only when the adapter reports every tool call the runtime
+    makes as `runtime.tool.started` and `runtime.tool.completed`: the execution view then reads no
+    open call as no tool running, which is otherwise `unknown` ([EVENTS.md](EVENTS.md)).
+11. Declare `model_choice: 'listed'` only for a runtime that lists its own models. Read the list
     field by field, so a provider's settings, keys and headers never reach it, and say where a
     model is served from the address the runtime sends it to, never from its name: a local model
     may carry a hosted model's name.

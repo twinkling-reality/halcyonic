@@ -58,6 +58,7 @@ function stubRuntime(
     },
     model_choice: 'none',
     uses_project_location: false,
+    reports_tool_activity: false,
   };
   return {
     descriptor,

@@ -107,6 +107,7 @@ describe('text a client sends cannot take the control plane down', () => {
       },
       model_choice: 'none',
       uses_project_location: false,
+      reports_tool_activity: false,
     };
     const wordy: RuntimeAdapter = {
       descriptor,

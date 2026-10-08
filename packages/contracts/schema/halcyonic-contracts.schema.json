@@ -4750,7 +4750,8 @@
         "synthetic",
         "capabilities",
         "model_choice",
-        "uses_project_location"
+        "uses_project_location",
+        "reports_tool_activity"
       ],
       "properties": {
         "runtime_id": {
@@ -4776,6 +4777,9 @@
           "$ref": "#/$defs/ModelChoice"
         },
         "uses_project_location": {
+          "type": "boolean"
+        },
+        "reports_tool_activity": {
           "type": "boolean"
         }
       },
@@ -5750,6 +5754,7 @@
         "pending_approvals",
         "pending_questions",
         "active_tools",
+        "tool_activity",
         "active_test_run",
         "last_test_run",
         "turn_count",
@@ -5847,6 +5852,22 @@
           "items": {
             "$ref": "#/$defs/ToolActivityView"
           }
+        },
+        "tool_activity": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "running"
+            },
+            {
+              "type": "string",
+              "const": "none"
+            },
+            {
+              "type": "string",
+              "const": "unknown"
+            }
+          ]
         },
         "active_test_run": {
           "anyOf": [

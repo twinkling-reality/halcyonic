@@ -198,6 +198,14 @@ export const ExecutionView = Type.Object(
     pending_approvals: Type.Array(ApprovalView),
     pending_questions: Type.Array(QuestionView),
     active_tools: Type.Array(ToolActivityView),
+    /**
+     * Whether a tool call runs, from the facts alone. `running`: a turn is active, the status is not
+     * `unknown`, and a tool call is open (started, not completed). `none`: no turn is active, or one
+     * is with no tool call open on a runtime that reports every tool call it makes
+     * (`reports_tool_activity`). `unknown`: a turn is active on a runtime that does not, or the
+     * status is `unknown`, whose open calls are stale. Silence never reads as `running` or `none`.
+     */
+    tool_activity: Type.Union([Type.Literal('running'), Type.Literal('none'), Type.Literal('unknown')]),
     active_test_run: Nullable(TestRunView),
     last_test_run: Nullable(TestRunResultView),
     turn_count: Type.Integer({ minimum: 0 }),

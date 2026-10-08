@@ -53,6 +53,12 @@ export const RuntimeDescriptor = Type.Object(
      * no files, such as the mock runtime.
      */
     uses_project_location: Type.Boolean(),
+    /**
+     * True when the adapter reports every tool call the runtime makes, as `runtime.tool.started`
+     * and `runtime.tool.completed`, so no tool call open means none runs (`ExecutionView`'s
+     * `tool_activity`). Declared, never inferred.
+     */
+    reports_tool_activity: Type.Boolean(),
   },
   { additionalProperties: false },
 );

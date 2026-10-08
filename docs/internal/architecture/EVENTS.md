@@ -78,7 +78,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.approval.resolved` | execution | runtime | The runtime applied a decision |
 | `runtime.question.asked` | execution | runtime | The agent waits for the person to answer a question; carries the runtime's question id, its prompts (the agent's words) and whether Halcyonic can answer it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)) |
 | `runtime.question.resolved` | execution | runtime | The runtime took an answer (`answered`) or withdrew the question (`dismissed`); a turn's end withdraws it too |
-| `runtime.tool.started` / `.completed` | execution | runtime | Tool activity; a start carries the tool's name and a `title` from its input, or null (below) |
+| `runtime.tool.started` / `.completed` | execution | runtime | Tool activity; a start carries the tool's name and a `title` from its input, or null (below); the execution view's `tool_activity` follows them (below) |
 | `runtime.agent_message` | execution | runtime | Agent text (`reported`) |
 | `runtime.test_run.started` / `.completed` | execution | runtime | A test run and its outcome, with the runtime's label and summary; only the mock reports test runs today |
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
@@ -108,6 +108,16 @@ all of them whole, and the control plane takes every exact copy of a secret it h
 named, then cuts each to the contract before it is journaled. A credential it doesn't hold stays,
 so the person reads the command as it would run ([SECURITY.md](SECURITY.md), "Logs and error
 text").
+
+An execution view's `tool_activity` says whether a tool call runs, from these events alone:
+`running` when a turn is active, its status is not `unknown`, and a tool call is open (started,
+not completed); `none` when no turn is active, or one is with no call open on a runtime whose
+descriptor declares `reports_tool_activity`, that its adapter reports every tool call the runtime
+makes; `unknown` when a turn is active on a runtime that does not declare it, or the status is
+`unknown`, since a lost connection leaves the open calls stale. A turn's end closes every call it
+left open. OpenCode, Claude Code, Codex (every tool item of its 0.157.0 `ThreadItem`, not only
+commands and file changes) and the mock declare it. Two imprecisions: OpenCode starts a tool when the model begins writing its input, before it runs, so 'running' comes slightly early. A background shell (OpenCode background, Claude run_in_background) completes its call at once, while the process runs on: 'none' then means no tool call is open, not that nothing runs.
+Nothing is journaled for it: the descriptor is served live, and the field is derived.
 
 An approval request carries `complete`, defined as: complete: the summary shows in full every
 command that would run, with how and where it runs, and names every path a change would write. It
