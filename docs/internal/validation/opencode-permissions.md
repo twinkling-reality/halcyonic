@@ -344,25 +344,37 @@ commands; edits do not ask; subagents stay denied.
 ## A repository's own configuration never loads (2026-10-08)
 
 - **Built:** the adapter launches every OpenCode server with `OPENCODE_DISABLE_PROJECT_CONFIG` and
-  its other name `OPENCODE_CONFIG_PROJECT_DISABLE` set to `true` (the second wins when both are
-  set, `cli/src/server-process.ts:109-113`); configuration may set neither. OpenCode then skips its
+  its other name `OPENCODE_CONFIG_PROJECT_DISABLE` set to `true` (`OPENCODE_CONFIG_PROJECT_DISABLE`
+  wins when both are set, `cli/src/server-process.ts:109-113`); configuration may set neither, nor
+  `OPENCODE_CONFIG_CONTENT`, whose relative plugin paths would resolve against the task's folder
+  (`core/src/config/plugin/source.ts`). The flag reaches every location the server serves, whatever
+  folder a request names (`server/src/routes.ts:124-131`), and a reload discovers with the same
+  flag (`core/src/config.ts`). OpenCode then skips its
   search of the task's folder and every folder above it (`core/src/config/discovery.ts:33-36`):
   no `opencode.json` or `opencode.jsonc`, `.opencode` (plugins, agents, commands, settings),
   `.claude` or `.agents` there contributes anything, in any case of its letters. Still loaded: the
   global configuration folder (Halcyonic's own when `HALCYONIC_OPENCODE_CONFIG_HOME` is set, which
   holds only `opencode.json`; else the person's own, plugins included, which `pnpm mac-setup`'s
-  check says), and the skills in `~/.claude` and `~/.agents`, which are text the model reads
-  (`core/src/config/plugin/compatibility.ts`).
+  check says), the skills in `~/.claude` and `~/.agents`, which are text the model reads
+  (`core/src/config/plugin/compatibility.ts`), and configuration from an origin the person signed
+  in to with their own OpenCode, kept in the shared data folder (`core/src/wellknown.ts`), which
+  can name MCP servers and plugins. A relative `skills.paths` entry in the person's global settings
+  resolves against the task's folder (`core/src/config/plugin/skill.ts`), so it would load a
+  project's skill text.
 - **Runtime, 2026-10-08:** a project holding an `opencode.json` with a rule denying `glob` and a
   local MCP server that leaves a marker, and a `.opencode/plugins` file that leaves a marker when
   loaded: in a Halcyonic task neither marker appeared and `glob` was offered; on a server launched
-  from the same folder without the switch, both markers appeared and `glob` was not offered.
+  from the same folder without the switch, both markers appeared and `glob` was not offered. The
+  server's own lists for the folder (`GET /api/plugin`, `GET /api/mcp`) named neither the plugin
+  nor the MCP server with the switch, and both without it.
 - **Cost:** a repository's OpenCode setup does not apply to Halcyonic's tasks: its models,
   agents, commands, instructions and rules, and the skills in its own `.claude` and `.agents`.
   The project's AGENTS.md is not loaded when the server starts either
-  (`core/src/config/plugin/instruction.ts`); OpenCode still adds a folder's AGENTS.md when the
-  agent reads a file there (`core/src/instance.ts`). Codex in an untrusted project loads none
-  either ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+  (`core/src/config/plugin/instruction.ts`). When the agent reads a file in a subfolder, OpenCode
+  still adds that subfolder's AGENTS.md to what the model sees, without asking
+  (`core/src/tool/plugin/read.ts:82-104`; it skips the task's folder's own), so a repository's text
+  can still reach the model that way, as any file it reads does. Codex in an untrusted project
+  loads none ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - The edit denies on hidden paths and `opencode.json` stay, so a task still cannot write those
   files for a later server, or for the person's own OpenCode, to load.
 

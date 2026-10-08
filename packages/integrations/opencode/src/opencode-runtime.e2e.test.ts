@@ -1716,6 +1716,15 @@ describe("A repository's own OpenCode configuration never loads into Halcyonic's
     assert.equal(existsSync(markers.plugin), false, "the repository's plugin loaded");
     const offered = sandbox.provider.requests[0]?.toolNames ?? [];
     assert.ok(offered.includes('glob'), `the repository's rule applied: ${offered.join(',')}`);
+    // And by what the server lists for the folder, which does not wait on anything starting.
+    const location = `?location%5Bdirectory%5D=${encodeURIComponent(sandbox.project)}`;
+    const listed = async (client: OpenCodeClient) =>
+      JSON.stringify([
+        (await client.request('GET', `/api/plugin${location}`)).body,
+        (await client.request('GET', `/api/mcp${location}`)).body,
+      ]);
+    const ours = await listed(serverOf(runtime, sandbox));
+    assert.ok(!ours.includes('probe'), `listed on Halcyonic's server: ${ours.slice(0, 400)}`);
 
     // The control: the same folder on a server launched without the switch loads all three.
     await runtime.close();
@@ -1731,7 +1740,6 @@ describe("A repository's own OpenCode configuration never loads into Halcyonic's
       startupTimeoutMs: 30_000,
     });
     t.after(() => bare.stop());
-    const location = `?location%5Bdirectory%5D=${encodeURIComponent(sandbox.project)}`;
     for (let i = 0; i < 100; i += 1) {
       const models = await bare.client.request('GET', `/api/model${location}`);
       if (JSON.stringify(models.body).includes('fake-model')) break;
@@ -1757,5 +1765,7 @@ describe("A repository's own OpenCode configuration never loads into Halcyonic's
       !control.includes('glob'),
       `the repository's rule did not apply: ${control.join(',')}`,
     );
+    const theirs = await listed(bare.client);
+    assert.ok(theirs.includes('probe'), `not listed without the switch: ${theirs.slice(0, 400)}`);
   });
 });

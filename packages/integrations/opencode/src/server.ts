@@ -43,8 +43,8 @@ export const INHERITED_VARIABLES: readonly string[] = [
 ];
 
 /**
- * OpenCode 2.0.18's switch, read once at launch under either name, the first winning
- * (cli/src/server-process.ts), that turns off its search of the project's folder and every folder
+ * OpenCode 2.0.18's switch, read once at launch under either name, OPENCODE_CONFIG_PROJECT_DISABLE
+ * winning when both are set (cli/src/server-process.ts), that turns off its search of the project's folder and every folder
  * above it for configuration: no `opencode.json` or `opencode.jsonc`, `.opencode` (its plugins
  * among them), `.claude` or `.agents` there, and no project AGENTS.md at boot
  * (core/src/config/discovery.ts, config/plugin/instruction.ts). So a repository cannot load a
@@ -58,8 +58,10 @@ const PROJECT_CONFIG_SWITCHES: readonly string[] = [
 
 /**
  * Variables the adapter owns and configuration may not set: the password it generates, the
- * auto-update, model-catalog and project-configuration switches, and Salidium's internal marker,
- * which makes Salidium drop a session's hooks and must never reach a launched agent.
+ * auto-update, model-catalog and project-configuration switches, `OPENCODE_CONFIG_CONTENT`, whose
+ * relative plugin paths would resolve against the task's folder and load a repository's code
+ * (core/src/config/plugin/source.ts), and Salidium's internal marker, which makes Salidium drop a
+ * session's hooks and must never reach a launched agent.
  */
 const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
   'OPENCODE_PASSWORD',
@@ -67,6 +69,7 @@ const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
   'OPENCODE_DISABLE_AUTOUPDATE',
   'OPENCODE_DISABLE_MODELS_FETCH',
   ...PROJECT_CONFIG_SWITCHES,
+  'OPENCODE_CONFIG_CONTENT',
   'SALIDIUM_INTERNAL',
 ]);
 

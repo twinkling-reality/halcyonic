@@ -457,6 +457,7 @@ describe('OpenCode server environment', () => {
       'OPENCODE_DISABLE_MODELS_FETCH',
       'OPENCODE_CONFIG_PROJECT_DISABLE',
       'OPENCODE_DISABLE_PROJECT_CONFIG',
+      'OPENCODE_CONFIG_CONTENT',
     ]) {
       assert.throws(() => buildEnvironment({}, { [name]: 'x' }), new RegExp(name));
       assert.throws(
