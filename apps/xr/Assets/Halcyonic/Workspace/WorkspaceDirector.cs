@@ -425,9 +425,9 @@ namespace Halcyonic.XR.Workspace
             var demonstration = connection.DemonstrationLine != null;
             var session = connection.Session;
             var state = session?.State;
-            var started = firstVisit.Started;
+            var kept = firstVisit.Version;
             var asks = firstVisit.Asks(session?.Status.IsLive == true, demonstration, state?.Journal?.JournalId, (state?.Workstreams.Count ?? 0) > 0);
-            if (firstVisit.Started != started)
+            if (firstVisit.Version != kept)
             {
                 PlayerPrefs.SetString(StartedPreference, firstVisit.Started);
                 PlayerPrefs.Save();

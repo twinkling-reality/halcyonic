@@ -146,6 +146,9 @@ namespace Halcyonic.XR
         private string? shownNotShown;
         private string? shownStillOpen;
         private bool shownRaised;
+
+        /// <summary>The banner says its line alone, with no notice under it: raised over the open menu, which says what waits.</summary>
+        private bool shownAlone;
         private float? shownPanelTop;
         private int shownScale = -1;
 
@@ -302,7 +305,7 @@ namespace Halcyonic.XR
             if (notice != null && Time.unscaledTime >= noticeUntil)
             {
                 notice = null;
-                ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised);
+                ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised, shownAlone);
             }
             var preferred = source?.Preferred;
             var decision = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
@@ -434,10 +437,12 @@ namespace Halcyonic.XR
         private void ShowLine(RealtimeSession? session)
         {
             var demonstration = connection.DemonstrationLine;
-            // Raised above the stage while the menu stands in its place, it says only that the demonstration plays.
-            if (StandBanner() && demonstration != null)
+            var raised = StandBanner() && demonstration != null;
+            // Raised above the stage while the menu stands in its place, it says only that the demonstration plays;
+            // over the closed bar alone it keeps a notice and what the folded stage says, as pairing's prompts.
+            if (raised && AmbientCover.PanelShowing)
             {
-                ShowBanner(demonstration, BannerKind.Practice, null, null, null, raised: true);
+                ShowBanner(demonstration!, BannerKind.Practice, null, null, null, raised: true, alone: true);
                 return;
             }
             var folded = FocusGuard.Folded && session != null;
@@ -447,7 +452,7 @@ namespace Halcyonic.XR
             ShowBanner(
                 demonstration ?? (session == null ? connection.SetupProblem ?? NotConnected : Describe(session)),
                 demonstration != null ? BannerKind.Practice : session != null && session.Status.IsLive ? BannerKind.Live : BannerKind.NotLive,
-                waiting, notShown, stillOpen, raised: false);
+                waiting, notShown, stillOpen, raised, alone: false);
         }
 
         /// <summary>
@@ -652,17 +657,18 @@ namespace Halcyonic.XR
         {
             notice = text;
             noticeUntil = Time.unscaledTime + NoticeSeconds;
-            ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised);
+            ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised, shownAlone);
         }
 
         /// <param name="waiting">What needs the person, said on a line of its own and in the attention color, or null.</param>
         /// <param name="notShown">Beside a window, how many more tasks have no character, or null.</param>
         /// <param name="stillOpen">The panel kept while another window has focus, or null.</param>
-        /// <param name="raised">Above the stage, saying <paramref name="text"/> alone, with no notice under it.</param>
-        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, string? stillOpen, bool raised)
+        /// <param name="raised">Above the stage, as the demonstration's banner always stands.</param>
+        /// <param name="alone">Saying <paramref name="text"/> alone, with no notice under it, as over the open menu.</param>
+        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, string? stillOpen, bool raised, bool alone)
         {
             if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice
-                && notShown == shownNotShown && stillOpen == shownStillOpen && raised == shownRaised && shownScale == GlazeText.Version) return;
+                && notShown == shownNotShown && stillOpen == shownStillOpen && raised == shownRaised && alone == shownAlone && shownScale == GlazeText.Version) return;
             // The text's size changes the banner and how deep the labels above it reach.
             shownScale = GlazeText.Version;
             shownBanner = text;
@@ -672,10 +678,11 @@ namespace Halcyonic.XR
             shownNotShown = notShown;
             shownStillOpen = stillOpen;
             shownRaised = raised;
+            shownAlone = alone;
             // A connection's detail, a setup problem or a notice can carry a server's or an exception's
             // words, and the panel kept a task's title; the banner shows them by the one rule for text
             // Halcyonic did not write.
-            banner.Show(text, kind, waiting, raised ? null : notice, notShown, stillOpen);
+            banner.Show(text, kind, waiting, alone ? null : notice, notShown, stillOpen);
             PlaceBanner();
         }
 
@@ -754,7 +761,8 @@ namespace Halcyonic.XR
         private void ShowBannerUncovered()
         {
             var wasRaised = bannerStand == BannerStand.AboveTheStage;
-            if (StandBanner() != wasRaised) ShowLine(connection.Session);
+            // Raised in the demonstration, it says its lines alone over the open menu and keeps its notice over the bar.
+            if (StandBanner() != wasRaised || (shownRaised && AmbientCover.PanelShowing != shownAlone)) ShowLine(connection.Session);
         }
 
         /// <summary>Where the banner stands now, showing it or not; true when it is raised above the stage.</summary>

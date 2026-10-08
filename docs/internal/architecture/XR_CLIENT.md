@@ -1525,8 +1525,10 @@ scripts use only long-stable core Unity APIs:
   surface, and a little more than a degree over the open plane's top edge, or the closed bar's
   while it stands alone, which the plane gives as laid (`MenuPlane.TopElevation`,
   `MenuPlane.BarElevation`, `AmbientCover.RaisedOver`) and which over a desk's lineup stand where
-  the banner would (`CharacterStage.RaisedBannerBottom`). It says the `DemonstrationLine`
-  alone, so the demonstration's lines stay in view whatever the menu shows (ADR 0026), and follows
+  the banner would (`CharacterStage.RaisedBannerBottom`). Over the open menu it says the
+  `DemonstrationLine` alone, since the menu says what waits; over the closed bar it keeps a notice,
+  as pairing's prompts and the room's offer, and the folded stage's lines under it. So the
+  demonstration's lines stay in view whatever the menu shows (ADR 0026), and the banner follows
   the plane as it is laid anew. The peek still hides it. The arc is 2.4 m
   away, beyond the system windows, such as Virtual Display's screens, that open within about 2 m
   ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); the characters' centers
@@ -1815,7 +1817,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   holding Settings alone in its last slot (`MenuFrame.SectionSlots`). The director decides it each
   frame only once the session is live and its snapshot has come, holding the last decision while
   reconnecting, and keeps on the device, under `halcyonic.entry.started`, the journals that have had
-  a task, the 8 most recently seen: a journal is one computer's, so the plate never asks again on
+  a task, the 8 most recently seen, read back as untrusted (only ids that parse as a GUID, at most 64
+  characters): a journal is one computer's, so the plate never asks again on
   that computer, and another computer, or one whose journal starts afresh, has its own first visit.
   A key for the whole device would ask nothing of a second computer with no work, which still needs
   the plate. The director opens the menu on the plate by itself once each app start, when the live

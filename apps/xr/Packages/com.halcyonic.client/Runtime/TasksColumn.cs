@@ -59,11 +59,12 @@ namespace Halcyonic.Client
         /// <summary>
         /// The menu's bar as the session stands: <paramref name="chosen"/> lit, the amber dot on Tasks while
         /// any task waits for the person, and the closed line saying how many, or that nothing is waiting,
-        /// or, while the computer has no task at all, that nothing is running yet.
+        /// or, while the computer's state is known and has no task at all, that nothing is running yet;
+        /// before the first snapshot nothing is known, so it says only that nothing is waiting.
         /// </summary>
         public static MenuBar Bar(MenuPlace chosen, ClientProjection? state)
         {
-            if (state != null && state.Workstreams.Count == 0) return new MenuBar(chosen, TasksText.NothingRunning);
+            if (state?.Journal != null && state.Workstreams.Count == 0) return new MenuBar(chosen, TasksText.NothingRunning);
             var waiting = state?.Workstreams.Values.Count(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou) ?? 0;
             return waiting > 0 ? new MenuBar(chosen, TasksText.Waiting(waiting), MenuPlace.Tasks) : new MenuBar(chosen, TasksText.Waiting(0));
         }

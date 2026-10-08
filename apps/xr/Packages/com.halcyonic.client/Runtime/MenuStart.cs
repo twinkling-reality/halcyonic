@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 
 namespace Halcyonic.Client
@@ -17,14 +18,19 @@ namespace Halcyonic.Client
         /// <summary>How many journals that have had a task are remembered, the most recently seen kept.</summary>
         public const int Journals = 8;
 
+        /// <summary>The longest a remembered journal id may be: a UUID's 36 characters, with room to spare.</summary>
+        private const int IdLength = 64;
+
         private readonly List<string> started = new List<string>();
 
         /// <param name="started">The journals that have had a task, as <see cref="Started"/> wrote them; anything unreadable is none.</param>
         public FirstVisit(string? started = null)
         {
-            foreach (var journal in (started ?? "").Split(' '))
+            // A device preference is read as untrusted: only ids that could be a journal's, the first few kept.
+            foreach (var journal in (started ?? "").Split(new[] { ' ' }, Journals + 1, StringSplitOptions.RemoveEmptyEntries))
             {
-                if (journal.Length > 0 && !this.started.Contains(journal) && this.started.Count < Journals) this.started.Add(journal);
+                if (this.started.Count == Journals) break;
+                if (Remembered(journal) && !this.started.Contains(journal)) this.started.Add(journal);
             }
         }
 
@@ -33,6 +39,12 @@ namespace Halcyonic.Client
 
         /// <summary>The journals that have had a task, the most recently seen first, as text for a device preference.</summary>
         public string Started => string.Join(" ", started);
+
+        /// <summary>Changes whenever <see cref="Started"/> does, so the device keeps it only then.</summary>
+        public int Version { get; private set; }
+
+        /// <summary>A journal id a device preference may hold: a GUID, as journals are, short enough to keep.</summary>
+        private static bool Remembered(string journal) => journal.Length <= IdLength && Guid.TryParse(journal, out _);
 
         /// <summary>
         /// Whether the menu shows the first question in place of its places now: never in the
@@ -47,10 +59,12 @@ namespace Halcyonic.Client
             var at = started.IndexOf(journalId!);
             if (anyTask)
             {
-                if (at == 0) return false;
+                // A journal id that couldn't be read back is never kept; it has work now, which is all that asks.
+                if (at == 0 || !Remembered(journalId!)) return false;
                 if (at > 0) started.RemoveAt(at);
                 started.Insert(0, journalId!);
                 if (started.Count > Journals) started.RemoveRange(Journals, started.Count - Journals);
+                Version++;
                 return false;
             }
             return at < 0;
