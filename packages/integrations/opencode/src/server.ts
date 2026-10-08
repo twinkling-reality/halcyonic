@@ -187,6 +187,8 @@ export class OpenCodeServer {
  * whose effect is `none`: no session exists yet.
  */
 export async function launchServer(options: LaunchOptions): Promise<OpenCodeServer> {
+  // One deadline for the whole start: confirming the process and waiting for it to answer share it.
+  const deadline = Date.now() + options.startupTimeoutMs;
   const port = options.port ?? (await freeLoopbackPort());
   const password = randomBytes(32).toString('base64url');
   const child = spawn(
@@ -218,10 +220,10 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
     password,
   );
   try {
-    const record = await identify(server, options.binaryPath, port, options.startupTimeoutMs);
+    const record = await identify(server, options.binaryPath, port, deadline);
     await writeServerRecord(options.recordFile, record);
     server.watch(record);
-    await waitUntilReady(server, options);
+    await waitUntilReady(server, options, deadline);
     return server;
   } catch (error) {
     const status = server.exitStatus;
@@ -238,18 +240,19 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
 
 /**
  * Reads the launched process's identity. Until exec completes, ps may still show the parent. It
- * asks until ps confirms it, the process exits, or the startup time is up, never a fixed number of
- * times: on a loaded Mac a start that fails takes longer to exit than a hundred quick asks, and its
- * exit, not ps, says what happened.
+ * asks until ps confirms it, the process exits, or the start's deadline passes, never a fixed
+ * number of times: on a loaded Mac a start that fails takes longer to exit than a hundred quick
+ * asks, and its exit, not ps, says what happened. The asks back off from 20 to 250 ms, so a process
+ * that never matches does not keep ps busy for the whole start.
  */
 async function identify(
   server: OpenCodeServer,
   binaryPath: string,
   port: number,
-  timeoutMs: number,
+  deadline: number,
 ): Promise<ServerRecord> {
   const binary = binaryPath.trim().split(/\s+/).join(' ');
-  const deadline = Date.now() + timeoutMs;
+  let pause = IDENTIFY_FIRST_PAUSE_MS;
   while (server.exitStatus === null && Date.now() < deadline) {
     const identity = await readProcessIdentity(server.pid);
     if (identity?.command.startsWith(`${binary} `)) {
@@ -261,13 +264,21 @@ async function identify(
         startedAt: identity.startedAt,
       };
     }
-    await delay(20);
+    await delay(Math.max(0, Math.min(pause, deadline - Date.now())));
+    pause = Math.min(pause * 2, IDENTIFY_LAST_PAUSE_MS);
   }
   throw new Error(`could not confirm with ps that process ${server.pid} runs ${binaryPath}`);
 }
 
-async function waitUntilReady(server: OpenCodeServer, options: LaunchOptions): Promise<void> {
-  const deadline = Date.now() + options.startupTimeoutMs;
+/** The pauses between asks of ps while confirming a launched process, growing from first to last. */
+const IDENTIFY_FIRST_PAUSE_MS = 20;
+const IDENTIFY_LAST_PAUSE_MS = 250;
+
+async function waitUntilReady(
+  server: OpenCodeServer,
+  options: LaunchOptions,
+  deadline: number,
+): Promise<void> {
   while (Date.now() < deadline) {
     const status = server.exitStatus;
     if (status !== null) {
@@ -278,7 +289,9 @@ async function waitUntilReady(server: OpenCodeServer, options: LaunchOptions): P
     }
     let response: { status: number; body: unknown } | null = null;
     try {
-      response = await server.client.request('GET', '/api/info', { timeoutMs: 2000 });
+      response = await server.client.request('GET', '/api/info', {
+        timeoutMs: Math.max(1, Math.min(2000, deadline - Date.now())),
+      });
     } catch (error) {
       if (!(error instanceof TransportError)) throw error;
     }

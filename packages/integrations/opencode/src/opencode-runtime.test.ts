@@ -18,7 +18,7 @@ import {
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
 import { OPENCODE_CAPABILITIES, OpenCodeRuntimeAdapter } from './opencode-runtime.ts';
-import { buildEnvironment, INHERITED_VARIABLES } from './server.ts';
+import { buildEnvironment, INHERITED_VARIABLES, launchServer } from './server.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { TEST_EXECUTION } from './testing/observations.ts';
 
@@ -195,6 +195,39 @@ describe('OpenCode start failures', () => {
         return true;
       },
     );
+  });
+});
+
+describe('OpenCode startup time', () => {
+  test('one startup time covers confirming the process and waiting for it to answer', async (t) => {
+    const directory = temporary(t);
+    // A stand-in that ps can confirm only after 2 s, when a shell execs node under the binary's
+    // own path; node then runs `serve` from the working folder, which never answers.
+    writeFileSync(join(directory, 'serve'), 'setInterval(() => {}, 1000);\n');
+    const binary = join(directory, 'opencode');
+    writeFileSync(
+      binary,
+      `#!/bin/bash\nsleep 2\nexec -a "$0" ${JSON.stringify(process.execPath)} "$@"\n`,
+      { mode: 0o755 },
+    );
+    const startupTimeoutMs = 4000;
+    const started = Date.now();
+    await assert.rejects(
+      launchServer({
+        binaryPath: binary,
+        environment: { PATH: '/usr/bin:/bin' },
+        recordFile: join(directory, 'server.json'),
+        port: null,
+        cwd: directory,
+        startupTimeoutMs,
+      }),
+      /did not become ready within 4000 ms/,
+    );
+    const elapsed = Date.now() - started;
+    // Confirming took about 2 s of the 4: the wait for an answer got only what was left, not
+    // another 4 s of its own. A second's margin for stopping the stand-in.
+    assert.ok(elapsed >= 2000, `refused after ${elapsed} ms, before the stand-in was confirmed`);
+    assert.ok(elapsed < startupTimeoutMs + 1000, `refused after ${elapsed} ms`);
   });
 });
 
