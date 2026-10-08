@@ -203,11 +203,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(TapCountsWhatItStillIs(name, root.transform));
 
                 // The waiting task's file assembling from its character, then closing to the bar.
-                OpeningStrip(name + " opening", folder, camera, texture, plane,
+                failures.AddRange(OpeningStrip(name + " opening", folder, camera, texture, plane,
                     () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow),
                     () => plane.Show(bar, null, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
                         besideWindow: besideWindow),
-                    () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, besideWindow: besideWindow));
+                    () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, besideWindow: besideWindow)));
 
                 // A column opened takes nothing until it has opened, though it counts as drawn when laid.
                 failures.AddRange(OpeningTakesNothing(name, plane, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget),
@@ -683,37 +683,68 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// A file assembling and fading away, as the eyes see it: one strip of moments of its opening, the light line
-        /// drawing from its character and the parts fading in from the top, then of its closing.
+        /// A file assembling and fading away, as the eyes see it: one strip of moments of its opening, from the
+        /// press, the light line drawing from its character and the parts fading in from the top, then of its
+        /// closing. Read from the captured pixels, as the eyes see them: each part's largest shape, its glass, a
+        /// tab or a well, at least <see cref="SeenFadeLevels"/> of 255 dimmer at the press than once the file
+        /// shows whole, and as dim again near the end of its closing.
         /// </summary>
-        private static void OpeningStrip(string what, string folder, Camera camera, RenderTexture texture, MenuPlane plane, System.Action before, System.Action open,
-            System.Action close)
+        private static IEnumerable<string> OpeningStrip(string what, string folder, Camera camera, RenderTexture texture, MenuPlane plane, System.Action before,
+            System.Action open, System.Action close)
         {
+            var failures = new List<string>();
             before();
             plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
             open();
+            var view = FindView(plane, "File");
             var frames = new List<Texture2D>();
             var rotation = camera.transform.rotation;
             camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
             try
             {
                 var at = 0f;
-                foreach (var moment in new[] { 0.05f, 0.12f, 0.18f, 0.24f, 0.3f, MenuPlane.OpeningSeconds })
+                Texture2D? pressed = null;
+                Texture2D? whole = null;
+                foreach (var moment in new[] { 0f, 0.05f, 0.12f, 0.18f, 0.24f, 0.3f, MenuPlane.OpeningSeconds })
                 {
                     plane.Advance(moment - at);
                     at = moment;
                     ForceMeshes(plane.gameObject);
                     frames.Add(Render(camera, texture));
+                    if (moment == 0f) pressed = frames[frames.Count - 1];
+                    whole = frames[frames.Count - 1];
                 }
+                // Where each part's largest shape stands on the render, read once the file shows whole.
+                var shapes = view == null ? new List<(string Part, RectInt Rect)>() : view.Parts
+                    .Select(part => (Part: part.name, Shape: part.GetComponentsInChildren<Surface>().OrderByDescending(shape => shape.Size.x * shape.Size.y).FirstOrDefault()))
+                    .Where(each => each.Shape != null)
+                    .Select(each => (each.Part, Rect: ScreenRect(camera, each.Shape!.transform, Vector2.one)))
+                    .Where(each => each.Rect.width > 2 && each.Rect.height > 2)
+                    .ToList();
+                if (view == null || shapes.Count != view.Parts.Count) failures.Add(what + ": not every part of the file has a shape to read on the render.");
                 close();
                 at = 0f;
-                foreach (var moment in new[] { 0.06f, 0.1f, 0.13f })
+                Texture2D? closing = null;
+                foreach (var moment in new[] { 0.06f, 0.1f, 0.13f, 0.145f })
                 {
                     plane.Advance(moment - at);
                     at = moment;
                     frames.Add(Render(camera, texture));
+                    closing = frames[frames.Count - 1];
                 }
                 plane.Advance(Glaze.LeaveSeconds);
+                foreach (var (part, rect) in shapes)
+                {
+                    var shown = Brightness(whole!, rect);
+                    var atPress = Brightness(pressed!, rect);
+                    var nearlyGone = Brightness(closing!, rect);
+                    Debug.Log("Halcyonic: workspace render " + what + ": the " + part + "'s shape reads " + atPress.ToString("0", CultureInfo.InvariantCulture) + " at the press, "
+                        + shown.ToString("0", CultureInfo.InvariantCulture) + " whole and " + nearlyGone.ToString("0", CultureInfo.InvariantCulture) + " near the end of its closing, of 255.");
+                    if (shown - atPress < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s shape is only " + (shown - atPress).ToString("0", CultureInfo.InvariantCulture)
+                        + " of 255 dimmer at the press than whole; it does not fade in.");
+                    if (shown - nearlyGone < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s shape is only " + (shown - nearlyGone).ToString("0", CultureInfo.InvariantCulture)
+                        + " of 255 dimmer near the end of its closing than whole; it does not fade away.");
+                }
                 var strip = new Texture2D(frames.Sum(frame => frame.width), frames.Max(frame => frame.height), TextureFormat.RGBA32, false);
                 var left = 0;
                 foreach (var frame in frames)
@@ -730,6 +761,25 @@ namespace Halcyonic.XR.Workspace.Editor
                 camera.transform.rotation = rotation;
                 foreach (var frame in frames) Object.DestroyImmediate(frame);
             }
+            return failures;
+        }
+
+        /// <summary>How much dimmer, of 255, a part's shape must read as the eyes see it before it opens, and near the end of its closing, than whole.</summary>
+        private const float SeenFadeLevels = 30f;
+
+        /// <summary>How bright <paramref name="rect"/> reads on <paramref name="image"/>: the mean of each pixel's brightest channel, of 255.</summary>
+        private static float Brightness(Texture2D image, RectInt rect)
+        {
+            var sum = 0f;
+            for (var y = rect.yMin; y < rect.yMax; y++)
+            {
+                for (var x = rect.xMin; x < rect.xMax; x++)
+                {
+                    var pixel = image.GetPixel(x, y);
+                    sum += Mathf.Max(pixel.r, Mathf.Max(pixel.g, pixel.b));
+                }
+            }
+            return rect.width * rect.height == 0 ? 0f : 255f * sum / (rect.width * rect.height);
         }
 
         /// <summary>The button <paramref name="view"/>'s footer shows for the prompt <paramref name="id"/>, if it shows one.</summary>
