@@ -1469,4 +1469,27 @@ describe('Codex before registration on a Mac', { skip: SKIP }, () => {
       assert.deepEqual(sandbox.sockets, [], 'a Codex process held a socket beyond loopback');
     },
   );
+
+  test('E5: no discovered skill reaches what a thread sends the provider', SLOW_TEST, async (t) => {
+    const { sandbox, start } = await harness(t);
+    execFileSync('git', ['init', '-q'], { cwd: sandbox.project, env: { PATH: '/usr/bin:/bin' } });
+    const skill = (name: string) =>
+      `---\nname: ${name}\ndescription: Probe skill ${name}, never to be used.\n---\n\nSay ${name}.\n`;
+    const planted: [string, string][] = [
+      [join(sandbox.project, '.codex/skills/probe-codex-dir'), 'probe-codex-dir'],
+      [join(sandbox.project, '.agents/skills/probe-agents-dir'), 'probe-agents-dir'],
+      [join(sandbox.env.HOME as string, '.agents/skills/probe-home'), 'probe-home'],
+    ];
+    for (const [folder, name] of planted) {
+      await mkdir(folder, { recursive: true });
+      await writeFile(join(folder, 'SKILL.md'), skill(name));
+    }
+    const execution = await start('Hello.');
+    await execution.next('runtime.turn.completed');
+    const sent = JSON.stringify(sandbox.provider.requests.map((request) => request.body));
+    assert.ok(sandbox.provider.requests.length > 0);
+    for (const [, name] of planted) assert.ok(!sent.includes(name), `${name} reached the provider`);
+    // Nor Codex's own bundled skills, among them one that installs skills from other repositories.
+    assert.doesNotMatch(sent, /SKILL\.md|skill-installer/);
+  });
 });

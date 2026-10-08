@@ -155,8 +155,8 @@ const FEATURES_OFF: readonly string[] = [
  * `features.plugins = false` is the one that stops the plugin sync connecting to GitHub at
  * startup; it is undocumented, so every Codex upgrade repeats the network probe of the end to end
  * tests (local-models.md). The rest turn off the other features above, the update check,
- * analytics and the metrics exporter, and web search, and keep sign-ins and MCP credentials out of
- * the keychain.
+ * analytics and the metrics exporter, web search and the list of skills sent to the model, and
+ * keep sign-ins and MCP credentials out of the keychain.
  */
 export const LOCAL_ONLY_SETTINGS: readonly {
   readonly key: string;
@@ -166,6 +166,10 @@ export const LOCAL_ONLY_SETTINGS: readonly {
   { key: 'check_for_update_on_startup', value: false },
   { key: 'analytics.enabled', value: false },
   { key: 'web_search', value: 'disabled' },
+  // Codex discovers skills from a project, untrusted or not, from ~/.agents/skills and its own
+  // bundled ones (installers among them), and lists them all to the model; this keeps every one
+  // out of what a thread sends (local-models.md). Discovery itself has no switch.
+  { key: 'skills.include_instructions', value: false },
   { key: 'cli_auth_credentials_store', value: 'file' },
   { key: 'mcp_oauth_credentials_store', value: 'file' },
 ];
