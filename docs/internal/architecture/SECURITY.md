@@ -153,7 +153,20 @@ by path, and reads its `SKILL.md` into the turn whatever these settings say
 to 64 characters (`codex-rs/skills/src/parser.rs`), and a mention is `$` followed by letters,
 digits, `_`, `-` or `:`, all but a few common environment variable names
 (`codex-rs/skills/src/mentions.rs`), so a repository can plant a skill named `5` that "$5" in an
-instruction brings in (E5b pins this). Whether Halcyonic should do more is open
+instruction brings in (E5b pins this).
+
+Through Halcyonic, a repository's text reaches the model in two ways only: through files the
+model reads, which show as commands under the thread's sandbox and approvals, and through a skill
+an instruction names with `$`. The second is the one way without a visible command, and the
+defence is the approval policy for whatever the skill then asks. A project's `AGENTS.md` (and
+`AGENTS.override.md`) is not loaded: Codex returns before reading any when the active project is
+untrusted (`load_project_instructions`, `codex-rs/core/src/agents_md.rs` at rust-v0.157.0), and
+the adapter marks every project untrusted. A fake-provider read confirmed it: a git project's
+`AGENTS.md` text was absent from what a thread sent, and present in the control without the
+untrusted marking ([local-models.md](../validation/local-models.md)).
+The coordinator decided on 2026-10-07, under the owner's delegation, to leave the `$name` limit as
+documented and register Codex on the owner's Mac, where it runs on the owner's own repositories;
+what to do before Codex is offered on any other Mac is open
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
 Every request Codex sends to the model provider, the Ollama on this Mac, carries the originator
