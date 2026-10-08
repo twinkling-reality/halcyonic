@@ -210,6 +210,12 @@ namespace Halcyonic.Client
 
         public bool Claim { get; }
 
+        /// <summary>
+        /// The words as the view draws them: as built, a claim leaning and its quotes where its builder put them,
+        /// around the outside words alone, never a pair of the view's own around Halcyonic's lead too.
+        /// </summary>
+        public string Drawn => Words;
+
         public string? Action { get; }
 
         public string? Key { get; }

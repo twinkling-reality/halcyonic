@@ -265,6 +265,7 @@ public class FileScreensTests
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         var quote = frame.Lines.Last();
         Assert.That((quote.Words, quote.Chip, quote.Claim, quote.Fact), Is.EqualTo(("“Done with the migration”", "Agent says", true, "09:00")));
+        Assert.That(quote.Drawn, Is.EqualTo("“Done with the migration”"), "one pair of quotes, its builder's, never the view's around them too");
         Assert.That(frame.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(Room.Rows), "the source line takes one of the page's rows");
         Assert.That(frame.Source, Is.EqualTo(FileScreens.AgentSource));
     }

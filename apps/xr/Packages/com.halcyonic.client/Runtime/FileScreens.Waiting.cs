@@ -95,7 +95,7 @@ namespace Halcyonic.Client
         /// </summary>
         private static Page NotLaidOut(WorkspacePresentation workspace, QuestionView pending, string source)
         {
-            var lines = new[] { new PageLine("“" + WorkspaceText.OneLine(pending.Prompts[0].Text) + "”", wordsAreData: true, rows: FileQuestion.QuestionRows) };
+            var lines = new[] { new PageLine("“" + WorkspaceText.OneLine(pending.Prompts[0].Text) + "”", wordsAreData: true, claim: true, rows: FileQuestion.QuestionRows) };
             var actions = workspace.Actions;
             var send = actions.Contains(WorkspaceAction.Answer)
                 ? new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true, available: false,
@@ -330,6 +330,7 @@ namespace Halcyonic.Client
             if (question.Reviewing) return YourAnswersPage(workspace, screen, draft, source);
             var prompt = question.Prompt;
             var asked = draft.Prompts[prompt];
+            // The agent's words: quoted and leaning, as its messages are.
             var text = "“" + WorkspaceText.OneLine(asked.Text) + "”";
             if (!WorkspaceText.Answerable(draft.Question))
             {
@@ -337,7 +338,7 @@ namespace Halcyonic.Client
                 // can't be answered, and Stop, the way on.
                 return new Page(new[]
                 {
-                    new PageLine(text, wordsAreData: true, rows: FileQuestion.QuestionRows),
+                    new PageLine(text, wordsAreData: true, claim: true, rows: FileQuestion.QuestionRows),
                     new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary),
                     new PageLine(WorkspaceText.AgentWaits, tone: LineTone.Secondary),
                 }, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
@@ -348,14 +349,14 @@ namespace Halcyonic.Client
                 var parts = question.QuestionParts(prompt);
                 var partLines = new List<PageLine>
                 {
-                    new PageLine(text, wordsAreData: true, rows: perPart, fromRow: part * perPart),
+                    new PageLine(text, wordsAreData: true, claim: true, rows: perPart, fromRow: part * perPart),
                     new PageLine(QuestionPartWords(part, parts, question.Pages), action: NextPart, key: QuestionKey),
                 };
                 return new Page(partLines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
             }
             var lines = new List<PageLine>();
             // The question heads its answers where it leaves room for one; a long one by its first row.
-            if (question.HeadRows(prompt) > 0) lines.Add(new PageLine(text, wordsAreData: true, rows: question.HeadRows(prompt)));
+            if (question.HeadRows(prompt) > 0) lines.Add(new PageLine(text, wordsAreData: true, claim: true, rows: question.HeadRows(prompt)));
             if (!WorkspaceText.Answerable(draft.Question))
             {
                 lines.Add(new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary));

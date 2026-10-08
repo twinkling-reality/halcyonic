@@ -161,7 +161,7 @@ namespace Halcyonic.Client
             if (content == null) return new[] { new SectionLine("", NoFlow(explanation.Status), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed) };
             return new[]
             {
-                new SectionLine("explained", IntelligenceText.Plain(content.How.Summary), SectionTone.Claim, rows: 2),
+                new SectionLine("explained", Quoted(content.How.Summary), SectionTone.Claim, rows: 2),
                 explanation.Current
                     ? new SectionLine("", "Explained by a model, up to date", SectionTone.Secondary)
                     : new SectionLine("", "Explained by a model before the latest evidence", SectionTone.Secondary),
@@ -263,18 +263,21 @@ namespace Halcyonic.Client
             void Step(string title, string? theirs, IEnumerable<SectionLine> body)
             {
                 lines.Add(new SectionLine("", title + note, noteTone, startsPage: true, repeats: true));
-                if (theirs != null) lines.Add(new SectionLine("explained", IntelligenceText.Plain(theirs), SectionTone.Claim, repeats: true));
+                if (theirs != null) lines.Add(new SectionLine("explained", Quoted(theirs), SectionTone.Claim, repeats: true));
                 lines.AddRange(body);
             }
-            SectionLine Claim(string text, int rows = 2) => new SectionLine("explained", text, SectionTone.Claim, rows: rows);
+            // The model's words in quotes, Halcyonic's lead before them outside the quotes.
+            // Blank words leave the whole line blank, Halcyonic's lead too, so the line is left out.
+            SectionLine Claim(string lead, string theirs, int rows = 2) =>
+                new SectionLine("explained", Quoted(theirs).Length == 0 ? "" : lead + Quoted(theirs), SectionTone.Claim, rows: rows);
             IEnumerable<SectionLine> Numbered(IReadOnlyList<string> steps) =>
-                steps.Select((step, index) => Claim((index + 1).ToString(CultureInfo.InvariantCulture) + ". " + IntelligenceText.Plain(step), rows: 1));
+                steps.Select((step, index) => Claim((index + 1).ToString(CultureInfo.InvariantCulture) + ". ", step, rows: 1));
 
-            var what = new List<SectionLine> { Claim(IntelligenceText.Plain(content.What.Summary)) };
-            if (content.What.Currently != null) what.Add(Claim("Now: " + IntelligenceText.Plain(content.What.Currently)));
+            var what = new List<SectionLine> { Claim("", content.What.Summary) };
+            if (content.What.Currently != null) what.Add(Claim("Now: ", content.What.Currently));
             Step("What it is about", null, what);
 
-            var why = new List<SectionLine> { Claim(IntelligenceText.Plain(content.Why.Summary)) };
+            var why = new List<SectionLine> { Claim("", content.Why.Summary) };
             why.AddRange(Numbered(content.Why.Chain));
             Step("Why", null, why);
             foreach (var lane in content.Why.Lanes)
@@ -282,8 +285,8 @@ namespace Halcyonic.Client
                 Step("Why, part by part", lane.Title, Numbered(lane.Steps));
             }
 
-            var how = new List<SectionLine> { Claim(IntelligenceText.Plain(content.How.Summary)) };
-            if (content.How.Root != null) how.Add(Claim("Starts at " + IntelligenceText.Plain(content.How.Root), rows: 1));
+            var how = new List<SectionLine> { Claim("", content.How.Summary) };
+            if (content.How.Root != null) how.Add(Claim("Starts at ", content.How.Root, rows: 1));
             how.AddRange(Numbered(content.How.Steps));
             Step("How", null, how);
 
@@ -292,9 +295,9 @@ namespace Halcyonic.Client
             {
                 Step("A change of approach", null, new[]
                 {
-                    Claim("At first: " + IntelligenceText.Plain(change.From)),
-                    Claim("Then: " + IntelligenceText.Plain(change.To)),
-                    Claim("Because: " + IntelligenceText.Plain(change.Why), rows: 3),
+                    Claim("At first: ", change.From),
+                    Claim("Then: ", change.To),
+                    Claim("Because: ", change.Why, rows: 3),
                 });
             }
 
@@ -616,6 +619,9 @@ namespace Halcyonic.Client
             return new SectionLine(tag, (lead ?? "") + Quote(statement), SectionTone.Claim, rows: rows, evidence: evidence,
                 words: (lead ?? "") + quoted, chip: chip);
         }
+
+        /// <summary>A model's or a source's words in quotes, made plain; blank words stay blank, so their line is left out.</summary>
+        internal static string Quoted(string? text) => string.IsNullOrWhiteSpace(text) ? "" : "“" + IntelligenceText.Plain(text) + "”";
 
         internal static string Quote(UnderstandingStatement statement)
         {

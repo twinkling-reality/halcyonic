@@ -1940,8 +1940,10 @@ write. Every workspace label that can show such text, the title, the goal, a not
 the person, the question, what was sent, the activity, the whole request, the sections, the peek
 and the recorded instructions offered, gets it through `GlazeText.SetLiteral`: rich text off, escape
 parsing on and `LabelText.ForTextMeshPro`, so it interprets no markup and no escape sequence, and
-hides nothing. A line cut short ends in an ellipsis. Agent text in the activity and the sections
-leans as a claim, its letters sheared after TextMeshPro lays them out (`GlazeText.Lean`), because no label
+hides nothing. A line cut short ends in an ellipsis. Agent text in the activity, the agent's question,
+the sections and the companion's words lean as a claim, quoted by their builder around the outside words
+alone, never by the view (`PageLine.Drawn`), so Halcyonic's lead ("The companion says:", "Now:") stays
+outside the quotes; its letters sheared after TextMeshPro lays them out (`GlazeText.Lean`), because no label
 may use TextMeshPro's italics or bold: the font has no italic or bold typeface, so TextMeshPro
 finds no ellipsis for them and switches the label to cutting text short without one, for good
 ([workspace-interaction.md](../validation/workspace-interaction.md)).

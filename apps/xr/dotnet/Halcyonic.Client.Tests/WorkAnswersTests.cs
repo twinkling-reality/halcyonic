@@ -357,14 +357,14 @@ public class HowBuiltTests
         var pages = AnswerPages.Split(section, new AnswerRoom(6));
         Assert.That(pages.Select(page => Intelligence.Texts(page)), Is.EqualTo(new[]
         {
-            new[] { "What it is about · explained by a model, up to date", "Some customers were charged twice when checkout retried a payment." },
-            new[] { "Why · explained by a model, up to date", "Two paths could charge the same order, and neither checked the other.",
-                "1. Two charges for one order", "2. The card is billed twice" },
-            new[] { "Why, part by part · explained by a model, up to date", "Checkout request", "1. Times out, then retries", "2. Creates a charge" },
-            new[] { "Why, part by part · explained by a model, up to date", "Retry worker", "1. Picks the same order up", "2. Creates another charge" },
-            new[] { "How · explained by a model, up to date", "One idempotency key per order, sent with every charge.", "Starts at ChargeService.ts",
-                "1. Derive a key per order" },
-            new[] { "How · explained by a model, up to date", "2. Send it with the charge", "3. The worker reuses it" },
+            new[] { "What it is about · explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”" },
+            new[] { "Why · explained by a model, up to date", "“Two paths could charge the same order, and neither checked the other.”",
+                "1. “Two charges for one order”", "2. “The card is billed twice”" },
+            new[] { "Why, part by part · explained by a model, up to date", "“Checkout request”", "1. “Times out, then retries”", "2. “Creates a charge”" },
+            new[] { "Why, part by part · explained by a model, up to date", "“Retry worker”", "1. “Picks the same order up”", "2. “Creates another charge”" },
+            new[] { "How · explained by a model, up to date", "“One idempotency key per order, sent with every charge.”", "Starts at “ChargeService.ts”",
+                "1. “Derive a key per order”" },
+            new[] { "How · explained by a model, up to date", "2. “Send it with the charge”", "3. “The worker reuses it”" },
             new[] { "The evidence", "4 files changed: 4 edited", "1 file not checked after the last change: refunds.ts",
                 "Tests passed at 15:40: 118/118 tests passed (vitest)" },
         }), "a step too long for a page goes on to the next under its heading again");
@@ -410,14 +410,14 @@ public class HowBuiltTests
         var pages = Steps(json);
         Assert.That(Intelligence.Texts(pages[0]), Is.EqualTo(new[]
         {
-            "What it is about · explained by a model, up to date", "Some customers were charged twice when checkout retried a payment.",
-            "Now: Retries reuse the first charge.",
+            "What it is about · explained by a model, up to date", "“Some customers were charged twice when checkout retried a payment.”",
+            "Now: “Retries reuse the first charge.”",
         }));
         var change = pages.Where(page => page.Lines[0].Text.StartsWith("A change of approach", StringComparison.Ordinal))
             .SelectMany(page => page.Lines.Skip(1)).Select(line => line.Text);
         Assert.That(change, Is.EqualTo(new[]
         {
-            "At first: Lock the order row", "Then: One key per order", "Because: Locks timed out under load.",
+            "At first: “Lock the order row”", "Then: “One key per order”", "Because: “Locks timed out under load.”",
         }));
     }
 
@@ -621,7 +621,7 @@ public class UnderstandingAnswersTests
             Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhyChanged, json))[0],
             Intelligence.Texts(Answers.Understand(UnderstandPrompt.HowBuilt, json))[1],
         };
-        Assert.That(texts[2], Is.EqualTo("<color=#f00>Done</color>‹U+202E› <sprite=0>‹U+200B› next line \\u003Cb\\u003E"),
+        Assert.That(texts[2], Is.EqualTo("“<color=#f00>Done</color>‹U+202E› <sprite=0>‹U+200B› next line \\u003Cb\\u003E”"),
             "markup characters stay as written, and what would not show as itself shows its code");
         foreach (var text in texts)
         {
@@ -899,7 +899,7 @@ public class BriefAnswersTests
         var how = Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified);
         Assert.That(Answers.Pairs(how.Lines), Is.EqualTo(new[]
         {
-            ("explained", "One idempotency key per order, sent with every charge."),
+            ("explained", "“One idempotency key per order, sent with every charge.”"),
             ("", "Explained by a model, up to date"),
         }));
         Assert.That(how.Steps, Is.False, "a brief answer never pages");
@@ -986,7 +986,7 @@ public class EvidenceTests
         }), "the quote alone beside its chip");
         Assert.That(Classes(Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified)), Is.EqualTo(new[]
         {
-            (Evidence.Explained, (string?)"Model explains", "One idempotency key per order, sent with every charge."),
+            (Evidence.Explained, (string?)"Model explains", "“One idempotency key per order, sent with every charge.”"),
             (Evidence.Halcyonic, null, "Explained by a model, up to date"),
         }));
         var checks = CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),

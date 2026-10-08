@@ -122,6 +122,7 @@ public class NewProjectScreensTests
         var quote = frame.Lines[0];
         Assert.That(quote.Claim && quote.WordsAreData, Is.True);
         Assert.That(quote.Words, Does.StartWith("The companion says: “").And.EndWith("”"));
+        Assert.That(quote.Drawn, Does.StartWith("The companion says: “"), "Halcyonic's attribution stays outside the companion's quotes");
         Assert.That(quote.Rows, Is.EqualTo(NewProjectScreens.QuoteRows + 1), "two rows, and room for a third rather than cut");
         Assert.That(Answers(frame).Select(line => line.Words),
             Is.EqualTo(new[] { "Each runner", "One organiser", CompanionText.TypeAnswer, CompanionText.GoOnWithout }));
