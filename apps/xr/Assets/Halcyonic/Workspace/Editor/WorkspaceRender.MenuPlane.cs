@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using TMPro;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
@@ -164,6 +165,32 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (plane.FileAside || plane.Shown.All(column => column.Kind != MenuColumn.File)) failures.Add(name + ": the menu's details closed, and the file did not come back.");
                 failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, window));
 
+                failures.AddRange(OpeningAllocatesNothing(name, plane,
+                    () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow),
+                    () => plane.Show(bar, null, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
+                        besideWindow: besideWindow)));
+
+                // Another task's file taking the file's place opens anew, taking nothing until it shows whole; the same
+                // task's file laid again stands as it was.
+                var oneTask = new object();
+                var anotherTask = new object();
+                void ShowOf(object task) => plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes,
+                    looking, surface, besideWindow: besideWindow, fileColumn: task);
+                ShowOf(oneTask);
+                plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
+                ShowOf(oneTask);
+                if (plane.Opening(MenuColumn.File)) failures.Add(name + ": the same task's file laid again opens anew.");
+                ShowOf(anotherTask);
+                if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": another task's file taking the file's place is not opening, so it takes presses before it shows.");
+                plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
+
+                // The waiting task's file assembling from its character, then closing to the bar.
+                OpeningStrip(name + " opening", folder, camera, texture, plane,
+                    () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow),
+                    () => plane.Show(bar, null, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
+                        besideWindow: besideWindow),
+                    () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, besideWindow: besideWindow));
+
                 // A column opened takes nothing until it has opened, though it counts as drawn when laid.
                 failures.AddRange(OpeningTakesNothing(name, plane, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget),
                     WaitingFile(opened.View.Presentation!.Title, badge, chosen: true, budget),
@@ -211,27 +238,22 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// A column newly on the plane takes nothing until it has opened (<see cref="MenuPlane.OpeningSeconds"/>).
+        /// A column newly on the plane takes nothing until it has opened (<see cref="MenuFrameView.OpeningSeconds"/>).
         /// On a file opened beside the menu asking Send answer, then Yes, then Clear: every button waits to settle,
-        /// and pressed as a hand presses it drops the press before its flash, sound or hold's timer; the subject
-        /// plate waits too; the frame it opened in and one long frame never end its opening; what still reaches
-        /// the plane past the file's buttons, a press, a hold, a subject press or hold, is refused as it opens
-        /// and halfway; and once it has opened and settled, the press is taken. The menu opened from its bar and
-        /// a side panel opening, carrying a Yes that is safe in place where it stands in its file's place, wait
-        /// to settle and take no press through their buttons until they have opened. The file counts as drawn
-        /// when laid, as it does when it stood open, so a page counted while faint is never acted on before it shows.
+        /// and pressed as a hand presses it drops the press before its flash, sound or hold's timer, even with its
+        /// own settling long past, since it reads the column's opening; the subject plate waits too; the frame it
+        /// opened in and one long frame never end its opening; what still reaches the plane past the file's
+        /// buttons, a press, a hold, a subject press or hold, is refused as it opens and halfway; and once it has
+        /// opened and settled, the press is taken. The menu opened from its bar and a side panel opening, carrying
+        /// a Yes that is safe in place where it stands in its file's place, wait to settle and take no press
+        /// through their buttons until they have opened. The file counts as drawn only once it has opened, as it
+        /// does when it stood open, so a page counted while faint is never acted on before it shows; and the first
+        /// press it takes, frame by frame at the headset's rate and on slow frames, finds every part whole and in place.
         /// </summary>
         private static IEnumerable<string> OpeningTakesNothing(string name, MenuPlane plane, MenuFrame waiting, MenuFrame chosen, System.Action<MenuFrame?, bool> show,
             System.Action closed)
         {
             var failures = new List<string>();
-            // A long typed answer's side panel marks the answer read when laid, freeing the file's Send answer,
-            // which sends in one press: only its buttons' settling holds it back while the panel opens.
-            if (GlazeButton.SettleSeconds < MenuPlane.OpeningSeconds)
-            {
-                failures.Add(name + ": a button settles in " + GlazeButton.SettleSeconds + " s, less than a column's " + MenuPlane.OpeningSeconds
-                    + " s opening, so a long answer's Send answer could be pressed while its side panel still opens.");
-            }
             var taken = new List<string>();
             var pressed = new List<string>();
             var drawn = new List<(MenuColumn Kind, MenuFrame? Frame)>();
@@ -248,7 +270,8 @@ namespace Halcyonic.XR.Workspace.Editor
             plane.Drawn += laid;
             GlazeButton.AnyPressed += anyPressed;
             var ended = Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds);
-            // Every button the column shows, pressed as a hand presses it, is dropped before its flash, sound and hold timer.
+            // Every button the column shows, pressed as a hand presses it, is dropped before its flash, sound and hold timer:
+            // while its own settling runs, and again with that long past, since every button reads the column's opening.
             void NothingTaken(string what, MenuFrameView view, float since)
             {
                 if (UnityEngine.Time.unscaledTime - since > GlazeButton.SettleSeconds / 2f)
@@ -256,6 +279,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(what + ": the render took too long to press it while its buttons settle, so nothing was checked.");
                     return;
                 }
+                PressEach(what, view);
+                SettleLongAgo(view);
+                view.SettleSubjectForRender();
+                if (!view.Opening) failures.Add(what + ": it ended its opening while its buttons were pressed, so their settling long past is not checked.");
+                PressEach(what + ", its buttons' own settling long past", view);
+            }
+            void PressEach(string what, MenuFrameView view)
+            {
                 taken.Clear();
                 pressed.Clear();
                 foreach (var button in view.GetComponentsInChildren<GlazeButton>())
@@ -342,12 +373,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (!plane.Opening(MenuColumn.File)) failures.Add(asking + " just opened is not opening, so it takes presses before it shows.");
                     failures.AddRange(WaitsToSettle(asking + " just opened", view));
                     if (!view.SubjectSettling) failures.Add(asking + " just opened: its subject plate takes a press before it has settled.");
-                    if (!openedNow.Contains((MenuColumn.File, frame))) failures.Add(asking + " just opened was not counted drawn when laid.");
-                    if (!openedNow.SequenceEqual(stoodOpen))
-                    {
-                        failures.Add(asking + " reported drawn " + string.Join(", ", openedNow.Select(each => each.Kind)) + " as it opened, not "
-                            + string.Join(", ", stoodOpen.Select(each => each.Kind)) + " as when it stood open.");
-                    }
+                    if (openedNow.Any(each => each.Kind == MenuColumn.File)) failures.Add(asking + " just opened was counted drawn before it showed whole.");
                     NothingTaken(asking + " just opened", view, since);
 
                     // What reaches the plane past its buttons is refused while it opens, at once and halfway.
@@ -362,7 +388,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         view.HoldSubjectForRender(view.Subject.position);
                         if (taken.Count > 0) failures.Add(asking + " took " + string.Join(", ", taken) + " " + when + ".");
                     }
+                    drawn.Clear();
                     Taken(asking + " that has opened", view, ButtonFor(view, asks), MenuColumn.File);
+                    var openedWhole = drawn.Where(each => each.Kind == MenuColumn.File).ToList();
+                    if (openedWhole.Count != 1 || openedWhole[0].Frame != frame)
+                    {
+                        failures.Add(asking + " was counted drawn " + openedWhole.Count + " times as its opening ended, not once for its own page.");
+                    }
+                    if (!stoodOpen.Contains((MenuColumn.File, frame))) failures.Add(asking + " that stood open, laid again, was not counted drawn.");
                     view.SettleSubjectForRender();
                     taken.Clear();
                     view.HoldSubjectForRender(view.Subject.position);
@@ -374,14 +407,23 @@ namespace Halcyonic.XR.Workspace.Editor
                 show(null, true);
                 plane.Advance(ended);
                 show(waiting, false);
+                var window = FindView(plane, "File")?.OpeningSeconds ?? MenuPlane.OpeningSeconds;
                 plane.FrameForRender(0.25f);
                 if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": the frame a file opened in ended its opening.");
                 plane.FrameForRender(0.25f);
                 if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": one long frame ended a file's opening before it was seen.");
-                plane.Advance(MenuPlane.OpeningSeconds - 0.05f - 0.01f);
+                plane.Advance(window - 0.05f - 0.01f);
                 if (!plane.Opening(MenuColumn.File)) failures.Add(name + ": the frame a file opened in counted toward its opening.");
                 plane.Advance(0.02f);
                 if (plane.Opening(MenuColumn.File)) failures.Add(name + ": a file's opening outlasted its time, locking it out.");
+
+                // Frame by frame, at the headset's rate and on slow frames, pressing Send answer every frame with its
+                // own settling long past: the first press taken finds every part of the file whole and in place.
+                foreach (var seconds in new[] { 1f / 72f, 0.1f })
+                {
+                    failures.AddRange(FirstPressFindsItWhole(name + ": a file opened at frames of " + seconds.ToString("0.000", CultureInfo.InvariantCulture) + " s", plane, seconds,
+                        () => show(null, true), () => show(waiting, false), "send", taken));
+                }
 
                 // The menu opened from its bar alone, its buttons settled long before: they wait to settle again and
                 // take nothing until it has opened.
@@ -437,6 +479,163 @@ namespace Halcyonic.XR.Workspace.Editor
                 GlazeButton.AnyPressed -= anyPressed;
             }
             return failures;
+        }
+
+        /// <summary>
+        /// A file opened after <paramref name="before"/> by <paramref name="open"/>, stepped frame by frame at
+        /// <paramref name="frameSeconds"/>, its prompt <paramref name="asks"/> pressed as a hand presses it every
+        /// frame with its own settling long past: the opening shows its parts partly faded, top to bottom, its light
+        /// line drawing from the character where one stands, and the first press taken finds every shape and
+        /// every word on the file whole and nothing on the plane still sliding.
+        /// </summary>
+        private static IEnumerable<string> FirstPressFindsItWhole(string what, MenuPlane plane, float frameSeconds, System.Action before, System.Action open, string asks,
+            List<string> taken)
+        {
+            var failures = new List<string>();
+            before();
+            plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
+            open();
+            var view = FindView(plane, "File");
+            var button = view != null ? ButtonFor(view, asks) : null;
+            if (view == null || button == null || !view.gameObject.activeSelf)
+            {
+                failures.Add(what + ": no file asking " + asks + " stands on the plane.");
+                return failures;
+            }
+            var faint = false;
+            var lineDrew = false;
+            for (var frame = 0; frame < 200; frame++)
+            {
+                SettleLongAgo(view);
+                view.SettleSubjectForRender();
+                taken.Clear();
+                var at = button.transform.position;
+                button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Select, at);
+                button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Unselect, at);
+                button.Target.PointerForRender(7, Oculus.Interaction.PointerEventType.Unhover, at);
+                if (taken.Any(each => each.StartsWith(MenuColumn.File + " ", System.StringComparison.Ordinal)))
+                {
+                    failures.AddRange(NotWhole(what + ", at the first press taken", view));
+                    if (plane.Sliding) failures.Add(what + ": at the first press taken, parts of the plane are still sliding to their places.");
+                    if (plane.LightLine != null && plane.LineShown < 1f) failures.Add(what + ": at the first press taken, its light line has not reached the file.");
+                    if (!faint) failures.Add(what + ": no frame showed a part partly faded, so it never assembled.");
+                    if (plane.LightLine != null && !lineDrew) failures.Add(what + ": its light line stood whole from the first frame; it draws from the character.");
+                    return failures;
+                }
+                var parts = view.Parts;
+                for (var index = 0; index < parts.Count; index++)
+                {
+                    var shown = PartShownAsDrawn(parts[index]);
+                    if (shown > 0f && shown < 1f) faint = true;
+                    if (index > 0 && shown > PartShownAsDrawn(parts[index - 1]) + 1e-4f) failures.Add(what + ": " + parts[index].name + " shows more than the part above it; it assembles top to bottom.");
+                }
+                if (plane.LightLine != null && plane.LineShown < 1f) lineDrew = true;
+                plane.FrameForRender(frameSeconds);
+            }
+            failures.Add(what + ": " + asks + " was never taken in 200 frames.");
+            return failures;
+        }
+
+        /// <summary>How visible <paramref name="part"/> is as drawn: the least of its shown shapes and words.</summary>
+        private static float PartShownAsDrawn(Transform part)
+        {
+            var least = 1f;
+            foreach (var shape in part.GetComponentsInChildren<Surface>()) least = Mathf.Min(least, shape.Shown);
+            foreach (var words in part.GetComponentsInChildren<TMP_Text>()) least = Mathf.Min(least, GlazeText.ShownOf(words));
+            return least;
+        }
+
+        /// <summary>Every shape and word <paramref name="view"/> shows that is not drawn whole.</summary>
+        private static IEnumerable<string> NotWhole(string what, MenuFrameView view) => view.Parts
+            .Where(part => PartShownAsDrawn(part) < 1f)
+            .Select(part => what + ": its " + part.name + " is drawn at " + PartShownAsDrawn(part).ToString("0.000", CultureInfo.InvariantCulture) + " of its opacity.");
+
+        /// <summary>
+        /// A frame of a file's opening, and of its closing, allocates nothing (ADR 0027): twenty frames of each, each
+        /// at another point of it, a frame failing only where it allocated in every try (<see cref="GlazeChecks.Allocations"/>).
+        /// </summary>
+        private static IEnumerable<string> OpeningAllocatesNothing(string name, MenuPlane plane, System.Action before, System.Action open)
+        {
+            var failures = new List<string>();
+            before();
+            plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
+            open();
+            var view = FindView(plane, "File");
+            if (view == null || !view.gameObject.activeSelf)
+            {
+                failures.Add(name + ": no file stands on the plane to open.");
+                return failures;
+            }
+            foreach (var closing in new[] { false, true })
+            {
+                var what = closing ? "closing" : "opening";
+                // Each frame somewhere short of the end, so the frame neither ends it nor reports the page drawn.
+                var span = closing ? Glaze.LeaveSeconds : view.OpeningSeconds;
+                if (!(GlazeChecks.Allocations(step =>
+                    {
+                        view.MovedForRender(span * 0.8f * step / 20f, closing);
+                        plane.FrameForRender(1f / 72f);
+                    }, 20) is (int every, int some, long bytes)))
+                {
+                    failures.Add(name + ": this editor cannot count allocations, so a file's " + what + " cannot be checked.");
+                    continue;
+                }
+                if (every > 0) failures.Add(name + ": " + every + " of twenty frames of a file's " + what + " allocate in each of 3 tries; a frame of it allocates nothing.");
+                Debug.Log("Halcyonic: workspace render " + name + ": twenty frames of a file's " + what + ": " + every + " allocate in every try, " + some + " in some; the quietest try counts "
+                    + bytes + " bytes on every thread.");
+            }
+            view.Stop();
+            return failures;
+        }
+
+        /// <summary>
+        /// A file assembling and fading away, as the eyes see it: one strip of moments of its opening, the light line
+        /// drawing from its character and the parts fading in from the top, then of its closing.
+        /// </summary>
+        private static void OpeningStrip(string what, string folder, Camera camera, RenderTexture texture, MenuPlane plane, System.Action before, System.Action open,
+            System.Action close)
+        {
+            before();
+            plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
+            open();
+            var frames = new List<Texture2D>();
+            var rotation = camera.transform.rotation;
+            camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
+            try
+            {
+                var at = 0f;
+                foreach (var moment in new[] { 0.05f, 0.12f, 0.18f, 0.24f, 0.3f, MenuPlane.OpeningSeconds })
+                {
+                    plane.Advance(moment - at);
+                    at = moment;
+                    ForceMeshes(plane.gameObject);
+                    frames.Add(Render(camera, texture));
+                }
+                close();
+                at = 0f;
+                foreach (var moment in new[] { 0.06f, 0.1f, 0.13f })
+                {
+                    plane.Advance(moment - at);
+                    at = moment;
+                    frames.Add(Render(camera, texture));
+                }
+                plane.Advance(Glaze.LeaveSeconds);
+                var strip = new Texture2D(frames.Sum(frame => frame.width), frames.Max(frame => frame.height), TextureFormat.RGBA32, false);
+                var left = 0;
+                foreach (var frame in frames)
+                {
+                    strip.SetPixels(left, 0, frame.width, frame.height, frame.GetPixels());
+                    left += frame.width;
+                }
+                strip.Apply();
+                File.WriteAllBytes(Path.Combine(folder, what.Replace(' ', '-') + ".png"), strip.EncodeToPNG());
+                Object.DestroyImmediate(strip);
+            }
+            finally
+            {
+                camera.transform.rotation = rotation;
+                foreach (var frame in frames) Object.DestroyImmediate(frame);
+            }
         }
 
         /// <summary>The button <paramref name="view"/>'s footer shows for the prompt <paramref name="id"/>, if it shows one.</summary>
@@ -581,6 +780,8 @@ namespace Halcyonic.XR.Workspace.Editor
             List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Transform? window, bool lightLine = true)
         {
             var failures = new List<string>();
+            // A still shows the plane as it stands once every column has opened and what closed has gone.
+            plane.Advance(MenuPlane.OpeningSeconds);
             ForceMeshes(plane.gameObject);
             var columns = new List<IReadOnlyList<GlazeChecks.PlaneShape>>();
             if (plane.Composition is PlaneComposition composition)

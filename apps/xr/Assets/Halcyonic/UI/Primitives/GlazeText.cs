@@ -225,6 +225,42 @@ namespace Halcyonic.XR.UI
             text.characterSpacing = strong ? StrongSpacing : 0f;
         }
 
+        private static readonly int FaceColorId = Shader.PropertyToID("_FaceColor");
+
+        /// <summary>One block for every label's fade: set, handed to the renderer, and reused, so a fade allocates nothing.</summary>
+        private static MaterialPropertyBlock? fadeBlock;
+
+        /// <summary>
+        /// Draws <paramref name="text"/> as far into view as <paramref name="shown"/>, from 0 to 1, as the column it
+        /// is on opens or closes: by its material's face colour on its own renderer, so whatever colours its
+        /// words, a press, a state or a wait's shimmer, still does. Whole, it drops the block again, so it
+        /// draws exactly as before.
+        /// </summary>
+        public static void Show(TMP_Text text, float shown)
+        {
+            if (!text.TryGetComponent<Renderer>(out var renderer)) return;
+            if (shown >= 1f)
+            {
+                if (renderer.HasPropertyBlock()) renderer.SetPropertyBlock(null);
+                return;
+            }
+            var block = fadeBlock ??= new MaterialPropertyBlock();
+            var face = renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty(FaceColorId) ? renderer.sharedMaterial.GetColor(FaceColorId) : Color.white;
+            block.Clear();
+            block.SetColor(FaceColorId, new Color(face.r, face.g, face.b, face.a * Mathf.Clamp01(shown)));
+            renderer.SetPropertyBlock(block);
+        }
+
+        /// <summary>How far into view <paramref name="text"/> is drawn (<see cref="Show"/>), for checks: 1 unless a fade holds it back.</summary>
+        public static float ShownOf(TMP_Text text)
+        {
+            if (!text.TryGetComponent<Renderer>(out var renderer) || !renderer.HasPropertyBlock()) return 1f;
+            var block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            var face = renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty(FaceColorId) ? renderer.sharedMaterial.GetColor(FaceColorId) : Color.white;
+            return face.a <= 0f ? 1f : block.GetColor(FaceColorId).a / face.a;
+        }
+
         /// <summary>The font's own material with thinner glyphs, for a subject drawn light.</summary>
         private static Material LightMaterial(TMP_FontAsset font)
         {

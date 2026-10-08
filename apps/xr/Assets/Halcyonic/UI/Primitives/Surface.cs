@@ -56,6 +56,7 @@ namespace Halcyonic.XR.UI
         private float halftone;
         private Vector4 glass;
         private float opacity = 1f;
+        private float shown = 1f;
 
         /// <summary>The shape's size, in its parent's units.</summary>
         public Vector2 Size => size;
@@ -141,8 +142,25 @@ namespace Halcyonic.XR.UI
             Apply();
         }
 
+        /// <summary>
+        /// How far the shape has come into view as the column it is on opens or closes, from 0 to 1,
+        /// multiplying any <see cref="Fade"/>: kept apart from it, so a badge's own fade and a column's
+        /// opening never undo each other.
+        /// </summary>
+        public float Shown
+        {
+            get => shown;
+            set
+            {
+                if (value == shown) return;
+                shown = value;
+                Apply();
+            }
+        }
+
         private void Apply()
         {
+            var opacity = this.opacity * shown;
             transform.localScale = new Vector3(size.x, size.y, 1f);
             block.SetVector(FillId, Linear(fill, opacity));
             block.SetVector(EdgeId, Linear(edge, opacity));

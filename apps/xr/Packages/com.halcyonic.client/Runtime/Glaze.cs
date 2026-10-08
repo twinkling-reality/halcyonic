@@ -224,7 +224,7 @@ namespace Halcyonic.Client
         /// <summary>One turn of a busy icon (Starting, Working).</summary>
         public const float BusyTurnSeconds = 1.2f;
 
-        /// <summary>What arrives, as a column coming back from stepping aside, eases out (<see cref="EaseOut"/>) this long.</summary>
+        /// <summary>What arrives, as a column coming back from stepping aside or each part of a column opening, eases out (<see cref="EaseOut"/>) this long.</summary>
         public const float AppearSeconds = 0.2f;
 
         /// <summary>What leaves, as a column stepping aside, eases in (<see cref="EaseIn"/>) this long: quicker than what arrives.</summary>
@@ -257,6 +257,40 @@ namespace Halcyonic.Client
 
         /// <summary>How much the listening microphone grows at the top of its pulse, as a share of its size.</summary>
         public const float ListeningPulseDepth = 0.18f;
+
+        /// <summary>A light line drawing on from its character, as a file opens, eased out (ADR 0027).</summary>
+        public const float DrawSeconds = 0.18f;
+
+        /// <summary>Between one part of a column and the next as it assembles, top to bottom: subject, sections, page.</summary>
+        public const float StaggerSeconds = 0.03f;
+
+        /// <summary>How much of a file's light line has drawn when its first part starts to appear.</summary>
+        public const float PartsAfterDraw = 0.55f;
+
+        /// <summary>How much of what leaves the light line takes to draw back to its character, so it is gone before the file is.</summary>
+        public const float UndrawShare = 0.9f;
+
+        /// <summary>
+        /// When part <paramref name="index"/> of a column opening starts to appear, in seconds from the
+        /// opening's start: after <see cref="PartsAfterDraw"/> of the light line where one draws from a
+        /// character (<paramref name="drawn"/>), else at once, each part <see cref="StaggerSeconds"/> after the last.
+        /// </summary>
+        public static float PartStarts(int index, bool drawn) => (drawn ? PartsAfterDraw * DrawSeconds : 0f) + index * StaggerSeconds;
+
+        /// <summary>How visible part <paramref name="index"/> of a column opening is, <paramref name="seconds"/> into its opening: it fades in over <see cref="AppearSeconds"/>, eased out.</summary>
+        public static float PartShown(float seconds, int index, bool drawn) => EaseOut((seconds - PartStarts(index, drawn)) / AppearSeconds);
+
+        /// <summary>How long a column of <paramref name="parts"/> parts takes to open: until its last part shows whole.</summary>
+        public static float OpeningSeconds(int parts, bool drawn) => PartStarts(Math.Max(parts, 1) - 1, drawn) + AppearSeconds;
+
+        /// <summary>How much of a file's light line has drawn, <paramref name="seconds"/> into its opening.</summary>
+        public static float LineShown(float seconds) => EaseOut(seconds / DrawSeconds);
+
+        /// <summary>How visible what closes still is, <paramref name="seconds"/> into its closing: everything together, eased in, over <see cref="LeaveSeconds"/>.</summary>
+        public static float LeftShown(float seconds) => 1f - EaseIn(seconds / LeaveSeconds);
+
+        /// <summary>How much of a closing file's light line still stands, <paramref name="seconds"/> into its closing, drawing back over <see cref="UndrawShare"/> of <see cref="LeaveSeconds"/>.</summary>
+        public static float LineLeft(float seconds) => 1f - EaseIn(seconds / (UndrawShare * LeaveSeconds));
 
         /// <summary>What arrives eases out, fast then settling (ADR 0027): <paramref name="t"/> from 0 to 1.</summary>
         public static float EaseOut(float t)

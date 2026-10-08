@@ -162,7 +162,7 @@ namespace Halcyonic.XR.UI
             }
         }
 
-        /// <summary>Presses are ignored while false, as while a panel grows or the app lacks focus.</summary>
+        /// <summary>Presses are ignored while false, as while a panel grows, a menu column opens or closes, or the app lacks focus.</summary>
         public Func<bool> Accepting { get; set; } = () => true;
 
         /// <summary>The button's size, in its parent's units.</summary>
