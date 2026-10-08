@@ -321,7 +321,11 @@ namespace Halcyonic.Client
                 if (content.Count == 0)
                 {
                     if (ReferenceEquals(answer.Brief, first)) source = null;
-                    lines.Add(new PageLine(IntelligenceText.Plain(answer.Brief.Provenance), wordsAreData: true, tone: Tone(answer.Brief.ProvenanceTone), rows: 3));
+                    // Why there is no brief answer; where the full one still holds something, as the evaluation
+                    // source's measurement beside an understanding that couldn't be read, it opens it.
+                    var opens = answer.Full.Lines.Count > 0;
+                    lines.Add(new PageLine(IntelligenceText.Plain(answer.Brief.Provenance), wordsAreData: true, tone: Tone(answer.Brief.ProvenanceTone), rows: 3,
+                        action: opens ? Open : null, key: opens ? key : null, opens: opens, chosen: opens && key == screen.Chosen));
                     continue;
                 }
                 for (var index = 0; index < content.Count; index++)

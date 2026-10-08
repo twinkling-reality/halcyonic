@@ -1061,10 +1061,9 @@ public class EvidenceTests
         var swapped = quote.With(text: "x", words: "y");
         Assert.That((swapped.Text, swapped.Words, swapped.Chip, swapped.Evidence), Is.EqualTo(("x", "y", "Subagent says", Evidence.Reported)));
 
+        // The measurement's provenance line, copied to start its page, becomes that page's provenance (the outside-text audit's gap 8).
         var paged = AnswerPages.Split(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
-        var measured = paged[1].Lines[0];
-        Assert.That((measured.Source, measured.Evidence, measured.Chip), Is.EqualTo((true, Evidence.Halcyonic, (string?)null)),
-            "the measurement's provenance line, copied to start its page, keeps what it was");
+        Assert.That((paged[1].Provenance, paged[1].Lines.Any(line => line.Source)), Is.EqualTo(("From Seorak, read 1 minute ago", false)));
     }
 
     [Test]
@@ -1138,11 +1137,14 @@ public class AnswerPagesTests
         Assert.That(pages.Count, Is.EqualTo(2));
         Assert.That(pages[0].Lines, Is.Empty, "the understanding source's page holds only why it has no answer");
         Assert.That(pages[0].Provenance, Does.StartWith("From Salidium · Understanding unavailable"));
-        Assert.That(pages[1].Lines[0].Text, Is.EqualTo("From Seorak, read 1 minute ago"));
-        Assert.That(pages.Select(page => page.Lines.Count(line => line.Source)), Is.EqualTo(new[] { 0, 1 }));
+        // The measurement's page is the evaluation source's: its provenance, never the understanding source's over it
+        // (the outside-text audit's gap 8).
+        Assert.That(pages[1].Provenance, Is.EqualTo("From Seorak, read 1 minute ago"));
+        Assert.That(pages.Select(page => page.Lines.Count(line => line.Source)), Is.EqualTo(new[] { 0, 0 }));
 
         var both = AnswerPages.Split(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
-        Assert.That(both.Select(page => page.Lines.Count(line => line.Source)), Is.EqualTo(new[] { 0, 1 }), "the checks seen, then the measurement");
+        Assert.That(both.Select(page => page.Provenance), Is.EqualTo(new[] { "From Salidium 0.6.0, on 20 Sep at 16:20", "From Seorak, read 1 minute ago" }),
+            "the checks seen, then the measurement, each under its own source");
     }
 
     [Test]

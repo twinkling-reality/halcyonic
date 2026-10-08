@@ -198,6 +198,32 @@ public class FileScreensTests
         Assert.That(opened.Side.Lines.Count, Is.GreaterThan(frame.Lines.Count), "the side panel holds the full answer");
     }
 
+    /// <summary>
+    /// Where the understanding source couldn't answer, its why still opens the full answer, so the evaluation
+    /// source's measurement is reached, under its own source (the outside-text audit's gap 8).
+    /// </summary>
+    [Test]
+    public void TheMeasurementIsReachedWhenTheUnderstandingSourceHadNoAnswer()
+    {
+        var unobserved = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of the opencode runtime.");
+        SectionPresentation Checked(AnswerDepth depth) =>
+            CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(unobserved), "2026-09-20T16:21:30.000Z"),
+                false, null, Intelligence.Live(Intelligence.Evaluation(ControlPlaneApiTests.Available), "2026-09-26T18:01:00.000Z"), false,
+                null, Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: depth);
+        var screen = new FileScreen { Section = FileSection.Checks, Checked = new FileAnswer(Checked(AnswerDepth.Brief), Checked(AnswerDepth.Full)) };
+        var why = Screen(screen, room: AnswerRoom.Unlimited).Lines.Single();
+        Assert.That((why.Words, why.Opens, why.Key), Is.EqualTo(("From Salidium · Understanding unavailable: it doesn't follow tasks this agent app runs.", true, FileScreens.ChecksKey)));
+        screen.Chosen = FileScreens.ChecksKey;
+        var sources = new List<string?>();
+        var side = Screen(screen, room: AnswerRoom.Unlimited).Side!;
+        for (var part = 0; part < (side.Parts?.Parts ?? 1); part++)
+        {
+            sources.Add(Screen(screen, room: AnswerRoom.Unlimited).Side!.Source);
+            screen.NextPage();
+        }
+        Assert.That(sources, Has.Some.EqualTo("From Seorak, read 1 minute ago"));
+    }
+
     [Test]
     public void ASourcesOwnWordsInsideAnAnswerAreShownAsData()
     {
@@ -207,15 +233,20 @@ public class FileScreensTests
                 "connection <b>refused</b>", Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: depth);
         var screen = new FileScreen { Section = FileSection.Checks, Checked = new FileAnswer(Failing(AnswerDepth.Brief), Failing(AnswerDepth.Full)), Chosen = FileScreens.ChecksKey };
         var lines = new List<PageLine>();
+        var sources = new List<(string? Source, bool IsData)>();
         var parts = Screen(screen, room: AnswerRoom.Unlimited).Side!.Parts?.Parts ?? 1;
         for (var part = 0; part < parts; part++)
         {
-            lines.AddRange(Screen(screen, room: AnswerRoom.Unlimited).Side!.Lines);
+            var side = Screen(screen, room: AnswerRoom.Unlimited).Side!;
+            lines.AddRange(side.Lines);
+            sources.Add((side.Source, side.SourceIsData));
             screen.NextPage();
         }
-        var refused = lines.Where(line => line.Words.Contains("refused")).ToList();
+        Assert.That(lines.Where(line => line.Words.Contains("refused")).All(line => line.WordsAreData), Is.True, "never as Halcyonic's words");
+        // The measurement's own page carries its source and why it couldn't be read again, as its source line.
+        var refused = sources.Where(source => source.Source != null && source.Source.Contains("refused")).ToList();
         Assert.That(refused, Is.Not.Empty, "the measurement's failure shows in the side panel");
-        Assert.That(refused.All(line => line.WordsAreData), Is.True, "and as data, never as Halcyonic's words");
+        Assert.That(refused.All(source => source.IsData), Is.True, "and as data, never as Halcyonic's words");
     }
 
     [Test]

@@ -215,7 +215,7 @@ public class WorkspaceScreensTests
         screen.ReadAnswer(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
         Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Parts, Is.EqualTo((0, 2)),
             "what was checked pages from the checks seen to the measurement, each under its own source");
-        Assert.That(screen.AnswerPages[1].Lines[0].Text, Is.EqualTo("From Seorak, read 1 minute ago"));
+        Assert.That(screen.AnswerPages[1].Provenance, Is.EqualTo("From Seorak, read 1 minute ago"));
         screen.ReadAnswer(Answers.Understand(UnderstandPrompt.WhyChanged, Intelligence.Verified), new AnswerRoom(20));
         Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Parts, Is.Null, "an answer of one page shows no pager");
     }
