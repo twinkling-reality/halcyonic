@@ -1,6 +1,6 @@
 # ADR 0028: OpenCode runs inside a macOS sandbox of Halcyonic's own
 
-- Status: Proposed
+- Status: Accepted (delegated by the owner, 2026-10-08)
 - Date: 2026-10-08
 
 ## Context
