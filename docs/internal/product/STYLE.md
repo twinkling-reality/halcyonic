@@ -97,7 +97,10 @@ Three sizes on the plane (`Glaze.Menu`):
 - **Upright is ours; theirs leans** (the owner's pick, 2026-10-08). Everything Halcyonic didn't write,
   an agent's words, a title, a name, a label, a source's sentence and the person's own words, leans by
   the font's italic amount, never quoted, on a ground only Halcyonic draws where it meets our words:
-  white at 7.5 percent with a 17 percent hairline, 0.32 degree corners, 0.25 degrees past the words.
+  white at 2 percent with a 5 percent hairline, in linear space as Unity blends, so it never reads as
+  chosen; 0.32 degree corners; 0.25 degrees past the words, set in the sentence as a word is, our space
+  before it and after it (none before punctuation); the words on it in the primary text colour. A
+  separator such as ": " between two of theirs doesn't make the line ours.
   A row or a block all of it carries our quote mark (format_quote) in the icon column, in the
   secondary colour, where no icon of ours stands; a title in its plate leans with the plate as its
   ground. Theirs comes after our words where we can word it so, and is cut first, inside its ground.
