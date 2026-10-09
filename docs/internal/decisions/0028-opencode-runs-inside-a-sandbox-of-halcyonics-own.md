@@ -63,7 +63,8 @@
    `ai/src/protocols/openai-chat.ts`). Chats stream back, and closing one closes Ollama's reply. At
    most one chat is open for each turn running or starting on the server, and at least one; at
    most four more wait, first come first served, each for at most 60 s, then are refused. At most
-   32 connections are open and two bodies read at once. The gate always connects to the control
+   256 connections are open and two bodies read at once, and a connection that has not sent a whole
+   request 15 s after it opened, or after its last reply ended, is closed. The gate always connects to the control
    plane's Ollama address, `127.0.0.1:11434`, never one a request names. The adapter points
    OpenCode at it with `OPENCODE_CONFIG_CONTENT`, which OpenCode loads after every other settings
    source, so its `baseURL` wins, and which nothing else may set.
@@ -95,8 +96,9 @@
   those credentials of the person's.
 - **Residual, stated plainly:**
   - **Ollama, through the gate:** a command can ask a model on this Mac for replies, as OpenCode
-    does, holding it while it runs, and can take the chat slots so that OpenCode's own next chat
-    waits and, after 60 s, fails; nothing it sends that way leaves the Mac. Before the gate
+    does, holding it while it runs, and can take the chat slots, or keep the gate's connections
+    full, so that OpenCode's own next request waits or fails, visibly, as a failed turn; nothing it
+    sends that way leaves the Mac. Before the gate
     (2026-10-08, decision 5), Ollama's own port was reachable, and Ollama, unsandboxed, could be
     asked to pull from or push to any registry, a pull's name carrying data to a host the command
     chose, or to run a cloud model.

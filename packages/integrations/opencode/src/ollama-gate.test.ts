@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer, type IncomingMessage, request, type ServerResponse } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { type AddressInfo, connect, type Socket } from 'node:net';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
@@ -88,12 +88,14 @@ async function gateFor(
   origin: string,
   maxChats: () => number = () => 4,
   chatWaitMs?: number,
+  requestTimeoutMs?: number,
 ): Promise<string> {
   const gate = await startOllamaGate({
     ollama: origin,
     maxChats,
     listTtlMs: 0,
     ...(chatWaitMs === undefined ? {} : { chatWaitMs }),
+    ...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
   });
   t.after(() => gate.close());
   assert.equal(gate.baseUrl, `http://127.0.0.1:${gate.port}/v1`);
@@ -465,5 +467,78 @@ describe("Ollama's gate", () => {
     }
     assert.equal(ollama.open.size, 1);
     first.abort();
+  });
+
+  test('gives a read slot back when a request leaves while it waits, so later requests still go through', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin);
+    const port = Number(new URL(gate).port);
+    // Two requests that send only part of their body hold both read slots.
+    const partial = (): Promise<Socket> =>
+      new Promise((resolve) => {
+        const socket = connect(port, '127.0.0.1', () => {
+          socket.write(
+            'POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{"model":',
+          );
+          resolve(socket);
+        });
+        socket.on('error', () => undefined);
+      });
+    const holding = [await partial(), await partial()];
+    await delay(100);
+    // Two more wait for a slot, and leave.
+    const leaving = [await partial(), await partial()];
+    await delay(100);
+    for (const socket of leaving) socket.destroy();
+    await delay(100);
+    for (const socket of holding) socket.destroy();
+    await delay(100);
+    const answer = await Promise.race([
+      send(`${gate}/api/show`, { method: 'POST', body: JSON.stringify({ model: TAG }) }),
+      delay(2_000).then(() => ({ status: 0 })),
+    ]);
+    assert.equal(answer.status, 200, 'a later request hung');
+  });
+
+  test('closes a connection that sends its request too slowly, while a long reply keeps streaming', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin, () => 4, undefined, 500);
+    const port = Number(new URL(gate).port);
+    const chat = openChat(gate);
+    await chat.first;
+    const slow = await new Promise<Socket>((resolve) => {
+      const socket = connect(port, '127.0.0.1', () => {
+        socket.write('POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{');
+        resolve(socket);
+      });
+      socket.on('error', () => undefined);
+    });
+    const closed = new Promise<void>((resolve) => slow.once('close', () => resolve()));
+    assert.equal(await settlesWithin(closed, 2_500), true, 'the slow request was kept open');
+    // The reply that began before is still open past the time a request may take.
+    assert.equal(ollama.open.size, 1);
+    assert.equal(ollama.closed.length, 0);
+    chat.abort();
+  });
+
+  test('lets go of every request still waiting when it closes', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await startOllamaGate({ ollama: ollama.origin, maxChats: () => 1, listTtlMs: 0 });
+    const base = `http://127.0.0.1:${gate.port}`;
+    const first = openChat(base);
+    await first.first;
+    const waiting = openChat(base);
+    assert.equal(await settlesWithin(waiting.first, 300), false);
+    await gate.close();
+    await assert.rejects(waiting.first);
+  });
+
+  test('closes a connection that sends nothing', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin, () => 4, undefined, 300);
+    const idle = connect(Number(new URL(gate).port), '127.0.0.1');
+    idle.on('error', () => undefined);
+    const closed = new Promise<void>((resolve) => idle.once('close', () => resolve()));
+    assert.equal(await settlesWithin(closed, 1_500), true, 'an idle connection was kept open');
   });
 });

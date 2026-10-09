@@ -5,7 +5,7 @@ import {
   type Server,
   type ServerResponse,
 } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import type { AddressInfo, Socket } from 'node:net';
 import { isRecord } from './events.ts';
 
 /**
@@ -49,6 +49,8 @@ export interface OllamaGateOptions {
   readonly listTtlMs?: number;
   /** How long a chat waits for its turn before it is refused. By default 60 s. */
   readonly chatWaitMs?: number;
+  /** How long a connection may take to send its whole request. By default 15 s. */
+  readonly requestTimeoutMs?: number;
 }
 
 /** The largest request body passed on: OpenCode's whole conversation with the model, as JSON. */
@@ -57,9 +59,17 @@ export const MAX_BODY_BYTES = 8 * 1024 * 1024;
 export const MAX_DEPTH = 64;
 /** Chats waiting their turn at once; one more is refused. */
 export const MAX_WAITING_CHATS = 4;
-/** Connections open at once, and request bodies read and parsed at once. */
-const MAX_CONNECTIONS = 32;
+/**
+ * Connections open at once, and request bodies read and parsed at once. Past the first, Node
+ * closes a new connection at once, which OpenCode sees as a failed request.
+ */
+const MAX_CONNECTIONS = 256;
 const MAX_READING = 2;
+/**
+ * How long a connection may take to send a whole request, from when it opens or its last reply
+ * ends: one that sends nothing, or sends slowly, is closed, so a few cannot hold the gate's places.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
 /**
  * The fields of a chat request OpenCode 2.0.18 sends to an OpenAI-compatible provider
  * (ai/src/protocols/openai-chat.ts, `bodyFields`), the only ones passed on.
@@ -173,23 +183,44 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     return cached.models;
   };
 
-  // Bodies read at once, in order of arrival.
+  // Bodies read at once, in order of arrival. A slot passes straight to the next request waiting,
+  // and a request that leaves while it waits gives up its place.
   let reading = 0;
-  const readers: (() => void)[] = [];
+  const readers: { go(): void; leave(): void }[] = [];
   const read = async (req: IncomingMessage): Promise<Buffer | null> => {
-    if (reading >= MAX_READING) await new Promise<void>((resolve) => readers.push(resolve));
-    reading += 1;
+    if (reading >= MAX_READING) {
+      const handed = await new Promise<boolean>((resolve) => {
+        if (req.destroyed) {
+          resolve(false);
+          return;
+        }
+        const finish = (outcome: boolean) => {
+          req.off('close', left);
+          const index = readers.indexOf(entry);
+          if (index >= 0) readers.splice(index, 1);
+          resolve(outcome);
+        };
+        const entry = { go: () => finish(true), leave: () => finish(false) };
+        const left = () => finish(false);
+        req.once('close', left);
+        readers.push(entry);
+      });
+      if (!handed) throw new Error('The request ended while it waited to be read.');
+    } else {
+      reading += 1;
+    }
     try {
       return await readBody(req, MAX_BODY_BYTES);
     } finally {
-      reading -= 1;
-      readers.shift()?.();
+      const next = readers.shift();
+      if (next === undefined) reading -= 1;
+      else next.go();
     }
   };
 
   // Chats open at once, and those waiting their turn, first come first served.
   let chats = 0;
-  const queue: { admit(): void }[] = [];
+  const queue: { admit(): void; leave(outcome: Waited | null): void }[] = [];
   let recheck: NodeJS.Timeout | null = null;
   const allowed = () => Math.max(1, options.maxChats());
   const admit = () => {
@@ -215,6 +246,10 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
   /** A turn for one chat, or `busy` when too many wait or it waited too long; null if it left. */
   const turn = (res: ServerResponse): Promise<Waited | null> =>
     new Promise((resolve) => {
+      if (res.destroyed) {
+        resolve(null);
+        return;
+      }
       if (queue.length === 0 && chats < allowed()) {
         chats += 1;
         resolve({ kind: 'go', release: releaser() });
@@ -226,6 +261,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       }
       const waiter = {
         admit: () => leave({ kind: 'go', release: releaser() }),
+        leave: (outcome: Waited | null) => leave(outcome),
       };
       const leave = (outcome: Waited | null) => {
         clearTimeout(timer);
@@ -242,17 +278,41 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       admit();
     });
 
+  // Each connection's time to send a whole request, counted by the gate itself: once a request is
+  // read, its reply streams back for as long as the model runs.
+  const requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+  const deadlines = new Map<Socket, NodeJS.Timeout>();
+  const disarm = (socket: Socket) => {
+    clearTimeout(deadlines.get(socket));
+    deadlines.delete(socket);
+  };
+  const arm = (socket: Socket) => {
+    disarm(socket);
+    if (!socket.destroyed) {
+      deadlines.set(
+        socket,
+        setTimeout(() => socket.destroy(), requestTimeoutMs),
+      );
+    }
+  };
+
   const server = createServer((req, res) => {
+    res.once('finish', () => arm(req.socket));
     void handle(req, res).catch(() => {
       if (!res.headersSent) refuse(res, 502, 'Ollama could not be reached.');
       else res.destroy();
     });
+  });
+  server.on('connection', (socket: Socket) => {
+    arm(socket);
+    socket.once('close', () => disarm(socket));
   });
   server.maxConnections = MAX_CONNECTIONS;
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const route = `${req.method} ${req.url}`;
     if (route === 'GET /api/tags') {
+      disarm(req.socket);
       req.resume();
       sendJson(res, 200, { models: await list() });
       return;
@@ -265,6 +325,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       return;
     }
     const raw = await read(req);
+    if (raw !== null) disarm(req.socket);
     if (raw === null) {
       // The rest is never read: the connection closes once the refusal is sent.
       res.once('finish', () => req.destroy());
@@ -320,6 +381,9 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     close: async () => {
       if (recheck !== null) clearInterval(recheck);
       recheck = null;
+      for (const waiter of [...queue]) waiter.leave(null);
+      for (const reader of [...readers]) reader.leave();
+      for (const socket of [...deadlines.keys()]) disarm(socket);
       await close(server);
     },
   };
@@ -405,6 +469,10 @@ function readList(target: { hostname: string; port: number }): Promise<unknown> 
 /** The whole body, or null once it passes `limit` bytes; a body cut off before its end fails. */
 function readBody(stream: IncomingMessage, limit: number): Promise<Buffer | null> {
   return new Promise((resolve, reject) => {
+    if (stream.destroyed) {
+      reject(new Error('The request ended before its body was read.'));
+      return;
+    }
     const chunks: Buffer[] = [];
     let size = 0;
     let settled = false;
