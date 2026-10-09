@@ -89,8 +89,11 @@ while Ollama listens on IPv4.
 An independent review of the gate (2026-10-08, reading and small probes against the gate and a
 stand-in, never Ollama) found that a chat naming the local model as `model` and a cloud model as
 `Model` passed the check, Ollama's decoder reading the second; and that the gate's memory and its
-waiting chats were unbounded. Fixed before this record: the checks and limits in ADR 0028,
-decision 5.
+waiting chats were unbounded. Its re-check of the fixes confirmed the case folding against Go's
+own decoder (the Kelvin sign and long s are the only letters outside ASCII that fold into it) and
+found that a request leaving while it waited to be read kept its read place, so two such requests
+left every later one hanging, and that idle connections could fill the gate. Fixed before this
+record: the checks and limits in ADR 0028, decision 5, with a unit test for each.
 
 Before the gate, Ollama's port was reachable from inside, and Ollama runs unsandboxed: it can be
 asked to pull a model from, or push one to, any registry, and a pull's name can itself carry data to
@@ -125,8 +128,9 @@ documents load in the order wellknown, global, explicit and direct files, the pr
    tests add a body over 8 MiB, one not JSON, one nested too deep, keys differing in case anywhere
    (the Kelvin sign and long s too), fields OpenCode does not send left behind, a request's own
    headers left behind, a closed chat closing Ollama's reply, the cap, a waiting chat that leaves,
-   too many waiting and a wait too long; and a tracked test shows the gate closed once its server
-   is.
+   too many waiting and a wait too long, a request leaving while it waits to be read, a connection
+   sending nothing or sending its request too slowly while a reply streams on, and requests still
+   waiting when the gate closes; and a tracked test shows the gate closed once its server is.
 3. **Settings cannot move it.** With OpenCode's global settings naming another Ollama address
    (port 9, where nothing answers), the turn still reached the stand-in, through the gate (tracked
    e2e test). The project's own file named it too, but Halcyonic never loads a project's settings,
@@ -152,6 +156,9 @@ reach the download; found by review, 2026-10-08).
 - A command that outlives its server keeps a profile naming the gate's port after the gate has
   closed, so a program that later listens on that port is reachable from it, as with the server's
   own port.
+- What Ollama does with every field of a chat with a local model, such as an image inside a
+  message: known from reading only, not run, so "nothing leaves the Mac through Ollama" rests on
+  that reading for those fields.
 - A real model's turns through the gate; the stand-in streams as Ollama's OpenAI-compatible
   endpoint does, and the real Ollama was asked only for its list and a model's details.
 - A real local model's turns under the profile, with real builds and tests: what else an ordinary
