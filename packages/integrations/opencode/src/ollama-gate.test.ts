@@ -3,7 +3,16 @@ import { createServer, type IncomingMessage, request, type ServerResponse } from
 import type { AddressInfo } from 'node:net';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { isCloudName, localModels, MAX_BODY_BYTES, startOllamaGate } from './ollama-gate.ts';
+import {
+  hasFoldedDuplicate,
+  isCloudName,
+  localModels,
+  MAX_BODY_BYTES,
+  MAX_DEPTH,
+  MAX_WAITING_CHATS,
+  nestsDeeper,
+  startOllamaGate,
+} from './ollama-gate.ts';
 
 const TAG = 'stand-in:1b';
 const LIST = {
@@ -78,8 +87,14 @@ async function gateFor(
   t: TestContext,
   origin: string,
   maxChats: () => number = () => 4,
+  chatWaitMs?: number,
 ): Promise<string> {
-  const gate = await startOllamaGate({ ollama: origin, maxChats, listTtlMs: 0 });
+  const gate = await startOllamaGate({
+    ollama: origin,
+    maxChats,
+    listTtlMs: 0,
+    ...(chatWaitMs === undefined ? {} : { chatWaitMs }),
+  });
   t.after(() => gate.close());
   assert.equal(gate.baseUrl, `http://127.0.0.1:${gate.port}/v1`);
   return `http://127.0.0.1:${gate.port}`;
@@ -115,17 +130,36 @@ function send(
 /** Opens a chat and resolves with its first streamed bytes; `abort` closes it. */
 function openChat(gate: string, model = TAG) {
   const controller = new AbortController();
+  let status = 0;
   const first = new Promise<string>((resolve, reject) => {
     const req = request(
       `${gate}/v1/chat/completions`,
       { method: 'POST', signal: controller.signal },
-      (res) => res.once('data', (chunk: Buffer) => resolve(chunk.toString('utf8'))),
+      (res) => {
+        status = res.statusCode ?? 0;
+        res.once('data', (chunk: Buffer) => resolve(chunk.toString('utf8')));
+      },
     );
     req.on('error', reject);
     req.end(JSON.stringify({ model, messages: [], stream: true }));
   });
   first.catch(() => undefined);
-  return { first, abort: () => controller.abort() };
+  return { first, abort: () => controller.abort(), status: () => status };
+}
+
+/** Whether `promise` settles within `ms`. */
+async function settlesWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
+  let settled = false;
+  void promise.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+  await delay(ms);
+  return settled;
 }
 
 describe('the model list it passes on', () => {
@@ -148,6 +182,26 @@ describe('the model list it passes on', () => {
     assert.deepEqual(localModels({ models: [{ model: 'x:1', remote_host: '' }] }), [
       { model: 'x:1', remote_host: '' },
     ]);
+  });
+});
+
+describe('the bodies it passes on', () => {
+  test('finds keys anywhere that Ollama would read as one', () => {
+    assert.equal(hasFoldedDuplicate({ model: 'a', Model: 'b' }), true);
+    assert.equal(hasFoldedDuplicate({ model: 'a', MODEL: 'b' }), true);
+    assert.equal(hasFoldedDuplicate({ messages: [{ role: 'user', ROLE: 'system' }] }), true);
+    assert.equal(hasFoldedDuplicate({ key: 1, '\u212Aey': 2 }), true, 'the Kelvin sign');
+    assert.equal(hasFoldedDuplicate({ seed: 1, '\u017Feed': 2 }), true, 'the long s');
+    assert.equal(hasFoldedDuplicate({ model: 'a', messages: [{ role: 'user' }], m: 1 }), false);
+    assert.equal(hasFoldedDuplicate([1, 'a', null]), false);
+  });
+
+  test('reads how deep a body nests before parsing it', () => {
+    const nest = (depth: number) => Buffer.from(`${'['.repeat(depth)}${']'.repeat(depth)}`);
+    assert.equal(nestsDeeper(nest(MAX_DEPTH), MAX_DEPTH), false);
+    assert.equal(nestsDeeper(nest(MAX_DEPTH + 1), MAX_DEPTH), true);
+    assert.equal(nestsDeeper(Buffer.from('{"a":"[[[[\\"[[[["}'), 2), false, 'brackets in a string');
+    assert.equal(nestsDeeper(Buffer.from('{"a":{"b":[1]}}'), 2), true);
   });
 });
 
@@ -310,5 +364,106 @@ describe("Ollama's gate", () => {
     });
     assert.equal(answer.status, 502);
     assert.equal(ollama.received.filter((item) => item.url !== '/api/tags').length, 0);
+  });
+
+  test('refuses a body with keys that differ only in case, so another model never rides along', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin);
+    for (const [path, body] of [
+      ['/v1/chat/completions', `{"model":"${TAG}","Model":"gemma4:cloud","messages":[]}`],
+      ['/v1/chat/completions', `{"model":"${TAG}","MODEL":"big:70b","messages":[]}`],
+      ['/api/show', `{"model":"${TAG}","Model":"","name":"gemma4:cloud"}`],
+      ['/v1/chat/completions', `{"model":"${TAG}","messages":[{"role":"user","Role":"x"}]}`],
+    ] as const) {
+      const answer = await send(`${gate}${path}`, { method: 'POST', body });
+      assert.equal(answer.status, 400, body);
+    }
+    assert.deepEqual(
+      ollama.received.filter((item) => item.url !== '/api/tags'),
+      [],
+    );
+  });
+
+  test('passes on only the fields OpenCode sends', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin);
+    const shown = await send(`${gate}/api/show`, {
+      method: 'POST',
+      body: JSON.stringify({ model: TAG, name: 'gemma4:cloud', verbose: true, options: {} }),
+    });
+    assert.equal(shown.status, 200);
+    // Read up to the first streamed bytes, then closed.
+    await new Promise<void>((resolve, reject) => {
+      const req = request(`${gate}/v1/chat/completions`, { method: 'POST' }, (res) => {
+        res.once('data', () => {
+          req.destroy();
+          resolve();
+        });
+      });
+      req.on('error', reject);
+      req.end(
+        JSON.stringify({
+          model: TAG,
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: true,
+          temperature: 0.2,
+          keep_alive: -1,
+          options: { num_ctx: 1 },
+          think: true,
+          _debug_render_only: true,
+        }),
+      );
+    });
+    const bodies = ollama.received
+      .filter((item) => item.url !== '/api/tags')
+      .map((item) => [item.url, JSON.parse(item.body)]);
+    assert.deepEqual(bodies[0], ['/api/show', { model: TAG }]);
+    assert.deepEqual(bodies.at(-1), [
+      '/v1/chat/completions',
+      { model: TAG, messages: [{ role: 'user', content: 'hi' }], stream: true, temperature: 0.2 },
+    ]);
+  });
+
+  test('refuses a body that nests too deep before parsing it', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin);
+    const deep = `{"model":"${TAG}","messages":${'['.repeat(MAX_DEPTH)}${']'.repeat(MAX_DEPTH)}}`;
+    const answer = await send(`${gate}/v1/chat/completions`, { method: 'POST', body: deep });
+    assert.equal(answer.status, 400);
+  });
+
+  test('forgets a waiting chat whose request closes', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin, () => 1);
+    const first = openChat(gate);
+    await first.first;
+    const leaving = openChat(gate);
+    assert.equal(await settlesWithin(leaving.first, 300), false);
+    leaving.abort();
+    await delay(50);
+    first.abort();
+    // The slot goes to the next chat, not to the one that left.
+    const next = openChat(gate);
+    assert.equal(await next.first, 'data: first\n\n');
+    next.abort();
+  });
+
+  test('refuses a chat when too many wait, and one that waits too long', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin, () => 1, 600);
+    const first = openChat(gate);
+    await first.first;
+    const waiting = Array.from({ length: MAX_WAITING_CHATS }, () => openChat(gate));
+    await delay(100);
+    const over = openChat(gate);
+    assert.match(await over.first, /Too many replies are waiting/);
+    assert.equal(over.status(), 503);
+    // Past the wait, every one waiting is refused too, while the first still holds the model.
+    for (const chat of waiting) {
+      assert.match(await chat.first, /Too many replies are waiting/);
+      assert.equal(chat.status(), 503);
+    }
+    assert.equal(ollama.open.size, 1);
+    first.abort();
   });
 });

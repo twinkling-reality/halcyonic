@@ -56,12 +56,17 @@
    OpenCode 2.0.18 makes of Ollama, `GET /api/tags`, `POST /api/show` and
    `POST /v1/chat/completions`, and refuses everything else before it reaches Ollama. The model list
    it answers holds only models that run on this Mac (no `remote_host` or `remote_model`, no `cloud`
-   tag); a show or chat body is parsed as JSON, at most 8 MiB, must name one of them, and is passed
-   on as parsed. Chats stream back, and closing one closes Ollama's reply. At most one chat is open
-   for each turn running or starting on the server, and at least one; another waits. The gate always
-   connects to the control plane's Ollama address, `127.0.0.1:11434`, never one a request names. The
-   adapter points OpenCode at it with `OPENCODE_CONFIG_CONTENT`, which OpenCode ranks above every
-   settings file, global and project, and which nothing else may set.
+   tag). A show or chat body is a JSON object of at most 8 MiB, nested at most 64 deep, that must
+   name one of them; a body in which any object has two keys differing only in letter case is
+   refused, since Ollama's Go decoder reads them as one and keeps the last. What reaches Ollama is
+   built anew: a show by the model alone, a chat from the fields OpenCode sends (`bodyFields`,
+   `ai/src/protocols/openai-chat.ts`). Chats stream back, and closing one closes Ollama's reply. At
+   most one chat is open for each turn running or starting on the server, and at least one; at
+   most four more wait, first come first served, each for at most 60 s, then are refused. At most
+   32 connections are open and two bodies read at once. The gate always connects to the control
+   plane's Ollama address, `127.0.0.1:11434`, never one a request names. The adapter points
+   OpenCode at it with `OPENCODE_CONFIG_CONTENT`, which OpenCode loads after every other settings
+   source, so its `baseURL` wins, and which nothing else may set.
 
 ## Alternatives considered
 
@@ -90,7 +95,8 @@
   those credentials of the person's.
 - **Residual, stated plainly:**
   - **Ollama, through the gate:** a command can ask a model on this Mac for replies, as OpenCode
-    does, holding it while it runs; nothing it sends that way leaves the Mac. Before the gate
+    does, holding it while it runs, and can take the chat slots so that OpenCode's own next chat
+    waits and, after 60 s, fails; nothing it sends that way leaves the Mac. Before the gate
     (2026-10-08, decision 5), Ollama's own port was reachable, and Ollama, unsandboxed, could be
     asked to pull from or push to any registry, a pull's name carrying data to a host the command
     chose, or to run a cloud model.
