@@ -32,6 +32,7 @@ import {
   heldSecrets,
   openCodeEnvironment,
   openCodeSandbox,
+  ripgrepOnPath,
   secretName,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
@@ -359,6 +360,17 @@ describe("OpenCode's sandbox on this Mac (ADR 0028)", () => {
       '/h',
     );
     assert.deepEqual(own.readable, ['/d/runtimes']);
+  });
+
+  test('finds ripgrep only as a file on the PATH, since the sandbox refuses its download', () => {
+    const folder = mkdtempSync(join(base, 'rg-'));
+    assert.equal(ripgrepOnPath(folder), false);
+    assert.equal(ripgrepOnPath(undefined), false);
+    mkdirSync(join(folder, 'rg'));
+    assert.equal(ripgrepOnPath(folder), false, 'a folder named rg is not ripgrep');
+    const other = mkdtempSync(join(base, 'rg-'));
+    writeFileSync(join(other, 'rg'), '#!/bin/sh\n', { mode: 0o755 });
+    assert.equal(ripgrepOnPath(`${folder}::${other}`), true);
   });
 
   test('is given to OpenCode on macOS, and nowhere else', () => {

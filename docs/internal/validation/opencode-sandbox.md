@@ -18,7 +18,8 @@
 
 `(allow default)`, then: outbound network denied but to Ollama's port on loopback (11434: OpenCode
 2.0.18 asks Ollama only there, `core/src/plugin/provider/ollama.ts`, and Halcyonic's own OpenCode
-settings may not name another address) and the server's own; writes denied but in the project roots,
+settings may not name another address; without them the person's own settings are read, and an
+Ollama address there on another port is refused) and the server's own; writes denied but in the project roots,
 the server's own data, state, cache and temporary folders under `<data dir>/opencode-sandbox`, and
 `/dev/null`, `/dev/zero`, `/dev/tty*` and `/dev/fd/*`; reads denied of Halcyonic's data directory and
 a listed set of the person's credentials, then allowed again of the pinned binaries, the server's own
@@ -92,11 +93,25 @@ from, or push one to, any registry, and a pull's name can itself carry data to a
 chooses. So data can still leave the Mac through Ollama (source reading of Ollama's API, not run).
 `OLLAMA_NO_CLOUD=1` keeps its cloud models off; a proxy in front of Ollama is an open question.
 
+## ripgrep
+
+OpenCode 2.0.18 searches files with the first `rg` on its PATH, then one in its cache's `bin`, and
+otherwise downloads ripgrep 15.1.0 from GitHub into that cache (`core/src/ripgrep/binary.ts`).
+Inside the sandbox the download is refused, and the server's own cache starts empty, so without
+`rg` on the PATH OpenCode cannot search files. The control plane warns at startup when that is so,
+and mac-setup says it (source reading; on this Mac `rg` is on the PATH, so the runs above did not
+reach the download; found by review, 2026-10-08).
+
 ## Not verified
 
 - Whether OpenCode's server ever connects to itself on its own port; the port is allowed in case.
 - A real local model's turns under the profile, with real builds and tests: what else an ordinary
   task trips on.
 - Plugins and MCP servers a person configures in their own OpenCode settings, under the profile.
+- A credential file that is a symbolic link, inside one of the denied folders, to a file outside
+  them: Seatbelt checks the path a link resolves to, so the file it points to would stay readable
+  unless it is denied too (inference, not run).
+- Whether tamper detection notices saved session rules changed straight in the server's own
+  database, not through OpenCode's API.
 - Hosted models: OpenCode lists them (17 models, 10 of them Ollama's, on this Mac); from inside the
   sandbox none can be reached, so a start on one fails when its turn calls the provider.

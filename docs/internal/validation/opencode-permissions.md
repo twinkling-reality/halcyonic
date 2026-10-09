@@ -111,7 +111,7 @@ From the source, every path in `opencode serve` 2.0.18 with Ollama on loopback, 
 | Path | When | Where | How it stays off |
 | --- | --- | --- | --- |
 | Model catalog | At launch and every 5 minutes | models.opencode.ai | `OPENCODE_DISABLE_MODELS_FETCH=true`, set by the adapter |
-| ripgrep download | No `rg` on the PATH | github.com | `rg` on the PATH, as mac-setup checks |
+| ripgrep download | No `rg` on the PATH | github.com | `rg` on the PATH, as mac-setup checks; on macOS the sandbox refuses it, and the control plane warns |
 | Update check | The terminal UI's default command only; `serve` never runs it | opencode.ai, npm, Homebrew | Not reached; `OPENCODE_DISABLE_AUTOUPDATE` also set by the adapter |
 | `webfetch` | The model asks for a URL | Any host | Session rule `webfetch` deny |
 | `websearch` | The model searches | Exa and four other search services, no key needed | Session rule `websearch` deny, or `websearch: false` |

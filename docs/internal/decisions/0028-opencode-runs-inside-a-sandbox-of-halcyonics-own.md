@@ -36,7 +36,9 @@
    are not set up.
 3. The profile allows everything except:
    - **network:** outbound only to Ollama's port on loopback (11434, the only one OpenCode 2.0.18
-     asks) and the server's own; no connection beyond the Mac, to another program listening on it
+     asks and the only one Halcyonic's own OpenCode settings allow; an Ollama address on another
+     port in the person's own settings, read when Halcyonic's are not set up, is refused) and the
+     server's own; no connection beyond the Mac, to another program listening on it
      (a debugger, a database, an app's own port), or to a local socket;
    - **writes:** only in the host's project roots, the server's own folders and the shell's
      devices; never `~/.halcyonic` otherwise, OpenCode's configuration folders, shell profiles or
@@ -80,6 +82,10 @@
     command chooses. So data can still leave the Mac through Ollama. Ollama's own `OLLAMA_NO_CLOUD`
     keeps its cloud models off; a proxy in front of Ollama is an open question.
   - **The project roots** are writable, so an approved command can change any project there.
+  - **The server's own data folder** is one for every project: a command run in one project can
+    read another's OpenCode sessions there, and change saved session rules in its database
+    directly, not only through OpenCode's API. Whether tamper detection notices a change made
+    there is not verified.
   - **The server's own port** is reachable, and OpenCode's server password stays readable from
     inside: macOS gives a process the starting environment of another of the same user's
     third-party processes, and no Seatbelt rule tried (`process-info*` for other processes,
@@ -89,8 +95,9 @@
   - Credentials the person keeps elsewhere than the paths above stay readable.
 - **Costs:** approved commands that need the network fail (`npm install`, `git fetch`,
   `pip install`), and so do a project's own tests or dev servers that open a local port and connect
-  to it: the person runs those. Hosted models OpenCode lists cannot be reached from inside, so a
-  start on one fails. A saved "always" or a Console login from the person's own OpenCode no longer
+  to it: the person runs those. OpenCode cannot search files unless `rg` is on the PATH, since the
+  sandbox refuses its download of ripgrep; the control plane warns at startup. Hosted models
+  OpenCode lists cannot be reached from inside, so a start on one fails. A saved "always" or a Console login from the person's own OpenCode no longer
   applies to Halcyonic's tasks; and Salidium's OpenCode source (off by default, and Salidium itself
   off now) no longer sees Halcyonic's OpenCode tasks, whose sessions are in Halcyonic's own data
   folder. Each OpenCode upgrade needs the profile re-verified and the runtime tests re-run.

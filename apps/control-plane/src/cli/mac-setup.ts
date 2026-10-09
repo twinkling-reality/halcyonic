@@ -402,7 +402,7 @@ class MacSetup {
       if (this.#io.which('rg') === null) {
         look = true;
         lines.push(
-          "OpenCode searches files with ripgrep, which isn't on this PATH, so OpenCode would download it from GitHub the first time.",
+          "OpenCode searches files with ripgrep, which isn't on this PATH, and its sandbox won't let it download one, so OpenCode can't search files until it's installed.",
         );
         next.push('brew install ripgrep');
       }

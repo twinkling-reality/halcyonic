@@ -21,9 +21,9 @@ const LOOPBACK = '127.0.0.1';
 const WATCHDOG = fileURLToPath(new URL('./watchdog.ts', import.meta.url));
 
 /**
- * Variables a launched server inherits from the parent environment when they are set. HOME and
- * the XDG directories stay at the user's values, where OpenCode keeps providers and keys, so
- * Salidium and Seorak can observe the sessions too. Nothing else is inherited.
+ * Variables a launched server inherits from the parent environment when they are set. Nothing
+ * else is inherited. Under Halcyonic's sandbox on macOS the adapter then points the XDG data, state
+ * and cache folders and TMPDIR at the server's own (ADR 0028); elsewhere they stay the person's.
  */
 export const INHERITED_VARIABLES: readonly string[] = [
   'PATH',
