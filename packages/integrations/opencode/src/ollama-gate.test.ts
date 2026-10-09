@@ -502,8 +502,16 @@ describe("Ollama's gate", () => {
 
   test('closes a connection that sends its request too slowly, while a long reply keeps streaming', async (t) => {
     const ollama = await upstream(t);
-    const gate = await gateFor(t, ollama.origin, () => 4, undefined, 500);
-    const port = Number(new URL(gate).port);
+    const opened = await startOllamaGate({
+      ollama: ollama.origin,
+      maxChats: () => 4,
+      listTtlMs: 0,
+      requestTimeoutMs: 500,
+      bodyTimeoutMs: 500,
+    });
+    t.after(() => opened.close());
+    const gate = `http://127.0.0.1:${opened.port}`;
+    const port = opened.port;
     const chat = openChat(gate);
     await chat.first;
     const slow = await new Promise<Socket>((resolve) => {
@@ -540,5 +548,57 @@ describe("Ollama's gate", () => {
     idle.on('error', () => undefined);
     const closed = new Promise<void>((resolve) => idle.once('close', () => resolve()));
     assert.equal(await settlesWithin(closed, 1_500), true, 'an idle connection was kept open');
+  });
+
+  test('closes a connection that sends another request while its reply is open, so none goes untimed', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await gateFor(t, ollama.origin);
+    const port = Number(new URL(gate).port);
+    const chat = JSON.stringify({ model: TAG, messages: [], stream: true });
+    const pipelined = (): Promise<Socket> =>
+      new Promise((resolve) => {
+        const socket = connect(port, '127.0.0.1', () => {
+          socket.write(
+            `POST /v1/chat/completions HTTP/1.1\r\nHost: x\r\nContent-Length: ${chat.length}\r\n\r\n${chat}` +
+              'POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{"mo',
+          );
+          resolve(socket);
+        });
+        socket.on('error', () => undefined);
+      });
+    const sockets = [await pipelined(), await pipelined()];
+    const closed = sockets.map(
+      (socket) => new Promise<void>((resolve) => socket.once('close', () => resolve())),
+    );
+    assert.equal(
+      await settlesWithin(Promise.all(closed), 1_500),
+      true,
+      'a pipelining connection stayed open',
+    );
+    const answer = await send(`${gate}/api/show`, {
+      method: 'POST',
+      body: JSON.stringify({ model: TAG }),
+    });
+    assert.equal(answer.status, 200);
+  });
+
+  test('closes a request that sends its body too slowly once it is being read', async (t) => {
+    const ollama = await upstream(t);
+    const gate = await startOllamaGate({
+      ollama: ollama.origin,
+      maxChats: () => 4,
+      listTtlMs: 0,
+      bodyTimeoutMs: 300,
+    });
+    t.after(() => gate.close());
+    const socket = connect(gate.port, '127.0.0.1', () => {
+      socket.write('POST /api/show HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n{');
+    });
+    socket.on('error', () => undefined);
+    // A byte at a time keeps the connection busy, but not past the body's time.
+    const drip = setInterval(() => socket.write(' '), 100);
+    t.after(() => clearInterval(drip));
+    const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
+    assert.equal(await settlesWithin(closed, 1_500), true, 'a dripping body was kept open');
   });
 });

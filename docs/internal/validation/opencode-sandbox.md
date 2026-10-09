@@ -92,8 +92,10 @@ stand-in, never Ollama) found that a chat naming the local model as `model` and 
 waiting chats were unbounded. Its re-check of the fixes confirmed the case folding against Go's
 own decoder (the Kelvin sign and long s are the only letters outside ASCII that fold into it) and
 found that a request leaving while it waited to be read kept its read place, so two such requests
-left every later one hanging, and that idle connections could fill the gate. Fixed before this
-record: the checks and limits in ADR 0028, decision 5, with a unit test for each.
+left every later one hanging, and that idle connections could fill the gate; its third look found
+that a request sent on a connection while that connection's reply was still open went untimed.
+Fixed before this record: the checks and limits in ADR 0028, decision 5, with a unit test for
+each.
 
 Before the gate, Ollama's port was reachable from inside, and Ollama runs unsandboxed: it can be
 asked to pull a model from, or push one to, any registry, and a pull's name can itself carry data to
@@ -129,7 +131,8 @@ documents load in the order wellknown, global, explicit and direct files, the pr
    (the Kelvin sign and long s too), fields OpenCode does not send left behind, a request's own
    headers left behind, a closed chat closing Ollama's reply, the cap, a waiting chat that leaves,
    too many waiting and a wait too long, a request leaving while it waits to be read, a connection
-   sending nothing or sending its request too slowly while a reply streams on, and requests still
+   sending nothing or sending its request too slowly while a reply streams on, a body dripping in a
+   byte at a time, a request sent behind an open reply on the same connection, and requests still
    waiting when the gate closes; and a tracked test shows the gate closed once its server is.
 3. **Settings cannot move it.** With OpenCode's global settings naming another Ollama address
    (port 9, where nothing answers), the turn still reached the stand-in, through the gate (tracked

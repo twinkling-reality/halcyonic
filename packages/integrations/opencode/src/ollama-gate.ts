@@ -49,8 +49,13 @@ export interface OllamaGateOptions {
   readonly listTtlMs?: number;
   /** How long a chat waits for its turn before it is refused. By default 60 s. */
   readonly chatWaitMs?: number;
-  /** How long a connection may take to send its whole request. By default 15 s. */
+  /**
+   * How long a connection may take to send a request's headers, and a request may wait to be
+   * read. By default 15 s.
+   */
   readonly requestTimeoutMs?: number;
+  /** How long a request may take to send its body once it is being read. By default 5 s. */
+  readonly bodyTimeoutMs?: number;
 }
 
 /** The largest request body passed on: OpenCode's whole conversation with the model, as JSON. */
@@ -66,10 +71,13 @@ export const MAX_WAITING_CHATS = 4;
 const MAX_CONNECTIONS = 256;
 const MAX_READING = 2;
 /**
- * How long a connection may take to send a whole request, from when it opens or its last reply
- * ends: one that sends nothing, or sends slowly, is closed, so a few cannot hold the gate's places.
+ * How long a connection may take to send a request's headers, from when it opens or its last reply
+ * ends, and how long a request may wait for a place to be read: one that sends nothing, or sends
+ * slowly, is closed, so a few cannot hold the gate's places.
  */
 const REQUEST_TIMEOUT_MS = 15_000;
+/** How long a request may take to send its body once it has a place to be read. */
+const BODY_TIMEOUT_MS = 5_000;
 /**
  * The fields of a chat request OpenCode 2.0.18 sends to an OpenAI-compatible provider
  * (ai/src/protocols/openai-chat.ts, `bodyFields`), the only ones passed on.
@@ -195,6 +203,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
           return;
         }
         const finish = (outcome: boolean) => {
+          clearTimeout(timer);
           req.off('close', left);
           const index = readers.indexOf(entry);
           if (index >= 0) readers.splice(index, 1);
@@ -202,15 +211,16 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
         };
         const entry = { go: () => finish(true), leave: () => finish(false) };
         const left = () => finish(false);
+        const timer = setTimeout(left, requestTimeoutMs);
         req.once('close', left);
         readers.push(entry);
       });
-      if (!handed) throw new Error('The request ended while it waited to be read.');
+      if (!handed) throw new Busy();
     } else {
       reading += 1;
     }
     try {
-      return await readBody(req, MAX_BODY_BYTES);
+      return await readBody(req, MAX_BODY_BYTES, bodyTimeoutMs);
     } finally {
       const next = readers.shift();
       if (next === undefined) reading -= 1;
@@ -281,6 +291,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
   // Each connection's time to send a whole request, counted by the gate itself: once a request is
   // read, its reply streams back for as long as the model runs.
   const requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+  const bodyTimeoutMs = options.bodyTimeoutMs ?? BODY_TIMEOUT_MS;
   const deadlines = new Map<Socket, NodeJS.Timeout>();
   const disarm = (socket: Socket) => {
     clearTimeout(deadlines.get(socket));
@@ -296,11 +307,25 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     }
   };
 
+  // OpenCode sends one request at a time on a connection; one sent while a reply is still open
+  // closes the connection, so a request never goes untimed behind another's reply.
+  const answering = new Set<Socket>();
   const server = createServer((req, res) => {
-    res.once('finish', () => arm(req.socket));
-    void handle(req, res).catch(() => {
-      if (!res.headersSent) refuse(res, 502, 'Ollama could not be reached.');
-      else res.destroy();
+    const socket = req.socket;
+    if (answering.has(socket)) {
+      socket.destroy();
+      return;
+    }
+    answering.add(socket);
+    disarm(socket);
+    res.once('close', () => {
+      answering.delete(socket);
+      arm(socket);
+    });
+    void handle(req, res).catch((error: unknown) => {
+      if (res.headersSent) res.destroy();
+      else if (error instanceof Busy) refuse(res, 503, 'The gate to Ollama is busy.');
+      else refuse(res, 502, 'Ollama could not be reached.');
     });
   });
   server.on('connection', (socket: Socket) => {
@@ -312,7 +337,6 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const route = `${req.method} ${req.url}`;
     if (route === 'GET /api/tags') {
-      disarm(req.socket);
       req.resume();
       sendJson(res, 200, { models: await list() });
       return;
@@ -325,7 +349,6 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       return;
     }
     const raw = await read(req);
-    if (raw !== null) disarm(req.socket);
     if (raw === null) {
       // The rest is never read: the connection closes once the refusal is sent.
       res.once('finish', () => req.destroy());
@@ -467,12 +490,22 @@ function readList(target: { hostname: string; port: number }): Promise<unknown> 
 }
 
 /** The whole body, or null once it passes `limit` bytes; a body cut off before its end fails. */
-function readBody(stream: IncomingMessage, limit: number): Promise<Buffer | null> {
+function readBody(
+  stream: IncomingMessage,
+  limit: number,
+  timeoutMs?: number,
+): Promise<Buffer | null> {
   return new Promise((resolve, reject) => {
     if (stream.destroyed) {
       reject(new Error('The request ended before its body was read.'));
       return;
     }
+    // Too slow: the connection is closed, which ends the read below as cut off.
+    const timer =
+      timeoutMs === undefined ? null : setTimeout(() => stream.socket.destroy(), timeoutMs);
+    stream.once('close', () => {
+      if (timer !== null) clearTimeout(timer);
+    });
     const chunks: Buffer[] = [];
     let size = 0;
     let settled = false;
@@ -489,6 +522,7 @@ function readBody(stream: IncomingMessage, limit: number): Promise<Buffer | null
     });
     stream.once('end', () => {
       settled = true;
+      if (timer !== null) clearTimeout(timer);
       resolve(Buffer.concat(chunks));
     });
     stream.once('error', reject);
@@ -497,6 +531,9 @@ function readBody(stream: IncomingMessage, limit: number): Promise<Buffer | null
     });
   });
 }
+
+/** A request refused because the gate is busy: it waited too long for a place to be read. */
+class Busy extends Error {}
 
 function present(value: unknown): boolean {
   return value !== undefined && value !== null && value !== '';

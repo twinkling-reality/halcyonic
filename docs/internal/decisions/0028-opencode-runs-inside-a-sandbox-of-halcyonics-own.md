@@ -63,8 +63,10 @@
    `ai/src/protocols/openai-chat.ts`). Chats stream back, and closing one closes Ollama's reply. At
    most one chat is open for each turn running or starting on the server, and at least one; at
    most four more wait, first come first served, each for at most 60 s, then are refused. At most
-   256 connections are open and two bodies read at once, and a connection that has not sent a whole
-   request 15 s after it opened, or after its last reply ended, is closed. The gate always connects to the control
+   256 connections are open and two bodies read at once. A connection is closed when it takes more
+   than 15 s to send a request's headers, from when it opened or its last reply ended, when its
+   request waits more than 15 s for a place to be read or takes more than 5 s to send its body once
+   read, and when it sends a request while its last reply is still open, which OpenCode never does. The gate always connects to the control
    plane's Ollama address, `127.0.0.1:11434`, never one a request names. The adapter points
    OpenCode at it with `OPENCODE_CONFIG_CONTENT`, which OpenCode loads after every other settings
    source, so its `baseURL` wins, and which nothing else may set.
