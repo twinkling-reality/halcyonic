@@ -71,12 +71,7 @@ export function createRuntimeAdapters(
         env: openCodeEnvironment(config, additions),
         sandbox:
           process.platform === 'darwin'
-            ? openCodeSandbox(
-                config,
-                dependencies.dataDir,
-                dependencies.environment.HOME ?? '',
-                openCodeEnvironment(config, additions),
-              )
+            ? openCodeSandbox(config, dependencies.dataDir, dependencies.environment.HOME ?? '')
             : null,
       }),
     );
@@ -105,10 +100,11 @@ export function openCodeSandbox(
   config: Pick<ControlPlaneConfig, 'projectRoots' | 'opencodeConfigHome' | 'opencodeBinary'>,
   dataDir: string,
   home: string,
-  environment: Readonly<Record<string, string>> = {},
 ) {
   return {
-    loopbackPorts: [ollamaPort(environment.OLLAMA_HOST)],
+    // OpenCode 2.0.18 asks Ollama only at its default address, and Halcyonic's own OpenCode
+    // settings may not name another (core/src/plugin/provider/ollama.ts, config.ts).
+    loopbackPorts: [OLLAMA_PORT],
     projectRoots: config.projectRoots,
     unreadable: [dataDir, ...(home === '' ? [] : personalSecrets(home))],
     readable: [
@@ -119,16 +115,8 @@ export function openCodeSandbox(
   };
 }
 
-/**
- * The port OpenCode reaches Ollama on: OLLAMA_HOST's when the agents' environment passes one
- * (`host:port`, `:port`, or a URL), else Ollama's default, 11434.
- */
-export function ollamaPort(host: string | undefined): number {
-  const given = host?.trim() ?? '';
-  const port = /:(\d{1,5})\/?$/.exec(given)?.[1];
-  const number = port === undefined ? Number.NaN : Number(port);
-  return Number.isInteger(number) && number > 0 && number < 65536 ? number : 11434;
-}
+/** The port OpenCode reaches Ollama on: Ollama's default, the only one OpenCode 2.0.18 asks. */
+export const OLLAMA_PORT = 11434;
 
 /**
  * Stops runtime processes that an earlier control plane launched and that outlived it, such as an

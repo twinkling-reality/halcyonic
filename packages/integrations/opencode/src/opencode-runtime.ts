@@ -1,4 +1,5 @@
-import { chmod, mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -664,11 +665,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
-   * Writes the server's Seatbelt profile beside its record, readable by the user only, from the
-   * project roots, OpenCode's own folders for this environment and the temporary folders; null
-   * when the server runs unsandboxed.
+   * The server's sandbox (ADR 0028), or null when it runs unsandboxed: a profile written beside
+   * its record, readable by the user only, and the environment it runs with there. Inside, it gets
+   * data, state, cache and temporary folders of its own beside the profile, never the person's own
+   * OpenCode folders, whose packages, binaries, saved rules and credentials the person's own
+   * OpenCode uses outside the sandbox, nor the system's temporary folder every app shares.
    */
-  async #writeSandboxProfile(port: number): Promise<string | null> {
+  async #sandboxFor(
+    port: number,
+  ): Promise<{ readonly profile: string; readonly environment: Record<string, string> } | null> {
     if (this.#sandbox === null || this.#sandbox === undefined) {
       // On macOS OpenCode runs only inside the sandbox (ADR 0028): its ask before a shell command
       // depends on its parse of the command, and the sandbox bounds what a command can reach.
@@ -680,25 +685,29 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       }
       return null;
     }
-    const path = join(dirname(this.#recordFile), 'opencode-sandbox.sb');
-    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-    const profile = sandboxProfile({
+    const folder = join(dirname(this.#recordFile), 'opencode-sandbox');
+    for (const name of ['data', 'state', 'cache', 'tmp']) {
+      await mkdir(join(folder, name), { recursive: true, mode: 0o700 });
+    }
+    const environment = {
+      ...this.#environment,
+      XDG_DATA_HOME: join(folder, 'data'),
+      XDG_STATE_HOME: join(folder, 'state'),
+      XDG_CACHE_HOME: join(folder, 'cache'),
+      TMPDIR: `${join(folder, 'tmp')}/`,
+    };
+    const text = sandboxProfile({
       loopbackPorts: [...this.#sandbox.loopbackPorts, port],
-      // The server's own temporary folder (its TMPDIR, inherited from the control plane), never the
-      // whole of the system's, unless it was given none.
-      writable: [
-        ...this.#sandbox.projectRoots,
-        ...openCodeFolders(this.#environment),
-        ...(this.#environment.TMPDIR === undefined || this.#environment.TMPDIR === ''
-          ? [tmpdir()]
-          : []),
-      ],
+      writable: [...this.#sandbox.projectRoots, ...openCodeFolders(environment)],
       unreadable: this.#sandbox.unreadable,
-      readable: this.#sandbox.readable ?? [],
+      readable: [...(this.#sandbox.readable ?? []), folder],
     });
-    await writeFile(path, profile, { mode: 0o600 });
-    await chmod(path, 0o600);
-    return path;
+    // Written whole under a new name, then moved into place, never through a link at its path.
+    const profile = join(dirname(this.#recordFile), 'opencode-sandbox.sb');
+    const draft = `${profile}.${process.pid}.${randomUUID()}`;
+    await writeFile(draft, text, { mode: 0o600, flag: 'wx' });
+    await rename(draft, profile);
+    return { profile, environment };
   }
 
   async #launch(): Promise<Connection> {
@@ -712,14 +721,15 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     // Chosen here, since the sandbox's profile names the server's own port.
     const port = this.#port ?? (await freeLoopbackPort());
+    const sandbox = await this.#sandboxFor(port);
     const server = await launchServer({
       binaryPath: this.#binaryPath,
-      environment: this.#environment,
+      environment: sandbox?.environment ?? this.#environment,
       recordFile: this.#recordFile,
       port,
       cwd: tmpdir(),
       startupTimeoutMs: this.#startupTimeoutMs,
-      sandboxProfile: await this.#writeSandboxProfile(port),
+      sandboxProfile: sandbox?.profile ?? null,
     });
     if (this.#closing !== null) {
       await server.stop();

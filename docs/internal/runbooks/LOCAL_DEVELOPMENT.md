@@ -77,9 +77,11 @@ which only you can read or change, and Halcyonic reads it when it starts
 
    OpenCode then starts on that model when none is chosen; your own OpenCode settings are left as
    they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code Mode, web fetch,
-   web search and subagents turned off, runs inside a sandbox of Halcyonic's own (it reaches only
-   Ollama on this Mac, writes only in your project folders, and reads none of your credentials, so
-   an `npm install` or `git fetch` it runs fails: run those yourself), ignores the project's own
+   web search and subagents turned off, runs inside a sandbox of Halcyonic's own (it connects only to
+   Ollama on this Mac, writes only in your project folders and folders of its own, and can't read
+   your keys and the credentials the sandbox lists, so an `npm install`, a `git fetch` or a dev
+   server it runs fails: run those yourself; and a model OpenCode lists from a remote service can't
+   be reached from inside), ignores the project's own
    OpenCode configuration and
    plugins, cannot edit hidden files such as `.git` or `.gitignore` itself, and asks you about
    shell commands, which is how its
