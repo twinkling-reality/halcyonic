@@ -95,9 +95,13 @@ The owner chose bots.
   the stage, since moving without a reason says nothing true; gaps close when the stage is next
   placed. A character that needs the person comes to the front of the desk rather than standing in the
   middle, as the next bullet says. Beside a window the groups split either side.
-- Each slot is a character's home, marked by its ring. A character leaves home only for a place its
-  state names: the front of the desk while something waits for the person, the side of its open
-  file while the file is open, and the bar when it arrives on the stage or leaves it. Characters an
+- Each slot is a character's home, marked by its ring. The ring lies on the desk at the label's foot,
+  the label resting inside it, and without a desk where a desk would be, under the label, so it never
+  crosses a badge (lane U's placement, accepted by lane V on 2026-10-08). The rim carries the state's
+  light on the body wherever the character goes, strong enough to read away from its ring. A
+  character leaves home only for a place its state names: the front of the desk while something
+  waits for the person, the side of its open file while the file is open, and the bar when it
+  arrives on the stage or leaves it. Characters an
   open file would hide step aside along the desk and come back when it closes
   ([ADR 0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md)). A
   character travels on a short arc at no more than 0.5 m/s, never across an open file, never nearer
