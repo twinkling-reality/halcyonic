@@ -38,7 +38,11 @@ import { personalSecrets } from './sandbox-profile.ts';
 import { buildEnvironment, launchServer } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
-import { FAKE_SHELL_COMMAND, type FakeProviderOptions } from './testing/fake-provider.ts';
+import {
+  FAKE_SHELL_COMMAND,
+  type FakeProviderOptions,
+  startFakeProvider,
+} from './testing/fake-provider.ts';
 import { probeNetwork } from './testing/network-probe.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { createSandbox, type OpenCodeSandbox } from './testing/sandbox.ts';
@@ -1920,6 +1924,234 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
       assert.ok(readFileSync(profile, 'utf8').includes(`(remote ip "localhost:${port}")`));
       const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
       assert.ok(!sent.includes('stand-in-credential'), 'the credential reached the model');
+    },
+  );
+});
+
+describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
+  skip: SKIP || (process.platform !== 'darwin' ? 'Seatbelt is macOS only' : false),
+}, () => {
+  const TAG = 'stand-in:1b';
+  // Listed by the stand-in Ollama beside the local model: one Ollama runs on its own service, one
+  // on another host.
+  const details = {
+    format: 'gguf',
+    family: 'llama',
+    parameter_size: '1B',
+    quantization_level: 'Q4_K_M',
+  };
+  const ELSEWHERE = [
+    { name: 'gemma4:cloud', model: 'gemma4:cloud', digest: 'c', size: 1, modified_at: '', details },
+    {
+      name: 'big:70b',
+      model: 'big:70b',
+      remote_host: 'https://ollama.com:443',
+      remote_model: 'big:70b',
+      digest: 'r',
+      size: 1,
+      modified_at: '',
+      details,
+    },
+  ];
+  const ALLOWED = new Set(['GET /api/tags', 'POST /api/show', 'POST /v1/chat/completions']);
+
+  /**
+   * A sandboxed adapter whose OpenCode settings name a model on Ollama, played by a stand-in. With
+   * `gate`, the adapter is given the stand-in's address as Ollama's, and the settings name another
+   * address; without, the settings name the stand-in and the sandbox lets the server reach it, so
+   * the stand-in sees everything OpenCode asks.
+   */
+  async function onOllama(t: TestContext, gate: boolean) {
+    const sandbox = await createSandbox();
+    const ollama = await startFakeProvider({
+      ollama: { model: TAG, answerMs: 0, others: ELSEWHERE },
+    });
+    const origin = new URL(ollama.baseUrl).origin;
+    const file = join(sandbox.env.XDG_CONFIG_HOME ?? '', 'opencode/opencode.json');
+    const config = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+    config.model = `ollama/${TAG}`;
+    config.providers = {
+      ...(config.providers as object),
+      ollama: {
+        // Port 9 is the discard port: nothing answers there.
+        settings: { baseURL: gate ? 'http://127.0.0.1:9/v1' : ollama.baseUrl },
+        models: { [TAG]: { limit: { context: 128000, output: 4096 } } },
+      },
+    };
+    writeFileSync(file, JSON.stringify(config));
+    const base = sandboxOf(sandbox);
+    assert.ok(base !== null);
+    const runtime = new OpenCodeRuntimeAdapter({
+      binaryPath: BINARY,
+      serverRecordFile: sandbox.recordFile,
+      directoryPolicy: allowOnly(sandbox.project),
+      env: sandbox.env,
+      sandbox: gate
+        ? { ...base, ollama: origin }
+        : { ...base, loopbackPorts: [...base.loopbackPorts, Number(new URL(origin).port)] },
+    });
+    t.after(async () => {
+      await runtime.close();
+      await ollama.close();
+      await sandbox.cleanup();
+      assert.deepEqual(sandbox.egress, [], 'OpenCode tried to reach the network');
+    });
+    const start = async (instruction: string) => {
+      const execution = new Execution();
+      await runtime.startExecution({
+        execution: execution.context,
+        instruction,
+        options: {},
+        directory: sandbox.project,
+        model_ref: `ollama/${TAG}`,
+        emit: execution.emit,
+      });
+      return execution;
+    };
+    const ended = async (execution: Execution) => {
+      await until(
+        () =>
+          execution
+            .types()
+            .some((type) => type === 'runtime.turn.completed' || type === 'runtime.turn.failed'),
+        60_000,
+        'the turn to end',
+      );
+      assert.deepEqual(
+        execution.observations
+          .filter((item) => item.type === 'runtime.turn.failed')
+          .map((item) => item.payload),
+        [],
+      );
+    };
+    return { sandbox, ollama, runtime, start, ended };
+  }
+
+  test(
+    'OpenCode asks Ollama only for the model list, model details and chat, one chat at a time for each session',
+    SLOW_TEST,
+    async (t) => {
+      const { ollama, runtime, start, ended } = await onOllama(t, false);
+      // A session's first turn, with a shell command approved in it, so the turn asks twice.
+      const first = await start(call('shell', { command: 'echo one' }));
+      const asked = await first.next('runtime.approval.requested');
+      assert.ok(asked.type === 'runtime.approval.requested');
+      await runtime.respondToApproval({
+        execution: first.context,
+        approval_id: asked.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await ended(first);
+      t.diagnostic(
+        `one session: ${ollama.requests.length} chats, at most ${ollama.peakChats} at once`,
+      );
+      assert.equal(ollama.peakChats, 1, 'one session opened more than one chat at once');
+      // Two sessions side by side, each held in a slow reply.
+      const slow = [await start('SLOW'), await start('SLOW')];
+      await until(() => ollama.peakChats >= 2, 30_000, 'both slow replies to open');
+      assert.equal(slow.length, 2);
+      const asks = [...new Set(ollama.calls)];
+      t.diagnostic(`asked: ${asks.join(', ')}; at most ${ollama.peakChats} chats at once`);
+      assert.deepEqual(
+        asks.filter((ask) => !ALLOWED.has(ask)),
+        [],
+      );
+      assert.equal(ollama.peakChats, 2, 'two sessions opened more than one chat each');
+    },
+  );
+
+  test(
+    'whatever its settings name, OpenCode reaches Ollama through the gate, which passes an approved command nothing but the model list, model details and chat with a model on this Mac',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, ollama, runtime, start, ended } = await onOllama(t, true);
+      // The global settings name another address (port 9, where nothing answers), and so does
+      // the project's own file, which is never loaded.
+      writeFileSync(
+        join(sandbox.project, 'opencode.json'),
+        JSON.stringify({
+          providers: { ollama: { settings: { baseURL: 'http://127.0.0.1:9/v1' } } },
+        }),
+      );
+      await ended(await start('Hello.'));
+      assert.equal(ollama.requests.at(-1)?.model, TAG, 'the turn did not reach Ollama');
+      // The gate's port: the one the profile names beside the scripted provider's, the trap's
+      // and the server's own.
+      const profile = readFileSync(join(sandbox.root, 'halcyonic', 'opencode-sandbox.sb'), 'utf8');
+      const { port: own } = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as {
+        port: number;
+      };
+      const known = new Set([...loopbackPorts(sandbox), own]);
+      const ports = [...profile.matchAll(/\(remote ip "localhost:(\d+)"\)/g)].map((m) =>
+        Number(m[1]),
+      );
+      const gates = ports.filter((port) => !known.has(port));
+      assert.equal(gates.length, 1, `ports in the profile: ${ports.join(', ')}`);
+      const ollamaPort = Number(new URL(ollama.baseUrl).port);
+      assert.ok(!ports.includes(ollamaPort), "the sandbox lets the server reach Ollama's port");
+      const gate = `http://127.0.0.1:${gates[0]}`;
+      const results = join(sandbox.project, 'results.txt');
+      const curl = (label: string, args: string) =>
+        `curl --noproxy '*' -s --max-time 5 -o /dev/null -w '${label}=%{http_code} ' ${args} >> ${results}`;
+      const chat = (model: string) =>
+        `-X POST -H 'content-type: application/json' -d '{"model":"${model}","messages":[{"role":"user","content":"hi"}]}' ${gate}/v1/chat/completions`;
+      const body = `-H 'content-type: application/json' -d '{"model":"${TAG}","name":"${TAG}"}'`;
+      const command = [
+        `curl --noproxy '*' -s --max-time 5 ${gate}/api/tags > ${join(sandbox.project, 'tags.json')}`,
+        ...['pull', 'push', 'create', 'generate', 'chat', 'copy', 'embed', 'ps', 'version'].map(
+          (name) => curl(name, `-X POST ${body} ${gate}/api/${name}`),
+        ),
+        curl('delete', `-X DELETE ${body} ${gate}/api/delete`),
+        curl('query', `'${gate}/api/tags?x=1'`),
+        curl('models', `${gate}/v1/models`),
+        curl('cloud', chat('gemma4:cloud')),
+        curl('remote', chat('big:70b')),
+        curl('unlisted', chat('other:1b')),
+        curl('showremote', `-X POST -d '{"model":"big:70b"}' ${gate}/api/show`),
+        curl('local', chat(TAG)),
+        curl('direct', `http://127.0.0.1:${ollamaPort}/api/tags`),
+        `echo done >> ${results}`,
+      ].join('\n');
+      const before = ollama.calls.length;
+      const execution = await start(call('shell', { command }));
+      const asked = await execution.next('runtime.approval.requested');
+      assert.ok(asked.type === 'runtime.approval.requested');
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: asked.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await ended(execution);
+      const said = readFileSync(results, 'utf8');
+      t.diagnostic(said);
+      for (const name of ['pull', 'push', 'create', 'generate', 'chat', 'copy', 'embed', 'ps']) {
+        assert.match(said, new RegExp(`\\b${name}=404 `), name);
+      }
+      assert.match(said, /version=404 /);
+      assert.match(said, /delete=404 /);
+      assert.match(said, /query=404 /);
+      assert.match(said, /models=404 /);
+      for (const name of ['cloud', 'remote', 'unlisted', 'showremote']) {
+        assert.match(said, new RegExp(`\\b${name}=403 `), name);
+      }
+      // The control: a chat with the model on this Mac goes through, and Ollama's own port does not.
+      assert.match(said, /local=200 /);
+      assert.match(said, /direct=000 /);
+      const listed = JSON.parse(readFileSync(join(sandbox.project, 'tags.json'), 'utf8')) as {
+        models: { model: string }[];
+      };
+      assert.deepEqual(
+        listed.models.map((model) => model.model),
+        [TAG],
+      );
+      // Nothing refused reached Ollama.
+      assert.deepEqual(
+        [...new Set(ollama.calls.slice(before))].filter((ask) => !ALLOWED.has(ask)),
+        [],
+      );
+      assert.deepEqual([...new Set(ollama.requests.map((request) => request.model))], [TAG]);
     },
   );
 });

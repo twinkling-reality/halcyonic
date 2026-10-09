@@ -51,6 +51,7 @@ import {
   sameModel,
   toRuntimeModel,
 } from './models.ts';
+import { type OllamaGate, startOllamaGate } from './ollama-gate.ts';
 import { parseStartOptions } from './options.ts';
 import { type PendingPermission, reconcileSession, type SessionSnapshot } from './reconcile.ts';
 import { openCodeFolders, sandboxProfile } from './sandbox-profile.ts';
@@ -232,12 +233,17 @@ export interface OpenCodeRuntimeOptions {
   readonly clock?: Clock;
   /**
    * Runs the server, and everything it starts, in a Seatbelt sandbox of Halcyonic's own (ADR
-   * 0028): network out only to loopback, writes only in these project roots, OpenCode's own folders
-   * and the temporary folder, and these paths unreadable. Null runs it unsandboxed.
+   * 0028): network out only to these ports on loopback, writes only in these project roots and the
+   * server's own folders, and these paths unreadable. Null runs it unsandboxed.
    */
   readonly sandbox?: {
-    /** The model's ports on loopback, Ollama's; the server's own is added. */
+    /** Ports on loopback the server may reach; its own and the Ollama gate's are added. */
     readonly loopbackPorts: readonly number[];
+    /**
+     * Ollama's address on loopback, which the server reaches only through a gate of the adapter's
+     * own (`ollama-gate.ts`), never directly. Null when OpenCode is given no Ollama.
+     */
+    readonly ollama?: string | null;
     readonly projectRoots: readonly string[];
     readonly unreadable: readonly string[];
     /** Paths inside an unreadable folder that stay readable: OpenCode's settings, its binary. */
@@ -266,6 +272,8 @@ interface Connection {
   listingSince: number | null;
   /** Aborted when the adapter stops using the server: it exited, was given up or closed. */
   readonly halted: AbortController;
+  /** Settles once the server has exited and its Ollama gate, if it had one, is closed. */
+  readonly gone: Promise<void>;
   /** Settles when the event stream is connected; rejects when the server is given up. */
   readiness: Readiness;
   /** Ends the event stream being read now, so it reopens and reconciles. */
@@ -636,17 +644,22 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   async #shutDown(): Promise<void> {
     // Halting first also releases a launch that is still waiting for its event stream.
-    const stopping: OpenCodeServer[] = [];
+    const stopping: Connection[] = [];
     const halt = () => {
       const connection = this.#current;
       if (connection === null) return;
-      stopping.push(connection.server);
+      stopping.push(connection);
       this.#halt(connection);
     };
     halt();
     await this.#launching?.catch(() => undefined);
     halt();
-    await Promise.all(stopping.map((server) => server.stop()));
+    await Promise.all(
+      stopping.map(async (connection) => {
+        await connection.server.stop();
+        await connection.gone;
+      }),
+    );
   }
 
   // Server lifecycle ---------------------------------------------------------------------------
@@ -673,6 +686,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    */
   async #sandboxFor(
     port: number,
+    gate: OllamaGate | null,
   ): Promise<{ readonly profile: string; readonly environment: Record<string, string> } | null> {
     if (this.#sandbox === null || this.#sandbox === undefined) {
       // On macOS OpenCode runs only inside the sandbox (ADR 0028): its ask before a shell command
@@ -689,15 +703,22 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     for (const name of ['data', 'state', 'cache', 'tmp']) {
       await mkdir(join(folder, name), { recursive: true, mode: 0o700 });
     }
-    const environment = {
+    const environment: Record<string, string> = {
       ...this.#environment,
       XDG_DATA_HOME: join(folder, 'data'),
       XDG_STATE_HOME: join(folder, 'state'),
       XDG_CACHE_HOME: join(folder, 'cache'),
       TMPDIR: `${join(folder, 'tmp')}/`,
     };
+    if (gate !== null) {
+      // OpenCode ranks this above every settings file, global and project (core/src/config.ts),
+      // so no settings move it off the gate; the variable is reserved, so nothing else sets it.
+      environment.OPENCODE_CONFIG_CONTENT = JSON.stringify({
+        providers: { ollama: { settings: { baseURL: gate.baseUrl } } },
+      });
+    }
     const text = sandboxProfile({
-      loopbackPorts: [...this.#sandbox.loopbackPorts, port],
+      loopbackPorts: [...this.#sandbox.loopbackPorts, ...(gate === null ? [] : [gate.port]), port],
       writable: [...this.#sandbox.projectRoots, ...openCodeFolders(environment)],
       unreadable: this.#sandbox.unreadable,
       readable: [...(this.#sandbox.readable ?? []), folder],
@@ -721,24 +742,45 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     // Chosen here, since the sandbox's profile names the server's own port.
     const port = this.#port ?? (await freeLoopbackPort());
-    const sandbox = await this.#sandboxFor(port);
-    const server = await launchServer({
-      binaryPath: this.#binaryPath,
-      environment: sandbox?.environment ?? this.#environment,
-      recordFile: this.#recordFile,
-      port,
-      cwd: tmpdir(),
-      startupTimeoutMs: this.#startupTimeoutMs,
-      sandboxProfile: sandbox?.profile ?? null,
-    });
+    const ollama = this.#sandbox?.ollama ?? null;
+    let gate: OllamaGate | null = null;
+    if (ollama !== null) {
+      try {
+        gate = await startOllamaGate({ ollama, maxChats: () => this.#runningTurns() });
+      } catch (error) {
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          `Could not open OpenCode's way to Ollama: ${message(error)}`,
+        );
+      }
+    }
+    let server: OpenCodeServer;
+    try {
+      const sandbox = await this.#sandboxFor(port, gate);
+      server = await launchServer({
+        binaryPath: this.#binaryPath,
+        environment: sandbox?.environment ?? this.#environment,
+        recordFile: this.#recordFile,
+        port,
+        cwd: tmpdir(),
+        startupTimeoutMs: this.#startupTimeoutMs,
+        sandboxProfile: sandbox?.profile ?? null,
+      });
+    } catch (error) {
+      await gate?.close();
+      throw error;
+    }
+    const gone = server.exited.then(() => gate?.close());
     if (this.#closing !== null) {
       await server.stop();
+      await gone;
       throw closedError();
     }
     const connection: Connection = {
       server,
       listingSince: null,
       halted: new AbortController(),
+      gone,
       readiness: readiness(),
       stream: null,
       recovery: { timer: null, attempts: 0 },
@@ -748,6 +790,25 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     void this.#follow(connection);
     await ready(connection);
     return connection;
+  }
+
+  /**
+   * Turns running or starting on the current server: OpenCode 2.0.18 asks Ollama for one reply at
+   * a time for each, so the gate lets no more chats through at once.
+   */
+  #runningTurns(): number {
+    let count = 0;
+    for (const session of this.#sessions.values()) {
+      const state = session.state;
+      if (
+        session.connection === this.#current &&
+        !session.lost &&
+        (state.turn !== null || state.awaitingStart)
+      ) {
+        count += 1;
+      }
+    }
+    return count;
   }
 
   async #stopStale(): Promise<StaleServerResult> {

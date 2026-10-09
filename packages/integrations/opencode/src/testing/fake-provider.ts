@@ -19,14 +19,18 @@ import type { AddressInfo } from 'node:net';
  * - otherwise: a short text answer.
  *
  * With `ollama`, it also plays a local Ollama server for OpenCode's Ollama discovery, late: it
- * serves `GET /api/tags` and `POST /api/show` for one model, each answered `answerMs` after it
- * arrives.
+ * serves `GET /api/tags` and `POST /api/show` for one model, and any `others` listed with it, each
+ * answered `answerMs` after it arrives.
  */
 export interface FakeProvider {
   /** Base URL to configure as the provider's `baseURL`, ending in `/v1`. */
   readonly baseUrl: string;
   /** Every chat completion request received, in arrival order. */
   readonly requests: readonly FakeProviderRequest[];
+  /** Every request received, as method and URL, in arrival order. */
+  readonly calls: readonly string[];
+  /** The most chat completion requests open at once so far. */
+  readonly peakChats: number;
   close(): Promise<void>;
 }
 
@@ -43,7 +47,12 @@ export interface FakeProviderRequest {
 export interface FakeProviderOptions {
   readonly slowChunkMs?: number;
   readonly slowChunks?: number;
-  readonly ollama?: { readonly model: string; readonly answerMs: number };
+  readonly ollama?: {
+    readonly model: string;
+    readonly answerMs: number;
+    /** More entries for the model list, as Ollama writes them. */
+    readonly others?: readonly Record<string, unknown>[];
+  };
 }
 
 const OLLAMA_DETAILS = {
@@ -78,9 +87,13 @@ export async function startFakeProvider(options: FakeProviderOptions = {}): Prom
   const slowChunkMs = options.slowChunkMs ?? 250;
   const slowChunks = options.slowChunks ?? 240;
   const requests: FakeProviderRequest[] = [];
+  const calls: string[] = [];
   let counter = 0;
+  let openChats = 0;
+  let peakChats = 0;
 
   const server = createServer((req, res) => {
+    calls.push(`${req.method} ${req.url}`);
     void readBody(req).then((raw) => {
       const path = (req.url ?? '').split('?')[0];
       if (req.method === 'GET' && path === '/v1/models') {
@@ -104,6 +117,7 @@ export async function startFakeProvider(options: FakeProviderOptions = {}): Prom
                     digest: 'halcyonic-fake',
                     details: OLLAMA_DETAILS,
                   },
+                  ...(ollama.others ?? []),
                 ],
               }
             : { details: OLLAMA_DETAILS, capabilities: ['completion', 'tools'] };
@@ -122,6 +136,11 @@ export async function startFakeProvider(options: FakeProviderOptions = {}): Prom
         return;
       }
       counter += 1;
+      openChats += 1;
+      peakChats = Math.max(peakChats, openChats);
+      res.once('close', () => {
+        openChats -= 1;
+      });
       const messages = Array.isArray(body.messages) ? (body.messages as ChatMessage[]) : [];
       const tools = Array.isArray(body.tools) ? (body.tools as { function?: ToolFunction }[]) : [];
       const functions = tools.map((tool) => tool.function ?? {});
@@ -215,6 +234,10 @@ export async function startFakeProvider(options: FakeProviderOptions = {}): Prom
   return {
     baseUrl: `http://127.0.0.1:${port}/v1`,
     requests,
+    calls,
+    get peakChats() {
+      return peakChats;
+    },
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();
