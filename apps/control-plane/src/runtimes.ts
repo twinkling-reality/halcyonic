@@ -91,10 +91,12 @@ export function createRuntimeAdapters(
 }
 
 /**
- * What OpenCode's sandbox lets it reach on this Mac (ADR 0028): it writes only in the project
- * roots (and its own folders, which the adapter adds), and reads nothing of Halcyonic's data
- * directory, its journal and every credential in it, but its own settings and the pinned binary,
- * nor the person's own credentials.
+ * What OpenCode's sandbox lets it reach on this Mac (ADR 0028): Ollama only through the adapter's
+ * gate, which passes the model list, model details and chat with a model on this Mac, and no other
+ * port on loopback but the server's and the gate's own, which the adapter adds; it writes only in
+ * the project roots (and its own folders, which the adapter adds), and reads nothing of Halcyonic's
+ * data directory, its journal and every credential in it, but its own settings and the pinned
+ * binary, nor the person's own credentials.
  */
 export function openCodeSandbox(
   config: Pick<ControlPlaneConfig, 'projectRoots' | 'opencodeConfigHome' | 'opencodeBinary'>,
@@ -102,9 +104,8 @@ export function openCodeSandbox(
   home: string,
 ) {
   return {
-    // OpenCode 2.0.18 asks Ollama only at its default address, and Halcyonic's own OpenCode
-    // settings may not name another (core/src/plugin/provider/ollama.ts, config.ts).
-    loopbackPorts: [OLLAMA_PORT],
+    loopbackPorts: [],
+    ollama: `http://127.0.0.1:${OLLAMA_PORT}`,
     projectRoots: config.projectRoots,
     unreadable: [dataDir, ...(home === '' ? [] : personalSecrets(home))],
     readable: [
@@ -130,7 +131,7 @@ export function ripgrepOnPath(path: string | undefined): boolean {
   });
 }
 
-/** The port OpenCode reaches Ollama on: Ollama's default, the only one OpenCode 2.0.18 asks. */
+/** Ollama's port on this Mac, its default, which the gate in front of it for OpenCode dials. */
 export const OLLAMA_PORT = 11434;
 
 /**

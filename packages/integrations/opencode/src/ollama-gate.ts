@@ -131,14 +131,18 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       return;
     }
     if (route !== 'POST /api/show' && route !== 'POST /v1/chat/completions') {
+      // Answered without reading the body, so the connection is not used again.
+      res.setHeader('connection', 'close');
       req.resume();
       refuse(res, 404, 'Halcyonic passes on only the model list, model details and chat.');
       return;
     }
     const raw = await readBody(req, MAX_BODY_BYTES);
     if (raw === null) {
+      // The rest is never read: the connection closes once the refusal is sent.
+      res.once('finish', () => req.destroy());
+      res.setHeader('connection', 'close');
       refuse(res, 413, 'The request is too large.');
-      req.destroy();
       return;
     }
     let body: unknown;

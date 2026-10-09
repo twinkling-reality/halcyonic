@@ -343,7 +343,8 @@ describe("OpenCode's sandbox on this Mac (ADR 0028)", () => {
       '/Users/someone',
     );
     assert.deepEqual(sandbox.projectRoots, ['/Users/someone/HalcyonicProjects']);
-    assert.deepEqual(sandbox.loopbackPorts, [11434], "only Ollama's port, by default");
+    assert.deepEqual(sandbox.loopbackPorts, [], 'no port on loopback but those the adapter adds');
+    assert.equal(sandbox.ollama, 'http://127.0.0.1:11434', 'Ollama, through the gate');
     assert.equal(sandbox.unreadable[0], '/d');
     for (const secret of ['/Users/someone/.ssh', '/Users/someone/Library/Keychains']) {
       assert.ok(sandbox.unreadable.includes(secret), secret);

@@ -2154,4 +2154,11 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
       assert.deepEqual([...new Set(ollama.requests.map((request) => request.model))], [TAG]);
     },
   );
+
+  test('two tasks side by side each get their reply through the gate', SLOW_TEST, async (t) => {
+    const { ollama, start } = await onOllama(t, true);
+    await start('SLOW');
+    await start('SLOW');
+    await until(() => ollama.peakChats >= 2, 30_000, 'both slow replies to open');
+  });
 });
