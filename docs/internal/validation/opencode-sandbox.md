@@ -110,8 +110,8 @@ name, `providers.ollama.settings.baseURL`, `/v1` swapped for `/api/...` for the 
 (`core/src/plugin/provider/ollama.ts`, `ai/src/protocols/openai-compatible-chat.ts`). Its settings
 documents load in the order wellknown, global, explicit and direct files, the project's, then
 `OPENCODE_CONFIG_CONTENT` last, and a later document's provider settings win key by key
-(`core/src/config.ts`, `load`; `provider.ts`, `mergeOverlay`). Four runtime tests,
-2026-10-08, with Ollama 0.34.4 and the pinned binary:
+(`core/src/config.ts`, `load`; `provider.ts`, `mergeOverlay`). Four runtime tests and
+a real turn, 2026-10-08, with Ollama 0.34.4 and the pinned binary:
 
 1. **What OpenCode asks.** OpenCode pointed straight at a stand-in Ollama that records every
    request: a session's first turn, with a shell command approved in it, made two chats, never two
@@ -143,6 +143,11 @@ documents load in the order wellknown, global, explicit and direct files, the pr
    a missing model was refused at the gate, and asked directly Ollama answered 404 "not found" and
    pulled nothing. No Ollama socket beyond loopback in 19 samples, and nothing loaded after
    (private probe).
+5. **A real turn** (2026-10-08, after the merge): the adapter with the sandbox and the gate,
+   Halcyonic's own OpenCode settings and `ollama/qwen3.6:35b-a3b-nvfp4`, one short task in a scratch
+   folder. The turn completed in 27 s, the model wrote the file with OpenCode's edit tool, and in 34
+   samples (every 250 ms, by `lsof`) neither Ollama nor the OpenCode server held a socket beyond
+   loopback; the model was unloaded after (private probe).
 
 ## ripgrep
 
@@ -162,8 +167,6 @@ reach the download; found by review, 2026-10-08).
 - What Ollama does with every field of a chat with a local model, such as an image inside a
   message: known from reading only, not run, so "nothing leaves the Mac through Ollama" rests on
   that reading for those fields.
-- A real model's turns through the gate; the stand-in streams as Ollama's OpenAI-compatible
-  endpoint does, and the real Ollama was asked only for its list and a model's details.
 - A real local model's turns under the profile, with real builds and tests: what else an ordinary
   task trips on.
 - Plugins and MCP servers a person configures in their own OpenCode settings, under the profile.
