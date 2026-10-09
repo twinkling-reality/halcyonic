@@ -1955,6 +1955,21 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
   ];
   const ALLOWED = new Set(['GET /api/tags', 'POST /api/show', 'POST /v1/chat/completions']);
 
+  /** The ports the sandbox's profile names, and the gate's: the one not otherwise known. */
+  function profilePorts(sandbox: OpenCodeSandbox) {
+    const profile = readFileSync(join(sandbox.root, 'halcyonic', 'opencode-sandbox.sb'), 'utf8');
+    const { port: own } = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as {
+      port: number;
+    };
+    const known = new Set([...loopbackPorts(sandbox), own]);
+    const ports = [...profile.matchAll(/\(remote ip "localhost:(\d+)"\)/g)].map((m) =>
+      Number(m[1]),
+    );
+    const gates = ports.filter((port) => !known.has(port));
+    assert.equal(gates.length, 1, `ports in the profile: ${ports.join(', ')}`);
+    return { gatePort: gates[0] as number, ports };
+  }
+
   /**
    * A sandboxed adapter whose OpenCode settings name a model on Ollama, played by a stand-in. With
    * `gate`, the adapter is given the stand-in's address as Ollama's, and the settings name another
@@ -2078,19 +2093,10 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
       assert.equal(ollama.requests.at(-1)?.model, TAG, 'the turn did not reach Ollama');
       // The gate's port: the one the profile names beside the scripted provider's, the trap's
       // and the server's own.
-      const profile = readFileSync(join(sandbox.root, 'halcyonic', 'opencode-sandbox.sb'), 'utf8');
-      const { port: own } = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as {
-        port: number;
-      };
-      const known = new Set([...loopbackPorts(sandbox), own]);
-      const ports = [...profile.matchAll(/\(remote ip "localhost:(\d+)"\)/g)].map((m) =>
-        Number(m[1]),
-      );
-      const gates = ports.filter((port) => !known.has(port));
-      assert.equal(gates.length, 1, `ports in the profile: ${ports.join(', ')}`);
+      const { gatePort, ports } = profilePorts(sandbox);
       const ollamaPort = Number(new URL(ollama.baseUrl).port);
       assert.ok(!ports.includes(ollamaPort), "the sandbox lets the server reach Ollama's port");
-      const gate = `http://127.0.0.1:${gates[0]}`;
+      const gate = `http://127.0.0.1:${gatePort}`;
       const results = join(sandbox.project, 'results.txt');
       const curl = (label: string, args: string) =>
         `curl --noproxy '*' -s --max-time 5 -o /dev/null -w '${label}=%{http_code} ' ${args} >> ${results}`;
@@ -2109,6 +2115,10 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
         curl('remote', chat('big:70b')),
         curl('unlisted', chat('other:1b')),
         curl('showremote', `-X POST -d '{"model":"big:70b"}' ${gate}/api/show`),
+        curl(
+          'casechat',
+          `-X POST -d '{"model":"${TAG}","Model":"gemma4:cloud","messages":[]}' ${gate}/v1/chat/completions`,
+        ),
         curl('local', chat(TAG)),
         curl('direct', `http://127.0.0.1:${ollamaPort}/api/tags`),
         `echo done >> ${results}`,
@@ -2137,6 +2147,7 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
         assert.match(said, new RegExp(`\\b${name}=403 `), name);
       }
       // The control: a chat with the model on this Mac goes through, and Ollama's own port does not.
+      assert.match(said, /casechat=400 /, 'a model named again in another case');
       assert.match(said, /local=200 /);
       assert.match(said, /direct=000 /);
       const listed = JSON.parse(readFileSync(join(sandbox.project, 'tags.json'), 'utf8')) as {
@@ -2155,10 +2166,20 @@ describe("OpenCode reaches Ollama only through Halcyonic's gate (ADR 0028)", {
     },
   );
 
-  test('two tasks side by side each get their reply through the gate', SLOW_TEST, async (t) => {
-    const { ollama, start } = await onOllama(t, true);
-    await start('SLOW');
-    await start('SLOW');
-    await until(() => ollama.peakChats >= 2, 30_000, 'both slow replies to open');
-  });
+  test(
+    'two tasks side by side each get their reply through the gate, which closes with the server',
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, ollama, runtime, start } = await onOllama(t, true);
+      await start('SLOW');
+      await start('SLOW');
+      await until(() => ollama.peakChats >= 2, 30_000, 'both slow replies to open');
+      const { gatePort } = profilePorts(sandbox);
+      await runtime.close();
+      await assert.rejects(
+        fetch(`http://127.0.0.1:${gatePort}/api/tags`),
+        'the gate outlived its server',
+      );
+    },
+  );
 });

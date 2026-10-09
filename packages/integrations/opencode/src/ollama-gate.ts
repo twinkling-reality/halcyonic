@@ -16,8 +16,10 @@ import { isRecord } from './events.ts';
  *
  * - `GET /api/tags`, the model list, answered with only the models that run on this Mac;
  * - `POST /api/show` and `POST /v1/chat/completions`, each naming one of those models in a JSON
- *   body of at most 8 MiB, passed on as parsed. The chat streams back as Ollama writes it, and
- *   closing the request closes the gate's own, which stops the model.
+ *   body of at most 8 MiB. The body passed on is built anew from the fields OpenCode sends, so
+ *   nothing else in it reaches Ollama, and a body with keys that differ only in letter case is
+ *   refused, since Ollama reads keys that way and the last would win. The chat streams back as
+ *   Ollama writes it, and closing the request closes the gate's own, which stops the model.
  *
  * So a command can ask a local model for a reply and nothing more: no pull, push, create or delete,
  * which would let Ollama, unsandboxed, carry data to a host the command chooses, and no cloud or
@@ -37,20 +39,55 @@ export interface OllamaGateOptions {
   readonly ollama: string;
   /**
    * How many chat replies may be open at once now, read whenever a chat arrives or waits: OpenCode
-   * 2.0.18 opens one at a time for each session with a running turn (runtime test, 2026-10-08).
-   * One more waits until a reply ends or the number rises. At least one is always let through.
+   * 2.0.18 opens one at a time for each session with a running turn (runtime test, 2026-10-08),
+   * since Halcyonic names its sessions itself, so OpenCode asks for no title beside a turn, and
+   * denies the subagent tool, so no child session runs beside one. At least one is always let
+   * through; more wait their turn.
    */
   readonly maxChats: () => number;
   /** How long a model list read from Ollama is used for the checks. By default 2 s. */
   readonly listTtlMs?: number;
+  /** How long a chat waits for its turn before it is refused. By default 60 s. */
+  readonly chatWaitMs?: number;
 }
 
 /** The largest request body passed on: OpenCode's whole conversation with the model, as JSON. */
 export const MAX_BODY_BYTES = 8 * 1024 * 1024;
+/** The deepest a request body nests; OpenCode's tool schemas nest far less. */
+export const MAX_DEPTH = 64;
+/** Chats waiting their turn at once; one more is refused. */
+export const MAX_WAITING_CHATS = 4;
+/** Connections open at once, and request bodies read and parsed at once. */
+const MAX_CONNECTIONS = 32;
+const MAX_READING = 2;
+/**
+ * The fields of a chat request OpenCode 2.0.18 sends to an OpenAI-compatible provider
+ * (ai/src/protocols/openai-chat.ts, `bodyFields`), the only ones passed on.
+ */
+const CHAT_FIELDS: readonly string[] = [
+  'model',
+  'messages',
+  'tools',
+  'tool_choice',
+  'stream',
+  'stream_options',
+  'store',
+  'prompt_cache_key',
+  'reasoning_effort',
+  'tool_stream',
+  'max_completion_tokens',
+  'max_tokens',
+  'temperature',
+  'top_p',
+  'frequency_penalty',
+  'presence_penalty',
+  'seed',
+  'stop',
+];
 /** The largest model list read: Ollama lists every model it holds, a few hundred bytes each. */
 const MAX_LIST_BYTES = 1024 * 1024;
 const LIST_TIMEOUT_MS = 5_000;
-/** How often a waiting chat reads the number allowed again, since a turn starting raises it. */
+/** How often waiting chats read the number allowed again, since a turn starting raises it. */
 const RECHECK_MS = 250;
 const LOOPBACK = '127.0.0.1';
 
@@ -78,6 +115,43 @@ export function localModels(list: unknown): Record<string, unknown>[] {
   );
 }
 
+/**
+ * Whether some object in `value` has two keys Ollama would read as one: Go's JSON decoder matches
+ * a field's name in any letter case, folding `K` (U+212A) to k and `ſ` (U+017F) to s, and keeps
+ * the last value it meets.
+ */
+export function hasFoldedDuplicate(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasFoldedDuplicate);
+  if (!isRecord(value)) return false;
+  const seen = new Set<string>();
+  for (const key of Object.keys(value)) {
+    const folded = key.toLowerCase().replaceAll('ſ', 's');
+    if (seen.has(folded)) return true;
+    seen.add(folded);
+  }
+  return Object.values(value).some(hasFoldedDuplicate);
+}
+
+/** Whether JSON text nests arrays and objects deeper than `limit`, read before parsing it. */
+export function nestsDeeper(text: Buffer, limit: number): boolean {
+  let depth = 0;
+  let inString = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const byte = text[index];
+    if (inString) {
+      if (byte === 0x5c) index += 1;
+      else if (byte === 0x22) inString = false;
+    } else if (byte === 0x22) inString = true;
+    else if (byte === 0x5b || byte === 0x7b) {
+      depth += 1;
+      if (depth > limit) return true;
+    } else if (byte === 0x5d || byte === 0x7d) depth -= 1;
+  }
+  return false;
+}
+
+type Waited = { readonly kind: 'go'; readonly release: () => void } | { readonly kind: 'busy' };
+
 export async function startOllamaGate(options: OllamaGateOptions): Promise<OllamaGate> {
   const ollama = new URL(options.ollama);
   if (ollama.protocol !== 'http:' || ollama.hostname !== LOOPBACK) {
@@ -85,6 +159,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
   }
   const target = { hostname: LOOPBACK, port: Number(ollama.port || 80) };
   const listTtlMs = options.listTtlMs ?? 2_000;
+  const chatWaitMs = options.chatWaitMs ?? 60_000;
   let cached: { at: number; models: Promise<Record<string, unknown>[]> } | null = null;
   const list = (): Promise<Record<string, unknown>[]> => {
     if (cached === null || Date.now() - cached.at >= listTtlMs) {
@@ -97,24 +172,75 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
     }
     return cached.models;
   };
-  let chats = 0;
-  const waiting: (() => void)[] = [];
-  const slot = async (): Promise<() => void> => {
-    while (chats >= Math.max(1, options.maxChats())) {
-      await new Promise<void>((resolve) => {
-        waiting.push(resolve);
-        setTimeout(resolve, RECHECK_MS);
-      });
+
+  // Bodies read at once, in order of arrival.
+  let reading = 0;
+  const readers: (() => void)[] = [];
+  const read = async (req: IncomingMessage): Promise<Buffer | null> => {
+    if (reading >= MAX_READING) await new Promise<void>((resolve) => readers.push(resolve));
+    reading += 1;
+    try {
+      return await readBody(req, MAX_BODY_BYTES);
+    } finally {
+      reading -= 1;
+      readers.shift()?.();
     }
-    chats += 1;
+  };
+
+  // Chats open at once, and those waiting their turn, first come first served.
+  let chats = 0;
+  const queue: { admit(): void }[] = [];
+  let recheck: NodeJS.Timeout | null = null;
+  const allowed = () => Math.max(1, options.maxChats());
+  const admit = () => {
+    while (queue.length > 0 && chats < allowed()) {
+      chats += 1;
+      queue.shift()?.admit();
+    }
+    if (queue.length > 0 && recheck === null) recheck = setInterval(admit, RECHECK_MS);
+    if (queue.length === 0 && recheck !== null) {
+      clearInterval(recheck);
+      recheck = null;
+    }
+  };
+  const releaser = () => {
     let released = false;
     return () => {
       if (released) return;
       released = true;
       chats -= 1;
-      for (const wake of waiting.splice(0)) wake();
+      admit();
     };
   };
+  /** A turn for one chat, or `busy` when too many wait or it waited too long; null if it left. */
+  const turn = (res: ServerResponse): Promise<Waited | null> =>
+    new Promise((resolve) => {
+      if (queue.length === 0 && chats < allowed()) {
+        chats += 1;
+        resolve({ kind: 'go', release: releaser() });
+        return;
+      }
+      if (queue.length >= MAX_WAITING_CHATS) {
+        resolve({ kind: 'busy' });
+        return;
+      }
+      const waiter = {
+        admit: () => leave({ kind: 'go', release: releaser() }),
+      };
+      const leave = (outcome: Waited | null) => {
+        clearTimeout(timer);
+        res.off('close', gone);
+        const index = queue.indexOf(waiter);
+        if (index >= 0) queue.splice(index, 1);
+        admit();
+        resolve(outcome);
+      };
+      const timer = setTimeout(() => leave({ kind: 'busy' }), chatWaitMs);
+      const gone = () => leave(null);
+      res.once('close', gone);
+      queue.push(waiter);
+      admit();
+    });
 
   const server = createServer((req, res) => {
     void handle(req, res).catch(() => {
@@ -122,6 +248,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       else res.destroy();
     });
   });
+  server.maxConnections = MAX_CONNECTIONS;
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const route = `${req.method} ${req.url}`;
@@ -137,7 +264,7 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       refuse(res, 404, 'Halcyonic passes on only the model list, model details and chat.');
       return;
     }
-    const raw = await readBody(req, MAX_BODY_BYTES);
+    const raw = await read(req);
     if (raw === null) {
       // The rest is never read: the connection closes once the refusal is sent.
       res.once('finish', () => req.destroy());
@@ -145,25 +272,41 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
       refuse(res, 413, 'The request is too large.');
       return;
     }
-    let body: unknown;
-    try {
-      body = JSON.parse(raw.toString('utf8'));
-    } catch {
-      refuse(res, 400, 'The request is not JSON.');
+    const body = parseBody(raw);
+    if (body === null) {
+      refuse(res, 400, 'The request is not a JSON object Halcyonic passes on.');
       return;
     }
-    const model = isRecord(body) ? body.model : undefined;
+    const model = body.model;
     if (typeof model !== 'string' || !(await list()).some((entry) => entry.model === model)) {
       refuse(res, 403, 'That model does not run on this Mac.');
       return;
     }
-    const release = req.url === '/v1/chat/completions' ? await slot() : () => undefined;
-    res.once('close', release);
-    if (res.destroyed) {
-      release();
+    // Built anew from the fields OpenCode sends: model details by the model alone.
+    const sent =
+      req.url === '/api/show'
+        ? JSON.stringify({ model })
+        : JSON.stringify(
+            Object.fromEntries(
+              CHAT_FIELDS.filter((key) => Object.hasOwn(body, key)).map((key) => [key, body[key]]),
+            ),
+          );
+    if (req.url === '/api/show') {
+      forward(target, '/api/show', sent, res, () => undefined);
       return;
     }
-    forward(target, req.url as string, JSON.stringify(body), res, release);
+    const waited = await turn(res);
+    if (waited === null) return;
+    if (waited.kind === 'busy') {
+      refuse(res, 503, 'Too many replies are waiting for the model on this Mac.');
+      return;
+    }
+    res.once('close', waited.release);
+    if (res.destroyed) {
+      waited.release();
+      return;
+    }
+    forward(target, '/v1/chat/completions', sent, res, waited.release);
   }
 
   await new Promise<void>((resolve, reject) => {
@@ -174,11 +317,27 @@ export async function startOllamaGate(options: OllamaGateOptions): Promise<Ollam
   return {
     port,
     baseUrl: `http://${LOOPBACK}:${port}/v1`,
-    close: () => close(server),
+    close: async () => {
+      if (recheck !== null) clearInterval(recheck);
+      recheck = null;
+      await close(server);
+    },
   };
 }
 
-/** Passes one parsed request on to Ollama and its answer back, streamed, until either side ends. */
+/** A request body as a JSON object, or null when it is not one, nests too deep or repeats a key. */
+function parseBody(raw: Buffer): Record<string, unknown> | null {
+  if (nestsDeeper(raw, MAX_DEPTH)) return null;
+  let body: unknown;
+  try {
+    body = JSON.parse(raw.toString('utf8'));
+  } catch {
+    return null;
+  }
+  return isRecord(body) && !hasFoldedDuplicate(body) ? body : null;
+}
+
+/** Passes one request on to Ollama and its answer back, streamed, until either side ends. */
 function forward(
   target: { hostname: string; port: number },
   path: string,
@@ -243,14 +402,16 @@ function readList(target: { hostname: string; port: number }): Promise<unknown> 
   });
 }
 
-/** The whole body, or null once it passes `limit` bytes. */
+/** The whole body, or null once it passes `limit` bytes; a body cut off before its end fails. */
 function readBody(stream: IncomingMessage, limit: number): Promise<Buffer | null> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let settled = false;
     stream.on('data', (chunk: Buffer) => {
       size += chunk.length;
       if (size > limit) {
+        settled = true;
         stream.removeAllListeners('data');
         stream.pause();
         resolve(null);
@@ -258,9 +419,14 @@ function readBody(stream: IncomingMessage, limit: number): Promise<Buffer | null
       }
       chunks.push(chunk);
     });
-    stream.once('end', () => resolve(Buffer.concat(chunks)));
+    stream.once('end', () => {
+      settled = true;
+      resolve(Buffer.concat(chunks));
+    });
     stream.once('error', reject);
-    stream.once('close', () => resolve(size > limit ? null : Buffer.concat(chunks)));
+    stream.once('close', () => {
+      if (!settled) reject(new Error('The request ended before its body did.'));
+    });
   });
 }
 
