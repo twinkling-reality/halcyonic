@@ -284,7 +284,11 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var subject = view.SubjectShown.Title;
             if (view.Frame?.SubjectRuns is LineWords subjectRuns) failures.AddRange(Slants(subject, subjectRuns, name + "'s subject"));
-            if (view.SourceShown is TMP_Text source && view.Frame?.SourceRuns is LineWords sourceRuns) failures.AddRange(Slants(source, sourceRuns, name + "'s source line"));
+            if (view.SourceShown is TMP_Text source && view.Frame?.SourceRuns is LineWords sourceRuns)
+            {
+                failures.AddRange(Slants(source, sourceRuns, name + "'s source line"));
+                if (!sourceRuns.AllTheirs && sourceRuns.AnyTheirs) failures.AddRange(Grounded(source, GlazeRuns.Of(source).Theirs, view.SourceGrounds, name + "'s source line"));
+            }
             return failures;
         }
 
@@ -364,6 +368,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var boxes = GlazeText.RunBoxes(label, theirs);
             // A word space at the label's own size.
             var word = label.GetPreferredValues("a a").x - label.GetPreferredValues("aa").x;
+            var hairline = GlazeTokens.Units(Glaze.Menu.HairlineDegrees);
             for (var index = 0; index < info.characterCount; index++)
             {
                 var character = info.characterInfo[index];
@@ -386,8 +391,21 @@ namespace Halcyonic.XR.Workspace.Editor
                     var nearest = grounds.Where(ground => ground.gameObject.activeSelf && Placed(ground).Overlaps(placedBox))
                         .Select(ground => before ? Placed(ground).xMin - glyph.xMax : glyph.xMin - Placed(ground).xMax).DefaultIfEmpty(float.MaxValue).Min();
                     if (nearest > 3f * word) continue;
-                    var needed = after && char.IsPunctuation(character.character) ? 0f : 0.9f * word;
-                    if (nearest < needed - 1e-4f)
+                    // Punctuation follows a ground's edge as it follows a letter (lane V): clear of its hairline, and
+                    // nearer the letter of outside text beside it than a word space would set it.
+                    var beside = Beside(info, index, before ? 1 : -1);
+                    if (char.IsPunctuation(character.character) && beside >= 0 && GlazeText.InRun(info, beside, theirs))
+                    {
+                        var room = before ? info.characterInfo[beside].origin - character.xAdvance : character.origin - info.characterInfo[beside].xAdvance;
+                        var gap = before ? placedBox.xMin - glyph.xMax : glyph.xMin - placedBox.xMax;
+                        if (nearest < hairline - 1e-4f) failures.Add(what + ": Halcyonic's '" + character.character + "' touches a ground's hairline.");
+                        else if (nearest < gap / 2f - 1e-4f) failures.Add(what + ": a ground reaches past halfway to Halcyonic's '" + character.character + "'.");
+                        else if (room > 0.9f * word) failures.Add(what + ": Halcyonic's '" + character.character + "' stands a word space from the outside text beside it.");
+                        else continue;
+                        index = info.characterCount;
+                        break;
+                    }
+                    if (nearest < 0.9f * word - 1e-4f)
                     {
                         failures.Add(what + ": a ground stands closer than a word space to Halcyonic's letter '" + character.character + "'.");
                         index = info.characterCount;
@@ -396,6 +414,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             return failures;
+        }
+
+        /// <summary>The visible character next to <paramref name="index"/> on its row, <paramref name="step"/> 1 after it or -1 before it, past spaces; -1 where there is none.</summary>
+        private static int Beside(TMP_TextInfo info, int index, int step)
+        {
+            var row = info.characterInfo[index].lineNumber;
+            for (var next = index + step; next >= 0 && next < info.characterCount && info.characterInfo[next].lineNumber == row; next += step)
+            {
+                if (info.characterInfo[next].isVisible) return next;
+            }
+            return -1;
         }
     }
 }

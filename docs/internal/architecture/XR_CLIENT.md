@@ -268,7 +268,8 @@ the same definition names, as the JSON Schema document:
   `ForTextMeshPro` gives the label's text and where each run of theirs stands in it, so a
   doubled backslash, a code point shown by code, a surrogate pair or a combining mark never moves an
   edge; it adds one space where theirs meets Halcyonic's words, the room for a ground's padding, so a
-  ground sits in the sentence as a word does. A part of a long line never starts or ends between a
+  ground sits in the sentence as a word does; beside Halcyonic's punctuation that space is a narrow
+  no-break one (U+202F, `LineWords.NarrowPad`), so the mark follows the ground as it follows a letter. A part of a long line never starts or ends between a
   doubled backslash's two (`LabelText.CharacterStart`). Text that is a line's only words goes through
   `TheirName`, so a lone U+0085 still shows, by code point. The system keyboard holds what it is given by
   `LabelText.Plain`, and words given back unchanged are the original's (`MenuKeyboard`). `CutToFit` shortens outside text alone, every run held to one length, the longest that fits,
@@ -2051,7 +2052,8 @@ TextMeshPro lays them out (`GlazeText.Lean` over each run's range, the same shea
 italic), and Halcyonic's stay upright. Where theirs meets Halcyonic's words it stands on a ground only
 Halcyonic draws (`GlazeRuns`: white at 2 percent over the glass with a 5 percent hairline, both blended
 in linear space as Unity blends, so it lifts the glass by about a fifth of what a chosen row's fill does;
-0.32 degree corners; the full 0.25 degrees past the words each side, in the space `LineWords` adds), one
+0.32 degree corners; the full 0.25 degrees past the words each side, in the space `LineWords` adds, or
+halfway to a letter of Halcyonic's nearer than that, as punctuation after the narrow space is), one
 box a run on each row it reaches from the characters' upright bounds, its words in the primary text colour
 so they hold 4.5:1 there; a block of theirs, lines all of outside text that only say something, stands on
 one ground under Halcyonic's quote mark that hugs its words, a chip or a time beside them on the glass; a row all of theirs needs none beside its quote mark or icon;
