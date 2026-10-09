@@ -366,8 +366,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             var boxes = GlazeText.RunBoxes(label, theirs);
-            // A word space at the label's own size.
-            var word = label.GetPreferredValues("a a").x - label.GetPreferredValues("aa").x;
+            // A word space at the label's own size: the font's space advance at the scale its letters are laid at.
+            var word = WordSpace(label);
+            if (word <= 0f) failures.Add(what + ": no word space to measure a ground's room by.");
             var hairline = GlazeTokens.Units(Glaze.Menu.HairlineDegrees);
             for (var index = 0; index < info.characterCount; index++)
             {
@@ -391,10 +392,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     var nearest = grounds.Where(ground => ground.gameObject.activeSelf && Placed(ground).Overlaps(placedBox))
                         .Select(ground => before ? Placed(ground).xMin - glyph.xMax : glyph.xMin - Placed(ground).xMax).DefaultIfEmpty(float.MaxValue).Min();
                     if (nearest > 3f * word) continue;
-                    // Punctuation follows a ground's edge as it follows a letter (lane V): clear of its hairline, and
-                    // nearer the letter of outside text beside it than a word space would set it.
+                    // Punctuation that meets outside text with none of Halcyonic's own space between, only the room
+                    // LineWords adds, follows a ground's edge as it follows a letter (lane V): clear of its hairline, the
+                    // ground stopping halfway to it, and nearer the letter of outside text than a word space would set it.
                     var beside = Beside(info, index, before ? 1 : -1);
-                    if (char.IsPunctuation(character.character) && beside >= 0 && GlazeText.InRun(info, beside, theirs))
+                    var between = beside < 0 ? -1 : before ? info.characterInfo[beside].index - (character.index + character.stringLength)
+                        : character.index - (info.characterInfo[beside].index + info.characterInfo[beside].stringLength);
+                    if (char.IsPunctuation(character.character) && between == 1 && GlazeText.InRun(info, beside, theirs))
                     {
                         var room = before ? info.characterInfo[beside].origin - character.xAdvance : character.origin - info.characterInfo[beside].xAdvance;
                         var gap = before ? placedBox.xMin - glyph.xMax : glyph.xMin - placedBox.xMax;
@@ -414,6 +418,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             return failures;
+        }
+
+        /// <summary>How wide a space stands on <paramref name="label"/> as laid: its font's space advance at its letters' scale; 0 with no letter laid.</summary>
+        private static float WordSpace(TMP_Text label)
+        {
+            var info = label.textInfo;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible || !character.fontAsset.characterLookupTable.TryGetValue(' ', out var space)) continue;
+                return space.glyph.metrics.horizontalAdvance * character.scale;
+            }
+            return 0f;
         }
 
         /// <summary>The visible character next to <paramref name="index"/> on its row, <paramref name="step"/> 1 after it or -1 before it, past spaces; -1 where there is none.</summary>
