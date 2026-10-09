@@ -65,8 +65,9 @@
    most four more wait, first come first served, each for at most 60 s, then are refused. At most
    256 connections are open and two bodies read at once. A connection is closed when it takes more
    than 15 s to send a request's headers, from when it opened or its last reply ended, when its
-   request waits more than 15 s for a place to be read or takes more than 5 s to send its body once
-   read, and when it sends a request while its last reply is still open, which OpenCode never does. The gate always connects to the control
+   request takes more than 5 s to send its body once read, and when it sends a request while its
+   last reply is still open, which OpenCode was not seen doing in any end to end test through the
+   gate; a request that waits more than 15 s for a place to be read is refused. The gate always connects to the control
    plane's Ollama address, `127.0.0.1:11434`, never one a request names. The adapter points
    OpenCode at it with `OPENCODE_CONFIG_CONTENT`, which OpenCode loads after every other settings
    source, so its `baseURL` wins, and which nothing else may set.
@@ -98,8 +99,9 @@
   those credentials of the person's.
 - **Residual, stated plainly:**
   - **Ollama, through the gate:** a command can ask a model on this Mac for replies, as OpenCode
-    does, holding it while it runs, and can take the chat slots, or keep the gate's connections
-    full, so that OpenCode's own next request waits or fails, visibly, as a failed turn; nothing it
+    does, holding it while it runs, and can take the chat slots, keep the gate's connections full
+    or keep its read places busy with slow requests, so that OpenCode's own next request waits or
+    fails, visibly, as a failed turn; nothing it
     sends that way leaves the Mac. Before the gate
     (2026-10-08, decision 5), Ollama's own port was reachable, and Ollama, unsandboxed, could be
     asked to pull from or push to any registry, a pull's name carrying data to a host the command
