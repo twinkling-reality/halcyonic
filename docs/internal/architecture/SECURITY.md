@@ -217,15 +217,19 @@ depends on OpenCode's parse of the command: OpenCode raises it for the commands 
 and some shell constructs run without an ask. So Halcyonic treats the ask as the person's say over
 what runs, not a boundary. The boundary, on macOS, is a sandbox of Halcyonic's own around the
 OpenCode server and everything it starts ([ADR 0028](../decisions/0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md)):
-outbound network only to the model's port on loopback and the server's own, so nothing beyond the
-Mac and no other program listening on it is reached; writes only in the project roots, OpenCode's
-own folders and its temporary folder; nothing of Halcyonic's data directory read but the pinned
-binaries and its own OpenCode settings, and none of the person's own credentials. The adapter
-refuses to launch OpenCode on macOS without it, and the control plane warns where it runs
-unsandboxed. What stays reachable from inside: the project roots, the model, and the server's own
-API, whose password is readable from inside (below). An approved command that needs the network,
-or a local port it opens itself, fails; the person runs those
-([opencode-sandbox.md](../validation/opencode-sandbox.md)). A saved "always" outruns the ask, below. The server's password, passed in
+outbound network only to Ollama's port on loopback and the server's own, so no connection beyond
+the Mac or to another program listening on it; data, state, cache and temporary folders of its own
+under the data directory, never the person's own OpenCode folders; writes only there and in the
+project roots; nothing of Halcyonic's data directory read but the pinned binaries, those folders
+and its own OpenCode settings, and none of a listed set of the person's credentials (keys, cloud,
+container and package registries' tokens, the keychains). The adapter refuses to launch OpenCode on
+macOS without it, and the control plane warns where it runs unsandboxed. What stays reachable from
+inside: the project roots; Ollama, which runs unsandboxed and can be asked to pull from or push to
+any registry, a pull's name able to carry data to a host the command chooses, so data can still
+leave the Mac through it; and the server's own API, whose password is readable from inside (below).
+An approved command that needs the network, or a local port it opens itself, fails; the person runs
+those ([opencode-sandbox.md](../validation/opencode-sandbox.md)). Outside the sandbox, as on other
+platforms, a saved "always" outruns the ask, below. The server's password, passed in
 `OPENCODE_PASSWORD`, is not secret from commands the agent runs: each session's own environment
 leaves it out, but any process of the same user can read the server's starting environment
 (`ps -wwE`). So the adapter stops a task whose rules change, or whose request is approved, without

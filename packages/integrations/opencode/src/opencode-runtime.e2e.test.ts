@@ -7,7 +7,14 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
@@ -1674,12 +1681,13 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
   );
 
   test(
-    'a saved "always" from the person\'s own OpenCode for the project skips the ask',
+    'a saved "always" from the person\'s own OpenCode reaches a task only where its server shares their data folder',
     SLOW_TEST,
     async (t) => {
-      // What Halcyonic cannot prevent while its server shares the person's data folder: answered
-      // "always" in their own OpenCode, here a server of the sandbox's own, the rule is saved for
-      // the project, and a later session of Halcyonic's runs the command unasked.
+      // Answered "always" in the person's own OpenCode, here a server of the sandbox's own, the
+      // rule is saved for the project in their data folder. Inside Halcyonic's sandbox the server
+      // keeps a data folder of its own (ADR 0028), so the rule never reaches its tasks and the
+      // command asks; unsandboxed, it shares theirs and runs the command unasked.
       const sandbox = await createSandbox();
       t.after(() => sandbox.cleanup());
       const bare = await bareServer(t, sandbox);
@@ -1734,9 +1742,22 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
         model_ref: null,
         emit: execution.emit,
       });
-      await execution.next('runtime.turn.completed');
-      assert.ok(!execution.types().includes('runtime.approval.requested'));
-      assert.equal(readFileSync(ran(sandbox), 'utf8'), 'ran');
+      if (process.platform === 'darwin') {
+        const request = await asked(execution);
+        assert.equal(request.subject.kind === 'tool_use' && request.subject.summary, SHOWN);
+        await runtime.respondToApproval({
+          execution: execution.context,
+          approval_id: request.approval_id,
+          decision: 'deny',
+          message: null,
+        });
+        await execution.next('runtime.turn.interrupted');
+        assert.equal(existsSync(ran(sandbox)), false);
+      } else {
+        await execution.next('runtime.turn.completed');
+        assert.ok(!execution.types().includes('runtime.approval.requested'));
+        assert.equal(readFileSync(ran(sandbox), 'utf8'), 'ran');
+      }
     },
   );
 });
@@ -1893,6 +1914,10 @@ describe("OpenCode runs inside Halcyonic's sandbox (ADR 0028)", {
         /\(deny network-outbound\)/,
         'rewrote its profile',
       );
+      // Readable by the user only, and naming the server's own port among the few it may reach.
+      assert.equal(statSync(profile).mode & 0o777, 0o600);
+      const { port } = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as { port: number };
+      assert.ok(readFileSync(profile, 'utf8').includes(`(remote ip "localhost:${port}")`));
       const sent = sandbox.provider.requests.map((request) => request.body).join('\n');
       assert.ok(!sent.includes('stand-in-credential'), 'the credential reached the model');
     },

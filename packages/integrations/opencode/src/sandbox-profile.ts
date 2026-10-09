@@ -58,6 +58,11 @@ export function personalSecrets(home: string): string[] {
     '.pypirc',
     '.netrc',
     '.gnupg',
+    '.git-credentials',
+    '.config/gh',
+    '.codex',
+    '.cargo/credentials.toml',
+    '.cargo/credentials',
     'Library/Keychains',
   ].map((path) => join(home, path));
 }
@@ -103,7 +108,8 @@ function resolved(path: string): string {
   const rest: string[] = [];
   while (true) {
     try {
-      return join(realpathSync(existing), ...rest.reverse());
+      // The native call gives the spelling on disk, its letter case and Unicode form included.
+      return join(realpathSync.native(existing), ...rest.reverse());
     } catch {
       const parent = dirname(existing);
       if (parent === existing) return path;

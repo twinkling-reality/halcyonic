@@ -16,13 +16,22 @@
 
 ## The profile
 
-`(allow default)`, then: outbound network denied but to the model's port on loopback and the
-server's own; writes denied but in the project roots, OpenCode's data, state and cache folders, the
-server's `TMPDIR` and `/dev/null`, `/dev/zero`, `/dev/tty*` and `/dev/fd/*`; reads denied of
-Halcyonic's data directory and the person's own credentials, then allowed again of the pinned
-binaries and Halcyonic's own OpenCode settings. Seatbelt matches a path as the file system resolves
-it (`/var` is `/private/var`), so the adapter writes each path resolved, through its nearest
-existing folder when it is not made yet.
+`(allow default)`, then: outbound network denied but to Ollama's port on loopback (11434: OpenCode
+2.0.18 asks Ollama only there, `core/src/plugin/provider/ollama.ts`, and Halcyonic's own OpenCode
+settings may not name another address) and the server's own; writes denied but in the project roots,
+the server's own data, state, cache and temporary folders under `<data dir>/opencode-sandbox`, and
+`/dev/null`, `/dev/zero`, `/dev/tty*` and `/dev/fd/*`; reads denied of Halcyonic's data directory and
+a listed set of the person's credentials, then allowed again of the pinned binaries, the server's own
+folders and Halcyonic's own OpenCode settings. Seatbelt matches a path as the file system resolves it
+(`/var` is `/private/var`), so the adapter writes each path as the native call resolves it, letter
+case and Unicode form included, through its nearest existing folder when it is not made yet.
+
+The server's folders are its own, never the person's: OpenCode 2.0.18 installs provider and plugin
+packages under its cache and imports them, and looks up `rg` and shells there
+(`util/src/npm.ts`, `ripgrep/binary.ts`, `shell/select.ts`); its data folder holds its saved rules
+and credentials. Writable from inside, the person's own folders would let a command plant code their
+own OpenCode runs outside the sandbox, or change its rules. Its temporary folder is its own too, never
+the system's `/var/folders/…/T`, which every app shares (found by review, 2026-10-08).
 
 ## The four runtime tests
 
@@ -31,10 +40,14 @@ existing folder when it is not made yet.
    folder at startup and is refused; Halcyonic's own settings folder always exists, so the start
    goes on, and the folder stays unwritable, so nothing can plant a plugin there for the next start.
    Checked also as the control plane builds the adapter from this Mac's own settings: the server
-   started inside the profile and listed 17 models, 10 of them Ollama's.
-2. **The whole OpenCode end to end suite under the profile:** 44 of 44 pass, the network probe with
-   its controls among them. One test changed meaning: an approved write outside the project, asked
-   for twice (the folder, then the file), is now refused by the sandbox.
+   started inside the profile, with its own folders under `~/.halcyonic/opencode-sandbox`, and
+   listed 17 models, 10 of them Ollama's.
+2. **The whole OpenCode end to end suite**, every test that goes through the adapter under the
+   profile (a few controls launch a bare server on purpose): 44 of 44 pass, the network probe with
+   its controls among them, also with the server's own folders. Two tests changed meaning: an
+   approved write outside the project, asked for twice (the folder, then the file), is now refused
+   by the sandbox; and a saved "always" from the person's own OpenCode no longer reaches a
+   Halcyonic task, whose server keeps a data folder of its own, so the command asks.
 3. **The recorded parse-bypass constructs** (details private), each run with every ask approved,
    under zsh and under bash: none wrote outside the project, and a direct connection beyond the Mac
    failed (`curl` exit 7). Pass in both shells.
@@ -72,9 +85,18 @@ port and the server's own: by hand, Ollama answered and the debugger and a serve
 command started itself did not; IPv6 loopback to Ollama's port did not either, which costs nothing
 while Ollama listens on IPv4.
 
+## Ollama, the residual
+
+Ollama's port is reachable from inside, and Ollama runs unsandboxed: it can be asked to pull a model
+from, or push one to, any registry, and a pull's name can itself carry data to a host the command
+chooses. So data can still leave the Mac through Ollama (source reading of Ollama's API, not run).
+`OLLAMA_NO_CLOUD=1` keeps its cloud models off; a proxy in front of Ollama is an open question.
+
 ## Not verified
 
 - Whether OpenCode's server ever connects to itself on its own port; the port is allowed in case.
 - A real local model's turns under the profile, with real builds and tests: what else an ordinary
   task trips on.
 - Plugins and MCP servers a person configures in their own OpenCode settings, under the profile.
+- Hosted models: OpenCode lists them (17 models, 10 of them Ollama's, on this Mac); from inside the
+  sandbox none can be reached, so a start on one fails when its turn calls the provider.

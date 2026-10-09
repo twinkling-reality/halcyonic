@@ -30,7 +30,6 @@ import {
   codexEnvironment,
   createRuntimeAdapters,
   heldSecrets,
-  ollamaPort,
   openCodeEnvironment,
   openCodeSandbox,
   secretName,
@@ -360,16 +359,6 @@ describe("OpenCode's sandbox on this Mac (ADR 0028)", () => {
       '/h',
     );
     assert.deepEqual(own.readable, ['/d/runtimes']);
-  });
-
-  test("reaches Ollama on the port OLLAMA_HOST names, else Ollama's default", () => {
-    assert.equal(ollamaPort(undefined), 11434);
-    assert.equal(ollamaPort(''), 11434);
-    assert.equal(ollamaPort('127.0.0.1:11500'), 11500);
-    assert.equal(ollamaPort(':11501'), 11501);
-    assert.equal(ollamaPort('http://localhost:11502/'), 11502);
-    assert.equal(ollamaPort('0.0.0.0'), 11434);
-    assert.equal(ollamaPort('host:99999'), 11434);
   });
 
   test('is given to OpenCode on macOS, and nowhere else', () => {
