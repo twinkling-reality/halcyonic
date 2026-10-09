@@ -292,7 +292,8 @@ commands; edits do not ask; subagents stay denied.
   until the owner decides on reporting them to OpenCode
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Since 2026-10-08 the server runs on macOS
   inside a sandbox of Halcyonic's own, which contains those commands: no write outside the project
-  roots and its own folders, no connection but to Ollama's port and the server's own
+  roots and its own folders, no connection but to the server's own port and the gate in front of
+  Ollama
   ([ADR 0028](../decisions/0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md),
   [opencode-sandbox.md](opencode-sandbox.md)).
 - **Every hidden path is denied to edits.** A repository's `.git` configuration names programs git

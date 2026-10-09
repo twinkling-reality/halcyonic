@@ -16,10 +16,8 @@
 
 ## The profile
 
-`(allow default)`, then: outbound network denied but to Ollama's port on loopback (11434: OpenCode
-2.0.18 asks Ollama only there, `core/src/plugin/provider/ollama.ts`, and Halcyonic's own OpenCode
-settings may not name another address; without them the person's own settings are read, and an
-Ollama address there on another port is refused) and the server's own; writes denied but in the project roots,
+`(allow default)`, then: outbound network denied but to the Ollama gate's port on loopback (below)
+and the server's own; writes denied but in the project roots,
 the server's own data, state, cache and temporary folders under `<data dir>/opencode-sandbox`, and
 `/dev/null`, `/dev/zero`, `/dev/tty*` and `/dev/fd/*`; reads denied of Halcyonic's data directory and
 a listed set of the person's credentials, then allowed again of the pinned binaries, the server's own
@@ -81,17 +79,49 @@ Docker stack 54321 to 54324 and 54327; Discord's local RPC 6463; Python, Google 
 ports; workerd and dotnet test servers; other Node.js servers, among them a debugger on 9229;
 AirPlay 5000 and 7000; rapportd. From inside a profile open to all of loopback, the Node.js debugger
 answered, and through a debugger port code runs in that other, unsandboxed process; Docker's local
-socket did not, since a local socket is outbound network too. So the profile allows only the model's
-port and the server's own: by hand, Ollama answered and the debugger and a server the sandboxed
+socket did not, since a local socket is outbound network too. So the profile allowed only the model's
+port and the server's own (since replaced by the gate's, below): by hand, Ollama answered and the debugger and a server the sandboxed
 command started itself did not; IPv6 loopback to Ollama's port did not either, which costs nothing
 while Ollama listens on IPv4.
 
-## Ollama, the residual
+## Ollama, through a gate
 
-Ollama's port is reachable from inside, and Ollama runs unsandboxed: it can be asked to pull a model
-from, or push one to, any registry, and a pull's name can itself carry data to a host the command
-chooses. So data can still leave the Mac through Ollama (source reading of Ollama's API, not run).
-`OLLAMA_NO_CLOUD=1` keeps its cloud models off; a proxy in front of Ollama is an open question.
+Before the gate, Ollama's port was reachable from inside, and Ollama runs unsandboxed: it can be
+asked to pull a model from, or push one to, any registry, and a pull's name can itself carry data to
+a host the command chooses (source reading of Ollama's API, not run). Since 2026-10-08 the sandbox
+reaches Ollama only through a gate in the control plane's process
+([ADR 0028](../decisions/0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md), decision 5).
+
+From the source, OpenCode 2.0.18 asks Ollama for the model list (`GET /api/tags`, at start and
+every 30 s), a model's details (`POST /api/show`, when its digest changes) and chat
+(`POST /v1/chat/completions`, through its OpenAI-compatible provider), at the address its settings
+name, `providers.ollama.settings.baseURL`, `/v1` swapped for `/api/...` for the first two
+(`core/src/plugin/provider/ollama.ts`, `ai/src/protocols/openai-compatible-chat.ts`). Its settings
+documents rank global, then explicit and direct files, then the project's, then
+`OPENCODE_CONFIG_CONTENT` last and highest (`core/src/config.ts`, `load`). Four runtime tests,
+2026-10-08, with Ollama 0.34.4 and the pinned binary:
+
+1. **What OpenCode asks.** OpenCode pointed straight at a stand-in Ollama that records every
+   request: a session's first turn, with a shell command approved in it, made two chats, never two
+   at once; no title request, since Halcyonic names each session itself. Two sessions side by side,
+   each in a slow reply, held two at once. Across all of it the stand-in saw only the three requests
+   (tracked e2e test). So the gate allows one chat at a time for each turn running or starting on
+   the server, and at least one; a tracked test shows two tasks side by side both get replies.
+2. **What the gate refuses.** Through the adapter, an approved command's requests to the gate: pull,
+   push, create, delete, copy, generate, `/api/chat`, embed, ps, version, `/v1/models` and the list
+   with a query, 404; chats naming a cloud model, a remote one and one not listed, and details of the
+   remote one, 403; a chat with the model on this Mac, 200; Ollama's own port, no connection. The
+   gate's list showed the local model alone, and the stand-in received nothing refused (tracked e2e
+   test; the gate's own unit tests add a body over 8 MiB, one not JSON, a request's own headers left
+   behind, a closed chat closing Ollama's reply, and the cap).
+3. **Settings cannot move it.** With OpenCode's global settings and the project's own file naming
+   another Ollama address (port 9, where nothing answers), the turn still reached the stand-in,
+   through the gate (tracked e2e test).
+4. **The real Ollama** (0.34.4, nothing loaded, its sockets sampled every 100 ms by `lsof`): through
+   the gate it listed its 10 models, none remote or cloud, and gave a model's details; a chat naming
+   a missing model was refused at the gate, and asked directly Ollama answered 404 "not found" and
+   pulled nothing. No Ollama socket beyond loopback in 19 samples, and nothing loaded after
+   (private probe).
 
 ## ripgrep
 
@@ -105,6 +135,8 @@ reach the download; found by review, 2026-10-08).
 ## Not verified
 
 - Whether OpenCode's server ever connects to itself on its own port; the port is allowed in case.
+- A real model's turns through the gate; the stand-in streams as Ollama's OpenAI-compatible
+  endpoint does, and the real Ollama was asked only for its list and a model's details.
 - A real local model's turns under the profile, with real builds and tests: what else an ordinary
   task trips on.
 - Plugins and MCP servers a person configures in their own OpenCode settings, under the profile.

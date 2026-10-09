@@ -1,6 +1,7 @@
 # ADR 0028: OpenCode runs inside a macOS sandbox of Halcyonic's own
 
-- Status: Accepted (delegated by the owner, 2026-10-08)
+- Status: Accepted (delegated by the owner, 2026-10-08); amended 2026-10-08: Ollama only through
+  a gate of Halcyonic's own (decision 5)
 - Date: 2026-10-08
 
 ## Context
@@ -35,11 +36,9 @@
    folder every app shares. It reads Halcyonic's own OpenCode settings, or the person's when those
    are not set up.
 3. The profile allows everything except:
-   - **network:** outbound only to Ollama's port on loopback (11434, the only one OpenCode 2.0.18
-     asks and the only one Halcyonic's own OpenCode settings allow; an Ollama address on another
-     port in the person's own settings, read when Halcyonic's are not set up, is refused) and the
-     server's own; no connection beyond the Mac, to another program listening on it
-     (a debugger, a database, an app's own port), or to a local socket;
+   - **network:** outbound only to the Ollama gate's port on loopback (decision 5) and the
+     server's own; no connection beyond the Mac, to Ollama's own port, to another program listening
+     on it (a debugger, a database, an app's own port), or to a local socket;
    - **writes:** only in the host's project roots, the server's own folders and the shell's
      devices; never `~/.halcyonic` otherwise, OpenCode's configuration folders, shell profiles or
      other repositories;
@@ -50,6 +49,19 @@
      Cargo's and the login keychains.
 4. The shell ask stays, as the person's say over what runs; the sandbox bounds what anything run
    can reach.
+5. **Ollama only through a gate** (amended 2026-10-08, the coordinator's decision): a loopback
+   server in the control plane's own process, outside the sandbox, which the adapter opens on a free
+   port before it launches the server and closes once the server has exited
+   (`packages/integrations/opencode/src/ollama-gate.ts`). It passes on exactly the three requests
+   OpenCode 2.0.18 makes of Ollama, `GET /api/tags`, `POST /api/show` and
+   `POST /v1/chat/completions`, and refuses everything else before it reaches Ollama. The model list
+   it answers holds only models that run on this Mac (no `remote_host` or `remote_model`, no `cloud`
+   tag); a show or chat body is parsed as JSON, at most 8 MiB, must name one of them, and is passed
+   on as parsed. Chats stream back, and closing one closes Ollama's reply. At most one chat is open
+   for each turn running or starting on the server, and at least one; another waits. The gate always
+   connects to the control plane's Ollama address, `127.0.0.1:11434`, never one a request names. The
+   adapter points OpenCode at it with `OPENCODE_CONFIG_CONTENT`, which OpenCode ranks above every
+   settings file, global and project, and which nothing else may set.
 
 ## Alternatives considered
 
@@ -77,10 +89,11 @@
   roots and the server's own folders, change the person's own OpenCode, or read Halcyonic's or
   those credentials of the person's.
 - **Residual, stated plainly:**
-  - **Ollama:** its port is reachable, and Ollama runs unsandboxed: it can be asked to pull a model
-    from, or push one to, any registry, and a pull's name can itself carry data to a host the
-    command chooses. So data can still leave the Mac through Ollama. Ollama's own `OLLAMA_NO_CLOUD`
-    keeps its cloud models off; a proxy in front of Ollama is an open question.
+  - **Ollama, through the gate:** a command can ask a model on this Mac for replies, as OpenCode
+    does, holding it while it runs; nothing it sends that way leaves the Mac. Before the gate
+    (2026-10-08, decision 5), Ollama's own port was reachable, and Ollama, unsandboxed, could be
+    asked to pull from or push to any registry, a pull's name carrying data to a host the command
+    chose, or to run a cloud model.
   - **The project roots** are writable, so an approved command can change any project there.
   - **The server's own data folder** is one for every project: a command run in one project can
     read another's OpenCode sessions there, and change saved session rules in its database
@@ -93,7 +106,9 @@
     change its session's rules or answer its own asks; the adapter's tamper detection stops the task
     when it does, after the fact, and the sandbox still bounds what any rule then allows.
   - Credentials the person keeps elsewhere than the paths above stay readable.
-- **Costs:** approved commands that need the network fail (`npm install`, `git fetch`,
+- **Costs:** one more loopback listener in the control plane for each OpenCode server, and a hop on
+  every streamed token. If an OpenCode upgrade asks Ollama for something new, the gate refuses it
+  and that feature fails until the gate allows it. Approved commands that need the network fail (`npm install`, `git fetch`,
   `pip install`), and so do a project's own tests or dev servers that open a local port and connect
   to it: the person runs those. OpenCode cannot search files unless `rg` is on the PATH, since the
   sandbox refuses its download of ripgrep; the control plane warns at startup. Hosted models
@@ -105,8 +120,11 @@
   profile (a few controls launch a bare server on purpose); a tracked test shows an approved command
   refused its write outside, a credential, a connection beyond the Mac and to another program's
   port, a nested looser sandbox and its own profile; a private test shows each recorded
-  parse-bypass construct contained. Linux and Windows have no Seatbelt; the adapter runs OpenCode
+  parse-bypass construct contained; tracked tests show OpenCode asks Ollama for nothing but the
+  three requests, one chat at a time for each session, that it reaches Ollama through the gate
+  whatever its settings name, and that the gate refuses an approved command everything else and
+  Ollama's own port. Linux and Windows have no Seatbelt; the adapter runs OpenCode
   unsandboxed there, and says so.
 - **Worth revisiting:** if Apple removes `sandbox-exec`; if OpenCode ships a sandbox of its own; if
-  a person-chosen list of extra local ports or a proxy in front of Ollama is wanted; or to give
+  a person-chosen list of extra local ports is wanted; or to give
   Codex's and Claude Code's runs the same bounds.
