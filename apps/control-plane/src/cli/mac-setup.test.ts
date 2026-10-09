@@ -435,13 +435,13 @@ describe('pnpm mac-setup', () => {
     assert.doesNotMatch(text(machine), /without asking|fetch from the web/);
   });
 
-  test('without ripgrep, the check says OpenCode would download it', async (t) => {
+  test("without ripgrep, the check says OpenCode can't search files", async (t) => {
     const machine = mac(t);
     machine.install('opencode');
     await machine.run('agent-apps');
     machine.rg = false;
     await machine.run();
-    assert.match(text(machine), /OpenCode would download it from GitHub/);
+    assert.match(text(machine), /OpenCode can't search files until it's installed/);
     assert.match(text(machine), /brew install ripgrep/);
   });
 

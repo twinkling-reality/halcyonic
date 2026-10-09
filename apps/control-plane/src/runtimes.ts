@@ -115,6 +115,21 @@ export function openCodeSandbox(
   };
 }
 
+/**
+ * Whether OpenCode can search files inside its sandbox: it runs the first `rg` on the PATH it
+ * inherits, and without one downloads ripgrep from GitHub, which the sandbox refuses (ADR 0028).
+ */
+export function ripgrepOnPath(path: string | undefined): boolean {
+  return (path ?? '').split(':').some((folder) => {
+    if (folder === '') return false;
+    try {
+      return statSync(join(folder, 'rg')).isFile();
+    } catch {
+      return false;
+    }
+  });
+}
+
 /** The port OpenCode reaches Ollama on: Ollama's default, the only one OpenCode 2.0.18 asks. */
 export const OLLAMA_PORT = 11434;
 

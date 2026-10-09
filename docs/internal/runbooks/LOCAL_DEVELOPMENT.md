@@ -60,8 +60,8 @@ which only you can read or change, and Halcyonic reads it when it starts
    ```
 
    The last command records each one only if its SHA-256 is the one Halcyonic was checked with (on
-   Apple silicon; Intel Macs have no checksums yet). OpenCode searches files with ripgrep and
-   downloads it from GitHub when none is on the PATH: `brew install ripgrep`.
+   Apple silicon; Intel Macs have no checksums yet). OpenCode searches files with ripgrep, and
+   its sandbox refuses a download of it, so it needs one on the PATH: `brew install ripgrep`.
 3. **Choose where work runs, and what it costs.** A model on your Mac costs nothing per task and
    keeps your code and instructions on the Mac; a model on a remote service sends them there, and
    some cost money. Halcyonic never picks a model by itself: the headset lists the Mac's models
@@ -326,7 +326,8 @@ than Halcyonic runs it with these settings; each task Halcyonic starts carries r
 outrank them. The `limit` tells OpenCode the context Ollama
 actually gives the model (`OLLAMA_CONTEXT_LENGTH`), where it would otherwise assume the model's full
 context. The adapter disables OpenCode's catalog fetch by default. Ensure ripgrep is on the PATH
-passed to the control plane, so OpenCode does not download it when it searches files:
+passed to the control plane: OpenCode searches files with it, and on macOS its sandbox refuses the
+download OpenCode would otherwise make (the control plane warns at startup):
 
 ```bash
 export PATH="/opt/homebrew/bin:$PATH"

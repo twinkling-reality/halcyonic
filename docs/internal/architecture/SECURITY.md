@@ -224,7 +224,8 @@ project roots; nothing of Halcyonic's data directory read but the pinned binarie
 and its own OpenCode settings, and none of a listed set of the person's credentials (keys, cloud,
 container and package registries' tokens, the keychains). The adapter refuses to launch OpenCode on
 macOS without it, and the control plane warns where it runs unsandboxed. What stays reachable from
-inside: the project roots; Ollama, which runs unsandboxed and can be asked to pull from or push to
+inside: the project roots; the server's own data folder, one for every project, where a command
+can read other projects' OpenCode sessions and change saved session rules without the API; Ollama, which runs unsandboxed and can be asked to pull from or push to
 any registry, a pull's name able to carry data to a host the command chooses, so data can still
 leave the Mac through it; and the server's own API, whose password is readable from inside (below).
 An approved command that needs the network, or a local port it opens itself, fails; the person runs

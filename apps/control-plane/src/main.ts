@@ -29,7 +29,12 @@ import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
-import { createRuntimeAdapters, heldSecrets, stopStaleRuntimeServers } from './runtimes.ts';
+import {
+  createRuntimeAdapters,
+  heldSecrets,
+  ripgrepOnPath,
+  stopStaleRuntimeServers,
+} from './runtimes.ts';
 import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
@@ -63,6 +68,15 @@ async function main(): Promise<void> {
       app.log.warn(
         { platform: process.platform },
         "OpenCode runs unsandboxed here: Halcyonic's sandbox is macOS only (ADR 0028)",
+      );
+    }
+    if (
+      adapter instanceof OpenCodeRuntimeAdapter &&
+      adapter.sandboxed &&
+      !ripgrepOnPath(process.env.PATH)
+    ) {
+      app.log.warn(
+        "OpenCode can't search files: ripgrep isn't on this PATH, and its sandbox refuses the download (brew install ripgrep)",
       );
     }
   }
