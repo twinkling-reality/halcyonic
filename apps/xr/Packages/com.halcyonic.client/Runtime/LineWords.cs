@@ -148,8 +148,10 @@ namespace Halcyonic.Client
         /// are taken on that text, so a doubled backslash, a code point shown by code, a surrogate
         /// pair or a combining mark never moves a run's edge. Where outside text meets Halcyonic's words
         /// one more space stands between them, outside the run, so a ground sits in the sentence as a
-        /// word does: Halcyonic's own space or punctuation, then the ground's padding inside it (lane V's
-        /// rule); a space is wider than the padding at every size a line takes.
+        /// word does: beside Halcyonic's own space, a space (<see cref="Pad"/>), the ground's padding
+        /// inside it; beside Halcyonic's punctuation, a narrow one (<see cref="NarrowPad"/>), so the mark
+        /// follows the ground's edge as it follows a letter, clear of it and nearer than a word space
+        /// (lane V's rule).
         /// </summary>
         public (string Text, IReadOnlyList<(int Start, int End)> Theirs) ForTextMeshPro()
         {
@@ -158,7 +160,11 @@ namespace Halcyonic.Client
             for (var index = 0; index < Runs.Count; index++)
             {
                 var run = Runs[index];
-                if (index > 0) text.Append(Pad);
+                if (index > 0)
+                {
+                    var ours = run.Theirs ? Runs[index - 1].Text : run.Text;
+                    text.Append((run.Theirs ? ours[ours.Length - 1] : ours[0]) == ' ' ? Pad : NarrowPad);
+                }
                 var start = text.Length;
                 text.Append(run.Text.Replace("\\", "\\\\"));
                 if (run.Theirs) theirs.Add((start, text.Length));
@@ -168,6 +174,13 @@ namespace Halcyonic.Client
 
         /// <summary>The room added where outside text meets Halcyonic's words, for the ground's padding: one space.</summary>
         public const string Pad = " ";
+
+        /// <summary>
+        /// The room added where outside text meets Halcyonic's punctuation rather than its space: a narrow
+        /// no-break space, about seven tenths of a space, that a line never breaks at, so the mark stays
+        /// beside the ground and the ground's padding stops halfway to it.
+        /// </summary>
+        public const string NarrowPad = "\u202F";
 
         /// <summary>
         /// These words cut to what <paramref name="fits"/>: outside text only, every run of it held to

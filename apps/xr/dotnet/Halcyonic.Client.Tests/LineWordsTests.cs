@@ -205,6 +205,22 @@ public class LineWordsTests
     private static Func<LineWords, bool> Within(int most) => words => words.Text.Length <= most;
 
     [Test]
+    public void HalcyonicsPunctuationFollowsAGroundANarrowNoBreakSpaceAwayAndHalcyonicsSpaceAFullOne()
+    {
+        // Punctuation follows a ground's edge as it follows a letter (lane V): never a word space away.
+        var approval = LineWords.Ours("It wants to use ") + LineWords.TheirName("bash") + LineWords.Ours(":");
+        Assert.That(approval.ForTextMeshPro().Text, Is.EqualTo("It wants to use " + LineWords.Pad + "bash" + LineWords.NarrowPad + ":"));
+        var source = LineWords.Ours("From Salidium ") + LineWords.TheirName("0.6.0") + LineWords.Ours(", 2 minutes ago");
+        Assert.That(source.ForTextMeshPro().Text, Is.EqualTo("From Salidium " + LineWords.Pad + "0.6.0" + LineWords.NarrowPad + ", 2 minutes ago"));
+        // An opening mark before outside text holds it as close.
+        var opened = LineWords.Ours("(") + LineWords.TheirName("bash") + LineWords.Ours(" ran)");
+        Assert.That(opened.ForTextMeshPro().Text, Is.EqualTo("(" + LineWords.NarrowPad + "bash" + LineWords.Pad + " ran)"));
+        // The narrow space is a space a line never breaks at, so the mark never starts a row of its own.
+        Assert.That(LineWords.NarrowPad, Is.EqualTo("\u202F"));
+        Assert.That(LineWords.Pad, Is.EqualTo(" "));
+    }
+
+    [Test]
     public void ALineThatFitsIsNotCut()
     {
         var words = LineWords.Ours("Tests passed: ") + LineWords.Theirs("auth.test.ts");

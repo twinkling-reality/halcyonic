@@ -99,7 +99,8 @@ Three sizes on the plane (`Glaze.Menu`):
   the font's italic amount, never quoted, on a ground only Halcyonic draws where it meets our words:
   white at 2 percent with a 5 percent hairline, in linear space as Unity blends, so it never reads as
   chosen; 0.32 degree corners; 0.25 degrees past the words, set in the sentence as a word is, our space
-  before it and after it (none before punctuation); the words on it in the primary text colour. A
+  before it and after it; our punctuation follows its edge as it follows a letter, clear of it and
+  nearer than a word space, the ground stopping halfway to it; the words on it in the primary text colour. A
   separator such as ": " between two of theirs doesn't make the line ours.
   A row or a block all of it carries our quote mark (format_quote) in the icon column, in the
   secondary colour, where no icon of ours stands; a title in its plate leans with the plate as its

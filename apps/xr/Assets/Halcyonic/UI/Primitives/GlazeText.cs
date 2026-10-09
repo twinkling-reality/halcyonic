@@ -280,12 +280,32 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// The grounds for the runs of outside text in a laid label (<see cref="RunBoxes"/>), each reaching its
-        /// full <paramref name="padding"/> past its words: the room for it is the space <see cref="LineWords.Pad"/>
-        /// adds to the line where outside text meets Halcyonic's words, never taken from Halcyonic's own space.
+        /// The grounds for the runs of outside text in a laid label (<see cref="RunBoxes"/>), each reaching
+        /// <paramref name="padding"/> past its words, or halfway to a letter of Halcyonic's beside it on its row
+        /// where that is nearer: beside Halcyonic's space the room is the space <see cref="LineWords.Pad"/> adds,
+        /// so the full padding fits; beside Halcyonic's punctuation, after <see cref="LineWords.NarrowPad"/>, the
+        /// ground stops halfway, so the mark stands clear of it.
         /// </summary>
-        public static List<Rect> RunGrounds(TMP_Text label, IReadOnlyList<(int Start, int End)> ranges, float padding) =>
-            RunBoxes(label, ranges).Select(box => Rect.MinMaxRect(box.xMin - padding, box.yMin, box.xMax + padding, box.yMax)).ToList();
+        public static List<Rect> RunGrounds(TMP_Text label, IReadOnlyList<(int Start, int End)> ranges, float padding)
+        {
+            var info = label.textInfo;
+            var grounds = new List<Rect>();
+            foreach (var box in RunBoxes(label, ranges))
+            {
+                float left = padding, right = padding;
+                for (var index = 0; index < info.characterCount; index++)
+                {
+                    var character = info.characterInfo[index];
+                    if (!character.isVisible || InRun(info, index, ranges)) continue;
+                    var middle = (info.lineInfo[character.lineNumber].ascender + info.lineInfo[character.lineNumber].descender) / 2f;
+                    if (middle < box.yMin || middle > box.yMax) continue;
+                    if (character.topRight.x <= box.xMin) left = Mathf.Min(left, (box.xMin - character.topRight.x) / 2f);
+                    if (character.bottomLeft.x >= box.xMax) right = Mathf.Min(right, (character.bottomLeft.x - box.xMax) / 2f);
+                }
+                grounds.Add(Rect.MinMaxRect(box.xMin - left, box.yMin, box.xMax + right, box.yMax));
+            }
+            return grounds;
+        }
 
         private static Rect Box(TMP_TextInfo info, int row, float left, float right)
         {

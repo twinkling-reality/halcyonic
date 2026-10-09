@@ -214,6 +214,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The source line's label while it shows, for the renders' checks.</summary>
         public TextMeshPro? SourceShown => source.gameObject.activeSelf ? source : null;
 
+        /// <summary>The grounds under outside text in the source line, for the renders' checks.</summary>
+        public IReadOnlyList<Surface> SourceGrounds => sourceGrounds.Where(ground => ground.gameObject.activeSelf).ToList();
+
         /// <summary>Every prompt's and section's label, which hold Halcyonic's words alone, for the renders' checks.</summary>
         public IEnumerable<TMP_Text> OursOnly =>
             sections.Where(section => section.Words.gameObject.activeSelf).Select(section => (TMP_Text)section.Words)
