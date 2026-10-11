@@ -62,6 +62,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(Approval(folder));
                 failures.AddRange(Activity(folder));
                 failures.AddRange(Changes(folder));
+                failures.AddRange(SectionMeasurements());
             }
             catch (Exception error)
             {
@@ -313,6 +314,41 @@ namespace Halcyonic.XR.Workspace.Editor
             return Shoot(folder, "activity", FileScreens.Screen(workspace, steering, screen, new AnswerRoom(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false))));
         }
 
+        /// <summary>The same measurement inputs as FileScreens.Line, without its presentation-only tone and actions.</summary>
+        private static int SectionRows(SectionLine line)
+        {
+            var icon = line.File is FileKind kind ? FileScreens.Icon(kind) : (GlazeIcon?)null;
+            var drawn = line.Runs.AnyTheirs
+                ? new PageLine(line.Runs, icon: icon, chip: line.Chip)
+                : new PageLine(line.Words, wordsAreData: line.Source || line.Evidence != Evidence.Halcyonic, icon: icon, chip: line.Chip);
+            return MenuFrameView.RowsOf(drawn, Glaze.Menu.FileColumnDegrees);
+        }
+
+        /// <summary>Compare the render's measure to the production screen, including mixed runs, chips and file icons.</summary>
+        private static IEnumerable<string> SectionMeasurements()
+        {
+            var failures = new List<string>();
+            var checkedLines = 0;
+            foreach (var icon in new FileKind?[] { null, FileKind.Code })
+            foreach (var chip in new string?[] { null, "Agent says" })
+            foreach (var outside in new[] { false, true })
+            {
+                var words = LineWords.Ours("Checks: ") + (outside ? LineWords.Theirs(new string('W', 80)) : LineWords.Ours(new string('W', 80)));
+                var line = new SectionLine("", words.Text, SectionTone.Normal, rows: 20, said: words, chip: chip, file: icon);
+                var answer = new SectionPresentation(SectionKind.Understanding, "From the render", SectionTone.Secondary,
+                    new[] { new SectionLine("", "Changes", SectionTone.Normal), line }, simulated: true);
+                var screen = new FileScreen { Section = FileSection.Changes, WhatChanged = new FileAnswer(answer, answer) };
+                var steering = new WorkspaceSteering(new CommandFactory(new ClientInfo { Name = "render", Version = "0", DeviceLabel = "editor" }));
+                var frame = FileScreens.Screen(WorkspaceRender.Work.Running().Present(), steering, screen, AnswerRoom.Unlimited);
+                var drawn = frame.Lines.Single(shown => shown.Words == line.Words);
+                var expected = MenuFrameView.RowsOf(drawn, Glaze.Menu.FileColumnDegrees);
+                if (SectionRows(line) != expected) failures.Add("section measurement: the render counts " + SectionRows(line) + " rows, the production screen " + expected + ".");
+                checkedLines++;
+            }
+            Debug.Log("Halcyonic: file render: compared " + checkedLines + " section measurements to production screens.");
+            return failures;
+        }
+
         /// <summary>What changed in the recorded demonstration, its first line's side panel open.</summary>
         private static IEnumerable<string> Changes(string folder)
         {
@@ -329,7 +365,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var read = new IntelligenceRead<UnderstandingResponse>(understanding.Response, understanding.ReadAt, recorded: true);
             var now = DateTimeOffset.UtcNow;
             var room = new AnswerRoom(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false), line =>
-                MenuFrameView.RowsOf(new PageLine(line.Words, wordsAreData: true, chip: line.Chip), Glaze.Menu.FileColumnDegrees));
+                SectionRows(line));
             // Each character the committed static atlas lacks, as the minus sign in "(+71 −0)", swapped for
             // one it has, for the render only: drawn from the dynamic fallback in the editor, it would be
             // written into the committed fallback font asset, which no render may change.

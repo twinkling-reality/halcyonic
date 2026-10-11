@@ -117,6 +117,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderFirstVisit("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 // Every New project footer in the file's column: never four prompts, and each fits.
                 failures.AddRange(RenderNewProjectFooters(string.IsNullOrEmpty(variant) ? "the standard" : "the larger"));
+                failures.AddRange(RenderNewProjectReview(folder));
             }
             catch (Exception error)
             {

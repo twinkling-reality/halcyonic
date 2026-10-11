@@ -1515,7 +1515,7 @@ namespace Halcyonic.Client
             var partRows = reviewRows.Value.Rows;
             if (reading.Paginated && partRows == measuredPartRows) return;
             measuredPartRows = partRows;
-            reading.Paginate(reading.Items.Select(item => host.RowsOf(item.Text, Glaze.Menu.FileColumnDegrees)).ToList(), partRows);
+            reading.Paginate(reading.Items.Select(item => host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees)).ToList(), partRows);
         }
 
         /// <summary>

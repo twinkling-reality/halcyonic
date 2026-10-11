@@ -69,7 +69,9 @@ public class NewProjectFlowTests
 
         public int RowsOf(string words, float columnDegrees) => Math.Max(1, (words.Length + RowWidth(TextSize) - 1) / RowWidth(TextSize));
 
-        public int RowsOf(PageLine line, float columnDegrees) => RowsOf(line.Words, columnDegrees);
+        public Func<PageLine, int>? LineRows { get; set; }
+
+        public int RowsOf(PageLine line, float columnDegrees) => LineRows?.Invoke(line) ?? RowsOf(line.Words, columnDegrees);
 
         public bool FitsHalf(PageLine answer, float columnDegrees) => answer.Words.Length <= 24;
 
@@ -1811,6 +1813,32 @@ public class NewProjectFlowTests
         }
         var folders = pages.SelectMany(page => page.Lines).Where(line => line.Action == NewProjectScreens.ChooseFolder).Select(line => line.Key).ToList();
         Assert.That(folders, Has.Count.EqualTo(14).And.Unique, "every folder once through a whole turn round");
+    }
+
+    [Test]
+    public void TheReviewCountsTheExactRunsItDrawsBeforeOfferingYes()
+    {
+        var host = new Host { RowWidth = _ => 15 };
+        host.LineRows = line => Math.Max(1, (line.Runs.ForTextMeshPro().Text.Length + 14) / 15);
+        var flow = Recapped(host);
+        var objective = Enumerable.Range(250, 15).Select(count => "Track   recipes   carefully " + new string('W', count) + " TAIL")
+            .First(words =>
+            {
+                var item = new ReviewItem(NewWorkReview.FirstTaskLabel, LineWords.Theirs(words));
+                return host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees) > host.RowsOf(item.Text, Glaze.Menu.FileColumnDegrees);
+            });
+        Assert.That(flow.Idea!.Rewrite(objective), Is.True);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        var review = flow.Review!;
+        var expected = review.Items.Select(item => host.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees)).ToList();
+        Assert.That(review.Items.Select(item => host.RowsOf(item.Text, Glaze.Menu.FileColumnDegrees)), Is.Not.EqualTo(expected),
+            "the exact runs cross a row boundary that the plain text does not");
+        Assert.That(review.Items.Select((_, item) => review.Pages.SelectMany(page => page).Where(part => part.Item == item).Sum(part => part.Lines)),
+            Is.EqualTo(expected), "every rendered row is counted in the reading required before Yes");
+        Assert.That(review.CanConfirm, Is.False);
+        ReadToTheEnd(flow, host);
+        Assert.That(review.CanConfirm, Is.True, "Yes appears only after the measured runs have all been drawn");
+        Assert.That(host.Sent, Is.Empty);
     }
 
     [Test]
