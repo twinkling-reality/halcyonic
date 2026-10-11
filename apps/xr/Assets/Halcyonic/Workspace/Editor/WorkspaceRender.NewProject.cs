@@ -1,5 +1,8 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
 using System.Globalization;
 using System.Linq;
 using Halcyonic.Client;
@@ -7,6 +10,8 @@ using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
 using TMPro;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
@@ -90,9 +95,161 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             finally
             {
-                Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(root);
             }
             return failures;
+        }
+
+        /// <summary>A focused batch entry point for the review's real-font regression, including mutation checks.</summary>
+        public static void CheckReviewRows()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "WorkspaceRenders", variant));
+                Directory.CreateDirectory(folder);
+                return RenderNewProjectReview(folder).ToList();
+            });
+            foreach (var failure in failures) Debug.LogError("Halcyonic: review boundary: " + failure);
+            if (failures.Count == 0) Debug.Log("Halcyonic: review boundary: every check passed.");
+            KeepFontAssetsAsCommitted();
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        /// <summary>A real-font row boundary, then every review part drawn before Yes, with its trailing word intact.</summary>
+        private static IEnumerable<string> RenderNewProjectReview(string folder)
+        {
+            var failures = new List<string>();
+            foreach (var spaced in new[] { false, true })
+            {
+                string? objective = null;
+                var candidates = Enumerable.Range(1, 300).SelectMany(count => new[] { 'i', 'n', 'W' }.Select(letter =>
+                    spaced ? "i" + new string(' ', count) + new string(letter, 10) + " TAIL" : new string(letter, count) + " TAIL"));
+                foreach (var candidate in candidates)
+                {
+                    var item = new NewWorkReview("Project", "Task", "Agent", "Model", "on this Mac", "model", candidate).Items
+                        .Single(read => read.Label == NewWorkReview.FirstTaskLabel);
+                    var exact = MenuFrameView.RowsOf(new PageLine(item.Runs), Glaze.Menu.FileColumnDegrees);
+                    if (exact > MenuFrameView.RowsOf(item.Text, Glaze.Menu.FileColumnDegrees))
+                    {
+                        objective = candidate;
+                        break;
+                    }
+                }
+                if (objective == null)
+                {
+                    failures.Add("review boundary: found no " + (spaced ? "exact-space" : "padding") + " row boundary with the committed font.");
+                    continue;
+                }
+                var host = new ReviewRenderHost();
+                var commands = new CommandFactory(new ClientInfo { Name = "render", Version = "0", DeviceLabel = "editor" });
+                var flow = new NewProjectFlow(host, commands, new KeptInMemory());
+                flow.Open(null, null);
+                void Press(string action, string? key = null)
+                {
+                    for (var turn = 0; turn < 12 && key != null && flow.Frame!.Lines.All(line => line.Action != action || line.Key != key); turn++)
+                    {
+                        var frame = flow.Frame!;
+                        var next = frame.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Kind == PromptKind.NextPage);
+                        if (next == null) break;
+                        flow.Drawn(frame, null);
+                        host.Now += 1;
+                        flow.Act(next.Id, null);
+                    }
+                    flow.Drawn(flow.Frame!, null);
+                    host.Now += 1;
+                    flow.Act(action, key);
+                }
+                Press(NewProjectScreens.TypeIdea);
+                Press(NewProjectScreens.UseIdea);
+                Press(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+                Press(NewProjectScreens.MoreOptions);
+                Press(NewProjectScreens.ChooseRuntime, "review-render");
+                Press(NewProjectScreens.Done);
+                if (flow.Idea?.Rewrite(objective) != true) throw new InvalidOperationException("The review's boundary task was refused.");
+                Press(NewProjectScreens.StartBuilding);
+                _ = flow.Frame; // Building the frame measures the review, as the director does before drawing it.
+                var review = flow.Review ?? throw new InvalidOperationException("The boundary review did not open: " + flow.Step + "; " + string.Join(", ", flow.Frame!.Footer.All.Select(each => each.Prompt.Words + ": " + each.Prompt.Reason)));
+                for (var item = 0; item < review.Items.Count; item++)
+                {
+                    var expected = MenuFrameView.RowsOf(new PageLine(review.Items[item].Runs), Glaze.Menu.FileColumnDegrees);
+                    var counted = review.Pages.SelectMany(page => page).Where(part => part.Item == item).Sum(part => part.Lines);
+                    if (counted != expected) failures.Add("review boundary: item " + item + " requires " + expected + " rendered rows but the review counts " + counted + " before Yes.");
+                }
+                var root = new GameObject("Review boundary " + (spaced ? "spaces" : "padding"));
+                var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+                try
+                {
+                    var eyes = new Vector3(0f, EyeHeight, 0f);
+                    var camera = MakeCamera(root.transform, eyes, texture);
+                    var file = MenuFrameView.Create(root.transform, "File column");
+                    var side = MenuFrameView.Create(root.transform, "Side panel");
+                    var tailShown = false;
+                    for (var page = 0; page < review.PageCount; page++)
+                    {
+                        var frame = flow.Frame!;
+                        FileRender.Lay(frame, file, side, eyes);
+                        failures.AddRange(GlazeChecks.NothingCut(file.ShownLines.Select(line => (TMP_Text)line.Words), "review boundary page " + page));
+                        tailShown |= file.ShownLines.Any(line => line.Model.Runs.Text == review.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel).Runs.Text
+                            && line.Words.text.EndsWith("TAIL", StringComparison.Ordinal));
+                        var image = Render(camera, texture);
+                        File.WriteAllBytes(Path.Combine(folder, "review-boundary-" + (spaced ? "spaces" : "padding") + "-" + page + ".png"), image.EncodeToPNG());
+                        UnityEngine.Object.DestroyImmediate(image);
+                        flow.Drawn(frame, null);
+                        if (page < review.PageCount - 1)
+                        {
+                            if (review.CanConfirm) failures.Add("review boundary: Yes appears before the final part.");
+                            host.Now += 1;
+                            flow.Act(NewProjectScreens.NextPart, null);
+                        }
+                    }
+                    if (!tailShown || !review.CanConfirm) failures.Add("review boundary: the trailing word must show before Yes is offered.");
+                    Debug.Log("Halcyonic: workspace render: review boundary " + (spaced ? "spaces" : "padding") + ", " + review.PageCount + " parts, trailing word shown=" + tailShown + ", Yes=" + review.CanConfirm + ".");
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(root);
+                    texture.Release();
+                    UnityEngine.Object.DestroyImmediate(texture);
+                }
+            }
+            return failures;
+        }
+
+        /// <summary>The flow's host with the production font's measures and a deterministic clock; submits nothing.</summary>
+        private sealed class ReviewRenderHost : IMenuHost
+        {
+            public ReviewRenderHost()
+            {
+                var runtime = RenderRuntime("review-render", ModelChoice.None);
+                runtime.UsesProjectLocation = false;
+                State.ApplySnapshot(new Snapshot
+                {
+                    Journal = new JournalInfo { JournalId = "render", Origin = JournalOrigin.Live },
+                    Position = 1, Runtimes = new List<RuntimeDescriptor> { runtime },
+                }, new StateChanges());
+            }
+
+            public ClientProjection State { get; } = new();
+            public bool Connected => true;
+            public bool Demonstration => false;
+            public double Now { get; set; }
+            public DateTimeOffset Clock => DateTimeOffset.Parse(Time, CultureInfo.InvariantCulture).AddSeconds(Now);
+            public TimeZoneInfo Zone => TimeZoneInfo.Utc;
+            public TextSize TextSize => GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
+            public bool VoiceOffered => false;
+            public ControlPlaneApi? Api => null;
+            public Task<CommandAckMessage>? Submit(CommandEnvelope command) => throw new InvalidOperationException("A render never submits work.");
+            public bool KeyboardOffered => true;
+            public void OpenKeyboard(string text, string prompt, Action<string> done) => done(RenderIdea);
+            public int RowsOf(string words, float degrees) => MenuFrameView.RowsOf(words, degrees);
+            public int RowsOf(PageLine line, float degrees) => MenuFrameView.RowsOf(line, degrees);
+            public bool FitsHalf(PageLine line, float degrees) => MenuFrameView.FitsHalf(line, degrees);
+            public int TitleRows(string subject, float degrees) => MenuFrameView.TitleRows(subject, degrees);
+            public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
+            public float PageHeight(int rows, bool besideMenu) => MenuPage.Height(TextSize, rows, besideMenu: besideMenu);
+            public void OpenFile(string id) { }
+            public void OpenNewProject(string? id, string? name) { }
         }
 
         private static string Measured(float value) => value.ToString("0.0000", CultureInfo.InvariantCulture);

@@ -170,3 +170,18 @@ first (`LineWords`, `GlazeRuns`; XR_CLIENT.md's `LineWords` and Words paragraphs
   assumed, and is named in OPEN_QUESTIONS.md's look-alike row.
 - The crashes were confirmed by reading `PageLine` and the contracts, not by a failing test; each fix
   adds one.
+
+**Review row measurement (2026-10-11):** New project's review measures each item's `PageLine` runs,
+the same ones the page draws, including the space for its ground and exact typed spaces. Plain-text
+measurement could omit a trailing rendered row while counting the request as read. The core
+regression crosses that boundary and requires every rendered row before Yes. `WorkspaceRender` finds
+padding and exact-space boundaries with the committed font at both text sizes, draws every part,
+checks for truncation, and requires the trailing word to show before Yes. `FileRender` measures an
+answer's runs, chip and file icon as the production screen does, and compares eight combinations
+against `FileScreens.Screen`. The core regression passed, failed with the original measurement (21
+rows required, 20 counted), and passed when restored. The committed-font boundary check passed for
+all four cases; restoring the original measurement made each require two rows while counting one,
+with the trailing word absent and Yes already offered. Restoring the fix passed again in the
+workspace render. The file-render comparison passed all eight combinations at both text sizes. The
+complete TypeScript suite passed 1,033 tests and the C# suite 1,435. These checks establish layout
+and reading behavior off the headset; the owner's headset reading remains the comfort check.

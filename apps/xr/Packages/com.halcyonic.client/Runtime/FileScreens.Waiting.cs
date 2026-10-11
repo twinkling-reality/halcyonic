@@ -276,12 +276,12 @@ namespace Halcyonic.Client
         /// <summary>
         /// A prompt's answer on the page of the person's answers, as runs: its name, the agent's header
         /// leaning, then each label chosen, the agent's, leaning, and the words typed, the person's,
-        /// upright in their quotes.
+        /// leaning as the person's own words.
         /// </summary>
         public static LineWords ReviewRuns(QuestionDraft draft, int prompt) =>
             NameRuns(draft.Question, prompt) + LineWords.Ours(": ") + Given(draft, prompt, LineWords.Ours("Not answered"));
 
-        /// <summary>The answers given to a prompt, the agent's labels leaning and the person's words upright, or <paramref name="none"/>.</summary>
+        /// <summary>The answers given to a prompt, the agent's labels and the person's words leaning, or <paramref name="none"/>.</summary>
         private static LineWords Given(QuestionDraft draft, int prompt, LineWords none)
         {
             var asked = draft.Prompts[prompt];
@@ -453,7 +453,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A chosen answer's words beside the page, all of them: the agent's answer, leaning beside
-        /// Halcyonic's quote mark, or the person's typed words, upright in their quotes.
+        /// Halcyonic's quote mark, or the person's typed words, leaning as the person's own words.
         /// </summary>
         public static PageLine SideAnswerLine(QuestionOption? option, string? typed, int rows = 1, int? fromRow = null) => option != null
             ? new PageLine(AnswerRuns(option), rows: rows, fromRow: fromRow)

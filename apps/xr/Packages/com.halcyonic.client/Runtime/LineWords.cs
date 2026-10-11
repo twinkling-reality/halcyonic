@@ -57,8 +57,8 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// A line's words given whole as a string, upright as Halcyonic's: its own, or the person's,
-        /// which the line's builder has already shown by <see cref="LabelText"/>'s rule.
+        /// A line's words given whole as a string, upright as Halcyonic's own,
+        /// already shown by the line's builder through <see cref="LabelText"/>'s rule.
         /// </summary>
         internal static LineWords Written(string words) => string.IsNullOrEmpty(words) ? None : new LineWords(new[] { new WordRun(words, theirs: false) });
 

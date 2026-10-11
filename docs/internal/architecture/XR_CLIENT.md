@@ -888,7 +888,8 @@ the same definition names, as the JSON Schema document:
   Halcyonic's own words are never spelled: the ellipsis after a title it cut (`NewWorkDraft.TitleSource`,
   cut between two typed characters, never inside a spelled code point) shows as written, so a
   literal "…" in the request is always Halcyonic's; nothing else is shortened. The panel wraps each item at its own
-  width, at word boundaries, and gives the review the lines each takes (`Paginate`); the review then
+  width, at word boundaries, measuring the same `PageLine` runs it draws, including their padding and
+  exact spaces, and gives the review the lines each takes (`Paginate`); the review then
   fills each page with whole items, and splits an item across pages only when it alone is taller
   than a page, starting it on a page of its own. A line counts as read only once the panel has
   drawn it (`Drawn`), and the final action appears only on the last page with every line of the
