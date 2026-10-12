@@ -2,8 +2,8 @@
 
 - Question: can the headset offer coherent local preset preview/apply/cancel/restore and categories
   without changing work, comfort, pairing, provenance or input semantics?
-- Date: 2026-10-11.
-- Environment: source candidate based on organization `9ea346cf`, Unity 6000.3.25f1 packages, .NET 10.
+- Dates: 2026-10-11 and 2026-10-12.
+- Environment: original source candidate based on organization `9ea346cf`; the October 12 replay combines instruction integration `be497166` with Settings through `c7a64021`. Unity 6000.3.25f1 packages, .NET 10.
 - Status: source checkpoints `9f2cbd32` and `9ebebe46`; isolated focused check passed 79/79
   tests (AppearanceSettings, SettingsColumn, GlazeToken and MenuNavigator). Root's exact
   `9ebebe46` full gate passed 1033 repository tests and 1527 C# tests, zero skipped, on
@@ -11,9 +11,13 @@
   without launching Unity; existing nullable warnings remain. A subsequent actual-composition
   lifetime fix `f224b498` passed 83/83 focused tests and the same aggregate compile; root's
   exact full gate passed 1033 repository / 1531 C# tests. A further hidden-side ownership and
-  deterministic cache-witness correction passed 85/85 focused tests plus aggregate source
-  compile; its exact full gate and independent review remain pending. Actual preset rendering and
-  device checks have not run. The composition harness is prepared; visual acceptance remains open.
+  deterministic cache-witness correction `c7a64021` passed 85/85 focused tests plus aggregate source
+  compile; root's exact full gate passed 1033 repository / 1533 C# tests and independent security
+  review passed. The actual `f224b498` preset pass failed as detailed below. The corrected `c7a64021`
+  rendering and device checks remain unrun; visual acceptance remains open. The October 12 replay
+  passed 238/238 combined focused tests and aggregate runtime/all Editor source compilation, with
+  the same four existing nullable warnings. Four additional real instruction/Settings lifetime
+  cases passed at both text sizes; full combined gates and actual renders remain separate checks.
 
 ## Source behavior and scope
 
@@ -122,4 +126,10 @@ The hidden-side regression uses real SettingsHub/SettingsColumn Forget details a
 then the same stable file becomes focused, with and without its own side. The hidden retained
 menu side cannot block fresh file draw/action proof or retain old Yes. Returning menu-owned
 details regain the front after a fresh draw and block the file behind them. This is an
-engine-free ownership regression; combined production instruction behavior still needs review.
+engine-free ownership regression. The October 12 combined regression uses the real FileColumn
+instead of a synthetic focused column: an explicitly typed draft hides Appearance preview, and a
+scoped delivered voice result focuses an ordinary file while real Settings Forget details stand.
+Both text sizes exercise exact drawn Send, retained draft/read proof through Compact, stale keyboard
+rejection, spoken reviewed Yes, hidden old Apply/Forget refusal, fresh Settings return and Compact
+from returned Settings. One exact instruction payload is acknowledged locally; no runtime completion
+is claimed. It verifies the core lifecycle combination, not physical visibility or wearer fit.
