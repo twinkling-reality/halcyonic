@@ -95,8 +95,9 @@ the app's internal files directory. Its UTF-8 size limit is 256 KiB; ordinary in
 the same 32,000-character bound as the command contract.
 
 `WorkspaceViewStore` defines the separate local Unity recovery envelope: version 1, nullable
-selected handoff ID and an array of `WorkspaceContinuation` records. Its consumer must enforce
-a 4 MiB UTF-8 aggregate bound, unique handoff IDs and membership of the selected ID. There is no
+selected handoff ID and an array of `WorkspaceContinuation` records. `WorkspaceViewStorage`
+enforces a 4 MiB UTF-8 aggregate bound, unique handoff IDs, membership of the selected ID and strict
+record parsing. Serialization is bounded and never mutates or evicts the caller's drafts. There is no
 arbitrary task-count limit. A failed read, write or overflow preserves the previous saved file;
 it cannot report the new drafts as saved. Current state must be verified before importing each
 record. Old-run text remains recovery data and never becomes an instruction to a new run without
