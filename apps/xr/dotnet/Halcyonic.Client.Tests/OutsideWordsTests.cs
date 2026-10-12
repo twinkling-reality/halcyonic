@@ -77,10 +77,11 @@ public class OutsideWordsTests
 
         Assert.That(answers, Has.Count.EqualTo(2));
         Assert.That(answers.All(line => line.Runs.AllTheirs && line.Icon == GlazeIcon.Quote), Is.True, "the agent's answers are theirs whole, under Halcyonic's quote mark");
-        var question = frame.Lines.First();
+        var question = frame.Lines.Single(line => line.Runs.AllTheirs && line.Action == null);
         Assert.That((question.Runs.AllTheirs, question.Icon), Is.EqualTo((true, (GlazeIcon?)GlazeIcon.Quote)), "the agent's question is a block of theirs");
         var typeMyAnswer = frame.Lines.Single(line => line.Action == FileScreens.TypeAnswer);
-        Assert.That((typeMyAnswer.Runs.AnyTheirs, typeMyAnswer.Icon), Is.EqualTo((false, (GlazeIcon?)null)), "Halcyonic's own row stands upright with no quote mark");
+        Assert.That((typeMyAnswer.Runs.AnyTheirs, typeMyAnswer.Icon), Is.EqualTo((false, (GlazeIcon?)GlazeIcon.Type)), "Halcyonic's input action stands upright with its type icon, never the quote mark");
+        Assert.That((typeMyAnswer.Choice, typeMyAnswer.Control), Is.EqualTo((false, LineControl.Action)), "writing is a separate action, never an offered choice");
         Assert.That(Ours(frame), Has.None.Contains("“").And.None.Contains("”"), "Halcyonic adds no quotes");
         // Outside text never stands in a run of Halcyonic's, unless it copies Halcyonic's own words exactly.
         if (!Ours(frame).Contains(spoof)) Assert.That(Ours(frame), Has.None.Contains(LabelText.Plain(spoof)), "outside text never stands in a run of Halcyonic's");
@@ -177,7 +178,7 @@ public class OutsideWordsTests
         // U+0085 passes the contract's non-blank pattern but LabelText makes it nothing (the independent review of batch B).
         var (frame, _) = Asking("\u0085");
 
-        Assert.That(frame.Lines.First().Words, Is.EqualTo("‹U+0085›"));
+        Assert.That(frame.Lines.Single(line => line.Runs.AllTheirs && line.Action == null).Words, Is.EqualTo("‹U+0085›"));
         Assert.That(frame.Lines.First(line => line.Action == FileScreens.Choose).Words, Does.StartWith("‹U+0085›"));
     }
 

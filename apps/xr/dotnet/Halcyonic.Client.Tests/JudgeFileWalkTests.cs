@@ -54,6 +54,20 @@ public class JudgeFileWalkTests
     private static IReadOnlyList<PromptMeasure> Measured(QuestionView question, int questionRows) =>
         question.Prompts.Select(prompt => new PromptMeasure(questionRows, prompt.Options.Select(_ => 2).ToList(), prompt.Options.Select(_ => 2).ToList())).ToList();
 
+    /// <summary>Draws every visible part of a cut offered answer before its read proof can be used.</summary>
+    private void ReadChoiceDetail(FileScreen screen, Func<MenuFrame> frame)
+    {
+        if (screen.Question.SideOption == null) return;
+        var parts = screen.Question.SideParts;
+        for (var part = 0; part < parts; part++)
+        {
+            Assert.That(frame().Side, Is.Not.Null, "the full option detail is visibly present");
+            screen.Question.SideDrawn(clock);
+            if (part < parts - 1) screen.Question.NextSidePart(Later());
+        }
+        screen.Question.CloseSide();
+    }
+
     /// <param name="rows">A page's rows, its source line's included: four, or three with larger text.</param>
     /// <param name="questionRows">The rows the question wraps to at that size.</param>
     [TestCase(4, 2)]
@@ -79,7 +93,8 @@ public class JudgeFileWalkTests
         screen.ReadQuestion(draft, Measured(question, questionRows), new RowBudget(room.Rows - 1), new RowBudget(room.Rows - 1));
         var frame = Frame(workspace);
         Assert.That(StateLanguage.WordOf(frame.Pill!.State), Is.EqualTo("Waiting for you"));
-        Assert.That(frame.Sections.Single(section => section.Waits).Words, Is.EqualTo("Waiting"));
+        Assert.That((frame.Focused, screen.Section), Is.EqualTo((true, FileSection.Waiting)));
+        Assert.That(frame.Sections, Is.Empty, "the focused question keeps its state context without competing file tabs");
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False, "nothing to send before an answer is chosen");
 
         // A question longer than its head reads first on pages of its own, a part at a time.
@@ -112,23 +127,34 @@ public class JudgeFileWalkTests
         Assert.That(recordedOptions, Has.Member(DemonstrationAnswerKind.Answer));
         if (screen.Question.Pages > 1)
         {
+            screen.Question.Drawn(clock);
             screen.Question.Choose(0);
+            ReadChoiceDetail(screen, () => Frame(workspace));
             screen.Question.Drawn(clock);
             screen.Question.MoreAnswers(Later());
-            Assert.That(draft.IsChosen(0, Demonstration.FirstOption), Is.False, "turning the page clears what was chosen on it");
+            Assert.That(draft.IsChosen(0, Demonstration.FirstOption), Is.True, "turning the page preserves the read choice in the same draft");
             Assert.That(FileScreens.WhySendWaits(screen), Is.Not.Null);
             Assert.That(steering.SendAnswer(draft, workspace, FileScreens.WhySendWaits(screen)).Step, Is.EqualTo(SteeringStep.Explain),
-                "nothing out of view is sent");
+                "nothing sends before the retained choice is reviewed");
             while (screen.Question.Page != 0)
             {
                 screen.Question.Drawn(clock);
                 screen.Question.MoreAnswers(Later());
             }
         }
-        screen.Question.Choose(0);
+        if (!draft.IsChosen(0, Demonstration.FirstOption)) screen.Question.Choose(0);
+        ReadChoiceDetail(screen, () => Frame(workspace));
         screen.Question.Drawn(clock);
         frame = Frame(workspace);
         Assert.That(frame.Lines.Single(line => line.Chosen).Words, Does.StartWith(Demonstration.FirstOption));
+        Assert.That(FileScreens.WhySendWaits(screen), Is.Not.Null, "even one prompt must reach its distinct review");
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo(FileScreens.ReviewAnswers));
+        screen.Question.NextQuestion(Later());
+        screen.Question.MeasureReview(new[] { 1 });
+        frame = Frame(workspace);
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(FileScreens.SendAnswer));
+        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadYourAnswers));
+        screen.Question.Drawn(clock);
         Assert.That(FileScreens.WhySendWaits(screen), Is.Null);
         // Stop stands on Activity (ADR 0026); Waiting offers the answer. Together the file offers what
         // the recording answers at its question.

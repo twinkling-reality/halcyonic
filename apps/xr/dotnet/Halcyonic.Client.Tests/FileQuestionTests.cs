@@ -35,6 +35,42 @@ public class FileQuestionTests
         return clock;
     }
 
+
+    /// <summary>Reads the visible question parts to the choice page, without choosing or reviewing.</summary>
+    private void ShowAnswers(FileScreen screen)
+    {
+        var parts = screen.Question.QuestionParts(screen.Question.Prompt);
+        for (var part = 0; part < parts && screen.Question.QuestionPart != null; part++)
+            screen.Question.NextPart(Later(screen));
+        Draw(screen);
+    }
+
+    /// <summary>Reads every measured editor part without saving or sending.</summary>
+    private void ReadInput(FileScreen screen)
+    {
+        var parts = screen.Question.InputParts;
+        for (var part = screen.Question.InputPart; part < parts; part++)
+        {
+            Draw(screen);
+            if (part < parts - 1) screen.Question.NextInputPart(clock += TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private void OpenInput(FileScreen screen, string words, int rows)
+    {
+        ShowAnswers(screen);
+        Assert.That(screen.Question.BeginInput(), Is.True);
+        screen.Question.ChangeInput(words);
+        screen.Question.MeasureInput(rows);
+    }
+
+    private void UseInput(FileScreen screen, string words, int rows)
+    {
+        OpenInput(screen, words, rows);
+        ReadInput(screen);
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.True);
+    }
+
     /// <summary>Every prompt's question in one row and every answer in one.</summary>
     private static IReadOnlyList<PromptMeasure> Short(QuestionView question) =>
         question.Prompts.Select(prompt => new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList(), prompt.Options.Select(_ => 1).ToList())).ToList();
@@ -67,35 +103,35 @@ public class FileQuestionTests
     }
 
     [Test]
-    public void OnePromptAtATimeItsQuestionQuotedItsAnswersAsRowsThenTypeMyAnswerThenTheNextQuestion()
+    public void OnePromptAtATimeSeparatesOfferedChoicesFromWritingAndOffersTheVisibleNextStep()
     {
         var (_, workspace, screen, draft) = Asking(speak: true);
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
+            "Question 1 of 2",
             "Which colour scheme should the dashboard use?",
+            "Choose one",
             "Light · Dark text on a light background",
             "Dark · Light text on a dark background",
-            FileScreens.TypeMyAnswer,
-            "Next question, 2 of 2",
+            FileScreens.WriteAnswer,
         }));
-        // The agent's question and answers lean beside Halcyonic's quote mark; Halcyonic's own rows stand upright.
         Assert.That(frame.Lines.Select(line => (line.Runs.AllTheirs, line.Icon == GlazeIcon.Quote)),
-            Is.EqualTo(new[] { (true, true), (true, true), (true, true), (false, false), (false, false) }));
-        Assert.That(frame.Lines.Where(line => line.Choice).Select(line => line.Action).Distinct(), Is.EqualTo(new[] { FileScreens.Choose, FileScreens.TypeAnswer }));
-        Assert.That(frame.Lines.Any(line => line.Chosen), Is.False, "nothing is chosen until the person chooses");
-        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, null, FileScreens.SpeakAnswer, FileScreens.SendAnswer }),
-            "Stop stands on Activity while the question can be answered here");
+            Is.EqualTo(new[] { (false, false), (true, true), (false, false), (true, true), (true, true), (false, false) }));
+        Assert.That(frame.Lines.Where(line => line.Choice).Select(line => line.Action).Distinct(), Is.EqualTo(new[] { FileScreens.Choose }));
+        Assert.That(frame.Lines.Single(line => line.Action == FileScreens.TypeAnswer).Control, Is.EqualTo(LineControl.Action), "input entry is a distinct action, never a choice");
+        Assert.That(frame.Lines.Any(line => line.Chosen), Is.False);
+        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, null, null, FileScreens.NextQuestion }));
         Assert.That(FileScreens.SpeakAnswer, Is.Not.EqualTo(FileScreens.HoldToTalk), "a spoken answer is never raised as an instruction");
-        var send = frame.Footer[PromptSlot.FarRight]!;
-        Assert.That((send.Available, send.Reason), Is.EqualTo((false, FileScreens.SendFromYourAnswers)),
-            "a question of several prompts sends only from the person's answers");
-        Assert.That(frame.Reason, Is.EqualTo(FileScreens.SendFromYourAnswers), "the reason is the page's last line");
-
+        var next = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That((next.Words, next.Available, next.Reason), Is.EqualTo(("Next question", false, FileScreens.ReadTheQuestion)));
+        Assert.That(frame.Reason, Is.EqualTo(FileScreens.ReadTheQuestion), "the immediate missing step is shown adjacent to its quiet control");
+        Draw(screen);
         screen.Question.Choose(1);
         var chosen = Screen(workspace, screen);
-        Assert.That(chosen.Lines.Where(line => line.Chosen).Select(line => line.Key), Is.EqualTo(new[] { "1" }), "choosing lights the row, and sends nothing");
+        Assert.That(chosen.Lines.Where(line => line.Chosen).Select(line => line.Key), Is.EqualTo(new[] { "1" }));
         Assert.That(draft.IsChosen(0, "Dark"), Is.True);
+        Assert.That(chosen.Footer.All.Select(each => each.Prompt.Id), Has.None.EqualTo(FileScreens.SendAnswer), "choosing sends nothing and review comes later");
     }
 
     [Test]
@@ -103,17 +139,18 @@ public class FileQuestionTests
     {
         var (_, workspace, screen, draft) = Asking();
         Screen(workspace, screen);
+        Draw(screen);
         screen.Question.Choose(1);
         screen.Question.NextQuestion(Later(screen));
         var second = Screen(workspace, screen);
-        Assert.That(second.Lines[0].Words, Is.EqualTo("Which pages should change?"));
-        Assert.That(second.Lines.Last().Words, Is.EqualTo(FileScreens.YourAnswers));
+        Assert.That(second.Lines.Single(line => line.Runs.AllTheirs && line.Action == null).Words, Is.EqualTo("Which pages should change?"));
+        Assert.That(second.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo(FileScreens.ReviewAnswers));
         Assert.That(draft.IsChosen(0, "Dark"), Is.True, "an earlier prompt's choice is kept");
 
         screen.Question.NextQuestion(Later(screen));
         screen.Question.MeasureReview(new[] { 1, 1 });
         var answers = Screen(workspace, screen);
-        Assert.That(answers.Lines.Select(line => (line.Words, line.Action, line.Key, line.Rows)), Is.EqualTo(new[]
+        Assert.That(answers.Lines.Where(line => line.Action == FileScreens.GoToQuestion).Select(line => (line.Words, line.Action, line.Key, line.Rows)), Is.EqualTo(new[]
         {
             ("Colour scheme: Dark", FileScreens.GoToQuestion, "0", 1),
             ("Pages: Not answered", FileScreens.GoToQuestion, "1", 1),
@@ -121,6 +158,7 @@ public class FileQuestionTests
         Assert.That(answers.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Answer every question first: 1 of 2 answered."));
 
         screen.Question.GoTo(1);
+        Draw(screen);
         screen.Question.Choose(1);
         screen.Question.NextQuestion(Later(screen));
         screen.Question.MeasureReview(new[] { 1, 1 });
@@ -129,7 +167,7 @@ public class FileQuestionTests
         Draw(screen);
         var ready = Screen(workspace, screen);
         Assert.That(ready.Footer[PromptSlot.FarRight]!.Available, Is.True);
-        Assert.That(ready.Lines[1].Words, Is.EqualTo("Pages: Orders"));
+        Assert.That(ready.Lines.Single(line => line.Key == "1").Words, Is.EqualTo("Pages: Orders"));
         var sent = new WorkspaceSteering(factory).SendAnswer(draft, workspace);
         var answered = ((ExecutionAnswerQuestionCommand)sent.Command!).Payload.Answers;
         Assert.That(answered.Select(answer => string.Join("+", answer.Selected)), Is.EqualTo(new[] { "Dark", "Orders" }), "exactly what the page listed");
@@ -141,58 +179,68 @@ public class FileQuestionTests
         var (_, workspace, screen, draft) = Asking(rows: 6);
         for (var prompt = 0; prompt < 2; prompt++)
         {
+            ShowAnswers(screen);
             Screen(workspace, screen);
-            screen.Question.Choose(prompt == 0 ? 1 : 0);
+            var option = prompt == 0 ? 1 : 0;
+            while (!screen.Question.Answers.Contains(option))
+                screen.Question.MoreAnswers(Later(screen));
+            Draw(screen);
+            screen.Question.Choose(option);
             screen.Question.NextQuestion(Later(screen));
         }
         screen.Question.MeasureReview(new[] { 3, 3 });
         var first = Screen(workspace, screen);
-        Assert.That(first.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Colour scheme: Dark", "Your answers, 2 of 2" }));
-        Assert.That(first.Lines[0].Rows, Is.EqualTo(3), "an answer shows whole, in the rows it takes");
+        Assert.That(first.Lines.Select(line => line.Words), Is.EqualTo(new[] { FileScreens.YourAnswers, "Colour scheme: Dark" }));
+        Assert.That(first.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next part, 2 of 2"));
+        Assert.That(first.Lines.Single(line => line.Action == FileScreens.GoToQuestion).Rows, Is.EqualTo(3), "an answer shows whole, in the rows it takes");
         Draw(screen);
-        Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo(FileScreens.ReadYourAnswers));
+        Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(FileScreens.MoreAnswers), "review navigation is the only forward action before its final part");
         screen.Question.MoreAnswers(Later(screen));
         var last = Screen(workspace, screen);
-        Assert.That(last.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Pages: Sign in", "Your answers, 1 of 2" }));
+        Assert.That(last.Lines.Select(line => line.Words), Is.EqualTo(new[] { FileScreens.YourAnswers, "Pages: Sign in" }));
+        Assert.That(last.Footer[PromptSlot.Rare]!.Words, Is.EqualTo("Previous part"));
         Assert.That(draft.IsChosen(1, "Sign in"), Is.True, "turning the person's answers clears nothing");
         Draw(screen);
         Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Available, Is.True);
     }
 
     [Test]
-    public void TurningAPromptsAnswersClearsOnlyItsChoiceKeepsTheTypedAnswerAndLeavesNoAnswerOut()
+    public void TurningAPromptsAnswersKeepsTheDraftAndEveryOfferedAnswerReachable()
     {
         var labels = new[] { "Postgres", "SQLite", "MySQL", "DynamoDB", "Redis" };
         var question = OnePrompt(labels);
         var measured = new[] { new PromptMeasure(1, labels.Select(_ => 2).ToList(), labels.Select(_ => 2).ToList()) };
-        // 5 rows: the question 1, Type my answer beside the row for more answers 1, no reason while only a
-        // choice is wanted, leaves 3, one 2-row answer a page.
-        var (_, workspace, screen, draft) = Asking(question, measured, rows: 5);
+        // Seven rows include Question number, the full question, Choose guidance, a two-row option,
+        // the paired Write/pager target and the immediate-step reason. One complete option fits.
+        var (_, workspace, screen, draft) = Asking(question, measured, rows: 7);
+        ShowAnswers(screen);
         Assert.That(screen.Question.Pages, Is.EqualTo(5));
         var seen = new List<int>();
         for (var page = 0; page < screen.Question.Pages; page++)
         {
             var frame = Screen(workspace, screen);
             seen.AddRange(screen.Question.Answers);
-            Assert.That(Height(frame, new RowBudget(5)), Is.LessThanOrEqualTo(5), "the page fits its rows, Type my answer beside the row for more answers");
-            Assert.That(frame.Lines[frame.Lines.Count - 2].BesideNext, Is.True);
-            Assert.That(frame.Lines[frame.Lines.Count - 2].Words, Is.EqualTo(FileScreens.TypeMyAnswer), "Type my answer stands last among the answers");
+            Assert.That(Height(frame, new RowBudget(7)), Is.LessThanOrEqualTo(7), "the page fits its rows, Type my answer beside the row for more answers");
+            Assert.That(frame.Lines.Single(line => line.Action == FileScreens.TypeAnswer).BesideNext, Is.True);
+            Assert.That(frame.Lines.Single(line => line.Action == FileScreens.TypeAnswer).Words, Is.EqualTo(FileScreens.WriteAnswer), "Type my answer stands last among the answers");
             Assert.That(frame.Lines.Last().Words, Is.EqualTo(FileScreens.MoreAnswersWords(page, 5)));
             screen.Question.MoreAnswers(Later(screen));
         }
         Assert.That(seen, Is.EqualTo(Enumerable.Range(0, labels.Length)), "every answer the agent offered, in its order");
-        Assert.That(FileScreens.MoreAnswersWords(4, 5), Is.EqualTo("First answers, 1 of 5"));
+        Assert.That(FileScreens.MoreAnswersWords(4, 5), Is.EqualTo("First choices"));
 
+        Draw(screen);
         screen.Question.Choose(0);
         screen.Question.MoreAnswers(Later(screen));
-        Assert.That(draft.IsChosen(0, "Postgres"), Is.False, "turning the page clears what was chosen on it");
+        Assert.That(draft.IsChosen(0, "Postgres"), Is.True, "turning the page retains the chosen answer and its own read binding");
 
-        draft.Type(0, "CockroachDB");
+        UseInput(screen, "CockroachDB", 1);
         screen.Question.MoreAnswers(Later(screen));
-        Assert.That(draft.Typed(0), Is.EqualTo("CockroachDB"), "the typed answer's row is on every page, so it stays");
+        Assert.That(draft.Typed(0), Is.EqualTo("CockroachDB"));
         var typed = Screen(workspace, screen).Lines.Single(line => line.Action == FileScreens.TypeAnswer);
-        Assert.That((typed.Words, typed.Chosen, typed.WordsAreData), Is.EqualTo(("Your answer: CockroachDB", true, true)));
-        Assert.That(typed.Runs.ToString(), Is.EqualTo("Your answer: [CockroachDB]"), "the person's words lean, never quoted");
+        Assert.That((typed.Words, typed.Chosen, typed.Runs.AnyTheirs, typed.Fact), Is.EqualTo((FileScreens.EditAnswer, true, false, "Selected")), "the bounded Edit action identifies a saved answer, never impersonates the person's words");
+        OpenInput(screen, "CockroachDB", 1);
+        Assert.That(Screen(workspace, screen).Lines.Single(line => line.Control == LineControl.Input).Runs.ToString(), Is.EqualTo("[CockroachDB]"));
     }
 
     /// <summary>A page's height as its budget prices it: words, targets, the gaps between them, and its reason.</summary>
@@ -213,12 +261,28 @@ public class FileQuestionTests
         return total + (frame.Reason != null ? budget.Reason : 0f);
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void GenericPageBoundsKeepTheirOriginalSectionsReservation(TextSize text)
+    {
+        var budget = HeightBudget.Of(text, subjectRows: 1);
+        var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
+        PlaneComposition WithSections(float room) => new(new[]
+        {
+            new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), MenuPage.Subject(1, pill: true),
+                MenuPage.Sections, MenuPage.Content(room + MenuPage.SourceLine)),
+        }, zoom);
+        Assert.That(MenuPage.Fits(WithSections(budget.Room)), Is.True, "the default budget still reserves the real sections row and source line");
+        Assert.That(MenuPage.Fits(WithSections(budget.Room + Glaze.MetersAt(0.2f, 1f))), Is.False, "a taller page still passes the original physical field bound");
+        Assert.That(HeightBudget.Of(text, subjectRows: 1, focused: true).Room, Is.GreaterThan(budget.Room), "only the genuinely omitted sections free this room");
+    }
+
     [Test]
     public void OnAHeadsetPageFourAnswersOfTwoRowsPackByHeightWithinTheField()
     {
         foreach (var text in new[] { TextSize.Standard, TextSize.Larger })
         {
-            var budget = HeightBudget.Of(text, subjectRows: 1);
+            var budget = HeightBudget.Of(text, subjectRows: 1, focused: true);
             var labels = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
             var measured = new[] { new PromptMeasure(1, labels.Select(_ => 2).ToList(), labels.Select(_ => 3).ToList()) };
             var (_, workspace, screen, _) = Asking(OnePrompt(labels), measured);
@@ -247,7 +311,7 @@ public class FileQuestionTests
     [Test]
     public void AtTheStandardSizeAQuestionAndTwoAnswersOfTwoRowsShareAPageForTheFileAlone()
     {
-        var budget = HeightBudget.Of(TextSize.Standard, subjectRows: 1);
+        var budget = HeightBudget.Of(TextSize.Standard, subjectRows: 1, focused: true);
         var labels = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
         var measured = new[] { new PromptMeasure(1, labels.Select(_ => 2).ToList(), labels.Select(_ => 3).ToList()) };
         var (_, workspace, screen, _) = Asking(OnePrompt(labels), measured);
@@ -260,7 +324,7 @@ public class FileQuestionTests
     [Test]
     public void ATwoRowQuestionTakesItsOwnPageWhereThatLeavesFewerPagesInAllAndStaysWithItsAnswersOnATie()
     {
-        var budget = HeightBudget.Of(TextSize.Standard, subjectRows: 1);
+        var budget = HeightBudget.Of(TextSize.Standard, subjectRows: 1, focused: true);
         var four = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
         var measured = new[] { new PromptMeasure(2, four.Select(_ => 2).ToList(), four.Select(_ => 3).ToList()) };
         var (_, workspace, screen, _) = Asking(OnePrompt(four), measured);
@@ -298,22 +362,27 @@ public class FileQuestionTests
     {
         var labels = new[] { "Postgres", "SQLite", "MySQL", "DynamoDB", "Redis" };
         var question = OnePrompt(labels);
-        var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, rows: 4);
-        Assert.That(screen.Question.Answers, Is.EqualTo(new[] { 0, 1 }));
+        var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, rows: 7);
+        ShowAnswers(screen);
+        Assert.That(screen.Question.Answers, Is.EqualTo(new[] { 0, 1 }), "Question-number, Choose guidance and the always-visible reason add three rows to the previous four-row fixture");
+        Draw(screen);
         screen.Question.Choose(4);
         Assert.That(draft.IsChosen(0, "Redis"), Is.False, "an answer not on the page in view can't be chosen");
 
         Screen(workspace, screen);
-        screen.Question.MoreAnswers(Later(screen));
-        screen.Question.MoreAnswers(Later(screen));
+        for (var page = 0; page < screen.Question.Pages && !screen.Question.Answers.Contains(4); page++)
+            screen.Question.MoreAnswers(Later(screen));
         Assert.That(screen.Question.Answers, Is.EqualTo(new[] { 4 }));
+        Draw(screen);
         screen.Question.Choose(4);
         Assert.That(draft.IsChosen(0, "Redis"), Is.True);
 
         // The text grows a size: a row fewer a page.
-        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, new RowBudget(3), new RowBudget(3));
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, new RowBudget(6), new RowBudget(3));
+        Assert.That(screen.Question.AnswersRead(0), Is.False, "a relayout invalidates the option's old read binding");
+        ShowAnswers(screen);
         Assert.That(screen.Question.Answers, Does.Contain(4), "laid out anew, the page shows what was chosen");
-        Assert.That(FileScreens.WhySendWaits(screen), Is.Null.Or.Not.EqualTo(FileScreens.ReadTheAnswer));
+        Assert.That(screen.Question.AnswersRead(0), Is.True, "the chosen option was drawn in its new layout");
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Where(line => line.Chosen).Select(line => line.Words), Is.EqualTo(new[] { "Redis" }), "the chosen answer is in view");
     }
@@ -340,8 +409,8 @@ public class FileQuestionTests
         var (_, workspace, screen, draft) = Asking(question, measured, rows: 6);
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0));
         var first = Screen(workspace, screen);
-        Assert.That((first.Lines[0].Rows, first.Lines[0].FromRow), Is.EqualTo((4, (int?)0)));
-        Assert.That((first.Lines[1].Words, first.Lines[1].Action, first.Lines[1].Key), Is.EqualTo(("Next part, 2 of 3", FileScreens.NextPart, FileScreens.QuestionKey)));
+        Assert.That((first.Lines.Single(line => line.Runs.AllTheirs).Rows, first.Lines.Single(line => line.Runs.AllTheirs).FromRow), Is.EqualTo((4, (int?)0)));
+        Assert.That((first.Footer[PromptSlot.FarRight]!.Words, first.Footer[PromptSlot.FarRight]!.Id), Is.EqualTo(("Next part, 2 of 3", FileScreens.NextPart)));
         Assert.That(first.Side, Is.Null, "the question has pages of its own, not a side panel");
         Assert.That(first.Lines.Any(line => line.Choice), Is.False, "nothing to answer before it is read");
 
@@ -351,16 +420,17 @@ public class FileQuestionTests
         screen.Question.NextPart(clock + TimeSpan.FromSeconds(0.2));
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "and has stood 0.4 seconds");
         screen.Question.NextPart(Later(screen));
-        Assert.That(Screen(workspace, screen).Lines[0].FromRow, Is.EqualTo(4));
+        Assert.That(Screen(workspace, screen).Lines.Single(line => line.Runs.AllTheirs).FromRow, Is.EqualTo(4));
         screen.Question.NextPart(Later(screen));
         var last = Screen(workspace, screen);
-        Assert.That((last.Lines[0].FromRow, last.Lines[1].Words), Is.EqualTo(((int?)8, FileScreens.OnToTheAnswers)));
+        Assert.That((last.Lines.Single(line => line.Runs.AllTheirs).FromRow, last.Footer[PromptSlot.FarRight]!.Words), Is.EqualTo(((int?)8, "See answers")));
         Assert.That(draft.WasShownWhole(0), Is.False, "the last part, but not yet drawn");
         screen.Question.NextPart(Later(screen));
         Assert.That(draft.WasShownWhole(0), Is.True, "every part drawn");
 
         var answers = Screen(workspace, screen);
-        Assert.That((answers.Lines[0].Rows, answers.Lines[0].FromRow), Is.EqualTo((1, (int?)null)), "its answers are headed by its first row, cut with an ellipsis");
+        Assert.That((answers.Lines.Single(line => line.Action == FileScreens.ReadQuestion || line.Runs.AllTheirs && line.Action == null).Rows, answers.Lines.Single(line => line.Action == FileScreens.ReadQuestion || line.Runs.AllTheirs && line.Action == null).FromRow), Is.EqualTo((1, (int?)null)), "its answers are headed by its first row, cut with an ellipsis");
+        Draw(screen);
         screen.Question.Choose(0);
         Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Available, Is.True);
     }
@@ -374,7 +444,7 @@ public class FileQuestionTests
         screen.ReadQuestion(draft, new[] { new PromptMeasure(9, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "laid out long before it was read, its first part shows");
         var frame = Screen(workspace, screen);
-        Assert.That(frame.Lines[1].Words, Is.EqualTo("Next part, 2 of 3"), "with the way on through it");
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next part, 2 of 3"), "with a visible way on through the complete question");
         for (var part = 0; part < 3; part++) screen.Question.NextPart(Later(screen));
         Assert.That(draft.WasShownWhole(0), Is.True);
         screen.ReadQuestion(draft, new[] { new PromptMeasure(12, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));
@@ -382,39 +452,40 @@ public class FileQuestionTests
     }
 
     [Test]
-    public void ATypedAnswerOrYourAnswersUnmeasuredCountsAsCutAndUnread()
+    public void TypedWordsRequireEditorReadingAndReviewsRequireTheirOwnCurrentMeasurements()
     {
         var (_, workspace, screen, draft) = Asking(OnePrompt("Postgres", "SQLite"));
-        Draw(screen);
-        draft.Type(0, new string('x', 419));
-        Assert.That(screen.Question.TypedCut(0), Is.True, "unmeasured, a typed answer is cut");
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer));
-        Assert.That(Screen(workspace, screen).Lines.Single(line => line.Action == FileScreens.TypeAnswer).Rows, Is.EqualTo(FileQuestion.AnswerRows));
+        ShowAnswers(screen);
+        var words = new string('x', 419);
+        draft.Type(0, words);
+        Assert.That(screen.Question.TypedCut(0), Is.True);
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.EqualTo(FileScreens.ReadTheAnswer));
         screen.Question.MeasureTyped(0, 1, 1);
-        Assert.That(FileScreens.WhySendWaits(screen), Is.Null, "measured as one row, it shows whole");
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.EqualTo(FileScreens.ReadTheAnswer), "measurement alone never certifies words absent from the choice card");
+        UseInput(screen, words, 1);
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.Null);
         draft.Type(0, new string('y', 419));
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "a measurement of other words counts for nothing");
-
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.EqualTo(FileScreens.ReadTheAnswer), "reading other words cannot certify the changed answer");
         var (_, several, review, answers) = Asking();
         for (var prompt = 0; prompt < 2; prompt++)
         {
-            Screen(several, review);
+            ShowAnswers(review);
             review.Question.Choose(prompt == 0 ? 1 : 0);
             review.Question.NextQuestion(Later(review));
         }
         Draw(review);
-        Assert.That(review.Question.ReviewRead, Is.False, "drawn, but never measured");
+        Assert.That(review.Question.ReviewRead, Is.False, "drawn without review measurement still counts for nothing");
         Assert.That(FileScreens.WhySendWaits(review), Is.EqualTo(FileScreens.ReadYourAnswers));
         review.Question.MeasureReview(new[] { 1, 1 });
         Draw(review);
         Assert.That(FileScreens.WhySendWaits(review), Is.Null);
         review.Question.GoTo(0);
+        ShowAnswers(review);
         review.Question.Choose(0);
         Assert.That(answers.IsChosen(0, "Light"), Is.True);
         review.Question.NextQuestion(Later(review));
-        review.Question.NextQuestion(Later(review));
         Draw(review);
-        Assert.That(FileScreens.WhySendWaits(review), Is.EqualTo(FileScreens.ReadYourAnswers), "changed since it was measured, it is unread");
+        Assert.That(FileScreens.WhySendWaits(review), Is.EqualTo(FileScreens.ReadYourAnswers), "a changed answer must be measured and read again on review");
     }
 
     [Test]
@@ -424,9 +495,10 @@ public class FileQuestionTests
         var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(9, new[] { 1, 1 }, new[] { 1, 1 }) }, rows: 6);
         Draw(screen);
         draft.Choose(0, "Postgres");
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheQuestion));
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.EqualTo(FileScreens.ReadTheQuestion));
+        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo("Review your answers first."));
         Assert.That(new WorkspaceSteering(factory).SendAnswer(draft, workspace).Step, Is.EqualTo(SteeringStep.Explain), "the send rule itself refuses too");
-        Assert.That(new WorkspaceSteering(factory).SendAnswer(draft, workspace, FileScreens.WhySendWaits(screen)).Message, Is.EqualTo(FileScreens.ReadTheQuestion));
+        Assert.That(new WorkspaceSteering(factory).SendAnswer(draft, workspace, FileScreens.WhySendWaits(screen)).Message, Is.EqualTo("Review your answers first."));
     }
 
     [Test]
@@ -440,7 +512,7 @@ public class FileQuestionTests
         screen.Question.CloseSide();
         var page = Screen(workspace, screen);
         Assert.That(page.Side, Is.Null, "the page, where Send answer sends with everything in view");
-        Assert.That(page.Lines[1].Chosen, Is.True, "the answer stays chosen");
+        Assert.That(page.Lines.Single(line => line.Action == FileScreens.Choose && line.Key == "0").Chosen, Is.True, "the answer stays chosen");
     }
 
     [Test]
@@ -451,19 +523,20 @@ public class FileQuestionTests
         var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, new[] { 5, 1 }, new[] { 7, 1 }) }, speak: true);
         Draw(screen);
         var frame = Screen(workspace, screen);
-        Assert.That(frame.Lines[1].Rows, Is.EqualTo(FileQuestion.AnswerRows), "the long answer shows two rows, cut");
+        Assert.That(frame.Lines.Single(line => line.Action == FileScreens.Choose && line.Key == "0").Rows, Is.EqualTo(FileQuestion.AnswerRows), "the long answer shows two rows, cut");
         Assert.That(frame.Side, Is.Null);
 
+        Draw(screen);
         screen.Question.Choose(0);
         var chosen = Screen(workspace, screen);
         var side = chosen.Side!;
         Assert.That(side.Lines.Single().Words, Is.EqualTo("Postgres, with read replicas in two regions and a nightly snapshot kept for thirty days"));
         Assert.That((side.Lines.Single().Rows, side.Lines.Single().FromRow, side.Parts), Is.EqualTo((3, (int?)0, ((int, int)?)(0, 3))),
             "all its words beside the page, in parts worked out from its own measurement");
-        Assert.That(chosen.Lines[1].Chosen, Is.True, "the answer stays chosen, and brings its side panel");
-        Assert.That(FileScreensTests.Slots(chosen.Footer), Is.EqualTo(new[] { Footer.Close, null, null, Footer.NextPage, FileScreens.SendAnswer }),
+        Assert.That(chosen.Lines.Single(line => line.Action == FileScreens.Choose && line.Key == "0").Chosen, Is.True, "the answer stays chosen, and brings its side panel");
+        Assert.That(FileScreensTests.Slots(chosen.Footer), Is.EqualTo(new[] { Footer.Close, null, null, Footer.NextPage, FileScreens.NextQuestion }),
             "Next page turns its parts, in Hold to talk's place");
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "chosen, but not all of it seen");
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.EqualTo(FileScreens.ReadTheAnswer), "chosen, but not all of it seen");
 
         var steering = new WorkspaceSteering(factory);
         screen.Question.SideDrawn(clock);
@@ -476,104 +549,112 @@ public class FileQuestionTests
             Assert.That(steering.SendAnswer(screen, workspace).Step, Is.EqualTo(SteeringStep.Explain), "not before every part was drawn");
             screen.Question.SideDrawn(clock);
         }
-        Assert.That(FileScreens.WhySendWaits(screen), Is.Null, "every part drawn beside the page");
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.Null, "every part drawn beside the page");
+        Assert.That(steering.SendAnswer(screen, workspace).Step, Is.EqualTo(SteeringStep.Explain), "whole option detail never skips review");
+        screen.Question.NextQuestion(Later(screen));
+        screen.Question.MeasureReview(new[] { 3 });
+        Draw(screen);
         Assert.That(steering.SendAnswer(screen, workspace).Step, Is.EqualTo(SteeringStep.Send));
-
-        draft.Type(0, "MariaDB with a long story about why it fits best for our case");
-        screen.Question.MeasureTyped(0, 4, 3);
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "a long typed answer too");
+        screen.Question.GoTo(0);
+        var words = "MariaDB with a long story about why it fits best for our case";
+        OpenInput(screen, words, 3);
         var typed = Screen(workspace, screen);
-        Assert.That(typed.Side!.Lines.Single().Words, Is.EqualTo("MariaDB with a long story about why it fits best for our case"));
-        Assert.That(typed.Side!.Lines.Single().Runs.AllTheirs, Is.True);
-        Assert.That(typed.Side.Parts, Is.Null, "three rows fit one part");
-        screen.Question.SideDrawn(clock);
-        Assert.That(FileScreens.WhySendWaits(screen), Is.Null);
-        draft.Type(0, "MariaDB, changed a great deal since it was read beside the page");
-        screen.Question.MeasureTyped(0, 4, 3);
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "changed words are read again");
+        Assert.That(typed.Side, Is.Null);
+        Assert.That(typed.Lines.Single(line => line.Control == LineControl.Input).Runs.AllTheirs, Is.True);
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.False, "typed words require their own reading");
+        ReadInput(screen);
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.True);
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.Null);
+        OpenInput(screen, "MariaDB, changed a great deal since it was read in the editor", 3);
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.False, "changed words require new editor evidence");
+        Assert.That(draft.Typed(0), Is.EqualTo(words));
     }
 
     [Test]
-    public void TheSameTypedWordsLaidIntoFewerPartsAreReadAgainFromTheFirst()
+    public void TheSameEditorWordsLaidIntoFewerPartsAreReadAgainFromTheirFirstPart()
     {
         var (_, workspace, screen, draft) = Asking();
-        Draw(screen);
-        draft.Type(0, string.Join(" ", Enumerable.Range(1, 60).Select(step => "Lock it for a minute after try " + step)));
-        screen.Question.MeasureTyped(0, 4, 12);
-        Screen(workspace, screen);
-        Assert.That(screen.Question.SideParts, Is.EqualTo(4), "twelve rows in parts of three");
-        for (var part = 0; part < 3; part++)
+        OpenInput(screen, LongTyped("Lock it for a minute after try"), 12);
+        Assert.That(screen.Question.InputParts, Is.EqualTo(3), "twelve rows in the focused editor's five-row parts");
+        for (var part = 0; part < 2; part++)
         {
-            screen.Question.SideDrawn(clock);
-            clock += TimeSpan.FromSeconds(1);
-            screen.Question.NextSidePart(clock);
+            Draw(screen);
+            screen.Question.NextInputPart(clock += TimeSpan.FromSeconds(1));
         }
-        screen.Question.MeasureTyped(0, 4, 6);
+        screen.Question.MeasureInput(6);
         Screen(workspace, screen);
-        Assert.That((screen.Question.SideParts, screen.Question.SidePart), Is.EqualTo((2, 0)), "the same words in two parts, from the first");
-        screen.Question.SideDrawn(clock);
-        Assert.That(screen.Question.AnswersRead(0), Is.False, "three parts drawn of the old four count for none of the new two");
-        clock += TimeSpan.FromSeconds(1);
-        screen.Question.NextSidePart(clock);
-        screen.Question.SideDrawn(clock);
-        Assert.That(screen.Question.AnswersRead(0), Is.True);
+        Assert.That((screen.Question.InputParts, screen.Question.InputPart), Is.EqualTo((2, 0)));
+        Draw(screen);
+        Assert.That(screen.Question.InputRead, Is.False, "two old-layout parts certify none of the two new parts");
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.False);
+        screen.Question.NextInputPart(clock += TimeSpan.FromSeconds(1));
+        Draw(screen);
+        Assert.That(screen.Question.InputRead, Is.True);
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.True);
+        Assert.That(draft.Typed(0), Is.EqualTo(LongTyped("Lock it for a minute after try")));
     }
 
     private static string LongTyped(string what) => string.Join(" ", Enumerable.Range(1, 60).Select(step => what + " " + step));
 
     [Test]
-    public void ALongTypedAnswerUnreadOpensAgainAtThePartToReadNextOnComingBackByNextQuestion()
+    public void BackToAPromptKeepsItsSavedWordsButExplicitEditRequiresCurrentSessionReading()
     {
         var question = new QuestionView
         {
-            QuestionId = "question-3",
-            Answerable = true,
-            AskedAt = Samples.Time,
+            QuestionId = "question-3", Answerable = true, AskedAt = Samples.Time,
             Prompts = new List<QuestionPrompt>
             {
-                new() { Key = "q0", Header = "Notice", Text = "Should the person be told?", Options = new List<QuestionOption> { new() { Label = "Yes" } }, Multiple = false, FreeText = false },
-                new() { Key = "q1", Header = "Lockout", Text = "How long should a lockout last?", Options = new List<QuestionOption> { new() { Label = "15 minutes" } }, Multiple = false, FreeText = true },
+                new() { Key = "q0", Header = "Notice", Text = "Should the person be told?", Options = new List<QuestionOption> { new() { Label = "Yes" } }, FreeText = false },
+                new() { Key = "q1", Header = "Lockout", Text = "How long should a lockout last?", Options = new List<QuestionOption> { new() { Label = "15 minutes" } }, FreeText = true },
             },
         };
         var (_, _, screen, draft) = Asking(question);
+        ShowAnswers(screen);
+        screen.Question.Choose(0);
         screen.Question.NextQuestion(Later(screen));
-        draft.Type(1, LongTyped("Lock it for a minute after try"));
-        screen.Question.MeasureTyped(1, 4, 12);
-        Assert.That((screen.Question.SideOption, screen.Question.SideParts), Is.EqualTo(((int?)1, 4)));
-        screen.Question.SideDrawn(clock);
+        var words = LongTyped("Lock it for a minute after try");
+        UseInput(screen, words, 12);
         screen.Question.GoTo(0);
         Assert.That(screen.Question.SideOption, Is.Null);
         screen.Question.NextQuestion(Later(screen));
-        Assert.That((screen.Question.Prompt, screen.Question.SideOption, screen.Question.SidePart), Is.EqualTo((1, (int?)1, 1)),
-            "Next question back to it opens its panel at the first part not yet drawn");
+        Assert.That((screen.Question.Prompt, draft.Typed(1), screen.Question.Writing, screen.Question.SideOption), Is.EqualTo((1, words, false, (int?)null)), "navigation keeps saved words without opening input automatically");
+        Assert.That(screen.Question.BeginInput(), Is.True);
+        screen.Question.MeasureInput(12);
+        Assert.That((screen.Question.Input, screen.Question.InputPart, screen.Question.InputRead), Is.EqualTo((words, 0, false)));
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.False);
     }
 
     [Test]
-    public void ALongTypedAnswerGivenWhileTheQuestionsPartsShowOpensOnceTheLastPartEnds()
+    public void TheAnswerEditorCannotOpenBeforeEveryQuestionPartHasShown()
     {
         var (_, _, screen, draft) = Asking(OnePrompt("Postgres", "SQLite"), new[] { new PromptMeasure(6, new[] { 1, 1 }, new[] { 1, 1 }) }, rows: 4);
-        Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "the long question shows in parts first");
-        draft.Type(0, LongTyped("MariaDB, for the reason"));
-        screen.Question.MeasureTyped(0, 4, 12);
-        Assert.That(screen.Question.SideOption, Is.Null, "nothing beside a part of the question");
-        for (var step = 0; step < 5 && screen.Question.QuestionPart != null; step++) screen.Question.NextPart(Later(screen));
-        Assert.That((screen.Question.QuestionPart, screen.Question.SideOption, screen.Question.SidePart), Is.EqualTo(((int?)null, (int?)2, 0)),
-            "once its last part ends, the unread typed answer's panel opens");
+        Assert.That(screen.Question.QuestionPart, Is.EqualTo(0));
+        Assert.That(screen.Question.BeginInput(), Is.False, "the input control cannot skip the complete question");
+        Assert.That(screen.Question.Writing, Is.False);
+        Assert.That(draft.Typed(0), Is.Null);
+        ShowAnswers(screen);
+        Assert.That(draft.WasShownWhole(0), Is.True);
+        Assert.That(screen.Question.BeginInput(), Is.True);
+        screen.Question.ChangeInput(LongTyped("MariaDB, for the reason"));
+        screen.Question.MeasureInput(12);
+        Assert.That((screen.Question.QuestionPart, screen.Question.InputPart, draft.Typed(0)), Is.EqualTo(((int?)null, 0, (string?)null)), "only the explicit editor opens, never an automatic saved typed side panel");
     }
 
     [Test]
-    public void ATypedAnswerEditedToFitClosesItsPanelAndItStaysClosedLaidOutLongerAgain()
+    public void AShortenedEditorBufferKeepsEditingUntilExplicitUseAndHasNoAutomaticSidePanel()
     {
         var (_, _, screen, draft) = Asking();
+        OpenInput(screen, LongTyped("Teal and grey, for the reason"), 12);
+        Assert.That(screen.Question.InputReading, Is.True);
+        screen.Question.ChangeInput("Teal");
+        screen.Question.MeasureInput(1);
+        Assert.That((screen.Question.InputParts, screen.Question.SideOption), Is.EqualTo((1, (int?)null)));
+        Assert.That(screen.Question.InputRead, Is.False, "the changed short words must also be drawn");
         Draw(screen);
-        draft.Type(0, LongTyped("Teal and grey, for the reason"));
+        Assert.That(screen.Question.UseInput(stopOnPage: false), Is.True);
+        Assert.That(draft.Typed(0), Is.EqualTo("Teal"));
         screen.Question.MeasureTyped(0, 4, 12);
-        Assert.That(screen.Question.SideOption, Is.EqualTo(2));
-        draft.Type(0, "Teal");
-        screen.Question.MeasureTyped(0, 1, 1);
-        Assert.That(screen.Question.SideOption, Is.Null, "words that fit their row need no panel");
-        screen.Question.MeasureTyped(0, 4, 12);
-        Assert.That(screen.Question.SideOption, Is.Null, "the same words laid out longer stay closed until the row opens them");
+        Assert.That(screen.Question.SideOption, Is.Null, "measuring saved words differently never opens an unsolicited side panel");
     }
 
     [Test]
@@ -582,6 +663,7 @@ public class FileQuestionTests
         var (_, _, screen, draft) = Asking();
         screen.Question.NextQuestion(Later(screen));
         Assert.That(screen.Question.Prompt, Is.EqualTo(1));
+        Draw(screen);
         screen.Question.Choose(2);
         draft.Type(0, LongTyped("Teal and grey, for the reason"));
         screen.Question.MeasureTyped(0, 4, 12);
@@ -612,24 +694,32 @@ public class FileQuestionTests
         Screen(workspace, screen);
         screen.Question.SideDrawn(clock);
         Assert.That(screen.Question.SideParts, Is.EqualTo(3), "nine rows in parts of three, from the measurement");
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "one part drawn is one part read");
+        Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.EqualTo(FileScreens.ReadTheAnswer), "one part drawn is one part read");
     }
 
     [Test]
-    public void AQuestionOfOnePromptSendsFromItsOwnPageWithNoYourAnswers()
+    public void AQuestionOfOnePromptSendsOnlyFromItsDistinctReadReview()
     {
         var (_, workspace, screen, draft) = Asking(OnePrompt("Postgres", "SQLite"));
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Has.None.EqualTo(FileScreens.YourAnswers));
-        var waiting = frame.Footer[PromptSlot.FarRight]!;
-        Assert.That((waiting.Available, waiting.Reason, waiting.PageExplains), Is.EqualTo((false, (string?)"Choose or type an answer first.", true)),
-            "waiting only for a choice, Send answer keeps its reason undrawn: the answers above say what to do");
-        Assert.That(frame.Reason, Is.Null, "no reason line on the page");
-        Draw(screen);
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(FileScreens.NextQuestion));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False);
+        Assert.That(frame.Reason, Is.EqualTo(FileScreens.ReadTheQuestion));
+        ShowAnswers(screen);
         screen.Question.Choose(1);
-        Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Available, Is.True);
+        frame = Screen(workspace, screen);
+        Assert.That((frame.Footer[PromptSlot.FarRight]!.Words, frame.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo((FileScreens.ReviewAnswers, true)));
+        var steering = new WorkspaceSteering(factory);
+        Assert.That(steering.SendAnswer(screen, workspace).Step, Is.EqualTo(SteeringStep.Explain), "choosing does not bypass review even for one prompt");
         screen.Question.NextQuestion(Later(screen));
-        Assert.That(screen.Question.Reviewing, Is.False);
+        Assert.That(screen.Question.Reviewing, Is.True);
+        screen.Question.MeasureReview(new[] { 1 });
+        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadYourAnswers));
+        Draw(screen);
+        Assert.That(FileScreens.WhySendWaits(screen), Is.Null);
+        var sent = (ExecutionAnswerQuestionCommand)steering.SendAnswer(screen, workspace).Command!;
+        Assert.That(sent.Payload.Answers.Single().Selected, Is.EqualTo(new[] { "SQLite" }));
     }
 
     [Test]
