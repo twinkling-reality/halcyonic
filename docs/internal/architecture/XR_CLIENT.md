@@ -2657,3 +2657,15 @@ words remain local during temporary preemption; the editor explains why sending 
 retains valid page/read proof and words, while resetting input/confirmation authority and drawn-age
 proof; resuming requires a fresh exact frame. A changed execution drops the invalid draft with a
 truthful notice. Confirmation is bound to its exact words and execution and lapses on preemption.
+
+Instruction editor notices use their actual wrapped rows in the same layout fingerprint as the draft.
+When a notice cannot share a page with the minimum input and paging controls, What happened shows
+its complete text in measured explanation pages. Back to instruction acknowledges and removes that
+notice; the local draft remains. Explanation pages never count toward reading the instruction.
+Any changed wrapping restarts instruction reading at its first part so its ordered proof can be
+rebuilt. An unchanged frame preserves both instruction and explanation position. Confirmation
+pages retain their existing notice handling; editor-only notice packing does not apply while Yes is armed.
+The editor-only WorkspaceRender.InstructionCheck witness covers real production keyboard, scoped
+voice delivery and preset review through explicit Send at both text sizes, plus full notice and
+compact resume layouts. It never starts a session or uses the microphone; execution is a separate
+Unity validation gate.

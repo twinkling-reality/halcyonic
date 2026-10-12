@@ -7,6 +7,8 @@ namespace Halcyonic.Client
 {
     public static partial class FileScreens
     {
+        public const string BackInstructionNotice = "instruction-notice-back";
+        public const string NextInstructionNotice = "instruction-notice-next";
         public const string EditInstruction = "instruction-edit";
         public const string CancelInstruction = "instruction-cancel";
         public const string SendInstruction = "instruction-send";
@@ -28,6 +30,15 @@ namespace Halcyonic.Client
         private static Page InstructionPage(WorkspacePresentation workspace, FileScreen screen)
         {
             var instruction = screen.Instruction;
+            if (instruction.ExplainingNotice && instruction.Notice != null)
+                return new Page(new[]
+                {
+                    new PageLine("What happened", tone: LineTone.Secondary),
+                    new PageLine(instruction.Notice, rows: Math.Min(instruction.NoticePartRows, instruction.NoticeRows - instruction.NoticePart * instruction.NoticePartRows),
+                        fromRow: instruction.NoticePart * instruction.NoticePartRows),
+                }, null, new Footer(new Prompt(CancelInstruction, "Cancel", GlazeIcon.Close, PromptKind.Close),
+                    secondary: new Prompt(BackInstructionNotice, "Back to instruction", GlazeIcon.Back),
+                    farRight: instruction.NoticeParts > 1 ? new Prompt(NextInstructionNotice, Footer.NextPageWords(instruction.NoticePart, instruction.NoticeParts), GlazeIcon.Next, PromptKind.NextPage) : null));
             var lines = new List<PageLine>
             {
                 new PageLine("Your instruction", tone: LineTone.Secondary),

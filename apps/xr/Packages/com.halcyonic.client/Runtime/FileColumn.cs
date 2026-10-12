@@ -60,6 +60,7 @@ namespace Halcyonic.Client
         private int instructionVoiceEpoch;
         private FileSection instructionVoiceSection;
         private MenuFrame? drawnInstructionFrame;
+        private MenuFrame? drawnInstructionNoticeFrame;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -227,8 +228,17 @@ namespace Halcyonic.Client
                     Notify(VoiceText.TooShort);
                     break;
                 case FileScreens.Preset when Index(key) is int chosen:
-                    // A row only chooses; Tell it sends the chosen words as shown.
+                    // A row only chooses; Review instruction copies the chosen words into the local editor.
                     Screen.ChoosePreset(chosen);
+                    break;
+                case FileScreens.BackInstructionNotice:
+                    if (drawnInstructionNoticeFrame != Frame) return;
+                    Screen.Instruction.BackFromNotice();
+                    notice = null;
+                    break;
+                case FileScreens.NextInstructionNotice:
+                    if (drawnInstructionNoticeFrame != Frame) return;
+                    Screen.Instruction.NextNotice(host.Clock);
                     break;
                 case FileScreens.CancelInstruction:
                     instructionKeyboardSession++;
@@ -447,6 +457,12 @@ namespace Halcyonic.Client
             }
             if (Screen.Instruction.Open && Steering.Armed == null)
             {
+                if (Screen.Instruction.ExplainingNotice)
+                {
+                    drawnInstructionNoticeFrame = drawn;
+                    Screen.Instruction.NoticeDrawn(host.Clock);
+                    return;
+                }
                 drawnInstructionFrame = drawn;
                 var before = Screen.Instruction.Read;
                 Screen.Instruction.Drawn(host.Clock);
@@ -556,6 +572,7 @@ namespace Halcyonic.Client
             Screen.Question.SuspendPresentation();
             Screen.Instruction.Suspend();
             drawnInstructionFrame = null;
+            drawnInstructionNoticeFrame = null;
             instructionVoiceValid = false;
             instructionKeyboardSession++;
             Steering.StopTyping();
@@ -570,6 +587,7 @@ namespace Halcyonic.Client
             Screen.Question.InvalidateInput();
             Screen.Instruction.Suspend();
             drawnInstructionFrame = null;
+            drawnInstructionNoticeFrame = null;
             instructionVoiceValid = false;
             instructionKeyboardSession++;
             Steering.StopTyping();
@@ -604,6 +622,7 @@ namespace Halcyonic.Client
             }
             Now = presentation;
             drawnInstructionFrame = null;
+            drawnInstructionNoticeFrame = null;
             if (Screen.Instruction.Open && Screen.Instruction.ExecutionId != presentation.Execution?.ExecutionId)
             {
                 Screen.Instruction.Close();
@@ -651,7 +670,8 @@ namespace Halcyonic.Client
             if (draft != null) ReadQuestion(draft, budget);
             if (Screen.Instruction.Open)
                 Screen.Instruction.Measure(host.RowsOf(FileScreens.InstructionLine(Screen.Instruction, host.KeyboardOffered, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees), budget, host.TextSize,
-                    host.FitsHalf(FileScreens.InstructionPager(previous: true), Glaze.Menu.FileColumnDegrees) && host.FitsHalf(FileScreens.InstructionPager(), Glaze.Menu.FileColumnDegrees));
+                    host.FitsHalf(FileScreens.InstructionPager(previous: true), Glaze.Menu.FileColumnDegrees) && host.FitsHalf(FileScreens.InstructionPager(), Glaze.Menu.FileColumnDegrees),
+                    notice, notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             // Answers armed to send that changed since, by a choice, a page turned or a new layout, cancel
             // its Yes at the change, as words heard or typed do.
             if (Steering.AnswersMoved() is string moved)
