@@ -446,3 +446,6 @@ expected outcome. Task identity is checked in the actual file and project contex
 removed character banner. Editor source compilation passes; the migrated exact render is pending.
 Its six-agent legacy setup and raw plane/fade fixtures still require separate migration or defect
 analysis, and their clearance, field, readability and visibility thresholds remain unchanged.
+DirectorCheck runs all three existing director cases at both text sizes with the same PlaneState
+guards and nonzero retained-offset counter. It diagnoses this migration separately from untouched
+raw plane/stage cases; the full WorkspaceRender.Check retains them and remains the acceptance gate.
