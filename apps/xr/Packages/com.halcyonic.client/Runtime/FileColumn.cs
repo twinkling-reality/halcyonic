@@ -242,6 +242,7 @@ namespace Halcyonic.Client
                     Screen.NextPresetPage(clock);
                     break;
                 case FileScreens.Preset when Index(key) is int chosen:
+                    if (drawnPresetFrame != Frame || Screen.ShowingPresetNotice || !Screen.PresetIndices.Contains(chosen)) return;
                     // A row only chooses; Review instruction copies the chosen words into the local editor.
                     Screen.ChoosePreset(chosen);
                     break;

@@ -1922,6 +1922,7 @@ public class FileColumnTests
         Assert.That(host.Keyboard, Is.Null, "the demonstration's instructions stand in for the keyboard");
         column.Act(FileScreens.TellIt, null);
         Assert.That(host.Sent, Is.Empty, "nothing chosen, nothing sent");
+        column.Drawn(column.Frame!, null);
         column.Act(FileScreens.Preset, "1");
         Assert.That(host.Sent, Is.Empty, "choosing sends nothing");
         column.Act(FileScreens.TellIt, null);
