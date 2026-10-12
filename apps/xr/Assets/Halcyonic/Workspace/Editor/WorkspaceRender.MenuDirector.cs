@@ -555,6 +555,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     director.DrawNow();
                     if (plane.Showing(MenuColumn.Menu) != null || plane.Shown.Any(each => each.Kind == MenuColumn.Menu)) failures.Add(name + ": " + stage + " still competes with Tasks.");
+                    var frame = file?.Frame;
+                    if (frame != null)
+                    {
+                        var budget = new HeightBudget(director.PageHeight(MenuFrameView.TitleRows(frame.Subject, Glaze.Menu.FileColumnDegrees), false, frame.Focused));
+                        Debug.Log("Halcyonic: answer flow budget " + stage + ": room=" + budget.Room.ToString("0.00000", CultureInfo.InvariantCulture)
+                            + ", parts=" + string.Join(",", plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.File).View?.Heights ?? Array.Empty<float>())
+                            + ", rows=" + string.Join("/", frame.Lines.Select(line => line.Rows)) + ", choices=" + string.Join(",", file!.Screen.Question.Answers));
+                        if (!file.Screen.Question.Writing && !file.Screen.Question.Reviewing && file.Screen.Question.QuestionPart == null
+                            && !frame.Lines.Any(line => line.Runs.AllTheirs && line.Action != FileScreens.Choose)) failures.Add(name + ": " + stage + " omitted its question context.");
+                    }
                     failures.AddRange(PlaneState(name + " answer-flow " + stage, folder, camera, texture, plane, characters, eyes, null));
                 }
                 void ReadQuestion()
@@ -670,6 +680,70 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (FileScreens.WhySendWaits(file.Screen) is string waits) failures.Add(name + ": review drawn, Send answer still waits: \"" + waits + "\"");
                 if (!PressWords("Send answer")) failures.Add(name + ": visible Send answer took no press.");
                 if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add(name + ": review sent " + sent.OfType<ExecutionAnswerQuestionCommand>().Count() + " answers, not one.");
+
+                // Fresh production columns exercise saved custom answers without a duplicate preview row.
+                foreach (var length in new[] { "short", "long" })
+                {
+                    director.OpenFile(work.Workstream.WorkstreamId);
+                    director.DrawNow();
+                    ReadQuestion();
+                    if (!PressWords(FileScreens.WriteAnswer)) failures.Add(name + ": custom editor did not open through Write an answer.");
+                    var words = length == "short" ? "Teal" : string.Join(" ", Enumerable.Range(0, 70).Select(index => "detail" + index));
+                    keyboardDone?.Invoke(words);
+                    director.DrawNow();
+                    Capture("editor-" + length + "-part1");
+                    for (var part = 0; part < 60 && file!.Screen.Question.InputPart + 1 < file.Screen.Question.InputParts; part++)
+                    {
+                        if (!PressWords("Next part")) { failures.Add(name + ": custom read-through Next part took no press."); break; }
+                        Capture("editor-" + length + "-part" + (file.Screen.Question.InputPart + 1));
+                    }
+                    if (!PressWords("Use this answer")) failures.Add(name + ": read custom answer could not be saved by Use this answer.");
+                    Capture("custom-" + length + "-selected");
+                    if (file!.Frame!.Lines.Count(line => line.Action == FileScreens.TypeAnswer && line.Chosen && line.Fact == "Selected") != 1)
+                        failures.Add(name + ": saved custom answer has no single selected Edit answer control.");
+                    if (!PressWords("Next question")) failures.Add(name + ": saved custom answer could not advance to the next question.");
+                    ReadQuestion();
+                    ChooseWords("Orders");
+                    PressWords(FileScreens.ReviewAnswers);
+                    Capture("review-custom-" + length + "-part1");
+                    for (var part = 0; part < 60 && file.Screen.Question.Page + 1 < file.Screen.Question.Pages; part++)
+                    {
+                        if (!PressWords("Next part")) { failures.Add(name + ": custom review Next part took no press."); break; }
+                        Capture("review-custom-" + length + "-part" + (file.Screen.Question.Page + 1));
+                    }
+                    if (FileScreens.WhySendWaits(file.Screen) != null || file.Frame!.Footer[PromptSlot.FarRight]?.Available != true)
+                        failures.Add(name + ": custom review was not wholly read with final Send enabled.");
+                }
+
+                // Long questions keep clipped but explicit context and reread through the same visible control.
+                work.Execution.PendingQuestions[0].Prompts[0].Text = string.Join(" ", Enumerable.Repeat("Which colour scheme best supports the decision described in this part?", 10));
+                director.OpenFile(work.Workstream.WorkstreamId);
+                director.DrawNow();
+                ReadQuestion();
+                ChooseWords("Dark");
+                Capture("long-question-context");
+                var context = file!.Frame!.Lines.FirstOrDefault(line => line.Fact == "Read question");
+                if (context == null || !Press(context.Action!, context.Key)) failures.Add(name + ": clipped question had no usable Read question control.");
+                else
+                {
+                    Capture("long-question-reread");
+                    ReadQuestion();
+                    Capture("long-question-return");
+                    if (!file.Screen.Question.Draft!.IsChosen(0, "Dark")) failures.Add(name + ": rereading the question discarded Dark.");
+                }
+
+                // The partial ambiguous-label escape is a visible action whose full cue fits both sizes.
+                work.Execution.PendingQuestions[0].Prompts[0].Text = "Which answer do you mean?";
+                work.Execution.PendingQuestions[0].Prompts[0].Options = new List<QuestionOption>
+                {
+                    new QuestionOption { Label = "Yes" }, new QuestionOption { Label = "Yes." }, new QuestionOption { Label = "No" },
+                };
+                director.OpenFile(work.Workstream.WorkstreamId);
+                director.DrawNow();
+                ReadQuestion();
+                Capture("alike-stop-escape");
+                if (!file!.Frame!.Lines.Any(line => line.Action == FileScreens.Stop && line.Control == LineControl.Action)) failures.Add(name + ": alike answers have no visible bounded Stop escape.");
+
             }
             finally
             {
