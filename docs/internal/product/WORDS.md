@@ -308,3 +308,14 @@ Hold Move to drag the whole workspace explains its hold. Below a window the deta
 The actual choices are In front of you, Room for a window and Either side of a window. Selecting
 one shows Apply; it changes only on that explicit press. Reset position brings the workspace back
 within reach. Read title shows the retained task's complete outside title in readable parts.
+
+## Instructions
+
+Tell it opens Your instruction. An empty keyboard field says Type your instruction; without a
+keyboard it says Hold to talk below. Keyboard Done and completed transcription save only local
+words. The explicit action is Send instruction. Recorded or generic instruction choices lead to
+Review instruction, which copies a local draft; choosing or reviewing never sends. Cancel discards
+that draft locally. A spoken draft retains its additional reviewed Yes after Send instruction,
+including after a keyboard edit. Read the whole instruction first explains an unread draft; The
+agent needs your approval first explains approval preemption. A changed execution says Nothing was
+sent: the instruction's task changed.

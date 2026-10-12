@@ -274,3 +274,10 @@ checkbox mark. The dedicated explanation preserves provenance for every full con
 pages within the same field. Back returns to the same question/page and saved draft. Close and the
 current Stop task occupy the explanation's footer; Stop still requires policy confirmation. No
 unconditional warning/Stop target adds density to ordinary choices.
+
+Tell it's instruction editor uses the focused composition and the existing bounded Input role,
+Your instruction label, empty focused keyboard caret and bounded navigation. Middle read parts
+keep Previous part and Next part, paired only at measured half widths; all field/pager targets and
+12 mm gaps remain in the height budget. The editor has at most three footer prompts: local Cancel,
+Hold to talk when available, and Send instruction. Done/transcription only change its local draft;
+Send is explicit and remains quiet/unavailable until the complete current draft has been read.
