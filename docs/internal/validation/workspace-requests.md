@@ -220,3 +220,10 @@ interrupted instead of returning a final reported reply, repeating unavailable o
 reads. Elapsed time was 34.102 seconds. The file/action result is verified; dependable autonomous
 continuation and final response are not yet established. This remains a concrete open failure,
 not evidence for a completed end-to-end feature.
+
+After the request entry was integrated, the actual Unity DedicatedWorkspaceCheck passed its
+complete production navigation sequence at Standard and Larger text sizes, with the existing fit,
+visibility, field-of-view and coplanarity guards unchanged. Thirty-four current-sequence captures
+were retained; visual inspection confirmed the Larger task view exposes Ask workspace without
+clipping its existing controls. This verifies the entry in its actual menu, not the request form,
+headset legibility or wearer acceptance, which require separate checks.
