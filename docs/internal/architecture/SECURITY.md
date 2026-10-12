@@ -384,7 +384,8 @@ glance's (`files/glance-access-token`) alike:
   for other applications do not relay this proof and must remain intact. The session check rejects
   duplicate Halcyonic mappings, alternate endpoints forwarding to 47800 and a 47800 endpoint
   forwarding elsewhere. The port comparison includes ADB-accepted decimal/hex aliases and
-  host-qualified TCP destinations, so `tcp:047800` or `tcp:localhost:47800` cannot hide a relay; it never recommends removing every route.
+  host-qualified TCP destinations, so `tcp:047800` or `tcp:localhost:47800` cannot hide a relay.
+  Ambiguous or unparsed nonempty list lines fail closed, including whitespace port spellings; it never recommends removing every route.
 - **A stale token and an impostor read the same.** The proof can't tell a control plane holding
   another token from another program, so the app's line names both: the code doesn't match, or
   something else is answering in its place. Either way the token was not sent.

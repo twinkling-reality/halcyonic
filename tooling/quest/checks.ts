@@ -31,15 +31,19 @@ function usesHalcyonicPort(spec: string): boolean {
 
 /** `adb reverse --list`: one `<serial or (reverse)> <headset side> <Mac side>` line per mapping. */
 export function checkReverse(text: string): Verdict {
-  const mappings = text
-    .split(/\r?\n/)
-    .map((line) => line.trim().split(/\s+/))
-    .filter((fields) => fields.length >= 2 && fields.slice(-2).every((spec) => spec.includes(':')))
-    .map((fields) => fields.slice(-2))
-    // Only routes involving Halcyonic can replace or relay its proof. Other applications keep
-    // their independent connections; a session check must not ask the owner to remove them.
-    .filter((ends) => ends.some(usesHalcyonicPort))
-    .map((ends) => `${ends[0]} to ${ends[1]}`);
+  const mappings: string[] = [];
+  for (const line of text.split(/\r?\n/).filter((entry) => entry.trim().length > 0)) {
+    // The AOSP list has exactly serial, source and destination. A TCP specification may itself
+    // contain whitespace accepted by ParseInt, so splitting and discarding malformed lines can
+    // erase a relay. Unknown/ambiguous output is unavailable, never silently ignored.
+    const fields = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(line.trim());
+    const from = fields?.[2];
+    const to = fields?.[3];
+    if (from === undefined || to === undefined || !from.includes(':') || !to.includes(':')) {
+      return fail('adb reverse: mapping list contains an unparsed line; inspect it before checking Halcyonic. Preserve unrelated routes.');
+    }
+    if (usesHalcyonicPort(from) || usesHalcyonicPort(to)) mappings.push(`${from} to ${to}`);
+  }
   const only = `${PORT_MAPPING} to ${PORT_MAPPING}`;
   if (mappings.length === 1 && mappings[0] === only)
     return pass(`adb reverse: one Halcyonic mapping, ${only}`);

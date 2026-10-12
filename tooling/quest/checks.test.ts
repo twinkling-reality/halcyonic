@@ -91,6 +91,22 @@ describe('headset session checks', () => {
     assert.doesNotMatch(checkReverse(`${ordinary}UsbFfs tcp:47900 tcp:047800\n`).line, /remove-all/);
   });
 
+  test('ambiguous mapping lines cannot silently erase whitespace aliases or other failures', () => {
+    const ordinary = 'UsbFfs tcp:47800 tcp:47800\n';
+    for (const line of [
+      'UsbFfs tcp:47900 tcp: 47800', 'UsbFfs tcp:47900 tcp:\t47800',
+      'UsbFfs tcp: 47800 tcp:47900', 'UsbFfs tcp:47900',
+      'tcp:47800 tcp:47800', 'adb: mapping list unavailable',
+      'UsbFfs tcp:47900 tcp:47900 unexpected', 'unknown',
+    ]) {
+      const result = checkReverse(ordinary + line + '\n');
+      assert.equal(result.pass, false, line);
+      assert.match(result.line, /unparsed line/);
+      assert.doesNotMatch(result.line, /remove-all|UsbFfs/);
+    }
+    assert.equal(checkReverse('\n  \n' + ordinary + '\nUsbFfs tcp:47900 tcp:47900\n').pass, true);
+  });
+
   test("a file's state is its mode, size and type, or why there is none", () => {
     assert.deepEqual(readFileState('600 44 regular file\n', FILE), {
       kind: 'file',
