@@ -847,6 +847,17 @@ namespace Halcyonic.Client
             Turned();
         }
 
+        /// <summary>Manual compaction keeps the page and words, but callback and whole-review authorization expire.</summary>
+        public void SuspendPresentation()
+        {
+            InputSession++;
+            InputFocused = false;
+            inputDrawn.Remove(InputPart);
+            reviewDrawn.Remove(Page);
+            sideDrawnAt = null;
+            Turned();
+        }
+
         public void InvalidateInput()
         {
             InputSession++;

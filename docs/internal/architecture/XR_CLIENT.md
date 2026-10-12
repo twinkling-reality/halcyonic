@@ -456,6 +456,22 @@ the same definition names, as the JSON Schema document:
   `MenuNavigator` (client core) is what the menu shows and where each press and draw goes: open on a
   place or closed to its bar, the column beside it, a press to the column that showed it (a side
   panel's to the frame in front), a draw only for the very frame a column gave, and nothing else.
+  The manual compact lifecycle is explicit in the client core (`MenuNavigator.Compact`, `Expand`,
+  `TryExpandTask`, `IsCompact`). It retains the same single composition and file instance, pages,
+  local draft and editor buffer; it is separate from closing or replacing a file. While compact,
+  frames and column input routes are absent, previous drawn handles are invalid, and the existing
+  voice departure route expires captured transcription callbacks. Expansion restores that exact
+  composition even when other work waits, and a matching compact task resumes the same file;
+  attention does not silently replace it with Tasks. New views must draw before they can act.
+  `ICompactableMenuColumn` lets a retained file distinguish this intent from external focus loss;
+  other columns use their existing focus-loss lifecycle. The file expires answer and instruction
+  keyboard sessions, stops typing and cancels armed confirmations. Current editor/review page
+  evidence is removed, so the resumed current page must draw before Use or Send, while previous
+  parts retain valid reading evidence under the existing content/layout binding. Editor page,
+  saved and unsaved words, question/choice evidence and selection stay; layout or semantic changes
+  still expire the affected proof or draft. Close discards the file as before; session/journal
+  renewal discards a compact file. This lifecycle adds no runtime command or journal event and
+  no cache of several task files. Visible organization controls are a separate Unity integration.
   Each press carries the frame its view showed, or its side panel, and counts only if that is what
   was drawn last in its slot and still stands, so a press on a file swapped for another, or on a
   place left, reaches nothing; a view leaving the plane raises none. A hold starts only so too
@@ -678,7 +694,11 @@ the same definition names, as the JSON Schema document:
   leaving the editor, focus loss, replacement, preemption or arming. Native keyboard dismissal reports
   no new words and restores the current read-through mode. Per-recording voice callbacks keep an old
   answer from becoming a later instruction. Saved drafts are in memory in one open FileColumn:
-  Back/edit/focus return preserve them, Close/reopen and column/session replacement do not.
+  Back/edit/focus return and manual compact/expand preserve them; Close/reopen and column/session
+  replacement do not. Manual compaction preserves the editor page and buffer while expiring its
+  keyboard callback session. Instruction keyboard callbacks also bind to their generation,
+  execution, connection, current Instruct capability and active typing; a callback from a compacted,
+  closed or replaced column cannot send or arm an instruction.
   QuestionDraft captures semantic prompt/option content and flags immutably; changes under the same
   question id invalidate it without allocating a serialized question on each check.
   The question shows a prompt at a time (`FileQuestion`), with one measured caption combining Question i of n,
@@ -719,7 +739,8 @@ the same definition names, as the JSON Schema document:
   policy-required Cancel/Yes still binds to the exact armed answers; the existing session, capability,
   freshness and runtime-confirmation rules remain. While a sent answer may take effect, it cannot be
   sent again. Parts turn only after their current draw stood for 0.4 seconds. The column's draft lives
-  only within that open file; Close/reopen, file replacement or session/journal replacement discards it.
+  only within that retained file, including manual compact/expand; Close/reopen, file replacement or
+  session/journal replacement discards it.
   Approving or denying, or an instruction armed to send, heard through Hold to talk or typed for a
   policy's review, shows the whole request, or all the instruction's words, as a block of theirs, in parts, as rows
   of one measured line

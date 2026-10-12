@@ -101,6 +101,13 @@ namespace Halcyonic.Client
         public static string Returned(string? original, string text) => original != null && text == LabelText.Plain(original) ? original : text;
     }
 
+    /// <summary>A retained column that distinguishes manual compaction from losing application focus.</summary>
+    public interface ICompactableMenuColumn
+    {
+        /// <summary>Expires interaction authorization while retaining content, draft and the current page.</summary>
+        void Compact();
+    }
+
     /// <summary>
     /// One column of the menu's plane (ADR 0026): a place of the menu (Tasks, Projects, Usage,
     /// Settings), a task's file, or New project. A plain object the director asks for its frame and
