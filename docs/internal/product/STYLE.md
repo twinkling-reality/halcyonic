@@ -415,11 +415,22 @@ Workspace request uses the attached console and measured focused-file room. Its 
 retains the existing paged input/read guard; scope text, held voice, explicit Start/Continue and
 spoken Yes remain visible controls. Model reply and recorded receipts have separate sections and
 full measured paging, with source names treated as outside text. Request and recovery-focused
-checks pass 46/46 with zero skips, and Editor/Android source compilation passes. Actual request
-screenshots and full integrated gates remain pending.
+checks passed 46/46 with zero skips at the first source checkpoint, with Editor/Android source
+compilation. The later RequestCheck result below supersedes its unrun screenshot status; full
+integrated gates remain pending.
 
 RequestCheck is the request-specific real-font composition gate. It uses the actual production
 column and director control routes with synthetic capability/result seams, and retains all field,
-readability, target and coplanarity checks. Its source compiles with Editor and Android symbols;
-actual Unity rendering and wearer judgement remain pending. The existing Judge walkthrough now
+readability, target and coplanarity checks. Its source compiles with Editor and Android symbols.
+The existing Judge walkthrough now
 checks Tasks as the stable view subject and the actual waiting state on its row.
+
+RequestCheck ran on integration c2c64 with 20 captures at Standard and Larger; the complete request
+composition and original checks passed, and Larger spoken review and Actions were inspected.
+That review identified missing task identity in the request body. The follow-up uses the actual
+bound task title as the outside-text subject and measures its title height at both sizes; Request,
+Reply and Actions remain the section labels. The redundant Actions body heading is removed.
+The focused title/lifetime regressions pass 54/54 with zero skips; core, Editor and Android source
+compilation pass. RequestCheck now also checks the actual outside-text task subject on each
+visible request frame. The title-adjusted exact render remains pending. No live send or wearer
+acceptance is implied.

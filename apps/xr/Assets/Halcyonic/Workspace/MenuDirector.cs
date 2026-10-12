@@ -273,10 +273,10 @@ namespace Halcyonic.XR.Workspace
             {
                 if (director.navigator.Beside == flow) director.navigator.CloseBeside();
             };
-            director.memory.FileDropped += (_, column) =>
+            director.memory.FileDropped += (task, column) =>
             {
                 director.ViewDropped(column);
-                if (director.navigator.Beside == column) director.navigator.CloseBeside();
+                director.navigator.CloseDroppedTask(task, column);
             };
             director.LoadViews();
             return director;

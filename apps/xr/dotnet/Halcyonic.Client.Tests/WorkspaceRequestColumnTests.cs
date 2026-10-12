@@ -213,6 +213,24 @@ public class WorkspaceRequestColumnTests
         },
     };
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void TheRequestNamesItsActualBoundTaskAsOutsideText(TextSize size)
+    {
+        var context = Context();
+        var task = Samples.Workstream(TaskId, executionId: RunId);
+        task.Title = "Review <b>authentication</b> and the deployment checklist";
+        var state = new ClientProjection();
+        state.ApplySnapshot(Samples.Snapshot(1, new[] { task }, new[] { Samples.Execution(RunId, TaskId, ExecutionStatus.Running) }), new StateChanges());
+        var host = new PendingHost { State = state }; host.View.TextSize = size;
+        var column = new WorkspaceRequestColumn(host, Commands, context, () => true, Offered);
+        var frame = column.Frame!;
+        Assert.That(frame.Subject, Is.EqualTo(LabelText.Name(task.Title)));
+        Assert.That(frame.SubjectRuns.AllTheirs, Is.True, "the actual task title is data, never an invented destination label");
+        Assert.That(frame.Sections.Select(section => section.Words), Is.EqualTo(new[] { "Request", "Reply", "Actions" }));
+        Assert.That(host.View.Sent, Is.Empty);
+    }
+
     [Test]
     public void FailedDurableCaptureBlocksPostAndSuccessfulCapturePrecedesTheExactPost()
     {
@@ -319,7 +337,8 @@ public class WorkspaceRequestColumnTests
         var host = new FileMenuHost(); var column = Open(host, context, read: (_, _) => Task.FromResult(new WorkspaceRequestResponse { Request = response }));
         Draw(host, column); column.Act(MenuFrame.ChooseSection, "receipts");
         var words = column.Frame!.Lines.Single().Words;
-        Assert.That(words, Does.Contain("Actions").And.Contain("Not sent").And.Contain("Unknown"));
+        Assert.That(column.Frame!.Sections.Single(section => section.Chosen).Words, Is.EqualTo("Actions"));
+        Assert.That(words, Does.Contain("Not sent").And.Contain("Unknown").And.Not.Contain("Actions"));
         Assert.That(words, Does.Not.Contain("position").And.Not.Contain("receipt").And.Not.Contain("987654"));
     }
 
