@@ -1123,8 +1123,8 @@ namespace Halcyonic.XR.UI.Editor
                 if (Mathf.Abs(before[index].r - after[index].r) > 2 || Mathf.Abs(before[index].g - after[index].g) > 2
                     || Mathf.Abs(before[index].b - after[index].b) > 2 || Mathf.Abs(before[index].a - after[index].a) > 2) changed++;
             }
-            Object.DestroyImmediate(original);
-            Object.DestroyImmediate(repeated);
+            UnityEngine.Object.DestroyImmediate(original);
+            UnityEngine.Object.DestroyImmediate(repeated);
             if (changed > 0) yield return "component render: a depth-primed repeated capture lost or changed " + changed + " pixels of the unchanged gallery.";
         }
 
