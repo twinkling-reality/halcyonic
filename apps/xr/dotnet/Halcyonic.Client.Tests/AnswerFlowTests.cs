@@ -477,4 +477,31 @@ public class AnswerFlowTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    [Test]
+    public void BodyStopConfirmationUsesOrdinaryBudgetAndEditorDoesNotPromiseAbsentStop()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts[0].Options = new List<QuestionOption>
+        {
+            new() { Label = "Yes" }, new() { Label = " Yes " }, new() { Label = "No" },
+        };
+        var (host, column, _) = Open(question);
+        ReadQuestion(host, column);
+        var stop = column.Frame!.Lines.Single(line => line.Action == FileScreens.Stop);
+        Assert.That((stop.Words, stop.Fact, stop.Control), Is.EqualTo(("Stop task", "Alike answers cannot be chosen", LineControl.Action)));
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done("Yes.");
+        Draw(host, column);
+        Assert.That(column.Frame!.Footer[PromptSlot.FarRight]!.Reason, Does.Not.Contain("press Stop"));
+        Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Available, Is.False);
+        column.Act(FileScreens.CancelInput, null);
+        ReadQuestion(host, column);
+        column.Act(stop.Action!, stop.Key);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Interrupt));
+        Assert.That(column.Frame!.Focused, Is.False);
+        var ordinary = HeightBudget.Of(host.TextSize, 1);
+        Assert.That(column.Screen.Question.QuestionPartRows, Is.EqualTo(ordinary.WordsIn(ordinary.Room - ordinary.Words(1) - ordinary.LineGap - ordinary.Reason)));
+        Assert.That(host.Sent, Is.Empty, "Stop still requires current policy confirmation");
+    }
+
 }

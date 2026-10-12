@@ -172,7 +172,7 @@ namespace Halcyonic.Client
             (typed ? page.Target() + page.TargetGap : 0f) + ChoiceReason(prompt) + page.Words(CaptionRows(prompt, paged)) + page.LineGap;
 
         /// <summary>The rows of the line under a prompt's answers where some read the same (<see cref="WorkspaceText.AlikeCantBeChosen"/>).</summary>
-        public const int AlikeRows = 2;
+        public const int AlikeRows = 1;
 
         /// <summary>
         /// That line and the gap before it, on every page of the prompt's answers; a gap counted as a target's,
