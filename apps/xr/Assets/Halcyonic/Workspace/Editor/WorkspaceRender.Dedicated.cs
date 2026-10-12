@@ -118,7 +118,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Shot("tasks");
                 Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
                 Shot("selected practice task");
-                if (!director.Plane.SelectionContext.Text.Contains(StateLanguage.Practice)) failures.Add(name + ": selected synthetic task is unmarked inside a live journal");
+                if (!director.Plane.SelectedMarks.Any(mark => mark.Word == StateLanguage.Practice)) failures.Add(name + ": selected synthetic task is unmarked inside a live journal");
                 Press(FileScreens.TellIt);
                 done?.Invoke("Add a regression test for the rate limit.");
                 Shot("local instruction");

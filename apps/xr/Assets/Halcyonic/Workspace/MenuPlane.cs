@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
 using UnityEngine;
@@ -47,6 +48,8 @@ namespace Halcyonic.XR.Workspace
         public string ConnectionState { get; set; } = WorkspaceText.Disconnected;
         public LineWords SelectionContext { get; set; } = LineWords.Ours("Projects");
         public bool OtherAppsAvailable { get; set; }
+        public StateBadge? SelectedState { get; set; }
+        public IReadOnlyList<WorkMark> SelectedMarks { get; set; } = Array.Empty<WorkMark>();
         public event Action? OtherAppsPressed;
         public event Action? MinimizePressed;
         private PlanePart headerPart;
@@ -384,7 +387,7 @@ namespace Halcyonic.XR.Workspace
             // Keep navigator state, but give the pending answer its own focused composition.
             if (fileFrame?.Focused == true) menuFrame = null;
             eyes = at;
-            surfaceDrop = surfaceHeight.HasValue ? at.y - surfaceHeight.Value : (float?)null;
+            surfaceDrop = null; // A manual agent shelf is not a desk floor for the independently positioned console.
             menu.Voice = Voice is (MenuColumn.Menu, string menuHeld, VoiceStage menuStage) ? (menuHeld, menuStage) : null;
             file.Voice = Voice is (MenuColumn.File, string fileHeld, VoiceStage fileStage) ? (fileHeld, fileStage) : null;
             // The menu's details take the front over a file beside it: laid as if no file stood there, the
@@ -427,7 +430,7 @@ namespace Halcyonic.XR.Workspace
                 inPlace = panel != null && (zoom > 1f || !FitWithSide(menuFrame, fileFrame, panel, pill, all, looking, surfaceHeight, besideWindow, offset));
 
                 // Whether the menu and the file fit side by side, their subjects level.
-                var fits = !besideWindow;
+                var fits = true;
                 if (fits && menuFrame != null && fileFrame != null)
                 {
                     var level = Mathf.Max(MenuFrameView.SubjectHeight(menuFrame.Subject, Glaze.Menu.MenuColumnDegrees, pill, menu.OrganizationControls),
@@ -438,9 +441,9 @@ namespace Halcyonic.XR.Workspace
                     fits = MenuPage.Fits(beside);
                     // Where the stage would place the two under its labels, moved as far as the drag holds,
                     // inside the headset's measured field and clear of every character.
-                    if (fits && ViewField.Current is ViewField field && fileCharacter != null)
+                    if (fits && ViewField.Current is ViewField field)
                     {
-                        var placed = WorkspaceLayout.Place(fileCharacter, all, eyes, looking, surfaceHeight, scratch, beside.Size).Direction;
+                        var placed = PlaceWorkspace(all, looking, surfaceHeight, beside.Size);
                         var dragged = MenuDrag.Turned(placed, offset);
                         fits = placed.Clear && MenuPage.Inside(beside, dragged, field) && WorkspacePlacement.Clears(dragged, bodies, beside.Size);
                     }
@@ -485,9 +488,7 @@ namespace Halcyonic.XR.Workspace
                 var columns = new List<PlaneColumn>();
                 foreach (var (_, view) in shown) columns.Add(ColumnOf(view));
                 Composition = new PlaneComposition(columns, zoom, WorkspaceChromeView.Height);
-                Placed = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
-                    : fileOf != null ? WorkspaceLayout.Place(fileOf, all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
-                    : PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
+                Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
                 // A drag's offset holds only as far as every rule of a drag still does for this composition.
                 var laid = Composition;
                 if (retainTop && pass == 0) offset = AtRetainedTop(laid.Height);
@@ -538,8 +539,7 @@ namespace Halcyonic.XR.Workspace
                 }
                 bar.Shown = Glaze.AfterLeaveShown(barFor);
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
-                Placed = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
-                    : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, barSize)).Direction;
+                Placed = PlaceWorkspace(all, looking, surfaceHeight, barSize);
                 var compactComposition = new PlaneComposition(new[] { new PlaneColumn(bar.Size.x, bar.Size.y) }, zoom);
                 if (retainTop) offset = AtRetainedTop(compactComposition.Height);
                 Moved = MenuDrag.Kept(offset, kept => Allows(compactComposition, MenuDrag.Turned(Placed, kept)));
@@ -553,7 +553,7 @@ namespace Halcyonic.XR.Workspace
             bar.Hide();
             cover.SetActive(true);
             Direction = MenuDrag.Turned(Placed, Moved);
-            Chrome.Show(Composition!.Width / zoom, Composition.Height / zoom, ConnectionState, SelectionContext, OtherAppsAvailable);
+            Chrome.Show(Composition!.Width / zoom, Composition.Height / zoom, ConnectionState, SelectionContext, OtherAppsAvailable, SelectedState, SelectedMarks);
             headerPart = new PlanePart(0, 0, Composition.Width, WorkspaceChromeView.Height * zoom, 0f, Composition.Height / 2f - WorkspaceChromeView.Height * zoom / 2f);
             SlideTo(Chrome.transform, headerPart, zoom, null, immediately);
 
@@ -655,11 +655,38 @@ namespace Halcyonic.XR.Workspace
             UpdateLightLine();
         }
 
+        /// <summary>Conservatively rejects shelf overlap with the actual visible frame or restore dock, including one degree of spacing.</summary>
+        public bool ClearsShelf(IReadOnlyList<Vector3> worldCorners, Vector3 viewer)
+        {
+            if (!gameObject.activeInHierarchy || worldCorners.Count == 0) return true;
+            var shape = Chrome.Visible ? Chrome.FrameSurface : bar.gameObject.activeInHierarchy ? bar.Shape : null;
+            if (shape == null) return true;
+            (float Left, float Right, float Bottom, float Top) Bounds(IEnumerable<Vector3> points)
+            {
+                float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
+                foreach (var point in points)
+                {
+                    var offset = point - viewer;
+                    var yaw = Mathf.DeltaAngle(Direction.Yaw, Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg);
+                    var elevation = Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg;
+                    left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw); bottom = Mathf.Min(bottom, elevation); top = Mathf.Max(top, elevation);
+                }
+                return (left, right, bottom, top);
+            }
+            var visible = new Vector3[4];
+            for (var corner = 0; corner < 4; corner++) visible[corner] = shape.transform.TransformPoint(new Vector3(corner % 2 == 0 ? -0.5f : 0.5f, corner < 2 ? -0.5f : 0.5f, 0f));
+            var workspace = Bounds(visible);
+            var shelf = Bounds(worldCorners);
+            var across = Mathf.Max(workspace.Left - shelf.Right, shelf.Left - workspace.Right);
+            var down = Mathf.Max(workspace.Bottom - shelf.Top, shelf.Bottom - workspace.Top);
+            var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
+            return apart >= WorkspacePlacement.ClearanceDegrees;
+        }
+
         private PanelDirection PlaceWorkspace(IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, PanelSize size)
         {
-            // A dedicated character-free workspace uses the center of the field, not the old stage's empty label band.
-            if (all.Count == 0) return new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg, 0f, true, false);
-            return WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, size).Direction;
+            var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg, 0f, true, false);
+            return new PanelDirection(direction.Yaw, direction.Elevation, WorkspacePlacement.Clears(direction, bodies, size), false);
         }
 
         /// <summary>A part at its place at once, any slide it had dropped, allocating nothing: a drag moves it every frame.</summary>
@@ -683,9 +710,7 @@ namespace Halcyonic.XR.Workspace
             frontView.Show(front, degrees, level, pill);
             side.Show(panel, Glaze.Menu.SideColumnDegrees, level, pill);
             var together = new PlaneComposition(new[] { ColumnOf(frontView), ColumnOf(side) }, GlazeText.Scale, WorkspaceChromeView.Height);
-            var direction = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, together.Size).Direction
-                : fileOf != null ? WorkspaceLayout.Place(fileOf, all, eyes, looking, surfaceHeight, scratch, together.Size).Direction
-                : PlaceWorkspace(all, looking, surfaceHeight, together.Size);
+            var direction = PlaceWorkspace(all, looking, surfaceHeight, together.Size);
             // Where the person dragged the plane, as far as they did.
             var dragged = MenuDrag.Turned(direction, moved);
             return direction.Clear && MenuPage.Inside(together, dragged, field) && WorkspacePlacement.Clears(dragged, bodies, together.Size);
@@ -727,7 +752,7 @@ namespace Halcyonic.XR.Workspace
             if (surfaceDrop is float drop) floor = Mathf.Max(floor, WorkspacePlacement.LowestAboveSurface(composition.Size, drop));
             if (at.Elevation > WorkspacePlacement.HighestDegrees + 1e-3f || at.Elevation < Mathf.Min(floor, WorkspacePlacement.HighestDegrees) - 1e-3f) return false;
             if (!MenuPage.Inside(composition, at, field)) return false;
-            if (StageYaw is float stage && !MenuDrag.WithinReach(at, stage, field)) return false;
+
             if (!WorkspacePlacement.Clears(at, bodies, composition.Size)) return false;
             return !(LineAt(composition, at) is (Vector3 from, Vector3 to)) || !Crosses(from, to);
         }

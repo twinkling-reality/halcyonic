@@ -35,6 +35,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The bar's size, in units of the plane's distance at the designed size.</summary>
         public Vector2 Size => size;
+        public Surface Shape => shape;
 
         /// <summary>The bar's one place to press, for the renders' checks.</summary>
         public GlazeButton Target => controls.Toggle;
