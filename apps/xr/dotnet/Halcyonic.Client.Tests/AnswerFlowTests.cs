@@ -205,9 +205,28 @@ public class AnswerFlowTests
         var instruction = voice.CaptureHeard();
         old("Never an instruction");
         Assert.That(column.Steering.Instruction, Is.Null);
+        Assert.That(column.Screen.Instruction.Words, Is.Empty, "the old answer recording cannot become a local instruction draft");
         instruction("Add pagination");
+        Assert.That((column.Screen.Instruction.Words, column.Screen.Instruction.Spoken, column.Steering.Armed), Is.EqualTo(("Add pagination", true, (WorkspaceAction?)null)));
+        Assert.That(host.Sent, Is.Empty, "even the current recording only saves a local draft");
+        for (var part = 0; part < column.Screen.Instruction.Parts && !column.Screen.Instruction.Read; part++)
+        {
+            Draw(host, column);
+            if (!column.Screen.Instruction.Read)
+            {
+                Assert.That(column.Frame!.Lines.Any(line => line.Action == FileScreens.NextInstructionPart), Is.True);
+                column.Act(FileScreens.NextInstructionPart, null);
+            }
+        }
+        Draw(host, column);
+        Assert.That(column.Screen.Instruction.Read, Is.True);
+        // Draw's Tick can refresh the frame after reading; the current visible Send must draw too.
+        column.Drawn(column.Frame!, null);
+        Assert.That((column.Frame!.Footer[PromptSlot.FarRight]!.Id, column.Frame.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo((FileScreens.SendInstruction, true)));
+        column.Act(FileScreens.SendInstruction, null);
         Assert.That(column.Steering.Instruction, Is.EqualTo("Add pagination"));
-        Assert.That(host.Sent, Is.Empty);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
+        Assert.That(host.Sent, Is.Empty, "the spoken instruction still requires confirmation after explicit Send");
     }
     [TestCase("free_text")] [TestCase("secret")] [TestCase("approval")]
     public void AQuestionChangedBetweenDrawAndPressNeverOpensAnIncompatibleKeyboard(string change)

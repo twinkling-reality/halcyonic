@@ -1405,12 +1405,47 @@ public class FileColumnTests
         Draw(host, column);
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard("Carry on");
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "a heard instruction waits for Yes");
+        Assert.That((column.Screen.Instruction.Words, column.Screen.Instruction.Spoken, column.Steering.Armed), Is.EqualTo(("Carry on", true, (WorkspaceAction?)null)), "transcription saves only a local protected draft");
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "explicit Send of a heard instruction waits for Yes");
         Assert.That(host.Sent, Is.Empty);
     }
 
-    /// <summary>A heard instruction of about eleven rows, longer than any one part shows: a mishearing can be anywhere in it.</summary>
-    private static readonly string LongInstruction = string.Join(" ", Enumerable.Range(1, 36).Select(step => "then step " + step + " ok"));
+    /// <summary>A synthetic instruction long enough for more than two focused confirmation parts; a mishearing can be anywhere.</summary>
+    // The instruction editor and its confirmation now omit sections; 54 steps preserve the original
+    // intermediate-part coverage at that actual larger budget without changing any physical bound.
+    private static readonly string LongInstruction = string.Join(" ", Enumerable.Range(1, 54).Select(step => "then step " + step + " ok"));
+
+    /// <summary>Reads only the visible local instruction pages, never sending or borrowing confirmation proof.</summary>
+    private static void ReadInstructionDraft(FileMenuHost host, FileColumn column)
+    {
+        var sent = host.Sent.Count;
+        var instruction = column.Screen.Instruction;
+        Assert.That(instruction.Open, Is.True);
+        var parts = instruction.Parts;
+        for (var part = instruction.Part; part < parts && !instruction.Read; part++)
+        {
+            var field = column.Frame!.Lines.Single(line => line.Control == LineControl.Input);
+            Assert.That((field.Words, field.FromRow), Is.EqualTo((instruction.Words, (int?)(part * instruction.PartRows))), "the current input part shows exactly its own rows of the saved words");
+            Assert.That(field.Runs.AnyTheirs, Is.True, "the instruction's words retain outside-text provenance");
+            column.Act(FileScreens.SendInstruction, null);
+            Assert.That((host.Sent.Count, column.Steering.Armed), Is.EqualTo((sent, (WorkspaceAction?)null)), "an unread or undrawn draft cannot send or arm");
+            var before = column.Frame;
+            Draw(host, column);
+            // Becoming ready rebuilds the frame. The actual new enabled frame must also be drawn.
+            if (column.Frame != before) Draw(host, column);
+            if (instruction.Read) break;
+            var next = column.Frame!.Lines.Single(line => line.Action == FileScreens.NextInstructionPart);
+            Assert.That((next.Control, next.Available), Is.EqualTo((LineControl.Action, true)));
+            column.Act(next.Action!, next.Key);
+            Assert.That(instruction.Part, Is.EqualTo(part + 1), "the visible pager advances one read part after its guard");
+        }
+        Assert.That(instruction.Read, Is.True, "every current local instruction part was drawn");
+        Draw(host, column);
+        Assert.That((host.Sent.Count, column.Steering.Armed), Is.EqualTo((sent, (WorkspaceAction?)null)), "reading alone neither sends nor arms");
+        Assert.That((column.Frame!.Footer[PromptSlot.FarRight]!.Id, column.Frame.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo((FileScreens.SendInstruction, true)), "only the explicit visible Send instruction offers submission");
+    }
 
     /// <summary>
     /// Reads an armed instruction's words through to its last part, as the director draws each, checking
@@ -1457,6 +1492,9 @@ public class FileColumnTests
         var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt));
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard(LongInstruction);
+        Assert.That((column.Screen.Instruction.Words, column.Steering.Armed, host.Sent.Count), Is.EqualTo((LongInstruction, (WorkspaceAction?)null, 0)));
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
         Assert.That(column.Frame!.Lines.Any(line => line.Words == EntryText.ReadToPart(column.Screen.RequestParts)), Is.True, "it asks to read to the last part first");
         ReadsTheWordsThenSends(host, column, LongInstruction);
@@ -1476,7 +1514,10 @@ public class FileColumnTests
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct));
         column.Act(FileScreens.TellIt, null);
         host.Keyboard!.Value.Done(LongInstruction);
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "the policy asks to review it");
+        Assert.That((column.Screen.Instruction.Words, column.Steering.Armed, host.Sent.Count), Is.EqualTo((LongInstruction, (WorkspaceAction?)null, 0)), "keyboard completion never submits or arms");
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "explicit Send applies the same policy review");
         ReadsTheWordsThenSends(host, column, LongInstruction);
     }
 
@@ -1497,6 +1538,8 @@ public class FileColumnTests
         var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt));
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard(LongInstruction);
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
         void ReadAll()
         {
             for (var guard = 0; guard < 60 && !column.Steering.CanConfirm; guard++)
@@ -1577,12 +1620,17 @@ public class FileColumnTests
         var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct));
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard("Carry on");
+        Assert.That((column.Screen.Instruction.Words, column.Screen.Instruction.Spoken, column.Steering.Armed, host.Sent.Count), Is.EqualTo(("Carry on", true, (WorkspaceAction?)null, 0)));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your instruction", "Carry on" }));
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
         Assert.That((column.Screen.RequestParts, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((1, (Prompt?)null)), "one part, not drawn yet");
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Read to part 1 first" }));
         Draw(host, column);
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Your computer heard the words above. Send them?" }));
         column.Act(FileScreens.Yes, null);
-        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"), "the same confirmation sends exactly once");
     }
 
     [Test]
@@ -1877,6 +1925,10 @@ public class FileColumnTests
         column.Act(FileScreens.Preset, "1");
         Assert.That(host.Sent, Is.Empty, "choosing sends nothing");
         column.Act(FileScreens.TellIt, null);
+        Assert.That((column.Screen.Instruction.Words, host.Sent.Count), Is.EqualTo(("Wrap up and summarise.", 0)), "Review instruction copies only the selected preset into a local draft");
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
+        column.Act(FileScreens.SendInstruction, null);
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Wrap up and summarise."));
     }
 
@@ -1948,8 +2000,12 @@ public class FileColumnTests
         // The system keyboard draws its prompt with no lean, so it holds Halcyonic's words alone, never the task's title.
         Assert.That(host.Keyboard!.Value.Prompt, Is.EqualTo(WorkspaceText.TellItPrompt));
         Assert.That(host.Keyboard!.Value.Prompt, Does.Not.Contain(running.Present().Character.Title));
-        Assert.That(column.Frame!.Lines.Single().Words, Is.EqualTo(WorkspaceText.TypingPrompt));
+        Assert.That((column.Screen.Instruction.Open, column.Frame!.Lines.Single(line => line.Control == LineControl.Input).InputFocused), Is.EqualTo((true, true)));
         host.Keyboard!.Value.Done("Add a test");
+        Assert.That((column.Screen.Instruction.Words, column.Steering.Armed, host.Sent.Count), Is.EqualTo(("Add a test", (WorkspaceAction?)null, 0)), "completion saves the words without submission");
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
+        column.Act(FileScreens.SendInstruction, null);
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Add a test"));
     }
     [Test]
@@ -2041,16 +2097,20 @@ public class FileColumnTests
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct));
         column.Act(FileScreens.TellIt, null);
         var expired = host.Keyboard!.Value.Done;
-        Assert.That(column.Steering.Typing, Is.True);
+        Assert.That(column.Screen.Instruction.InputFocused, Is.True);
         column.Compact();
         expired("Expired words");
-        Assert.That((column.Steering.Armed, column.Steering.Typing, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)null, false, 0)));
+        Assert.That((column.Steering.Armed, column.Screen.Instruction.InputFocused, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)null, false, 0)));
         Draw(host, column);
-        column.Act(FileScreens.TellIt, null);
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == FileScreens.EditInstruction && line.Available), Is.True);
+        column.Act(FileScreens.EditInstruction, null);
         var fresh = host.Keyboard!.Value.Done;
         expired("Expired words after a new editor");
-        Assert.That((column.Steering.Armed, column.Steering.Typing, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)null, true, 0)), "old keyboard cannot consume the new authorization");
+        Assert.That((column.Steering.Armed, column.Screen.Instruction.InputFocused, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)null, true, 0)), "old keyboard cannot consume the new authorization");
         fresh("Fresh deliberate instruction");
+        Assert.That((column.Screen.Instruction.Words, column.Steering.Armed, host.Sent.Count), Is.EqualTo(("Fresh deliberate instruction", (WorkspaceAction?)null, 0)));
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Fresh deliberate instruction"));
     }
 
