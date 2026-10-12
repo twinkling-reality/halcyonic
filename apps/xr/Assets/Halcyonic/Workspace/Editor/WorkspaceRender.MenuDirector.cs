@@ -736,7 +736,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 work.Execution.PendingQuestions[0].Prompts[0].Text = "Which answer do you mean?";
                 work.Execution.PendingQuestions[0].Prompts[0].Options = new List<QuestionOption>
                 {
-                    new QuestionOption { Label = "Yes" }, new QuestionOption { Label = "Yes." }, new QuestionOption { Label = "No" },
+                    new QuestionOption { Label = "Yes" }, new QuestionOption { Label = " Yes " }, new QuestionOption { Label = "No" },
                 };
                 director.OpenFile(work.Workstream.WorkstreamId);
                 director.DrawNow();
