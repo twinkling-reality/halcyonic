@@ -2785,3 +2785,32 @@ continues to require the normal reviewed confirmation. A stale execution cannot 
 Other retained task views are currently session memory only: v1 selected-view transport is not
 proof that every open draft survives OS process recreation. Approval/question answers are never
 exported. Focus loss closes terminal local shelf overlays through their normal cancellation route.
+
+
+### Durable ordinary workspace views and native return
+
+The Unity menu writes `halcyonic-unity-workspace-views.json` in Android app-private `getFilesDir`,
+separate from native panel draft storage. Renderer fixtures and demonstration playback do not read
+or replace this file. The strict 4 MiB `WorkspaceViewStore` contains every retained ordinary task
+view without a product view-count cap. A failed read, schema/size refusal, or atomic write leaves the
+existing file intact and prevents a claimed durable handoff. Ordinary drafts are captured before
+execution invalidation; stale run records remain bound to their original connection, journal, task
+and execution for explicit inspection through Tasks → Saved drafts. Question answers, permission
+choices, keyboard focus, ordered reading proof and armed confirmations are never stored.
+
+Startup import waits for the realtime welcome watermark to catch up in the current projection.
+Current matching views restore with fresh read/input proof; stale or foreign records are available
+only as recovery data, and are not silently retargeted. Other apps serializes the selected ordinary
+view and invokes the production Android panel bridge. Launch failure remains an explanation in the
+workspace. Native return uses non-destructive Peek; only an exact current relationship can restore
+a view. The applied ordinary draft must be saved before exact-handoff acknowledgement. Save failure
+leaves the native return on disk. A failed import write retains an in-memory pending application: retries capture the current ordinary
+local words instead of applying the old native text again, and an unreadable store applies nothing.
+Every outbound native handoff has a fresh UUID that is absent from Unity storage until applied or
+explicitly kept. A persisted matching identity/context tuple then acts as an idempotency receipt;
+acknowledgement retries after process recreation do not overwrite newer saved local words. An earlier/unavailable return requires explicit inspection
+and Keep draft before it can be acknowledged, and creates no runtime action authority.
+
+Engine-free private-file/recovery tests establish ordering, bounds and preservation in temporary
+storage. Actual Android JNI, OS reclamation/recreation, multi-view recovery on device and the full
+return experience require headset verification; source tests do not establish those outcomes.

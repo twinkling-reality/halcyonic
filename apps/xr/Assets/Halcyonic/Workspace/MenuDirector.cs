@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace
     /// its host gives it.
     /// <see cref="WorkspaceDirector"/> hosts it and keeps the realtime session and what the journal says.
     /// </summary>
-    public sealed class MenuDirector : MonoBehaviour, IMenuHost
+    public sealed partial class MenuDirector : MonoBehaviour, IMenuHost
     {
         /// <summary>Where the person is and what stands on the stage, as the plane is placed against it.</summary>
         public readonly struct Stage
@@ -219,7 +219,7 @@ namespace Halcyonic.XR.Workspace
             // Each place's column is made afresh each time the menu shows it after opening, bound to the session shown then.
             director.navigator = new MenuNavigator(new Dictionary<MenuPlace, Func<IMenuColumn>>
             {
-                [MenuPlace.Tasks] = () => new TasksColumn(director.Bound()),
+                [MenuPlace.Tasks] = () => new TasksColumn(director.Bound(), () => director.SavedViewCount, director.OpenSavedViews),
                 // Over the memory kept for the app's run on this journal, so a Connect in flight is never sent twice.
                 [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations),
@@ -227,7 +227,7 @@ namespace Halcyonic.XR.Workspace
                 [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
             });
             director.navigator.OpenMenu(MenuPlace.Projects);
-            director.navigator.Changed += () => director.dirty = true;
+            director.navigator.Changed += () => { director.dirty = true; director.viewsDirty = true; };
             director.plane.Acted += (from, action, key, frame, side) => director.OnActed(from, action, key, frame, side);
             director.plane.Opened += () =>
             {
@@ -239,6 +239,7 @@ namespace Halcyonic.XR.Workspace
             director.plane.CompactPressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.MinimizeWorkspace(); };
             director.plane.MovePressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.OpenPlacement(); };
             director.plane.MinimizePressed += () => { if (director.OrganizationStanding(MenuColumn.Menu, null, null)) director.MinimizeWorkspace(); };
+            director.plane.OtherAppsPressed += director.OpenOtherApps;
             director.plane.Drawn += director.OnDrawn;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
@@ -266,8 +267,10 @@ namespace Halcyonic.XR.Workspace
             };
             director.memory.FileDropped += (_, column) =>
             {
+                director.ViewDropped(column);
                 if (director.navigator.Beside == column) director.navigator.CloseBeside();
             };
+            director.LoadViews();
             return director;
         }
 
@@ -477,7 +480,9 @@ namespace Halcyonic.XR.Workspace
         private void Update()
         {
             Fold();
+            KeepViews();
             Follow();
+            RecoverViews();
             navigator.Tick();
             memory.TickFiles(navigator.Beside);
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
@@ -503,9 +508,16 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void Follow()
         {
-            var another = memory.Session(setup.Session());
-            another |= memory.Journal(State?.Journal?.JournalId);
+            bool another;
+            renewingViews = true;
+            try
+            {
+                another = memory.Session(setup.Session());
+                another |= memory.Journal(State?.Journal?.JournalId);
+            }
+            finally { renewingViews = false; }
             if (!another) return;
+            recoveredScope = null;
             if (placement != null) LocalClosed();
             navigator.CloseBeside();
             navigator.Renew();
@@ -570,6 +582,7 @@ namespace Halcyonic.XR.Workspace
             plane.ConnectionState = Demonstration ? WorkspaceText.Demo : Connected ? WorkspaceText.Connected
                 : setup.Session()?.Status.Phase is ConnectionPhase.Connecting or ConnectionPhase.Synchronizing ? WorkspaceText.Connecting : WorkspaceText.Disconnected;
             plane.SelectionContext = WorkspaceContext();
+            plane.OtherAppsAvailable = CanOpenOtherApps;
             void ShowComposition() => plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
                 navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,
                 navigator.IsCompact ? (object?)navigator.Beside ?? navigator.Shown ?? (object)navigator : null);
@@ -945,7 +958,11 @@ namespace Halcyonic.XR.Workspace
             if (setup.Presentation.Minimized) setup.Presentation.Restore();
             if (navigator.TryExpandTask(workstreamId)) return;
             if (memory.FileFor(State?.Journal?.JournalId, workstreamId, () => setup.File(Bound(), workstreamId)) is IMenuColumn file)
+            {
+                BindView(file);
                 navigator.ShowBeside(file, workstreamId);
+                KeepViews();
+            }
         }
 
         public bool CloseFile(string workstreamId) => memory.CloseFile(workstreamId);
