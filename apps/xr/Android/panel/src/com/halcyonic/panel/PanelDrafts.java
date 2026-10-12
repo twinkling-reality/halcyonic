@@ -16,7 +16,7 @@ final class PanelDrafts {
         PanelDrafts result = new PanelDrafts();
         for (Object item : records) {
             PanelContinuation draft = PanelContinuation.parse(PanelJson.encode(item));
-            if (draft.value.get("instruction") == null || draft.string("journal_id") == null || draft.string("workstream_id") == null || draft.string("execution_id") == null) throw PanelJson.invalid();
+            if ((draft.value.get("instruction") == null && draft.value.get("request") == null) || draft.string("journal_id") == null || draft.string("workstream_id") == null || draft.string("execution_id") == null) throw PanelJson.invalid();
             if (result.find(draft.string("connection_key"), draft.string("journal_id"), draft.string("workstream_id"), draft.string("execution_id")) != null) throw PanelJson.invalid();
             result.entries.add(draft);
         }
@@ -32,9 +32,9 @@ final class PanelDrafts {
         return result;
     }
     void put(PanelContinuation draft) {
-        if (draft.value.get("instruction") == null) return;
+        if (draft.value.get("instruction") == null && draft.value.get("request") == null) return;
         PanelContinuation existing = find(draft.string("connection_key"), draft.string("journal_id"), draft.string("workstream_id"), draft.string("execution_id"));
-        if (draft.draft().isEmpty()) { entries.remove(existing); return; }
+        if (!draft.hasContent()) { entries.remove(existing); return; }
         List<PanelContinuation> previous = new ArrayList<>(entries);
         entries.remove(existing); entries.add(draft);
         if (json().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > MAXIMUM_BYTES) {

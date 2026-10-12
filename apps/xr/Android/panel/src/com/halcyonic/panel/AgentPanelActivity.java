@@ -216,6 +216,7 @@ public class AgentPanelActivity extends Activity {
         try { return PanelContinuation.parse(PanelJson.encode(PanelJson.map("version", 1L, "handoff_id", java.util.UUID.randomUUID().toString(), "connection_key", identity.key,
             "journal_id", snapshot.journal, "project_id", projectId, "workstream_id", workId, "execution_id", executionId,
             "section", continuation == null ? "activity" : continuation.value.get("section"), "page", continuation == null ? 0L : continuation.value.get("page"),
+            "request", continuation == null || executionId == null ? null : continuation.requestFor(identity.key, snapshot.journal, projectId, workId, executionId),
             "instruction", executionId == null ? null : PanelJson.map("text", draft, "spoken", spoken, "part", continuation != null && executionId.equals(continuation.string("execution_id")) && draft.equals(continuation.draft()) && continuation.value.get("instruction") != null ? PanelJson.object(continuation.value.get("instruction")).get("part") : 0L)))); }
         catch (Exception error) { return null; }
     }
@@ -228,7 +229,7 @@ public class AgentPanelActivity extends Activity {
             continuation = pending; projectId = pending.string("project_id"); workId = pending.string("workstream_id"); executionId = pending.string("execution_id");
             draft = pending.draft(); spoken = pending.spoken();
         } else {
-            if (pending.value.get("instruction") != null && !pending.draft().isEmpty() && pending.string("journal_id") != null && pending.string("workstream_id") != null && pending.string("execution_id") != null) {
+            if (pending.hasContent() && pending.string("journal_id") != null && pending.string("workstream_id") != null && pending.string("execution_id") != null) {
                 try { PanelDrafts candidate = PanelDrafts.parse(drafts.json()); candidate.put(pending); files.write(PanelFiles.DRAFTS, candidate.json()); drafts = candidate; }
                 catch (Exception error) { restore.paused(pending, false); storageWarning = "Your earlier draft is retained in memory. Saved draft storage needs attention before changing this view."; connection.setText(storageWarning); return false; }
             }
@@ -282,7 +283,7 @@ public class AgentPanelActivity extends Activity {
         draft = ""; spoken = false;
         if (identity == null || snapshot == null || workId == null || executionId == null) return;
         PanelContinuation saved = drafts.find(identity.key, snapshot.journal, workId, executionId);
-        if (saved != null) { draft = saved.draft(); spoken = saved.spoken(); }
+        if (saved != null && saved.matches(identity, snapshot)) { draft = saved.draft(); spoken = saved.spoken(); continuation = saved; }
     }
     private void closeReview() { if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
 
