@@ -16,3 +16,4 @@ export * from './usage-limits.ts';
 export * from './validation.ts';
 export * from './versions.ts';
 export * from './views.ts';
+export * from './workspace.ts';

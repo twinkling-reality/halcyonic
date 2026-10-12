@@ -62,6 +62,7 @@ const ROOTS: readonly string[] = [
   'CompanionReplyResponse',
   'PairingClientMessage',
   'PairingServerMessage',
+  'WorkspaceContinuation',
 ];
 
 interface CsType {

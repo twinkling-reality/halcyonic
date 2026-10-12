@@ -76,6 +76,29 @@ the same definition names, as the JSON Schema document:
 
 ## Client core
 
+`WorkspaceContinuation` is a versioned app-private selection and ordinary instruction draft,
+defined in the shared TypeBox contracts. It is not a server command or journal state. The native
+panel and immersive workspace use the same schema and parity fixtures. `WorkspaceContinuity`
+strictly bounds parsing, rejects extra or duplicate fields and serializer coercions, and validates
+the connection, journal and Project → Workstream → current Execution relationship before a view
+can be restored. A draft tied to an old execution is never redirected to its replacement.
+
+The private `connection_key` hashes the compact JSON array `["halcyonic-workspace-v1", scheme,
+host, port, deviceId, certificateSha256, credential]` with SHA-256 over UTF-8. Scheme is `wss` for
+pairing and `ws` for development loopback. Host uses lowercase ASCII with one enclosing IPv6
+bracket pair removed; it is not DNS-resolved. The port is explicit, and absent device/pin values
+are JSON null. This binds recovery to credential changes as well as endpoint and certificate.
+Neither credential nor digest is logged or sent in an Intent or request. The continuation itself
+contains only the digest, never the credential. Native storage must remain bounded and atomic in
+the app's internal files directory. Its UTF-8 size limit is 256 KiB; ordinary instruction text has
+the same 32,000-character bound as the command contract.
+
+Restored text and page position confer no read proof or action authority. Approval choices,
+question answers, secret answers, armed confirmations, pending input callbacks and automatic-send
+flags are excluded. All runtime actions still require current capability and input checks. A
+successful parse and context match prove only that a view belongs to this work; platform
+launch/return, process recreation and current-frame action behavior need separate verification.
+
 - **`RealtimeSession`** runs the realtime protocol ([REALTIME.md](REALTIME.md)) in the background:
   hello with the resume cursor, snapshot or resume, events, command acknowledgements, and
   reconnection with capped exponential backoff and jitter. It pings every 10 seconds and abandons a
