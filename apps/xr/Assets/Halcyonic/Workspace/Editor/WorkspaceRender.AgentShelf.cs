@@ -86,7 +86,19 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.UpdateForRender(); director.DrawNow();
                     failures.AddRange(PlaneState("shelf " + name, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: false));
                     foreach (var (view, _) in characters.Where(each => each.View.gameObject.activeInHierarchy))
+                    {
                         failures.AddRange(GlazeChecks.TextAsSeen(view.Label.gameObject, eyes, "shelf " + name));
+                        var badgePoints = view.Label.Badge.GetComponentsInChildren<MeshFilter>(false).Where(filter => filter.sharedMesh != null)
+                            .SelectMany(filter => Enumerable.Range(0, 8).Select(corner => filter.transform.TransformPoint(filter.sharedMesh.bounds.center
+                                + Vector3.Scale(filter.sharedMesh.bounds.extents, new Vector3(corner % 2 == 0 ? -1f : 1f, corner < 4 ? -1f : 1f, corner % 4 < 2 ? -1f : 1f)))))
+                            .ToList();
+                        var badgeTop = badgePoints.Max(point => point.y);
+                        var topEdge = badgePoints.Where(point => Mathf.Abs(point.y - badgeTop) <= 0.000001f).ToList();
+                        var edgeMiddle = (topEdge.Aggregate(Vector3.Min) + topEdge.Aggregate(Vector3.Max)) / 2f; edgeMiddle.y = badgeTop;
+                        var frontLip = view.transform.position + view.transform.forward * (AgentShelfDraft.Depth / 2f);
+                        if (Vector3.Distance(edgeMiddle, frontLip) > 0.0001f)
+                            failures.Add(name + ": the rendered label top is detached from the physical shelf front lip by " + Vector3.Distance(edgeMiddle, frontLip));
+                    }
                     failures.AddRange(GlazeChecks.Apart(characters.Where(each => each.View.gameObject.activeInHierarchy)
                         .Select(each => GlazeChecks.Of(each.View.WorkstreamId + " label", eyes, each.View.Label.gameObject)).ToList()));
                 }

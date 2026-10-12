@@ -91,6 +91,7 @@ namespace Halcyonic.XR
         private CharacterLabelView label = null!;
         private Transform labels = null!;
         private TMP_Text[]? shelfWords;
+        private MeshFilter[]? shelfBadgeMeshes;
         private MaterialPropertyBlock bodyBlock = null!;
         private MaterialPropertyBlock haloBlock = null!;
         private MaterialPropertyBlock ringBlock = null!;
@@ -173,11 +174,15 @@ namespace Halcyonic.XR
         /// </summary>
         public void ViewedFrom(float elevationDegrees, bool faceEyes = false) => label.ViewFrom(elevationDegrees, faceEyes);
 
-        /// <summary>Places readable complete labels independently of the fixed grounded body's scale.
+        /// <summary>Places readable rendered labels independently of the fixed grounded body's scale.
         /// The placement-time viewer is retained; later head motion does not move the shelf or label.</summary>
         public void PlaceShelfLabel(Vector3 viewer)
         {
-            var away = transform.position - viewer;
+            // The character faces the viewer; its forward edge is the actual shelf's front lip.
+            // Only the label moves. The grounded shell and confirmed shelf pose remain untouched.
+            var lip = transform.position + transform.forward * (AgentShelfDraft.Depth / 2f);
+            labels.position = lip;
+            var away = lip - viewer;
             var horizontal = new Vector3(away.x, 0f, away.z);
             if (horizontal.sqrMagnitude < 1e-6f) return;
             labels.rotation = Quaternion.LookRotation(horizontal, Vector3.up);
@@ -185,6 +190,39 @@ namespace Halcyonic.XR
             ViewedFrom(Mathf.Atan2(away.y, horizontal.magnitude) * Mathf.Rad2Deg, faceEyes: true);
             var words = shelfWords ??= label.GetComponentsInChildren<TMP_Text>(true);
             foreach (var word in words) word.ForceMeshUpdate(ignoreActiveState: true);
+            var badgeMeshes = shelfBadgeMeshes ??= label.Badge.GetComponentsInChildren<MeshFilter>(true);
+            void AttachTop()
+            {
+                var top = float.NegativeInfinity;
+                var edgeMinimum = Vector3.zero;
+                var edgeMaximum = Vector3.zero;
+                foreach (var filter in badgeMeshes)
+                {
+                    if (!filter.gameObject.activeInHierarchy || filter.sharedMesh == null) continue;
+                    var bounds = filter.sharedMesh.bounds;
+                    for (var corner = 0; corner < 8; corner++)
+                    {
+                        var point = bounds.center + Vector3.Scale(bounds.extents,
+                            new Vector3(corner % 2 == 0 ? -1f : 1f, corner < 4 ? -1f : 1f, corner % 4 < 2 ? -1f : 1f));
+                        var world = filter.transform.TransformPoint(point);
+                        if (world.y > top + 0.000001f)
+                        {
+                            top = world.y; edgeMinimum = edgeMaximum = world;
+                        }
+                        else if (Mathf.Abs(world.y - top) <= 0.000001f)
+                        {
+                            top = Mathf.Max(top, world.y);
+                            edgeMinimum = Vector3.Min(edgeMinimum, world); edgeMaximum = Vector3.Max(edgeMaximum, world);
+                        }
+                    }
+                }
+                if (!float.IsNegativeInfinity(top))
+                {
+                    var middle = (edgeMinimum + edgeMaximum) / 2f; middle.y = top;
+                    labels.position += lip - middle;
+                }
+            }
+            AttachTop();
             // Measure the actual transformed em, including the mark's lower distance and tilt.
             // Scaling the entire label preserves its type hierarchy and provenance treatment.
             for (var pass = 0; pass < 3; pass++)
@@ -200,6 +238,7 @@ namespace Halcyonic.XR
                 }
                 if (grow <= 1f) break;
                 labels.localScale *= grow;
+                AttachTop();
             }
         }
 
@@ -231,6 +270,7 @@ namespace Halcyonic.XR
             }
             label.Show(CharacterLabel.Of(next));
             shelfWords = null;
+            shelfBadgeMeshes = null;
             if (first) Advance(0f, true);
         }
 
