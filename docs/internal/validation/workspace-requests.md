@@ -42,7 +42,7 @@ Only a complete assistant response reaches the coordinator, which must validate 
 schema and current authority before dispatch. Error text never relays the model's input or output.
 
 Seventeen focused transport and existing companion checks passed, along with typecheck and scoped
-lint. A real local Ollama 0.34.4 probe through this transport used the configured `qwen3.5:9b`:
+lint. A real local Ollama 0.34.4 probe through this transport explicitly selected local `qwen3.5:9b`:
 two model turns, one schema-valid synthetic read-only call, then a reply identifying the pending
 human review, in 1.557 seconds. The actual API adds an opaque `id` beside a tool call's `function`;
 the initial strict parser refused it, then the implementation and regression test were corrected
@@ -141,3 +141,20 @@ cases, the raw duplicate case, and 20 existing control-plane lifecycle cases), z
 plus TypeScript typecheck, regenerated contracts, scoped lint and diff checks. The cursor-page
 fixture uses actual reported agent-message provenance so the producer contract accepts its older
 run rows. No real project/provider/model/device action was invoked by these tests.
+
+
+## Exact command recovery and pending continuation
+
+A new exact authenticated command read retains the original journaled sender across replay,
+including rejected commands, independently of the recent snapshot window. Its generated response
+contains the current journal and ordinary command view, without request words or envelope. The
+shared continuation holds a nullable client UUID command reference before a request ID is known;
+legacy readers migrate only this missing key. Native storage preserves pending-only records.
+Consumer submission ordering and actual process-recreation recovery remain separately verified
+work; this API does not imply automatic retry or task completion.
+
+The recovery delta passed 119 focused host/domain/contract/native checks, one real paired-device
+TLS ownership/revocation test and 19 C# codec/API checks, with zero skipped. Typecheck, contract
+generation and scoped lint passed. Independent source review found no remaining authority,
+replay or schema issue in this delta. Actual UI submission/return and headset acceptance remain
+pending.

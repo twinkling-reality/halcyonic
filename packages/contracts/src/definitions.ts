@@ -11,6 +11,7 @@ import {
   RuntimesResponse,
   UnderstandingResponse,
   ValidationIssueSchema,
+  WorkspaceCommandResponse,
   WorkstreamsResponse,
 } from './api.ts';
 import {
@@ -161,6 +162,7 @@ import {
  * for it, so every language calls each concept by the same name.
  */
 export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
+  WorkspaceCommandResponse,
   WorkspaceAgentStatus,
   WorkspaceRequestResponse,
   WorkspaceRequestView,

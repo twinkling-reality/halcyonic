@@ -53,11 +53,13 @@ public class WorkspaceContinuityTests
     {
         Assert.That(WorkspaceContinuity.TryParse(ValidJson, out var saved), Is.True);
         saved!.Request = new WorkspaceRequestContinuation { RequestId = Samples.ProjectId,
+            PendingCommandId = "550e8400-e29b-41d4-a716-446655440000",
             Text = "New request words", Spoken = true, Part = 3 };
         var json = HalcyonicJson.Serialize(saved);
         Assert.That(WorkspaceContinuity.TryParse(json, out var restored), Is.True);
         Assert.That(restored!.Request!.Text, Is.EqualTo("New request words"));
         Assert.That(restored.Request.RequestId, Is.EqualTo(Samples.ProjectId));
+        Assert.That(restored.Request.PendingCommandId, Is.EqualTo(saved.Request.PendingCommandId));
         Assert.That(restored.Request.Spoken, Is.True);
         Assert.That(restored.Request.Part, Is.EqualTo(3));
         Assert.That(restored.Instruction!.Text, Is.EqualTo(saved.Instruction!.Text));
@@ -75,6 +77,17 @@ public class WorkspaceContinuityTests
         }
         saved.Request.Text = new string('x', 32001);
         Assert.That(WorkspaceContinuity.TryParse(HalcyonicJson.Serialize(saved), out _), Is.False);
+    }
+
+    [Test]
+    public void LegacyRequestMigratesOnlyTheMissingPendingCommandReference()
+    {
+        var value = JObject.Parse(ValidJson);
+        value["request"] = new JObject { ["request_id"] = null, ["text"] = "Retained words", ["spoken"] = false, ["part"] = 0 };
+        Assert.That(WorkspaceContinuity.TryParse(value.ToString(), out var restored), Is.True);
+        Assert.That(restored!.Request!.PendingCommandId, Is.Null);
+        ((JObject)value["request"]!).Remove("request_id");
+        Assert.That(WorkspaceContinuity.TryParse(value.ToString(), out _), Is.False);
     }
 
     [Test]

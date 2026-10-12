@@ -1,4 +1,5 @@
 import {
+  CommandId,
   type CommandSubmissionResponse,
   CompanionReplyResponse,
   CompanionStatus,
@@ -41,6 +42,7 @@ const validateProjectId = compileValidator(ProjectId);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
 const validateWorkspaceRequestId = compileValidator(WorkspaceRequestId);
+const validateWorkspaceCommandId = compileValidator(CommandId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
 const validateEvaluationResponse = compileValidator(EvaluationResponse);
 const validateUsageLimitsResponse = compileValidator(UsageLimitsResponse);
@@ -74,6 +76,35 @@ export function registerRoutes(
   controlPlane: ControlPlane,
   sources: RouteSources,
 ): void {
+  app.get('/api/workspace/commands/:command_id', async (request, reply) => {
+    const id = (request.params as Record<string, unknown>).command_id;
+    if (!validateWorkspaceCommandId(id).ok)
+      return reply
+        .code(400)
+        .send(errorBody('invalid_command', 'The command identifier is invalid.'));
+    const owner = controlPlane.projection.commandOwner(id as string);
+    const principal = request.principal;
+    const command = controlPlane.projection.command(id as string);
+    const own =
+      owner &&
+      principal &&
+      owner.kind === principal.kind &&
+      (principal.kind === 'local' ||
+        (owner.kind === 'device' &&
+          owner.device_id === principal.device_id &&
+          controlPlane.projection.device(principal.device_id)?.revoked_at === null));
+    if (!own || !command?.command_type.startsWith('workspace.request.'))
+      return reply
+        .code(404)
+        .send(
+          errorBody(
+            'command_not_found',
+            'This workspace command is unavailable for this principal.',
+          ),
+        );
+    return { journal_id: controlPlane.journal.info.journal_id, command };
+  });
+
   app.get(
     '/api/workspace/agent',
     async () =>

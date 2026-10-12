@@ -762,3 +762,73 @@ test('the bounded global worker queue serializes local inference and rejects fan
     await f.close();
   }
 });
+
+test('exact command recovery survives snapshot eviction and restart without a coordinator or submitted words', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'halcyonic-command-recovery-'));
+  const path = join(directory, 'journal.db');
+  const first = await fixture({ path, turn: async () => answer() });
+  const command = first.command('submit', undefined, 'Synthetic words excluded from recovery');
+  const submitted = first.controlPlane.commands.submit(command, 'http', { kind: 'local' });
+  await settle();
+  assert.equal(submitted.command?.result?.kind, 'workspace_request_created');
+  for (let i = 0; i < 55; i++)
+    first.controlPlane.commands.submit(first.commands.createProject('Synthetic churn'), 'internal');
+  assert.equal(
+    first.controlPlane.projection.commands(50).some((c) => c.command_id === command.command_id),
+    false,
+  );
+  const journalId = first.journal.info.journal_id;
+  await first.close();
+  const replay = createTestControlPlane({ path });
+  const app = await createHttpServer({ token: 'synthetic-access-token', logLevel: 'silent' });
+  try {
+    registerRoutes(app, replay.controlPlane, providers);
+    const headers = { host: '127.0.0.1:0', authorization: 'Bearer synthetic-access-token' };
+    const read = await app.inject({
+      method: 'GET',
+      url: `/api/workspace/commands/${command.command_id}`,
+      headers,
+    });
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.json().journal_id, journalId);
+    assert.deepEqual(read.json().command, submitted.command);
+    assert.equal(read.body.includes('Synthetic words excluded from recovery'), false);
+    assert.equal('payload' in read.json().command, false);
+    const unknown = await app.inject({
+      method: 'GET',
+      url: '/api/workspace/commands/550e8400-e29b-41d4-a716-446655440000',
+      headers,
+    });
+    assert.equal(unknown.statusCode, 404);
+    const other = replay.controlPlane.commands.submit(
+      replay.commands.createProject('Synthetic'),
+      'http',
+      { kind: 'local' },
+    );
+    const nonrequest = await app.inject({
+      method: 'GET',
+      url: `/api/workspace/commands/${other.command?.command_id}`,
+      headers,
+    });
+    assert.equal(nonrequest.statusCode, 404);
+    assert.deepEqual(nonrequest.json(), unknown.json());
+    assert.equal(
+      (await app.inject({ method: 'GET', url: '/api/workspace/commands/bad', headers })).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/workspace/commands/${command.command_id}`,
+          headers: { host: '127.0.0.1:0' },
+        })
+      ).statusCode,
+      401,
+    );
+  } finally {
+    await app.close();
+    await replay.controlPlane.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

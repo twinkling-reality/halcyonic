@@ -10,6 +10,23 @@
     "pairing_protocol": 1
   },
   "$defs": {
+    "WorkspaceCommandResponse": {
+      "type": "object",
+      "required": [
+        "journal_id",
+        "command"
+      ],
+      "properties": {
+        "journal_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "command": {
+          "$ref": "#/$defs/CommandView"
+        }
+      },
+      "additionalProperties": false
+    },
     "WorkspaceAgentStatus": {
       "anyOf": [
         {
@@ -11130,6 +11147,7 @@
       "type": "object",
       "required": [
         "request_id",
+        "pending_command_id",
         "text",
         "spoken",
         "part"
@@ -11140,6 +11158,17 @@
             {
               "type": "string",
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pending_command_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
             },
             {
               "type": "null"

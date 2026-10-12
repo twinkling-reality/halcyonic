@@ -111,6 +111,13 @@ namespace Halcyonic.Client
             return HalcyonicJson.Deserialize<WorkspaceRequestResponse>(body);
         }
 
+        /// <summary>Recover one original-principal command after a lost acknowledgement; never resubmits.</summary>
+        public async Task<WorkspaceCommandResponse> ReadWorkspaceCommandAsync(string commandId, CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/workspace/commands/" + Uri.EscapeDataString(commandId), cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<WorkspaceCommandResponse>(body);
+        }
+
         /// <summary>
         /// What the evaluation provider (Seorak) measured about an execution: its estimated cost, outcome
         /// and verification runs. The control plane reads it through on request; the result states its

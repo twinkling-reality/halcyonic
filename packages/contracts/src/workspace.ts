@@ -1,5 +1,6 @@
 import Type, { type Static } from 'typebox';
 import {
+  CommandId,
   ExecutionId,
   JournalId,
   Nullable,
@@ -41,6 +42,7 @@ export type WorkspaceInstructionDraft = Static<typeof WorkspaceInstructionDraft>
 export const WorkspaceRequestContinuation = Type.Object(
   {
     request_id: Nullable(WorkspaceRequestId),
+    pending_command_id: Nullable(CommandId),
     text: Type.String({ maxLength: 32000 }),
     spoken: Type.Boolean(),
     part: Type.Integer({ minimum: 0, maximum: 100000 }),

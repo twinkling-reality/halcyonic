@@ -83,8 +83,11 @@ namespace Halcyonic.Client
                 var request = value["request"]!;
                 if (request.Type != JTokenType.Null)
                 {
-                    if (!(request is JObject draft) || !Keys(draft, "request_id", "text", "spoken", "part")
+                    if (!(request is JObject draft)) return false;
+                    if (draft.Property("pending_command_id", StringComparison.Ordinal) == null) draft["pending_command_id"] = JValue.CreateNull();
+                    if (!Keys(draft, "request_id", "pending_command_id", "text", "spoken", "part")
                         || draft["request_id"]!.Type != JTokenType.Null && !TextMatches(draft["request_id"], EntityId)
+                        || draft["pending_command_id"]!.Type != JTokenType.Null && !TextMatches(draft["pending_command_id"], Uuid)
                         || draft["text"]!.Type != JTokenType.String || !IsDraftTextWithinLimit((string?)draft["text"])
                         || draft["spoken"]!.Type != JTokenType.Boolean || !Integer(draft["part"], 0, 100000)) return false;
                 }

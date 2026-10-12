@@ -212,7 +212,8 @@ describe('production native agent panel', () => {
         const draft = { text: vector.symbol.repeat(vector.count), spoken: false, part: 0 };
         const value = {
           ...sample,
-          [field]: field === 'request' ? { ...draft, request_id: null } : draft,
+          [field]:
+            field === 'request' ? { ...draft, request_id: null, pending_command_id: null } : draft,
         };
         assert.equal(run('continuation', JSON.stringify(value)), String(vector.valid));
         if (vector.valid) {
@@ -427,6 +428,7 @@ describe('production native agent panel', () => {
       instruction: null,
       request: {
         request_id: '0192f1a0-0000-7000-8000-000000000008',
+        pending_command_id: null,
         text: 'Investigate this synthetic task.',
         spoken: true,
         part: 2,
@@ -448,12 +450,38 @@ describe('production native agent panel', () => {
       'false',
     );
   });
+  test('native pending-only command references survive storage and narrowly migrate older request drafts', () => {
+    const first = fixtures.cases[0]?.value as Record<string, unknown>;
+    const value = {
+      ...first,
+      instruction: null,
+      request: {
+        request_id: null,
+        pending_command_id: '550e8400-e29b-41d4-a716-446655440000',
+        text: '',
+        spoken: false,
+        part: 0,
+      },
+    };
+    const saved = JSON.parse(
+      run('drafts', JSON.stringify({ version: 1, drafts: [] }), JSON.stringify([value])),
+    );
+    assert.deepEqual(saved.drafts, [value]);
+    const { pending_command_id: omitted, ...legacyRequest } = value.request;
+    assert.ok(omitted);
+    const legacy = { ...value, request: { ...legacyRequest, text: 'Retained words' } };
+    const migrated = JSON.parse(
+      run('drafts', JSON.stringify({ version: 1, drafts: [] }), JSON.stringify([legacy])),
+    );
+    assert.deepEqual(migrated.drafts[0].request, { ...legacy.request, pending_command_id: null });
+  });
   test('native request reference copies only across the original complete identity tuple', () => {
     const first = fixtures.cases[0]?.value as Record<string, unknown>;
     const value = {
       ...first,
       request: {
         request_id: '0192f1a0-0000-7000-8000-000000000008',
+        pending_command_id: null,
         text: 'Synthetic direction',
         spoken: false,
         part: 0,

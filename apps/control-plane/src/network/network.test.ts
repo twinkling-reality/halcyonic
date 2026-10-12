@@ -30,7 +30,7 @@ import {
 } from '../testing/tls-client.ts';
 import { createNetworkIdentity } from './certificate.ts';
 import { MAX_REALTIME_CONNECTIONS_PER_DEVICE } from './devices.ts';
-import { credentialSha256 } from './pairing-protocol.ts';
+import { credentialFromBytes, credentialSha256 } from './pairing-protocol.ts';
 import { DEFAULT_NETWORK_LIMITS } from './server.ts';
 
 type Server = Awaited<ReturnType<typeof startTestServer>>;
@@ -961,4 +961,51 @@ describe('what revocation stops, and how long the listener waits', () => {
     await within(5_000, ended.disconnected, 'cutting off the ended pairing connection');
     assert.ok(Date.now() - pairingAt < 5_000);
   });
+});
+
+test('exact workspace command recovery is bound to the original active device even when rejected', async (t) => {
+  const server = await start(t);
+  const own = server.devices.pair('Synthetic owner', network(server).identity.certificateSha256);
+  const other = server.devices.pair('Synthetic other', network(server).identity.certificateSha256);
+  const ownHeaders = bearer(credentialFromBytes(own.credential));
+  const otherHeaders = bearer(credentialFromBytes(other.credential));
+  const base = server.commands.createProject('Synthetic');
+  const command = {
+    ...base,
+    command_type: 'workspace.request.submit',
+    payload: {
+      project_id: base.command_id,
+      workstream_id: base.command_id,
+      execution_id: base.command_id,
+      text: 'Synthetic private recovery words',
+    },
+  };
+  await onNetwork(
+    server,
+    'POST',
+    '/api/commands',
+    { ...ownHeaders, 'content-type': 'application/json' },
+    JSON.stringify(command),
+  );
+  const path = `/api/workspace/commands/${command.command_id}`;
+  const read = await onNetwork(server, 'GET', path, ownHeaders);
+  assert.equal(read.status, 200);
+  assert.equal(JSON.parse(read.body).command.status, 'rejected');
+  assert.equal(JSON.parse(read.body).command.command_id, command.command_id);
+  assert.equal(read.body.includes(command.payload.text), false);
+  assert.equal('payload' in JSON.parse(read.body).command, false);
+  const foreign = await onNetwork(server, 'GET', path, otherHeaders);
+  const missing = await onNetwork(
+    server,
+    'GET',
+    '/api/workspace/commands/550e8400-e29b-41d4-a716-446655440000',
+    otherHeaders,
+  );
+  assert.equal(foreign.status, 404);
+  assert.equal(foreign.body, missing.body);
+  const local = await loopback(server, 'GET', path);
+  assert.equal(local.status, 404);
+  assert.deepEqual(local.body, JSON.parse(missing.body));
+  server.devices.revoke(own.deviceId, { kind: 'local' });
+  assert.equal((await onNetwork(server, 'GET', path, ownHeaders)).status, 401);
 });

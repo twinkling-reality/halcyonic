@@ -4362,6 +4362,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("request_id", Required = Required.AllowNull)]
         public string? RequestId { get; set; }
 
+        [JsonProperty("pending_command_id", Required = Required.AllowNull)]
+        public string? PendingCommandId { get; set; }
+
         [JsonProperty("text", Required = Required.Always)]
         public string Text { get; set; } = default!;
 
@@ -4427,6 +4430,15 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("request", Required = Required.Always)]
         public WorkspaceRequestView Request { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceCommandResponse
+    {
+        [JsonProperty("journal_id", Required = Required.Always)]
+        public string JournalId { get; set; } = default!;
+
+        [JsonProperty("command", Required = Required.Always)]
+        public CommandView Command { get; set; } = default!;
     }
 
     [JsonConverter(typeof(WorkspaceAgentStatusConverter))]
