@@ -220,10 +220,11 @@ namespace Halcyonic.XR.Workspace
             // Each place's column is made afresh each time the menu shows it after opening, bound to the session shown then.
             director.navigator = new MenuNavigator(new Dictionary<MenuPlace, Func<IMenuColumn>>
             {
-                [MenuPlace.Tasks] = () => new TasksColumn(director.Bound(), () => director.SavedViewCount, director.OpenSavedViews),
+                [MenuPlace.Tasks] = () => new TasksColumn(director.Bound(), () => director.SavedViewCount, director.OpenSavedViews,
+                    () => director.memory.SelectedProjectId, director.OpenProjectDetails, director.OpenAllTasks),
                 // Over the memory kept for the app's run on this journal, so a Connect in flight is never sent twice.
                 [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
-                    director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations),
+                    director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations, director.OpenProjectTasks),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
                 [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
             });
@@ -241,6 +242,12 @@ namespace Halcyonic.XR.Workspace
             director.plane.MovePressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.OpenPlacement(); };
             director.plane.MinimizePressed += () => { if (director.OrganizationStanding(MenuColumn.Menu, null, null)) director.MinimizeWorkspace(); };
             director.plane.OtherAppsPressed += director.OpenOtherApps;
+            director.plane.ProjectsPressed += () =>
+            {
+                if (!director.OrganizationStanding(MenuColumn.Menu, null, null)) return;
+                director.navigator.CloseBeside();
+                director.Open(MenuPlace.Projects);
+            };
             director.plane.Drawn += director.OnDrawn;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
@@ -710,8 +717,10 @@ namespace Halcyonic.XR.Workspace
                 plane.SelectedState = StateLanguage.BadgeOf(presentation);
                 plane.SelectedMarks = StateLanguage.MarksOf(presentation);
                 return State.Projects.TryGetValue(work.ProjectId, out var project)
-                    ? LineWords.Ours("Project: ").Then(LineWords.TheirName(project.Name)) : LineWords.Ours("Project unavailable");
+                    ? LineWords.Ours("› ").Then(LineWords.TheirName(project.Name)) : LineWords.Ours("Project unavailable");
             }
+            if (navigator.Place == MenuPlace.Tasks && memory.SelectedProjectId is string selected && State?.Projects.TryGetValue(selected, out var filteredProject) == true)
+                return LineWords.Ours("› ").Then(LineWords.TheirName(filteredProject.Name));
             return LineWords.Ours(MenuBar.Word(navigator.Place));
         }
 
@@ -964,6 +973,28 @@ namespace Halcyonic.XR.Workspace
                 navigator.ShowBeside(file, workstreamId);
                 KeepViews();
             }
+        }
+
+        public void OpenProjectTasks(string projectId)
+        {
+            if (State?.Projects.ContainsKey(projectId) != true) return;
+            memory.SelectProject(projectId);
+            if (navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var selected) == true && selected.ProjectId != projectId)
+                navigator.CloseBeside();
+            Open(MenuPlace.Tasks);
+        }
+
+        private void OpenAllTasks()
+        {
+            memory.SelectProject(null);
+            Open(MenuPlace.Tasks);
+        }
+
+        private void OpenProjectDetails()
+        {
+            if (memory.SelectedProjectId is not string projectId || State?.Projects.ContainsKey(projectId) != true) return;
+            Open(MenuPlace.Projects);
+            if (navigator.Shown is ProjectsColumn projects) projects.OpenDetails(projectId);
         }
 
         public bool CloseFile(string workstreamId) => memory.CloseFile(workstreamId);

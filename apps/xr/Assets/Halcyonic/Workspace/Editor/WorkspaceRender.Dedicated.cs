@@ -81,9 +81,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 void Press(string action, string? key = null)
                 {
-                    var from = director.Navigator.Beside != null ? MenuColumn.File : MenuColumn.Menu;
-                    var view = director.Plane.Shown.First(each => each.Kind == from).View;
-                    if (!director.PressForRender(from, action, key, view.Frame, null)) failures.Add(name + ": the visible " + action + " route refused the current drawn frame");
+                    var visible = director.Plane.Shown.Where(each => each.View.Frame is MenuFrame frame &&
+                        (frame.Lines.Any(line => line.Action == action && line.Key == key)
+                            || frame.Footer.All.Any(prompt => prompt.Prompt.Id == action && prompt.Prompt.Available)
+                            || action == MenuFrame.ChooseSection && frame.Sections.Any(section => section.Key == key))).ToList();
+                    if (visible.Count == 0) { failures.Add(name + ": no actually visible " + action + " target was offered"); return; }
+                    var target = visible.Last();
+                    if (!director.PressForRender(target.Kind, action, key, target.View.Frame, null))
+                        failures.Add(name + ": the visible " + action + " route refused the current drawn frame");
                 }
                 void ChromePress(GlazeButton target, int pointer)
                 {
@@ -114,14 +119,35 @@ namespace Halcyonic.XR.Workspace.Editor
                 connected = true;
                 director.Navigator.Renew();
                 Shot("connected projects");
-                Press(MenuFrame.ChooseSection, nameof(MenuPlace.Tasks));
-                Shot("tasks");
+                Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                Shot("project tasks");
+                if (!director.Plane.SelectionContext.Text.Contains(work.State.Projects[work.Workstream.ProjectId].Name))
+                    failures.Add(name + ": filtered Tasks header lost the selected project");
+                Press(TasksColumn.ProjectDetails);
+                Shot("project details");
+                if (director.Navigator.Place != MenuPlace.Projects || director.Plane.Front?.Side == null)
+                    failures.Add(name + ": Project details lost the existing project actions");
+                Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                Shot("returned project tasks");
                 Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
                 Shot("selected practice task");
                 if (!director.Plane.SelectedMarks.Any(mark => mark.Word == StateLanguage.Practice)) failures.Add(name + ": selected synthetic task is unmarked inside a live journal");
                 Press(FileScreens.TellIt);
                 done?.Invoke("Add a regression test for the rate limit.");
                 Shot("local instruction");
+                if (director.Plane.Shown.SelectMany(each => each.View.GetComponentsInChildren<StateBadgeView>(false)).Any())
+                    failures.Add(name + ": selected task state is repeated above its body title");
+                var draftFile = file;
+                ChromePress(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 730);
+                Shot("projects beside retained instruction");
+                if (director.Navigator.Place != MenuPlace.Projects || draftFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
+                    failures.Add(name + ": Projects navigation lost the retained instruction draft");
+                Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                Shot("tasks beside retained instruction");
+                Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
+                Shot("reopened retained instruction");
+                if (director.Navigator.Beside != draftFile || draftFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
+                    failures.Add(name + ": reopening the selected task replaced its draft view");
                 var move = director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace);
                 var grab = move.transform.position;
                 director.HoldSubjectForRender(grab);

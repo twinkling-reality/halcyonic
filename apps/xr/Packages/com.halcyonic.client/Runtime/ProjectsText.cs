@@ -16,7 +16,7 @@ namespace Halcyonic.Client
         /// Projects' subject, the place's purpose, which New project and the rows answer. It keeps to one
         /// line of its column: 21.9 of 29.2 degrees in the component render.
         /// </summary>
-        public const string Subject = "What would you like to work on?";
+        public const string Subject = "Projects";
 
         public const string FoldersHeading = "Folders on " + HostText.Your;
         public const string NewProject = "New project";
@@ -36,8 +36,8 @@ namespace Halcyonic.Client
 
         // Why no folder is listed: a row, and its side panel's subject; Try again stands in the footer.
         public const string FoldersUnread = "Couldn't read " + HostText.Your + "'s folders";
-        public const string NoFolders = HostText.YourStart + " doesn't allow any folder yet";
-        public const string AllowAFolder = "Allow a folder on " + HostText.Your + ", then try again.";
+        public const string NoFolders = "No folders are approved for projects";
+        public const string AllowAFolder = "Approve a project folder on " + HostText.Your + ", then try again.";
 
         public const string Shown = "Shown";
         public const string Hidden = "Hidden";

@@ -382,3 +382,20 @@ A selected agent's light line first uses the nearest label-bottom/subject-top jo
 path crosses measured current labels or bodies, the same crossing veto checks alternative endpoints
 along those two edges. Neither line routing nor content redraw moves the console. A failure to find
 a clear straight path remains visible to geometry checks instead of being hidden as successful proof.
+
+
+The attached context row includes a full-size Projects target even when a focused instruction
+steps the body navigation aside. Filtered Tasks shows the chosen project name without requiring a
+selected task. State and source marks retain independently reserved header space; when that header
+owns the selected state, the body omits its duplicate pill. Headerless render fixtures retain their
+own state pill. Filtered task pages reserve the All projects content row, and keep Project details,
+Saved drafts and the offered pager reachable together. The complete header remains in measured
+composition and field checks; these changes do not reduce the minimum target or text size.
+
+`DedicatedWorkspaceCheck` now follows the production project row into filtered Tasks, opens the
+existing project details, and uses the visible Projects header target while a local instruction is
+retained. It reopens that same task view and checks the draft survived and the body state pill was
+not duplicated. The navigation-focused core checks pass 54/54 with no skips, and Editor plus
+Android player-symbol source compilation passes (2026-10-12). Actual render validation of this
+new header/navigation checkpoint remains pending; earlier dedicated-frame passes cover the prior
+geometry and retention implementation, not this revised composition.

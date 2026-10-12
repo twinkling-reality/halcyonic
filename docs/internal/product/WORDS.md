@@ -353,3 +353,17 @@ result is correct, or tests passed. Synthetic and recorded work remain explicitl
 the task even inside a live journal containing real work. Existing wording elsewhere in this document is historical
 where it mandates character-first discovery or forbids these familiar labels; implementation
 updates must preserve source provenance and current-action truth.
+
+
+### Project and task navigation
+
+Projects and Tasks use those concrete view names. Selecting a project opens its Tasks, with the
+project name in the persistent workspace header. All projects returns to the full task list;
+Project details preserves the project's existing Add a task and agent visibility actions. Saved
+drafts remains reachable in either task list. Every task row carries its actual state and applicable
+Practice, Demo, Recorded or Last known marks, even within a live journal containing mixed sources.
+The selected task's state appears once in the attached header rather than again above its title.
+The Projects header control remains reachable while an instruction is open and retains that draft.
+An empty folder list says No folders are approved for projects, with the concrete next step to
+approve a project folder on the computer and try again. Earlier copy tables above are historical
+for these replaced subjects and navigation routes.

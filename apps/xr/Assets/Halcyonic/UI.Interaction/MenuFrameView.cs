@@ -324,7 +324,7 @@ namespace Halcyonic.XR.UI
         /// keeping a pill's room when <paramref name="pillRoom"/>. Its content stands as tall as it needs
         /// until <see cref="Settle"/> stretches it.
         /// </summary>
-        public void Show(MenuFrame shown, float columnDegrees, float subject, bool pillRoom)
+        public void Show(MenuFrame shown, float columnDegrees, float subject, bool pillRoom, bool stateInHeader = false)
         {
             controls.Bind(shown);
             frame = shown;
@@ -333,10 +333,10 @@ namespace Halcyonic.XR.UI
             carried = null;
             carriedReason = null;
             carriedReasonWaits = false;
-            Begin(columnDegrees, subject, pillRoom || shown.Pill != null);
+            Begin(columnDegrees, subject, pillRoom || shown.Pill != null && !stateInHeader);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
-            LaySubject(shown.SubjectRuns, shown.Pill);
+            LaySubject(shown.SubjectRuns, stateInHeader ? null : shown.Pill);
             LaySections(shown.Sections, shown.SectionSlots);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();

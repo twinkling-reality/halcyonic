@@ -26,6 +26,7 @@ namespace Halcyonic.Client
         private readonly Func<WorkOverview?> overview;
         private readonly Action<string, bool> show;
         private readonly Func<CancellationToken, Task<LocationsResponse>>? readLocations;
+        private readonly Action<string>? openTasks;
         private LocationsResponse? listing;
         private string? listingProblem;
         private Task<LocationsResponse>? reading;
@@ -52,7 +53,7 @@ namespace Halcyonic.Client
         /// <param name="show">Shows (true) or hides (false) a project's work on the stage, kept on this device.</param>
         /// <param name="readLocations">Reads the host's folders; the host's API when null, as on the headset.</param>
         public ProjectsColumn(IMenuHost host, CommandFactory commands, ProjectsMemory memory, Func<WorkOverview?> overview, Action<string, bool> show,
-            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null)
+            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null, Action<string>? openTasks = null)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
@@ -60,6 +61,7 @@ namespace Halcyonic.Client
             this.overview = overview ?? throw new ArgumentNullException(nameof(overview));
             this.show = show ?? throw new ArgumentNullException(nameof(show));
             this.readLocations = readLocations;
+            this.openTasks = openTasks;
             Read();
         }
 
@@ -116,6 +118,7 @@ namespace Halcyonic.Client
                     page = Math.Max(0, page) + 1;
                     break;
                 case ProjectsScreens.ChooseProject:
+                    if (key != null && openTasks != null) { openTasks(key); return; }
                     Choose(key, null, problem: false);
                     return;
                 case ProjectsScreens.ChooseFolder:
@@ -160,6 +163,13 @@ namespace Halcyonic.Client
         public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
             // Nothing in Projects counts as read only once it has shown.
+        }
+
+        /// <summary>Explicit Project details navigation selects the current project's normal detail/actions frame.</summary>
+        public void OpenDetails(string projectId)
+        {
+            if (closed || overview()?.Projects.Any(project => project.ProjectId == projectId) != true) return;
+            Choose(projectId, null, problem: false);
         }
 
         public void HoldStarted(string id)

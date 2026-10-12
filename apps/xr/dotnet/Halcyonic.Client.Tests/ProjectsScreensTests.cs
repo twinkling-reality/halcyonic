@@ -63,7 +63,7 @@ public class ProjectsScreensTests
     public void ProjectsListsKnownProjectsThenFreeFoldersAndOffersNewProject()
     {
         var frame = ProjectsScreens.Projects(State(Listing(Root("Projects", Folder("shop"), Folder("used", true, "2026-10-02T11:00:00.000Z", ProjectA)))));
-        Assert.That(frame.Subject, Is.EqualTo("What would you like to work on?"), "the place's purpose; the lit place already says Projects");
+        Assert.That(frame.Subject, Is.EqualTo("Projects"), "the view uses its familiar capability name");
         Assert.That(frame.Lines.Select(line => (line.Words, line.Fact, line.Action)), Is.EqualTo(new (string, string?, string?)[]
         {
             ("Alpha", "1 task waiting", ProjectsScreens.ChooseProject),
@@ -85,7 +85,7 @@ public class ProjectsScreensTests
     {
         var state = State(overview: WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false));
         var frame = ProjectsScreens.Projects(state);
-        Assert.That(frame.Subject, Is.EqualTo("What would you like to work on?"));
+        Assert.That(frame.Subject, Is.EqualTo("Projects"));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
         Assert.That(frame.Lines.First().Words, Is.EqualTo(ProjectsText.FoldersHeading), "no projects yet: the folders answer it");
     }
@@ -232,8 +232,8 @@ public class ProjectsScreensTests
         }));
         state.Listing = Listing();
         var none = ProjectsScreens.Projects(state);
-        Assert.That(none.Lines.Last().Words, Is.EqualTo("Your computer doesn't allow any folder yet"));
-        Assert.That(none.Side!.Lines.Single().Words, Is.EqualTo("Allow a folder on your computer, then try again."));
+        Assert.That(none.Lines.Last().Words, Is.EqualTo("No folders are approved for projects"));
+        Assert.That(none.Side!.Lines.Single().Words, Is.EqualTo("Approve a project folder on your computer, then try again."));
         Assert.That(none.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.ReadAgain));
         Assert.That(new[] { unread.Words, none.Lines.Last().Words }.Any(words => words.Contains("Press", StringComparison.Ordinal)), Is.False);
         state.ChosenProblem = false;

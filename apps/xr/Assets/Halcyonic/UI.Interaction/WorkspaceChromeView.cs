@@ -23,16 +23,18 @@ namespace Halcyonic.XR.UI
         private GlazeButton move = null!;
         private GlazeButton apps = null!;
         private GlazeButton minimize = null!;
+        private GlazeButton projects = null!;
         public Func<bool> Accepting { get; set; } = () => false;
         public event Action? OtherAppsPressed;
         public event Action? MinimizePressed;
+        public event Action? ProjectsPressed;
         public event Action? MovePressed;
         public event Action? PressStarted;
         public event Action<Vector3>? Held;
         public event Action<Vector3>? Dragged;
         public event Action? LetGo;
         public IReadOnlyList<GlazeButton> Targets { get; private set; } = Array.Empty<GlazeButton>();
-        public static float Height => MenuPage.Words(2) + MenuPage.Target() + 3f * MenuPage.TargetGap;
+        public static float Height => MenuPage.Words(1) + 2f * MenuPage.Target() + 4f * MenuPage.TargetGap;
         public bool Visible => gameObject.activeSelf;
         public Vector2 Size { get; private set; }
         public Surface FrameSurface => frame;
@@ -56,7 +58,8 @@ namespace Halcyonic.XR.UI
             view.move = GlazeButton.Create(go.transform, "Move workspace", ButtonRole.Navigation, order: 23);
             view.apps = GlazeButton.Create(go.transform, "Other apps", ButtonRole.Navigation, order: 23);
             view.minimize = GlazeButton.Create(go.transform, "Minimize workspace", ButtonRole.Navigation, order: 23);
-            view.Targets = new[] { view.move, view.apps, view.minimize };
+            view.projects = GlazeButton.Create(go.transform, "Projects navigation", ButtonRole.Navigation, order: 23);
+            view.Targets = new[] { view.move, view.apps, view.minimize, view.projects };
             foreach (var button in view.Targets) button.Accepting = () => view.Accepting();
             view.move.Holds = true;
             view.move.Target.EnableDrag();
@@ -67,6 +70,7 @@ namespace Halcyonic.XR.UI
             view.move.Target.Released += _ => view.LetGo?.Invoke();
             view.apps.Pressed += () => view.OtherAppsPressed?.Invoke();
             view.minimize.Pressed += () => view.MinimizePressed?.Invoke();
+            view.projects.Pressed += () => view.ProjectsPressed?.Invoke();
             go.SetActive(false);
             return view;
         }
@@ -90,7 +94,11 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(connection, connectionState);
             GlazeText.Lay(connection, (right - left) / 2f, 1);
             connection.transform.localPosition = new Vector3(right, top - line / 2f, -0.001f);
-            var contextY = top - 1.5f * line;
+            var contextY = top - line - MenuPage.TargetGap - MenuPage.Target() / 2f;
+            GlazeText.SetLiteral(projects.Label, "Projects");
+            var projectsWidth = Mathf.Max(MenuPage.Target(), projects.Label.GetPreferredValues().x + 2f * MenuPage.TargetGap);
+            projects.Show("Projects", new Vector2(left + projectsWidth / 2f, contextY), projectsWidth);
+            var contextLeft = left + projectsWidth + MenuPage.TargetGap;
             var contextRight = right;
             provenance.gameObject.SetActive(marks.Count > 0);
             if (marks.Count > 0)
@@ -108,9 +116,10 @@ namespace Halcyonic.XR.UI
                 status.transform.localPosition = new Vector3(contextRight - status.Width / 2f, contextY, -0.001f);
                 contextRight -= status.Width + MenuPage.TargetGap;
             }
-            var theirs = GlazeRuns.Of(context).Set(selection, tried => context.GetPreferredValues(tried).x <= Mathf.Max(0f, contextRight - left));
-            GlazeText.Lay(context, Mathf.Max(0f, contextRight - left), 1);
-            context.transform.localPosition = new Vector3(left, contextY, -0.001f);
+            var contextWords = selection.Text == "Projects" ? LineWords.None : selection;
+            var theirs = GlazeRuns.Of(context).Set(contextWords, tried => context.GetPreferredValues(tried).x <= Mathf.Max(0f, contextRight - contextLeft));
+            GlazeText.Lay(context, Mathf.Max(0f, contextRight - contextLeft), 1);
+            context.transform.localPosition = new Vector3(contextLeft, contextY, -0.001f);
             GlazeRuns.TokenGrounds(context, theirs, grounds, transform, 21);
             var y = -Height / 2f + MenuPage.TargetGap + MenuPage.Target() / 2f;
             var gap = MenuPage.TargetGap;

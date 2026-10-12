@@ -52,6 +52,7 @@ namespace Halcyonic.XR.Workspace
         public IReadOnlyList<WorkMark> SelectedMarks { get; set; } = Array.Empty<WorkMark>();
         public event Action? OtherAppsPressed;
         public event Action? MinimizePressed;
+        public event Action? ProjectsPressed;
         private PlanePart headerPart;
 
         /// <summary>The closed bar as laid while it stands alone, for its top edge (<see cref="BarElevation"/>).</summary>
@@ -303,6 +304,7 @@ namespace Halcyonic.XR.Workspace
             plane.Chrome.Accepting = () => !FocusGuard.InputSuspended && !plane.Sliding && plane.shown.Count > 0 && plane.shown.TrueForAll(each => !each.View.Opening && !each.View.Closing);
             plane.Chrome.OtherAppsPressed += () => plane.OtherAppsPressed?.Invoke();
             plane.Chrome.MinimizePressed += () => plane.MinimizePressed?.Invoke();
+            plane.Chrome.ProjectsPressed += () => plane.ProjectsPressed?.Invoke();
             plane.Chrome.MovePressed += () => plane.MovePressed?.Invoke(MenuColumn.Menu, null, null);
             plane.Chrome.PressStarted += () => plane.SubjectPressed?.Invoke(MenuColumn.Menu, null);
             plane.Chrome.Held += point => plane.SubjectHeld?.Invoke(MenuColumn.Menu, null, point);
@@ -398,7 +400,7 @@ namespace Halcyonic.XR.Workspace
             Front = fileFrame ?? menuFrame;
             // Standing in its frame's place, a side panel is as wide as that frame, so the footer it carries fits.
             var frontDegrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
-            var pill = fileFrame?.Pill != null;
+            var pill = fileFrame?.Pill != null && SelectedState == null;
             menu.OrganizationControls = false;
             file.OrganizationControls = false;
             side.OrganizationControls = false;
@@ -425,7 +427,7 @@ namespace Halcyonic.XR.Workspace
                     var level = Mathf.Max(MenuFrameView.SubjectHeight(menuFrame.Subject, Glaze.Menu.MenuColumnDegrees, pill, menu.OrganizationControls),
                         MenuFrameView.SubjectHeight(fileFrame.Subject, Glaze.Menu.FileColumnDegrees, pill, file.OrganizationControls));
                     menu.Show(menuFrame, Glaze.Menu.MenuColumnDegrees, level, pill);
-                    file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, level, pill);
+                    file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, level, pill, stateInHeader: SelectedState != null);
                     var beside = new PlaneComposition(new[] { ColumnOf(menu), ColumnOf(file) }, zoom, WorkspaceChromeView.Height);
                     fits = MenuPage.Fits(beside);
                     // Where the stage would place the two under its labels, moved as far as the drag holds,
@@ -459,10 +461,10 @@ namespace Halcyonic.XR.Workspace
                 {
                     var view = kind switch { MenuColumn.Menu => menu, MenuColumn.File => file, _ => side };
                     if (kind == MenuColumn.Menu) menu.Show(menuFrame!, Glaze.Menu.MenuColumnDegrees, subject, pill);
-                    else if (kind == MenuColumn.File) file.Show(fileFrame!, Glaze.Menu.FileColumnDegrees, subject, pill);
+                    else if (kind == MenuColumn.File) file.Show(fileFrame!, Glaze.Menu.FileColumnDegrees, subject, pill, stateInHeader: SelectedState != null);
                     // In the file's place, the side panel wears its pill and keeps its light line.
                     // In its frame's place it also carries the frame's footer and reason, so nothing the frame offers is lost.
-                    else side.Show(panel!, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees, subject, pill, inPlace ? fileFrame?.Pill : null,
+                    else side.Show(panel!, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees, subject, pill, inPlace && SelectedState == null ? fileFrame?.Pill : null,
                         inPlace ? Front : null);
                     shown.Add((kind, view));
                 }
@@ -701,7 +703,7 @@ namespace Halcyonic.XR.Workspace
             var frontView = fileFrame != null ? file : menu;
             var degrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
             var level = Mathf.Max(MenuFrameView.SubjectHeight(front.Subject, degrees, pill), MenuFrameView.SubjectHeight(panel.Subject, Glaze.Menu.SideColumnDegrees, pill, false));
-            frontView.Show(front, degrees, level, pill);
+            frontView.Show(front, degrees, level, pill, stateInHeader: fileFrame != null && SelectedState != null);
             side.Show(panel, Glaze.Menu.SideColumnDegrees, level, pill);
             var together = new PlaneComposition(new[] { ColumnOf(frontView), ColumnOf(side) }, GlazeText.Scale, WorkspaceChromeView.Height);
             var direction = PlaceWorkspace(all, looking, surfaceHeight, together.Size);
