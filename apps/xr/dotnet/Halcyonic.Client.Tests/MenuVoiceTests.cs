@@ -220,4 +220,23 @@ public class MenuVoiceTests
         voice.Menu.FocusLeft();
         Assert.That(a.Got.Last(), Is.EqualTo("ended speak False"));
     }
+    [Test]
+    public void CapturedVoiceDeliveryCannotCrossCompactAndExpansion()
+    {
+        var voice = new Voice();
+        var file = new Column();
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, _ => (Func<IMenuColumn>)(() => new Column())));
+        navigator.Left += voice.Menu.Left;
+        navigator.ShowBeside(file, "a");
+        Assert.That(voice.Menu.Hold(file, FileScreens.HoldToTalk), Is.True);
+        voice.Menu.Ended(file, FileScreens.HoldToTalk, letGo: true);
+        var old = voice.Menu.CaptureHeard();
+        navigator.Compact();
+        navigator.Expand();
+        old("Old transcript");
+        Assert.That(file.Got.Any(line => line.StartsWith("heard ", StringComparison.Ordinal)), Is.False);
+        Assert.That(voice.Menu.Speaking, Is.Null);
+        Assert.That(voice.Dropped, Is.GreaterThan(0));
+    }
+
 }

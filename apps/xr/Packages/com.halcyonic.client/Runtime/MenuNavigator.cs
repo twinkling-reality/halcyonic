@@ -83,7 +83,41 @@ namespace Halcyonic.Client
         /// Anything stands on the plane: the menu, or a column beside it, with any side panel in front of
         /// either; false once everything has folded to the bar.
         /// </summary>
-        public bool ShowsAnything => IsOpen || Beside != null;
+        public bool ShowsAnything => !IsCompact && (IsOpen || Beside != null);
+
+        /// <summary>The same columns are retained but hidden until an explicit expansion.</summary>
+        public bool IsCompact { get; private set; }
+
+        /// <summary>Compacts the current composition without closing or replacing its columns.</summary>
+        public bool Compact()
+        {
+            if (IsCompact || !ShowsAnything) return false;
+            IsCompact = true;
+            Suspend(Shown);
+            if (Beside != Shown) Suspend(Beside);
+            Raise();
+            return true;
+        }
+
+        private void Suspend(IMenuColumn? column)
+        {
+            if (column == null) return;
+            if (column is ICompactableMenuColumn retained) retained.Compact();
+            else column.FocusLeft();
+            Left?.Invoke(column);
+        }
+
+        /// <summary>Expands the exact retained composition, regardless of other waiting work.</summary>
+        public bool Expand()
+        {
+            if (!IsCompact) return false;
+            IsCompact = false;
+            Raise();
+            return true;
+        }
+
+        /// <summary>Resumes the retained task's existing file; false means the caller must open a fresh file.</summary>
+        public bool TryExpandTask(string task) => IsCompact && Beside != null && BesideTask == task && Expand();
 
         /// <summary>
         /// The menu's details stand in front of the column beside it: the menu's chosen row opened its side
@@ -181,6 +215,9 @@ namespace Halcyonic.Client
         /// </summary>
         public void OpenMenu(MenuPlace? place = null, bool somethingWaits = false)
         {
+            // A compact composition is an explicit resume target, not implicit attention navigation.
+            if (IsCompact && place == null) { Expand(); return; }
+            IsCompact = false;
             if (BeforeFirstTask)
             {
                 // Only Projects, from the question, and Settings, its one place, show before the first task.
@@ -204,6 +241,7 @@ namespace Halcyonic.Client
         public void CloseMenu()
         {
             IsOpen = false;
+            if (Beside == null) IsCompact = false;
             asking = false;
             foreach (var place in new List<MenuPlace>(places.Keys)) Drop(place);
             DropQuestion();
@@ -216,6 +254,8 @@ namespace Halcyonic.Client
         /// </summary>
         public void Renew()
         {
+            if (IsCompact) CloseBeside();
+            IsCompact = false;
             foreach (var place in new List<MenuPlace>(places.Keys)) Drop(place);
             DropQuestion();
             Raise();
@@ -241,6 +281,7 @@ namespace Halcyonic.Client
         /// <summary>Opens <paramref name="column"/> beside the menu in place of what stood there: a task's file, for <paramref name="task"/>, or New project.</summary>
         public void ShowBeside(IMenuColumn column, string? task)
         {
+            IsCompact = false;
             if (Beside == column && BesideTask == task) return;
             // The menu's chosen row lets go of its side panel, which a column beside it leaves undrawn,
             // so nothing in the menu acts on details no one sees.
@@ -269,6 +310,7 @@ namespace Halcyonic.Client
             Leave();
             Beside = null;
             BesideTask = null;
+            if (!IsOpen) IsCompact = false;
             besideFrame = null;
             Raise();
         }
@@ -281,6 +323,7 @@ namespace Halcyonic.Client
         /// </summary>
         public (MenuFrame? Menu, MenuFrame? Beside) Frames(MenuBar bar)
         {
+            if (IsCompact) return (null, null);
             if (changed)
             {
                 placeFrame = Shown?.Frame;
@@ -342,7 +385,7 @@ namespace Halcyonic.Client
         /// drawn last in <paramref name="from"/>'s slot and still stands, as a press or a hold must come
         /// from; null for one that no longer stands.
         /// </summary>
-        public IMenuColumn? Standing(MenuColumn from, MenuFrame? frame, SidePanel? side) => from switch
+        public IMenuColumn? Standing(MenuColumn from, MenuFrame? frame, SidePanel? side) => IsCompact ? null : from switch
         {
             MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu ? Shown : null,
             MenuColumn.File => Beside != null && !BesideAside && frame != null && frame == drawnBeside ? Beside : null,
@@ -358,6 +401,7 @@ namespace Halcyonic.Client
         /// </summary>
         public void Drawn(MenuColumn from, MenuFrame? frame, SidePanel? side)
         {
+            if (IsCompact) return;
             switch (from)
             {
                 case MenuColumn.Menu:
@@ -403,7 +447,7 @@ namespace Halcyonic.Client
             footer != null && footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available);
 
         /// <summary>The column whose held prompt, or press, came from <paramref name="from"/>.</summary>
-        public IMenuColumn? ColumnOf(MenuColumn from) => from switch
+        public IMenuColumn? ColumnOf(MenuColumn from) => IsCompact ? null : from switch
         {
             MenuColumn.Menu => Shown,
             MenuColumn.File => Beside,
@@ -420,6 +464,8 @@ namespace Halcyonic.Client
         /// <summary>Another window took focus: every open column lets go of what was armed.</summary>
         public void FocusLeft()
         {
+            // Already suspended: external focus must not turn a kept editor back to its first page.
+            if (IsCompact) return;
             Shown?.FocusLeft();
             Beside?.FocusLeft();
         }

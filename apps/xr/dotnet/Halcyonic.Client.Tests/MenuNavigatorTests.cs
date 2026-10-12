@@ -624,4 +624,69 @@ public class MenuNavigatorTests
         menu.OpenMenu();
         Assert.That(Draw(menu).Menu!.Sections, Has.Count.EqualTo(4));
     }
+    [Test]
+    public void CompactRetainsColumnsButRejectsOldActionsDrawsAndVoiceRoutesUntilExpandedAndRedrawn()
+    {
+        var (menu, places) = Menu();
+        menu.OpenMenu(MenuPlace.Projects);
+        var file = new Column("Task A");
+        menu.ShowBeside(file, "a");
+        var before = Draw(menu);
+        var project = places[MenuPlace.Projects];
+        Assert.That(menu.Compact(), Is.True);
+        Assert.That((menu.IsCompact, menu.ShowsAnything, menu.Frames(Bar)), Is.EqualTo((true, false, ((MenuFrame?)null, (MenuFrame?)null))));
+        Assert.That(menu.Beside, Is.SameAs(file));
+        Assert.That(project.Got, Does.Contain("focus left"));
+        Assert.That(file.Got, Does.Contain("focus left"));
+        Assert.That(menu.ColumnOf(MenuColumn.File), Is.Null);
+        var got = file.Got.Count;
+        menu.Drawn(MenuColumn.File, before.Beside, null);
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", before.Beside, null), Is.False);
+        Assert.That(file.Got.Count, Is.EqualTo(got), "hidden old frames neither count reading nor act");
+        menu.FocusLeft();
+        Assert.That(file.Got.Count(item => item == "focus left"), Is.EqualTo(1), "hidden retained content is not reset by a second focus-loss lifecycle");
+        Assert.That(menu.IsCompact, Is.True, "focus return does not implicitly expand");
+        menu.OpenMenu(somethingWaits: true);
+        Assert.That((menu.IsCompact, menu.Place, menu.BesideTask), Is.EqualTo((false, MenuPlace.Projects, "a")), "explicit resume ignores unrelated Tasks attention");
+        Assert.That(menu.Beside, Is.SameAs(file));
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", before.Beside, null), Is.False, "expansion cannot resurrect an old action handle");
+        var resumed = Draw(menu);
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", resumed.Beside, null), Is.True);
+    }
+
+    [Test]
+    public void CompactTaskExpansionMatchesExactIdentityAndCloseStillDiscards()
+    {
+        var (menu, _) = Menu();
+        var file = new Column("Task A");
+        menu.ShowBeside(file, "a");
+        Draw(menu);
+        menu.Compact();
+        Assert.That(menu.TryExpandTask("b"), Is.False);
+        Assert.That(menu.IsCompact, Is.True);
+        Assert.That(menu.TryExpandTask("a"), Is.True);
+        Assert.That(menu.Beside, Is.SameAs(file));
+        file.Close();
+        Assert.That(menu.Beside, Is.Null);
+        Assert.That(menu.TryExpandTask("a"), Is.False, "Close discards, so reopening must make a fresh file");
+        menu.ShowBeside(new Column("Task A fresh"), "a");
+        menu.Compact();
+        menu.CloseBeside();
+        Assert.That((menu.IsCompact, menu.Beside, menu.Expand()), Is.EqualTo((false, (IMenuColumn?)null, false)), "closing the only compact file leaves no phantom resume entry");
+    }
+
+    [Test]
+    public void RenewDropsCompactTaskAndAllItsOldDrawBindings()
+    {
+        var (menu, _) = Menu();
+        var file = new Column("Task A");
+        menu.ShowBeside(file, "a");
+        var old = Draw(menu);
+        menu.Compact();
+        menu.Renew();
+        Assert.That((menu.IsCompact, menu.Beside, menu.BesideTask), Is.EqualTo((false, (IMenuColumn?)null, (string?)null)));
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", old.Beside, null), Is.False);
+        Assert.That(menu.TryExpandTask("a"), Is.False);
+    }
+
 }

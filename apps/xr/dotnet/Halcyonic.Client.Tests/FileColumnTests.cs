@@ -1952,4 +1952,131 @@ public class FileColumnTests
         host.Keyboard!.Value.Done("Add a test");
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Add a test"));
     }
+    [Test]
+    public void ManualCompactKeepsLongEditorPageAndBufferButExpiresKeyboardAndReadingAuthorization()
+    {
+        var (host, column) = TypedLongAnswer();
+        var words = column.Screen.Question.Input;
+        var keyboard = host.Keyboard!.Value;
+        Draw(host, column);
+        column.Act(FileScreens.NextInputPart, null);
+        Draw(host, column);
+        column.Act(FileScreens.NextInputPart, null);
+        var part = column.Screen.Question.InputPart;
+        var session = column.Screen.Question.InputSession;
+        var draft = column.Screen.Question.Draft;
+        Assert.That(part, Is.EqualTo(2));
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place,
+            _ => (Func<IMenuColumn>)(() => throw new InvalidOperationException("Resuming a compact file must not open another menu place."))));
+        navigator.ShowBeside(column, "w1");
+        var oldFrame = navigator.Frames(new MenuBar(MenuPlace.Tasks, "1 task is waiting for you", MenuPlace.Tasks)).Beside;
+        navigator.Drawn(MenuColumn.File, oldFrame, null);
+        navigator.Compact();
+        navigator.FocusLeft();
+        Assert.That(navigator.IsCompact, Is.True);
+        Assert.That(navigator.TryExpandTask("w1"), Is.True);
+        Assert.That(navigator.Beside, Is.SameAs(column));
+        Assert.That(navigator.Act(MenuColumn.File, FileScreens.UseInput, null, oldFrame, null), Is.False, "the old frame cannot act after focus return and expansion");
+        Assert.That((column.Screen.Question.Writing, column.Screen.Question.InputPart, column.Screen.Question.Input), Is.EqualTo((true, part, words)));
+        Assert.That(column.Screen.Question.Draft, Is.SameAs(draft));
+        Assert.That(column.Screen.Question.InputSession, Is.GreaterThan(session));
+        Assert.That(column.Screen.Question.InputRead, Is.False);
+        keyboard.Done("Expired keyboard words");
+        Assert.That((column.Screen.Question.Input, draft!.Typed(0), host.Sent.Count), Is.EqualTo((words, (string?)null, 0)), "an old keyboard cannot change or save the retained buffer");
+        column.Act(FileScreens.UseInput, null);
+        Assert.That(draft.Typed(0), Is.Null);
+        UseInput(host, column);
+        Assert.That((draft.Typed(0), host.Sent.Count), Is.EqualTo((words, 0)), "new whole-reading evidence and Use save exactly the retained words");
+        Review(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Text, Is.EqualTo(words));
+    }
+
+    [Test]
+    public void ManualCompactRetainsSavedDraftAndReviewPageButReviewMustBeDrawnAgainBeforeSending()
+    {
+        var (host, column) = TypedLongAnswer();
+        var words = column.Screen.Question.Input;
+        UseInput(host, column);
+        Review(host, column);
+        var draft = column.Screen.Question.Draft;
+        var page = column.Screen.Question.Page;
+        Assert.That(column.Screen.Question.ReviewRead, Is.True);
+        column.Compact();
+        Assert.That(column.Screen.Question.Draft, Is.SameAs(draft));
+        Assert.That((column.Screen.Question.Reviewing, column.Screen.Question.Page, draft!.Typed(0)), Is.EqualTo((true, page, words)));
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.True, "valid saved-word evidence survives unchanged semantic content and layout");
+        Assert.That(column.Screen.Question.ReviewRead, Is.False);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent, Is.Empty);
+        Draw(host, column);
+        Assert.That(column.Screen.Question.ReviewRead, Is.True, "only the current review page needs a fresh draw; prior unchanged parts remain read");
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Text, Is.EqualTo(words));
+    }
+
+    [Test]
+    public void ManualCompactCancelsArmedAnswerAndOldYesCannotSendIt()
+    {
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        var draft = column.Screen.Question.Draft;
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        column.Compact();
+        Assert.That(column.Steering.Armed, Is.Null);
+        Assert.That(column.Screen.Question.Draft, Is.SameAs(draft));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty);
+        Assert.That(column.Screen.Question.ReviewRead, Is.False);
+    }
+
+    [Test]
+    public void ManualCompactExpiresInstructionKeyboardEvenAfterAReplacementKeyboardOpens()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct));
+        column.Act(FileScreens.TellIt, null);
+        var expired = host.Keyboard!.Value.Done;
+        Assert.That(column.Steering.Typing, Is.True);
+        column.Compact();
+        expired("Expired words");
+        Assert.That((column.Steering.Armed, column.Steering.Typing, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)null, false, 0)));
+        Draw(host, column);
+        column.Act(FileScreens.TellIt, null);
+        var fresh = host.Keyboard!.Value.Done;
+        expired("Expired words after a new editor");
+        Assert.That((column.Steering.Armed, column.Steering.Typing, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)null, true, 0)), "old keyboard cannot consume the new authorization");
+        fresh("Fresh deliberate instruction");
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Fresh deliberate instruction"));
+    }
+
+    [Test]
+    public void ChangedQuestionAndResizeWhileCompactExpireOnlyTheAffectedDraftOrLayoutProof()
+    {
+        var host = new FileMenuHost();
+        var question = Questioned("same-question", 1);
+        var work = new AskingWork(question);
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
+        ChooseVisible(host, column, 0);
+        var before = column.Screen.Question.Draft!;
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
+        column.Compact();
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That(column.Screen.Question.Draft, Is.SameAs(before));
+        Assert.That(before.IsChosen(0, "Yes"), Is.True);
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "a kept choice cannot borrow old layout reading");
+        work.Change(execution => execution.PendingQuestions[0].Prompts[0].Text = "A different decision with the same question id?");
+        host.Wait(2);
+        column.Tick();
+        Assert.That(column.Screen.Question.Draft, Is.Not.SameAs(before), "same-id semantic changes replace the invalid draft");
+        Assert.That(column.Screen.Question.Draft!.IsAnswered(0), Is.False);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
 }

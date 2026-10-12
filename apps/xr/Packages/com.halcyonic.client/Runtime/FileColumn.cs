@@ -18,7 +18,7 @@ namespace Halcyonic.Client
     /// alone and beside the menu, read when the file opens and again only when the text size changes, so it
     /// never packs again as the head moves; at a new size the request and the question are read again.
     /// </summary>
-    public sealed class FileColumn : IMenuColumn
+    public sealed class FileColumn : IMenuColumn, ICompactableMenuColumn
     {
         /// <summary>How often the file reads its work again by itself, in seconds of the host's clock.</summary>
         public const double RefreshSeconds = 0.5;
@@ -53,6 +53,7 @@ namespace Halcyonic.Client
         private QuestionDraft? answerDraft;
         private int answerInputSession;
         private bool answerVoiceStarted;
+        private int instructionKeyboardSession;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -119,6 +120,8 @@ namespace Halcyonic.Client
             switch (id)
             {
                 case Footer.Close:
+                    instructionKeyboardSession++;
+                    Steering.StopTyping();
                     question.CancelInput();
                     answering = false;
                     acted?.Invoke(WorkspaceAct.Collapse);
@@ -229,6 +232,7 @@ namespace Halcyonic.Client
                     Steer(Steering.Confirm(Now));
                     return;
                 case FileScreens.Cancel:
+                    instructionKeyboardSession++;
                     Steering.StopTyping();
                     Steering.Cancel();
                     presets = false;
@@ -302,9 +306,22 @@ namespace Halcyonic.Client
             }
             // The system keyboard draws its prompt itself, with no lean or ground, so it holds Halcyonic's words
             // alone; the file behind it names the task (settled 2026-10-08).
+            var session = ++instructionKeyboardSession;
             host.OpenKeyboard("", WorkspaceText.TellItPrompt, text =>
             {
-                if (Now != null) Steer(Steering.Typed(text, Now));
+                var current = present();
+                if (session != instructionKeyboardSession || !host.Connected || !Steering.Typing || Steering.Armed != null
+                    || execution == null || current == null || current.Execution?.ExecutionId != execution
+                    || !current.Actions.Contains(WorkspaceAction.Instruct)) return;
+                instructionKeyboardSession++;
+                Now = current;
+                Steer(Steering.Typed(text, current));
+            }, () =>
+            {
+                if (session != instructionKeyboardSession) return;
+                instructionKeyboardSession++;
+                Steering.StopTyping();
+                Rebuild();
             });
         }
 
@@ -448,9 +465,23 @@ namespace Halcyonic.Client
             if (read || host.Now >= nextRefresh || Resized()) Rebuild();
         }
 
+        /// <summary>Retains the exact local page and buffer while dropping every interaction authorization.</summary>
+        public void Compact()
+        {
+            Screen.Question.SuspendPresentation();
+            instructionKeyboardSession++;
+            Steering.StopTyping();
+            answering = false;
+            var outcome = Steering.FocusLeft();
+            if (outcome.Step == SteeringStep.Explain) Notify(outcome.Message!);
+            Rebuild();
+        }
+
         public void FocusLeft()
         {
             Screen.Question.InvalidateInput();
+            instructionKeyboardSession++;
+            Steering.StopTyping();
             answering = false;
             var outcome = Steering.FocusLeft();
             if (outcome.Step == SteeringStep.Explain) Notify(outcome.Message!);
