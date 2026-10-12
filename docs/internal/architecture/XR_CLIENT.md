@@ -2591,3 +2591,34 @@ the Mac without typing its address (mDNS), changing a paired Mac's address witho
 and keeping the credential under an Android Keystore key. On a Quest, the control plane is
 reachable over USB with `adb reverse tcp:47800 tcp:47800` and the access token written to it, or over Wi-Fi once
 paired ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
+
+### Visible manual organization
+
+The Unity menu director exposes the navigator's manual Compact and Expand lifecycle. The primary
+subject's Move and Compact targets are separate from task words and the decision footer. A compact
+bar has separate Move and Expand targets and retains task/place identity, truthful task state and
+waiting count. Its whole surface has no Open target. Opening the matching retained character calls
+TryExpandTask before the file factory, so unrelated waiting work cannot replace the kept file.
+
+OrganizationControlsView measures the actual production prompt font and geometry. The primary title
+uses the remaining width with the same 12 mm target/title clearance. MenuPage.Subject holds at least
+the 60 dp target height; TitleRows, subject plates and page-height budgets share it. Controls follow
+the existing scale once, including its physical spacing floor. Placement detail has at most three
+footer controls; it pages choices by actual remaining height. Read title keeps the complete outside
+title available without shrinking or silently clipping Halcyonic's own words.
+
+Move's short press opens PlacementColumn as a local presentation overlay, preserving the underlying
+navigator. An expanded composition is suspended through Compact/Expand first to revoke callbacks,
+confirmation and old drawn authority; a compact composition stays compact underneath. Closing the
+placement overlay restores its previous presentation state. Choosing an arrangement only selects;
+Apply calls the room's explicit ChooseArrangement route, and Reset position uses the existing reset.
+The window arrangement explains its drag constraint and offers actual placement choices. A session
+or journal change clears the overlay. No organization operation emits a runtime command.
+
+Expanded drag and organization targets require the current navigator Standing frame or side panel
+that was drawn, visible, settled, not sliding, with focus and no pending redraw. PlacementColumn
+requires its exact current frame to draw before any action. Focus revokes its selection/action proof; local changes revoke action proof.
+Placement paging preserves the named chosen-value summary until a different option is selected. Organization bindings revoke pending holds on frame, side or compact identity changes; a hold
+retains its originating frame/side/compact composition before maturity. Moving invalidates old
+geometry authorization; resumed task content obtains
+fresh exact-frame draw proof through the existing navigator and file lifecycle.

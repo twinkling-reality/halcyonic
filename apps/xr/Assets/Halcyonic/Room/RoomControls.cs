@@ -87,6 +87,12 @@ namespace Halcyonic.XR.Room
             placement.TakeOffer();
         }
 
+        public void ChooseArrangement(StageArrangement arrangement)
+        {
+            if (stage == null || FocusGuard.InputSuspended || !ArrangementOffered) return;
+            stage.SetArrangement(arrangement);
+        }
+
         public void NextArrangement()
         {
             if (stage == null || FocusGuard.InputSuspended || !ArrangementOffered) return;

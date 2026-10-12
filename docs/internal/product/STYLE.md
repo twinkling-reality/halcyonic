@@ -45,8 +45,12 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 - **Text shrinks away from the centre**, as the eyes see it: a word x across and y up, in units of
   the distance, spans sqrt(1 + x²) / (1 + x² + y²) of its size (`PlaneComposition.ShrinkAt`), down
   to 84 percent at the far corners of a menu and file side by side.
-- **Moving it.** There is no Move or Reset position prompt. Holding a file's subject drags the whole
-  plane round the eyes, still facing them, and Reset position lives in Settings' Your space.
+- **Organizing it.** The primary subject has named Move and Compact targets at its right, apart
+  from the title and the decision footer. Holding Move drags the whole plane round the eyes. A short
+  press opens placement details with Reset position and the actual character arrangements; selecting
+  one only selects, and Apply changes it. Beside a window, the detail explains why the plane stays
+  below it and offers those choices. Compact retains the current composition and draft; Close keeps
+  its existing leave/discard meaning.
 - **Two columns at most.** The menu, a file and a side panel would not fit the field together. When
   a file beside the menu opens a side panel, or shows a page taller than the menu's rows leave, the
   menu steps aside off the plane with the same eased slide, as it does whenever the two don't fit
@@ -60,7 +64,10 @@ the page's shape at its bottom.
 
 - **The subject**, one a column, at the Title size, drawn light. In the menu's column a line holds
   about 36 characters; a longer subject wraps to a second line and its plate grows. Projects' subject
-  is its purpose, "What would you like to work on?".
+  is its purpose, "What would you like to work on?". The primary subject reserves the production
+  measurer's exact Move/Compact widths, 12 mm between them and 12 mm clear of the title. Its plate is
+  at least the 60 dp control height. TitleRows, SubjectHeight and page-height packing use that same
+  reservation; a full retained task title is reachable through Move's Read title detail.
 - **The split header.** A task's file carries its character's state pill on the subject's top edge
   at its left: the same badge as the character's label on the stage, its word at 18 dp, the title
   half a grid step under the pill's lower edge. Every
@@ -72,8 +79,10 @@ the page's shape at its bottom.
 - **The page**: a few short lines, rows and answers, then the footer.
 - **A side panel**: its subject, then facts, each a name in the secondary colour over its value, both
   at 18 dp, or lines, then its source. It holds nothing to press but its own Close details.
-- **The closed menu**: one rounded shape on the plane's top line, its subject at 18 dp saying what
-  waits or that nothing does, and Open at its right.
+- **The compact workspace**: one rounded shape on the plane's top line, the retained task or place
+  identity at 18 dp, with its truthful task state and waiting count when known. Move and Expand at
+  its right are separate bounded targets. The surface itself never expands on a press. Expand and
+  the retained task's character resume the exact file even when another task waits.
 
 ## Type
 

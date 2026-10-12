@@ -81,11 +81,10 @@ namespace Halcyonic.XR.UI
         private float subjectHeight;
         private float contentHeight;
         private bool subjectCut;
-
-        /// <summary>The subject plate's hold, once <see cref="EnableSubjectHold"/>: pressed when, and held past <see cref="GlazeButton.HoldSeconds"/>.</summary>
-        private PointerTarget? subjectHold;
-        private float subjectPressedAt = -1f;
-        private bool subjectHolding;
+        private OrganizationControlsView controls = null!;
+        public bool OrganizationControls { get; set; }
+        public event Action? CompactPressed;
+        public event Action? MovePressed;
 
         /// <summary>
         /// The column opening or closing on the plane (ADR 0027), counted on the plane's clock: the one value its
@@ -119,13 +118,7 @@ namespace Halcyonic.XR.UI
         /// <summary>When the subject plate was last made to wait to settle, as a column newly on the plane does.</summary>
         private float subjectUnsettledAt = float.NegativeInfinity;
 
-        /// <summary>The subject plate's cue while it can be held: the pointed frame, or the lit treatment from the press until let go.</summary>
-        private Surface? subjectCue;
-        private int subjectCuePainted = -1;
-
-        /// <summary>The subject plate as last laid, its centre and size in the subject part's units: where the hold and its cue stand.</summary>
         private Vector3 subjectPlateAt;
-        private Vector2 subjectPlateSize;
 
         /// <summary>Something was pressed: an action's id and its key.</summary>
         public event Action<string, string?>? Acted;
@@ -220,7 +213,7 @@ namespace Halcyonic.XR.UI
         /// <summary>Every prompt's and section's label, which hold Halcyonic's words alone, for the renders' checks.</summary>
         public IEnumerable<TMP_Text> OursOnly =>
             sections.Where(section => section.Words.gameObject.activeSelf).Select(section => (TMP_Text)section.Words)
-                .Concat(footer.GetComponentsInChildren<TMP_Text>(false));
+                .Concat(footer.GetComponentsInChildren<TMP_Text>(false)).Concat(controls.GetComponentsInChildren<TMP_Text>(false));
 
         /// <summary>The content's glass, whose light must end above its first target.</summary>
         public Surface Content => content;
@@ -230,6 +223,7 @@ namespace Halcyonic.XR.UI
         {
             get
             {
+                if (controls.gameObject.activeSelf) { yield return controls.Move; yield return controls.Toggle; }
                 foreach (var section in sections)
                 {
                     if (section.Button.gameObject.activeSelf) yield return section.Button;
@@ -295,8 +289,8 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>How many rows a subject's title takes in a column <paramref name="columnDegrees"/> wide: one, or two, the most it shows.</summary>
-        public static int TitleRows(string subject, float columnDegrees) =>
-            Mathf.Clamp(Count(Measuring(Glaze.Menu.TitleDegrees), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
+        public static int TitleRows(string subject, float columnDegrees, bool organizationControls = true) =>
+            Mathf.Clamp(Count(Measuring(Glaze.Menu.TitleDegrees), subject, organizationControls ? TitleWidth(columnDegrees) : ContentWidth(columnDegrees)), 1, SubjectRows);
 
         /// <summary>
         /// How tall a column's subject is (<see cref="MenuPage.Subject"/>): its plate round its title in
@@ -304,7 +298,9 @@ namespace Halcyonic.XR.UI
         /// half inside it. Every column beside a file keeps the room, and the composition takes the
         /// tallest, so the plates and titles stay level.
         /// </summary>
-        public static float SubjectHeight(string subject, float columnDegrees, bool pillRoom) => MenuPage.Subject(TitleRows(subject, columnDegrees), pillRoom);
+        public static float SubjectHeight(string subject, float columnDegrees, bool pillRoom, bool organizationControls = true) => MenuPage.Subject(TitleRows(subject, columnDegrees, organizationControls), pillRoom);
+
+        public static float TitleWidth(float columnDegrees) => ContentWidth(columnDegrees) - OrganizationControlsView.Width() - MenuPage.TargetGap;
 
         /// <summary>
         /// The room a pill's lower half takes inside the plate above the title's padding: the title
@@ -330,6 +326,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public void Show(MenuFrame shown, float columnDegrees, float subject, bool pillRoom)
         {
+            controls.Bind(shown);
             frame = shown;
             side = null;
             inPlaceOf = null;
@@ -355,6 +352,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public void Show(SidePanel shown, float columnDegrees, float subject, bool pillRoom, StateBadge? pill = null, MenuFrame? inPlaceOf = null)
         {
+            controls.Bind(shown);
             frame = null;
             side = shown;
             this.inPlaceOf = inPlaceOf;
@@ -606,6 +604,14 @@ namespace Halcyonic.XR.UI
         {
             still = () => motion == Motion.Still;
             subjectPart = Part("Subject");
+            controls = OrganizationControlsView.Create(subjectPart);
+            controls.Accepting = () => !SubjectSettling && !FocusGuard.InputSuspended;
+            controls.MovePressed += () => MovePressed?.Invoke();
+            controls.PressStarted += () => SubjectPressed?.Invoke();
+            controls.Held += point => SubjectHeld?.Invoke(point);
+            controls.Dragged += point => SubjectDragged?.Invoke(point);
+            controls.LetGo += () => SubjectLetGo?.Invoke();
+            controls.Toggled += () => CompactPressed?.Invoke();
             sectionsPart = Part("Sections");
             contentPart = Part("Content");
             subjectPlate = Surface.Create(subjectPart, "Plate", Order);
@@ -738,112 +744,17 @@ namespace Halcyonic.XR.UI
         /// <see cref="SubjectDragged"/> as the hand moves, and <see cref="SubjectLetGo"/>; a shorter press
         /// does nothing. It is apart from every prompt, so it never starts Hold to talk.
         /// </summary>
-        public void EnableSubjectHold()
-        {
-            if (subjectHold != null) return;
-            var host = new GameObject("Subject hold");
-            host.transform.SetParent(subjectPart, false);
-            // Over the plate's glass, under its words: the one selection treatment, as a held prompt shows it.
-            subjectCue = Surface.Create(subjectPart, "Subject cue", Order + 1);
-            subjectHold = PointerTarget.Rectangle(host, Vector2.one, ray: true, poke: true);
-            subjectHold.EnableDrag();
-            subjectHold.Selected += () =>
-            {
-                // A hold that ends lets go, whatever ends it.
-                if (subjectHolding) SubjectLetGo?.Invoke();
-                subjectHolding = false;
-                // Still settling, as a column newly on the plane: the press is dropped, its cue never lit.
-                if (SubjectSettling)
-                {
-                    subjectPressedAt = -1f;
-                    return;
-                }
-                subjectPressedAt = Time.unscaledTime;
-                SubjectPressed?.Invoke();
-            };
-            subjectHold.Dragged += point =>
-            {
-                if (subjectHolding) SubjectDragged?.Invoke(point);
-            };
-            subjectHold.Released += _ =>
-            {
-                subjectPressedAt = -1f;
-                subjectHolding = false;
-                // Every press's end, a short one's too, so what took the press lets go of it.
-                SubjectLetGo?.Invoke();
-            };
-            PlaceSubjectHold();
-        }
+        public void EnableSubjectHold() => OrganizationControls = true;
 
-        /// <summary>For the editor's renders: the subject plate's hold, to send it a finger's pointer events.</summary>
-        public PointerTarget? SubjectHoldForRender => subjectHold;
+        public PointerTarget? SubjectHoldForRender => controls.Move.Target;
 
-        /// <summary>The hold and its cue over the subject plate as laid: the hold in front of the glass, the cue on it, both behind its words.</summary>
-        private void PlaceSubjectHold()
-        {
-            if (subjectHold == null || subjectCue == null) return;
-            subjectHold.Resize(subjectPlateSize);
-            subjectHold.transform.localPosition = subjectPlateAt + new Vector3(0f, 0f, -U(0.02f));
-            subjectCue.transform.localPosition = subjectPlateAt + new Vector3(0f, 0f, -U(0.01f));
-            subjectCuePainted = -1;
-        }
-
-        /// <summary>For the editor's renders, which have no hands: paints the subject plate's cue as pointed at or pressed.</summary>
-        public void PaintSubjectForRender(bool pointed, bool pressed)
-        {
-            subjectCuePainted = -1;
-            PaintSubjectCue(pointed, pressed);
-        }
-
-        /// <summary>The subject plate's cue, as a held prompt's (ADR 0026): the pointed frame alone, or held, from the press until let go, the lit fill and frame; only when that changed.</summary>
-        private void PaintSubjectCue(bool pointed, bool pressed)
-        {
-            if (subjectCue == null) return;
-            var away = FocusGuard.InputSuspended;
-            var state = (pressed ? 1 : 0) | (pointed ? 2 : 0) | (away ? 4 : 0);
-            if (state == subjectCuePainted) return;
-            subjectCuePainted = state;
-            var radius = U(Glaze.Menu.RadiusDegrees);
-            if (away || (!pressed && !pointed))
-            {
-                subjectCue.Draw(Vector2.zero, 0f, Color.clear);
-                subjectCue.Selection = SurfaceSelection.None;
-            }
-            else if (pressed)
-            {
-                subjectCue.Draw(subjectPlateSize, radius, new Color(1f, 1f, 1f, Glaze.Menu.LitFillOpacity), new Color(1f, 1f, 1f, Glaze.Menu.LitFrameOpacity),
-                    U(Glaze.Menu.LitFrameDegrees));
-                subjectCue.Selection = SurfaceSelection.Lit;
-            }
-            else
-            {
-                subjectCue.Draw(subjectPlateSize, radius, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.PointedFrameOpacity), U(Glaze.Menu.PointedFrameDegrees));
-                subjectCue.Selection = SurfaceSelection.Pointed;
-            }
-        }
-
-        private void Update()
-        {
-            if (subjectHold == null) return;
-            PaintSubjectCue(subjectHold.Hovered, subjectPressedAt >= 0f);
-            if (subjectHolding || subjectPressedAt < 0f) return;
-            // As a held prompt: the hand that pressed must still be on the plate, else the press lapses.
-            if (!subjectHold.HandHovered)
-            {
-                subjectPressedAt = -1f;
-                return;
-            }
-            if (Time.unscaledTime - subjectPressedAt < GlazeButton.HoldSeconds) return;
-            if (!(subjectHold.HeldPoint is Vector3 point)) return;
-            subjectHolding = true;
-            SubjectHeld?.Invoke(point);
-        }
+        public void PaintSubjectForRender(bool pointed, bool pressed) => controls.Move.On = pressed;
 
         private void LaySubject(LineWords words, StateBadge? badge)
         {
             var padding = U(Glaze.Menu.PaddingDegrees);
             var left = -width / 2f + padding;
-            var room = width - 2f * padding;
+            var room = width - 2f * padding - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
             var theirs = GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
             var (rows, _) = GlazeText.Lay(subjectTitle, room, SubjectRows);
@@ -853,8 +764,8 @@ namespace Halcyonic.XR.UI
             subjectPlate.DrawGlass(new Vector2(width, plate));
             subjectPlate.transform.localPosition = new Vector3(0f, top - reserve - plate / 2f, 0f);
             subjectPlateAt = new Vector3(0f, top - reserve - plate / 2f, 0f);
-            subjectPlateSize = new Vector2(width, plate);
-            PlaceSubjectHold();
+            controls.gameObject.SetActive(OrganizationControls);
+            if (OrganizationControls) controls.Show(width / 2f - padding, subjectPlateAt.y, compact: false);
             // In the plate, under the pill's lower half, centred.
             var inner = Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));
