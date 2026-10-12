@@ -332,9 +332,10 @@ namespace Halcyonic.Client
             if (workspace.AnswerInFlight) return false;
             if (!(screen.Question.Draft is QuestionDraft draft) || !WorkspaceText.Answerable(draft.Question)) return null;
             return WhyForwardWaits(screen, StopsHere(workspace, draft.Question)) == null
-                && (!screen.Question.Reviewing || workspace.Actions.Contains(WorkspaceAction.Answer));
+                && (!screen.Question.Reviewing || screen.Question.Page < screen.Question.Pages - 1 || workspace.Actions.Contains(WorkspaceAction.Answer));
         }
 
+        public const string ReadQuestion = "read-answer-question";
         public const string BackQuestion = "back-question";
         public const string CancelInput = "cancel-answer-input";
         public const string UseInput = "use-answer-input";
@@ -457,7 +458,13 @@ namespace Halcyonic.Client
             }
             var lines = new List<PageLine> { new PageLine(QuestionNumber(prompt, draft.Prompts.Count), tone: LineTone.Secondary) };
             // The question heads its answers where it leaves room for one; a long one by its first row.
-            if (question.HeadRows(prompt) > 0) lines.Add(new PageLine(text, rows: question.HeadRows(prompt)));
+            if (question.HeadRows(prompt) > 0)
+            {
+                var rows = question.HeadRows(prompt);
+                lines.Add(rows < question.QuestionMeasured(prompt)
+                    ? new PageLine(text, fact: LineWords.Ours("Read question"), action: ReadQuestion, opens: true, control: LineControl.Action, rows: rows)
+                    : new PageLine(text, rows: rows));
+            }
             if (!WorkspaceText.Answerable(draft.Question))
             {
                 lines.Add(new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary));
@@ -472,7 +479,7 @@ namespace Halcyonic.Client
                 // Under its answers, where some read the same and can't be chosen, why, and the way to the one meant.
                 if (WorkspaceText.OffersALabelTwice(asked))
                 {
-                    lines.Add(new PageLine(WorkspaceText.AlikeCantBeChosen(StopsHere(workspace, draft.Question)), tone: LineTone.Secondary, rows: FileQuestion.AlikeRows));
+                    lines.Add(AlikeLine(StopsHere(workspace, draft.Question)));
                 }
                 if (asked.FreeText && (screen.KeyboardOffered || screen.Speak || draft.Typed(prompt) != null))
                 {
@@ -556,6 +563,11 @@ namespace Halcyonic.Client
 
         public static PageLine SelectedTypedLine(string typed, int rows = 1) =>
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
+
+        public static PageLine AlikeLine(bool stop) => stop
+            ? new PageLine("Alike answers cannot be chosen. Stop if you meant one.", icon: GlazeIcon.Stop, action: Stop,
+                control: LineControl.Action, tone: LineTone.Problem, rows: FileQuestion.AlikeRows)
+            : new PageLine(WorkspaceText.AlikeCantBeChosen(false), tone: LineTone.Secondary, rows: FileQuestion.AlikeRows);
 
         public static PageLine InputNavigation(bool keyboard, bool edit = false, bool besideNext = false) =>
             new PageLine(edit ? EditAnswer : WriteAnswer, fact: edit ? "Selected" : null, icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,

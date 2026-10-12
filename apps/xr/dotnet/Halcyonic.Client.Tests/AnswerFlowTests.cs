@@ -416,4 +416,65 @@ public class AnswerFlowTests
         }
     }
 
+    [TestCase(TextSize.Standard)] [TestCase(TextSize.Larger)]
+    public void FocusedGeometryUsesOnlyActualPartsAndRemainsInsideTheSameField(TextSize size)
+    {
+        var ordinary = MenuPage.Height(size, 1);
+        var focused = MenuPage.Height(size, 1, focused: true);
+        Assert.That(focused, Is.GreaterThan(ordinary));
+        var zoom = size == TextSize.Larger ? Comfort.LargerTextScale : 1f;
+        PlaneComposition Actual(float page) => new(new[]
+        {
+            new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), MenuPage.Subject(1, pill: true), MenuPage.Content(page)),
+        }, zoom);
+        Assert.That(MenuPage.Fits(Actual(focused)), Is.True);
+        Assert.That(MenuPage.Fits(Actual(focused + PlaneComposition.Units(0.2f))), Is.False, "a focused page still obeys the existing field bound");
+    }
+
+    [Test]
+    public void FocusedBudgetCacheChangesForApprovalAndOrdinarySectionsThenReturns()
+    {
+        var (host, column, work) = Open();
+        int Rows(bool focused)
+        {
+            var budget = HeightBudget.Of(host.TextSize, 1, focused);
+            return budget.WordsIn(budget.Room - budget.Words(1) - budget.LineGap - budget.Reason);
+        }
+        Assert.That(Rows(true), Is.GreaterThan(Rows(false)));
+        Assert.That(column.Screen.Question.QuestionPartRows, Is.EqualTo(Rows(true)));
+        work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval", "Run migration", Samples.Time)));
+        host.Wait(1); column.Tick();
+        Assert.That(column.Frame!.Focused, Is.False);
+        Assert.That(column.Screen.Question.QuestionPartRows, Is.EqualTo(Rows(false)));
+        work.Change(execution => execution.PendingApprovals.Clear());
+        host.Wait(1); column.Tick();
+        Assert.That(column.Frame!.Focused, Is.True);
+        Assert.That(column.Screen.Question.QuestionPartRows, Is.EqualTo(Rows(true)));
+        column.Act(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity));
+        Assert.That(column.Frame!.Focused, Is.False);
+        Assert.That(column.Screen.Question.QuestionPartRows, Is.EqualTo(Rows(false)));
+        column.Act(MenuFrame.ChooseSection, FileScreens.Key(FileSection.Waiting));
+        Assert.That(column.Frame!.Focused, Is.True);
+        Assert.That(column.Screen.Question.QuestionPartRows, Is.EqualTo(Rows(true)));
+    }
+
+    [Test]
+    public void LongQuestionCanBeRereadFromBoundedContextThenReturnToSameChoicesAndDraft()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts.RemoveAt(1);
+        question.Prompts[0].Text = string.Join(" ", Enumerable.Repeat("Explain this part of the requested decision.", 12));
+        question.Prompts[0].Options.AddRange(Enumerable.Range(0, 10).Select(index => new QuestionOption { Label = "Extra " + index }));
+        var (host, column, _) = Open(question);
+        Choose(host, column, "Extra 7");
+        var page = column.Screen.Question.Page;
+        var context = column.Frame!.Lines.Single(line => line.Action == FileScreens.ReadQuestion);
+        Assert.That((context.Control, context.Fact, context.Opens), Is.EqualTo((LineControl.Action, "Read question", true)));
+        column.Act(context.Action!, context.Key);
+        ReadQuestion(host, column);
+        Assert.That(column.Screen.Question.Page, Is.EqualTo(page));
+        Assert.That(column.Screen.Question.Draft!.IsChosen(0, "Extra 7"), Is.True);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
 }

@@ -89,7 +89,7 @@ namespace Halcyonic.Client
         public MenuFrame? Frame { get; private set; }
 
         /// <summary>Whether the page drawn offers Stop, so a refusal of words says to press it only where it can be.</summary>
-        private bool StopOnPage => Frame?.Footer[PromptSlot.Rare]?.Id == FileScreens.Stop;
+        private bool StopOnPage => Frame?.Footer[PromptSlot.Rare]?.Id == FileScreens.Stop || Frame?.Lines.Any(line => line.Action == FileScreens.Stop) == true;
 
         public event Action? Changed;
 
@@ -149,6 +149,9 @@ namespace Halcyonic.Client
                     break;
                 case FileScreens.NextPart when key == FileScreens.QuestionKey || question.QuestionPart != null:
                     question.NextPart(clock);
+                    break;
+                case FileScreens.ReadQuestion:
+                    question.ReopenQuestion();
                     break;
                 case FileScreens.MoreAnswers:
                     question.MoreAnswers(clock);
@@ -485,8 +488,7 @@ namespace Halcyonic.Client
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
-            var focused = Screen.Section == FileSection.Waiting && WorkspaceText.NeedFromYou(presentation) == null
-                && presentation.QuestionToAnswer is QuestionView questionToAnswer && WorkspaceText.Answerable(questionToAnswer);
+            var focused = FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting, Steering);
             if (budget == null || resized || budgetFocused != focused)
             {
                 budgetFocused = focused;
