@@ -43,7 +43,7 @@ namespace Halcyonic.XR.Sound
     /// sounds as live work does: the same data, the same flow. Once the clips are made nothing runs
     /// per frame: cues are scheduled on the audio clock as the state changes.
     /// </remarks>
-    [RequireComponent(typeof(ControlPlaneConnection), typeof(CharacterStage))]
+    [RequireComponent(typeof(ControlPlaneConnection))]
     public sealed class StageSound : MonoBehaviour
     {
         /// <summary>Between choosing a cue and its earliest start, so the audio thread has it in time.</summary>
@@ -97,7 +97,7 @@ namespace Halcyonic.XR.Sound
         private readonly List<string> silent = new List<string>();
         private readonly AudioClip?[][] clips = new AudioClip?[GlazeSynthesizer.Cues.Count][];
         private ControlPlaneConnection connection = null!;
-        private CharacterStage stage = null!;
+        private CharacterStage? stage;
         private WorkspaceDirector? director;
         private Func<string, int> slotOf = null!;
         private Voice workspace = null!;
@@ -122,9 +122,8 @@ namespace Halcyonic.XR.Sound
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
-            stage = GetComponent<CharacterStage>();
             director = GetComponent<WorkspaceDirector>();
-            slotOf = stage.SlotOf;
+            slotOf = id => stage != null && stage.Visible ? stage.SlotOf(id) : -1;
             var panned = System.IO.File.Exists(System.IO.Path.Combine(Application.persistentDataPath, PannedFile));
             headRelated = HeadRelated(AudioSettings.GetSpatializerPluginName(), panned);
             Log(headRelated ? "sound placed by " + Spatializer + "'s head-related spatializer"
@@ -141,8 +140,13 @@ namespace Halcyonic.XR.Sound
         private void OnEnable()
         {
             connection.Changed += OnChanged;
-            stage.CharacterCreated += OnCharacterCreated;
-            if (director != null) director.Acted += OnActed;
+            if (director != null)
+            {
+                director.Acted += OnActed;
+                director.AgentStageCreated += OnAgentStageCreated;
+                director.Presentation.Changed += BindStage;
+            }
+            BindStage();
             GlazeButton.AnyPressed += OnPressed;
             GlazeButton.AnyRefused += OnRefused;
             // What the stage shows already is what later changes are compared with; the characters it
@@ -152,18 +156,40 @@ namespace Halcyonic.XR.Sound
             selector.Reset(session.State, session.Status, slotOf);
             foreach (var workstreamId in session.State.Workstreams.Keys)
             {
-                if (stage.TryGetCharacter(workstreamId, out var view)) OnCharacterCreated(workstreamId, view);
+                if (stage != null && stage.TryGetCharacter(workstreamId, out var view)) OnCharacterCreated(workstreamId, view);
             }
         }
 
         private void OnDisable()
         {
             connection.Changed -= OnChanged;
-            stage.CharacterCreated -= OnCharacterCreated;
-            if (director != null) director.Acted -= OnActed;
+            if (stage != null) stage.CharacterCreated -= OnCharacterCreated;
+            stage = null;
+            if (director != null)
+            {
+                director.Acted -= OnActed;
+                director.AgentStageCreated -= OnAgentStageCreated;
+                director.Presentation.Changed -= BindStage;
+            }
             GlazeButton.AnyPressed -= OnPressed;
             GlazeButton.AnyRefused -= OnRefused;
             CancelPending();
+        }
+
+        private void OnAgentStageCreated(CharacterStage created) => BindStage();
+        private void BindStage()
+        {
+            var desired = director != null && director.Presentation.AgentsVisible ? GetComponent<CharacterStage>() : null;
+            if (stage == desired) return;
+            if (stage != null) stage.CharacterCreated -= OnCharacterCreated;
+            stage = desired;
+            foreach (var voice in voices.Values) voice.CancelPending(AudioSettings.dspTime);
+            if (stage == null) return;
+            stage.CharacterCreated += OnCharacterCreated;
+            var session = connection.Session;
+            if (session == null) return;
+            foreach (var id in session.State.Workstreams.Keys)
+                if (stage.TryGetCharacter(id, out var view)) OnCharacterCreated(id, view);
         }
 
         private void Start()
@@ -294,7 +320,7 @@ namespace Halcyonic.XR.Sound
                     voice.Host.position = at ?? InFrontOfThePerson(WorkspaceReach);
                     break;
                 default:
-                    voice = cue.WorkstreamId != null && voices.TryGetValue(cue.WorkstreamId, out var own) && own.Alive ? own : null;
+                    voice = cue.WorkstreamId != null && voices.TryGetValue(cue.WorkstreamId, out var own) && own.Alive && own.Host.gameObject.activeInHierarchy ? own : null;
                     break;
             }
             if (voice == null) return;
@@ -331,7 +357,7 @@ namespace Halcyonic.XR.Sound
             var count = 0;
             foreach (var voice in voices.Values)
             {
-                if (!voice.Alive) continue;
+                if (!voice.Alive || !voice.Host.gameObject.activeInHierarchy) continue;
                 sum += voice.Host.position;
                 count++;
             }

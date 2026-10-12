@@ -43,6 +43,7 @@ namespace Halcyonic.XR.Workspace
         private ControlPlaneConnection connection = null!;
         private CharacterStage? stage;
         public WorkspacePresentationState Presentation { get; } = new WorkspacePresentationState();
+        public event Action<CharacterStage>? AgentStageCreated;
         private CommandFactory commands = null!;
         private PeekLabel peek = null!;
         private SpriteRenderer reticle = null!;
@@ -234,6 +235,7 @@ namespace Halcyonic.XR.Workspace
             stage.Visibility = visibility;
             stage.CharacterCreated += Attach;
             stage.Refreshed += OnStageRefreshed;
+            AgentStageCreated?.Invoke(stage);
             return stage;
         }
 

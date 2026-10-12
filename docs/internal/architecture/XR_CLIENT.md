@@ -2194,7 +2194,9 @@ exists. Passthrough remains independent of whether optional characters are prese
 ### Sound
 
 `Assets/Halcyonic/Sound` is its own assembly, `Halcyonic.XR.Sound`. `SoundBootstrap` adds
-`StageSound` to the stage object after the scene loads, in any scene with an audio listener, so
+`StageSound` to the workspace runtime root after scene load, in any scene with an audio listener.
+UI cues work without creating a character stage. Character voice subscriptions attach only while
+optional agents are enabled and visible; hidden character voices cannot receive cues. Thus
 neither the scene nor the stage refers to it. The sound is the Glaze direction, which the owner
 chose on 2026-09-29 from the soundbook, a single page that played three directions (Glaze, Hum and
 Tide) side by side, each synthesized by the page's own code with no recordings, samples or
