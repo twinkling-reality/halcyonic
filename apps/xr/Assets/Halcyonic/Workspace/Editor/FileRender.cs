@@ -294,8 +294,8 @@ namespace Halcyonic.XR.Workspace.Editor
         };
 
         /// <summary>
-        /// The same four answers under a question of two rows: at the standard size it takes its own page,
-        /// as that leaves fewer pages in all, and its answers' pages hold two each under its first line.
+        /// The same four answers under a two-row question. A bounded Read question target costs more
+        /// than its complete text, so separating it cannot save pages at the standard size.
         /// </summary>
         private static IEnumerable<string> LongQuestion(string folder)
         {
@@ -324,12 +324,40 @@ namespace Halcyonic.XR.Workspace.Editor
             var budget = HeightBudget.Of(TextSizeNow, titleRows, focused: true);
             var sideBudget = HeightBudget.Of(TextSizeNow, titleRows);
             screen.ReadQuestion(draft, Measure(draft), budget, sideBudget);
-            // At the standard size, its own case; larger text wraps it longer, and it takes its own page anyway.
+            // At standard size the two-row question stays whole: its bounded one-row reread
+            // target plus target gap is taller than the plain complete question plus line gap.
+            // Longer questions at larger text retain their mandatory question-only parts.
             var standard = TextSizeNow == TextSize.Standard && titleRows == 1;
             if (standard && screen.Question.QuestionMeasured(0) != 2) failures.Add("waiting-long-question: the question wraps to " + screen.Question.QuestionMeasured(0) + " rows, not 2.");
-            else if (standard && (screen.Question.QuestionParts(0), screen.Question.Pages) != (1, 2))
+            else if (standard)
             {
-                failures.Add("waiting-long-question: " + screen.Question.QuestionParts(0) + " question page and " + screen.Question.Pages + " answer pages, not 1 and 2.");
+                var wholeHead = budget.Words(2) + budget.LineGap;
+                var contextHead = budget.Target(1) + budget.TargetGap;
+                if (contextHead < wholeHead) failures.Add("waiting-long-question: the bounded reread target unexpectedly costs less than complete two-row context.");
+                var measure = Measure(draft)[0];
+                var below = budget.Words(measure.PagedCaptionRows) + budget.LineGap + budget.Target() + budget.TargetGap + budget.Reason
+                    + (measure.InputPagerFitsHalf ? 0f : budget.Target() + budget.TargetGap);
+                int PagesWith(float head)
+                {
+                    var roomForChoices = budget.Room - below - head;
+                    var pages = 1;
+                    var used = 0f;
+                    foreach (var rows in measure.AnswerRows)
+                    {
+                        var target = budget.Target(Math.Min(FileQuestion.AnswerRows, rows));
+                        if (target > roomForChoices + 1e-6f) { failures.Add("waiting-long-question: a complete two-row choice exceeds the measured room."); return int.MaxValue; }
+                        var takes = target + (used > 0f ? budget.TargetGap : 0f);
+                        if (used > 0f && used + takes > roomForChoices + 1e-6f) { pages++; used = 0f; takes = target; }
+                        used += takes;
+                    }
+                    return pages;
+                }
+                var wholePages = PagesWith(wholeHead);
+                var contextPages = PagesWith(contextHead);
+                var questionOnlyParts = (int)Math.Ceiling(2d / screen.Question.QuestionPartRows);
+                if (wholePages > questionOnlyParts + (long)contextPages) failures.Add("waiting-long-question: separating the measured bounded context unexpectedly saves pages.");
+                if ((screen.Question.QuestionParts(0), screen.Question.HeadRows(0), screen.Question.Pages) != (0, 2, wholePages))
+                    failures.Add("waiting-long-question: the whole question must choose the measured minimum; separating it adds a question-only part without improving bounded-context capacity.");
             }
             var steering = new WorkspaceSteering(new CommandFactory(new ClientInfo { Name = "halcyonic-render", Version = "0", DeviceLabel = "editor" }));
             var room = new AnswerRoom(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false));

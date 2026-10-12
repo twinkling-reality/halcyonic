@@ -322,39 +322,47 @@ public class FileQuestionTests
     }
 
     [Test]
-    public void ATwoRowQuestionTakesItsOwnPageWhereThatLeavesFewerPagesInAllAndStaysWithItsAnswersOnATie()
+    public void ATwoRowQuestionStaysWholeWhenBoundedContextCannotSaveAnyPages()
     {
         var budget = HeightBudget.Of(TextSize.Standard, subjectRows: 1, focused: true);
         var four = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
         var measured = new[] { new PromptMeasure(2, four.Select(_ => 2).ToList(), four.Select(_ => 3).ToList()) };
         var (_, workspace, screen, _) = Asking(OnePrompt(four), measured);
         screen.ReadQuestion(screen.Question.Draft!, measured, budget, budget);
-        Assert.That((screen.Question.QuestionParts(0), screen.Question.Pages), Is.EqualTo((1, 2)),
-            "a question page, then two answers a page under its first line: 3 pages rather than 4");
-        Assert.That(screen.Question.HeadRows(0), Is.EqualTo(1));
-        var shown = 0;
-        while (screen.Question.QuestionPart != null)
+        var wholeHead = budget.Words(2) + budget.LineGap;
+        var contextHead = budget.Target(1) + budget.TargetGap;
+        Assert.That(contextHead, Is.GreaterThanOrEqualTo(wholeHead), "the bounded Read question target and its target gap cost at least the complete two-row question");
+        var below = budget.Words(1) + budget.LineGap + budget.Target() + budget.TargetGap + budget.Reason;
+        int Capacity(float head)
         {
-            Assert.That(Height(Screen(workspace, screen), budget), Is.LessThanOrEqualTo(budget.Room + 1e-5f), "the question's own page");
-            shown++;
-            screen.Question.NextPart(Later(screen));
+            var count = 0;
+            while (count < four.Length && budget.Targets(Enumerable.Repeat(2, count + 1).ToArray()) <= budget.Room - below - head + 1e-6f) count++;
+            return count;
         }
+        var wholeCapacity = Capacity(wholeHead);
+        var contextCapacity = Capacity(contextHead);
+        Assert.That((wholeCapacity, contextCapacity), Is.EqualTo((1, 1)), "the actual initial measured room holds one two-row choice under either head");
+        var wholePages = (int)Math.Ceiling(four.Length / (double)wholeCapacity);
+        var cutPages = (int)Math.Ceiling(2d / screen.Question.QuestionPartRows) + (int)Math.Ceiling(four.Length / (double)contextCapacity);
+        Assert.That(wholePages, Is.LessThan(cutPages), "four whole-question pages beat one question-only part plus four bounded-context choice pages");
+        Assert.That((screen.Question.QuestionParts(0), screen.Question.HeadRows(0), screen.Question.Pages), Is.EqualTo((0, 2, Math.Min(wholePages, cutPages))));
+        var seen = new List<int>();
         for (var page = 0; page < screen.Question.Pages; page++)
         {
             var frame = Screen(workspace, screen);
             Assert.That(Height(frame, budget), Is.LessThanOrEqualTo(budget.Room + 1e-5f), "page " + page);
-            Assert.That(screen.Question.Answers, Has.Count.EqualTo(2));
-            shown++;
+            Assert.That(screen.Question.Answers, Has.Count.EqualTo(1));
+            seen.AddRange(screen.Question.Answers);
             screen.Question.MoreAnswers(Later(screen));
         }
-        Assert.That(shown, Is.EqualTo(3));
+        Assert.That(seen, Is.EqualTo(Enumerable.Range(0, four.Length)), "every offered choice remains reachable in its original order");
 
         var three = four.Take(3).ToArray();
         var tied = new[] { new PromptMeasure(2, three.Select(_ => 2).ToList(), three.Select(_ => 3).ToList()) };
         var (_, _, beside, _) = Asking(OnePrompt(three), tied);
         beside.ReadQuestion(beside.Question.Draft!, tied, budget, budget);
         Assert.That((beside.Question.QuestionParts(0), beside.Question.HeadRows(0), beside.Question.Pages), Is.EqualTo((0, 2, 3)),
-            "3 pages either way, so the question stays whole beside its answers");
+            "the bounded context cannot increase capacity, so three whole pages beat an extra question-only part");
     }
 
     [Test]
