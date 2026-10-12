@@ -65,6 +65,7 @@ namespace Halcyonic.XR.Workspace
         private int historyRequests;
         private TouchScreenKeyboard? keyboard;
         private Action<string>? keyboardDone;
+        private Action? keyboardDismissed;
         /// <summary>Which projects the stage shows, for each journal, kept on the device under the key the project rail kept it under.</summary>
         private const string VisibilityPreference = "halcyonic.stage.visibility";
 
@@ -474,11 +475,16 @@ namespace Halcyonic.XR.Workspace
         /// <paramref name="text"/>. While it is open the app loses input focus, so the hands and the
         /// plane pause until it closes; <paramref name="done"/> only when the person finishes.
         /// </summary>
-        private void OpenKeyboard(string text, string prompt, Action<string> done)
+        private void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null)
         {
-            if (!TouchScreenKeyboard.isSupported || FocusGuard.InputSuspended) return;
-            if (keyboard != null) keyboard.active = false;
+            if (!TouchScreenKeyboard.isSupported || FocusGuard.InputSuspended) { dismissed?.Invoke(); return; }
+            if (keyboard != null)
+            {
+                keyboard.active = false;
+                keyboardDismissed?.Invoke();
+            }
             keyboardDone = done;
+            keyboardDismissed = dismissed;
             keyboard = FocusGuard.Track(TouchScreenKeyboard.Open(text, TouchScreenKeyboardType.Default, true, false, false, false, prompt));
         }
 
@@ -488,8 +494,11 @@ namespace Halcyonic.XR.Workspace
             if (open == null || open.status == TouchScreenKeyboard.Status.Visible) return;
             keyboard = null;
             var done = keyboardDone;
+            var dismissed = keyboardDismissed;
             keyboardDone = null;
+            keyboardDismissed = null;
             if (open.status == TouchScreenKeyboard.Status.Done) done?.Invoke(open.text);
+            else dismissed?.Invoke();
         }
 
         /// <summary>

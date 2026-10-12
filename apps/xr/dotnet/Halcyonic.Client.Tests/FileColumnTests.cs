@@ -12,11 +12,15 @@ internal sealed class FileMenuHost : IMenuHost
 {
     public List<CommandEnvelope> Sent { get; } = new();
 
+    public CommandSubmissions? Submissions { get; set; }
+
     public bool Live { get; set; } = true;
 
     public bool KeyboardOffered { get; set; } = true;
 
     public (string Text, string Prompt, Action<string> Done)? Keyboard { get; private set; }
+
+    public Action? KeyboardDismissed { get; private set; }
 
     public ClientProjection? State => null;
 
@@ -39,11 +43,15 @@ internal sealed class FileMenuHost : IMenuHost
     public Task<CommandAckMessage>? Submit(CommandEnvelope command)
     {
         if (!Live) return null;
-        Sent.Add(command);
-        return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted });
+        Task<CommandAckMessage> Send(CommandEnvelope sent)
+        {
+            Sent.Add(sent);
+            return Task.FromResult(new CommandAckMessage { CommandId = sent.CommandId, Disposition = CommandAckDisposition.Accepted });
+        }
+        return Submissions == null ? Send(command) : Submissions.Submit(Send, command, (command as ExecutionAnswerQuestionCommand)?.Payload.ExecutionId ?? "");
     }
 
-    public void OpenKeyboard(string text, string prompt, Action<string> done) => Keyboard = (text, prompt, done);
+    public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) { Keyboard = (text, prompt, done); KeyboardDismissed = dismissed; }
 
     public int RowsOf(string words, float columnDegrees) => Math.Max(1, (words.Length + 39) / 40);
 

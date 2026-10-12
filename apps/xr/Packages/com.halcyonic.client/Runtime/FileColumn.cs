@@ -50,6 +50,8 @@ namespace Halcyonic.Client
 
         /// <summary>The question Hold to talk was held for, which what is heard may type into only while it still shows.</summary>
         private QuestionDraft? answerDraft;
+        private int answerInputSession;
+        private bool answerVoiceStarted;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -116,6 +118,8 @@ namespace Halcyonic.Client
             switch (id)
             {
                 case Footer.Close:
+                    question.CancelInput();
+                    answering = false;
                     acted?.Invoke(WorkspaceAct.Collapse);
                     Closed?.Invoke();
                     return;
@@ -142,15 +146,42 @@ namespace Halcyonic.Client
                 case FileScreens.NextPart when key == FileScreens.RequestKey:
                     Screen.NextRequestPart(Steering, clock);
                     break;
-                case FileScreens.NextPart when key == FileScreens.QuestionKey:
+                case FileScreens.NextPart when key == FileScreens.QuestionKey || question.QuestionPart != null:
                     question.NextPart(clock);
                     break;
                 case FileScreens.MoreAnswers:
                     question.MoreAnswers(clock);
                     break;
                 case FileScreens.NextQuestion:
-                    question.NextQuestion(clock);
+                    if (FileScreens.WhyNextWaits(question) == null) question.NextQuestion(clock);
                     break;
+                case FileScreens.BackQuestion:
+                    question.Back(clock);
+                    break;
+                case FileScreens.PreviousReviewPart:
+                    question.PreviousReviewPart(clock);
+                    break;
+                case FileScreens.CancelInput:
+                    question.CancelInput();
+                    answering = false;
+                    break;
+                case FileScreens.NextInputPart:
+                    question.NextInputPart(clock);
+                    break;
+                case FileScreens.PreviousInputPart:
+                    question.PreviousInputPart(clock);
+                    break;
+                case FileScreens.UseInput:
+                    if (draft != null && CurrentInput(draft, question.Prompt, question.InputSession))
+                    {
+                        var before = draft.AnswersNow;
+                        if (question.UseInput(StopOnPage) && !QuestionDraft.SameAnswers(before, draft.AnswersNow)) Steering.AnswerChanging();
+                    }
+                    answering = false;
+                    break;
+                case FileScreens.EditInput:
+                    if (question.Writing) { question.InputEditing = true; OpenAnswerKeyboard(); Rebuild(); }
+                    return;
                 case FileScreens.GoToQuestion when Index(key) is int prompt:
                     question.GoTo(prompt);
                     break;
@@ -158,26 +189,9 @@ namespace Halcyonic.Client
                     // Only an answer on the page in view is taken; nothing is sent.
                     question.Choose(option);
                     break;
-                case FileScreens.TypeAnswer when draft != null && question.ReopenTyped():
-                    // Words cut and not yet read to their end: their side panel again, at the part to read next.
-                    break;
-                case FileScreens.TypeAnswer when draft != null && !question.Reviewing && !host.KeyboardOffered:
-                    // A row holding words heard stays their choice; no keyboard is asked to open.
-                    break;
-                case FileScreens.TypeAnswer when draft != null && !question.Reviewing:
-                    var typing = question.Prompt;
-                    var typingFor = draft;
-                    MenuKeyboard.Open(host, draft.Typed(typing), "Your answer", text =>
-                    {
-                        if (typingFor != draft) return;
-                        // An answer armed to send meanwhile is cancelled, if these words changed it: Yes was for the answer before them.
-                        var before = typingFor.AnswersNow;
-                        var problem = typingFor.Type(typing, text, StopOnPage);
-                        var cancelled = QuestionDraft.SameAnswers(before, typingFor.AnswersNow) ? null : Steering.AnswerChanging();
-                        if (problem != null) Notify(problem);
-                        else if (cancelled != null) Notify(cancelled);
-                        Rebuild();
-                    });
+                case FileScreens.TypeAnswer:
+                    if (draft != null && question.BeginInput()) OpenAnswerKeyboard();
+                    Rebuild();
                     return;
                 case FileScreens.HoldToTalk:
                 case FileScreens.SpeakAnswer:
@@ -280,6 +294,40 @@ namespace Halcyonic.Client
             });
         }
 
+        private bool CurrentInput(QuestionDraft answeringDraft, int prompt, int session)
+        {
+            var current = present();
+            return host.Connected && Screen.Section == FileSection.Waiting && Screen.Question.Writing
+                && Screen.Question.InputSession == session && Screen.Question.Prompt == prompt && ReferenceEquals(answeringDraft, draft)
+                && current?.Execution != null && answeringDraft.Answers(current.Execution.ExecutionId, current.QuestionToAnswer)
+                && answeringDraft.Prompts[prompt].FreeText && WorkspaceText.Answerable(answeringDraft.Question)
+                && WorkspaceText.NeedFromYou(current) == null && !current.AnswerInFlight && current.Actions.Contains(WorkspaceAction.Answer) && Steering.Armed == null;
+        }
+
+        private void OpenAnswerKeyboard()
+        {
+            var question = Screen.Question;
+            if (!question.Writing || draft == null || !host.KeyboardOffered) return;
+            question.InvalidateInput();
+            question.InputEditing = true;
+            question.InputFocused = true;
+            var forDraft = draft;
+            var prompt = question.Prompt;
+            var session = question.InputSession;
+            Rebuild();
+            MenuKeyboard.Open(host, question.Input, "Your answer", text =>
+            {
+                if (!CurrentInput(forDraft, prompt, session)) return;
+                question.ChangeInput(text);
+                Rebuild();
+            }, () =>
+            {
+                if (!CurrentInput(forDraft, prompt, session)) return;
+                question.KeyboardClosed();
+                Rebuild();
+            });
+        }
+
         public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
             // Drawn at the size before: laid again at this one, that draw counts for nothing.
@@ -313,46 +361,45 @@ namespace Halcyonic.Client
             // whatever its words: an approval's request may read as the prompt itself.
             if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.QuestionPage && Screen.Question.Draft != null)
             {
-                var whole = Screen.Question.Draft.Prompts.Select((_, prompt) => Screen.Question.Draft.WasShownWhole(prompt)).ToList();
+                var before = Frame!.Footer[PromptSlot.FarRight]?.Available;
                 Screen.Question.Drawn(clock);
-                if (!whole.SequenceEqual(Screen.Question.Draft.Prompts.Select((_, prompt) => Screen.Question.Draft.WasShownWhole(prompt)))) Rebuild();
+                var after = FileScreens.WhyForwardWaits(Screen, StopOnPage) == null;
+                if (before != after) Rebuild();
             }
         }
 
         public void HoldStarted(string id)
         {
-            // An answer held for, kept with the question and prompt showing; on the page of the person's
-            // answers there is no one question to answer, so what is heard there types into none.
-            answering = id == FileScreens.SpeakAnswer;
+            if (id != FileScreens.SpeakAnswer)
+            {
+                answerVoiceStarted = false;
+                answering = false;
+                return;
+            }
+            answerVoiceStarted = true;
+            answering = draft != null && Screen.Question.Writing && !Screen.Question.InputReading && host.VoiceOffered
+                && CurrentInput(draft, Screen.Question.Prompt, Screen.Question.InputSession);
             if (!answering) return;
             answerPrompt = Screen.Question.Prompt;
             answerDraft = draft;
+            answerInputSession = Screen.Question.InputSession;
         }
 
         /// <summary>Where the voice stands after a hold shows on Hold to talk itself, drawn by the plane from the menu's one voice (ADR 0027).</summary>
         public void HoldEnded(string id, bool letGo)
         {
+            if (id == FileScreens.SpeakAnswer && !letGo) answering = false;
         }
 
         public void Heard(string text)
         {
-            if (answering)
+            if (answerVoiceStarted)
             {
-                // What was heard becomes the typed answer, sent only by Send answer, and only for the very
-                // question and prompt it was spoken for, the file still on that question and prompt; else the
-                // words are dropped, as the keyboard's are. An answer armed to send meanwhile is cancelled.
-                if (draft == null || draft != answerDraft || Screen.Question.Reviewing || Screen.Question.Prompt != answerPrompt)
-                {
+                if (!answering || answerDraft == null || !CurrentInput(answerDraft, answerPrompt, answerInputSession))
                     Notify(VoiceText.QuestionChangedWhileSpeaking);
-                }
-                else
-                {
-                    // An answer armed to send meanwhile is cancelled, if these words changed it.
-                    var before = draft.AnswersNow;
-                    var problem = draft.Type(answerPrompt, text, StopOnPage);
-                    var cancelled = QuestionDraft.SameAnswers(before, draft.AnswersNow) ? null : Steering.AnswerChanging();
-                    Notify(problem ?? cancelled ?? VoiceText.HeardAnswer);
-                }
+                else Screen.Question.ChangeInput(text);
+                answering = false;
+                // Retain the answer route after cancellation, so delayed voice can never fall through as an instruction.
                 Rebuild();
                 return;
             }
@@ -385,6 +432,8 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
+            Screen.Question.InvalidateInput();
+            answering = false;
             var outcome = Steering.FocusLeft();
             if (outcome.Step == SteeringStep.Explain) Notify(outcome.Message!);
             Rebuild();
@@ -470,6 +519,12 @@ namespace Halcyonic.Client
                     CheckedPresenter.Present(understanding, evaluation, clock, host.Zone, room, AnswerDepth.Brief),
                     CheckedPresenter.Present(understanding, evaluation, clock, host.Zone, AnswerRoom.Unlimited, AnswerDepth.Full));
             }
+            if (!host.Connected || Screen.Section != FileSection.Waiting || Steering.Armed != null || WorkspaceText.NeedFromYou(presentation) != null
+                || !presentation.Actions.Contains(WorkspaceAction.Answer))
+            {
+                if (Screen.Question.Writing) Screen.Question.CancelInput();
+                answering = false;
+            }
             Frame = FileScreens.Screen(presentation, Steering, Screen, room);
             Changed?.Invoke();
         }
@@ -504,7 +559,7 @@ namespace Halcyonic.Client
                 {
                     return new PromptMeasure(
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
-                        prompt.Options.Select(option => host.RowsOf(FileScreens.AnswerRow(option, "0"), File)).ToList(),
+                        prompt.Options.Select(option => host.RowsOf(FileScreens.AnswerRow(option, "0", multiple: prompt.Multiple), File)).ToList(),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList());
                 }).ToList();
                 measuredFor = asked;
@@ -515,10 +570,11 @@ namespace Halcyonic.Client
             {
                 if (!(asked.Typed(prompt) is string typed)) continue;
                 Screen.Question.MeasureTyped(prompt,
-                    host.RowsOf(FileScreens.TypedRow(typed, "0"), File),
+                    host.RowsOf(FileScreens.SelectedTypedLine(typed), File),
                     host.RowsOf(FileScreens.SideAnswerLine(null, typed), Side));
             }
-            if (asked.Prompts.Count > 1)
+            if (Screen.Question.Writing) Screen.Question.MeasureInput(host.RowsOf(FileScreens.InputLine(Screen.Question), File));
+            if (asked.Prompts.Count > 0)
             {
                 Screen.Question.MeasureReview(Enumerable.Range(0, asked.Prompts.Count)
                     .Select(prompt => host.RowsOf(FileScreens.ReviewRow(asked, prompt), File))

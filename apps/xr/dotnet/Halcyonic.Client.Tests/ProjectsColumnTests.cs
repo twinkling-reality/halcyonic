@@ -39,7 +39,7 @@ public class ProjectsColumnTests
         }
 
         public bool KeyboardOffered => false;
-        public void OpenKeyboard(string text, string prompt, Action<string> done) => throw new InvalidOperationException("Projects types nothing.");
+        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) => throw new InvalidOperationException("Projects types nothing.");
         public int RowsOf(string words, float columnDegrees) => 1;
         public int RowsOf(PageLine line, float columnDegrees) => line.Rows;
         public bool FitsHalf(PageLine answer, float columnDegrees) => false;

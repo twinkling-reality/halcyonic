@@ -31,7 +31,7 @@ internal sealed class AskingWork
 
     public ExecutionView Execution { get; }
 
-    public WorkspacePresentation Present(bool live = true) => WorkspacePresenter.Present(Workstream, State, new ActivityLog(), live);
+    public WorkspacePresentation Present(bool live = true, CommandSubmissions? submissions = null) => WorkspacePresenter.Present(Workstream, State, new ActivityLog(), live, submissions);
 
     /// <summary>The control plane's record of a command, as a snapshot carries it.</summary>
     public void Record(CommandView command)

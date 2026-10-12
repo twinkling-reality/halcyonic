@@ -241,7 +241,7 @@ namespace Halcyonic.XR.Workspace.Editor
             public ControlPlaneApi? Api => null;
             public Task<CommandAckMessage>? Submit(CommandEnvelope command) => throw new InvalidOperationException("A render never submits work.");
             public bool KeyboardOffered => true;
-            public void OpenKeyboard(string text, string prompt, Action<string> done) => done(RenderIdea);
+            public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) => done(RenderIdea);
             public int RowsOf(string words, float degrees) => MenuFrameView.RowsOf(words, degrees);
             public int RowsOf(PageLine line, float degrees) => MenuFrameView.RowsOf(line, degrees);
             public bool FitsHalf(PageLine line, float degrees) => MenuFrameView.FitsHalf(line, degrees);

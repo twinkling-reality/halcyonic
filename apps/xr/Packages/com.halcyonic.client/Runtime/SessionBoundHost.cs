@@ -72,7 +72,7 @@ namespace Halcyonic.Client
 
         public bool KeyboardOffered => host.KeyboardOffered;
 
-        public void OpenKeyboard(string text, string prompt, Action<string> done) => host.OpenKeyboard(text, prompt, done);
+        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) => host.OpenKeyboard(text, prompt, done, dismissed);
 
         public int RowsOf(string words, float columnDegrees) => host.RowsOf(words, columnDegrees);
 

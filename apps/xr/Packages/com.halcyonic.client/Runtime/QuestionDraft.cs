@@ -26,11 +26,17 @@ namespace Halcyonic.Client
         private readonly List<HashSet<string>> chosen = new List<HashSet<string>>();
         private readonly List<string?> typed = new List<string?>();
         private readonly List<bool> shownWhole = new List<bool>();
+        private readonly bool askedAnswerable;
+        private readonly (string Key, string? Header, string Text, bool Multiple, bool FreeText, bool Secret, (string Label, string? Description)[] Options)[] askedPrompts;
 
         public QuestionDraft(string executionId, QuestionView question)
         {
             ExecutionId = executionId;
             Question = question;
+            QuestionId = question.QuestionId;
+            askedAnswerable = question.Answerable;
+            askedPrompts = question.Prompts.Select(prompt => (prompt.Key, prompt.Header, prompt.Text, prompt.Multiple, prompt.FreeText, prompt.Secret,
+                prompt.Options.Select(option => (option.Label, option.Description)).ToArray())).ToArray();
             foreach (var _ in question.Prompts)
             {
                 chosen.Add(new HashSet<string>(StringComparer.Ordinal));
@@ -43,13 +49,26 @@ namespace Halcyonic.Client
 
         public QuestionView Question { get; }
 
-        public string QuestionId => Question.QuestionId;
+        public string QuestionId { get; }
 
         public IReadOnlyList<QuestionPrompt> Prompts => Question.Prompts;
 
-        /// <summary>Whether this draft answers the question shown now, the same one by id.</summary>
-        public bool Answers(string executionId, QuestionView? question) =>
-            question != null && executionId == ExecutionId && question.QuestionId == QuestionId;
+        /// <summary>Bound to this execution and the exact semantic question captured when drafting began, even if a DTO is mutated in place.</summary>
+        public bool Answers(string executionId, QuestionView? question)
+        {
+            if (question == null || executionId != ExecutionId || question.QuestionId != QuestionId || question.Answerable != askedAnswerable
+                || question.Prompts.Count != askedPrompts.Length) return false;
+            for (var index = 0; index < askedPrompts.Length; index++)
+            {
+                var kept = askedPrompts[index];
+                var current = question.Prompts[index];
+                if (kept.Key != current.Key || kept.Header != current.Header || kept.Text != current.Text || kept.Multiple != current.Multiple
+                    || kept.FreeText != current.FreeText || kept.Secret != current.Secret || kept.Options.Length != current.Options.Count) return false;
+                for (var option = 0; option < kept.Options.Length; option++)
+                    if (kept.Options[option].Label != current.Options[option].Label || kept.Options[option].Description != current.Options[option].Description) return false;
+            }
+            return true;
+        }
 
         public bool IsChosen(int prompt, string label) => chosen[prompt].Contains(label);
 
@@ -88,18 +107,27 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Type(int prompt, string? text, bool stopOnPage = false)
         {
-            if (!Prompts[prompt].FreeText) return "This question takes only the answers shown. Choose one of them.";
+            var problem = TextProblem(prompt, text, stopOnPage);
+            if (problem != null) return problem;
             var trimmed = text?.Trim();
             if (string.IsNullOrEmpty(trimmed))
             {
                 typed[prompt] = null;
                 return null;
             }
-            if (!IsWhole(trimmed!)) return "The typed answer has a character that cannot be sent. Type it again.";
-            if (WorkspaceText.ReadsLikeOneThatCantBeChosen(Prompts[prompt], trimmed!)) return WorkspaceText.TypedReadsAlike(stopOnPage);
             typed[prompt] = trimmed;
             if (!Prompts[prompt].Multiple) chosen[prompt].Clear();
             return null;
+        }
+
+        /// <summary>Validate an editor buffer without applying it to the saved answer.</summary>
+        public string? TextProblem(int prompt, string? text, bool stopOnPage = false)
+        {
+            if (!Prompts[prompt].FreeText) return "This question takes only the answers shown. Choose one of them.";
+            var trimmed = text?.Trim();
+            if (string.IsNullOrEmpty(trimmed)) return null;
+            if (!IsWhole(trimmed!)) return "The typed answer has a character that cannot be sent. Type it again.";
+            return WorkspaceText.ReadsLikeOneThatCantBeChosen(Prompts[prompt], trimmed!) ? WorkspaceText.TypedReadsAlike(stopOnPage) : null;
         }
 
         /// <summary>Unchooses every label chosen for a prompt, keeping its typed text, as when the page of its answers turns.</summary>

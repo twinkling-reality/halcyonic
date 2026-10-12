@@ -667,6 +667,18 @@ the same definition names, as the JSON Schema document:
   and words typed or heard that read the same as one of them, compared more loosely, case and a trailing
   . ! ? or , aside, since speech writes "Yes." for "Yes", are refused (`QuestionDraft.Type`), so no
   path sends such a label; Sent… in its place, taking no press, while an answer sent may still take effect.
+  The question's local answer flow (`FileQuestion`) has a choice stage, a separate custom-answer
+  editor, and a mandatory review for one or several prompts. Choice pages use Next question and
+  Review answers as primary controls; Send answer exists on the final review only. Keyboard Done
+  and transcription update the editor buffer, never the saved answer. Use this answer validates and
+  saves the buffer only after all its current parts were drawn; Cancel leaves saved choices and words
+  intact. Custom input is scoped to a free-text prompt and an input-session generation, expired by
+  leaving the editor, focus loss, replacement, preemption or arming. Native keyboard dismissal reports
+  no new words and restores the current read-through mode. Per-recording voice callbacks keep an old
+  answer from becoming a later instruction. Saved drafts are in memory in one open FileColumn:
+  Back/edit/focus return preserve them, Close/reopen and column/session replacement do not.
+  QuestionDraft captures semantic prompt/option content and flags immutably; changes under the same
+  question id invalidate it without allocating a serialized question on each check.
   The question shows a prompt at a time (`FileQuestion`). A question longer than two rows, or one
   whose own page leaves fewer pages in all (its answers' pages then holding more answers each),
   shows first on pages of its own, a part at a time, each ending in a row to the next and the last
@@ -681,8 +693,9 @@ the same definition names, as the JSON Schema document:
   its row, once its side panel has shown all of it; and Your answers once every page has. A typed
   answer or a line of Your answers counts as cut and unread until the layout has measured it as it
   reads now (`FileQuestion.MeasureTyped`, `MeasureReview`), never as one row by default. A choice
-  is taken only from the page in view; turning a prompt's page clears it, keeping the typed answer;
-  laid out anew, the page shows what was chosen, or the choice is cleared. A part's row turns
+  is taken only from the currently drawn page. Option paging keeps chosen labels, and whole-read
+  evidence is tracked per option, including its description; relayout/text-size change invalidates
+  that evidence while keeping the choices. Final review lists every retained label and saved word. A part's row turns
   nothing until its part has been drawn and stood for 0.4 seconds. Send answer waits in its place
   with its reason until all of this holds (`FileScreens.WhySendWaits`), and the steering refuses
   too, given the same reason (`WorkspaceSteering.SendAnswer`'s `waits`). A chosen cut answer, or a typed

@@ -272,7 +272,7 @@ public class JudgeWordsTests
         public ControlPlaneApi? Api => null;
         public Task<CommandAckMessage>? Submit(CommandEnvelope command) => null;
         public bool KeyboardOffered => false;
-        public void OpenKeyboard(string text, string prompt, Action<string> done) { }
+        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) { }
         public int RowsOf(string words, float columnDegrees) => 1;
         public int RowsOf(PageLine line, float columnDegrees) => line.Rows;
         public bool FitsHalf(PageLine answer, float columnDegrees) => false;

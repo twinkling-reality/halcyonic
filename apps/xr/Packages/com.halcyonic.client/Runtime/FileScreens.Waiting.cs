@@ -303,18 +303,42 @@ namespace Halcyonic.Client
         public static string? WhySendWaits(FileScreen screen)
         {
             var question = screen.Question;
-            if (!(question.Draft is QuestionDraft draft)) return null;
-            if (draft.Prompts.Count > 1 && !question.Reviewing) return SendFromYourAnswers;
-            if (draft.Problem is string problem)
-            {
-                var answered = Enumerable.Range(0, draft.Prompts.Count).All(draft.IsAnswered);
-                return answered && WorkspaceText.Answerable(draft.Question) ? ReadTheQuestion : problem;
-            }
-            if (!question.ChosenInView) return ReadTheAnswer;
+            if (!(question.Draft is QuestionDraft draft)) return QuestionNotReady;
+            if (!question.Reviewing || question.Writing) return "Review your answers first.";
+            if (draft.Problem is string problem) return problem;
             if (Enumerable.Range(0, draft.Prompts.Count).Any(prompt => !question.AnswersRead(prompt))) return ReadTheAnswer;
-            if (question.Reviewing && !question.ReviewRead) return ReadYourAnswers;
+            if (!question.ReviewRead) return ReadYourAnswers;
             return null;
         }
+
+        public static string? WhyNextWaits(FileQuestion question)
+        {
+            if (!(question.Draft is QuestionDraft draft) || question.Reviewing) return QuestionNotReady;
+            if (!draft.WasShownWhole(question.Prompt)) return ReadTheQuestion;
+            if (!draft.IsAnswered(question.Prompt)) return draft.Prompts[question.Prompt].Options.Count == 0 ? "Write an answer first."
+                : draft.Prompts[question.Prompt].FreeText ? "Choose or write an answer first." : "Choose an answer first.";
+            return question.AnswersRead(question.Prompt) ? null : ReadTheAnswer;
+        }
+
+        public static string? WhyForwardWaits(FileScreen screen, bool stopOnPage = false)
+        {
+            var question = screen.Question;
+            if (question.Writing) return question.InputReading && question.InputPart < question.InputParts - 1
+                ? question.InputPageRead ? null : "Read this part first." : question.WhyUseWaits(stopOnPage);
+            if (question.Reviewing) return question.Page < question.Pages - 1 ? question.ReviewPageRead ? null : "Read this part first." : WhySendWaits(screen);
+            return question.QuestionPart != null ? question.QuestionPartRead ? null : "Read this part first." : WhyNextWaits(question);
+        }
+
+        public const string BackQuestion = "back-question";
+        public const string CancelInput = "cancel-answer-input";
+        public const string UseInput = "use-answer-input";
+        public const string EditInput = "edit-answer-input";
+        public const string NextInputPart = "next-answer-input-part";
+        public const string PreviousInputPart = "previous-answer-input-part";
+        public const string PreviousReviewPart = "previous-answer-review-part";
+        public const string ReviewAnswers = "Review answers";
+        public const string WriteAnswer = "Write an answer";
+        public const string EditAnswer = "Edit answer";
 
         /// <summary>
         /// A question's footer: Close, Stop beside it, Hold to talk beside Send answer, and Send answer as
@@ -323,27 +347,48 @@ namespace Halcyonic.Client
         /// </summary>
         private static Footer QuestionFooter(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft)
         {
-            var actions = workspace.Actions;
-            Prompt? send = null;
-            if (actions.Contains(WorkspaceAction.Answer))
+            var question = screen.Question;
+            if (workspace.AnswerInFlight) return new Footer(CloseFile,
+                farRight: new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting, waits: true));
+            if (!WorkspaceText.Answerable(draft.Question)) return new Footer(CloseFile, rare: StopWhereUnanswerable(workspace, draft.Question));
+            if (question.Writing)
             {
-                var problem = WhySendWaits(screen);
-                send = new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true,
-                    available: problem == null, reason: problem, pageExplains: problem != null && PageExplains(draft, screen.Question, problem));
+                var reason = question.WhyUseWaits(StopsHere(workspace, draft.Question));
+                var reading = question.InputReading;
+                var next = reading && question.InputPart < question.InputParts - 1
+                    ? new Prompt(NextInputPart, NextPartWords(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: question.InputPageRead, reason: question.InputPageRead ? null : "Read this part first.")
+                    : new Prompt(UseInput, "Use this answer", GlazeIcon.Approve, main: true, available: reason == null, reason: reason);
+                return new Footer(new Prompt(CancelInput, "Cancel", GlazeIcon.Close, PromptKind.Close),
+                    rare: reading && question.InputPart > 0 ? new Prompt(PreviousInputPart, "Previous part", GlazeIcon.Back) : null,
+                    secondary: !reading && screen.Speak && draft.Prompts[question.Prompt].FreeText && workspace.Actions.Contains(WorkspaceAction.Answer)
+                        ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null,
+                    farRight: next);
             }
-            else if (workspace.AnswerInFlight)
+            var back = question.Reviewing && question.Page > 0 ? new Prompt(PreviousReviewPart, "Previous part", GlazeIcon.Back)
+                : question.Reviewing || question.Prompt > 0 ? new Prompt(BackQuestion, "Back", GlazeIcon.Back) : null;
+            Prompt forward;
+            if (question.Reviewing)
             {
-                send = new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting, waits: true);
+                if (question.Page < question.Pages - 1)
+                    forward = new Prompt(MoreAnswers, NextPartWords(question.Page, question.Pages), GlazeIcon.Next, main: true,
+                        available: question.ReviewPageRead, reason: question.ReviewPageRead ? null : "Read this part first.");
+                else
+                {
+                    var reason = WhySendWaits(screen);
+                    forward = new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), GlazeIcon.SendAnswer, main: true,
+                        available: reason == null && workspace.Actions.Contains(WorkspaceAction.Answer), reason: reason ?? (!workspace.Actions.Contains(WorkspaceAction.Answer) ? QuestionNotReady : null));
+                }
             }
-            return new Footer(
-                CloseFile,
-                rare: StopWhereUnanswerable(workspace, draft.Question),
-                // On the page of the person's answers there is no one question to answer by voice, nor under
-                // a question that can't be answered here, as one asking for a secret.
-                secondary: screen.Speak && WorkspaceText.Answerable(draft.Question) && actions.Contains(WorkspaceAction.Answer) && !screen.Question.Reviewing
-                    ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true)
-                    : null,
-                farRight: send);
+            else if (question.QuestionPart is int part)
+                forward = new Prompt(NextPart, part + 1 < question.QuestionParts(question.Prompt) ? NextPartWords(part, question.QuestionParts(question.Prompt)) : "See answers",
+                    GlazeIcon.Next, main: true, available: question.QuestionPartRead, reason: question.QuestionPartRead ? null : "Read this part first.");
+            else
+            {
+                var reason = WhyNextWaits(question);
+                var words = question.ReturningToReview || question.Prompt == draft.Prompts.Count - 1 ? ReviewAnswers : "Next question";
+                forward = new Prompt(NextQuestion, words, GlazeIcon.Next, main: true, available: reason == null, reason: reason);
+            }
+            return new Footer(CloseFile, rare: back, farRight: forward);
         }
 
         /// <summary>
@@ -376,6 +421,7 @@ namespace Halcyonic.Client
         {
             var question = screen.Question;
             if (question.Reviewing) return YourAnswersPage(workspace, screen, draft, source);
+            if (question.Writing) return InputPage(workspace, screen, draft, source);
             var prompt = question.Prompt;
             var asked = draft.Prompts[prompt];
             // The agent's words, leaning beside Halcyonic's quote mark, as its messages are.
@@ -397,12 +443,12 @@ namespace Halcyonic.Client
                 var parts = question.QuestionParts(prompt);
                 var partLines = new List<PageLine>
                 {
+                    new PageLine(QuestionNumber(prompt, draft.Prompts.Count), tone: LineTone.Secondary),
                     new PageLine(text, rows: perPart, fromRow: part * perPart),
-                    new PageLine(QuestionPartWords(part, parts, question.Pages), action: NextPart, key: QuestionKey),
                 };
                 return new Page(partLines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
             }
-            var lines = new List<PageLine>();
+            var lines = new List<PageLine> { new PageLine(QuestionNumber(prompt, draft.Prompts.Count), tone: LineTone.Secondary) };
             // The question heads its answers where it leaves room for one; a long one by its first row.
             if (question.HeadRows(prompt) > 0) lines.Add(new PageLine(text, rows: question.HeadRows(prompt)));
             if (!WorkspaceText.Answerable(draft.Question))
@@ -412,25 +458,23 @@ namespace Halcyonic.Client
             }
             else
             {
+                lines.Add(new PageLine(asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose one or more" : "Choose one", tone: LineTone.Secondary));
                 foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
                 // Under its answers, where some read the same and can't be chosen, why, and the way to the one meant.
                 if (WorkspaceText.OffersALabelTwice(asked))
                 {
                     lines.Add(new PageLine(WorkspaceText.AlikeCantBeChosen(StopsHere(workspace, draft.Question)), tone: LineTone.Secondary, rows: FileQuestion.AlikeRows));
                 }
-                var paging = question.Pages > 1 || draft.Prompts.Count > 1;
-                // Where no keyboard opens, a row that would only open it is left off; one holding words,
-                // as heard through Hold to talk, stays as their choice.
-                if (asked.FreeText && (screen.KeyboardOffered || draft.Typed(prompt) != null))
+                if (asked.FreeText && (screen.KeyboardOffered || screen.Speak || draft.Typed(prompt) != null))
                 {
-                    // Beside the paging row after it, one row for the two (lane V's rule 4).
                     var typed = draft.Typed(prompt);
-                    lines.Add(TypedRow(typed, asked.Options.Count.ToString(CultureInfo.InvariantCulture), paging,
-                        typed == null ? 1 : Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
+                    if (typed != null) lines.Add(SelectedTypedLine(typed, Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
+                    lines.Add(new PageLine(typed == null ? WriteAnswer : EditAnswer, icon: GlazeIcon.Type, action: TypeAnswer,
+                        control: LineControl.Action));
                 }
-                if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), action: MoreAnswers));
+                if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), icon: GlazeIcon.Next, action: MoreAnswers,
+                    control: LineControl.Action));
             }
-            if (draft.Prompts.Count > 1) lines.Add(new PageLine(NextQuestionWords(prompt, draft.Prompts.Count), action: NextQuestion));
             var footer = QuestionFooter(workspace, screen, draft);
             SidePanel? side = null;
             if (question.SideOption is int open)
@@ -463,8 +507,8 @@ namespace Halcyonic.Client
         public static LineWords AnswerRuns(QuestionOption option) => LineWords.TheirName(AnswerWords(option));
 
         /// <summary>An answer's row to choose, as the page draws it and the layout measures it.</summary>
-        public static PageLine AnswerRow(QuestionOption option, string key, bool chosen = false, bool available = true, int rows = 1) =>
-            new PageLine(AnswerRuns(option), action: Choose, key: key, choice: true, chosen: chosen, available: available, rows: rows);
+        public static PageLine AnswerRow(QuestionOption option, string key, bool chosen = false, bool available = true, int rows = 1, bool multiple = false) =>
+            new PageLine(AnswerRuns(option), action: Choose, key: key, choice: true, chosen: chosen, available: available, rows: rows, answerMark: multiple ? AnswerMark.Multiple : AnswerMark.Single);
 
         /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
         public static string AnswerWords(QuestionOption option) =>
@@ -476,7 +520,7 @@ namespace Halcyonic.Client
             var option = draft.Prompts[prompt].Options[index];
             // One that reads the same as another shows, and can't be chosen.
             return AnswerRow(option, index.ToString(CultureInfo.InvariantCulture), draft.IsChosen(prompt, option.Label),
-                !WorkspaceText.ReadsAlike(draft.Prompts[prompt], index), question.AnswerShows(prompt, index));
+                !WorkspaceText.ReadsAlike(draft.Prompts[prompt], index), question.AnswerShows(prompt, index), draft.Prompts[prompt].Multiple);
         }
 
         /// <summary>A prompt's name on the person's answers: its header as the agent wrote it, else which question it is.</summary>
@@ -492,14 +536,35 @@ namespace Halcyonic.Client
         private static Page YourAnswersPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
         {
             var question = screen.Question;
-            var lines = question.Reviewed.Select(prompt => ReviewRow(draft, prompt, question.ReviewShows(prompt))).ToList();
-            if (question.Pages > 1) lines.Add(new PageLine(YourAnswersWords(question.Page, question.Pages), action: MoreAnswers));
+            var lines = new List<PageLine> { new PageLine(YourAnswers, tone: LineTone.Secondary) };
+            lines.AddRange(question.Reviewed.Select(prompt => ReviewRow(draft, prompt, question.ReviewShows(prompt), question.ReviewFirst(prompt))));
             return new Page(lines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
         }
 
-        /// <summary>A prompt's answer on the page of the person's answers, a row back to that prompt, as the page draws it and the layout measures it.</summary>
-        public static PageLine ReviewRow(QuestionDraft draft, int prompt, int rows = 1) =>
-            new PageLine(ReviewRuns(draft, prompt), action: GoToQuestion, key: prompt.ToString(CultureInfo.InvariantCulture), rows: rows, fromRow: 0);
+        public static string QuestionNumber(int prompt, int prompts) => "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture);
+
+        public static PageLine ReviewRow(QuestionDraft draft, int prompt, int rows = 1, int fromRow = 0) =>
+            new PageLine(ReviewRuns(draft, prompt), fact: LineWords.Ours("Edit"), action: GoToQuestion, key: prompt.ToString(CultureInfo.InvariantCulture),
+                opens: true, control: LineControl.Action, rows: rows, fromRow: fromRow);
+
+        public static PageLine SelectedTypedLine(string typed, int rows = 1) =>
+            new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
+
+        public static PageLine InputLine(FileQuestion question, int rows = 1, int? fromRow = null) =>
+            new PageLine(question.Input.Length == 0 ? LineWords.Ours("Type your answer") : LineWords.TheirName(question.Input), icon: GlazeIcon.Type,
+                action: EditInput, control: LineControl.Input, inputFocused: question.InputFocused, rows: rows, fromRow: fromRow);
+
+        private static Page InputPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
+        {
+            var question = screen.Question;
+            var lines = new List<PageLine>
+            {
+                new PageLine("Your answer", tone: LineTone.Secondary),
+                InputLine(question, question.InputPartRows, question.InputPart * question.InputPartRows),
+            };
+            if (question.InputReading) lines.Add(new PageLine(EditAnswer, icon: GlazeIcon.Type, action: EditInput, control: LineControl.Action));
+            return new Page(lines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
+        }
 
         /// <summary>The answers about to be sent, a line for each prompt, and the question the confirmation asks.</summary>
         private static Page Answers(QuestionDraft draft, WorkspaceSteering steering, WorkspacePresentation workspace, Footer before, string source)
