@@ -50,3 +50,15 @@ to preserve this bounded reference only within transient model conversation. It 
 domain command identity. The probe exposed no action tool, read no real project, and logged only
 shape/count/timing metadata. It establishes protocol compatibility, not coordinator, runtime or
 headset task completion. Those consumers and their end-to-end verification remain pending.
+
+## Separate local request continuation
+
+The TypeBox continuation defines a nullable request reference/editor separately from ordinary
+instructions. It retains the exact UUIDv7 host request reference, draft text, spoken origin and
+editor part, with no read/armed/send/approval fields. Shared current fixtures cover submitted and
+unsubmitted requests and invalid identities/coercions/authority. The C# reader migrates only a
+missing `request` field from earlier private version-1 records to null; the current schema still
+requires its explicit presence. A request with no bound execution cannot pass current-context
+validation. Durable view storage retains both drafts within the existing aggregate byte bound.
+These schema/codec facts are separate from production capture, request-owner/tuple checks after
+host reads, native return, process recreation and actual headset acceptance.

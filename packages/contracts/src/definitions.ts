@@ -149,6 +149,7 @@ import {
 import {
   WorkspaceContinuation,
   WorkspaceInstructionDraft,
+  WorkspaceRequestContinuation,
   WorkspaceSection,
   WorkspaceViewStore,
 } from './workspace.ts';
@@ -308,6 +309,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   PairingServerMessage,
   WorkspaceContinuation,
   WorkspaceInstructionDraft,
+  WorkspaceRequestContinuation,
   WorkspaceSection,
   WorkspaceViewStore,
 };

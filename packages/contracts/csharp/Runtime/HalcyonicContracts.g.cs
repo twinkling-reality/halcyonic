@@ -4341,6 +4341,21 @@ namespace Halcyonic.Contracts
         public long Part { get; set; }
     }
 
+    public sealed class WorkspaceRequestContinuation
+    {
+        [JsonProperty("request_id", Required = Required.AllowNull)]
+        public string? RequestId { get; set; }
+
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("spoken", Required = Required.Always)]
+        public bool Spoken { get; set; }
+
+        [JsonProperty("part", Required = Required.Always)]
+        public long Part { get; set; }
+    }
+
     public sealed class WorkspaceContinuation
     {
         [JsonProperty("version", Required = Required.Always)]
@@ -4372,6 +4387,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("instruction", Required = Required.AllowNull)]
         public WorkspaceInstructionDraft? Instruction { get; set; }
+
+        [JsonProperty("request", Required = Required.AllowNull)]
+        public WorkspaceRequestContinuation? Request { get; set; }
     }
 
     public sealed class WorkspaceViewStore

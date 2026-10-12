@@ -17,7 +17,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -33,7 +34,8 @@
         "execution_id": null,
         "section": "activity",
         "page": 2,
-        "instruction": null
+        "instruction": null,
+        "request": null
       }
     },
     {
@@ -53,7 +55,8 @@
           "text": "",
           "spoken": false,
           "part": 0
-        }
+        },
+        "request": null
       }
     },
     {
@@ -73,7 +76,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -93,7 +97,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -114,7 +119,8 @@
           "spoken": true,
           "part": 1
         },
-        "credential": "fake-never-a-real-secret"
+        "credential": "fake-never-a-real-secret",
+        "request": null
       }
     },
     {
@@ -134,7 +140,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -154,7 +161,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -174,7 +182,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -194,7 +203,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -214,7 +224,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -234,7 +245,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -254,7 +266,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -274,7 +287,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -294,7 +308,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -314,7 +329,8 @@
           "text": "Review the authentication change.",
           "spoken": true,
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -334,7 +350,8 @@
           "text": null,
           "spoken": false,
           "part": 0
-        }
+        },
+        "request": null
       }
     },
     {
@@ -349,7 +366,8 @@
         "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
         "execution_id": "0192f1a0-0000-7000-8000-000000000004",
         "section": "activity",
-        "page": 2
+        "page": 2,
+        "request": null
       }
     },
     {
@@ -369,7 +387,8 @@
           "text": "Review the authentication change.",
           "spoken": "true",
           "part": 1
-        }
+        },
+        "request": null
       }
     },
     {
@@ -390,7 +409,8 @@
           "spoken": true,
           "part": 1,
           "read": true
-        }
+        },
+        "request": null
       }
     },
     {
@@ -409,6 +429,138 @@
         "instruction": {
           "text": "Review the authentication change.",
           "spoken": true
+        },
+        "request": null
+      }
+    },
+    {
+      "name": "request editor before submission",
+      "valid": true,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": null,
+          "text": "Read this task and continue the fix.",
+          "spoken": true,
+          "part": 2
+        }
+      }
+    },
+    {
+      "name": "selected host request",
+      "valid": true,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": "0192f1a0-0000-7000-8000-000000000199",
+          "text": "Check the result.",
+          "spoken": false,
+          "part": 0
+        }
+      }
+    },
+    {
+      "name": "request rejects authority",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": null,
+          "text": "Draft",
+          "spoken": true,
+          "part": 0,
+          "armed": true
+        }
+      }
+    },
+    {
+      "name": "request rejects nonentity identity",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": "00000000-0000-4000-8000-000000000199",
+          "text": "Draft",
+          "spoken": false,
+          "part": 0
+        }
+      }
+    },
+    {
+      "name": "request rejects coercion",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": null,
+          "text": "Draft",
+          "spoken": "true",
+          "part": 0
         }
       }
     }
