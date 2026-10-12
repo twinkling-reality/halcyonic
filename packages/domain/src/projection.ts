@@ -3,6 +3,7 @@ import type {
   CommandEnvelope,
   CommandFailure,
   CommandId,
+  CommandOf,
   CommandRejection,
   CommandResult,
   CommandStatus,
@@ -14,6 +15,7 @@ import type {
   ExecutionId,
   ExecutionStatus,
   ExecutionView,
+  Principal,
   ProjectId,
   ProjectLocation,
   ProjectView,
@@ -21,6 +23,8 @@ import type {
   RuntimeEvent,
   StoredEvent,
   Timestamp,
+  WorkspaceRequestStep,
+  WorkspaceRequestView,
   WorkstreamId,
   WorkstreamView,
 } from '@halcyonic/contracts';
@@ -57,6 +61,8 @@ export interface ExecutionFacts {
   runtimeId: string;
   status: ExecutionStatus;
   hasNativeSession: boolean;
+  activeTurnId: string | null;
+  hasActiveTurn: boolean;
   pendingApprovals: readonly ApprovalView[];
   pendingQuestions: readonly QuestionView[];
 }
@@ -126,6 +132,21 @@ export class Projection {
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
   readonly #devices = new DeviceRegistry();
+  readonly #requests = new Map<
+    string,
+    {
+      view: WorkspaceRequestView;
+      principal: Principal | null;
+      prepared: Map<
+        string,
+        { command: CommandOf<'execution.send_instruction'>; step: WorkspaceRequestStep }
+      >;
+      bindings: Map<
+        string,
+        { tool: string; command: CommandId | null; position: number; turn: string | null }
+      >;
+    }
+  >();
 
   constructor(options: ProjectionOptions = {}) {
     this.#reportsToolActivity = options.reportsToolActivity ?? (() => false);
@@ -167,6 +188,34 @@ export class Projection {
   execution(executionId: string): ExecutionView | undefined {
     const state = this.#executions.get(executionId as ExecutionId);
     return state === undefined ? undefined : this.#view(state);
+  }
+
+  workspaceRequest(id: string): WorkspaceRequestView | undefined {
+    const request = this.#requests.get(id);
+    return request ? structuredClone(request.view) : undefined;
+  }
+  workspaceRequests(): WorkspaceRequestView[] {
+    return [...this.#requests.values()].map((request) => structuredClone(request.view));
+  }
+  workspaceRequestOwner(id: string): Principal | null | undefined {
+    const owner = this.#requests.get(id)?.principal;
+    return owner ? { ...owner } : owner;
+  }
+  workspacePreparedCommand(
+    id: string,
+    step: string,
+  ): CommandOf<'execution.send_instruction'> | undefined {
+    const command = this.#requests.get(id)?.prepared.get(step)?.command;
+    return command ? structuredClone(command) : undefined;
+  }
+
+  /** All action receipts remain discoverable when the bounded public view evicts them. */
+  workspacePreparedActions(
+    id: string,
+  ): { command: CommandOf<'execution.send_instruction'>; step: WorkspaceRequestStep }[] {
+    return [...(this.#requests.get(id)?.prepared.values() ?? [])].map((value) =>
+      structuredClone(value),
+    );
   }
 
   command(commandId: string): CommandView | undefined {
@@ -238,6 +287,100 @@ export class Projection {
 
   #dispatch(event: EventEnvelope, changes: ChangeSet, notes: ProjectionNote[]): void {
     switch (event.event_type) {
+      case 'workspace.request.created': {
+        const view = event.payload.request;
+        if (this.#requests.has(view.request_id)) {
+          notes.push(note('duplicate_entity', event, 'request already exists'));
+          return;
+        }
+        const execution = this.#executions.get(view.execution_id);
+        if (
+          execution?.projectId !== view.project_id ||
+          execution?.workstreamId !== view.workstream_id ||
+          view.project_id !== event.project_id ||
+          view.workstream_id !== event.workstream_id ||
+          view.execution_id !== event.execution_id ||
+          !this.#executions.has(event.execution_id)
+        ) {
+          notes.push(note('unknown_entity', event, 'request has inconsistent work binding'));
+          return;
+        }
+        this.#requests.set(view.request_id, {
+          view: structuredClone(view),
+          principal: event.payload.principal ? { ...event.payload.principal } : null,
+          prepared: new Map(),
+          bindings: new Map(),
+        });
+        return;
+      }
+      case 'workspace.request.changed':
+      case 'workspace.request.step_recorded': {
+        const request = this.#requests.get(event.payload.request_id);
+        if (
+          !request ||
+          request.view.project_id !== event.project_id ||
+          request.view.workstream_id !== event.workstream_id ||
+          request.view.execution_id !== event.execution_id
+        ) {
+          notes.push(note('unknown_entity', event, 'request binding does not match'));
+          return;
+        }
+        if (event.event_type === 'workspace.request.changed') {
+          request.view.status = event.payload.status;
+          request.view.reply = structuredClone(event.payload.reply);
+        } else {
+          const step = event.payload.step,
+            command = event.payload.prepared_command;
+          if (
+            command &&
+            (command.payload.execution_id !== request.view.execution_id ||
+              command.command_id !== step.command_id)
+          ) {
+            notes.push(note('unknown_entity', event, 'prepared request command does not match'));
+            return;
+          }
+          const binding = request.bindings.get(step.step_id),
+            retained = request.prepared.get(step.step_id);
+          if (
+            (binding &&
+              (binding.tool !== step.tool_name ||
+                binding.command !== step.command_id ||
+                binding.position !== step.observation_position ||
+                binding.turn !== step.active_turn_id)) ||
+            (command && retained && JSON.stringify(retained.command) !== JSON.stringify(command)) ||
+            (step.command_id !== null && !command && !retained) ||
+            (command &&
+              [...request.prepared.entries()].some(
+                ([id, action]) =>
+                  id !== step.step_id && action.command.command_id === command.command_id,
+              ))
+          ) {
+            notes.push(note('out_of_order', event, 'request step identity cannot change'));
+            return;
+          }
+          request.bindings.set(step.step_id, {
+            tool: step.tool_name,
+            command: step.command_id,
+            position: step.observation_position,
+            turn: step.active_turn_id,
+          });
+          const at = request.view.steps.findIndex((previous) => previous.step_id === step.step_id);
+          if (at < 0 && request.view.steps.length >= 64) {
+            request.view.steps.shift();
+            request.view.earlier_steps++;
+          }
+          if (at < 0) request.view.steps.push(structuredClone(step));
+          else request.view.steps[at] = structuredClone(step);
+          const prepared = retained?.command ?? command;
+          if (prepared)
+            request.prepared.set(step.step_id, {
+              command: structuredClone(prepared),
+              step: structuredClone(step),
+            });
+        }
+        request.view.updated_at = event.ingested_at;
+        return;
+      }
       case 'project.created': {
         if (this.#projects.has(event.project_id)) {
           notes.push(note('duplicate_entity', event, `project ${event.project_id} already exists`));
@@ -643,6 +786,8 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     runtimeId: state.runtime.runtime_id,
     status: deriveExecutionStatus(state),
     hasNativeSession: state.runtimeStarted,
+    activeTurnId: state.activeTurn?.turnId ?? null,
+    hasActiveTurn: state.activeTurn !== null,
     pendingApprovals: [...state.pendingApprovals.values()],
     // Only those shown can be answered: one behind them waits its turn.
     pendingQuestions: shownQuestions(state.pendingQuestions),

@@ -6,6 +6,7 @@ import {
   CommandRejection,
   CommandResult,
   CommandType,
+  ExecutionSendInstructionCommand,
   PolicyCategory,
   ReceivedVia,
 } from './commands.ts';
@@ -26,6 +27,13 @@ import {
   WorkstreamId,
 } from './primitives.ts';
 import { QuestionPrompts } from './questions.ts';
+import {
+  WorkspaceRequestId,
+  WorkspaceRequestReply,
+  WorkspaceRequestStatus,
+  WorkspaceRequestStep,
+  WorkspaceRequestView,
+} from './requests.ts';
 import { ModelRef, RuntimeRef } from './runtime.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
 
@@ -322,6 +330,33 @@ export const CommandFailed = commandEvent(
   ),
 );
 
+export const WorkspaceRequestCreated = executionEvent(
+  'workspace.request.created',
+  Type.Object({ request: WorkspaceRequestView, principal: Nullable(Principal) }, strict),
+);
+export const WorkspaceRequestChanged = executionEvent(
+  'workspace.request.changed',
+  Type.Object(
+    {
+      request_id: WorkspaceRequestId,
+      status: WorkspaceRequestStatus,
+      reply: Nullable(WorkspaceRequestReply),
+    },
+    strict,
+  ),
+);
+export const WorkspaceRequestStepRecorded = executionEvent(
+  'workspace.request.step_recorded',
+  Type.Object(
+    {
+      request_id: WorkspaceRequestId,
+      step: WorkspaceRequestStep,
+      prepared_command: Nullable(ExecutionSendInstructionCommand),
+    },
+    strict,
+  ),
+);
+
 // Runtime observations -----------------------------------------------------------------------
 
 export const ApprovalSubject = Type.Union([
@@ -501,6 +536,9 @@ export const EVENT_VARIANTS = [
   CommandFailed,
   DevicePaired,
   DeviceRevoked,
+  WorkspaceRequestCreated,
+  WorkspaceRequestChanged,
+  WorkspaceRequestStepRecorded,
   RuntimeExecutionStarted,
   RuntimeTurnStarted,
   RuntimeTurnCompleted,

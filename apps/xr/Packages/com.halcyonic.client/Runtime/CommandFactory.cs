@@ -110,6 +110,15 @@ namespace Halcyonic.Client
         public ExecutionInterruptCommand Interrupt(string executionId) =>
             Stamp(new ExecutionInterruptCommand { Payload = new ExecutionInterruptPayload { ExecutionId = executionId } });
 
+        public WorkspaceRequestSubmitCommand Request(string projectId, string workstreamId, string executionId, string text) =>
+            Stamp(new WorkspaceRequestSubmitCommand { Payload = new WorkspaceRequestSubmitPayload { ProjectId = projectId, WorkstreamId = workstreamId, ExecutionId = executionId, Text = text } });
+
+        public WorkspaceRequestResumeCommand ResumeRequest(string requestId, string? text = null) =>
+            Stamp(new WorkspaceRequestResumeCommand { Payload = new WorkspaceRequestResumePayload { RequestId = requestId, Text = text } });
+
+        public WorkspaceRequestCancelCommand CancelRequest(string requestId) =>
+            Stamp(new WorkspaceRequestCancelCommand { Payload = new WorkspaceRequestCancelPayload { RequestId = requestId } });
+
         private T Stamp<T>(T command) where T : CommandEnvelope
         {
             command.CommandId = Guid.NewGuid().ToString("D");

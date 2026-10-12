@@ -79,6 +79,9 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
         [EnumMember(Value = "execution.answer_question")] ExecutionAnswerQuestion,
         [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
+        [EnumMember(Value = "workspace.request.submit")] WorkspaceRequestSubmit,
+        [EnumMember(Value = "workspace.request.resume")] WorkspaceRequestResume,
+        [EnumMember(Value = "workspace.request.cancel")] WorkspaceRequestCancel,
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -568,6 +571,7 @@ namespace Halcyonic.Contracts
     [JsonConverter(typeof(StringEnumConverter))]
     public enum RejectionCode
     {
+        [EnumMember(Value = "request_not_found")] RequestNotFound,
         [EnumMember(Value = "project_not_found")] ProjectNotFound,
         [EnumMember(Value = "workstream_not_found")] WorkstreamNotFound,
         [EnumMember(Value = "execution_not_found")] ExecutionNotFound,
@@ -639,6 +643,7 @@ namespace Halcyonic.Contracts
             var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
             CommandResult value = tag switch
             {
+                "workspace_request_created" => new WorkspaceRequestCreatedResult(),
                 "project_created" => new ProjectCreatedResult(),
                 "workstream_created" => new WorkstreamCreatedResult(),
                 "execution_created" => new ExecutionCreatedResult(),
@@ -660,6 +665,14 @@ namespace Halcyonic.Contracts
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
             throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class WorkspaceRequestCreatedResult : CommandResult
+    {
+        protected override string Discriminator => "workspace_request_created";
+
+        [JsonProperty("request_id", Required = Required.Always)]
+        public string RequestId { get; set; } = default!;
     }
 
     public sealed class ProjectCreatedResult : CommandResult
@@ -1166,6 +1179,36 @@ namespace Halcyonic.Contracts
         public string ExecutionId { get; set; } = default!;
     }
 
+    public sealed class WorkspaceRequestSubmitPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestResumePayload
+    {
+        [JsonProperty("request_id", Required = Required.Always)]
+        public string RequestId { get; set; } = default!;
+
+        [JsonProperty("text", Required = Required.AllowNull)]
+        public string? Text { get; set; }
+    }
+
+    public sealed class WorkspaceRequestCancelPayload
+    {
+        [JsonProperty("request_id", Required = Required.Always)]
+        public string RequestId { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(CommandEnvelopeConverter))]
     public abstract class CommandEnvelope
     {
@@ -1209,6 +1252,9 @@ namespace Halcyonic.Contracts
                 "execution.respond_to_approval" => new ExecutionRespondToApprovalCommand(),
                 "execution.answer_question" => new ExecutionAnswerQuestionCommand(),
                 "execution.interrupt" => new ExecutionInterruptCommand(),
+                "workspace.request.submit" => new WorkspaceRequestSubmitCommand(),
+                "workspace.request.resume" => new WorkspaceRequestResumeCommand(),
+                "workspace.request.cancel" => new WorkspaceRequestCancelCommand(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "CommandEnvelope has no string command_type."
                     : "Unknown command_type \"" + tag + "\" for CommandEnvelope."),
@@ -1291,6 +1337,30 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ExecutionInterruptPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestSubmitCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "workspace.request.submit";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkspaceRequestSubmitPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestResumeCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "workspace.request.resume";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkspaceRequestResumePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestCancelCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "workspace.request.cancel";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkspaceRequestCancelPayload Payload { get; set; } = default!;
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -1435,6 +1505,123 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("revoked_by", Required = Required.Always)]
         public Principal RevokedBy { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestReply
+    {
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public string Epistemic { get; set; } = "reported";
+
+        [JsonProperty("model", Required = Required.Always)]
+        public string Model { get; set; } = default!;
+
+        [JsonProperty("served", Required = Required.Always)]
+        public string Served { get; set; } = "this_mac";
+    }
+
+    public sealed class WorkspaceRequestStep
+    {
+        [JsonProperty("step_id", Required = Required.Always)]
+        public string StepId { get; set; } = default!;
+
+        [JsonProperty("tool_name", Required = Required.Always)]
+        public string ToolName { get; set; } = default!;
+
+        [JsonProperty("status", Required = Required.Always)]
+        public JToken Status { get; set; } = default!;
+
+        [JsonProperty("command_id", Required = Required.AllowNull)]
+        public string? CommandId { get; set; }
+
+        [JsonProperty("command_status", Required = Required.AllowNull)]
+        public CommandStatus? CommandStatus { get; set; }
+
+        [JsonProperty("observation_position", Required = Required.Always)]
+        public long ObservationPosition { get; set; }
+
+        [JsonProperty("active_turn_id", Required = Required.AllowNull)]
+        public string? ActiveTurnId { get; set; }
+
+        [JsonProperty("runtime_status", Required = Required.AllowNull)]
+        public ExecutionStatus? RuntimeStatus { get; set; }
+
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestView
+    {
+        [JsonProperty("request_id", Required = Required.Always)]
+        public string RequestId { get; set; } = default!;
+
+        [JsonProperty("journal_id", Required = Required.Always)]
+        public string JournalId { get; set; } = default!;
+
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("original_text", Required = Required.Always)]
+        public string OriginalText { get; set; } = default!;
+
+        [JsonProperty("status", Required = Required.Always)]
+        public JToken Status { get; set; } = default!;
+
+        [JsonProperty("reply", Required = Required.AllowNull)]
+        public WorkspaceRequestReply? Reply { get; set; }
+
+        [JsonProperty("steps", Required = Required.Always)]
+        public List<WorkspaceRequestStep> Steps { get; set; } = new List<WorkspaceRequestStep>();
+
+        [JsonProperty("earlier_steps", Required = Required.Always)]
+        public long EarlierSteps { get; set; }
+
+        [JsonProperty("created_at", Required = Required.Always)]
+        public string CreatedAt { get; set; } = default!;
+
+        [JsonProperty("updated_at", Required = Required.Always)]
+        public string UpdatedAt { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestCreatedPayload
+    {
+        [JsonProperty("request", Required = Required.Always)]
+        public WorkspaceRequestView Request { get; set; } = default!;
+
+        [JsonProperty("principal", Required = Required.AllowNull)]
+        public Principal? Principal { get; set; }
+    }
+
+    public sealed class WorkspaceRequestChangedPayload
+    {
+        [JsonProperty("request_id", Required = Required.Always)]
+        public string RequestId { get; set; } = default!;
+
+        [JsonProperty("status", Required = Required.Always)]
+        public JToken Status { get; set; } = default!;
+
+        [JsonProperty("reply", Required = Required.AllowNull)]
+        public WorkspaceRequestReply? Reply { get; set; }
+    }
+
+    public sealed class WorkspaceRequestStepRecordedPayload
+    {
+        [JsonProperty("request_id", Required = Required.Always)]
+        public string RequestId { get; set; } = default!;
+
+        [JsonProperty("step", Required = Required.Always)]
+        public WorkspaceRequestStep Step { get; set; } = default!;
+
+        [JsonProperty("prepared_command", Required = Required.AllowNull)]
+        public ExecutionSendInstructionCommand? PreparedCommand { get; set; }
     }
 
     public sealed class RuntimeExecutionStartedPayload
@@ -1673,6 +1860,9 @@ namespace Halcyonic.Contracts
                 "command.failed" => new CommandFailedEvent(),
                 "device.paired" => new DevicePairedEvent(),
                 "device.revoked" => new DeviceRevokedEvent(),
+                "workspace.request.created" => new WorkspaceRequestCreatedEvent(),
+                "workspace.request.changed" => new WorkspaceRequestChangedEvent(),
+                "workspace.request.step_recorded" => new WorkspaceRequestStepRecordedEvent(),
                 "runtime.execution.started" => new RuntimeExecutionStartedEvent(),
                 "runtime.turn.started" => new RuntimeTurnStartedEvent(),
                 "runtime.turn.completed" => new RuntimeTurnCompletedEvent(),
@@ -1804,6 +1994,30 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public DeviceRevokedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestCreatedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workspace.request.created";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkspaceRequestCreatedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestChangedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workspace.request.changed";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkspaceRequestChangedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class WorkspaceRequestStepRecordedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "workspace.request.step_recorded";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public WorkspaceRequestStepRecordedPayload Payload { get; set; } = default!;
     }
 
     public sealed class RuntimeExecutionStartedEvent : EventEnvelope
@@ -4170,5 +4384,75 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("views", Required = Required.Always)]
         public List<WorkspaceContinuation> Views { get; set; } = new List<WorkspaceContinuation>();
+    }
+
+    public sealed class WorkspaceRequestResponse
+    {
+        [JsonProperty("request", Required = Required.Always)]
+        public WorkspaceRequestView Request { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(WorkspaceAgentStatusConverter))]
+    public abstract class WorkspaceAgentStatus
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class WorkspaceAgentStatusConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(WorkspaceAgentStatus).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            WorkspaceAgentStatus value = tag switch
+            {
+                "available" => new AvailableWorkspaceAgent(),
+                "unavailable" => new UnavailableWorkspaceAgent(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "WorkspaceAgentStatus has no string availability."
+                    : "Unknown availability \"" + tag + "\" for WorkspaceAgentStatus."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableWorkspaceAgent : WorkspaceAgentStatus
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("model", Required = Required.Always)]
+        public string Model { get; set; } = default!;
+
+        [JsonProperty("served", Required = Required.Always)]
+        public string Served { get; set; } = "this_mac";
+    }
+
+    public sealed class UnavailableWorkspaceAgent : WorkspaceAgentStatus
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
     }
 }

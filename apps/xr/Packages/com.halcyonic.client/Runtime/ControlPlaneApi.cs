@@ -97,6 +97,20 @@ namespace Halcyonic.Client
             return HalcyonicJson.Deserialize<UnderstandingResponse>(body);
         }
 
+        /// <summary>Local workspace coordinator availability, checked without inference.</summary>
+        public async Task<WorkspaceAgentStatus> GetWorkspaceAgentAsync(CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/workspace/agent", cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<WorkspaceAgentStatus>(body);
+        }
+
+        /// <summary>Journal-projected request state. A response is never a task-completion claim.</summary>
+        public async Task<WorkspaceRequestResponse> ReadWorkspaceRequestAsync(string requestId, CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/workspace/requests/" + Uri.EscapeDataString(requestId), cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<WorkspaceRequestResponse>(body);
+        }
+
         /// <summary>
         /// What the evaluation provider (Seorak) measured about an execution: its estimated cost, outcome
         /// and verification runs. The control plane reads it through on request; the result states its

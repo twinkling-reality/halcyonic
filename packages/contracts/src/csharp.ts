@@ -37,6 +37,7 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   CompanionExchangeTurn: { discriminator: 'from', suffix: 'Turn' },
   CompanionStatus: { discriminator: 'availability', suffix: 'Companion' },
   ProjectLocationChoice: { discriminator: 'kind', suffix: 'Choice' },
+  WorkspaceAgentStatus: { discriminator: 'availability', suffix: 'WorkspaceAgent' },
 };
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
@@ -64,6 +65,8 @@ const ROOTS: readonly string[] = [
   'PairingServerMessage',
   'WorkspaceContinuation',
   'WorkspaceViewStore',
+  'WorkspaceRequestResponse',
+  'WorkspaceAgentStatus',
 ];
 
 interface CsType {
