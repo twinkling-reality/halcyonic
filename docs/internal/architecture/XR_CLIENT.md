@@ -2904,3 +2904,10 @@ recovery data or leaving an old request panel displayed after journal renewal or
 The request panel identifies its actual bound task in the body subject, using the current matching
 journal/project/task data as outside text and measuring that title before packing. Request, Reply
 and Actions name its sections; the generic view name never replaces a known task destination.
+
+The shared CommandSubmissions transport tracker recognizes all three generated workspace-request
+commands before invoking the session send delegate. Acknowledged requests remain distinct from
+journaled outcomes; a completed submit/resume records the request direction, and a completed
+cancel stops only planning. Unknown delivery directs the person to refresh the saved request,
+never to retry it automatically. Request-not-found refusals use ordinary recovery wording from
+the rejection code, without displaying the host's internal error text.

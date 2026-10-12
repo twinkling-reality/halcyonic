@@ -256,6 +256,9 @@ namespace Halcyonic.Client
             ExecutionSendInstructionCommand _ => CommandType.ExecutionSendInstruction,
             ExecutionRespondToApprovalCommand _ => CommandType.ExecutionRespondToApproval,
             ExecutionInterruptCommand _ => CommandType.ExecutionInterrupt,
+            WorkspaceRequestSubmitCommand _ => CommandType.WorkspaceRequestSubmit,
+            WorkspaceRequestResumeCommand _ => CommandType.WorkspaceRequestResume,
+            WorkspaceRequestCancelCommand _ => CommandType.WorkspaceRequestCancel,
             _ => throw new ArgumentOutOfRangeException(nameof(command), command.CommandType, "Unhandled command type."),
         };
 

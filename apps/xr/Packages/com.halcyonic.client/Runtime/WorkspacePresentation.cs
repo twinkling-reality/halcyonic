@@ -291,6 +291,8 @@ namespace Halcyonic.Client
         /// <summary>Accepted is not done: sent, and what it waits for.</summary>
         internal static string Pending(CommandType type) => type switch
         {
+            CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume => "Request sent. Waiting for confirmation…",
+            CommandType.WorkspaceRequestCancel => "Stop planning requested. Waiting for confirmation…",
             CommandType.ExecutionInterrupt => "Sent. Waiting for it to stop…",
             CommandType.ExecutionStart => "Sent. Waiting for it to start…",
             _ => "Sent. Waiting for the agent…",
@@ -299,6 +301,9 @@ namespace Halcyonic.Client
         /// <summary>Only the control plane's completed record says so.</summary>
         private static string Done(CommandType type) => type switch
         {
+            CommandType.WorkspaceRequestSubmit => "Workspace request recorded.",
+            CommandType.WorkspaceRequestResume => "Request continuation recorded.",
+            CommandType.WorkspaceRequestCancel => "Request planning stopped.",
             CommandType.ExecutionRespondToApproval => "Confirmed: it has your decision.",
             CommandType.ExecutionAnswerQuestion => "Confirmed: it has your answer.",
             CommandType.ExecutionInterrupt => "Confirmed: stopped.",
