@@ -135,13 +135,16 @@ Verified source fact: current AOSP `parse_tcp_socket_spec` accepts numeric ports
 `ParseInt`, and host-qualified TCP destinations through `ParseNetAddress`. Libbase accepts leading
 zero decimal, a positive sign, and hexadecimal `0x` spelling. Listener formatting retains the
 `connect_to` destination string, so literal `tcp:47800` matching cannot identify every relay to the
-same port. Sources: [ADB socket parser](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/socket_spec.cpp),
+same port. `ParseInt` also skips leading whitespace; an endpoint such as `tcp: 47800`
+can make the list ambiguous. Sources: [ADB socket parser](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/socket_spec.cpp),
 [listener formatting](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/adb_listeners.cpp),
 [libbase integer parser](https://android.googlesource.com/platform/system/libbase/+/refs/heads/main/include/android-base/parseint.h).
 
 The read-only session check therefore classifies either TCP endpoint by numeric port, conservatively
 including host-qualified port47800 destinations. Exact one canonical47800→47800 remains required;
 unrelated connections remain intact. Pure regressions cover leading zeros, positive signs, hex,
-localhost/IPv4/IPv6 destinations, localabstract sources, and unchanged unrelated routes. This source
+localhost/IPv4/IPv6 destinations, localabstract sources, unchanged unrelated routes, and
+whitespace/ambiguous list entries. Every nonempty mapping line must parse unambiguously as the
+three AOSP fields; unparsed output fails closed without discarding or changing any route. This source
 review and parser regression are not a device relay experiment and do not remove the documented
 same-socket proxy limitation. No mappings or ADB processes were changed during this review.
