@@ -364,7 +364,7 @@ namespace Halcyonic.Client
             {
                 var before = Frame!.Footer[PromptSlot.FarRight]?.Available;
                 Screen.Question.Drawn(clock);
-                var after = FileScreens.WhyForwardWaits(Screen, StopOnPage) == null;
+                var after = FileScreens.QuestionForwardAvailable(Now, Screen);
                 if (before != after) Rebuild();
             }
         }
@@ -562,8 +562,8 @@ namespace Halcyonic.Client
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.AnswerRow(option, "0", multiple: prompt.Multiple), File)).ToList(),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList(),
-                        host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered), File) && host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered, edit: true), File)
-                            && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File));
+                        host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File),
+                        host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered, edit: true), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File));
                 }).ToList();
                 measuredFor = asked;
                 measuredAt = host.TextSize;

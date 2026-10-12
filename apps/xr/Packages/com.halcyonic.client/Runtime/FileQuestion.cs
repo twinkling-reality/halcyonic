@@ -12,15 +12,18 @@ namespace Halcyonic.Client
         /// <param name="questionRows">The rows the prompt's text wraps to across the page.</param>
         /// <param name="answerRows">The rows each answer offered wraps to across the page, in the prompt's order, one for every answer.</param>
         /// <param name="answerSideRows">The rows each answer wraps to across a side panel, where a cut one shows whole, one for every answer.</param>
-        public PromptMeasure(int questionRows, IReadOnlyList<int> answerRows, IReadOnlyList<int> answerSideRows, bool inputPagerFitsHalf = true)
+        public PromptMeasure(int questionRows, IReadOnlyList<int> answerRows, IReadOnlyList<int> answerSideRows, bool inputPagerFitsHalf = true, bool selectedInputPagerFitsHalf = true)
         {
             QuestionRows = Math.Max(1, questionRows);
             AnswerRows = answerRows ?? throw new ArgumentNullException(nameof(answerRows));
             AnswerSideRows = answerSideRows ?? throw new ArgumentNullException(nameof(answerSideRows));
             InputPagerFitsHalf = inputPagerFitsHalf;
+            SelectedInputPagerFitsHalf = selectedInputPagerFitsHalf;
         }
 
         public bool InputPagerFitsHalf { get; }
+
+        public bool SelectedInputPagerFitsHalf { get; }
 
         public int QuestionRows { get; }
 
@@ -154,7 +157,7 @@ namespace Halcyonic.Client
             var room = page.Room - Head(headRows) - Below(asked.FreeText, several) - Alike(asked);
             if (page.Targets(Enumerable.Range(0, asked.Options.Count).Select(option => AnswerShows(prompt, option)).ToArray()) <= room + 1e-6f) return true;
             var least = Enumerable.Range(0, asked.Options.Count).Min(option => AnswerShows(prompt, option));
-            return page.Target(least) + MoreRow(asked.FreeText, measures[prompt].InputPagerFitsHalf) <= room + 1e-6f;
+            return page.Target(least) + MoreRow(asked.FreeText, PairInputPagerFor(prompt)) <= room + 1e-6f;
         }
 
         /// <summary>A head of words and the gap after it, the question and its answers being one group; none for no head.</summary>
@@ -183,7 +186,9 @@ namespace Halcyonic.Client
         /// <summary>The row for more answers, where a page needs it: beside Type my answer it takes no row of its own.</summary>
         private float MoreRow(bool typed, bool pair) => typed && pair ? 0f : page.Target() + page.TargetGap;
 
-        public bool PairInputPager => draft != null && !Reviewing && measures[Prompt].InputPagerFitsHalf;
+        private bool PairInputPagerFor(int prompt) => draft?.Typed(prompt) == null ? measures[prompt].InputPagerFitsHalf : measures[prompt].SelectedInputPagerFitsHalf;
+
+        public bool PairInputPager => draft != null && !Reviewing && PairInputPagerFor(Prompt);
 
         /// <summary>The rows the prompt's whole question wraps to.</summary>
         public int QuestionMeasured(int prompt) => measures[prompt].QuestionRows;
@@ -206,7 +211,7 @@ namespace Halcyonic.Client
             var asked = draft.Prompts[prompt];
             var room = page.Room - Below(asked.FreeText, draft.Prompts.Count > 1) - Alike(asked);
             var full = measures[prompt].AnswerRows.Select(rows => Math.Min(AnswerRows, rows)).ToArray();
-            if (page.Targets(full) > room + 1e-6f) room -= MoreRow(asked.FreeText, measures[prompt].InputPagerFitsHalf);
+            if (page.Targets(full) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt));
             return page.Target(AnswerRows) <= room + 1e-6f ? AnswerRows : 1;
         }
 
@@ -354,7 +359,7 @@ namespace Halcyonic.Client
 
         private static bool SameMeasures(IReadOnlyList<PromptMeasure> a, IReadOnlyList<PromptMeasure> b) =>
             a.Count == b.Count && a.Zip(b, (x, y) => x.QuestionRows == y.QuestionRows && x.AnswerRows.SequenceEqual(y.AnswerRows)
-                && x.AnswerSideRows.SequenceEqual(y.AnswerSideRows) && x.InputPagerFitsHalf == y.InputPagerFitsHalf).All(same => same);
+                && x.AnswerSideRows.SequenceEqual(y.AnswerSideRows) && x.InputPagerFitsHalf == y.InputPagerFitsHalf && x.SelectedInputPagerFitsHalf == y.SelectedInputPagerFitsHalf).All(same => same);
 
         /// <summary>
         /// A prompt's answers in pages: what is left of the rows under the question's head, beside the
@@ -368,7 +373,7 @@ namespace Halcyonic.Client
             var options = Enumerable.Range(0, asked.Options.Count).ToList();
             var several = answering.Prompts.Count > 1;
             var room = page.Room - Head(headRows) - Below(asked.FreeText, several) - Alike(asked);
-            if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, measures[prompt].InputPagerFitsHalf);
+            if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt));
             var laid = new List<List<int>> { new List<int>() };
             var used = 0f;
             foreach (var option in options)
@@ -442,17 +447,9 @@ namespace Halcyonic.Client
                 inputUsed = null;
                 return;
             }
-            if (prompt != Prompt || Reviewing || Writing || QuestionPart != null) return;
-            if (!TypedCut(prompt))
-            {
-                if (sideOption == index) sideOption = null;
-            }
-            else if (fresh) OpenSide(index);
-            else if (sideOption == index && reparted)
-            {
-                SidePart = 0;
-                sideDrawnAt = null;
-            }
+            // Saved custom words are accessible through the dedicated editor and mandatory review.
+            // Measuring them never opens a competing side panel on the choices page.
+
         }
 
         /// <summary>
@@ -469,12 +466,6 @@ namespace Halcyonic.Client
             return true;
         }
 
-        /// <summary>Back on a prompt whose typed answer is cut and unread, its side panel opens at the first part not yet drawn.</summary>
-        private void OpenTypedIfUnread()
-        {
-            if (draft == null || Reviewing || Writing || QuestionPart != null || Prompt >= draft.Prompts.Count || !TypedUnread(Prompt)) return;
-            OpenAtUnread(draft.Prompts[Prompt].Options.Count);
-        }
 
         private bool TypedUnread(int prompt) =>
             TypedCut(prompt) && !(typedRead.TryGetValue(prompt, out var read) && read == draft!.Typed(prompt));
@@ -653,7 +644,6 @@ namespace Halcyonic.Client
             QuestionPart = part + 1 < QuestionParts(Prompt) ? part + 1 : (int?)null;
             Page = 0;
             Turned();
-            OpenTypedIfUnread();
         }
 
         /// <summary>
@@ -685,7 +675,6 @@ namespace Halcyonic.Client
             sideOption = null;
             QuestionPart = !Reviewing && QuestionParts(Prompt) > 0 && !draft.WasShownWhole(Prompt) ? 0 : (int?)null;
             Turned();
-            OpenTypedIfUnread();
         }
 
         /// <summary>From the person's answers back to a prompt, at its first page of answers.</summary>
@@ -700,7 +689,6 @@ namespace Halcyonic.Client
             QuestionPart = QuestionParts(prompt) > 0 && !draft.WasShownWhole(prompt) ? 0 : (int?)null;
             Land(draft);
             Turned();
-            OpenTypedIfUnread();
         }
 
         public void Back(DateTimeOffset now)
@@ -837,7 +825,7 @@ namespace Halcyonic.Client
                     return false;
                 }
             }
-            return !TypedCut(prompt) || (typedRead.TryGetValue(prompt, out var typed) && typed == draft.Typed(prompt));
+            return draft.Typed(prompt) == null || (typedRead.TryGetValue(prompt, out var typed) && typed == draft.Typed(prompt));
         }
 
         /// <summary>Every chosen answer of the prompt showing is on the page in view.</summary>
