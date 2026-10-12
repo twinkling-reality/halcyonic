@@ -13,10 +13,10 @@ namespace Halcyonic.XR.Workspace.Editor
     public static partial class WorkspaceRender
     {
         /// <summary>
-        /// How many director renders laid a dragged plane anew at the larger text where the whole drag no
-        /// longer held, so it kept less (<see cref="MenuDrag.Kept"/>): at least one must, or nothing checks it.
+        /// How many real hand offsets survived measured Larger repacking without passive movement.
+        /// At least one nonzero offset must be exercised; whole-footprint checks still apply.
         /// </summary>
-        private static int keptLessAtLarger;
+        private static int keptOffsetAtLarger;
 
         /// <summary>The id of a start whose outcome is unknown, kept only while the render runs.</summary>
         private sealed class KeptInMemory : IKeptCommand
@@ -77,12 +77,12 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The menu's director on a stage, as WorkspaceDirector will host it: Tasks from the session, its
-        /// waiting task's file opened from its row, the places switched, and the menu closed to its bar.
+        /// The director opens Projects, selects visible Tasks, opens its waiting task from the row,
+        /// switches places and retains the composition behind the global Restore dock.
         /// Each state is drawn on one plane and held to the plane's checks; a file learns of the very
         /// frame it gave being drawn, and the menu's Tasks shows the open file's row chosen.
         /// </summary>
-        /// <param name="besideWindow">The characters either side of a window straight ahead: the plane opens under its lane, and a file's subject drags nothing.</param>
+        /// <param name="besideWindow">Legacy stage metadata must not move or disable the independently placed console; occupied geometry still applies.</param>
         private static IEnumerable<string> RenderMenuDirector(string name, string folder, float radius, float? surfaceDrop, bool besideWindow = false)
         {
             var failures = new List<string>();
@@ -137,7 +137,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     File = (host, task) =>
                     {
                         fileHost = host;
-                        // The file reads its page height while it is made: against its own character's top line.
+                        // The file reads its independent console budget while it is made.
                         made = host.PageHeight(1, besideMenu: false);
                         return file = new StubColumn(() =>
                         {
@@ -166,21 +166,26 @@ namespace Halcyonic.XR.Workspace.Editor
                     SomethingWaits = () => true,
                 });
 
-                // Placement opened from an initially closed bar returns to a bar without a phantom resume.
+                // Full workspace starts at Projects. Move uses the visible console utility; global
+                // Minimize retains the composition behind its single Restore dock.
                 director.DrawNow();
+                if (director.Navigator.Place != MenuPlace.Projects) failures.Add(name + ": the initial workspace did not open Projects.");
                 PressMoveForOrganizationRender(director, 710);
                 director.DrawNow();
                 if (director.Plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject)
-                    failures.Add(name + ": the initially closed bar's Move did not open placement details.");
-                director.Compact();
+                    failures.Add(name + ": the visible workspace Move did not open placement details.");
+                MinimizeForDirectorRender(director, failures, name);
                 director.DrawNow();
-                if (director.Navigator.IsCompact || director.Navigator.ShowsAnything || director.Plane.Bar == null || director.Plane.Shown.Count != 0)
-                    failures.Add(name + ": Move then Compact from an initially closed bar kept a phantom composition or placement view.");
-
-                // Opened as the closed bar's Open does when something waits: on Tasks.
-                director.Open();
+                if (!director.Navigator.IsCompact || director.Navigator.ShowsAnything || director.Plane.Bar == null || director.Plane.Shown.Count != 0)
+                    failures.Add(name + ": Move then Minimize did not leave only the retained workspace dock.");
+                RestoreDockForDirectorRender(director, 709, failures, name);
                 director.DrawNow();
-                if (director.Navigator.Place != MenuPlace.Tasks) failures.Add(name + ": the menu opened on " + director.Navigator.Place + " while something waits; it opens on Tasks.");
+                var projects = director.Plane.Showing(MenuColumn.Menu);
+                if (projects == null || !projects.Sections.Any(section => section.Key == nameof(MenuPlace.Tasks) && section.Reached)
+                    || !director.PressForRender(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks), projects, null))
+                    failures.Add(name + ": the visible Projects workspace did not offer its Tasks section.");
+                director.DrawNow();
+                if (director.Navigator.Place != MenuPlace.Tasks) failures.Add(name + ": choosing the visible Tasks section did not open Tasks.");
                 var tasksFrame = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Tasks, state)).Menu;
                 if (tasksFrame == null || tasksFrame.Sections.Count != 4) failures.Add(name + ": Tasks shows without the menu's four places.");
                 else if (tasksFrame.Lines.FirstOrDefault()?.Key != opened.View.WorkstreamId) failures.Add(name + ": the waiting task is not Tasks' first row.");
@@ -199,10 +204,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     if (director.Plane.Opening(kind)) failures.Add(name + ": a draw at once left the " + kind + " column still opening.");
                 }
-                var expected = MenuPage.Height(comfort.Text, 1, MenuPlane.TopLine(opened.Target, targets, eyes, looking, surface, besideWindow), ViewField.Current);
+                var expected = MenuPage.Height(comfort.Text, 1, 0f, ViewField.Current, header: WorkspaceChromeView.Height,
+                    centered: true, placement: new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg, 0f, true, false),
+                    occupied: targets.Select(target => WorkspaceLayout.InView(target, eyes)).ToList());
                 if (made is not float height || Mathf.Abs(height - expected) > 1e-5f)
                 {
-                    failures.Add(name + ": the file read its page height as " + made + " while it was made, not against its own character's top line (" + expected + ").");
+                    failures.Add(name + ": the file read its page height as " + made + " while it was made, not against the independent measured console budget (" + expected + ").");
                 }
 
                 // In the demonstration a column's send still goes through the host's submissions, to the demonstration's session.
@@ -222,47 +229,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(DirectorFileControls(name, director.Plane.Showing(MenuColumn.File)));
                 failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, window));
 
-                // A Move press belongs to the exact frame it began on, including after a content redraw.
-                var moveView = director.Plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.File).View;
-                var move = moveView?.Targets.FirstOrDefault(button => button.Label.text == "Move");
-                if (move != null && file != null && !besideWindow)
+                // A visible global Move press expires when its whole workspace is minimized.
+                // Restoring retains the file, but grants only the freshly drawn utility a new hold.
+                var move = director.Plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == WorkspaceText.MoveWorkspace);
+                if (move != null && file != null)
                 {
-                    moveView!.SettleSubjectForRender();
-                    move.SettleForRender();
-                    move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Hover, move.transform.position);
-                    move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Select, move.transform.position);
-                    file.Change();
+                    director.PressSubjectForRender();
+                    MinimizeForDirectorRender(director, failures, name);
                     director.DrawNow();
                     move.MatureHoldForRender();
-                    move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Unselect, move.transform.position);
                     if (director.Dragging || director.Plane.Showing(MenuColumn.File)?.Subject == PlacementColumn.Subject)
-                        failures.Add(name + ": an old Move press survived a file-frame rebind.");
+                        failures.Add(name + ": an old Move hold survived workspace Minimize.");
+                    director.LetGoForRender();
+                    RestoreDockForDirectorRender(director, 708, failures, name);
+                    director.DrawNow();
                     director.PressSubjectForRender();
                     director.MatureHoldForRender(move.transform.position);
-                    if (!director.Dragging) failures.Add(name + ": a fresh Move press on the rebound drawn frame could not drag.");
+                    if (!director.Dragging) failures.Add(name + ": a fresh visible Move hold after Restore could not drag.");
                     director.LetGoForRender();
                     director.DrawNow();
                 }
 
-                // Beside a window the plane stands under the window's lane, and a file's subject drags nothing: no drag can take it into the lane.
+                // A legacy stage/window flag is not console placement authority. The console's
+                // actual visible Move remains available; measured occupied geometry still vetoes a drag.
                 if (besideWindow)
                 {
-                    var under = director.Plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View;
-                    if (under == null) failures.Add(name + ": no file stands on the plane beside the window.");
-                    else
-                    {
-                        var underLane = director.Plane.Direction;
-                        director.HoldSubjectForRender(under.Subject.position);
-                        if (director.Dragging) failures.Add(name + ": beside a window, holding the file's subject took hold of the plane.");
-                        director.DragSubjectForRender(eyes + Quaternion.Euler(-20f, 0f, 0f) * (under.Subject.position - eyes));
-                        director.LetGoForRender();
-                        director.DrawNow();
-                        if (director.MovedByHand) failures.Add(name + ": beside a window, the plane moved by hand.");
-                        if (director.Plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject)
-                            failures.Add(name + ": a window-constrained Move hold offered no placement detail.");
-                        failures.AddRange(PlaneState(name + " director held beside the window", folder, camera, texture, director.Plane, characters, eyes, window));
-                    }
-                    return failures;
+                    var retainedAt = director.Plane.Direction;
+                    director.StageRefreshedForRender();
+                    director.DrawNow();
+                    if (!director.Plane.Direction.Equals(retainedAt))
+                        failures.Add(name + ": a stage window flag moved the independent console.");
+                    failures.AddRange(PlaneState(name + " director independent window stage", folder, camera, texture, director.Plane, characters, eyes, window));
                 }
 
                 // Folded away, the person is elsewhere: a draw counts for nothing, and a press on it is not taken.
@@ -364,7 +361,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     surfaceNow = standOn;
                 }, () => surfaceNow, Extra));
 
-                // Folded while another window keeps focus: the plane goes, the banner shows again naming the task still open.
+                // Another app keeps focus: the plane goes while the actual task/project remain retained.
                 failures.AddRange(FoldMenu(name, folder, camera, texture, root, director, opened.View.Presentation!.Title));
 
                 // This separate ordinary-file exercise uses the same measured packing at the two-column top line.
@@ -784,7 +781,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var retainedPart = retained.Screen.Question.InputPart;
                     var lateKeyboard = keyboardDone;
                     var sendsBeforeCompact = sent.Count;
-                    director.Compact();
+                    MinimizeForDirectorRender(director, failures, name);
                     director.DrawNow();
                     failures.AddRange(PlaneState(name + " compact-editor-" + length, folder, camera, texture, plane, characters, eyes, null));
                     var compactBar = plane.Bar;
@@ -794,22 +791,27 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add(name + ": the compact task changed its shared state badge semantics.");
                     if (compactBar != null)
                     {
-                        var move = compactBar.Controls.Move;
-                        typeof(GlazeButton).GetField("shownAt", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(move, float.NegativeInfinity);
-                        move.Target.PointerForRender(711, Oculus.Interaction.PointerEventType.Select, move.transform.position);
+                        RestoreDockForDirectorRender(director, 711, failures, name);
                         director.DrawNow();
-                        director.MatureCompactMoveForRender(move.transform.position);
-                        if (!director.Dragging) failures.Add(name + ": an unchanged compact redraw canceled the Move hold.");
-                        move.Target.PointerForRender(711, Oculus.Interaction.PointerEventType.Unselect, move.transform.position);
-                        director.DrawNow();
-                        PressMoveForOrganizationRender(director, 712);
-                        director.DrawNow();
-                        if (plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject || !director.Navigator.IsCompact)
-                            failures.Add(name + ": compact Move did not retain its underlying compact file.");
-                        director.Compact();
-                        director.DrawNow();
-                        if (!director.Navigator.IsCompact || plane.Bar == null || plane.Shown.Count != 0)
-                            failures.Add(name + ": Compact did not remove placement details from its already-compact composition.");
+                        var move = plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == WorkspaceText.MoveWorkspace);
+                        if (move == null) failures.Add(name + ": restoring the question editor offered no visible workspace Move.");
+                        else
+                        {
+                            director.PressSubjectForRender();
+                            director.DrawNow();
+                            director.MatureHoldForRender(move.transform.position);
+                            if (!director.Dragging) failures.Add(name + ": an unchanged expanded redraw canceled the Move hold.");
+                            director.LetGoForRender();
+                            director.DrawNow();
+                            PressMoveForOrganizationRender(director, 712);
+                            director.DrawNow();
+                            if (plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject || director.Navigator.Beside != retained)
+                                failures.Add(name + ": visible workspace Move did not retain its underlying question file.");
+                            MinimizeForDirectorRender(director, failures, name);
+                            director.DrawNow();
+                            if (!director.Navigator.IsCompact || plane.Bar == null || plane.Shown.Count != 0)
+                                failures.Add(name + ": Minimize did not remove placement details while retaining the question composition.");
+                        }
                     }
 
                     SelectCharacterThroughWorkspace(director, opened.Target, session);
@@ -1062,11 +1064,9 @@ namespace Halcyonic.XR.Workspace.Editor
             retitle(title);
             director.DrawNow();
 
-            // Dragged as far as it goes at the standard text, aside and then away from the characters, then laid
-            // anew at the larger, a plane wider and placed elsewhere by as much: where the whole drag would take it
-            // where no drag may, as its centre out of sight of the stage or above the band a drag keeps to, it
-            // keeps only as much as every rule still allows. Each place's column is made afresh at each size, as
-            // when the menu opens again, so the drag alone is judged, not a page packed for the other size.
+            // The measured console repacks at Larger around the exact retained hand offset.
+            // Passive growth must not clamp or reset it; every corner must still fit, and an old
+            // input press must expire on the new frame. Both real drag directions are exercised.
             var pass = GlazeText.Scale;
             try
             {
@@ -1087,21 +1087,19 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                     var dragged = plane.Moved;
                     if (dragged == default) Debug.Log("Halcyonic: workspace render: " + name + " takes no drag " + way + " at the standard text.");
-                    var waited = subject.Unsettles;
+                    var oldFrame = plane.Showing(MenuColumn.File);
+                    var oldHeld = subject.Targets.FirstOrDefault(button => button.Holds && button.Label.text == "Hold to talk");
+                    oldHeld?.HoldPressForRender();
                     textAt(Comfort.LargerTextScale);
                     director.Navigator.Renew();
                     director.DrawNow();
                     failures.AddRange(DirectorFileControls(name + " larger Move " + way, plane.Showing(MenuColumn.File)));
-                    if (dragged != default && !plane.Allows(MenuDrag.Turned(plane.Placed, dragged)))
-                    {
-                        keptLessAtLarger++;
-                        // Laid anew where it keeps less of the drag, the file moved: its prompts wait to settle again.
-                        if (subject.Unsettles == waited) failures.Add(name + ": laid anew keeping less of its drag " + way + ", the file moved and its prompts took presses at once.");
-                        Debug.Log("Halcyonic: workspace render: " + name + " keeps (" + GlazeChecks.Degrees(plane.Moved.Yaw) + ", " + GlazeChecks.Degrees(plane.Moved.Elevation)
-                            + ") of a (" + GlazeChecks.Degrees(dragged.Yaw) + ", " + GlazeChecks.Degrees(dragged.Elevation) + ") degree drag " + way + " at the larger text.");
-                    }
-                    else Debug.Log("Halcyonic: workspace render: " + name + " has room at the larger text for its drag " + way + ", so keeps it whole.");
-                    if (!plane.Allows(plane.Direction)) failures.Add(name + ": laid anew at the larger text, the plane kept more of the drag " + way + " than its rules allow.");
+                    if (plane.Moved != dragged) failures.Add(name + ": Larger repacking changed the exact retained hand offset " + way + ".");
+                    else if (dragged != default) keptOffsetAtLarger++;
+                    if (oldHeld?.PressUnderWay == true) failures.Add(name + ": a held input survived text-size repacking " + way + ".");
+                    if (oldFrame != null && director.Navigator.Act(MenuColumn.File, "render-press", null, oldFrame, null))
+                        failures.Add(name + ": an old drawn frame took input after text-size repacking " + way + ".");
+                    if (!plane.Allows(plane.Direction)) failures.Add(name + ": Larger repacking no longer fits the exact retained offset " + way + ".");
                     failures.AddRange(PlaneState(name + " director dragged " + way + " then larger text", folder, camera, texture, plane, characters, eyes, null));
                     failures.AddRange(InSightOfStage(name + " director dragged " + way + " then larger text", plane, eyes));
                     // A drag never takes the plane's centre above the highest a placement goes, nor below the lowest
@@ -1198,7 +1196,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // first's release lets go, so a drag is never orphaned, refusing every press while it seems over.
             director.LetGoForRender(); // The previous scenario closed under pointer 734; it must release before pointer 1 arrives.
             director.DrawNow();
-            if (subject.SubjectHoldForRender is PointerTarget hand)
+            var visibleMove = plane.Chrome.Visible ? plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == WorkspaceText.MoveWorkspace) : null;
+            if (visibleMove?.Target is PointerTarget hand)
             {
                 var selects = 0;
                 var releases = 0;
@@ -1208,11 +1207,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 hand.Released += Ended;
                 try
                 {
-                    var moveButton = subject.Targets.First(button => button.Label.text == "Move");
+                    var moveButton = visibleMove;
                     var at = moveButton.transform.position;
                     director.ResetPosition();
                     director.DrawNow();
-                    // Opened again, the file's subject waits to settle as a new one does; a hand finds it a moment later.
+                    // The actual visible utility must settle before a fresh pointer press.
                     subject.SettleSubjectForRender();
                     moveButton.SettleForRender();
                     hand.PointerForRender(1, Oculus.Interaction.PointerEventType.Hover, at);
@@ -1236,8 +1235,8 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             else failures.Add(name + ": the file's subject has no hold to drag by.");
 
-            // Dragged, then the stage arranged beside a window, or on another surface: the drag made for the last
-            // arrangement holds no more, and does not come back with it.
+            // Agent stage/window metadata is not console placement authority. Retain its exact
+            // independently hand-placed offset through both passive changes and their reversal.
             var standOn = surfaceNow();
             foreach (var (window, surface, what) in new[] { (true, standOn, "arranged beside a window"), (false, (float?)(EyeHeight - 1.1f), "on another surface") })
             {
@@ -1248,23 +1247,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.LetGoForRender();
                 director.DrawNow();
                 if (!director.MovedByHand) failures.Add(name + ": dragged before the stage was " + what + ", the plane kept no drag.");
+                var retainedOffset = plane.Moved;
+                var retainedDirection = plane.Direction;
                 arrange(window, surface);
                 director.DrawNow();
-                if (director.MovedByHand || plane.Moved != default) failures.Add(name + ": the stage " + what + ", the plane kept the drag made for the last arrangement.");
-                if (window)
-                {
-                    director.HoldSubjectForRender(subject.Subject.position);
-                    if (director.Dragging) failures.Add(name + ": the stage " + what + ", holding the file's subject took hold of the plane.");
-                    director.LetGoForRender();
-                    director.DrawNow();
-                    var placement = director.Plane.Showing(MenuColumn.File);
-                    if (placement?.Subject != PlacementColumn.Subject || !director.PressForRender(MenuColumn.File, Footer.Close, null, placement, null))
-                        failures.Add(name + ": the window-constrained Move detail had no usable Close details route.");
-                    director.DrawNow();
-                }
+                if (!director.MovedByHand || plane.Moved != retainedOffset || !plane.Direction.Equals(retainedDirection))
+                    failures.Add(name + ": the stage " + what + " changed the independently retained console position.");
+                // Actual utility remains available; no guessed window arrangement disables Move.
+                if (!plane.Chrome.Visible || !plane.Chrome.Targets.Any(button => button.Label.text == WorkspaceText.MoveWorkspace && button.Available))
+                    failures.Add(name + ": the stage " + what + " removed the visible workspace Move control.");
                 arrange(false, standOn);
                 director.DrawNow();
-                if (director.MovedByHand) failures.Add(name + ": the stage back as it was, the drag made before came back with it.");
+                if (!director.MovedByHand || plane.Moved != retainedOffset || !plane.Direction.Equals(retainedDirection))
+                    failures.Add(name + ": restoring stage metadata changed the independently retained console position.");
             }
 
             // A character leaving the stage mid-drag, or one arriving: the drag ends, as its rules were judged against the stage as it began.
@@ -1365,9 +1360,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// The menu and a file folded while another window keeps focus, then restored (ADR 0023's fold,
-        /// on the menu): open, the plane covers the stage's banner; folded, nothing of it shows, nothing
-        /// covers the banner, and the banner names <paramref name="title"/> as still open; restored, it
-        /// comes back pixel for pixel.
+        /// on the menu): the actual task/project remain identified, folded nothing shows or takes
+        /// input, and restored the workspace comes back pixel for pixel.
         /// </summary>
         private static IEnumerable<string> FoldMenu(string name, string folder, Camera camera, RenderTexture texture, GameObject root, MenuDirector director, string title)
         {
@@ -1376,15 +1370,19 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 FocusGuard.FoldForRender(false);
                 director.DrawNow();
-                if (!AmbientCover.PanelShowing) failures.Add(name + ": the open menu leaves the stage's banner where it stands.");
+                if (!AmbientCover.PanelShowing) failures.Add(name + ": the open workspace did not register its visible cover.");
+                if (director.Plane.Showing(MenuColumn.File)?.Subject != LabelText.Name(title)
+                    || !director.Plane.SelectionContext.Text.Contains("Storefront API"))
+                    failures.Add(name + ": the current workspace did not identify its task and project before folding.");
                 ForceMeshes(root);
                 var open = Render(camera, texture);
                 FocusGuard.FoldForRender(true);
                 director.DrawNow();
                 var folded = Render(camera, texture);
                 if (director.Plane.gameObject.activeInHierarchy) failures.Add(name + ": the menu still shows while folded.");
-                if (AmbientCover.PanelShowing) failures.Add(name + ": the menu still covers the stage's banner while folded.");
-                if (AmbientCover.OpenPanel != title) failures.Add(name + ": the banner would say \"" + AmbientCover.OpenPanel + "\" is still open, not \"" + title + "\".");
+                if (AmbientCover.PanelShowing) failures.Add(name + ": the workspace still registered visible cover while folded.");
+                if (director.Navigator.Beside?.Frame?.Subject != LabelText.Name(title))
+                    failures.Add(name + ": folding lost the actual retained task identity.");
                 FocusGuard.FoldForRender(false);
                 director.DrawNow();
                 ForceMeshes(root);
@@ -1436,6 +1434,30 @@ namespace Halcyonic.XR.Workspace.Editor
                 var next = frame.Footer.All.FirstOrDefault(each => each.Prompt.Id == Footer.NextPage).Prompt;
                 if (next == null || !director.Navigator.Act(MenuColumn.Menu, next.Id, null, frame, null)) return false;
             }
+        }
+
+        private static void MinimizeForDirectorRender(MenuDirector director, List<string> failures, string name)
+        {
+            var minimize = director.Plane.Chrome.Visible
+                ? director.Plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == WorkspaceText.Minimize) : null;
+            if (minimize == null || !minimize.gameObject.activeInHierarchy)
+            { failures.Add(name + ": no visible workspace Minimize control."); return; }
+            minimize.SettleForRender();
+            minimize.Target.PointerForRender(707, Oculus.Interaction.PointerEventType.Select, minimize.transform.position);
+            minimize.Target.PointerForRender(707, Oculus.Interaction.PointerEventType.Unselect, minimize.transform.position);
+            director.DrawNow();
+            if (!director.Navigator.IsCompact) failures.Add(name + ": the visible Minimize control did not minimize the workspace.");
+        }
+
+        private static void RestoreDockForDirectorRender(MenuDirector director, int pointer, List<string> failures, string name)
+        {
+            if (director.Plane.Bar is not MenuBarView dock || !dock.Target.gameObject.activeInHierarchy)
+            { failures.Add(name + ": no visible workspace Restore dock."); return; }
+            dock.Target.SettleForRender();
+            dock.Target.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Select, dock.Target.transform.position);
+            dock.Target.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, dock.Target.transform.position);
+            director.DrawNow();
+            if (director.Navigator.IsCompact) failures.Add(name + ": the visible workspace Restore dock did not expand its composition.");
         }
 
         private static IEnumerable<string> DirectorFileControls(string name, MenuFrame? frame)
