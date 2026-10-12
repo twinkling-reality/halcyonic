@@ -516,6 +516,17 @@ namespace Halcyonic.XR.UI
         /// <summary>For the editor's renders, which have no hands: a held prompt pressed now, its hold under way.</summary>
         public void HoldPressForRender() => pressedAt = Time.unscaledTime;
 
+        /// <summary>For renders: advance the settling clock only, preserving actual action/focus authorization.</summary>
+        public void SettleForRender() => shownAt = float.NegativeInfinity;
+
+        /// <summary>For renders: mature an existing pointer press through the production hold update and its guards.</summary>
+        public void MatureHoldForRender()
+        {
+            if (pressedAt < 0f) return;
+            pressedAt = Time.unscaledTime - HoldSeconds;
+            Update();
+        }
+
         /// <summary>A press on it is under way, for the editor's renders.</summary>
         public bool PressUnderWay => pressedAt >= 0f;
 

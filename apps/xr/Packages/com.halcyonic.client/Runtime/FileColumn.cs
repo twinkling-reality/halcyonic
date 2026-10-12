@@ -44,6 +44,7 @@ namespace Halcyonic.Client
         private bool presets;
         private IReadOnlyList<PresetInstruction>? recordedNow;
         private string? notice;
+        private MenuFrame? drawnPresetFrame;
         private double noticeUntil;
         private double nextRefresh;
         private bool answering;
@@ -226,6 +227,19 @@ namespace Halcyonic.Client
                 case FileScreens.SpeakAnswer:
                     // Pressed and let go before its hold started.
                     Notify(VoiceText.TooShort);
+                    break;
+                case FileScreens.BackPresetNotice:
+                    if (drawnPresetFrame != Frame) return;
+                    Screen.BackFromPresetNotice();
+                    notice = null;
+                    break;
+                case FileScreens.NextPresetNotice:
+                    if (drawnPresetFrame != Frame) return;
+                    Screen.NextPresetNotice(clock);
+                    break;
+                case FileScreens.NextPresetPage:
+                    if (drawnPresetFrame != Frame) return;
+                    Screen.NextPresetPage(clock);
                     break;
                 case FileScreens.Preset when Index(key) is int chosen:
                     // A row only chooses; Review instruction copies the chosen words into the local editor.
@@ -437,6 +451,12 @@ namespace Halcyonic.Client
             // Only the frame this column stands by counts: what it shows is this state's.
             if (drawn != Frame || Now == null) return;
             var clock = host.Clock;
+            if (Screen.Presets != null && Steering.Armed == null && (Screen.ShowingPresetNotice || drawn.Lines.Any(line => line.Action == FileScreens.Preset)))
+            {
+                drawnPresetFrame = drawn;
+                if (Screen.ShowingPresetNotice) Screen.PresetNoticeDrawn(clock);
+                else Screen.PresetDrawn(clock);
+            }
             if (sidePanel != null)
             {
                 if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.SideOption != null) Screen.Question.SideDrawn(clock);
@@ -569,6 +589,8 @@ namespace Halcyonic.Client
         /// <summary>Retains the exact local page and buffer while dropping every interaction authorization.</summary>
         public void Compact()
         {
+            drawnPresetFrame = null;
+            Screen.SuspendPresets();
             Screen.Question.SuspendPresentation();
             Screen.Instruction.Suspend();
             drawnInstructionFrame = null;
@@ -584,6 +606,8 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
+            drawnPresetFrame = null;
+            Screen.SuspendPresets();
             Screen.Question.InvalidateInput();
             Screen.Instruction.Suspend();
             drawnInstructionFrame = null;
@@ -612,6 +636,7 @@ namespace Halcyonic.Client
         /// </summary>
         private void Rebuild()
         {
+            drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;
             var presentation = present();
             if (presentation == null)
@@ -660,12 +685,19 @@ namespace Halcyonic.Client
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
-            var focused = Screen.Instruction.Open || FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting && Steering.Armed == null, Steering);
+            var focused = Screen.Instruction.Open || (Screen.Presets != null && Steering.Armed == null)
+                || FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting && Steering.Armed == null, Steering);
             if (budget == null || resized || budgetFocused != focused)
             {
                 budgetFocused = focused;
                 budget = Budget(presentation);
                 budgetAt = host.TextSize;
+            }
+            if (Screen.Presets != null)
+            {
+                var recordedPresets = !ReferenceEquals(Screen.Presets, WorkspaceText.PresetInstructions);
+                Screen.MeasurePresets(Screen.Presets.Select((preset, index) => Math.Min(2, host.RowsOf(FileScreens.PresetLine(preset, index, recordedPresets), Glaze.Menu.FileColumnDegrees))).ToList(), budget,
+                    notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             }
             if (draft != null) ReadQuestion(draft, budget);
             if (Screen.Instruction.Open)

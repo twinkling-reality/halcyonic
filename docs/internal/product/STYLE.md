@@ -281,3 +281,7 @@ keep Previous part and Next part, paired only at measured half widths; all field
 12 mm gaps remain in the height budget. The editor has at most three footer prompts: local Cancel,
 Hold to talk when available, and Send instruction. Done/transcription only change its local draft;
 Send is explicit and remains quiet/unavailable until the complete current draft has been read.
+
+Preset instructions are a focused choice page. Their actual wrapped rows, source, reason and body
+pager fit the same measured field budget; browsing keeps the selected candidate. A full notice that
+cannot share the page reads separately under What happened, with Back to choices.

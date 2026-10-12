@@ -38,6 +38,9 @@ namespace Halcyonic.Client
         public const string Yes = WorkspaceScreens.Yes;
         public const string Cancel = WorkspaceScreens.Cancel;
         public const string Preset = WorkspaceScreens.Preset;
+        public const string NextPresetPage = "preset-next-page";
+        public const string BackPresetNotice = "preset-notice-back";
+        public const string NextPresetNotice = "preset-notice-next";
         public const string Choose = WorkspaceScreens.Choose;
         public const string TypeAnswer = WorkspaceScreens.TypeAnswer;
 
@@ -109,10 +112,13 @@ namespace Halcyonic.Client
             screen.QuestionPage = page.OfQuestion;
             var lines = page.Lines.ToList();
             var instructionEditor = screen.Instruction.Open && steering.Armed == null;
-            if (screen.Notice != null && (!instructionEditor || screen.Instruction.InlineNotice && !screen.Instruction.ExplainingNotice))
-                lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: instructionEditor ? Math.Max(1, screen.Instruction.NoticeRows) : 2));
+            var presetEditor = screen.Presets != null && !screen.Instruction.Open && steering.Armed == null;
+            if (screen.Notice != null && (!instructionEditor || screen.Instruction.InlineNotice && !screen.Instruction.ExplainingNotice)
+                && (!presetEditor || !screen.ShowingPresetNotice))
+                lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary,
+                    rows: instructionEditor ? Math.Max(1, screen.Instruction.NoticeRows) : presetEditor ? Math.Max(1, screen.PresetNoticeRows) : 2));
             // The task's title leans in its plate, which is its ground; the pill on its edge stays upright.
-            var focused = screen.Instruction.Open || FocusesAnswer(workspace, page.OfQuestion, steering);
+            var focused = screen.Instruction.Open || presetEditor || FocusesAnswer(workspace, page.OfQuestion, steering);
             var frame = new MenuFrame(
                 LineWords.TheirName(workspace.Character.Title),
                 page.Footer,
@@ -193,6 +199,10 @@ namespace Halcyonic.Client
         /// Tell it waits for words, its page says how to give them, or offers the instructions in rows
         /// where there is no keyboard; while Stop or an instruction waits for its confirmation, it asks.
         /// </summary>
+        public static PageLine PresetLine(PresetInstruction preset, int index, bool recorded, bool chosen = false, int rows = 2) =>
+            new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
+                key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: chosen, rows: rows, answerMark: AnswerMark.Single);
+
         private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
             var source = AgentSource;
@@ -203,11 +213,22 @@ namespace Halcyonic.Client
             }
             if (screen.Presets is { } presets)
             {
+                if (screen.ShowingPresetNotice && screen.PresetNotice != null)
+                    return new Page(new[]
+                    {
+                        new PageLine("What happened", tone: LineTone.Secondary),
+                        new PageLine(screen.PresetNotice, rows: Math.Min(screen.PresetNoticePartRows, screen.PresetNoticeRows - screen.PresetNoticePart * screen.PresetNoticePartRows),
+                            fromRow: screen.PresetNoticePart * screen.PresetNoticePartRows),
+                    }, null, new Footer(CloseFile, secondary: new Prompt(BackPresetNotice, "Back to choices", GlazeIcon.Back),
+                        farRight: screen.PresetNoticeParts > 1 ? new Prompt(NextPresetNotice, Footer.NextPageWords(screen.PresetNoticePart, screen.PresetNoticeParts), GlazeIcon.Next, PromptKind.NextPage) : null));
                 // Rows only choose, showing the very words Tell it sends; Tell it, the main action, sends
                 // them, and nothing is sent by the press that chooses.
                 var recorded = !ReferenceEquals(presets, WorkspaceText.PresetInstructions);
-                var rows = presets.Select((preset, index) => new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
-                    key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: screen.ChosenPreset == index, rows: 2, answerMark: AnswerMark.Single)).ToList();
+                var indices = screen.PresetRows.Count == presets.Count ? screen.PresetIndices : Enumerable.Range(0, presets.Count).ToList();
+                var rows = indices.Select(index => PresetLine(presets[index], index, recorded, screen.ChosenPreset == index,
+                    screen.PresetRows.Count == presets.Count ? screen.PresetRows[index] : 2)).ToList();
+                if (screen.PresetPages > 1) rows.Add(new PageLine("Next choices, " + (screen.PresetPage + 1).ToString(CultureInfo.InvariantCulture) + " of " + screen.PresetPages.ToString(CultureInfo.InvariantCulture),
+                    icon: GlazeIcon.Next, action: NextPresetPage, control: LineControl.Action));
                 var chosen = screen.ChosenPreset != null;
                 var tell = new Prompt(TellIt, "Review instruction", WorkspaceText.IconOf(WorkspaceAction.Instruct), main: true,
                     available: chosen, reason: chosen ? null : ChooseAnInstruction);

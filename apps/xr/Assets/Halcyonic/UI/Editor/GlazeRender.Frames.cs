@@ -112,12 +112,12 @@ namespace Halcyonic.XR.UI.Editor
             return columns;
         }
 
-        /// <summary>A hand on the file's subject plate and on Hold to talk: pointed at, or held from the press until let go.</summary>
+        /// <summary>A hand on the file's named Move target and on Hold to talk: pointed at, or held from the press until let go.</summary>
         private static void PaintHeld(List<FrameColumn> columns, bool pressed)
         {
             var file = columns[1].View!;
             file.PaintSubjectForRender(pointed: true, pressed);
-            file.Targets.First(target => target.Holds).PaintForRender(true, pressed);
+            file.Targets.First(target => target.Label.text == "Hold to talk").PaintForRender(true, pressed);
         }
 
         /// <summary>
@@ -134,21 +134,21 @@ namespace Halcyonic.XR.UI.Editor
                 var columns = Draggable(holder);
                 PaintHeld(columns, pressed: false);
                 var file = columns[1].View!;
-                var cue = file.GetComponentsInChildren<Surface>(false).FirstOrDefault(surface => surface.name == "Subject cue");
-                var talk = file.Targets.First(target => target.Holds);
+                var move = file.Targets.First(target => target.Label.text == "Move");
+                var talk = file.Targets.First(target => target.Label.text == "Hold to talk");
                 var started = 0;
                 talk.HoldStarted += () => started++;
-                if (cue?.Selection != SurfaceSelection.Pointed) failures.Add("component render: the file's subject plate, pointed at, shows no pointed frame.");
+                if (!move.GetComponentsInChildren<Surface>(false).Any(surface => surface.Selection == SurfaceSelection.Pointed)) failures.Add("component render: the file's named Move target, pointed at, shows no pointed frame.");
                 file.PaintSubjectForRender(pointed: true, pressed: true);
                 talk.PaintForRender(true, true);
-                if (cue?.Selection != SurfaceSelection.Lit) failures.Add("component render: the file's subject plate, held, is not lit.");
+                if (!move.GetComponentsInChildren<Surface>(false).Any(surface => surface.Selection == SurfaceSelection.Lit)) failures.Add("component render: the file's named Move target, held, is not lit.");
                 if (!talk.GetComponentsInChildren<Surface>(false).Any(surface => surface.Selection == SurfaceSelection.Lit))
                 {
-                    failures.Add("component render: Hold to talk, held, is not lit as the subject plate is.");
+                    failures.Add("component render: Hold to talk, held, is not lit as Move is.");
                 }
                 if (talk.Holding || started > 0) failures.Add("component render: painting Hold to talk as held started its hold.");
                 file.PaintSubjectForRender(pointed: false, pressed: false);
-                if (cue?.Selection != SurfaceSelection.None) failures.Add("component render: the file's subject plate shows a cue with nothing on it.");
+                if (move.GetComponentsInChildren<Surface>(false).Any(surface => surface.Selection != SurfaceSelection.None)) failures.Add("component render: the file's named Move target shows a cue with nothing on it.");
             }
             finally
             {
@@ -248,7 +248,19 @@ namespace Halcyonic.XR.UI.Editor
             var menuView = View(holder, "Menu");
             menuView.Show(menu, Glaze.Menu.MenuColumnDegrees, subject, pillRoom: true);
             var fileView = View(holder, "File");
+            fileView.EnableSubjectHold();
             fileView.Show(file, Glaze.Menu.FileColumnDegrees, subject, pillRoom: true);
+            // The gallery is a real first page: repack its task rows against the new measured header,
+            // preserving the Next page route and every field/type/target limit.
+            var room = MenuPage.Height(TextSizeNow, Math.Max(MenuFrameView.TitleRows(menu.Subject, Glaze.Menu.MenuColumnDegrees),
+                MenuFrameView.TitleRows(file.Subject, Glaze.Menu.FileColumnDegrees)), besideMenu: true);
+            var count = menu.Lines.Count;
+            while (menuView.Heights.Last() > MenuPage.Content(room) + 1e-6f && count > 1)
+            {
+                count--;
+                menuView.Show(new MenuFrame(menu.Subject, menu.Footer, subjectWaits: true, sections: menu.Sections,
+                    lines: menu.Lines.Take(count).ToList()), Glaze.Menu.MenuColumnDegrees, subject, pillRoom: true);
+            }
             return new List<FrameColumn> { new FrameColumn(menuView), new FrameColumn(fileView) };
         }
 

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Halcyonic.Client
 {
@@ -109,10 +110,83 @@ namespace Halcyonic.Client
                 if (Same(presets, value)) return;
                 presets = value;
                 ChosenPreset = null;
+                presetMeasure = null;
+                PresetPage = 0;
+                presetDrawnAt = null;
             }
         }
 
         private IReadOnlyList<PresetInstruction>? presets;
+        private string? presetMeasure;
+        public string? PresetNotice { get; private set; }
+        public int PresetNoticeRows { get; private set; }
+        public bool ShowingPresetNotice { get; private set; }
+        public int PresetNoticePart { get; private set; }
+        public int PresetNoticeParts { get; private set; } = 1;
+        public int PresetNoticePartRows { get; private set; } = 1;
+        private DateTimeOffset? presetNoticeDrawnAt;
+        private DateTimeOffset? presetDrawnAt;
+        private readonly List<IReadOnlyList<int>> presetPages = new List<IReadOnlyList<int>>();
+        public int PresetPage { get; private set; }
+        public int PresetPages => Math.Max(1, presetPages.Count);
+        public IReadOnlyList<int> PresetIndices => presetPages.Count == 0 ? Array.Empty<int>() : presetPages[PresetPage];
+        public IReadOnlyList<int> PresetRows { get; private set; } = Array.Empty<int>();
+        public void MeasurePresets(IReadOnlyList<int> rows, PageBudget page, int noticeRows = 0)
+        {
+            var shownNotice = ShowingPresetNotice && Notice == null ? PresetNotice : Notice;
+            if (ShowingPresetNotice && Notice == null) noticeRows = PresetNoticeRows;
+            var key = string.Join(",", rows) + ":" + page.Room.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + ":" + shownNotice + ":" + noticeRows;
+            if (presetMeasure == key) return;
+            presetMeasure = key;
+            PresetRows = rows;
+            PresetPage = 0;
+            presetDrawnAt = null;
+            presetPages.Clear();
+            var room = page.Room - (page.GroupGap + page.Words(1)) - page.Reason;
+            var noticeHeight = shownNotice == null ? 0f : page.LineGap + page.Words(Math.Max(1, noticeRows));
+            var minimum = page.Target(rows.Count == 0 ? 1 : rows.Max()) + (rows.Count > 1 ? page.Target() + page.TargetGap : 0f);
+            ShowingPresetNotice = shownNotice != null && minimum > room - noticeHeight + 1e-6f;
+            PresetNotice = shownNotice;
+            PresetNoticeRows = noticeRows;
+            PresetNoticePartRows = page.WordsIn(page.Room - page.Words(1) - page.LineGap);
+            PresetNoticeParts = Math.Max(1, (Math.Max(1, noticeRows) + PresetNoticePartRows - 1) / PresetNoticePartRows);
+            PresetNoticePart = 0;
+            presetNoticeDrawnAt = null;
+            if (!ShowingPresetNotice) room -= noticeHeight;
+            var all = 0f;
+            foreach (var count in rows) all += page.Target(count) + (all > 0f ? page.TargetGap : 0f);
+            if (all > room + 1e-6f) room -= page.Target() + page.TargetGap;
+            var current = new List<int>();
+            var used = 0f;
+            for (var index = 0; index < rows.Count; index++)
+            {
+                var height = page.Target(rows[index]);
+                var gap = current.Count == 0 ? 0f : page.TargetGap;
+                if (current.Count > 0 && used + gap + height > room + 1e-6f)
+                {
+                    presetPages.Add(current); current = new List<int>(); used = 0f; gap = 0f;
+                }
+                current.Add(index); used += gap + height;
+            }
+            if (current.Count > 0) presetPages.Add(current);
+        }
+        public void PresetDrawn(DateTimeOffset now) => presetDrawnAt ??= now;
+        public void NextPresetPage(DateTimeOffset now)
+        {
+            if (presetDrawnAt == null || now - presetDrawnAt < TurnGuard) return;
+            PresetPage = (PresetPage + 1) % PresetPages;
+            presetDrawnAt = null;
+        }
+        public void PresetNoticeDrawn(DateTimeOffset now) => presetNoticeDrawnAt ??= now;
+        public void NextPresetNotice(DateTimeOffset now)
+        {
+            if (presetNoticeDrawnAt == null || now - presetNoticeDrawnAt < TurnGuard) return;
+            PresetNoticePart = (PresetNoticePart + 1) % PresetNoticeParts;
+            presetNoticeDrawnAt = null;
+        }
+        public void BackFromPresetNotice() { ShowingPresetNotice = false; PresetNotice = null; presetNoticeDrawnAt = null; }
+        public void SuspendPresets() { presetDrawnAt = null; presetNoticeDrawnAt = null; }
+
 
         private static bool Same(IReadOnlyList<PresetInstruction>? a, IReadOnlyList<PresetInstruction>? b)
         {
