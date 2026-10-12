@@ -85,19 +85,52 @@ namespace Halcyonic.XR
         private bool preferredChanged;
         private bool placedOnce;
         private bool onSurface;
+        private Vector3 shelfViewer;
         private WorkspacePresentationState presentation = new WorkspacePresentationState();
         private Transform preview = null!;
         /// <summary>Conservative occupied shelf, label and banner envelope shared by placement and actual scene checks.</summary>
-        public static void WriteShelfCorners(Pose pose, float width, Vector3[] corners)
+        private static CharacterView? shelfMeasure;
+        public static void WriteShelfCorners(Pose pose, float width, Vector3 viewer, Vector3[] corners)
         {
             if (corners.Length != 8) throw new System.ArgumentException("Shelf envelope has eight corners.", nameof(corners));
-            for (var corner = 0; corner < 8; corner++)
+            // A real label model measures font metrics, whole source marks, title wrapping and eye-facing tilt.
+            // It is created only by the explicit placement/geometry consumer and never has a target.
+            if (shelfMeasure == null)
             {
-                var local = new Vector3(corner % 2 == 0 ? -width / 2f : width / 2f,
-                    corner < 4 ? CharacterLabelView.DeepestBottom * AgentShelfDraft.Scale : 0.5f,
-                    corner % 4 < 2 ? -AgentShelfDraft.Depth / 2f : AgentShelfDraft.Depth / 2f);
-                corners[corner] = pose.position + pose.rotation * local;
+                var model = new GameObject("Shelf label measurement") { hideFlags = HideFlags.HideAndDontSave };
+                shelfMeasure = CharacterView.Create(model.transform, "shelf-label-measurement");
+                shelfMeasure.enabled = false;
             }
+            var minimum = new Vector3(-width / 2f, 0f, -AgentShelfDraft.Depth / 2f);
+            var maximum = new Vector3(width / 2f, 0.5f, AgentShelfDraft.Depth / 2f);
+            var span = Mathf.Max(0f, width - 0.1f - AgentShelfDraft.Spacing * AgentShelfDraft.Scale);
+            foreach (var x in new[] { -span / 2f, span / 2f })
+            foreach (var marks in new[] { (Synthetic: false, Recorded: true), (Synthetic: true, Recorded: false), (Synthetic: true, Recorded: true) })
+            {
+                shelfMeasure.transform.SetPositionAndRotation(pose.position + pose.rotation * Vector3.right * x,
+                    pose.rotation * Quaternion.Euler(0f, 180f, 0f));
+                shelfMeasure.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+                shelfMeasure.Show(new CharacterPresentation("shelf-label-measurement",
+                    "A complete task title with two full lines of readable words", CharacterActivity.Verifying,
+                    "Checking its work", Halcyonic.Contracts.AttentionLevel.None, System.Array.Empty<string>(), 0,
+                    marks.Synthetic, marks.Recorded, false));
+                shelfMeasure.PlaceShelfLabel(viewer);
+                foreach (var renderer in shelfMeasure.Label.GetComponentsInChildren<Renderer>(false))
+                {
+                    var bounds = renderer.bounds;
+                    for (var index = 0; index < 8; index++)
+                    {
+                        var point = bounds.center + Vector3.Scale(bounds.extents,
+                            new Vector3(index % 2 == 0 ? -1f : 1f, index < 4 ? -1f : 1f, index % 4 < 2 ? -1f : 1f));
+                        var local = Quaternion.Inverse(pose.rotation) * (point - pose.position);
+                        minimum = Vector3.Min(minimum, local); maximum = Vector3.Max(maximum, local);
+                    }
+                }
+            }
+            foreach (var renderer in shelfMeasure.GetComponentsInChildren<Renderer>(true)) renderer.enabled = false;
+            for (var index = 0; index < 8; index++)
+                corners[index] = pose.position + pose.rotation * new Vector3(index % 2 == 0 ? minimum.x : maximum.x,
+                    index < 4 ? minimum.y : maximum.y, index % 4 < 2 ? minimum.z : maximum.z);
         }
         public float ShelfWidth => AgentShelfDraft.Width(maxCharacters);
         public bool Visible => presentation.AgentsVisible && onSurface && arc != null && arc.gameObject.activeInHierarchy;
@@ -437,6 +470,7 @@ namespace Halcyonic.XR
         {
             onSurface = true;
             radius = AgentShelfDraft.Scale;
+            shelfViewer = head != null ? head.position : Camera.main != null ? Camera.main.transform.position : Vector3.zero;
             arc.SetPositionAndRotation(pose.position, pose.rotation);
         }
 
@@ -529,10 +563,10 @@ namespace Halcyonic.XR
         {
             // The row uses the lineup's continuous slot coordinate during a glide.
             var slot = lineup.Capacity > 1 ? (angle / spanDegrees + 0.5f) * (lineup.Capacity - 1) : 0f;
-            view.ViewedFrom(0f, faceEyes: false);
             view.transform.localPosition = new Vector3((slot - (lineup.Capacity - 1) * 0.5f) * AgentShelfDraft.Spacing * radius, 0f, 0f);
             view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             view.transform.localScale = Vector3.one * radius;
+            view.PlaceShelfLabel(shelfViewer);
         }
 
         /// <summary>
