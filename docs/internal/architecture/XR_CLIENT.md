@@ -2842,3 +2842,13 @@ earlier app-private version-1 records by adding only missing `request: null` and
 before strict validation; they preserve existing instruction words and still reject every other
 missing, duplicate, extra or coerced field. This codec contract does
 not establish native/Unity request handoff until both production consumers pass their own checks.
+
+
+The ordinary request continuation also carries nullable `pending_command_id`, using the existing
+client-generated lowercase UUID command contract (including UUIDv4), separately from the host's
+UUIDv7 `request_id`. Strict C# and Java v1 readers migrate only a missing pending field to null.
+A pending-only record remains retainable even with empty draft words. This is an exact recovery
+reference, never a saved command envelope or permission to resend. Production submission must
+persist the original command ID with its complete connection/journal/project/task/execution tuple
+before POST, then use the exact command read to recover a lost acknowledgement. Failure to save
+must prevent POST. The schema/API alone does not establish that each UI consumer enforces this.

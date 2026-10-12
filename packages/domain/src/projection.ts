@@ -94,6 +94,7 @@ interface WorkstreamState {
 
 interface CommandState {
   readonly envelope: CommandEnvelope;
+  readonly principal: Principal | null;
   status: CommandStatus;
   projectId: ProjectId | null;
   workstreamId: WorkstreamId | null;
@@ -288,6 +289,12 @@ export class Projection {
 
   commandEnvelope(commandId: string): CommandEnvelope | undefined {
     return this.#commands.get(commandId as CommandId)?.envelope;
+  }
+
+  /** Original journaled sender, including a rejected command; legacy absent principals grant no read. */
+  commandOwner(commandId: string): Principal | null {
+    const owner = this.#commands.get(commandId as CommandId)?.principal;
+    return owner ? { ...owner } : null;
   }
 
   projects(): ProjectView[] {
@@ -564,6 +571,7 @@ export class Projection {
         const accepted = event.event_type === 'command.accepted';
         this.#commands.set(commandId, {
           envelope: event.payload.command,
+          principal: event.payload.principal ? { ...event.payload.principal } : null,
           status: accepted ? 'accepted' : 'rejected',
           projectId: event.project_id,
           workstreamId: event.workstream_id,

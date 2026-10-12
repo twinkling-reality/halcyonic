@@ -476,7 +476,8 @@
           "request_id": null,
           "text": "Read this task and continue the fix.",
           "spoken": true,
-          "part": 2
+          "part": 2,
+          "pending_command_id": null
         },
         "surface": "task"
       }
@@ -503,7 +504,8 @@
           "request_id": "0192f1a0-0000-7000-8000-000000000199",
           "text": "Check the result.",
           "spoken": false,
-          "part": 0
+          "part": 0,
+          "pending_command_id": null
         },
         "surface": "task"
       }
@@ -531,7 +533,8 @@
           "text": "Draft",
           "spoken": true,
           "part": 0,
-          "armed": true
+          "armed": true,
+          "pending_command_id": null
         },
         "surface": "task"
       }
@@ -558,7 +561,8 @@
           "request_id": "00000000-0000-4000-8000-000000000199",
           "text": "Draft",
           "spoken": false,
-          "part": 0
+          "part": 0,
+          "pending_command_id": null
         },
         "surface": "task"
       }
@@ -585,7 +589,8 @@
           "request_id": null,
           "text": "Draft",
           "spoken": "true",
-          "part": 0
+          "part": 0,
+          "pending_command_id": null
         },
         "surface": "task"
       }
@@ -612,7 +617,8 @@
           "request_id": null,
           "text": "Read this task and continue the fix.",
           "spoken": true,
-          "part": 2
+          "part": 2,
+          "pending_command_id": null
         },
         "surface": "task"
       }
@@ -639,7 +645,8 @@
           "request_id": null,
           "text": "Read this task and continue the fix.",
           "spoken": true,
-          "part": 2
+          "part": 2,
+          "pending_command_id": null
         },
         "surface": "request"
       }
@@ -731,6 +738,90 @@
         "request": null,
         "surface": "Request"
       }
+    },
+    {
+      "name": "pending command 0192f1a0-0000-7000-8000-000000000010",
+      "valid": true,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": null,
+          "text": "Read this task and continue the fix.",
+          "spoken": true,
+          "part": 2,
+          "pending_command_id": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "surface": "task"
+      }
+    },
+    {
+      "name": "pending command bad",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": null,
+          "text": "Read this task and continue the fix.",
+          "spoken": true,
+          "part": 2,
+          "pending_command_id": "bad"
+        },
+        "surface": "task"
+      }
+    },
+    {
+      "name": "pending command 42",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "request": {
+          "request_id": null,
+          "text": "Read this task and continue the fix.",
+          "spoken": true,
+          "part": 2,
+          "pending_command_id": 42
+        },
+        "surface": "task"
+      }
     }
   ],
   "identities": [
@@ -777,12 +868,12 @@
       "valid": false
     },
     {
-      "symbol": "🚀",
+      "symbol": "\ud83d\ude80",
       "count": 32000,
       "valid": true
     },
     {
-      "symbol": "🚀",
+      "symbol": "\ud83d\ude80",
       "count": 32001,
       "valid": false
     }

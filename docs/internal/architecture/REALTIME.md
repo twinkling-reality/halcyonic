@@ -251,3 +251,15 @@ A missing route on an older host is unavailable, and request words remain an ord
 request is guessed. Clients compare the returned journal/project/task/execution tuple with their
 fresh bound selection before offering Resume/Cancel. Restoration never submits or grants input,
 reading or confirmation authority. Command acceptance creates direction, not task completion.
+
+
+`GET /api/workspace/commands/:command_id` recovers one workspace request command for its original
+journaled principal, returning `{journal_id, command}` with the existing `CommandView` only.
+It works after the command leaves the snapshot's recent-command window and after journal replay,
+even without an active coordinator. It never returns the submitted envelope or text. A malformed
+ID is 400; unknown, foreign, legacy unowned and non-workspace-command IDs share the same 404.
+Device reads require the original still-active device; the loopback principal cannot read a
+device-owned command through this route. Existing authenticated journal visibility is unchanged.
+A missing command or lost response does not authorize resubmission or a replacement command ID.
+Clients must verify command ID/type and the returned journal/project/task/execution tuple before
+using its request reference; this GET grants no action authority.

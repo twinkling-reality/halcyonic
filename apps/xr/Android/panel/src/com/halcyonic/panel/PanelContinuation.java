@@ -32,8 +32,10 @@ final class PanelContinuation {
         }
         if (v.get("request") != null) {
             Map<String, Object> request = PanelJson.object(v.get("request"));
-            PanelJson.keys(request, "request_id", "text", "spoken", "part");
+            if (!request.containsKey("pending_command_id")) request.put("pending_command_id", null);
+            PanelJson.keys(request, "request_id", "pending_command_id", "text", "spoken", "part");
             if (request.get("request_id") != null) matches(request.get("request_id"), PanelIdentity.ENTITY);
+            if (request.get("pending_command_id") != null) matches(request.get("pending_command_id"), PanelIdentity.UUID);
             String text = PanelJson.text(request.get("text"));
             if (text.codePointCount(0, text.length()) > 32000) throw PanelJson.invalid();
             PanelJson.bool(request.get("spoken")); PanelJson.integer(request.get("part"), 0, 100000);
@@ -64,7 +66,7 @@ final class PanelContinuation {
         if (!draft().isEmpty()) return true;
         if (value.get("request") == null) return false;
         Map<String, Object> request = PanelJson.object(value.get("request"));
-        return request.get("request_id") != null || !PanelJson.text(request.get("text")).isEmpty();
+        return request.get("request_id") != null || request.get("pending_command_id") != null || !PanelJson.text(request.get("text")).isEmpty();
     }
     Object requestFor(String key, String journal, String project, String work, String execution) {
         return java.util.Objects.equals(key, string("connection_key")) && java.util.Objects.equals(journal, string("journal_id")) &&

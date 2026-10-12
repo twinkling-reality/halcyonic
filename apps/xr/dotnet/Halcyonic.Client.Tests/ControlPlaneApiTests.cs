@@ -124,6 +124,28 @@ public class ControlPlaneApiTests
         new(new Uri("http://127.0.0.1:47800/"), "test-token", handler);
 
     [Test]
+    public async Task RecoversAnExactWorkspaceCommandWithItsJournalWithoutPosting()
+    {
+        const string id = "550e8400-e29b-41d4-a716-446655440000";
+        var handler = new CannedHandler(HttpStatusCode.OK, """
+            {"journal_id":"01a0dcf1-5a80-7000-8000-000000000001","command":{
+            "command_id":"550e8400-e29b-41d4-a716-446655440000","command_type":"workspace.request.submit",
+            "status":"completed","project_id":null,"workstream_id":null,"execution_id":null,
+            "issued_at":"2026-10-12T10:00:00.000Z","updated_at":"2026-10-12T10:00:00.000Z",
+            "rejection":null,"failure":null,"result":{"kind":"workspace_request_created","request_id":"01a0dcf1-5a80-7000-8000-000000000002"}}}
+            """);
+        using var api = Api(handler);
+        var response = await api.ReadWorkspaceCommandAsync(id);
+        Assert.That(response.JournalId, Is.EqualTo("01a0dcf1-5a80-7000-8000-000000000001"));
+        Assert.That(response.Command.CommandId, Is.EqualTo(id));
+        Assert.That(response.Command.Status, Is.EqualTo(CommandStatus.Completed));
+        var request = handler.Requests.Single();
+        Assert.That(request.Method, Is.EqualTo(HttpMethod.Get));
+        Assert.That(request.RequestUri!.AbsolutePath, Is.EqualTo("/api/workspace/commands/" + id));
+        Assert.That(request.Content, Is.Null);
+    }
+
+    [Test]
     public async Task ReadsAnEvaluationKeepingEveryUnknownAsNull()
     {
         var handler = new CannedHandler(HttpStatusCode.OK, Available);

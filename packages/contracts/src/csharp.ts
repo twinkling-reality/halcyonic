@@ -66,6 +66,7 @@ const ROOTS: readonly string[] = [
   'WorkspaceContinuation',
   'WorkspaceViewStore',
   'WorkspaceRequestResponse',
+  'WorkspaceCommandResponse',
   'WorkspaceAgentStatus',
 ];
 

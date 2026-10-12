@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import type {
   CommandEnvelope,
   CommandId,
+  DeviceId,
   ExecutionId,
   ProjectId,
   StoredEvent,
@@ -658,4 +659,49 @@ describe('project locations', () => {
     assert.equal(projection.execution(executionId)?.directory, '/work/app');
     assert.equal(projection.project(project.projectId)?.location?.path, '/work/other');
   });
+});
+
+test('command recovery retains the original journaled principal for accepted and rejected records', () => {
+  const b = new EventBuilder();
+  const projection = new Projection();
+  const scope = { project_id: null, workstream_id: null, execution_id: null };
+  const deviceId = b.id() as DeviceId;
+  for (const outcome of ['accepted', 'rejected'] as const) {
+    const command: CommandEnvelope = {
+      schema_version: 1,
+      command_id: b.id() as CommandId,
+      command_type: 'project.create',
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'synthetic', version: null, device_label: null },
+      payload: { name: 'Synthetic', location: null },
+    };
+    const principal = { kind: 'device' as const, device_id: deviceId };
+    const event =
+      outcome === 'accepted'
+        ? b.controlPlane('command.accepted', scope, {
+            command,
+            principal,
+            policy: 'low_consequence',
+            received_via: 'http',
+          })
+        : b.controlPlane('command.rejected', scope, {
+            command,
+            principal,
+            rejection: { code: 'invalid_state', message: 'Synthetic rejection' },
+            received_via: 'http',
+          });
+    projection.apply(event);
+    principal.device_id = b.id() as DeviceId;
+    const read = projection.commandOwner(command.command_id);
+    assert.deepEqual(read, { kind: 'device', device_id: deviceId });
+    if (read?.kind === 'device') read.device_id = b.id() as DeviceId;
+    assert.deepEqual(projection.commandOwner(command.command_id), {
+      kind: 'device',
+      device_id: deviceId,
+    });
+    const legacy = { ...command, command_id: b.id() as CommandId };
+    projection.apply(b.command(legacy, outcome));
+    assert.equal(projection.commandOwner(legacy.command_id), null);
+  }
+  assert.equal(projection.commandOwner(b.id()), null);
 });

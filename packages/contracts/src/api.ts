@@ -1,7 +1,14 @@
 import Type, { type Static } from 'typebox';
 import { EvaluationResult } from './evaluation.ts';
 import { StoredEvent } from './events.ts';
-import { ErrorInfo, ExecutionId, Position, RuntimeId, WorkstreamId } from './primitives.ts';
+import {
+  ErrorInfo,
+  ExecutionId,
+  JournalId,
+  Position,
+  RuntimeId,
+  WorkstreamId,
+} from './primitives.ts';
 import { RuntimeDescriptor, RuntimeModel } from './runtime.ts';
 import { UnderstandingResult } from './understanding.ts';
 import { CommandView, JournalInfo, ProjectView, WorkstreamView } from './views.ts';
@@ -10,6 +17,13 @@ const strict = { additionalProperties: false } as const;
 
 export const HealthResponse = Type.Object({ status: Type.Literal('ok') }, strict);
 export type HealthResponse = Static<typeof HealthResponse>;
+
+/** Exact original-principal workspace command recovery, without the submitted text/envelope. */
+export const WorkspaceCommandResponse = Type.Object(
+  { journal_id: JournalId, command: CommandView },
+  strict,
+);
+export type WorkspaceCommandResponse = Static<typeof WorkspaceCommandResponse>;
 
 export const ProjectsResponse = Type.Object(
   { journal: JournalInfo, position: Position, projects: Type.Array(ProjectView) },
