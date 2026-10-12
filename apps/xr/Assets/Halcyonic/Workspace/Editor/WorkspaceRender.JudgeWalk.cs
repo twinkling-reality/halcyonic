@@ -229,7 +229,22 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add(name + ": Usage detail paging changed the chosen limit or its source.");
                         if (parts > 1 && details.Parts != (part, parts))
                             failures.Add(name + ": Usage detail parts did not follow their actual offered order.");
-                        Shot(step + (part == 0 ? "" : " part " + (part + 1)));
+                        var shot = step + (part == 0 ? "" : " part " + (part + 1));
+                        Shot(shot);
+                        if (usageOnly)
+                        {
+                            // A second capture of the unchanged scene must keep its stage, title and panels.
+                            var original = new Texture2D(Size, Size, TextureFormat.RGBA32, false);
+                            ImageConversion.LoadImage(original, System.IO.File.ReadAllBytes(System.IO.Path.Combine(folder, (name + " judge " + shot).Replace(' ', '-') + ".png")));
+                            var rotation = camera.transform.rotation;
+                            camera.transform.rotation = PlaneLayout.Facing(director.Plane.Direction);
+                            var repeated = Render(camera, texture);
+                            camera.transform.rotation = rotation;
+                            var (changed, _) = Compare(original, repeated, new RectInt(0, 0, Size, Size));
+                            if (changed > 0) failures.Add(name + ": repeating unchanged Usage part " + (part + 1) + " lost or changed " + changed + " pixels.");
+                            UnityEngine.Object.DestroyImmediate(original);
+                            UnityEngine.Object.DestroyImmediate(repeated);
+                        }
                         if (parts <= 1) continue;
                         var side = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View?.Side;
                         var inPlace = Shown(MenuColumn.Menu) == null && side != null;
