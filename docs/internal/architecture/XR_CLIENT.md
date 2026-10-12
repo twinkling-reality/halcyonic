@@ -2661,7 +2661,11 @@ fresh exact-frame draw proof through the existing navigator and file lifecycle.
 Settings' category index packs its targets against the actual narrowed heading rows and current
 stage page height, without reserving a source line it does not show. All supported groups remain
 reachable through the offered pager with their original value runs. Production render routes walk
-those visible category pages before entering Comfort or Your space.
+those visible category pages before entering Comfort or Your space. The recorded Judge render
+proves a reachable Comfort text-size change and restore before opening its file. A separate,
+explicitly labelled direct Comfort-model transition then checks the retained request's read/Yes
+invalidation before any new draw. It does not claim a hidden Settings press can resize a lone file
+whose full measured page legitimately moves the menu aside.
 
 ### Instruction editor and explicit send
 
