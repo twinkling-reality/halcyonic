@@ -2,6 +2,7 @@
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
 using UnityEngine;
+using TMPro;
 
 namespace Halcyonic.XR
 {
@@ -88,6 +89,8 @@ namespace Halcyonic.XR
         private Transform ring = null!;
         private MeshRenderer ringRenderer = null!;
         private CharacterLabelView label = null!;
+        private Transform labels = null!;
+        private TMP_Text[]? shelfWords;
         private MaterialPropertyBlock bodyBlock = null!;
         private MaterialPropertyBlock haloBlock = null!;
         private MaterialPropertyBlock ringBlock = null!;
@@ -149,10 +152,10 @@ namespace Halcyonic.XR
         internal float Footing => label.Bottom;
 
         /// <summary>Half the width of the character's label, in its own units: how far to each side it reaches.</summary>
-        public float LabelHalfWidth => label.HalfWidth;
+        public float LabelHalfWidth => label.HalfWidth * labels.localScale.x;
 
         /// <summary>How far below the character's origin its label reaches, in its own units: a negative height.</summary>
-        public float LabelBottom => label.Bottom;
+        public float LabelBottom => transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(0f, label.Bottom, 0f))).y;
 
         /// <summary>The label under the character, for renders and their checks.</summary>
         public CharacterLabelView Label => label;
@@ -169,6 +172,36 @@ namespace Halcyonic.XR
         /// low its label hangs, and whether its label leans back to face the eyes, as on a desk.
         /// </summary>
         public void ViewedFrom(float elevationDegrees, bool faceEyes = false) => label.ViewFrom(elevationDegrees, faceEyes);
+
+        /// <summary>Places readable complete labels independently of the fixed grounded body's scale.
+        /// The placement-time viewer is retained; later head motion does not move the shelf or label.</summary>
+        public void PlaceShelfLabel(Vector3 viewer)
+        {
+            var away = transform.position - viewer;
+            var horizontal = new Vector3(away.x, 0f, away.z);
+            if (horizontal.sqrMagnitude < 1e-6f) return;
+            labels.rotation = Quaternion.LookRotation(horizontal, Vector3.up);
+            labels.localScale = Vector3.one * (away.magnitude / Mathf.Max(transform.lossyScale.x, 0.001f));
+            ViewedFrom(Mathf.Atan2(away.y, horizontal.magnitude) * Mathf.Rad2Deg, faceEyes: true);
+            var words = shelfWords ??= label.GetComponentsInChildren<TMP_Text>(true);
+            foreach (var word in words) word.ForceMeshUpdate(ignoreActiveState: true);
+            // Measure the actual transformed em, including the mark's lower distance and tilt.
+            // Scaling the entire label preserves its type hierarchy and provenance treatment.
+            for (var pass = 0; pass < 3; pass++)
+            {
+                var grow = 1f;
+                foreach (var word in words)
+                {
+                    if (!word.gameObject.activeSelf || string.IsNullOrEmpty(word.text) || GlazeIcons.IsIcon(word)) continue;
+                    var middle = word.transform.TransformPoint(word.textBounds.center);
+                    var half = word.transform.up * (word.fontSize * 0.1f * word.transform.lossyScale.y / 2f);
+                    var degrees = Vector3.Angle(middle + half - viewer, middle - half - viewer);
+                    if (degrees > 0.001f) grow = Mathf.Max(grow, (Glaze.MinimumTextDegrees + 0.015f) / degrees);
+                }
+                if (grow <= 1f) break;
+                labels.localScale *= grow;
+            }
+        }
 
         public static CharacterView Create(Transform parent, string workstreamId)
         {
@@ -197,6 +230,7 @@ namespace Halcyonic.XR
                 eyeSwitch = EyeSwitchSeconds;
             }
             label.Show(CharacterLabel.Of(next));
+            shelfWords = null;
             if (first) Advance(0f, true);
         }
 
@@ -247,7 +281,7 @@ namespace Halcyonic.XR
             ringRenderer.enabled = false;
 
             // Text reads along its parent's forward axis, and the character faces the person.
-            var labels = new GameObject("Labels").transform;
+            labels = new GameObject("Labels").transform;
             labels.SetParent(transform, false);
             labels.localRotation = Quaternion.Euler(0f, 180f, 0f);
             label = CharacterLabelView.Create(labels);

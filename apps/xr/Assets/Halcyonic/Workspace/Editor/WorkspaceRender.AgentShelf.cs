@@ -86,7 +86,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var original = director.Plane.Direction;
                 var corners = new Vector3[8];
                 var overlap = new Pose(PlaneLayout.PointOf(eyes, original, 0f, 0f), Quaternion.identity);
-                CharacterStage.WriteShelfCorners(overlap, AgentShelfDraft.Width(count), corners);
+                CharacterStage.WriteShelfCorners(overlap, AgentShelfDraft.Width(count), eyes, corners);
                 if (director.ClearsShelf(corners, eyes)) failures.Add("an overlapping full shelf escaped the actual console veto");
                 Pose? accepted = null;
                 foreach (var drop in new[] { 0.45f, 0.6f, 0.75f, 0.9f })
@@ -95,7 +95,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var rotation = Quaternion.Euler(0f, turn, 0f);
                     var candidate = new Pose(eyes + rotation * Vector3.forward * distance - Vector3.up * drop, rotation);
-                    CharacterStage.WriteShelfCorners(candidate, AgentShelfDraft.Width(count), corners);
+                    CharacterStage.WriteShelfCorners(candidate, AgentShelfDraft.Width(count), eyes, corners);
                     var measured = ViewField.Current ?? FieldChecks.Quest3S;
                     var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
                         measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
@@ -128,7 +128,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     view.transform.localPosition = Vector3.right * ((slot - (count - 1) / 2f) * AgentShelfDraft.Spacing * AgentShelfDraft.Scale);
                     view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
                     view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                    view.Show(shown); view.AdvanceForRender(1f / 60f);
+                    view.Show(shown); view.PlaceShelfLabel(eyes); view.AdvanceForRender(1f / 60f);
                     characters.Add((view, CharacterTarget.Attach(view, shown.WorkstreamId)));
                 }
                 presentation.SetAgentsEnabled(true);
