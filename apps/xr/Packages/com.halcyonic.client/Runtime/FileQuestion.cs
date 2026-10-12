@@ -743,7 +743,6 @@ namespace Halcyonic.Client
         {
             if (!Writing) return;
             rows = Math.Max(1, rows);
-            if (rows > InputPartRows && !InputFocused) InputEditing = false;
             if (inputMeasured == input && inputRows == rows) return;
             inputMeasured = input;
             inputRows = rows;
@@ -798,6 +797,7 @@ namespace Halcyonic.Client
         {
             InputSession++;
             InputFocused = false;
+            InputPart = 0;
             inputDrawn.Clear();
             Turned();
         }

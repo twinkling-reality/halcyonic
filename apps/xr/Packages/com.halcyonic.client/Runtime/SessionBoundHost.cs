@@ -84,7 +84,7 @@ namespace Halcyonic.Client
 
         public int PageRows(bool sourceLine) => host.PageRows(sourceLine);
 
-        public float PageHeight(int subjectRows, bool besideMenu) => host.PageHeight(subjectRows, besideMenu);
+        public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => host.PageHeight(subjectRows, besideMenu, focused);
 
         public void OpenFile(string workstreamId) => host.OpenFile(workstreamId);
 

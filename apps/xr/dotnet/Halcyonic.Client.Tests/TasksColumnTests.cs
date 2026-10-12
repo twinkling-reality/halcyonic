@@ -60,7 +60,7 @@ internal sealed class FakeMenuHost : IMenuHost
 
     public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
-    public float PageHeight(int subjectRows, bool besideMenu) => Height;
+    public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => Height;
 
     public void OpenFile(string workstreamId) => Opened.Add("file " + workstreamId);
 

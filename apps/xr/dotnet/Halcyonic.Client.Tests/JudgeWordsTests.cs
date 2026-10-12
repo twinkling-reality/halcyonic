@@ -279,7 +279,7 @@ public class JudgeWordsTests
         public int TitleRows(string subject, float columnDegrees) => 1;
         // Room for every row, so no word a judge could page to escapes.
         public int PageRows(bool sourceLine) => 64;
-        public float PageHeight(int subjectRows, bool besideMenu) => float.MaxValue;
+        public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => float.MaxValue;
         public void OpenFile(string workstreamId) { }
         public void OpenNewProject(string? projectId, string? projectName) { }
     }

@@ -35,6 +35,7 @@ namespace Halcyonic.Client
         private readonly IntelligenceFeed<EvaluationResponse> evaluation;
         private readonly Func<IIntelligenceReader?> reader;
         private PageBudget? budget;
+        private bool budgetFocused;
         private TextSize budgetAt;
         private QuestionDraft? draft;
         private QuestionDraft? measuredFor;
@@ -484,8 +485,11 @@ namespace Halcyonic.Client
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
-            if (budget == null || resized)
+            var focused = Screen.Section == FileSection.Waiting && WorkspaceText.NeedFromYou(presentation) == null
+                && presentation.QuestionToAnswer is QuestionView questionToAnswer && WorkspaceText.Answerable(questionToAnswer);
+            if (budget == null || resized || budgetFocused != focused)
             {
+                budgetFocused = focused;
                 budget = Budget(presentation);
                 budgetAt = host.TextSize;
             }
@@ -538,7 +542,7 @@ namespace Halcyonic.Client
         private PageBudget Budget(WorkspacePresentation presentation)
         {
             var rows = host.TitleRows(presentation.Character.Title, Glaze.Menu.FileColumnDegrees);
-            return new HeightBudget(host.PageHeight(rows, besideMenu: false));
+            return new HeightBudget(host.PageHeight(rows, besideMenu: false, focused: budgetFocused));
         }
 
         private FileAnswer? Understand(UnderstandPrompt prompt, AnswerRoom room, DateTimeOffset clock) =>

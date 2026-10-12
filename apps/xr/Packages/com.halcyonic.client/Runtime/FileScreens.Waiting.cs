@@ -465,7 +465,9 @@ namespace Halcyonic.Client
             }
             else
             {
-                lines.Add(new PageLine(asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose one or more" : "Choose one", tone: LineTone.Secondary));
+                var how = asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose one or more" : "Choose one";
+                if (question.Pages > 1) how += " · Choices " + (question.Page + 1).ToString(CultureInfo.InvariantCulture) + " of " + question.Pages.ToString(CultureInfo.InvariantCulture);
+                lines.Add(new PageLine(how, tone: LineTone.Secondary));
                 foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
                 // Under its answers, where some read the same and can't be chosen, why, and the way to the one meant.
                 if (WorkspaceText.OffersALabelTwice(asked))

@@ -77,7 +77,7 @@ namespace Halcyonic.Client
         /// (<see cref="MenuPage.Height"/>): its subject in <paramref name="subjectRows"/> rows, beside the
         /// menu or alone. Read when the column opens, so a page never packs again while it shows.
         /// </summary>
-        float PageHeight(int subjectRows, bool besideMenu);
+        float PageHeight(int subjectRows, bool besideMenu, bool focused = false);
 
         /// <summary>Opens a task's file beside the menu, as a row of Tasks does.</summary>
         void OpenFile(string workstreamId);

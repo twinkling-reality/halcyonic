@@ -1005,12 +1005,14 @@ namespace Halcyonic.Client
         /// where they don't fit (<see cref="MenuColumns"/>).
         /// </summary>
         /// <param name="besideMenu">The page stands beside the menu, as Tasks' beside a file: the plane is the two columns, each this page.</param>
-        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false)
+        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false, bool focused = false)
         {
             if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows), subjectRows, "A subject takes a row or two.");
             var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
             var within = field ?? Quest3S;
-            PlaneColumn Column(float degrees, float page) => new PlaneColumn(PlaneComposition.Units(degrees), Subject(subjectRows, pill: true), Sections, Content(page));
+            PlaneColumn Column(float degrees, float page) => focused
+                ? new PlaneColumn(PlaneComposition.Units(degrees), Subject(subjectRows, pill: true), Content(page))
+                : new PlaneColumn(PlaneComposition.Units(degrees), Subject(subjectRows, pill: true), Sections, Content(page));
             bool Holds(float page) => Fits(new PlaneComposition(besideMenu
                 ? new[] { Column(Glaze.Menu.MenuColumnDegrees, page), Column(Glaze.Menu.FileColumnDegrees, page) }
                 : new[] { Column(Glaze.Menu.FileColumnDegrees, page) }, zoom), topDegrees, within);
