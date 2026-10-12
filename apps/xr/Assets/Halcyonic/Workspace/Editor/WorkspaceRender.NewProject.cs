@@ -247,7 +247,7 @@ namespace Halcyonic.XR.Workspace.Editor
             public bool FitsHalf(PageLine line, float degrees) => MenuFrameView.FitsHalf(line, degrees);
             public int TitleRows(string subject, float degrees) => MenuFrameView.TitleRows(subject, degrees);
             public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
-            public float PageHeight(int rows, bool besideMenu) => MenuPage.Height(TextSize, rows, besideMenu: besideMenu);
+            public float PageHeight(int rows, bool besideMenu, bool focused = false) => MenuPage.Height(TextSize, rows, besideMenu: besideMenu, focused: focused);
             public void OpenFile(string id) { }
             public void OpenNewProject(string? id, string? name) { }
         }

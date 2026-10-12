@@ -89,7 +89,7 @@ namespace Halcyonic.Client
         public HeightBudget(float page) => Room = Math.Max(0f, page - MenuPage.SourceLine);
 
         /// <summary>A lone file's page at <paramref name="text"/>'s size, its subject in <paramref name="subjectRows"/> rows.</summary>
-        public static HeightBudget Of(TextSize text, int subjectRows) => new HeightBudget(MenuPage.Height(text, subjectRows));
+        public static HeightBudget Of(TextSize text, int subjectRows, bool focused = false) => new HeightBudget(MenuPage.Height(text, subjectRows, focused: focused));
 
         public override float Room { get; }
 

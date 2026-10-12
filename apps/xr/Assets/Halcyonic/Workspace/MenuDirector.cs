@@ -663,13 +663,13 @@ namespace Halcyonic.XR.Workspace
         /// The page height on this stage, read against the character of the file being opened while it
         /// is made, else of the file beside the menu; New project, being opened, has none.
         /// </summary>
-        public float PageHeight(int subjectRows, bool besideMenu)
+        public float PageHeight(int subjectRows, bool besideMenu, bool focused = false)
         {
             var stage = setup.StageNow();
             var task = opening.Opening ? opening.Task : navigator?.BesideTask;
             var character = task != null ? setup.CharacterOf(task) : null;
             var top = MenuPlane.TopLine(character, stage.Characters, stage.Eyes, stage.Looking, stage.SurfaceHeight, stage.BesideWindow, besideMenu);
-            return MenuPage.Height(TextSize, subjectRows, top, ViewField.Current, besideMenu);
+            return MenuPage.Height(TextSize, subjectRows, top, ViewField.Current, besideMenu, focused);
         }
 
         public void OpenFile(string workstreamId)

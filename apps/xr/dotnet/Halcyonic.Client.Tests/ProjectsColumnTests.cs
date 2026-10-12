@@ -45,7 +45,7 @@ public class ProjectsColumnTests
         public bool FitsHalf(PageLine answer, float columnDegrees) => false;
         public int TitleRows(string subject, float columnDegrees) => 1;
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
-        public float PageHeight(int subjectRows, bool besideMenu) => 1f;
+        public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => 1f;
         public void OpenFile(string workstreamId) => throw new InvalidOperationException("Projects opens no file.");
         public void OpenNewProject(string? projectId, string? projectName) => Opened.Add((projectId, projectName));
 

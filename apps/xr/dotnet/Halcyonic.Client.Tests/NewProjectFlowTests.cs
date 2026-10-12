@@ -85,10 +85,10 @@ public class NewProjectFlowTests
         /// <summary>How often the page's room was read.</summary>
         public int HeightReads { get; private set; }
 
-        public float PageHeight(int subjectRows, bool besideMenu)
+        public float PageHeight(int subjectRows, bool besideMenu, bool focused = false)
         {
             HeightReads++;
-            return Height?.Invoke(subjectRows, besideMenu) ?? MenuPage.Height(TextSize, subjectRows, besideMenu: besideMenu);
+            return Height?.Invoke(subjectRows, besideMenu) ?? MenuPage.Height(TextSize, subjectRows, besideMenu: besideMenu, focused: focused);
         }
 
         public void OpenFile(string workstreamId)

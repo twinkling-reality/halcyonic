@@ -100,7 +100,7 @@ internal sealed class DemonstrationMenuHost : IMenuHost
 
     public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
-    public float PageHeight(int subjectRows, bool besideMenu) => MenuPage.Height(TextSize, subjectRows, besideMenu: besideMenu);
+    public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => MenuPage.Height(TextSize, subjectRows, besideMenu: besideMenu, focused: focused);
 
     /// <summary>The task whose file the walk opened, as the director opens one beside the menu.</summary>
     public FileColumn? File { get; private set; }

@@ -66,7 +66,7 @@ internal sealed class FileMenuHost : IMenuHost
     /// <summary>The page's height for a subject in this many rows, where it is not the stage's at the text size now, as one that comes out the same at both sizes.</summary>
     public Func<int, float>? Height { get; set; }
 
-    public float PageHeight(int subjectRows, bool besideMenu) => Height?.Invoke(subjectRows) ?? MenuPage.Height(TextSize, subjectRows);
+    public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => Height?.Invoke(subjectRows) ?? MenuPage.Height(TextSize, subjectRows, focused: focused);
 
     public void OpenFile(string workstreamId)
     {
