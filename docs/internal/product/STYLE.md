@@ -124,6 +124,26 @@ Three sizes on the plane (`Glaze.Menu`):
 
 ## Colour
 
+The interface's colour roles are immutable `GlazePalette` presets, read by `Glaze` separately from
+type, sizes and motion. Glaze preserves the original colours; Graphite uses neutral graphite
+surfaces and a blue action accent. State colours retain their meanings in both. Settings' Appearance
+chooses locally, then shows a labelled Preview with actual navigation, choice, input, status and
+outside-word treatments. Preview controls send nothing to an agent. Apply theme keeps the preset;
+Cancel or leaving restores the applied colours. Restore default appearance opens its own explanation
+and restores only Glaze, without changing comfort, space, projects or the paired computer.
+
+Settings opens a category index for Appearance, Comfort, Your space and Your computer only where
+that build supports it. Categories and setting rows navigate; their current value stays beside the
+name, including provenance where a value comes from outside. A category returns by Back; a pending
+appearance preview returns by Cancel. The specimen pages by a bounded body control, keeping Close,
+Cancel and Apply theme as the three footer controls. Every variant retains the same grid, readable
+type, hit targets and action hierarchy.
+
+This first palette consumer covers the menu's token-based surfaces, prompts and outside-word
+grounds. Character identity and body shader/material colours remain separate; this is not an
+arbitrary colour picker or a claim that every character colour is configurable. Preset composition,
+stage cache refresh and headset appearance require the validation record's checks.
+
 - Words in the text colour; quiet words, as a secondary line, a heading, a source or an unavailable
   prompt, in the secondary colour (`Glaze.Menu.QuietText`).
 - **The accent marks only the main action.** **Amber means waiting for you** and nothing else; a

@@ -70,6 +70,9 @@ namespace Halcyonic.XR.Workspace
 
             public Action ComfortSaved { get; set; } = () => { };
 
+            public AppearanceSettings Appearance { get; set; } = new AppearanceSettings();
+            public Action AppearanceSaved { get; set; } = () => { };
+
             /// <summary>Settings' rows for where the person is (Your space), from what owns each: the room, the characters' arrangement, the menu's position.</summary>
             public Func<IReadOnlyList<MenuSetting>> Space { get; set; } = () => Array.Empty<MenuSetting>();
             public Func<StageArrangement?> Arrangement { get; set; } = () => null;
@@ -222,7 +225,7 @@ namespace Halcyonic.XR.Workspace
                 [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
-                [MenuPlace.Settings] = () => new SettingsColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList()),
+                [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
             },
             // Until the computer's first task, the menu asks what the person would like to work on (ADR 0026).
             () => new FirstQuestionColumn(director.Bound(), director.StartFirstProject, () => director.navigator.OpenMenu(MenuPlace.Projects)));
@@ -251,6 +254,7 @@ namespace Halcyonic.XR.Workspace
                 director.voice = voice;
             }
             FocusGuard.Left += director.OnFocusLeft;
+            Glaze.PaletteChanged += director.OnPaletteChanged;
             // New project's flow let go for another session or journal comes off the plane.
             director.memory.NewProjectDropped += flow =>
             {
@@ -403,7 +407,19 @@ namespace Halcyonic.XR.Workspace
             plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
         }
 
-        private void OnDestroy() => FocusGuard.Left -= OnFocusLeft;
+        private void OnDestroy()
+        {
+            FocusGuard.Left -= OnFocusLeft;
+            Glaze.PaletteChanged -= OnPaletteChanged;
+            navigator?.FocusLeft();
+        }
+
+        private void OnPaletteChanged()
+        {
+            // Colours change, geometry and reading evidence do not. Old targets wait for the exact redraw.
+            navigator.Moved();
+            dirty = true;
+        }
 
         private void Update()
         {

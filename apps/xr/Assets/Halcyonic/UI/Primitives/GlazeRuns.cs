@@ -105,10 +105,10 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The ground's fill: white, faint on the glass, so the words on it read first.</summary>
-        public static Color GroundFill => new Color(1f, 1f, 1f, Glaze.Menu.GroundOpacity);
+        public static Color GroundFill => GlazeTokens.ColorOf(Glaze.Palette.Ground, Glaze.Menu.GroundOpacity);
 
         /// <summary>The ground's own hairline, so both its edges show.</summary>
-        public static Color GroundEdge => new Color(1f, 1f, 1f, Glaze.Menu.GroundHairlineOpacity);
+        public static Color GroundEdge => GlazeTokens.ColorOf(Glaze.Palette.Ground, Glaze.Menu.GroundHairlineOpacity);
 
         /// <summary>How far a ground reaches past the words on it each side.</summary>
         public static float GroundPadding => GlazeTokens.Units(Glaze.Menu.GroundPaddingDegrees);

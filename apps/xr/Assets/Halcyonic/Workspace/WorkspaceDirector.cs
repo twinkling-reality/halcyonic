@@ -150,6 +150,7 @@ namespace Halcyonic.XR.Workspace
         private void Start()
         {
             var comfort = GetComponent<ComfortControls>() ?? gameObject.AddComponent<ComfortControls>();
+            var appearance = GetComponent<AppearanceControls>() ?? gameObject.AddComponent<AppearanceControls>();
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
                 State = () => connection.Session?.State,
@@ -167,6 +168,8 @@ namespace Halcyonic.XR.Workspace
                 SomethingWaits = SomethingWaits,
                 Comfort = comfort.Settings,
                 ComfortSaved = comfort.Keep,
+                Appearance = appearance.Settings,
+                AppearanceSaved = appearance.Keep,
                 // Your space always, so Reset position is always there; Your computer where the build
                 // offers pairing (PairingBootstrap's gate), each row reading whatever stands now.
                 Arrangement = () => Room?.Arrangement,

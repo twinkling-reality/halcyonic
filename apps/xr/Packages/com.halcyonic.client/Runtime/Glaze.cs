@@ -124,45 +124,48 @@ namespace Halcyonic.Client
         // Surfaces: dark, but no darker than Meta's #1A1A1A, below which the Quest's display shows no detail.
 
         /// <summary>Every panel and label plate.</summary>
-        public static readonly GlazeColor Panel = GlazeColor.Hex(0x1B222D);
+        public static GlazeColor Panel => Palette.Panel;
 
         /// <summary>Rows, cards and choices inside a panel.</summary>
-        public static readonly GlazeColor Raised = GlazeColor.Hex(0x242D3A);
+        public static GlazeColor Raised => Palette.Raised;
 
         /// <summary>Secondary buttons at rest.</summary>
-        public static readonly GlazeColor Control = GlazeColor.Hex(0x303C4E);
+        public static GlazeColor Control => Palette.Control;
 
-        public static readonly GlazeColor ControlHover = GlazeColor.Hex(0x3B4A61);
+        public static GlazeColor ControlHover => Palette.ControlHover;
 
-        public static readonly GlazeColor ControlPressed = GlazeColor.Hex(0x46566F);
+        public static GlazeColor ControlPressed => Palette.ControlPressed;
 
         /// <summary>Fields, tab tracks and command text, sunk into a panel.</summary>
-        public static readonly GlazeColor Well = GlazeColor.Hex(0x151B24);
+        public static GlazeColor Well => Palette.Well;
 
         // Text.
 
-        public static readonly GlazeColor Text = GlazeColor.Hex(0xEEF2F6);
+        public static GlazeColor Text => Palette.Text;
 
-        public static readonly GlazeColor TextSecondary = GlazeColor.Hex(0xAAB5C2);
+        public static GlazeColor TextSecondary => Palette.TextSecondary;
 
-        public static readonly GlazeColor TextDisabled = GlazeColor.Hex(0x8A96A5);
+        public static GlazeColor TextDisabled => Palette.TextDisabled;
 
         /// <summary>Outlines of neutral things: 3:1 or more on a panel and on a raised row.</summary>
-        public static readonly GlazeColor Outline = GlazeColor.Hex(0x73839A);
+        public static GlazeColor Outline => Palette.Outline;
 
         /// <summary>A tone's colours.</summary>
-        public static GlazeToneColors Tone(GlazeTone tone) => tone switch
+        public static GlazeToneColors Tone(GlazeTone tone) => Palette.Tone(tone);
+
+        public static GlazePalette Palette { get; private set; } = GlazePalette.Default;
+        public static int PaletteVersion { get; private set; }
+        public static event Action? PaletteChanged;
+
+        /// <summary>Changes presentation colours only; existing components redraw their current models.</summary>
+        public static void SetPalette(GlazePalette palette)
         {
-            GlazeTone.Neutral => new GlazeToneColors(TextSecondary, Raised, Control, Text),
-            GlazeTone.Active => new GlazeToneColors(GlazeColor.Hex(0xABDEF3), GlazeColor.Hex(0x173044), GlazeColor.Hex(0x8FD0EC), GlazeColor.Hex(0x0B1422)),
-            GlazeTone.Attention => new GlazeToneColors(GlazeColor.Hex(0xF7CF70), GlazeColor.Hex(0x3D3216), GlazeColor.Hex(0xF3C04F), GlazeColor.Hex(0x1C1404)),
-            GlazeTone.Success => new GlazeToneColors(GlazeColor.Hex(0x8ADBB1), GlazeColor.Hex(0x183528), GlazeColor.Hex(0x6CCB9A), GlazeColor.Hex(0x08170F)),
-            GlazeTone.Failure => new GlazeToneColors(GlazeColor.Hex(0xFF9F94), GlazeColor.Hex(0x3F1D1A), GlazeColor.Hex(0xEE7F73), GlazeColor.Hex(0x1F0806)),
-            GlazeTone.Unknown => new GlazeToneColors(GlazeColor.Hex(0xB7C0CB), GlazeColor.Hex(0x262D36), GlazeColor.Hex(0xB7C0CB), GlazeColor.Hex(0x1B222D)),
-            GlazeTone.Simulated => new GlazeToneColors(GlazeColor.Hex(0xCBBBF6), GlazeColor.Hex(0x2B2442), GlazeColor.Hex(0xCBBBF6), GlazeColor.Hex(0x1B222D)),
-            GlazeTone.Accent => new GlazeToneColors(GlazeColor.Hex(0xA3C3FF), GlazeColor.Hex(0x22324F), GlazeColor.Hex(0x7FA9F8), GlazeColor.Hex(0x0B1422)),
-            _ => throw new ArgumentOutOfRangeException(nameof(tone), tone, "Unhandled tone."),
-        };
+            if (palette == null) throw new ArgumentNullException(nameof(palette));
+            if (ReferenceEquals(Palette, palette)) return;
+            Palette = palette;
+            PaletteVersion++;
+            PaletteChanged?.Invoke();
+        }
 
         // Type: the em's angle at the eye. Meta asks for 14 dp at least and 18 or more to read comfortably.
 
