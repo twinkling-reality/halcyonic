@@ -108,7 +108,9 @@ namespace Halcyonic.Client
             // Waiting meanwhile whose words happen to read the same, as an approval's request.
             screen.QuestionPage = page.OfQuestion;
             var lines = page.Lines.ToList();
-            if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
+            var instructionEditor = screen.Instruction.Open && steering.Armed == null;
+            if (screen.Notice != null && (!instructionEditor || screen.Instruction.InlineNotice && !screen.Instruction.ExplainingNotice))
+                lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: instructionEditor ? Math.Max(1, screen.Instruction.NoticeRows) : 2));
             // The task's title leans in its plate, which is its ground; the pill on its edge stays upright.
             var focused = screen.Instruction.Open || FocusesAnswer(workspace, page.OfQuestion, steering);
             var frame = new MenuFrame(

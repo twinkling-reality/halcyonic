@@ -221,4 +221,93 @@ public class InstructionEditorTests
         Assert.That(column.Screen.Instruction.Part, Is.Zero);
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void LongNoticeHasItsOwnMeasuredPagesAndBackAcknowledgesItWithoutReadingTheDraft(TextSize size)
+    {
+        var (host, _, column) = Setup();
+        host.TextSize = size;
+        column.Tick();
+        column.Act(FileScreens.TellIt, null);
+        var words = string.Join(" ", Enumerable.Range(0, 100).Select(index => "instruction" + index));
+        host.Keyboard!.Value.Done(words);
+        Draw(host, column);
+        column.Act(FileScreens.NextInstructionPart, null);
+        Assert.That(column.Screen.Instruction.Part, Is.EqualTo(1));
+        var notice = string.Join(" ", Enumerable.Range(0, 80).Select(index => "explanation" + index));
+        column.Said(notice);
+        Assert.That(column.Screen.Instruction.ExplainingNotice, Is.True);
+        Assert.That(column.Screen.Instruction.Part, Is.Zero, "new packing must restart its ordered reading proof");
+        Assert.That(column.Frame!.Lines.First().Words, Is.EqualTo("What happened"));
+        Assert.That(column.Frame.Lines.Any(line => line.Words == notice && !line.Runs.AnyTheirs), Is.True);
+        var page = new HeightBudget(host.PageHeight(1, besideMenu: false, focused: true));
+        var height = column.Frame.Lines.Sum(line => page.Words(line.Rows)) + page.LineGap;
+        Assert.That(height, Is.LessThanOrEqualTo(page.Room + 0.000001f));
+        Draw(host, column);
+        column.Act(FileScreens.NextInstructionNotice, null);
+        Assert.That(column.Screen.Instruction.NoticePart, Is.EqualTo(1));
+        Draw(host, column);
+        Assert.That(column.Screen.Instruction.NoticePart, Is.EqualTo(1), "an unchanged redraw preserves explanation position");
+        Assert.That(column.Screen.Instruction.Read, Is.False, "explanation pages are no instruction reading evidence");
+        Assert.That(column.Frame.Footer.All.Any(each => each.Prompt.Id == FileScreens.BackInstructionNotice), Is.True);
+        column.Act(FileScreens.BackInstructionNotice, null);
+        Assert.That((column.Screen.Instruction.ExplainingNotice, column.Screen.Notice, column.Screen.Instruction.Words), Is.EqualTo((false, (string?)null, words)));
+        column.Said(notice);
+        Assert.That(column.Screen.Instruction.ExplainingNotice, Is.True, "a new occurrence of identical error must remain visible");
+        Draw(host, column); column.Act(FileScreens.BackInstructionNotice, null);
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(host.Sent, Is.Empty);
+        Read(host, column);
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo(words));
+    }
+
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void NoticeAndSizeReflowRestartTheDraftAtAReadableFirstPart(TextSize size)
+    {
+        var (host, _, column) = Setup();
+        host.TextSize = size; column.Tick();
+        column.Act(FileScreens.TellIt, null);
+        host.Keyboard!.Value.Done(string.Join(" ", Enumerable.Range(0, 100).Select(index => "step" + index)));
+        Draw(host, column); column.Act(FileScreens.NextInstructionPart, null);
+        column.Said("Nothing was sent.");
+        Assert.That(column.Screen.Instruction.Part, Is.Zero);
+        Assert.That(column.Frame!.Lines.Any(line => line.Words == "Nothing was sent."), Is.True);
+        if (column.Screen.Instruction.ExplainingNotice)
+        {
+            Draw(host, column); column.Act(FileScreens.BackInstructionNotice, null);
+        }
+        Draw(host, column); column.Act(FileScreens.NextInstructionPart, null);
+        host.TextSize = size == TextSize.Standard ? TextSize.Larger : TextSize.Standard;
+        host.Wait(1); column.Tick();
+        Assert.That(column.Screen.Instruction.Part, Is.Zero);
+        if (column.Screen.Instruction.ExplainingNotice)
+        {
+            Draw(host, column); column.Act(FileScreens.BackInstructionNotice, null);
+        }
+        Draw(host, column); column.Act(FileScreens.NextInstructionPart, null);
+        Assert.That(column.Screen.Instruction.Part, Is.EqualTo(1), "the restarted part can establish fresh ordered proof");
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void AnInlineEditorNoticeUsesExistingConfirmationNoticeRowsAfterExplicitSend(TextSize size)
+    {
+        var (host, _, column) = Setup(welcomed: false);
+        host.TextSize = size; column.Tick();
+        column.Act(FileScreens.TellIt, null);
+        host.Keyboard!.Value.Done("Add a test");
+        column.Said("Nothing was sent.");
+        Read(host, column);
+        Assert.That(column.Screen.Instruction.InlineNotice, Is.True);
+        Assert.That(column.Screen.Instruction.NoticeRows, Is.EqualTo(1));
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
+        Assert.That(column.Frame!.Lines.Single(line => line.Words == "Nothing was sent.").Rows, Is.EqualTo(2),
+            "the confirmation retains its existing notice contract rather than editor-only packing");
+        Assert.That(host.Sent, Is.Empty);
+    }
+
 }
