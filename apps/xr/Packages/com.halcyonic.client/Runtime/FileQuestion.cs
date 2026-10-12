@@ -80,6 +80,52 @@ namespace Halcyonic.Client
         private List<List<(int Prompt, int First, int Rows)>> reviewPages = new List<List<(int, int, int)>> { new List<(int, int, int)>() };
         private bool returnToReview;
         private int? questionReturnPage;
+        public int? AmbiguousOption { get; private set; }
+        public bool ExplainingAmbiguity => AmbiguousOption != null;
+        public int AmbiguityPart { get; private set; }
+        private int ambiguityRows = 1;
+        private readonly HashSet<int> ambiguityDrawn = new HashSet<int>();
+        public int AmbiguityPartRows => page.WordsIn(page.Room - page.Words(1) - page.LineGap - page.Reason);
+        public int AmbiguityParts => FileScreen.PartsOf(ambiguityRows, AmbiguityPartRows);
+        public bool AmbiguityPageRead => ExplainingAmbiguity && ambiguityDrawn.Contains(AmbiguityPart);
+        public bool AmbiguityRead => ExplainingAmbiguity && Enumerable.Range(0, AmbiguityParts).All(ambiguityDrawn.Contains);
+
+        public void ExplainAmbiguity(int option)
+        {
+            if (draft == null || Reviewing || Writing || QuestionPart != null || drawnAt == null || !Answers.Contains(option)
+                || !WorkspaceText.Answerable(draft.Question) || !WorkspaceText.ReadsAlike(draft.Prompts[Prompt], option)) return;
+            CancelInput();
+            AmbiguousOption = option;
+            AmbiguityPart = 0;
+            ambiguityDrawn.Clear();
+            sideOption = null;
+            Turned();
+        }
+
+        public void MeasureAmbiguity(int rows)
+        {
+            rows = Math.Max(1, rows);
+            if (ambiguityRows == rows) return;
+            ambiguityRows = rows;
+            AmbiguityPart = 0;
+            ambiguityDrawn.Clear();
+        }
+
+        public void NextAmbiguityPart(DateTimeOffset now)
+        {
+            if (!ExplainingAmbiguity || !Settled(now) || !AmbiguityPageRead || AmbiguityPart + 1 >= AmbiguityParts) return;
+            AmbiguityPart++;
+            Turned();
+        }
+
+        public void CloseAmbiguity()
+        {
+            AmbiguousOption = null;
+            AmbiguityPart = 0;
+            ambiguityDrawn.Clear();
+            Turned();
+        }
+
         private string input = "";
         private string? inputMeasured;
         private int inputRows = 1;
@@ -119,7 +165,7 @@ namespace Halcyonic.Client
         public int Pages => draft == null ? 1 : Reviewing ? reviewPages.Count : pages[Prompt].Count;
 
         /// <summary>The answers on the page showing, by their index among the prompt's options; none while the question's own pages show.</summary>
-        public IReadOnlyList<int> Answers => draft == null || Reviewing || Writing || QuestionPart != null ? Array.Empty<int>() : pages[Prompt][Page];
+        public IReadOnlyList<int> Answers => draft == null || Reviewing || Writing || ExplainingAmbiguity || QuestionPart != null ? Array.Empty<int>() : pages[Prompt][Page];
 
         /// <summary>The prompts listed on the page of the person's answers showing.</summary>
         public IReadOnlyList<int> Reviewed => Reviewing ? reviewPages[Page].Select(part => part.Prompt).ToList() : Array.Empty<int>();
@@ -157,7 +203,7 @@ namespace Halcyonic.Client
             var asked = draft.Prompts[prompt];
             if (asked.Options.Count == 0) return true;
             var several = draft.Prompts.Count > 1;
-            var room = page.Room - Head(prompt, headRows) - Below(prompt, asked.FreeText, paged: false) - Alike(asked);
+            var room = page.Room - Head(prompt, headRows) - Below(prompt, asked.FreeText, paged: false);
             if (page.Targets(Enumerable.Range(0, asked.Options.Count).Select(option => AnswerShows(prompt, option)).ToArray()) <= room + 1e-6f) return true;
             var least = Enumerable.Range(0, asked.Options.Count).Min(option => AnswerShows(prompt, option));
             return page.Target(least) + MoreRow(asked.FreeText, PairInputPagerFor(prompt)) + page.Words(CaptionRows(prompt, true)) - page.Words(CaptionRows(prompt, false)) <= room + 1e-6f;
@@ -170,16 +216,6 @@ namespace Halcyonic.Client
         /// <summary>The choice page's counter, selection caption, custom-answer target, reason and gaps.</summary>
         private float Below(int prompt, bool typed, bool paged) =>
             (typed ? page.Target() + page.TargetGap : 0f) + ChoiceReason(prompt) + page.Words(CaptionRows(prompt, paged)) + page.LineGap;
-
-        /// <summary>The rows of the line under a prompt's answers where some read the same (<see cref="WorkspaceText.AlikeCantBeChosen"/>).</summary>
-        public const int AlikeRows = 1;
-
-        /// <summary>
-        /// That line and the gap before it, on every page of the prompt's answers; a gap counted as a target's,
-        /// the larger, wherever the line meets one.
-        /// </summary>
-        private float Alike(QuestionPrompt asked) =>
-            WorkspaceText.OffersALabelTwice(asked) ? page.Target(AlikeRows) + Math.Max(page.LineGap, page.TargetGap) : 0f;
 
         /// <summary>The bounded pager target; it shares the custom navigation target only when both measured controls fit.</summary>
         private float MoreRow(bool typed, bool pair) => typed && pair ? 0f : page.Target() + page.TargetGap;
@@ -207,7 +243,7 @@ namespace Halcyonic.Client
         {
             if (draft == null) return AnswerRows;
             var asked = draft.Prompts[prompt];
-            var room = page.Room - Below(prompt, asked.FreeText, paged: false) - Alike(asked);
+            var room = page.Room - Below(prompt, asked.FreeText, paged: false);
             var full = measures[prompt].AnswerRows.Select(rows => Math.Min(AnswerRows, rows)).ToArray();
             if (page.Targets(full) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt)) + page.Words(CaptionRows(prompt, true)) - page.Words(CaptionRows(prompt, false));
             room -= Head(prompt, 1);
@@ -272,6 +308,7 @@ namespace Halcyonic.Client
                 inputUsed = null;
                 returnToReview = false;
                 questionReturnPage = null;
+                CloseAmbiguity();
                 draft = answering;
                 Prompt = 0;
                 Page = 0;
@@ -297,6 +334,8 @@ namespace Halcyonic.Client
                 answersRead.Clear();
                 typedRead.Clear();
                 inputDrawn.Clear();
+                ambiguityDrawn.Clear();
+                AmbiguityPart = 0;
                 // A side panel's parts read so far no longer map to its new parts: what is unread is read again.
                 sidePartsDrawn.Clear();
                 SidePart = 0;
@@ -369,7 +408,7 @@ namespace Halcyonic.Client
             var asked = answering.Prompts[prompt];
             var options = Enumerable.Range(0, asked.Options.Count).ToList();
             var several = answering.Prompts.Count > 1;
-            var room = page.Room - Head(prompt, headRows) - Below(prompt, asked.FreeText, paged: false) - Alike(asked);
+            var room = page.Room - Head(prompt, headRows) - Below(prompt, asked.FreeText, paged: false);
             if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt)) + page.Words(CaptionRows(prompt, true)) - page.Words(CaptionRows(prompt, false));
             var laid = new List<List<int>> { new List<int>() };
             var used = 0f;
@@ -555,6 +594,11 @@ namespace Halcyonic.Client
                 if (inputMeasured == input) inputDrawn.Add(InputPart);
                 return;
             }
+            if (ExplainingAmbiguity)
+            {
+                ambiguityDrawn.Add(AmbiguityPart);
+                return;
+            }
             if (Reviewing)
             {
                 reviewDrawn.Add(Page);
@@ -620,6 +664,8 @@ namespace Halcyonic.Client
             typedRead.Clear();
             sidePartsDrawn.Clear();
             reviewDrawn.Clear();
+            ambiguityDrawn.Clear();
+            AmbiguityPart = 0;
             drawnAt = null;
             sideDrawnAt = null;
         }
@@ -648,7 +694,7 @@ namespace Halcyonic.Client
 
         public void ReopenQuestion()
         {
-            if (draft == null || Reviewing || Writing || QuestionPart != null || QuestionParts(Prompt) == 0) return;
+            if (draft == null || Reviewing || Writing || ExplainingAmbiguity || QuestionPart != null || QuestionParts(Prompt) == 0) return;
             questionReturnPage = Page;
             QuestionPart = 0;
             sideOption = null;
@@ -658,7 +704,7 @@ namespace Halcyonic.Client
         /// <summary>Advances the current choice or review page without clearing saved selections or reading already earned on other pages.</summary>
         public void MoreAnswers(DateTimeOffset now)
         {
-            if (draft == null || QuestionPart != null || Pages < 2 || !Settled(now)) return;
+            if (draft == null || ExplainingAmbiguity || QuestionPart != null || Pages < 2 || !Settled(now)) return;
             Page = (Page + 1) % Pages;
             Turned();
             sideOption = null;
@@ -673,7 +719,7 @@ namespace Halcyonic.Client
         /// <summary>The row on to the next question, or after the last, to the person's answers.</summary>
         public void NextQuestion(DateTimeOffset now)
         {
-            if (draft == null || Reviewing || Writing || QuestionPart != null || !Settled(now)) return;
+            if (draft == null || Reviewing || Writing || ExplainingAmbiguity || QuestionPart != null || !Settled(now)) return;
             Prompt = returnToReview ? draft.Prompts.Count : Prompt + 1;
             returnToReview = false;
             Page = 0;
@@ -688,6 +734,7 @@ namespace Halcyonic.Client
             if (draft == null || prompt < 0 || prompt >= draft.Prompts.Count) return;
             CancelInput();
             returnToReview = Reviewing;
+            CloseAmbiguity();
             questionReturnPage = null;
             Prompt = prompt;
             Page = 0;
@@ -699,7 +746,7 @@ namespace Halcyonic.Client
 
         public void Back(DateTimeOffset now)
         {
-            if (draft == null || Writing || !Settled(now)) return;
+            if (draft == null || Writing || ExplainingAmbiguity || !Settled(now)) return;
             questionReturnPage = null;
             if (Reviewing) { Prompt = draft.Prompts.Count - 1; returnToReview = false; }
             else if (Prompt > 0) Prompt--;
@@ -713,7 +760,7 @@ namespace Halcyonic.Client
 
         public bool BeginInput()
         {
-            if (draft == null || Reviewing || QuestionPart != null || !draft.Prompts[Prompt].FreeText) return false;
+            if (draft == null || Reviewing || ExplainingAmbiguity || QuestionPart != null || !draft.Prompts[Prompt].FreeText) return false;
             Writing = true;
             input = draft.Typed(Prompt) ?? "";
             inputMeasured = null;

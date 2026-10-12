@@ -305,7 +305,7 @@ namespace Halcyonic.Client
 
         public static string? WhyNextWaits(FileQuestion question)
         {
-            if (!(question.Draft is QuestionDraft draft) || question.Reviewing) return QuestionNotReady;
+            if (!(question.Draft is QuestionDraft draft) || question.Reviewing || question.ExplainingAmbiguity) return QuestionNotReady;
             if (!draft.WasShownWhole(question.Prompt)) return ReadTheQuestion;
             if (!draft.IsAnswered(question.Prompt)) return draft.Prompts[question.Prompt].Options.Count == 0 ? "Write an answer first."
                 : draft.Prompts[question.Prompt].FreeText ? "Choose or write an answer first." : "Choose an answer first.";
@@ -315,6 +315,8 @@ namespace Halcyonic.Client
         public static string? WhyForwardWaits(FileScreen screen, bool stopOnPage = false)
         {
             var question = screen.Question;
+            if (question.ExplainingAmbiguity) return question.AmbiguityPart + 1 < question.AmbiguityParts
+                ? question.AmbiguityPageRead ? null : "Read this part first." : question.AmbiguityRead ? null : "Read the whole explanation first.";
             if (question.Writing) return question.InputReading && question.InputPart < question.InputParts - 1
                 ? question.InputPageRead ? null : "Read this part first." : question.WhyUseWaits(false);
             if (question.Reviewing) return question.Page < question.Pages - 1 ? question.ReviewPageRead ? null : "Read this part first." : WhySendWaits(screen);
@@ -322,24 +324,30 @@ namespace Halcyonic.Client
         }
 
         internal static bool ChoiceReasonExplained(FileQuestion question) => question.Draft is QuestionDraft draft
-            && !question.Reviewing && !question.Writing && question.QuestionPart == null && draft.WasShownWhole(question.Prompt) && !draft.IsAnswered(question.Prompt);
+            && !question.Reviewing && !question.Writing && !question.ExplainingAmbiguity && question.QuestionPart == null && draft.WasShownWhole(question.Prompt) && !draft.IsAnswered(question.Prompt);
 
         internal static string? QuestionForwardReason(WorkspacePresentation workspace, FileScreen screen)
         {
             if (workspace.AnswerInFlight) return SentWaiting;
             if (QuestionForwardAvailable(workspace, screen) == null) return null;
             return WhyForwardWaits(screen, StopsHere(workspace, screen.Question.Draft!.Question))
-                ?? (screen.Question.Reviewing && screen.Question.Page == screen.Question.Pages - 1 && !workspace.Actions.Contains(WorkspaceAction.Answer) ? QuestionNotReady : null);
+                ?? (screen.Question.ExplainingAmbiguity && screen.Question.AmbiguityPart == screen.Question.AmbiguityParts - 1 && !workspace.Actions.Contains(WorkspaceAction.Interrupt) ? null
+                    : screen.Question.Reviewing && screen.Question.Page == screen.Question.Pages - 1 && !workspace.Actions.Contains(WorkspaceAction.Answer) ? QuestionNotReady : null);
         }
 
         internal static bool? QuestionForwardAvailable(WorkspacePresentation workspace, FileScreen screen)
         {
             if (workspace.AnswerInFlight) return false;
             if (!(screen.Question.Draft is QuestionDraft draft) || !WorkspaceText.Answerable(draft.Question)) return null;
+            if (screen.Question.ExplainingAmbiguity && screen.Question.AmbiguityPart == screen.Question.AmbiguityParts - 1
+                && !workspace.Actions.Contains(WorkspaceAction.Interrupt)) return null;
             return WhyForwardWaits(screen, StopsHere(workspace, draft.Question)) == null
                 && (!screen.Question.Reviewing || screen.Question.Page < screen.Question.Pages - 1 || workspace.Actions.Contains(WorkspaceAction.Answer));
         }
 
+        public const string ReadWhy = "read-ambiguous-answer";
+        public const string BackAmbiguity = "back-ambiguous-answer";
+        public const string NextAmbiguityPart = "next-ambiguous-answer-part";
         public const string ReadQuestion = "read-answer-question";
         public const string BackQuestion = "back-question";
         public const string CancelInput = "cancel-answer-input";
@@ -360,6 +368,15 @@ namespace Halcyonic.Client
                 farRight: new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting, waits: true));
             if (!WorkspaceText.Answerable(draft.Question)) return new Footer(CloseFile, rare: StopWhereUnanswerable(workspace, draft.Question));
             var available = QuestionForwardAvailable(workspace, screen) == true;
+            if (question.ExplainingAmbiguity)
+            {
+                var escape = question.AmbiguityPart + 1 < question.AmbiguityParts
+                    ? new Prompt(NextAmbiguityPart, NextPartWords(question.AmbiguityPart, question.AmbiguityParts), GlazeIcon.Next, main: true,
+                        available: available, reason: QuestionForwardReason(workspace, screen))
+                    : workspace.Actions.Contains(WorkspaceAction.Interrupt)
+                        ? new Prompt(Stop, "Stop task", GlazeIcon.Stop, main: true, available: available, reason: QuestionForwardReason(workspace, screen)) : null;
+                return new Footer(CloseFile, rare: new Prompt(BackAmbiguity, "Back", GlazeIcon.Back), farRight: escape);
+            }
             if (question.Writing)
             {
                 var reason = question.WhyUseWaits(false);
@@ -408,6 +425,7 @@ namespace Halcyonic.Client
         {
             var question = screen.Question;
             if (question.Reviewing) return YourAnswersPage(workspace, screen, draft, source);
+            if (question.ExplainingAmbiguity) return AmbiguityPage(workspace, screen, draft, source);
             if (question.Writing) return InputPage(workspace, screen, draft, source);
             var prompt = question.Prompt;
             var asked = draft.Prompts[prompt];
@@ -452,11 +470,6 @@ namespace Halcyonic.Client
             else
             {
                 foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
-                // Under its answers, where some read the same and can't be chosen, why, and the way to the one meant.
-                if (WorkspaceText.OffersALabelTwice(asked))
-                {
-                    lines.Add(AlikeLine(StopsHere(workspace, draft.Question)));
-                }
                 if (asked.FreeText && (screen.KeyboardOffered || screen.Speak || draft.Typed(prompt) != null))
                 {
                     var typed = draft.Typed(prompt);
@@ -509,8 +522,7 @@ namespace Halcyonic.Client
         {
             var option = draft.Prompts[prompt].Options[index];
             // One that reads the same as another shows, and can't be chosen.
-            return AnswerRow(option, index.ToString(CultureInfo.InvariantCulture), draft.IsChosen(prompt, option.Label),
-                !WorkspaceText.ReadsAlike(draft.Prompts[prompt], index), question.AnswerShows(prompt, index), draft.Prompts[prompt].Multiple);
+            return OptionRow(draft.Prompts[prompt], index, draft.IsChosen(prompt, option.Label), question.AnswerShows(prompt, index));
         }
 
         /// <summary>A prompt's name on the person's answers: its header as the agent wrote it, else which question it is.</summary>
@@ -544,10 +556,31 @@ namespace Halcyonic.Client
         public static PageLine SelectedTypedLine(string typed, int rows = 1) =>
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
 
-        public static PageLine AlikeLine(bool stop) => stop
-            ? new PageLine("Stop task", fact: "Alike answers cannot be chosen", icon: GlazeIcon.Stop, action: Stop,
-                control: LineControl.Action, tone: LineTone.Problem, rows: FileQuestion.AlikeRows)
-            : new PageLine(WorkspaceText.AlikeCantBeChosen(false), tone: LineTone.Secondary, rows: FileQuestion.AlikeRows);
+        public static PageLine OptionRow(QuestionPrompt prompt, int option, bool chosen = false, int rows = 1) => WorkspaceText.ReadsAlike(prompt, option)
+            ? new PageLine(AnswerRuns(prompt.Options[option]), fact: LineWords.Ours("Unavailable · Read why"), action: ReadWhy,
+                key: option.ToString(CultureInfo.InvariantCulture), opens: true, control: LineControl.Action, rows: rows)
+            : AnswerRow(prompt.Options[option], option.ToString(CultureInfo.InvariantCulture), chosen, rows: rows, multiple: prompt.Multiple);
+
+        public static LineWords AmbiguityRuns(QuestionDraft draft, int prompt, int option)
+        {
+            var asked = draft.Prompts[prompt];
+            var shown = WorkspaceText.AsShown(asked.Options[option].Label);
+            var matches = asked.Options.Where(each => WorkspaceText.AsShown(each.Label) == shown).ToList();
+            var words = LineWords.Ours("These choices have the same name, so they cannot be selected here: ");
+            for (var index = 0; index < matches.Count; index++)
+                words = words + (index > 0 ? LineWords.Ours(" / ") : LineWords.None) + AnswerRuns(matches[index]);
+            return words;
+        }
+
+        public static PageLine AmbiguityLine(FileQuestion question, int rows = 1, int? fromRow = null) =>
+            new PageLine(AmbiguityRuns(question.Draft!, question.Prompt, question.AmbiguousOption!.Value), rows: rows, fromRow: fromRow);
+
+        private static Page AmbiguityPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source) =>
+            new Page(new[]
+            {
+                new PageLine("Unavailable choice", tone: LineTone.Secondary),
+                AmbiguityLine(screen.Question, screen.Question.AmbiguityPartRows, screen.Question.AmbiguityPart * screen.Question.AmbiguityPartRows),
+            }, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
 
         public static PageLine InputNavigation(bool keyboard, bool edit = false, bool besideNext = false) =>
             new PageLine(edit ? EditAnswer : WriteAnswer, fact: edit ? "Selected" : null, icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,

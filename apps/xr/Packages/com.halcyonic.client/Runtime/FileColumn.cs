@@ -150,6 +150,16 @@ namespace Halcyonic.Client
                 case FileScreens.NextPart when key == FileScreens.QuestionKey || question.QuestionPart != null:
                     question.NextPart(clock);
                     break;
+                case FileScreens.ReadWhy when Index(key) is int alike:
+                    question.ExplainAmbiguity(alike);
+                    answering = false;
+                    break;
+                case FileScreens.BackAmbiguity:
+                    question.CloseAmbiguity();
+                    break;
+                case FileScreens.NextAmbiguityPart:
+                    question.NextAmbiguityPart(clock);
+                    break;
                 case FileScreens.ReadQuestion:
                     question.ReopenQuestion();
                     break;
@@ -372,7 +382,7 @@ namespace Halcyonic.Client
                 Screen.Question.Drawn(clock);
                 var after = FileScreens.QuestionForwardAvailable(Now, Screen);
                 if (before != after || beforeReason != FileScreens.QuestionForwardReason(Now, Screen)
-                    || (before.HasValue && Screen.Question.QuestionPart == null && !Screen.Question.Reviewing && !Screen.Question.Writing && beforeExplains != FileScreens.ChoiceReasonExplained(Screen.Question))) Rebuild();
+                    || (before.HasValue && Screen.Question.QuestionPart == null && !Screen.Question.Reviewing && !Screen.Question.Writing && !Screen.Question.ExplainingAmbiguity && beforeExplains != FileScreens.ChoiceReasonExplained(Screen.Question))) Rebuild();
             }
         }
 
@@ -569,7 +579,7 @@ namespace Halcyonic.Client
                 {
                     return new PromptMeasure(
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
-                        prompt.Options.Select(option => host.RowsOf(FileScreens.AnswerRow(option, "0", multiple: prompt.Multiple), File)).ToList(),
+                        Enumerable.Range(0, prompt.Options.Count).Select(option => host.RowsOf(FileScreens.OptionRow(prompt, option), File)).ToList(),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList(),
                         host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File),
                         host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered, edit: true), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File),
@@ -587,6 +597,7 @@ namespace Halcyonic.Client
                     host.RowsOf(FileScreens.SelectedTypedLine(typed), File),
                     host.RowsOf(FileScreens.SideAnswerLine(null, typed), Side));
             }
+            if (Screen.Question.ExplainingAmbiguity) Screen.Question.MeasureAmbiguity(host.RowsOf(FileScreens.AmbiguityLine(Screen.Question), File));
             if (Screen.Question.Writing) Screen.Question.MeasureInput(host.RowsOf(FileScreens.InputLine(Screen.Question, Screen.KeyboardOffered), File));
             if (asked.Prompts.Count > 0)
             {

@@ -184,7 +184,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // Measured as the file column measures them, from the lines the page draws.
             return new PromptMeasure(
                 MenuFrameView.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), Glaze.Menu.FileColumnDegrees),
-                prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.AnswerRow(option, "0", multiple: prompt.Multiple), Glaze.Menu.FileColumnDegrees)).ToList(),
+                Enumerable.Range(0, prompt.Options.Count).Select(option => MenuFrameView.RowsOf(FileScreens.OptionRow(prompt, option), Glaze.Menu.FileColumnDegrees)).ToList(),
                 prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.SideAnswerLine(option, null), Glaze.Menu.SideColumnDegrees)).ToList(),
                 MenuFrameView.FitsHalf(FileScreens.InputNavigation(true), Glaze.Menu.FileColumnDegrees)
                     && MenuFrameView.FitsHalf(FileScreens.ChoicePager(), Glaze.Menu.FileColumnDegrees)

@@ -662,8 +662,10 @@ the same definition names, as the JSON Schema document:
   says (`WorkspaceText.Answerable`, asked by every place that offers or sends an answer; a prompt's other
   ways, `WorkspaceText.HasAWayToAnswer`, are typed words and an answer that reads like no other): it shows why and the way on, Stop, with no Hold to talk. Where a way is
   left, the answers that read alike show as rows that can't be chosen (`WorkspaceText.ReadsAlike`;
-  `QuestionDraft.Choose` takes none of them), a line under the prompt's answers says why, counted in
-  every page of them (`FileQuestion.AlikeRows`), Stop stands on Waiting as the way to the one meant,
+  `QuestionDraft.Choose` takes none of them), their existing row becomes Unavailable · Read why navigation rather than a selectable answer. Its
+  dedicated explanation shows all conflicting offered words in read-through parts, retaining the
+  question, choice page and saved draft on Back. Stop task stands on that explanation only when
+  Interrupt is currently offered, through the existing policy confirmation,
   and words typed or heard that read the same as one of them, compared more loosely, case and a trailing
   . ! ? or , aside, since speech writes "Yes." for "Yes", are refused (`QuestionDraft.Type`), so no
   path sends such a label; Sent… in its place, taking no press, while an answer sent may still take effect.
@@ -679,7 +681,9 @@ the same definition names, as the JSON Schema document:
   Back/edit/focus return preserve them, Close/reopen and column/session replacement do not.
   QuestionDraft captures semantic prompt/option content and flags immutably; changes under the same
   question id invalidate it without allocating a serialized question on each check.
-  The question shows a prompt at a time (`FileQuestion`), with Question i of n and its selection rule.
+  The question shows a prompt at a time (`FileQuestion`), with one measured caption combining Question i of n,
+  its selection rule and Choices i of n only when paging. Only redundant choose-first reasons are
+  explained by that caption; unread, invalid and unavailable reasons remain and are priced in packing.
   A short complete question stays with its choices. A long question first shows all its parts through
   Next part and See answers; its clipped repeated context is a bounded Read question control which
   reopens those parts and returns to the same choice page without changing the draft. Offered answers
