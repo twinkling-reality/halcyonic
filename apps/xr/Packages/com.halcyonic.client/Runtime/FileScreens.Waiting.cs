@@ -316,7 +316,7 @@ namespace Halcyonic.Client
         {
             var question = screen.Question;
             if (question.Writing) return question.InputReading && question.InputPart < question.InputParts - 1
-                ? question.InputPageRead ? null : "Read this part first." : question.WhyUseWaits(stopOnPage);
+                ? question.InputPageRead ? null : "Read this part first." : question.WhyUseWaits(false);
             if (question.Reviewing) return question.Page < question.Pages - 1 ? question.ReviewPageRead ? null : "Read this part first." : WhySendWaits(screen);
             return question.QuestionPart != null ? question.QuestionPartRead ? null : "Read this part first." : WhyNextWaits(question);
         }
@@ -362,7 +362,7 @@ namespace Halcyonic.Client
             var available = QuestionForwardAvailable(workspace, screen) == true;
             if (question.Writing)
             {
-                var reason = question.WhyUseWaits(StopsHere(workspace, draft.Question));
+                var reason = question.WhyUseWaits(false);
                 var reading = question.InputReading;
                 var next = reading && question.InputPart < question.InputParts - 1
                     ? new Prompt(NextInputPart, NextPartWords(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: available, reason: question.InputPageRead ? null : "Read this part first.")
@@ -545,7 +545,7 @@ namespace Halcyonic.Client
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
 
         public static PageLine AlikeLine(bool stop) => stop
-            ? new PageLine("Alike answers cannot be chosen. Stop if you meant one.", icon: GlazeIcon.Stop, action: Stop,
+            ? new PageLine("Stop task", fact: "Alike answers cannot be chosen", icon: GlazeIcon.Stop, action: Stop,
                 control: LineControl.Action, tone: LineTone.Problem, rows: FileQuestion.AlikeRows)
             : new PageLine(WorkspaceText.AlikeCantBeChosen(false), tone: LineTone.Secondary, rows: FileQuestion.AlikeRows);
 
