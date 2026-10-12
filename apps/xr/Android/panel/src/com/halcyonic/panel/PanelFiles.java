@@ -26,6 +26,7 @@ final class PanelFiles {
     static final String MODE = "halcyonic-panel-mode.json";
     static final String DRAFTS = "halcyonic-workspace-drafts.json";
     static final String UNITY_VIEWS = "halcyonic-unity-workspace-views.json";
+    static final String REQUEST_SENDS = "halcyonic-native-request-sends.json";
     private static final Object LOCK = new Object();
     private final File directory;
     final boolean developmentAllowed;
@@ -77,6 +78,7 @@ final class PanelFiles {
         if (name.equals(MODE)) { Map<String, Object> v = PanelJson.object(PanelJson.parse(json)); PanelJson.keys(v, "version", "development_usb"); PanelJson.integer(v.get("version"), 1, 1); PanelJson.bool(v.get("development_usb")); }
         else if (name.equals(DRAFTS)) PanelDrafts.parse(json);
         else if (name.equals(UNITY_VIEWS)) PanelViewStore.validate(json);
+        else if (name.equals(REQUEST_SENDS)) PanelRequestSends.parse(json);
         else PanelContinuation.parse(json);
         String temporary = new File(directory, name + "." + UUID.randomUUID() + ".new").getPath();
         try {
@@ -94,6 +96,9 @@ final class PanelFiles {
             try { return readLocked(UNITY_VIEWS, PanelViewStore.MAXIMUM_BYTES); }
             catch (RecordAbsent missing) { return null; }
         }
+    }
+    PanelRequestSends readRequestSends() throws IOException {
+        synchronized(LOCK){try{return PanelRequestSends.parse(readLocked(REQUEST_SENDS,PanelRequestSends.MAXIMUM_BYTES));}catch(RecordAbsent missing){return new PanelRequestSends();}}
     }
     private static final class RecordAbsent extends IOException { }
     void remove(String name) { synchronized (LOCK) { new File(directory, name).delete(); } }
