@@ -106,6 +106,34 @@ public class MenuNavigatorTests
     private static SidePanel Details() => new("Details", facts: new[] { new SideFact("Seen", "just now") });
 
     [Test]
+    public void DroppingTheOwningFileClosesItsRequestButNotAnotherTasksPanel()
+    {
+        const string task = "0192f1a0-0000-7000-8000-000000000101";
+        var (menu, _) = Menu();
+        menu.OpenMenu();
+        var file = new Column("Task file");
+        var host = new FileMenuHost();
+        var context = new Halcyonic.Contracts.WorkspaceContinuation
+        {
+            HandoffId = Guid.NewGuid().ToString("D"), ConnectionKey = new string('a', 64), JournalId = Samples.JournalId,
+            ProjectId = Samples.ProjectId, WorkstreamId = task, ExecutionId = "0192f1a0-0000-7000-8000-000000000102",
+            Request = new Halcyonic.Contracts.WorkspaceRequestContinuation { Text = "Keep this ordinary request" },
+        };
+        var request = new WorkspaceRequestColumn(host, new CommandFactory(Samples.Client), context, () => true);
+        var left = new List<IMenuColumn>(); menu.Left += left.Add;
+        menu.ShowBeside(request, task);
+        Assert.That(menu.CloseDroppedTask("another-task", file), Is.False);
+        Assert.That(menu.Beside, Is.SameAs(request));
+        Assert.That(menu.CloseDroppedTask(task, file), Is.True);
+        Assert.That((menu.Beside, menu.BesideTask, menu.IsOpen), Is.EqualTo(((IMenuColumn?)null, (string?)null, true)));
+        Assert.That(left, Does.Contain(request), "normal departure revokes its input and voice route");
+        Assert.That(request.Draft.Text, Is.EqualTo("Keep this ordinary request"));
+        menu.ShowBeside(file, task);
+        Assert.That(menu.CloseDroppedTask(task, file), Is.True, "the normal retained file still closes");
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
     public void EveryPlaceHasItsColumn()
     {
         var some = new Dictionary<MenuPlace, Func<IMenuColumn>> { [MenuPlace.Tasks] = () => new Column("Tasks") };

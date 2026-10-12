@@ -2895,3 +2895,12 @@ revoked, and the old drawn action is discarded. ContinuationRequest and RequestF
 require the retained request's exact execution; new B cannot inherit unsubmitted A words. Changing
 request sections suspends the editor and calls the consumed MenuVoice departure callback before
 new content is shown, so old keyboard or transcription callbacks cannot replace a hidden draft.
+
+The director's FileDropped route closes both the exact retained file and its same-task request
+panel through MenuNavigator.CloseDroppedTask. Dropping another task leaves the selected panel
+alone; dropping the owner takes the normal input/voice departure route without clearing ordinary
+recovery data or leaving an old request panel displayed after journal renewal or Forget.
+
+The request panel identifies its actual bound task in the body subject, using the current matching
+journal/project/task data as outside text and measuring that title before packing. Request, Reply
+and Actions name its sections; the generic view name never replaces a known task destination.

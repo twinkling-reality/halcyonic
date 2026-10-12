@@ -93,6 +93,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 void Shot(string step)
                 {
                     Draw();
+                    var shown = director.Plane.Showing(MenuColumn.File);
+                    if (shown != null && (shown.Subject != LabelText.Name(work.Workstream.Title) || !shown.SubjectRuns.AllTheirs))
+                        failures.Add(name + ": request " + step + " did not identify its actual task as outside text");
                     failures.AddRange(PlaneState(name + " request " + step, folder, camera, texture, director.Plane,
                         new List<(CharacterView, CharacterTarget)>(), eyes, null, lightLine: false));
                 }

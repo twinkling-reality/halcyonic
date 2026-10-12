@@ -321,6 +321,14 @@ namespace Halcyonic.Client
             if (reopen) presentation.Restore(); else Compact();
         }
 
+        /// <summary>A dropped retained task file also owns its separate request panel.</summary>
+        public bool CloseDroppedTask(string task, IMenuColumn file)
+        {
+            if (Beside != file && !(Beside is WorkspaceRequestColumn && BesideTask == task)) return false;
+            CloseBeside();
+            return true;
+        }
+
         /// <summary>Takes the column beside the menu off the plane, as its Close does.</summary>
         public void CloseBeside()
         {

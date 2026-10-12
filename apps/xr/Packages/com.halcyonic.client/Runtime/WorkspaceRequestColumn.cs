@@ -108,13 +108,23 @@ namespace Halcyonic.Client
             if (requestId != null && readPending == null && (!readAttempted || readPosition != (host.State?.Position ?? -1)))
             { readAttempted = true; readPosition = host.State?.Position ?? -1; readPending = read(requestId, reads.Token); }
         }
+        private LineWords TaskSubject
+        {
+            get
+            {
+                var state = host.State;
+                return state != null && state.Journal?.JournalId == context.JournalId && state.Workstreams.TryGetValue(context.WorkstreamId!, out var task)
+                    && task.ProjectId == context.ProjectId ? LineWords.TheirName(task.Title) : LineWords.Ours("Workspace request");
+            }
+        }
         private MenuFrame Build()
         {
+            var subject = TaskSubject;
             var close = new Prompt(Footer.Close, "Back to task", GlazeIcon.Back, PromptKind.Close);
             var sections = new[] { new FrameSection("draft", "Request", section == "draft"),
                 new FrameSection("response", "Reply", section == "response"), new FrameSection("receipts", "Actions", section == "receipts") };
             var source = agent == null ? LineWords.Ours("Workspace assistant") : LineWords.Ours("On this computer · ").Then(LineWords.TheirName(agent.Model));
-            var room = new HeightBudget(host.PageHeight(host.TitleRows("Workspace request", Glaze.Menu.FileColumnDegrees), false, focused: true));
+            var room = new HeightBudget(host.PageHeight(host.TitleRows(subject.Text, Glaze.Menu.FileColumnDegrees), false, focused: true));
             if (section != "draft")
             {
                 var runs = Report();
@@ -122,7 +132,7 @@ namespace Halcyonic.Client
                 var partRows = room.WordsIn(room.Room);
                 var parts = Math.Max(1, (rows + partRows - 1) / partRows);
                 reportPart %= parts;
-                return new MenuFrame(LineWords.Ours("Workspace request"), new Footer(close,
+                return new MenuFrame(subject, new Footer(close,
                     rare: CanStop && Current ? new Prompt(Stop, "Cancel request", GlazeIcon.Close) : null,
                     secondary: new Prompt(Refresh, "Refresh", GlazeIcon.Refresh),
                     farRight: parts > 1 ? new Prompt(Next, Footer.NextPageWords(reportPart, parts), GlazeIcon.Next, PromptKind.NextPage)
@@ -156,7 +166,7 @@ namespace Halcyonic.Client
             var footer = armed ? Footer.Confirm(before, PromptSlot.FarRight,
                 reason == null && maySend ? new Prompt(Yes, "Yes, send request", GlazeIcon.Next, PromptKind.Yes) : null,
                 new Prompt(CancelReview, "Cancel", GlazeIcon.Close, PromptKind.Cancel)) : before;
-            return new MenuFrame(LineWords.Ours("Workspace request"), footer, sections: sections, lines: lines, sourceRuns: source).Focus();
+            return new MenuFrame(subject, footer, sections: sections, lines: lines, sourceRuns: source).Focus();
         }
         private PageLine EditorLine(int rows) => new PageLine(editor.Words.Length == 0 ? LineWords.Ours("Write a request") : LineWords.Theirs(editor.Words),
             action: host.KeyboardOffered ? Edit : null, rows: rows, fromRow: editor.Words.Length == 0 ? null : editor.Part * editor.PartRows,
@@ -169,7 +179,7 @@ namespace Halcyonic.Client
             if (!Verified) return LineWords.Ours(requestId == null ? "No request has been submitted." : "Reading the recorded request.");
             if (section == "receipts")
             {
-                var words = LineWords.Written("Actions\n");
+                var words = LineWords.None;
                 if (request!.Steps.Count == 0) return words.Then(LineWords.Ours("No actions have been recorded."));
                 if (request.EarlierSteps > 0) words = words.Then(LineWords.Written(request.EarlierSteps + " earlier actions are retained on the computer.\n"));
                 foreach (var step in request.Steps)
