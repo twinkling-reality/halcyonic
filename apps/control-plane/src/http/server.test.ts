@@ -345,12 +345,15 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 8);
+    assert.equal(policies.size, 11);
     assert.equal(policies.get('execution.answer_question'), 'low_consequence');
     assert.equal(policies.get('project.set_location'), 'low_consequence');
     assert.equal(policies.get('execution.respond_to_approval'), 'review_required');
     assert.equal(policies.get('execution.interrupt'), 'review_required');
     assert.equal(policies.get('execution.send_instruction'), 'low_consequence');
+    assert.equal(policies.get('workspace.request.submit'), 'low_consequence');
+    assert.equal(policies.get('workspace.request.resume'), 'low_consequence');
+    assert.equal(policies.get('workspace.request.cancel'), 'low_consequence');
   });
 
   test('a client with a current cursor resumes without a snapshot; a stale one gets a snapshot', async () => {
