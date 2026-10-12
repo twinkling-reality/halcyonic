@@ -172,4 +172,72 @@ public class MenuMemoryTests
         memory.Forget();
         Assert.That(memory.ProjectsFor("journal-2"), Is.Not.SameAs(other), "a re-pairing starts afresh");
     }
+    private sealed class Retained : IMenuColumn, ICompactableMenuColumn
+    {
+        public Action? OnTick { get; set; }
+        public Action? OnSuspend { get; set; }
+        public int Ticks { get; private set; }
+        public int Suspensions { get; private set; }
+        public int Departures { get; private set; }
+        public int CloseRequests { get; private set; }
+        public MenuFrame? Frame => null;
+        public event Action? Changed { add { } remove { } }
+        public event Action? Closed;
+        public void Close() => Closed?.Invoke();
+        public void Tick() { Ticks++; OnTick?.Invoke(); }
+        public void Compact() { Suspensions++; OnSuspend?.Invoke(); }
+        public void FocusLeft() => Departures++;
+        public void Act(string id, string? key) { if (id == Footer.Close) CloseRequests++; }
+        public void Drawn(MenuFrame frame, Footer? sideFooter) => Assert.Fail("Hidden views cannot acquire read proof.");
+        public void HoldStarted(string id) => Assert.Fail("Hidden views cannot acquire voice authority.");
+        public void HoldEnded(string id, bool letGo) { }
+        public void Heard(string words) => Assert.Fail("Hidden views cannot receive words.");
+        public void Said(string words) => Assert.Fail("Hidden views cannot receive words.");
+    }
+
+    [Test]
+    public void MultipleTaskViewsRetainIndependentInstancesUntilActuallyClosedOrScopeChanges()
+    {
+        var memory = new MenuMemory();
+        var first = new Retained();
+        var second = new Retained();
+        Assert.That(memory.FileFor("journal", "first", () => first), Is.SameAs(first));
+        Assert.That(memory.FileFor("journal", "second", () => second), Is.SameAs(second));
+        Assert.That(memory.FileFor(null, "first", () => throw new Exception("must retain")), Is.SameAs(first));
+        memory.SuspendFiles(second);
+        Assert.That((first.Suspensions, second.Suspensions), Is.EqualTo((1, 0)));
+        memory.TickFiles(second);
+        Assert.That((first.Ticks, second.Ticks), Is.EqualTo((1, 0)));
+        Assert.That(memory.CloseFile("first"), Is.True);
+        Assert.That((first.CloseRequests, memory.Files.Count), Is.EqualTo((1, 2)), "Close may only arm a draft-discard confirmation");
+        first.Close();
+        Assert.That(memory.Files.Keys, Is.EqualTo(new[] { "second" }));
+        memory.Journal("other");
+        Assert.That(memory.Files, Is.Empty);
+        Assert.That(second.Departures, Is.EqualTo(1));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RetainedCallbacksCanRenewTheJournalWithoutTickingOrSuspendingDroppedViews(bool suspend)
+    {
+        var memory = new MenuMemory();
+        var first = new Retained();
+        var oldSecond = new Retained();
+        var replacement = new Retained();
+        void Renew()
+        {
+            memory.Journal("other");
+            memory.FileFor("other", "second", () => replacement);
+        }
+        first.OnTick = Renew;
+        first.OnSuspend = Renew;
+        memory.FileFor("journal", "first", () => first);
+        memory.FileFor("journal", "second", () => oldSecond);
+        if (suspend) memory.SuspendFiles(null);
+        else memory.TickFiles(null);
+        Assert.That((oldSecond.Ticks, oldSecond.Suspensions, replacement.Ticks, replacement.Suspensions), Is.EqualTo((0, 0, 0, 0)), "the original pass cannot enter a dropped view or a new journal's replacement");
+        Assert.That(memory.Files["second"], Is.SameAs(replacement));
+    }
+
 }

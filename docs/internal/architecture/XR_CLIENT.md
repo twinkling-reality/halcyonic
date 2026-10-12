@@ -2761,3 +2761,19 @@ Hiding retained Settings releases its preview or Forget confirmation without dis
 instruction. Compact retains draft words and complete read proof, revokes input and drawn target
 authority, and preserves spoken review policy. Returning Settings and compacting again require
 fresh authority; neither old Apply nor old Forget can act on the retained composition.
+
+
+### Retained workspace views
+
+The menu retains one local task view per selected workstream within the current realtime session
+and journal, without replacing another task's draft when navigation changes. Global minimization
+suspends the visible and hidden views before the shared presentation state changes. Hidden views
+may observe execution and connection changes; they receive no draw, keyboard, voice or decision
+authority. Their iteration snapshots retained identities, so a callback that changes the journal
+cannot enter dropped views or a replacement from the new scope. Forget, another session and
+another journal release all retained views. Close task requests its normal Close route and may
+still require an explicit draft-discard decision.
+
+Local placement details open as stable menu overlays with named lifecycle callbacks. Only their
+exact offered frame after a physical draw accepts input; opening or closing them revokes retained
+menu input. Closing an overlay restores the retained composition for a fresh draw.
