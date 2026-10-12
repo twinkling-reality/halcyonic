@@ -162,6 +162,8 @@ namespace Halcyonic.Client
         /// <summary>Where the person is in the agent's question.</summary>
         public FileQuestion Question { get; } = new FileQuestion();
 
+        public FileInstruction Instruction { get; } = new FileInstruction();
+
         /// <summary>
         /// Reads <paramref name="draft"/>'s question, each prompt laid out as <paramref name="measured"/>
         /// says on pages as <paramref name="page"/> holds them and side panels as <paramref name="side"/>

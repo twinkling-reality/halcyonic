@@ -97,7 +97,7 @@ namespace Halcyonic.Client
             if (steering.ToRead(workspace) == null) screen.ForgetRequest();
             // Whatever is armed asks on the section showing, whichever it is, so a press never arms
             // something the page does not show, and changing section never hides it.
-            var page = steering.Armed is WorkspaceAction armed ? Confirmation(workspace, steering, screen, armed) : screen.Section switch
+            var page = steering.Armed is WorkspaceAction armed ? Confirmation(workspace, steering, screen, armed) : screen.Instruction.Open ? InstructionPage(workspace, screen) : screen.Section switch
             {
                 FileSection.Waiting => Waiting(workspace, steering, screen, room),
                 FileSection.Activity => Activity(workspace, steering, screen, room),
@@ -110,7 +110,7 @@ namespace Halcyonic.Client
             var lines = page.Lines.ToList();
             if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
             // The task's title leans in its plate, which is its ground; the pill on its edge stays upright.
-            var focused = FocusesAnswer(workspace, page.OfQuestion, steering);
+            var focused = screen.Instruction.Open || FocusesAnswer(workspace, page.OfQuestion, steering);
             var frame = new MenuFrame(
                 LineWords.TheirName(workspace.Character.Title),
                 page.Footer,
@@ -205,9 +205,9 @@ namespace Halcyonic.Client
                 // them, and nothing is sent by the press that chooses.
                 var recorded = !ReferenceEquals(presets, WorkspaceText.PresetInstructions);
                 var rows = presets.Select((preset, index) => new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
-                    key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: screen.ChosenPreset == index, rows: 2)).ToList();
+                    key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: screen.ChosenPreset == index, rows: 2, answerMark: AnswerMark.Single)).ToList();
                 var chosen = screen.ChosenPreset != null;
-                var tell = new Prompt(TellIt, WorkspaceText.Label(WorkspaceAction.Instruct), WorkspaceText.IconOf(WorkspaceAction.Instruct), main: true,
+                var tell = new Prompt(TellIt, "Review instruction", WorkspaceText.IconOf(WorkspaceAction.Instruct), main: true,
                     available: chosen, reason: chosen ? null : ChooseAnInstruction);
                 return new Page(rows, source, new Footer(CloseFile, rare: CancelChoice, farRight: tell));
             }

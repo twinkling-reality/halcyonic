@@ -76,6 +76,7 @@ namespace Halcyonic.Client
         /// <summary>The answers as they stood when Send answer armed its confirmation, which Yes sends only unchanged.</summary>
         private IReadOnlyList<(string Key, string[] Chosen, string? Typed)>? armedAnswers;
         private int shownPart;
+        private string? instructionExecution;
 
         public WorkspaceSteering(CommandFactory commands, Func<DateTimeOffset>? now = null, TimeSpan? confirmationWindow = null)
         {
@@ -235,6 +236,18 @@ namespace Halcyonic.Client
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, instruction));
         }
 
+        /// <summary>The explicit instruction Send action, after the current draft was drawn and read.</summary>
+        public SteeringOutcome SendInstruction(FileInstruction draft, WorkspacePresentation workspace)
+        {
+            if (!draft.Open || draft.ExecutionId != workspace.Execution?.ExecutionId) return SteeringOutcome.Explain(FileScreens.InstructionChanged);
+            if (WorkspaceText.NeedFromYou(workspace) != null) return SteeringOutcome.Explain("The agent needs your approval first.");
+            if (!draft.Read) return SteeringOutcome.Explain(draft.Words.Length == 0 ? FileScreens.InstructionEmpty : FileScreens.InstructionNotRead);
+            StopTyping();
+            var result = draft.Spoken ? Spoken(draft.Words, workspace) : Typed(draft.Words, workspace);
+            if (result.Step == SteeringStep.Confirm) instructionExecution = draft.ExecutionId;
+            return result;
+        }
+
         /// <summary>The keyboard closed with this text; an empty text sends nothing.</summary>
         public SteeringOutcome Typed(string? text, WorkspacePresentation workspace)
         {
@@ -329,6 +342,7 @@ namespace Halcyonic.Client
             armedDraft = null;
             armedAnswers = null;
             Armed = null;
+            instructionExecution = null;
             ArmedApprovalId = null;
             ArmedRequest = null;
             Instruction = null;
@@ -433,6 +447,11 @@ namespace Halcyonic.Client
         private string? Lapse(WorkspacePresentation workspace)
         {
             if (now() - armedAt > window) return "Nothing was sent: you didn't confirm in time. Press it again.";
+            if (Armed == WorkspaceAction.Instruct && instructionExecution != null)
+            {
+                if (instructionExecution != workspace.Execution?.ExecutionId) return FileScreens.InstructionChanged;
+                if (WorkspaceText.NeedFromYou(workspace) != null) return "Nothing was sent: the agent needs your approval first.";
+            }
             if (!workspace.Actions.Contains(Armed!.Value)) return "Nothing was sent: things changed before you confirmed. Check it, then try again.";
             if (IsAnswer(Armed.Value)
                 && workspace.Execution?.PendingApprovals.Any(pending => pending.ApprovalId == ArmedApprovalId) != true)

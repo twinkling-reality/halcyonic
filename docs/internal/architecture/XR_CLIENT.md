@@ -318,8 +318,10 @@ the same definition names, as the JSON Schema document:
   not be got. Text in a summary never decides it. An approval's request shows by `LabelText.Exact`: `Plain`, except that a
   line break, a tab and every other white space but the space shows as its code point, as
   ‹U+000A›, so two commands on two lines never read as one. Instruct asks for text
-  first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless
-  the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
+  first, and an empty text sends nothing. The current file UI stores keyboard Done and completed
+  transcription only in its local instruction editor. Explicit Send instruction validates the exact
+  read draft, execution, current capability, connection and approval state before asking the policy;
+  a draft with spoken origin always retains the additional confirmation, which
   reads "Your computer heard the words above. Send them?" under the words, read in parts, so a
   mishearing is never sent unread. An
   armed instruction is read as a request is: its words, leaning as theirs (`ToRead`), must all have shown before
@@ -790,8 +792,9 @@ the same definition names, as the JSON Schema document:
   start on {app}"), with Tell it as the main action,
   Stop beside Close and Hold to talk beside Tell it; Tell it offers the recorded instructions as
   rows where there is no keyboard, each showing the very words it would send: a row only chooses,
-  and Tell it sends the chosen words as shown (`FileScreen.PresetToSend`), waiting with its reason
-  until one is chosen. **Changes** shows the brief answers to what changed, why and how
+  and Review instruction copies the chosen words (`FileScreen.PresetToSend`) into the same local
+  editor, waiting with its reason until one is chosen. Only the editor's explicit Send instruction
+  sends or arms the current policy confirmation. **Changes** shows the brief answers to what changed, why and how
   it was built, and **Checks** what was checked with Refresh beside Close: each line keeps its
   evidence class and chip, the first of each answer opens its full answer in the side panel (a
   changed file with its kind's generic icon, `FileScreens.Icon`), pages fit the room with Next page,
@@ -1816,8 +1819,8 @@ counts as read counts only when the director hands back the very frame the colum
 (`IMenuColumn.Drawn`), the page or its side panel, and toward the question only when that frame was
 built as the question's own page (`FileScreen.QuestionPage`): an approval shown on Waiting meanwhile
 never counts, even where its request, the agent's data, reads word for word as the prompt. Hold to talk's one voice tells the column whether
-it held Hold to talk in the custom-answer editor (a pending buffer) or on Activity (an instruction, asked
-before it is sent); where no keyboard opens, Tell it offers instructions to choose instead, and
+it held Hold to talk in the custom-answer editor (a pending buffer) or on Activity/the instruction
+editor (a local instruction draft, explicitly sent only after it is read); where no keyboard opens, Tell it offers instructions to choose instead, and
 free-text input is offered only when keyboard or voice is actually available. The voice-only field
 says Hold to talk below, and a keyboard field says Type your answer. Each recording captures its own
 callback identity, so a delayed answer cannot fall through as a later instruction and a deliberate
@@ -2626,3 +2629,31 @@ side or actual compact composition changes; a hold
 retains its originating frame/side/compact composition before maturity. Moving invalidates old
 geometry authorization; resumed task content obtains
 fresh exact-frame draw proof through the existing navigator and file lifecycle.
+
+### Instruction editor and explicit send
+
+Tell it opens a focused editor with Your instruction, the existing bounded Input role and empty
+keyboard-focus caret. Keyboard Done/dismissal and transcription never send or arm a confirmation.
+The local FileInstruction draft is bound to one execution and keeps spoken origin through every
+keyboard edit until that draft is discarded. Readable parts use actual outside-run measurement and
+page height. Both backward and forward body navigation remain available at middle parts; they pair
+only when the production measurer says both fit, otherwise their full target heights and spacing
+are budgeted. Paging keeps the existing 0.4 second drawn-age TurnGuard. Send instruction requires
+whole read-through and the exact current editor frame to draw. Cancel is the same local Close-slot
+exception as the answer editor; it discards this instruction without closing its file.
+
+WorkspaceSteering.SendInstruction is the only production instruction entry. It validates the exact
+draft execution before dispatching the existing Typed/Spoken policy helpers. Those older APIs keep
+tested compatibility semantics but have no keyboard/transcription/preset caller in current
+production UI; their other consumer is editor-only legacy rendering. Approvals and answers keep
+their existing paths. Spoken drafts still need the explicit Send press plus the existing reviewed
+Yes; this preserves voice protection and adds a deliberate step rather than claiming the duplicate
+review is resolved.
+
+Each keyboard/voice capture binds its input epoch, execution and route. Focus, Compact, editor
+cancel/close, edits, execution change and any observed loss of connection/instruction capability or
+approval preemption revoke callbacks permanently, even if eligibility later returns. Delivered
+words remain local during temporary preemption; the editor explains why sending waits. Compact
+retains valid page/read proof and words, while resetting input/confirmation authority and drawn-age
+proof; resuming requires a fresh exact frame. A changed execution drops the invalid draft with a
+truthful notice. Confirmation is bound to its exact words and execution and lapses on preemption.

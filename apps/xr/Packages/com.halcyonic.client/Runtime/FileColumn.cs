@@ -54,6 +54,12 @@ namespace Halcyonic.Client
         private int answerInputSession;
         private bool answerVoiceStarted;
         private int instructionKeyboardSession;
+        private bool instructionVoiceStarted;
+        private bool instructionVoiceValid;
+        private string? instructionVoiceExecution;
+        private int instructionVoiceEpoch;
+        private FileSection instructionVoiceSection;
+        private MenuFrame? drawnInstructionFrame;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -121,6 +127,8 @@ namespace Halcyonic.Client
             {
                 case Footer.Close:
                     instructionKeyboardSession++;
+                    Screen.Instruction.Close();
+                    instructionVoiceValid = false;
                     Steering.StopTyping();
                     question.CancelInput();
                     answering = false;
@@ -128,6 +136,8 @@ namespace Halcyonic.Client
                     Closed?.Invoke();
                     return;
                 case MenuFrame.ChooseSection when FileScreens.SectionOf(key) is FileSection section:
+                    if (Screen.Instruction.Open) return;
+                    instructionVoiceValid = false;
                     Screen.Section = section;
                     break;
                 case FileScreens.Open:
@@ -207,6 +217,7 @@ namespace Halcyonic.Client
                     question.Choose(option);
                     break;
                 case FileScreens.TypeAnswer:
+                    instructionVoiceValid = false;
                     if (draft != null && question.BeginInput()) OpenAnswerKeyboard();
                     Rebuild();
                     return;
@@ -219,11 +230,38 @@ namespace Halcyonic.Client
                     // A row only chooses; Tell it sends the chosen words as shown.
                     Screen.ChoosePreset(chosen);
                     break;
+                case FileScreens.CancelInstruction:
+                    instructionKeyboardSession++;
+                    instructionVoiceValid = false;
+                    Screen.Instruction.Close();
+                    Steering.StopTyping();
+                    Steering.Cancel();
+                    presets = false;
+                    break;
+                case FileScreens.EditInstruction:
+                    if (Steering.Armed != null || drawnInstructionFrame != Frame || Frame?.Lines.Any(line => line.Action == FileScreens.EditInstruction && line.Available) != true) return;
+                    OpenInstructionKeyboard();
+                    return;
+                case FileScreens.NextInstructionPart:
+                    if (drawnInstructionFrame == Frame && Frame!.Lines.Any(line => line.Action == id)) Screen.Instruction.Next(host.Clock);
+                    break;
+                case FileScreens.PreviousInstructionPart:
+                    if (drawnInstructionFrame == Frame && Frame!.Lines.Any(line => line.Action == id)) Screen.Instruction.Previous(host.Clock);
+                    break;
+                case FileScreens.SendInstruction:
+                    if (drawnInstructionFrame != Frame || !host.Connected || FileScreens.InstructionSendReason(Now, Screen) != null) return;
+                    instructionKeyboardSession++;
+                    instructionVoiceValid = false;
+                    Steer(Steering.SendInstruction(Screen.Instruction, Now));
+                    return;
                 case FileScreens.TellIt when Screen.Presets != null:
                     if (Screen.PresetToSend is string words)
                     {
                         presets = false;
-                        Steer(Steering.Typed(words, Now));
+                        if (Now.Execution == null) return;
+                        Screen.Instruction.Begin(Now.Execution.ExecutionId);
+                        Screen.Instruction.Changed(words, spoken: false);
+                        Rebuild();
                         return;
                     }
                     Notify(FileScreens.ChooseAnInstruction);
@@ -284,6 +322,7 @@ namespace Halcyonic.Client
             }
             notice = null;
             // An answer sent shows how it goes with the activity: sent, then taken, refused or not confirmed.
+            if (command is ExecutionSendInstructionCommand) Screen.Instruction.Close();
             if (command is ExecutionAnswerQuestionCommand) Screen.Section = FileSection.Activity;
             if (WorkspaceActs.Of(command) is WorkspaceAct act) acted?.Invoke(act);
         }
@@ -295,31 +334,48 @@ namespace Halcyonic.Client
         private void AskForWords()
         {
             var execution = Now?.Execution?.ExecutionId;
-            recordedNow = execution == null ? null : recorded(execution);
-            // Where no keyboard opens, the instructions offered stand in for it: the demonstration's own,
-            // else the generic ones; the host invents none.
+            if (execution == null) return;
+            recordedNow = recorded(execution);
             if (recordedNow?.Count > 0 || !host.KeyboardOffered)
             {
                 Steering.StopTyping();
                 presets = true;
                 return;
             }
-            // The system keyboard draws its prompt itself, with no lean or ground, so it holds Halcyonic's words
-            // alone; the file behind it names the task (settled 2026-10-08).
+            Screen.Instruction.Begin(execution);
+            OpenInstructionKeyboard();
+        }
+
+        private bool CurrentInstruction(string execution, int epoch)
+        {
+            var current = present();
+            return host.Connected && Screen.Instruction.Open && Screen.Instruction.ExecutionId == execution && Screen.Instruction.Epoch == epoch
+                && current?.Execution?.ExecutionId == execution && current.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(current) == null && Steering.Armed == null;
+        }
+
+        private void OpenInstructionKeyboard()
+        {
+            if (!host.KeyboardOffered || !Screen.Instruction.Open || Screen.Instruction.ExecutionId is not string execution) return;
+            Steering.Cancel();
+            Screen.ForgetRequest();
+            instructionVoiceValid = false;
+            Screen.Instruction.Edit();
+            var epoch = Screen.Instruction.Epoch;
             var session = ++instructionKeyboardSession;
-            host.OpenKeyboard("", WorkspaceText.TellItPrompt, text =>
+            Rebuild();
+            if (!CurrentInstruction(execution, epoch)) return;
+            host.OpenKeyboard(Screen.Instruction.Words, WorkspaceText.TellItPrompt, text =>
             {
-                var current = present();
-                if (session != instructionKeyboardSession || !host.Connected || !Steering.Typing || Steering.Armed != null
-                    || execution == null || current == null || current.Execution?.ExecutionId != execution
-                    || !current.Actions.Contains(WorkspaceAction.Instruct)) return;
+                if (session != instructionKeyboardSession || !CurrentInstruction(execution, epoch)) return;
                 instructionKeyboardSession++;
-                Now = current;
-                Steer(Steering.Typed(text, current));
+                Screen.Instruction.Changed(text, spoken: false);
+                Steering.StopTyping();
+                Rebuild();
             }, () =>
             {
-                if (session != instructionKeyboardSession) return;
+                if (session != instructionKeyboardSession || !CurrentInstruction(execution, epoch)) return;
                 instructionKeyboardSession++;
+                Screen.Instruction.Suspend();
                 Steering.StopTyping();
                 Rebuild();
             });
@@ -389,6 +445,14 @@ namespace Halcyonic.Client
                 }
                 return;
             }
+            if (Screen.Instruction.Open && Steering.Armed == null)
+            {
+                drawnInstructionFrame = drawn;
+                var before = Screen.Instruction.Read;
+                Screen.Instruction.Drawn(host.Clock);
+                if (before != Screen.Instruction.Read) Rebuild();
+                return;
+            }
             // Only the question's own page, as built, counts toward it, never another Waiting shows meanwhile,
             // whatever its words: an approval's request may read as the prompt itself.
             if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.QuestionPage && Screen.Question.Draft != null)
@@ -409,8 +473,17 @@ namespace Halcyonic.Client
             {
                 answerVoiceStarted = false;
                 answering = false;
+                instructionVoiceStarted = id == FileScreens.HoldToTalk;
+                var current = present();
+                instructionVoiceExecution = current?.Execution?.ExecutionId;
+                instructionVoiceEpoch = Screen.Instruction.Epoch;
+                instructionVoiceSection = Screen.Section;
+                instructionVoiceValid = instructionVoiceStarted && Frame?.Footer.All.Any(each => each.Prompt.Id == FileScreens.HoldToTalk && each.Prompt.Available) == true
+                    && host.VoiceOffered && host.Connected && instructionVoiceExecution != null
+                    && current!.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(current) == null && Steering.Armed == null && !Screen.Question.Writing && !Screen.Question.Reviewing;
                 return;
             }
+            instructionVoiceValid = false;
             answerVoiceStarted = true;
             answering = draft != null && Screen.Question.Writing && !Screen.Question.InputReading && host.VoiceOffered
                 && CurrentInput(draft, Screen.Question.Prompt, Screen.Question.InputSession);
@@ -424,6 +497,7 @@ namespace Halcyonic.Client
         public void HoldEnded(string id, bool letGo)
         {
             if (id == FileScreens.SpeakAnswer && !letGo) answering = false;
+            if (id == FileScreens.HoldToTalk && !letGo) instructionVoiceValid = false;
         }
 
         public void Heard(string text)
@@ -438,7 +512,18 @@ namespace Halcyonic.Client
                 Rebuild();
                 return;
             }
-            if (Now != null) Steer(Steering.Spoken(text, Now));
+            var current = present();
+            if (instructionVoiceStarted && instructionVoiceValid && host.Connected && instructionVoiceEpoch == Screen.Instruction.Epoch && instructionVoiceSection == Screen.Section
+                && !Screen.Question.Writing && !Screen.Question.Reviewing
+                && current?.Execution?.ExecutionId == instructionVoiceExecution && current!.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(current) == null && Steering.Armed == null)
+            {
+                instructionKeyboardSession++;
+                Screen.Instruction.Begin(instructionVoiceExecution!);
+                Screen.Instruction.Changed(text, spoken: true);
+                Steering.StopTyping();
+            }
+            instructionVoiceValid = false;
+            Rebuild();
         }
 
         public void Said(string words)
@@ -469,6 +554,9 @@ namespace Halcyonic.Client
         public void Compact()
         {
             Screen.Question.SuspendPresentation();
+            Screen.Instruction.Suspend();
+            drawnInstructionFrame = null;
+            instructionVoiceValid = false;
             instructionKeyboardSession++;
             Steering.StopTyping();
             answering = false;
@@ -480,6 +568,9 @@ namespace Halcyonic.Client
         public void FocusLeft()
         {
             Screen.Question.InvalidateInput();
+            Screen.Instruction.Suspend();
+            drawnInstructionFrame = null;
+            instructionVoiceValid = false;
             instructionKeyboardSession++;
             Steering.StopTyping();
             answering = false;
@@ -512,6 +603,24 @@ namespace Halcyonic.Client
                 return;
             }
             Now = presentation;
+            drawnInstructionFrame = null;
+            if (Screen.Instruction.Open && Screen.Instruction.ExecutionId != presentation.Execution?.ExecutionId)
+            {
+                Screen.Instruction.Close();
+                instructionKeyboardSession++;
+                instructionVoiceValid = false;
+                Steering.Cancel();
+                Notify(FileScreens.InstructionChanged);
+            }
+            var instructionEligible = host.Connected && presentation.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(presentation) == null;
+            if (!instructionEligible && (Screen.Instruction.InputFocused || instructionVoiceValid))
+            {
+                instructionKeyboardSession++;
+                Screen.Instruction.Suspend();
+                instructionVoiceValid = false;
+                Steering.StopTyping();
+                Steering.FocusLeft();
+            }
             var asked = presentation.QuestionToAnswer;
             var execution = presentation.Execution?.ExecutionId;
             if (asked == null || execution == null) draft = null;
@@ -532,7 +641,7 @@ namespace Halcyonic.Client
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
-            var focused = FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting && Steering.Armed == null, Steering);
+            var focused = Screen.Instruction.Open || FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting && Steering.Armed == null, Steering);
             if (budget == null || resized || budgetFocused != focused)
             {
                 budgetFocused = focused;
@@ -540,6 +649,9 @@ namespace Halcyonic.Client
                 budgetAt = host.TextSize;
             }
             if (draft != null) ReadQuestion(draft, budget);
+            if (Screen.Instruction.Open)
+                Screen.Instruction.Measure(host.RowsOf(FileScreens.InstructionLine(Screen.Instruction, host.KeyboardOffered, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees), budget, host.TextSize,
+                    host.FitsHalf(FileScreens.InstructionPager(previous: true), Glaze.Menu.FileColumnDegrees) && host.FitsHalf(FileScreens.InstructionPager(), Glaze.Menu.FileColumnDegrees));
             // Answers armed to send that changed since, by a choice, a page turned or a new layout, cancel
             // its Yes at the change, as words heard or typed do.
             if (Steering.AnswersMoved() is string moved)
