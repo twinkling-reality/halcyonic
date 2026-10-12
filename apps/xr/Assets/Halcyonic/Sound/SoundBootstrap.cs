@@ -10,7 +10,7 @@ namespace Halcyonic.XR.Sound
     /// </summary>
     /// <remarks>
     /// <see cref="HalcyonicBootstrap"/> creates a stage in scenes that lack one, after scene load like
-    /// this, in an order Unity does not define; so this waits a few frames for a stage to exist.
+    /// this, in an order Unity does not define; so this waits a few frames for the workspace runtime root to exist.
     /// </remarks>
     public sealed class SoundBootstrap : MonoBehaviour
     {
@@ -26,7 +26,7 @@ namespace Halcyonic.XR.Sound
 
         private void Update()
         {
-            var stage = FindAnyObjectByType<CharacterStage>();
+            var stage = FindAnyObjectByType<Workspace.WorkspaceDirector>();
             if (stage == null && ++frames < MaxFrames) return;
             if (stage != null && stage.GetComponent<StageSound>() == null)
             {
