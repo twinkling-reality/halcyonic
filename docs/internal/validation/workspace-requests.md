@@ -177,11 +177,6 @@ This checkpoint preserves an unknown pending command in memory. Saving that iden
 and exact original-owner recovery after process recreation is still required before claiming
 restart-safe request delivery. Actual request renders, native round-trip, model/runtime outcomes
 and wearer acceptance are separate; no end-to-end outcome is claimed by these UI source checks.
-Seventy-one contract/native checks and seventeen C# continuation/storage checks passed, with
-zero skipped, after both corrections. Typecheck, contract generation and scoped lint passed.
-Independent source review found no remaining selector/codec issue. The instruction restore and
-native input consumers have separate Unicode-limit follow-ups; these codec results do not claim
-the unfinished request controls or headset return path are accepted.
 
 ### Producer identity and bounded context follow-up
 
@@ -205,3 +200,23 @@ The native instruction editor now applies the canonical 32,000-codepoint inserti
 plain helper consumed by its actual Android InputFilter. Incoming drafts are not shortened. The
 focused production/development Android compile and insertion/replacement/supplementary-pair checks
 passed (2/2). Actual keyboard/composition behavior on a headset is still pending.
+
+
+## Isolated real model and runtime witness
+
+The production coordinator/transport ran against local Ollama 0.34.4 and real OpenCode 2.0.18
+with an explicitly selected local `qwen3.5:9b`. The temporary project, journal, home and runtime
+record were isolated from the owner's workspace. The runtime's sandbox denied other user files
+and exposed only the approved local model endpoint. No hosted model, approval answer, live host
+restart or settings change was involved. The request asked for one synthetic file edit and a
+verification read; the witness independently compared the exact resulting bytes and file list.
+
+The first run reached eight read calls without dispatching work and interrupted at the planning
+bound. Inspection found generic tool-result shortening could hide the execution capabilities and
+page cursor. After the structured-context correction, the second run dispatched one instruction,
+observed its real runtime completion, and produced exactly the expected file with no extra files.
+It nevertheless failed the full witness: after eight model turns and nine calls, the coordinator
+interrupted instead of returning a final reported reply, repeating unavailable optional provider
+reads. Elapsed time was 34.102 seconds. The file/action result is verified; dependable autonomous
+continuation and final response are not yet established. This remains a concrete open failure,
+not evidence for a completed end-to-end feature.
