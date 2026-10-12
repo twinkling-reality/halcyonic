@@ -127,6 +127,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 Shot("project details");
                 if (director.Navigator.Place != MenuPlace.Projects || director.Plane.Front?.Side == null)
                     failures.Add(name + ": Project details lost the existing project actions");
+                var projectDetails = director.Plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.Side).View;
+                if (projectDetails?.Side == null || !director.PressForRender(MenuColumn.Side, SidePanel.Close, null, projectDetails.InPlaceOf, projectDetails.Side))
+                    failures.Add(name + ": visible Close details did not restore the project list");
+                Shot("returned projects from details");
                 Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
                 Shot("returned project tasks");
                 Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
