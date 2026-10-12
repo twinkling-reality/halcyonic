@@ -98,6 +98,63 @@ public class FileColumnTests
         host.Wait(1);
     }
 
+    /// <summary>Chooses only from a currently drawn option page, navigating by the visible paging action.</summary>
+    private static void ChooseVisible(FileMenuHost host, FileColumn column, int option)
+    {
+        ReadQuestion(host, column);
+        var pages = column.Screen.Question.Pages;
+        for (var page = 0; page < pages; page++)
+        {
+            Draw(host, column);
+            var shown = column.Frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.Choose && line.Key == option.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (shown != null)
+            {
+                Assert.That(shown.Available, Is.True);
+                column.Act(shown.Action!, shown.Key);
+                return;
+            }
+            var more = column.Frame.Lines.Single(line => line.Action == FileScreens.MoreAnswers);
+            Assert.That(more.Available, Is.True);
+            column.Act(more.Action!, more.Key);
+        }
+        Assert.Fail("The offered answer was not reachable through its visible pages.");
+    }
+
+    /// <summary>Follows visible primary controls to the final review without choosing, editing or sending.</summary>
+    private static void Review(FileMenuHost host, FileColumn column)
+    {
+        for (var page = 0; page < 50; page++)
+        {
+            Draw(host, column);
+            var primary = column.Frame!.Footer[PromptSlot.FarRight]!;
+            if (primary.Id == FileScreens.SendAnswer)
+            {
+                Assert.That(column.Screen.Question.Reviewing, Is.True);
+                return;
+            }
+            Assert.That(primary.Id, Is.EqualTo(column.Screen.Question.Reviewing ? FileScreens.MoreAnswers : FileScreens.NextQuestion), "only the visible question/review navigation advances this driver");
+            Assert.That(primary.Available, Is.True, primary.Reason);
+            column.Act(primary.Id, null);
+        }
+        Assert.Fail("The final answer review was not reachable through visible primary controls.");
+    }
+
+    /// <summary>Reads every part of the distinct editor, then explicitly commits Use this answer.</summary>
+    private static void UseInput(FileMenuHost host, FileColumn column)
+    {
+        for (var part = 0; part < 100; part++)
+        {
+            Draw(host, column);
+            var primary = column.Frame!.Footer[PromptSlot.FarRight]!;
+            Assert.That(column.Screen.Question.Writing, Is.True);
+            Assert.That(primary.Available, Is.True, primary.Reason);
+            column.Act(primary.Id, null);
+            if (primary.Id == FileScreens.UseInput) return;
+            Assert.That(primary.Id, Is.EqualTo(FileScreens.NextInputPart));
+        }
+        Assert.Fail("The editor's complete answer was not reachable through visible controls.");
+    }
+
     private static WorkspacePresentation Approving(WaitingWork work) =>
         FileScreensTests.Offering(work.Present(), WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt);
 
@@ -355,6 +412,7 @@ public class FileColumnTests
         Draw(host, column);
         if (!draft.IsAnswered(0)) column.Act(FileScreens.Choose, "0");
         Assert.That(draft.Problem, Is.Null, "read whole at the new size");
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
     }
@@ -429,7 +487,7 @@ public class FileColumnTests
         Assert.That(column.Frame!.Lines.Last().Words, Does.StartWith("Couldn't send"));
     }
 
-    /// <summary>A question taking a typed answer, its answers' page in view, with a typed answer long enough for its side panel to take several parts.</summary>
+    /// <summary>A question taking a typed answer, its answers' page in view, with an unsaved editor buffer long enough to take several parts.</summary>
     private (FileMenuHost Host, FileColumn Column) TypedLongAnswer()
     {
         var host = new FileMenuHost();
@@ -457,45 +515,53 @@ public class FileColumnTests
         column.Act(FileScreens.TypeAnswer, null);
         var words = string.Join(" ", Enumerable.Range(1, 120).Select(step => "Lock it for a minute after the " + step + "th failed try"));
         host.Keyboard!.Value.Done(words);
-        Assert.That(column.Screen.Question.SideOption, Is.Not.Null, "the typed answer is cut, so its whole words open beside the page");
-        Assert.That(column.Screen.Question.SideParts, Is.GreaterThan(2), "in several parts");
+        Assert.That((column.Screen.Question.Writing, column.Screen.Question.InputReading), Is.EqualTo((true, true)), "long input opens a dedicated read-through editor");
+        Assert.That(column.Screen.Question.InputParts, Is.GreaterThan(2), "in several parts");
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null, "keyboard Done updates only the editor buffer");
+        Assert.That(column.Frame!.Side, Is.Null, "input is not an offered choice's detail panel");
         return (host, column);
     }
 
     [Test]
-    public void ALongTypedAnswerIsReadPartByPartToItsEndAndThenSends()
+    public void ALongTypedAnswerIsReadPartByPartUsedThenReviewedBeforeItSends()
     {
         var (host, column) = TypedLongAnswer();
-        var parts = column.Screen.Question.SideParts;
+        var words = column.Screen.Question.Input;
+        var parts = column.Screen.Question.InputParts;
         for (var part = 0; part < parts; part++)
         {
-            Assert.That(column.Screen.Question.SidePart, Is.EqualTo(part), "a rebuild never sends it back to the first part");
-            column.Drawn(column.Frame!, SidePanel.Footer);
-            host.Wait(1);
+            Assert.That(column.Screen.Question.InputPart, Is.EqualTo(part), "a rebuild never sends it back to the first part");
+            column.Act(FileScreens.UseInput, null);
+            Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null, "unread editor content cannot be saved");
+            Draw(host, column);
             column.Tick();
-            if (part < parts - 1) column.Act(Footer.NextPage, null);
+            if (part < parts - 1) column.Act(FileScreens.NextInputPart, null);
         }
-        Assert.That(column.Screen.Question.AnswersRead(0), Is.True, "read to its last part");
-        Draw(host, column);
+        Assert.That(column.Screen.Question.InputRead, Is.True, "every editor part was drawn");
+        column.Act(FileScreens.UseInput, null);
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo(words));
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
+        Assert.That(host.Sent, Is.Empty, "Use saves a draft and sends nothing");
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
-        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1), "and sent");
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Text, Is.EqualTo(words));
     }
 
     [Test]
-    public void CloseDetailsOnALongTypedAnswerStaysClosedUntilItsWordsChange()
+    public void CancellingALongEditorKeepsTheSavedDraftUnchangedAndClosedUntilExplicitEdit()
     {
         var (host, column) = TypedLongAnswer();
-        column.Act(SidePanel.Close, null);
-        Assert.That(column.Frame!.Side, Is.Null, "the page shows again");
+        column.Act(FileScreens.CancelInput, null);
+        Assert.That((column.Screen.Question.Writing, column.Screen.Question.Draft!.Typed(0)), Is.EqualTo((false, (string?)null)), "Cancel saves no buffer");
         Draw(host, column);
         column.Tick();
         host.Wait(1);
         column.Tick();
-        Assert.That((column.Screen.Question.SideOption, column.Frame!.Side), Is.EqualTo(((int?)null, (SidePanel?)null)), "rebuilds leave it closed");
+        Assert.That((column.Screen.Question.Writing, column.Frame!.Side), Is.EqualTo((false, (SidePanel?)null)), "rebuilds leave input closed");
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done("Ten minutes, then a day after the fifth time, then a reset by email only, with every lockout written to the audit log and the person told why");
-        Assert.That(column.Screen.Question.SideOption, Is.Not.Null, "new words open it again, from their first part");
-        Assert.That(column.Screen.Question.SidePart, Is.EqualTo(0));
+        Assert.That((column.Screen.Question.Writing, column.Screen.Question.InputPart), Is.EqualTo((true, 0)), "new entry starts at its own first part");
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null);
     }
 
     private static string LongWords(string what) =>
@@ -546,7 +612,7 @@ public class FileColumnTests
         ReadSide(host, column);
         column.Act(SidePanel.Close, null);
         Draw(host, column);
-        Assert.That(FileScreens.WhySendWaits(column.Screen), Is.Null, "read in its panel, it can be sent");
+        Assert.That(FileScreens.WhyNextWaits(column.Screen.Question), Is.Null, "read in its panel, it can be sent");
 
         column.Tick();
         host.TextSize = TextSize.Larger;
@@ -556,37 +622,69 @@ public class FileColumnTests
         Assert.That(host.Sent, Is.Empty, "Send answer waits until it is");
 
         // One press of its row opens its panel again, the answer still chosen.
+        ReadQuestion(host, column);
         column.Act(FileScreens.Choose, "0");
         Assert.That((column.Screen.Question.SideOption, draft.IsChosen(0, CutAnswer)), Is.EqualTo(((int?)0, true)));
         ReadSide(host, column);
         column.Act(SidePanel.Close, null);
         Draw(host, column);
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1), "read again, it is sent once");
     }
 
     [Test]
-    public void ALongTypedAnswerReadInItsPanelIsReadAgainAtANewSize()
+    public void ALongEditorReadAtOneSizeMustBeReadAgainBeforeUseAtTheNewSize()
     {
         var (host, column) = TypedLongAnswer();
-        ReadSide(host, column);
-        column.Act(SidePanel.Close, null);
-        Draw(host, column);
-        Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
-
+        var words = column.Screen.Question.Input;
+        var parts = column.Screen.Question.InputParts;
+        for (var part = 0; part < parts; part++)
+        {
+            Draw(host, column);
+            if (part < parts - 1) column.Act(FileScreens.NextInputPart, null);
+        }
+        Assert.That(column.Screen.Question.InputRead, Is.True);
         column.Tick();
         host.TextSize = TextSize.Larger;
         column.Tick();
-        Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "read at the other size, it is read again");
+        Assert.That((column.Screen.Question.InputRead, column.Screen.Question.InputPart), Is.EqualTo((false, 0)), "parts read at the other size cannot certify this layout");
+        column.Act(FileScreens.UseInput, null);
         column.Act(FileScreens.SendAnswer, null);
-        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>(), Is.Empty);
+        Assert.That((column.Screen.Question.Draft!.Typed(0), host.Sent.Count), Is.EqualTo(((string?)null, 0)));
+        UseInput(host, column);
+        ReadQuestion(host, column);
+        Review(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Text, Is.EqualTo(words));
+    }
+
+    [Test]
+    public void ASavedLongAnswerSurvivesResizeButRequiresEditorRereadUseAndReviewToSend()
+    {
+        var (host, column) = TypedLongAnswer();
+        var words = column.Screen.Question.Input;
+        UseInput(host, column);
+        var draft = column.Screen.Question.Draft!;
+        Assert.That((draft.Typed(0), column.Screen.Question.AnswersRead(0)), Is.EqualTo((words, true)));
+        column.Tick();
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That((draft.Typed(0), column.Screen.Question.AnswersRead(0)), Is.EqualTo((words, false)), "resizing preserves the saved words but invalidates their reading proof");
+        ReadQuestion(host, column);
+        Assert.That(column.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.False, "even after rereading the question, Next waits for the saved answer to be reread");
+        column.Act(FileScreens.NextQuestion, null);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That((column.Screen.Question.Reviewing, host.Sent.Count), Is.EqualTo((false, 0)));
         column.Act(FileScreens.TypeAnswer, null);
-        Assert.That(column.Screen.Question.SideOption, Is.Not.Null, "its row opens its panel again");
-        ReadSide(host, column);
-        column.Act(SidePanel.Close, null);
-        Draw(host, column);
+        Assert.That((column.Screen.Question.Input, column.Screen.Question.InputPart, column.Screen.Question.InputRead), Is.EqualTo((words, 0, false)), "explicit Edit starts a fresh reading of the saved words");
+        column.Act(FileScreens.UseInput, null);
+        Assert.That(column.Screen.Question.Writing, Is.True, "unread saved words cannot borrow the old Use proof");
+        UseInput(host, column);
+        Assert.That((draft.Typed(0), column.Screen.Question.AnswersRead(0), host.Sent.Count), Is.EqualTo((words, true, 0)));
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
-        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Text, Is.EqualTo(words));
     }
 
     [Test]
@@ -633,6 +731,7 @@ public class FileColumnTests
         }
         Draw(host, column);
         if (!draft.IsAnswered(0)) column.Act(FileScreens.Choose, "0");
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
     }
@@ -682,6 +781,7 @@ public class FileColumnTests
             });
         column.Act(FileScreens.Choose, "0");
         Draw(host, column);
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That((column.Steering.Armed, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Answer, (string?)FileScreens.Yes)));
         column.Tick();
@@ -709,32 +809,28 @@ public class FileColumnTests
     }
 
     [Test]
-    public void ALongTypedAnswerClosedBeforeItsEndOpensAgainFromItsRowAtThePartToReadNextAndSends()
+    public void CancelledUnreadInputCannotReuseItsPartsWhenEnteredAgainAndOnlyUseThenReviewSends()
     {
         var (host, column) = TypedLongAnswer();
-        column.Drawn(column.Frame!, SidePanel.Footer);
-        host.Wait(1);
-        column.Act(Footer.NextPage, null);
-        column.Act(SidePanel.Close, null);
-        Assert.That(column.Frame!.Side, Is.Null, "closed before its last part");
-        var keyboard = host.Keyboard;
-        column.Act(FileScreens.TypeAnswer, null);
-        Assert.That((column.Screen.Question.SideOption, column.Screen.Question.SidePart), Is.EqualTo(((int?)2, 1)),
-            "its row opens it again at the first part not yet drawn");
-        Assert.That(host.Keyboard, Is.EqualTo(keyboard), "and asks for no new words");
-        var parts = column.Screen.Question.SideParts;
-        for (var part = 1; part < parts; part++)
-        {
-            column.Drawn(column.Frame!, SidePanel.Footer);
-            host.Wait(1);
-            if (part < parts - 1) column.Act(Footer.NextPage, null);
-        }
+        var words = column.Screen.Question.Input;
         Draw(host, column);
-        column.Act(FileScreens.SendAnswer, null);
-        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1), "the same words, read to their end, are sent");
-
+        column.Act(FileScreens.NextInputPart, null);
+        Assert.That(column.Screen.Question.InputPart, Is.EqualTo(1));
+        var previous = host.Keyboard!.Value.Done;
+        column.Act(FileScreens.CancelInput, null);
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null);
+        Draw(host, column);
         column.Act(FileScreens.TypeAnswer, null);
-        Assert.That(host.Keyboard, Is.Not.EqualTo(keyboard), "read whole, the row edits them again");
+        host.Keyboard!.Value.Done(words);
+        Assert.That((column.Screen.Question.InputPart, column.Screen.Question.InputRead), Is.EqualTo((0, false)), "a new input session starts its own reading");
+        previous("Late words from the cancelled editor");
+        Assert.That(column.Screen.Question.Input, Is.EqualTo(words), "late callbacks cannot change the new editor");
+        column.Act(FileScreens.UseInput, null);
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null);
+        UseInput(host, column);
+        Review(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Text, Is.EqualTo(words));
     }
 
     [Test]
@@ -751,8 +847,9 @@ public class FileColumnTests
         });
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done(LongWords("Also the accessibility audit, step"));
-        Assert.That(column.Screen.Question.SideOption, Is.EqualTo(2), "the typed answer's panel");
-        column.Act(FileScreens.Choose, "0");
+        Assert.That(column.Screen.Question.Writing, Is.True, "the typed answer is in its distinct editor");
+        UseInput(host, column);
+        ChooseVisible(host, column, 0);
         Assert.That(column.Screen.Question.SideOption, Is.EqualTo(0), "the cut answer's panel in its place");
         column.Act(SidePanel.Close, null);
         Assert.That(column.Frame!.Side, Is.Null, "Close details always brings the page back");
@@ -774,9 +871,9 @@ public class FileColumnTests
             });
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done(LongWords("Lock it for a minute after try"));
-        Assert.That(column.Screen.Question.SideParts, Is.GreaterThan(2));
-        column.Drawn(column.Frame!, SidePanel.Footer);
-        host.Wait(1);
+        Assert.That(column.Screen.Question.InputParts, Is.GreaterThan(2));
+        UseInput(host, column);
+        var saved = column.Screen.Question.Draft!.Typed(0);
         Draw(host, column);
         column.Act(FileScreens.NextQuestion, null);
         Assert.That(column.Screen.Question.Prompt, Is.EqualTo(1));
@@ -786,6 +883,8 @@ public class FileColumnTests
             column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
         }
         Draw(host, column);
+        ChooseVisible(host, column, 0);
+        Draw(host, column);
         column.Act(FileScreens.NextQuestion, null);
         Assert.That(column.Screen.Question.Reviewing, Is.True, "on the person's answers");
         column.Act(FileScreens.GoToQuestion, "0");
@@ -794,16 +893,20 @@ public class FileColumnTests
             Draw(host, column);
             column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
         }
-        Assert.That((column.Screen.Question.Prompt, column.Screen.Question.SideOption, column.Screen.Question.SidePart), Is.EqualTo((0, (int?)1, 1)),
-            "back on the prompt, the unread typed answer's panel opens at the first part not yet drawn");
+        Assert.That((column.Screen.Question.Prompt, column.Screen.Question.Draft!.Typed(0), column.Frame!.Side), Is.EqualTo((0, saved, (SidePanel?)null)), "Back/Edit keeps the saved answer without silently opening an input panel");
+        Draw(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That((column.Screen.Question.Input, column.Screen.Question.InputPart, column.Screen.Question.InputRead), Is.EqualTo((saved, 0, false)), "explicit editing has its own current-session reading");
     }
 
     /// <summary>The prompt showing read through its question's parts to its answers, each part drawn.</summary>
     private static void ReadQuestion(FileMenuHost host, FileColumn column)
     {
-        for (var step = 0; step < 5 && column.Screen.Question.QuestionPart != null; step++)
+        var parts = column.Screen.Question.QuestionParts(column.Screen.Question.Prompt);
+        for (var part = 0; part < parts && column.Screen.Question.QuestionPart != null; part++)
         {
             Draw(host, column);
+            Assert.That(column.Frame!.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(FileScreens.NextPart));
             column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
         }
         Draw(host, column);
@@ -890,92 +993,95 @@ public class FileColumnTests
     };
 
     /// <summary>A file asking <paramref name="question"/> under a policy that asks Yes before an answer is sent, its first answer chosen and read.</summary>
-    private FileColumn AnsweringWithYes(FileMenuHost host, QuestionView question)
+    private FileColumn AnsweringWithYes(FileMenuHost host, QuestionView question, bool reviewing = true)
     {
         var work = new AskingWork(question, new[] { new CommandPolicy { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.ReviewRequired } });
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
         ReadQuestion(host, column);
         column.Act(FileScreens.Choose, "0");
         Draw(host, column);
+        if (reviewing) Review(host, column);
         return column;
     }
 
     [Test]
-    public void WordsHeardAfterSendAnswerAskedItsYesCancelItSoNothingUnreadIsSent()
+    public void LateWordsFromACancelledEditorCannotChangeTheReviewedAnswerOrItsYes()
     {
-        // Hold to talk let go, then Send answer pressed while the words are worked out: it asks its Yes.
         var host = new FileMenuHost();
-        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        var column = AnsweringWithYes(host, Questioned("question-1", 1), reviewing: false);
+        column.Act(FileScreens.TypeAnswer, null);
+        Draw(host, column);
         column.HoldStarted(FileScreens.SpeakAnswer);
+        column.HoldEnded(FileScreens.SpeakAnswer, letGo: true);
+        column.Act(FileScreens.CancelInput, null);
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
-
-        // The words arrive and replace the answer: the Yes asked for the answer before them is cancelled.
         column.Heard(LongWords("Lock it for a minute after try"));
-        Assert.That(column.Steering.Armed, Is.Null);
-        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
+        Assert.That((column.Steering.Armed, column.Screen.Question.Draft!.Typed(0)), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Answer, (string?)null)), "late unread words cannot change the exact answer being confirmed");
+        Assert.That(column.Screen.Notice, Is.EqualTo(VoiceText.QuestionChangedWhileSpeaking));
+        Assert.That(host.Sent, Is.Empty);
         column.Act(FileScreens.Yes, null);
-        Assert.That(host.Sent, Is.Empty, "the words heard, never read, are not sent");
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Selected, Is.EqualTo(new[] { "Yes" }));
+        Assert.That(column.Steering.Instruction, Is.Null, "an answer callback never becomes an instruction");
     }
 
     [Test]
-    public void AChoiceReachingTheColumnAfterSendAnswerAskedItsYesCancelsItAtTheChange()
+    public void ALateChoicePressCannotChangeAReviewedAnswerOrItsPendingYes()
     {
         var host = new FileMenuHost();
         var column = AnsweringWithYes(host, Questioned("question-1", 1));
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
         column.Act(SidePanel.Close, null);
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer), "a press that changes no answer keeps the Yes");
-
-        // Another answer chosen: the Yes, asked for the answer before it, goes at once, never left to be refused.
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer), "a press changing no answer preserves its Yes");
         column.Act(FileScreens.Choose, "1");
-        Assert.That(column.Steering.Armed, Is.Null);
-        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
-        Assert.That(column.Frame!.Footer[PromptSlot.Free], Is.Null, "no Yes stands");
-        column.Act(FileScreens.Yes, null);
+        Assert.That((column.Steering.Armed, column.Screen.Question.Draft!.Build().Single().Selected), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Answer, new[] { "Yes" })), "the review has no current choice page, so a late choice changes nothing");
         Assert.That(host.Sent, Is.Empty);
-
-        // Asked again for the new answer, its Yes sends that answer.
-        Draw(host, column);
-        column.Act(FileScreens.SendAnswer, null);
         column.Act(FileScreens.Yes, null);
-        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Selected, Is.EqualTo(new[] { "No" }));
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Selected, Is.EqualTo(new[] { "Yes" }));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent.Count, Is.EqualTo(1));
     }
 
     [Test]
-    public void APageTurnedAfterSendAnswerAskedItsYesCancelsItWhenItClearsTheChoice()
+    public void ALateChoicePagerCannotClearTheReviewedDraftOrSendAnything()
     {
         var host = new FileMenuHost();
         var question = Questioned("question-1", 1);
-        // Answers enough to take two pages, so More answers turns the page and clears the choice on it.
         question.Prompts[0].Options = Enumerable.Range(1, 12).Select(index => new QuestionOption { Label = "Answer " + index }).ToList();
-        var column = AnsweringWithYes(host, question);
-        Assert.That(column.Screen.Question.Pages, Is.GreaterThan(1));
+        var column = AnsweringWithYes(host, question, reviewing: false);
+        Assert.That(column.Screen.Question.Pages, Is.GreaterThan(1), "the choice stage has a real pager");
+        column.Act(FileScreens.MoreAnswers, null);
+        Assert.That(column.Screen.Question.Draft!.IsChosen(0, "Answer 1"), Is.True, "paging retains the drawn choice");
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
         column.Act(FileScreens.MoreAnswers, null);
-        Assert.That(column.Screen.Question.Draft!.IsAnswered(0), Is.False, "turning the page cleared the choice");
-        Assert.That((column.Steering.Armed, column.Screen.Notice), Is.EqualTo(((WorkspaceAction?)null, WorkspaceText.AnswerChanged)));
+        Assert.That(column.Screen.Question.Draft!.IsChosen(0, "Answer 1"), Is.True, "an old choice pager cannot clear the reviewed choice");
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        Assert.That(host.Sent, Is.Empty, "paging itself sends nothing");
         column.Act(FileScreens.Yes, null);
-        Assert.That(host.Sent, Is.Empty);
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Selected, Is.EqualTo(new[] { "Answer 1" }));
     }
 
     [Test]
-    public void WordsTypedAfterSendAnswerAskedItsYesCancelIt()
+    public void LateKeyboardWordsCannotChangeTheReviewedDraftOrItsPendingYes()
     {
         var host = new FileMenuHost();
-        var column = AnsweringWithYes(host, Questioned("question-1", 1));
-        // The keyboard opened, then Send answer pressed before it closed: it asks its Yes.
+        var column = AnsweringWithYes(host, Questioned("question-1", 1), reviewing: false);
         column.Act(FileScreens.TypeAnswer, null);
         Assert.That(host.Keyboard, Is.Not.Null);
+        var late = host.Keyboard!.Value.Done;
+        column.Act(FileScreens.CancelInput, null);
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
-        host.Keyboard!.Value.Done(LongWords("Lock it for a minute after try"));
-        Assert.That(column.Steering.Armed, Is.Null);
-        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
-        column.Act(FileScreens.Yes, null);
+        late(LongWords("Lock it for a minute after try"));
+        Assert.That((column.Steering.Armed, column.Screen.Question.Draft!.Typed(0)), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Answer, (string?)null)));
         Assert.That(host.Sent, Is.Empty);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Selected, Is.EqualTo(new[] { "Yes" }));
     }
 
     [Test]
@@ -999,10 +1105,19 @@ public class FileColumnTests
             },
         });
         var draft = column.Screen.Question.Draft!;
+        column.Act(FileScreens.BackQuestion, null);
+        ReadQuestion(host, column);
         draft.Choose(0, "A");
         draft.Choose(0, "A\u0003B");
         Assert.That(draft.AnswersNow[0].Chosen, Is.EqualTo(new[] { "A\u0003B" }));
-        Draw(host, column);
+        column.Tick();
+        var pages = column.Screen.Question.Pages;
+        for (var page = 0; page < pages; page++)
+        {
+            Draw(host, column);
+            if (pages > 1) column.Act(FileScreens.MoreAnswers, null);
+        }
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
         draft.Choose(0, "A\u0003B");
@@ -1015,44 +1130,40 @@ public class FileColumnTests
     }
 
     [Test]
-    public void AKeyboardClosedWithTheAnswerUnchangedLeavesYesAsked()
+    public void ALateUnchangedKeyboardReturnLeavesTheReviewedAnswerAndItsYesUntouched()
     {
         var host = new FileMenuHost();
-        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        var column = AnsweringWithYes(host, Questioned("question-1", 1), reviewing: false);
         column.Act(FileScreens.TypeAnswer, null);
+        var done = host.Keyboard!.Value.Done;
+        column.Act(FileScreens.CancelInput, null);
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
-        // Closed with nothing typed, as it opened: the answer is as it was.
-        host.Keyboard!.Value.Done("");
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer), "nothing changed, so Yes still stands");
+        done("");
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
         Assert.That(column.Screen.Notice, Is.Not.EqualTo(WorkspaceText.AnswerChanged));
         column.Act(FileScreens.Yes, null);
         Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
     }
 
     [Test]
-    public void WordsHeardForAQuestionThatTakesOnlyItsAnswersLeaveYesAskedAndSayWhy()
+    public void FixedOptionsOfferNoVoiceAndForgedHeardWordsCannotChangeTheAnswerOrItsYes()
     {
         var host = new FileMenuHost();
-        var column = AnsweringWithYes(host, new QuestionView
-        {
-            QuestionId = "question-1",
-            Answerable = true,
-            AskedAt = Samples.Time,
-            Prompts = new List<QuestionPrompt>
-            {
-                new()
-                {
-                    Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = false,
-                    Options = new List<QuestionOption> { new() { Label = "15 minutes" }, new() { Label = "1 hour" } },
-                },
-            },
-        });
+        var question = Questioned("question-1", 1);
+        question.Prompts[0].FreeText = false;
+        var column = AnsweringWithYes(host, question, reviewing: false);
+        Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Id), Has.None.EqualTo(FileScreens.SpeakAnswer));
+        Assert.That(column.Frame.Lines.Select(line => line.Action), Has.None.EqualTo(FileScreens.TypeAnswer));
         column.HoldStarted(FileScreens.SpeakAnswer);
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         column.Heard("Ten minutes");
-        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer), "the words were refused, so the answer and its Yes stand");
-        Assert.That(column.Screen.Notice, Is.EqualTo("This question takes only the answers shown. Choose one of them."));
+        Assert.That((column.Steering.Armed, column.Screen.Question.Draft!.Typed(0)), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Answer, (string?)null)), "the unsupported input does not change the answer being confirmed");
+        Assert.That(column.Screen.Notice, Is.EqualTo(VoiceText.QuestionChangedWhileSpeaking));
+        Assert.That(host.Sent, Is.Empty);
+        Assert.That(column.Steering.Instruction, Is.Null);
     }
 
     [Test]
@@ -1088,6 +1199,8 @@ public class FileColumnTests
         var host = new FileMenuHost();
         var showing = new AskingWork(Questioned("question-1", 1));
         var column = Column(host, () => FileScreensTests.Offering(showing.Present(), WorkspaceAction.Answer));
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
         Draw(host, column);
         Prompt? Held() => column.Frame!.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Id == FileScreens.SpeakAnswer);
         var lines = column.Frame!.Lines.Select(line => line.Words).ToList();
@@ -1167,38 +1280,38 @@ public class FileColumnTests
     }
 
     [Test]
-    public void NewWordsOfTheSameLengthAreReadFromTheirOwnFirstPart()
+    public void NewEditorWordsOfTheSameLengthRequireTheirOwnReadingBeforeUse()
     {
         var (host, column) = TypedLongAnswer();
-        var parts = column.Screen.Question.SideParts;
-        for (var part = 0; part < parts; part++)
-        {
-            column.Drawn(column.Frame!, SidePanel.Footer);
-            host.Wait(1);
-            if (part < parts - 1) column.Act(Footer.NextPage, null);
-        }
-        Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
+        UseInput(host, column);
+        var saved = column.Screen.Question.Draft!.Typed(0);
+        Draw(host, column);
         column.Act(FileScreens.TypeAnswer, null);
         var same = string.Join(" ", Enumerable.Range(1, 120).Select(step => "Lock it for a moment after the " + step + "th failed try"));
         host.Keyboard!.Value.Done(same);
-        Assert.That((column.Screen.Question.SideParts, column.Screen.Question.SidePart), Is.EqualTo((parts, 0)), "as many parts, from the first");
-        column.Drawn(column.Frame!, SidePanel.Footer);
-        host.Wait(1);
-        Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "one part of new words is not the whole of them");
+        Assert.That((column.Screen.Question.InputPart, column.Screen.Question.InputRead), Is.EqualTo((0, false)));
+        Draw(host, column);
+        Assert.That(column.Screen.Question.InputRead, Is.False, "one part of new words is not the whole of them");
+        column.Act(FileScreens.UseInput, null);
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo(saved), "incomplete new words leave the saved answer unchanged");
+        Assert.That(host.Sent, Is.Empty);
     }
 
     [Test]
-    public void NextPageOnALongTypedAnswerAdvancesAndARebuildKeepsThePart()
+    public void NextPartOnALongEditorAdvancesAndRebuildsKeepThePartAndTheBuffer()
     {
         var (host, column) = TypedLongAnswer();
-        column.Drawn(column.Frame!, SidePanel.Footer);
-        host.Wait(1);
-        column.Act(Footer.NextPage, null);
-        Assert.That(column.Screen.Question.SidePart, Is.EqualTo(1));
+        var words = column.Screen.Question.Input;
+        Draw(host, column);
+        column.Act(FileScreens.NextInputPart, null);
+        Assert.That(column.Screen.Question.InputPart, Is.EqualTo(1));
         column.Tick();
         host.Wait(1);
         column.Tick();
-        Assert.That(column.Screen.Question.SidePart, Is.EqualTo(1), "the next rebuild keeps the part turned to");
+        Assert.That((column.Screen.Question.InputPart, column.Screen.Question.Input), Is.EqualTo((1, words)), "rebuilds preserve the current part and buffer");
+        UseInput(host, column);
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo(words));
+        Assert.That(host.Sent, Is.Empty);
     }
 
     [Test]
@@ -1261,8 +1374,9 @@ public class FileColumnTests
             Draw(host, column);
             column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
         }
-        column.Act(FileScreens.Choose, "1");
+        ChooseVisible(host, column, 1);
         Draw(host, column);
+        Review(host, column);
         column.Act(FileScreens.SendAnswer, null);
         Assert.That(host.Sent.Count, Is.EqualTo(1), column.Frame!.Reason);
         Assert.That(host.Sent.Single(), Is.InstanceOf<ExecutionAnswerQuestionCommand>());
@@ -1276,12 +1390,19 @@ public class FileColumnTests
         var host = new FileMenuHost();
         var work = new AskingWork();
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Instruct));
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        Draw(host, column);
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.HoldEnded(FileScreens.SpeakAnswer, letGo: true);
         column.Heard("Teal");
-        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo("Teal"), "what was heard becomes the typed answer");
+        Assert.That((column.Screen.Question.Draft!.Typed(0), column.Screen.Question.Input), Is.EqualTo(((string?)null, "Teal")), "heard words are buffered until Use");
+        UseInput(host, column);
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo("Teal"));
         Assert.That(host.Sent, Is.Empty, "and nothing is sent");
 
+        column.Act(MenuFrame.ChooseSection, "activity");
+        Draw(host, column);
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard("Carry on");
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "a heard instruction waits for Yes");
@@ -1482,7 +1603,7 @@ public class FileColumnTests
         // Answered, the approval goes, and the question's own page counts once drawn.
         work.Change(execution => execution.PendingApprovals.Clear());
         column.Tick();
-        Assert.That((column.Frame!.Footer[PromptSlot.FarRight]?.Id, column.Screen.Question.Draft), Is.EqualTo((FileScreens.SendAnswer, draft)));
+        Assert.That((column.Frame!.Footer[PromptSlot.FarRight]?.Id, column.Screen.Question.Draft), Is.EqualTo((FileScreens.NextPart, draft)), "the question's own parts must now be read");
         Assert.That(draft.WasShownWhole(0), Is.False);
         Draw(host, column);
         Assert.That(draft.WasShownWhole(0), Is.True, "the question's page drawn");
@@ -1518,7 +1639,7 @@ public class FileColumnTests
         Assert.That(frame.Lines.Any(line => line.Action == FileScreens.Choose || line.Action == FileScreens.TypeAnswer), Is.False);
         Assert.That(frame.Footer[PromptSlot.Rare]?.Id, Is.EqualTo(FileScreens.Stop));
         Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "no Hold to talk under a question that can't be answered");
-        Assert.That(frame.Footer[PromptSlot.FarRight]?.Available, Is.False);
+        Assert.That(frame.Footer[PromptSlot.FarRight], Is.Null, "an unanswerable question offers no false Send control");
         column.Act(FileScreens.Choose, "1");
         column.Act(FileScreens.SendAnswer, null);
         column.Act(FileScreens.Yes, null);
@@ -1584,9 +1705,9 @@ public class FileColumnTests
         var work = new AskingWork(question);
         var host = new FileMenuHost();
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
-        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        ReadQuestion(host, column);
         // Every page of its answers: those rows can't be chosen, a press on one chooses nothing, and the line stands under them.
-        const string alike = "Answers that read the same can't be chosen here. Press Stop if you meant one of them.";
+        const string alike = "Alike answers cannot be chosen. Stop if you meant one.";
         var draft = column.Screen.Question.Draft!;
         var rows = new List<(string Words, bool Available)>();
         for (var page = 0; page < column.Screen.Question.Pages; page++)
@@ -1600,8 +1721,8 @@ public class FileColumnTests
             var answers = shown.Where(line => line.Action == FileScreens.Choose).ToList();
             rows.AddRange(answers.Select(line => (line.Words, line.Available)));
             Assert.That(shown[shown.FindLastIndex(line => line.Action == FileScreens.Choose) + 1].Words, Is.EqualTo(alike), "under its answers, page " + page);
-            Assert.That(column.Frame!.Footer[PromptSlot.Rare]?.Id, Is.EqualTo(FileScreens.Stop), "the way to the one meant");
-            Assert.That(column.Frame!.Footer[PromptSlot.Secondary]?.Id, Is.EqualTo(FileScreens.SpeakAnswer), "and still Hold to talk");
+            Assert.That((shown.Single(line => line.Action == FileScreens.Stop).Control, shown.Single(line => line.Action == FileScreens.Stop).Icon), Is.EqualTo((LineControl.Action, (GlazeIcon?)GlazeIcon.Stop)), "the same truthful Stop escape is now a bounded action on the page");
+            Assert.That(column.Frame!.Footer[PromptSlot.Secondary], Is.Null, "voice belongs only inside the dedicated editor");
             foreach (var row in answers.Where(line => !line.Available))
             {
                 column.Act(FileScreens.Choose, row.Key);
@@ -1619,7 +1740,9 @@ public class FileColumnTests
         const string typedAlike = "Your answer reads the same as answers that can't be chosen here. Answer another way, or press Stop if you meant one of them.";
         column.Act(FileScreens.TypeAnswer, "3");
         host.Keyboard!.Value.Done("Yes\t");
-        Assert.That((draft.Typed(0), column.Screen.Notice), Is.EqualTo(((string?)null, typedAlike)));
+        Assert.That((draft.Typed(0), column.Frame!.Footer[PromptSlot.FarRight]!.Reason), Is.EqualTo(((string?)null, typedAlike)), "alike text is not usable and says why beside Use");
+        column.Act(FileScreens.UseInput, null);
+        Assert.That(draft.Typed(0), Is.Null);
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.Heard(" Yes");
         Assert.That(draft.Typed(0), Is.Null, "heard alike, the same");
@@ -1633,7 +1756,9 @@ public class FileColumnTests
         Assert.That(draft.Type(0, "Yes please"), Is.Null, "other words are an answer");
 
         // The answer that reads like no other is chosen and sent as ever.
+        column.Act(FileScreens.CancelInput, null);
         draft.Type(0, null);
+        ReadQuestion(host, column);
         for (var turns = 0; turns < 5 && !column.Screen.Question.Answers.Contains(2); turns++)
         {
             column.Act(FileScreens.MoreAnswers, null);
@@ -1645,12 +1770,12 @@ public class FileColumnTests
         // Without Stop to offer, the line and the refusal say only what can be done.
         var other = new FileMenuHost();
         var unstoppable = Column(other, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
-        for (var draw = 0; draw < 3; draw++) Draw(other, unstoppable);
+        ReadQuestion(other, unstoppable);
         Assert.That(unstoppable.Frame!.Lines.Select(line => line.Words), Does.Contain("Answers that read the same can't be chosen here."));
         Assert.That(unstoppable.Frame!.Footer[PromptSlot.Rare], Is.Null);
         unstoppable.Act(FileScreens.TypeAnswer, "3");
         other.Keyboard!.Value.Done("Yes.");
-        Assert.That(unstoppable.Screen.Notice, Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."),
+        Assert.That(unstoppable.Frame!.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."),
             "never Stop where the page offers none");
         Assert.That(unstoppable.Screen.Question.Draft!.Typed(0), Is.Null);
     }
@@ -1671,7 +1796,7 @@ public class FileColumnTests
         Assert.That(work.Present().Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt), "built, answerable and stoppable");
         var host = new FileMenuHost();
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
-        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        ReadQuestion(host, column);
         Assert.That(column.Frame!.Lines.Where(line => line.Action == FileScreens.Choose).Select(line => (line.Words, line.Available)),
             Is.EqualTo(new[] { ("Yes\u2039U+FFFE\u203A", true), ("No", true) }));
         column.Act(FileScreens.Choose, "0");
@@ -1740,14 +1865,19 @@ public class FileColumnTests
             answering.Act(FileScreens.NextPart, FileScreens.QuestionKey);
         }
         Assert.That(answering.Frame!.Lines.Where(line => line.Action == FileScreens.Choose), Is.Not.Empty, "the answers show");
-        Assert.That(answering.Frame!.Lines.Select(line => line.Action), Has.None.EqualTo(FileScreens.TypeAnswer),
-            "a row that would only open the keyboard is left off");
+        Assert.That(answering.Frame!.Lines.Single(line => line.Action == FileScreens.TypeAnswer).Words, Is.EqualTo(FileScreens.WriteAnswer), "a distinct input action is available because voice is offered");
+        answering.Act(FileScreens.TypeAnswer, null);
+        Assert.That(host.Keyboard, Is.Null, "a voice-only editor never opens the unavailable keyboard");
+        Draw(host, answering);
         answering.HoldStarted(FileScreens.SpeakAnswer);
         answering.Heard("Teal");
+        Assert.That((answering.Screen.Question.Input, answering.Screen.Question.Draft!.Typed(0)), Is.EqualTo(("Teal", (string?)null)), "voice remains an unsaved buffer");
+        UseInput(host, answering);
         var typed = answering.Frame!.Lines.Single(line => line.Action == FileScreens.TypeAnswer);
-        Assert.That((typed.Words, typed.Chosen), Is.EqualTo(("Your answer: Teal", true)), "words heard stay as their choice");
-        Assert.That(typed.Runs.ToString(), Is.EqualTo("Your answer: [Teal]"), "the words heard lean, as everything Halcyonic didn't write");
+        Assert.That((typed.Words, typed.Chosen, typed.Fact), Is.EqualTo((FileScreens.EditAnswer, true, "Selected")), "used words return to a visibly selected edit action");
+        Assert.That(typed.Runs.AnyTheirs, Is.False, "the Edit action is Halcyonic's words, not a disguised data run");
         answering.Act(FileScreens.TypeAnswer, null);
+        Assert.That(answering.Frame!.Lines.Single(line => line.Control == LineControl.Input).Runs.ToString(), Is.EqualTo("[Teal]"), "the actual heard words lean in their explicit editor");
         Assert.That(host.Keyboard, Is.Null, "pressing it opens no keyboard");
     }
 

@@ -309,10 +309,11 @@ public class JudgeMenuWalkTests
         var (_, frame) = host.Draw();
         Assert.That(navigator.Beside, Is.SameAs(file));
         Assert.That(StateLanguage.WordOf(frame!.Pill!.State), Is.EqualTo("Waiting for you"));
-        Assert.That(frame.Sections.Single(section => section.Chosen).Words, Is.EqualTo("Waiting"));
+        Assert.That((frame.Focused, file.Screen.Section), Is.EqualTo((true, FileSection.Waiting)));
+        Assert.That(frame.Sections, Is.Empty, "answering is focused, with no competing file tabs");
 
         // The question, read to its end where it has parts, then its answers a page at a time.
-        while (frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.NextPart && line.Key == FileScreens.QuestionKey) != null)
+        while (frame!.Footer[PromptSlot.FarRight]?.Id == FileScreens.NextPart)
         {
             Assert.That(JudgePath.Options(frame), Is.Empty, "no answer before the whole question has shown");
             host.Wait();
@@ -346,8 +347,20 @@ public class JudgeMenuWalkTests
         }
         host.Press(MenuColumn.File, FileScreens.Choose, "0");
         (_, frame) = host.Draw();
-        Assert.That(frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, "Send answer, once the answer chosen is read and in view");
-        host.Press(MenuColumn.File, FileScreens.SendAnswer);
+        Assert.That((frame!.Footer[PromptSlot.FarRight]!.Id, frame.Footer[PromptSlot.FarRight]!.Words), Is.EqualTo((FileScreens.NextQuestion, FileScreens.ReviewAnswers)));
+        Assert.That(host.Sent, Is.Empty, "choosing sends nothing");
+        host.Wait();
+        Assert.That(host.Press(MenuColumn.File, frame.Footer[PromptSlot.FarRight]!.Id), Is.True, "Review answers is the visible next action");
+        (_, frame) = host.Draw();
+        while (frame!.Footer[PromptSlot.FarRight]!.Id == FileScreens.MoreAnswers)
+        {
+            Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Does.StartWith("Next part"));
+            host.Wait();
+            Assert.That(host.Press(MenuColumn.File, frame.Footer[PromptSlot.FarRight]!.Id), Is.True);
+            (_, frame) = host.Draw();
+        }
+        Assert.That((frame.Footer[PromptSlot.FarRight]!.Id, frame.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo((FileScreens.SendAnswer, true)), "Send answer is available only on the read final review");
+        Assert.That(host.Press(MenuColumn.File, frame.Footer[PromptSlot.FarRight]!.Id), Is.True);
         Assert.That(host.Sent.Single(), Is.InstanceOf<ExecutionAnswerQuestionCommand>());
         Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Selected, Is.EqualTo(new[] { Demonstration.FirstOption }));
         await host.Acks.Last();
