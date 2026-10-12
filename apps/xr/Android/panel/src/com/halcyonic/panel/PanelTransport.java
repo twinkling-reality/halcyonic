@@ -16,6 +16,10 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -39,17 +43,34 @@ final class PanelTransport {
     private static final ThreadPoolExecutor DNS = new ThreadPoolExecutor(0, 1, 10, TimeUnit.SECONDS,
         new SynchronousQueue<>(), runnable -> { Thread thread = new Thread(runnable, "Halcyonic panel address"); thread.setDaemon(true); return thread; });
     private final PairingSource source;
-    private volatile Socket active;
+    private final java.util.function.Supplier<Socket> sockets;
+    private static final ScheduledExecutorService WATCHDOG = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "Halcyonic panel deadline"); thread.setDaemon(true); return thread;
+    });
+    private static final class Lease {
+        volatile Socket raw, wrapped;
+        void close() {
+            // Close the raw descriptor first: TLS close-notify must not wait for a blocked writer.
+            Socket plain = raw, secure = wrapped;
+            if (plain != null) try { plain.close(); } catch (IOException ignored) {}
+            if (secure != null && secure != plain) try { secure.close(); } catch (IOException ignored) {}
+        }
+    }
+    private volatile Lease active;
     private volatile boolean cancelled;
 
-    PanelTransport(PairingSource source) { this.source = source; }
-    void cancel() { cancelled = true; Socket socket = active; if (socket != null) try { socket.close(); } catch (IOException ignored) {} }
+    PanelTransport(PairingSource source) { this(source, () -> new Socket(java.net.Proxy.NO_PROXY)); }
+    PanelTransport(PairingSource source, java.util.function.Supplier<Socket> sockets) { this.source = source; this.sockets = sockets; }
+    void cancel() { cancelled = true; Lease lease = active; if (lease != null) lease.close(); }
 
     Result request(PanelIdentity expected, String method, String path, String body) throws IOException {
         if (!(method.equals("GET") && (path.equals("/api/snapshot") || path.matches("/api/events\\?after=[0-9]{1,16}&limit=50&workstream_id=" + PanelIdentity.ENTITY)))
             && !(method.equals("POST") && path.equals("/api/commands") && body != null)) throw new Refused("unsupported_request", false);
         boolean wrote = false;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        Lease lease = new Lease(); active = lease;
+        AtomicBoolean timedOut = new AtomicBoolean();
+        ScheduledFuture<?> cutoff = WATCHDOG.schedule(() -> { timedOut.set(true); lease.close(); }, 15, TimeUnit.SECONDS);
         try {
             current(expected);
             Future<InetAddress[]> lookup = DNS.submit(() -> InetAddress.getAllByName(expected.host));
@@ -57,8 +78,8 @@ final class PanelTransport {
             try { addresses = lookup.get(3, TimeUnit.SECONDS); }
             finally { lookup.cancel(true); }
             if (addresses.length == 0) throw new Refused("address_unavailable", false);
-            Socket plain = new Socket();
-            active = plain;
+            Socket plain = sockets.get();
+            lease.raw = plain;
             current(expected);
             plain.connect(new InetSocketAddress(addresses[0], expected.port), 4000);
             plain.setSoTimeout(4000);
@@ -73,7 +94,7 @@ final class PanelTransport {
                 public void checkServerTrusted(X509Certificate[] chain, String kind) {}
             }}, null);
             SSLSocket secure = (SSLSocket) tls.getSocketFactory().createSocket(plain, expected.host, expected.port, true);
-            active = secure;
+            lease.wrapped = secure;
             secure.setSoTimeout(4000);
             secure.startHandshake();
             String seen = PanelIdentity.hash(secure.getSession().getPeerCertificates()[0].getEncoded());
@@ -105,8 +126,8 @@ final class PanelTransport {
             current(expected);
             return result;
         } catch (Refused error) { throw new Refused(error.code, wrote || error.unknownEffect); }
-        catch (Exception error) { throw new Refused(cancelled ? "panel_closed" : "connection_unavailable", wrote); }
-        finally { Socket socket = active; active = null; if (socket != null) try { socket.close(); } catch (IOException ignored) {} }
+        catch (Exception error) { throw new Refused(timedOut.get() ? "request_timeout" : cancelled ? "panel_closed" : "connection_unavailable", wrote); }
+        finally { cutoff.cancel(false); lease.close(); if (active == lease) active = null; }
     }
 
     private void current(PanelIdentity expected) throws IOException {

@@ -31,6 +31,13 @@ final class PanelModel {
         executions = index(v.get("executions"), "execution_id", PanelIdentity.ENTITY);
         runtimes = index(v.get("runtimes"), "runtime_id", "[a-z][a-z0-9-]{0,62}");
         commands = PanelJson.array(v.get("commands"));
+        for (Object item : commands) {
+            Map<String, Object> command = PanelJson.object(item);
+            PanelContinuation.matches(command.get("command_id"), PanelIdentity.UUID);
+            String status = PanelJson.text(command.get("status"));
+            if (!Arrays.asList("accepted", "rejected", "completed", "failed").contains(status) || !command.containsKey("failure")) throw PanelJson.invalid();
+            if (command.get("failure") != null && !Arrays.asList("none", "unknown").contains(PanelJson.text(PanelJson.object(command.get("failure")).get("effect")))) throw PanelJson.invalid();
+        }
     }
     private static Map<String, Map<String, Object>> index(Object array, String key, String pattern) {
         Map<String, Map<String, Object>> result = new LinkedHashMap<>();
@@ -122,5 +129,20 @@ final class PanelModel {
         SimpleDateFormat time = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT); time.setTimeZone(TimeZone.getTimeZone("UTC"));
         return PanelJson.map("schema_version", 1L, "command_id", UUID.randomUUID().toString(), "issued_at", time.format(new Date()),
             "client", PanelJson.map("name", "halcyonic-native-panel", "version", "1", "device_label", null), "command_type", type, "payload", payload);
+    }
+    static String commandStatus(Map<String, Object> command) {
+        Object value = command.get("status");
+        if (!(value instanceof String)) return "The host did not confirm this request. Check the task before trying again.";
+        String state = (String) value;
+        switch (state) {
+            case "accepted": return "Your request was accepted. Waiting for the agent.";
+            case "completed": return "The agent confirmed your request.";
+            case "rejected": return "Your request was refused. Check this task before trying again.";
+            case "failed":
+                Object failure = command.get("failure");
+                boolean none = failure instanceof Map && "none".equals(PanelJson.object(failure).get("effect"));
+                return "The request failed." + (none ? "" : " Its effect is unknown; check the task before trying again.");
+            default: return "The host did not confirm this request. Check the task before trying again.";
+        }
     }
 }

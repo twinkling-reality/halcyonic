@@ -28,6 +28,13 @@ import java.util.concurrent.Executors;
 public final class AgentPanelActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final PanelUiState authority = new PanelUiState();
+    private final PanelRestore restore = new PanelRestore();
+    private long reviewOwner;
+    private final List<Runnable> reviewReads = new ArrayList<>();
+    private PanelContinuation incomingRecord;
+    private String incomingId;
+    private String storageWarning;
     private PanelFiles files;
     private PanelTransport transport;
     private PanelIdentity identity;
@@ -40,7 +47,7 @@ public final class AgentPanelActivity extends Activity {
     private EditText instruction;
     private Dialog review;
     private String projectId, workId, executionId, draft = "", commandId;
-    private boolean spoken, visible, busy;
+    private boolean spoken, visible, busy, preview;
     private int generation;
     private final Runnable refresh = () -> poll(false);
 
@@ -53,11 +60,13 @@ public final class AgentPanelActivity extends Activity {
         shell();
     }
     @Override public void onResume() {
-        super.onResume(); visible = true; generation++; busy = false;
+        super.onResume(); visible = true; authority.resumed(true); authority.top(false); generation++; busy = false;
+        if (preview) { show(); return; }
         loadSaved(); poll(true);
     }
     @Override public void onPause() {
-        saveState(); visible = false; generation++; busy = false;
+        PanelContinuation current = editorRecord(); boolean persisted = saveState(); restore.paused(current, persisted);
+        authority.resumed(false); visible = false; generation++; busy = false;
         ui.removeCallbacks(refresh);
         if (transport != null) transport.cancel();
         closeReview(); instruction = null;
@@ -66,9 +75,36 @@ public final class AgentPanelActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         // Exported OS launcher entry never accepts selection, credential or command extras.
-        setIntent(new Intent());
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (!preview && !saveState()) { restore.paused(editorRecord(), false); connection.setText("Your unsaved draft must be preserved before changing this view."); return; }
+        preview = false; setIntent(new Intent());
         closeReview(); loadSaved();
         if (visible) { generation++; busy = false; if (transport != null) transport.cancel(); poll(true); }
+    }
+    @Override public void onTopResumedActivityChanged(boolean top) {
+        super.onTopResumedActivityChanged(top); authority.top(top);
+        if (!top) { rememberDraft(); closeReview(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
+        else if (visible && !preview) poll(true);
+    }
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused); authority.activityFocus(focused);
+        if (!focused && review == null) { rememberDraft(); generation++; busy = false; if (transport != null) transport.cancel(); ui.removeCallbacks(refresh); }
+        else if (focused && visible && review == null && !preview && !busy) poll(false);
+    }
+    private boolean ownKeyboard() {
+        View focused = review == null ? getCurrentFocus() : review.getCurrentFocus();
+        android.view.inputmethod.InputMethodManager keyboard = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        return focused instanceof EditText && keyboard != null && keyboard.isActive(focused) && keyboard.isAcceptingText();
+    }
+    private final class ReviewDialog extends Dialog {
+        final long owner; boolean hadFocus;
+        ReviewDialog(long owner) { super(AgentPanelActivity.this); this.owner = owner; }
+        @Override public void onWindowFocusChanged(boolean focused) {
+            super.onWindowFocusChanged(focused); authority.dialogFocus(owner, focused);
+            if (review == this) for (Runnable update : new ArrayList<>(reviewReads)) getWindow().getDecorView().post(update);
+            if (review == this && hadFocus && !focused && !ownKeyboard()) closeReview();
+            hadFocus |= focused;
+        }
     }
     @Override public void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
     @Override public void onBackPressed() { if (review != null) closeReview(); else if (workId != null) { if (!saveState()) return; workId = null; executionId = null; draft = ""; show(); } else if (projectId != null) { if (!saveState()) return; projectId = null; show(); } else super.onBackPressed(); }
@@ -79,9 +115,10 @@ public final class AgentPanelActivity extends Activity {
         TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(Color.rgb(233, 237, 242)); view.setPadding(0, dp(6), 0, dp(8));
         parent.addView(view, new LinearLayout.LayoutParams(-1, -2)); return view;
     }
-    private Button button(LinearLayout parent, String label, Runnable action) {
+    private Button button(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false); }
+    private Button button(LinearLayout parent, String label, Runnable action, boolean escape) {
         Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(18); button.setMinHeight(dp(52));
-        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); button.setOnClickListener(view -> { if (visible && !busy) action.run(); }); return button;
+        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; button.setOnClickListener(view -> { if (visible && review == owner && authority.interact(id, busy, escape)) action.run(); }); return button;
     }
     private void styleButton(Button button, String label) {
         GradientDrawable surface = new GradientDrawable();
@@ -111,59 +148,129 @@ public final class AgentPanelActivity extends Activity {
         for (String name : new String[] {"Projects", "Workspace", "Other apps"}) {
             Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
-                if (busy) return;
+                if (!authority.interact(0) || (busy && name.equals("Projects"))) return;
                 if (name.equals("Projects")) { if (!saveState()) return; projectId = workId = executionId = null; draft = ""; closeReview(); show(); }
-                else if (name.equals("Workspace")) returnToWorkspace();
-                else { if (!saveState()) return; try { startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception error) { connection.setText("Other apps could not open."); } }
+                else if (name.equals("Workspace")) { cancelNetwork(); returnToWorkspace(); }
+                else { if (!saveState() && !saveSelectedContext()) return; cancelNetwork(); try { startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception error) { connection.setText("Other apps could not open."); } }
             });
         }
         if (files.developmentAllowed) {
             Button mode = new Button(this); mode.setText("Connection (development)"); mode.setAllCaps(false); styleButton(mode, "Connection (development)"); root.addView(mode);
-            mode.setOnClickListener(v -> { if (busy || !saveState()) return; LinearLayout choices = dialog("Development connection");
+            mode.setOnClickListener(v -> { if (busy || !authority.interact(0) || !saveState()) return; LinearLayout choices = dialog("Development connection");
                 text(choices, "Use the paired computer, or the existing USB development connection. Changing connection never changes its saved credential.", 18);
                 button(choices, "Use paired computer", () -> switchConnection(false));
                 button(choices, "Use USB connection (development)", () -> switchConnection(true));
+                button(choices, "Preview synthetic panel (screenshots allowed)", this::previewSynthetic);
             });
         }
         ScrollView scroll = new ScrollView(this); content = column(); scroll.addView(content); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
+    private void cancelNetwork() { generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
     private void switchConnection(boolean usb) {
-        try { files.useDevelopmentUsb(usb); closeReview(); identity = null; snapshot = null; projectId = workId = executionId = null; instruction = null; draft = ""; continuation = null; generation++; busy = false; if (transport != null) transport.cancel(); poll(true); }
+        try { getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); preview = false; files.useDevelopmentUsb(usb); closeReview(); identity = null; snapshot = null; projectId = workId = executionId = null; instruction = null; draft = ""; continuation = null; generation++; busy = false; if (transport != null) transport.cancel(); loadSaved(); poll(true); }
         catch (Exception error) { connection.setText("That connection could not be selected."); }
     }
+    private void previewSynthetic() {
+        if (!files.developmentAllowed || !saveState()) return;
+        try (java.io.InputStream source = getAssets().open("halcyonic-native-panel-preview.json")) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream(); byte[] buffer = new byte[4096]; int count;
+            while ((count = source.read(buffer)) >= 0) { if (bytes.size() + count > 256 * 1024) throw new IOException(); bytes.write(buffer, 0, count); }
+            PanelModel fixture = new PanelModel(new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+            for (Map<String, Object> run : fixture.executions.values()) if (!PanelJson.bool(PanelJson.object(run.get("runtime")).get("synthetic"))) throw new IOException();
+            generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); closeReview();
+            // Clear all live views and keyboard before allowing capture of the fixed public fixture.
+            android.view.inputmethod.InputMethodManager keyboard = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (keyboard != null && getCurrentFocus() != null) keyboard.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+            instruction = null; draft = ""; spoken = false; projectId = workId = executionId = commandId = null; continuation = null;
+            preview = true; identity = null; snapshot = fixture; shell(); connection.setText("Synthetic preview · no network, private data or commands."); show();
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        } catch (Exception error) { connection.setText("The synthetic preview could not open."); }
+    }
     private void loadSaved() {
-        instruction = null;
+        instruction = null; closeReview();
         try { drafts = files.exists(PanelFiles.DRAFTS) ? PanelDrafts.parse(files.read(PanelFiles.DRAFTS, PanelDrafts.MAXIMUM_BYTES)) : new PanelDrafts(); draftsHealthy = true; }
         catch (Exception error) { draftsHealthy = false; }
-        try { continuation = PanelContinuation.parse(files.read(PanelFiles.STATE, PanelContinuation.MAXIMUM_BYTES)); }
-        catch (Exception error) { continuation = null; }
+        PanelContinuation disk = null; incomingId = null; incomingRecord = null;
+        try {
+            boolean incoming = files.exists(PanelFiles.INCOMING);
+            disk = PanelContinuation.parse(files.read(incoming ? PanelFiles.INCOMING : PanelFiles.STATE, PanelContinuation.MAXIMUM_BYTES));
+            if (incoming) { incomingId = disk.string("handoff_id"); incomingRecord = disk; }
+        } catch (Exception error) { /* No context is authorized by a malformed or unreadable record. */ }
+        restore.stage(disk);
+        // Loaded context is staged, never compared or written against an old cached projection.
+        identity = null; snapshot = null; continuation = null;
         projectId = workId = executionId = null; draft = ""; spoken = false;
-        if (continuation != null) {
-            projectId = continuation.string("project_id"); workId = continuation.string("workstream_id"); executionId = continuation.string("execution_id");
-            draft = continuation.draft(); spoken = continuation.spoken();
+        content.removeAllViews(); connection.setText("Checking your computer before restoring this view…");
+    }
+    private PanelContinuation editorRecord() {
+        rememberDraft();
+        if (preview) return null;
+        if (identity == null || snapshot == null) return restore.pending();
+        try { return PanelContinuation.parse(PanelJson.encode(PanelJson.map("version", 1L, "handoff_id", java.util.UUID.randomUUID().toString(), "connection_key", identity.key,
+            "journal_id", snapshot.journal, "project_id", projectId, "workstream_id", workId, "execution_id", executionId,
+            "section", continuation == null ? "activity" : continuation.value.get("section"), "page", continuation == null ? 0L : continuation.value.get("page"),
+            "instruction", executionId == null ? null : PanelJson.map("text", draft, "spoken", spoken, "part", continuation != null && executionId.equals(continuation.string("execution_id")) && draft.equals(continuation.draft()) && continuation.value.get("instruction") != null ? PanelJson.object(continuation.value.get("instruction")).get("part") : 0L)))); }
+        catch (Exception error) { return null; }
+    }
+    private PanelUiState.Context actionContext() {
+        return identity == null || snapshot == null || executionId == null ? null : new PanelUiState.Context(identity.key, snapshot.journal, projectId, workId, executionId);
+    }
+    private boolean applyContext(PanelContinuation pending) {
+        if (pending == null) return true;
+        if (pending.matches(identity, snapshot)) {
+            continuation = pending; projectId = pending.string("project_id"); workId = pending.string("workstream_id"); executionId = pending.string("execution_id");
+            draft = pending.draft(); spoken = pending.spoken();
+        } else {
+            if (pending.value.get("instruction") != null && !pending.draft().isEmpty() && pending.string("journal_id") != null && pending.string("workstream_id") != null && pending.string("execution_id") != null) {
+                try { PanelDrafts candidate = PanelDrafts.parse(drafts.json()); candidate.put(pending); files.write(PanelFiles.DRAFTS, candidate.json()); drafts = candidate; }
+                catch (Exception error) { restore.paused(pending, false); storageWarning = "Your earlier draft is retained in memory. Saved draft storage needs attention before changing this view."; connection.setText(storageWarning); return false; }
+            }
+            closeReview(); projectId = workId = executionId = null; draft = ""; spoken = false; continuation = null;
+            // Keep the task visible when only its execution changed, but never retarget its text.
+            Map<String, Object> work = snapshot.workstreams.get(pending.string("workstream_id"));
+            if (identity.key.equals(pending.string("connection_key")) && snapshot.journal.equals(pending.string("journal_id")) && work != null && pending.string("project_id").equals(work.get("project_id"))) {
+                projectId = pending.string("project_id"); workId = pending.string("workstream_id"); Map<String, Object> run = snapshot.execution(workId); executionId = run == null ? null : PanelJson.text(run.get("execution_id")); restoreDraft();
+            }
         }
+        restore.applied();
+        if (saveSelectedContext()) {
+            restore.persisted();
+            if (incomingRecord != null && sameSelection(incomingRecord, pending)) { files.acknowledge(PanelFiles.INCOMING, incomingId); incomingId = null; incomingRecord = null; }
+        } else restore.paused(editorRecord(), false);
+        return true;
+    }
+    private static boolean sameSelection(PanelContinuation a, PanelContinuation b) {
+        for (String field : new String[] {"connection_key", "journal_id", "project_id", "workstream_id", "execution_id"}) if (!java.util.Objects.equals(a.value.get(field), b.value.get(field))) return false;
+        return true;
     }
     private void rememberDraft() { if (instruction != null) draft = instruction.getText().toString(); }
     private boolean saveCurrentDraft() {
         rememberDraft();
+        if (preview) return true;
         if (identity == null || snapshot == null || executionId == null) return true;
-        if (!draftsHealthy) { connection.setText("Your saved drafts could not be read. Keep this draft open or return to Workspace."); return false; }
+        if (!draftsHealthy) { storageWarning = "Your saved drafts could not be read. Keep this draft open or return to Workspace."; connection.setText(storageWarning); return false; }
         try {
             PanelContinuation record = PanelContinuation.selection(identity, snapshot, projectId, workId, executionId, draft, spoken, continuation);
             PanelDrafts candidate = PanelDrafts.parse(drafts.json()); candidate.put(record);
             files.write(PanelFiles.DRAFTS, candidate.json()); drafts = candidate;
             return true;
-        } catch (Exception error) { connection.setText("This draft could not be saved. Keep it open, or clear an earlier saved draft first."); return false; }
+        } catch (Exception error) { storageWarning = "This draft could not be saved. Keep it open, or clear an earlier saved draft first."; connection.setText(storageWarning); return false; }
     }
     private boolean saveState() {
+        if (preview) return true;
+        if (identity == null || snapshot == null) return restore.pending() == null;
         if (!saveCurrentDraft()) return false;
+        boolean saved = saveSelectedContext(); if (saved) { restore.persisted(); storageWarning = null; } return saved;
+    }
+    private boolean saveSelectedContext() {
+        if (preview) return true;
         if (identity == null || snapshot == null) return true;
         try {
             continuation = PanelContinuation.selection(identity, snapshot, projectId, workId, executionId, draft, spoken, continuation);
             files.write(PanelFiles.STATE, continuation.json());
             return true;
-        } catch (Exception error) { connection.setText("This view could not be saved. Keep it open or return to Workspace."); return false; }
+        } catch (Exception error) { storageWarning = "This view could not be saved. Keep it open or return to Workspace."; connection.setText(storageWarning); return false; }
     }
     private void restoreDraft() {
         draft = ""; spoken = false;
@@ -171,11 +278,12 @@ public final class AgentPanelActivity extends Activity {
         PanelContinuation saved = drafts.find(identity.key, snapshot.journal, workId, executionId);
         if (saved != null) { draft = saved.draft(); spoken = saved.spoken(); }
     }
-    private void closeReview() { if (review != null) { review.dismiss(); review = null; } }
+    private void closeReview() { if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
 
     private void poll(boolean rebuild) {
         ui.removeCallbacks(refresh);
         if (!visible || busy) return;
+        if (preview) return;
         busy = true; int requestGeneration = generation;
         PanelTransport next = new PanelTransport(files::connection); transport = next;
         worker.execute(() -> {
@@ -191,7 +299,7 @@ public final class AgentPanelActivity extends Activity {
             ui.post(() -> {
                 if (!visible || generation != requestGeneration) return;
                 busy = false;
-                if (!saveState()) { ui.postDelayed(refresh, 3000); return; }
+                if (identity != null && snapshot != null && !saveState()) { ui.postDelayed(refresh, 3000); return; }
                 if (received == null) {
                     snapshot = null; identity = null; closeReview(); instruction = null;
                     connection.setText(message); content.removeAllViews(); text(content, "Your agents continue on your computer. Open Workspace to check the connection.", 20);
@@ -200,44 +308,26 @@ public final class AgentPanelActivity extends Activity {
                     boolean connectionChanged = identity != null && !identity.same(receivedTarget);
                     boolean journalChanged = snapshot != null && !snapshot.journal.equals(received.journal);
                     identity = receivedTarget; snapshot = received;
-                    if (continuation != null && !continuation.matches(identity, snapshot) && continuation.value.get("instruction") != null
-                        && identity.key.equals(continuation.string("connection_key")) && snapshot.journal.equals(continuation.string("journal_id"))) {
-                        Map<String, Object> oldWork = snapshot.workstreams.get(continuation.string("workstream_id"));
-                        if (oldWork != null && continuation.string("project_id").equals(oldWork.get("project_id"))) {
-                            try { PanelDrafts candidate = PanelDrafts.parse(drafts.json()); candidate.put(continuation); files.write(PanelFiles.DRAFTS, candidate.json()); drafts = candidate; }
-                            catch (Exception error) { connection.setText("The previous run’s draft could not be saved. Return to Workspace to recover it."); return; }
-                        }
-                    }
-                    if (connectionChanged || journalChanged || (continuation != null && !continuation.matches(identity, snapshot))) {
-                        closeReview(); projectId = workId = executionId = null; draft = ""; spoken = false; instruction = null; continuation = null;
-                        files.remove(PanelFiles.STATE); rebuildAfterReset();
-                    } else if (workId != null) {
-                        Map<String, Object> run = snapshot.execution(workId);
-                        String current = run == null ? null : PanelJson.text(run.get("execution_id"));
-                        if (executionId != null && !executionId.equals(current)) { closeReview(); executionId = current; instruction = null; continuation = null; restoreDraft(); show(); }
+                    PanelContinuation staged = restore.pending();
+                    if (staged != null) { if (!applyContext(staged)) { show(); ui.postDelayed(refresh, 3000); return; } }
+                    else if (connectionChanged || journalChanged || (continuation != null && !continuation.matches(identity, snapshot))) {
+                        PanelContinuation old = continuation; if (!applyContext(old)) { show(); ui.postDelayed(refresh, 3000); return; }
                     }
                     boolean contextChanged = priorContext != null && workId != null && !priorContext.equals(snapshot.context(workId));
                     if (contextChanged) closeReview();
-                    connection.setText(status());
+                    connection.setText(withStorageWarning(status()));
                     if (contextChanged || rebuild || (instruction == null && review == null)) show();
                 }
                 ui.postDelayed(refresh, 3000);
             });
         });
     }
-    private void rebuildAfterReset() { show(); }
+    private String withStorageWarning(String message) { return storageWarning == null ? message : message + "\n" + storageWarning; }
     private String status() {
         if (commandId != null) for (Object item : snapshot.commands) {
             Map<String, Object> command = PanelJson.object(item);
             if (!commandId.equals(command.get("command_id"))) continue;
-            String state = PanelJson.text(command.get("status"));
-            if (state.equals("accepted")) return "Your request was accepted. Waiting for the agent.";
-            if (state.equals("completed")) return "The agent confirmed your request.";
-            if (state.equals("failed")) {
-                Map<String, Object> failure = PanelJson.object(command.get("failure"));
-                return "The request failed." + ("unknown".equals(failure.get("effect")) ? " Its effect is unknown; check the task before trying again." : "");
-            }
-            if (state.equals("rejected")) return "Your request was refused. Check this task before trying again.";
+            return PanelModel.commandStatus(command);
         }
         return identity != null && identity.scheme.equals("ws") ? "USB development connection · local owner. Agents work on your computer." : "Connected to your paired computer. Agents work there independently.";
     }
@@ -274,16 +364,17 @@ public final class AgentPanelActivity extends Activity {
             executionId = PanelJson.text(run.get("execution_id"));
             Map<String, Object> runtime = PanelJson.object(run.get("runtime"));
             text(content, "Agent · " + PanelText.plain(PanelJson.text(runtime.get("display_name"))) + (PanelJson.bool(runtime.get("synthetic")) ? " · simulated" : "") + "\n" + stateName(PanelJson.text(run.get("status"))), 19);
+            final PanelUiState.Context displayed = actionContext();
             button(content, "Read recorded activity", this::activity);
             for (Object item : PanelJson.array(run.get("pending_approvals"))) {
                 Map<String, Object> request = PanelJson.object(item);
-                button(content, "Review agent permission request", () -> approval(request));
+                button(content, "Review agent permission request", () -> approval(request, displayed));
             }
             for (Object item : PanelJson.array(run.get("pending_questions"))) {
                 Map<String, Object> question = PanelJson.object(item);
-                button(content, "Read agent question", () -> question(question));
+                button(content, "Read agent question", () -> question(question, displayed));
             }
-            for (PanelContinuation earlier : drafts.earlier(identity.key, snapshot.journal, workId, executionId)) {
+            for (PanelContinuation earlier : preview ? new ArrayList<PanelContinuation>() : drafts.earlier(identity.key, snapshot.journal, workId, executionId)) {
                 button(content, "Read saved draft from an earlier run", () -> reviewed("Draft for an earlier run", PanelText.plain(earlier.draft()) + "\n\nThis draft belongs to a previous run. Copying it does not send it.", "Choose what to do", () -> {
                     LinearLayout actions = dialog("Earlier draft");
                     button(actions, "Copy into this run’s instruction", () -> { if (!saveCurrentDraft()) return; draft = earlier.draft(); spoken = earlier.spoken(); instruction = null; closeReview(); show(); saveState(); });
@@ -295,17 +386,19 @@ public final class AgentPanelActivity extends Activity {
                 instruction = new EditText(this); instruction.setText(draft); instruction.setTextColor(Color.WHITE); instruction.setContentDescription("Your instruction"); instruction.setTextSize(20); instruction.setMinLines(3); instruction.setMaxLines(8);
                 instruction.setFilters(new InputFilter[] {new InputFilter.LengthFilter(32000)}); instruction.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
                 content.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
-                button(content, "Review instruction", () -> { rememberDraft(); if (!draft.trim().isEmpty()) reviewInstruction(); });
+                button(content, "Review instruction", () -> { rememberDraft(); if (!draft.trim().isEmpty()) reviewInstruction(displayed); });
             } else text(content, "Instructions are unavailable while this agent needs a decision or cannot receive one.", 18);
-            if (snapshot.interrupt(run)) button(content, "Stop this agent", () -> reviewed("Stop this agent?", "This asks the agent to stop its current turn. The agent must confirm before this task is stopped.", "Send stop request", () -> send("execution.interrupt", PanelJson.map("execution_id", executionId), null, null)));
+            if (snapshot.interrupt(run)) button(content, "Stop this agent", () -> reviewed("Stop this agent?", "This asks the agent to stop its current turn. The agent must confirm before this task is stopped.", "Send stop request", displayed, () -> send("execution.interrupt", PanelJson.map("execution_id", preview ? executionId : displayed.execution), null, null, displayed)));
         } catch (Exception error) { content.removeAllViews(); text(content, "This task could not be read safely. Open Workspace.", 20); }
     }
 
-    private void reviewInstruction() {
+    private void reviewInstruction(PanelUiState.Context scope) {
+        if (!preview && (scope == null || !scope.same(actionContext()))) return;
         String text = draft;
-        reviewed("Review your instruction", PanelText.plain(text), "Send instruction", () -> send("execution.send_instruction", PanelJson.map("execution_id", executionId, "text", text), null, null));
+        reviewed("Review your instruction", PanelText.plain(text), "Send instruction", scope, () -> send("execution.send_instruction", PanelJson.map("execution_id", preview ? executionId : scope.execution, "text", text), null, null, scope));
     }
-    private void approval(Map<String, Object> request) {
+    private void approval(Map<String, Object> request, PanelUiState.Context scope) {
+        if (!preview && (scope == null || !scope.same(actionContext()))) return;
         try {
             Map<String, Object> subject = PanelJson.object(request.get("subject"));
             if (!"tool_use".equals(subject.get("kind"))) throw PanelJson.invalid();
@@ -313,15 +406,14 @@ public final class AgentPanelActivity extends Activity {
             boolean canRespond = snapshot.capability(snapshot.execution(workId), "respond_to_approval") && PanelModel.running(snapshot.execution(workId));
             boolean canApprove = canRespond && PanelJson.bool(request.get("approvable"));
             if (!canRespond) { reviewed("Read the agent’s request", whole + "\n\nThis runtime cannot receive a permission response here.", "Done", this::closeReview); return; }
-            reviewed("Read the agent’s request", whole + (canApprove ? "" : "\n\nThis request was shortened and cannot be approved."), "Choose a response", () -> {
-                LinearLayout choices = dialog("Choose a response");
-                text(choices, "This response applies only to the request you just read. A changed request requires new review.", 20);
-                if (canApprove) button(choices, "Approve this request", () -> send("execution.respond_to_approval", PanelJson.map("execution_id", executionId, "approval_id", request.get("approval_id"), "decision", "approve", "message", null), request, null));
-                button(choices, "Deny this request", () -> send("execution.respond_to_approval", PanelJson.map("execution_id", executionId, "approval_id", request.get("approval_id"), "decision", "deny", "message", null), request, null));
-            });
+            LinearLayout body = dialog("Read the agent’s request"); text(body, whole + (canApprove ? "" : "\n\nThis request was shortened and cannot be approved."), 20);
+            ScrollView scroll = (ScrollView) body.getParent(); LinearLayout root = (LinearLayout) scroll.getParent();
+            if (canApprove) gatedButton(root, body, scroll, "Approve this request", scope, () -> send("execution.respond_to_approval", PanelJson.map("execution_id", preview ? executionId : scope.execution, "approval_id", request.get("approval_id"), "decision", "approve", "message", null), request, null, scope));
+            gatedButton(root, body, scroll, "Deny this request", scope, () -> send("execution.respond_to_approval", PanelJson.map("execution_id", preview ? executionId : scope.execution, "approval_id", request.get("approval_id"), "decision", "deny", "message", null), request, null, scope));
         } catch (Exception error) { connection.setText("This request cannot be read safely. Open Workspace."); }
     }
-    private void question(Map<String, Object> request) {
+    private void question(Map<String, Object> request, PanelUiState.Context scope) {
+        if (!preview && (scope == null || !scope.same(actionContext()))) return;
         try {
             StringBuilder whole = new StringBuilder("Agent questions\n");
             for (Object item : PanelJson.array(request.get("prompts"))) {
@@ -333,10 +425,10 @@ public final class AgentPanelActivity extends Activity {
                 }
             }
             if (!snapshot.capability(snapshot.execution(workId), "answer_question") || !PanelModel.running(snapshot.execution(workId)) || !PanelModel.questionSupported(request)) { reviewed("Read the agent’s question", whole + "\nThis question cannot be answered here. Secret answers are never sent or saved. You can stop the agent or open Workspace.", "Done", this::closeReview); return; }
-            reviewed("Read the whole question", whole.toString(), "Write answers", () -> editAnswers(request));
+            reviewed("Read the whole question", whole.toString(), "Write answers", scope, () -> editAnswers(request, scope));
         } catch (Exception error) { connection.setText("This question cannot be read safely. Open Workspace."); }
     }
-    private void editAnswers(Map<String, Object> request) {
+    private void editAnswers(Map<String, Object> request, PanelUiState.Context scope) {
         LinearLayout body = dialog("Your answers");
         List<List<CheckBox>> choices = new ArrayList<>(); List<EditText> written = new ArrayList<>();
         List<Object> prompts = PanelJson.array(request.get("prompts"));
@@ -360,41 +452,49 @@ public final class AgentPanelActivity extends Activity {
                 for (int j = 0; j < choices.get(i).size(); j++) if (choices.get(i).get(j).isChecked()) selected.add(PanelJson.object(options.get(j)).get("label"));
                 String text = written.get(i) == null ? null : written.get(i).getText().toString(); if (text != null && text.trim().isEmpty()) text = null;
                 answers.add(PanelJson.map("key", p.get("key"), "selected", selected, "text", text));
-                summary.append('\n').append(PanelText.plain(PanelJson.text(p.get("text")))).append('\n');
+                summary.append('\n').append(PanelText.plain(PanelJson.nullableText(p.get("header")))).append('\n').append(PanelText.plain(PanelJson.text(p.get("text")))).append('\n');
+                for (Object option : PanelJson.array(p.get("options"))) { Map<String, Object> o = PanelJson.object(option); summary.append("Offered · ").append(PanelText.plain(PanelJson.text(o.get("label")))).append('\n').append(PanelText.plain(PanelJson.nullableText(o.get("description")))).append('\n'); }
+                summary.append("Your answer\n");
                 for (Object label : selected) summary.append("• ").append(PanelText.plain(PanelJson.text(label))).append('\n');
                 if (text != null) summary.append(PanelText.plain(text)).append('\n');
             }
             if (!snapshot.answer(snapshot.execution(workId), request, answers)) { connection.setText("Answer every question using the offered choices or allowed text."); return; }
-            reviewed("Review every answer", summary.toString(), "Send answers", () -> send("execution.answer_question", PanelJson.map("execution_id", executionId, "question_id", request.get("question_id"), "answers", answers), request, answers));
+            reviewed("Review every answer", summary.toString(), "Send answers", scope, () -> send("execution.answer_question", PanelJson.map("execution_id", preview ? executionId : scope.execution, "question_id", request.get("question_id"), "answers", answers), request, answers, scope));
         });
     }
 
     private LinearLayout dialog(String title) {
-        closeReview(); Dialog next = new Dialog(this); review = next;
+        closeReview(); reviewOwner = authority.open(); Dialog next = new ReviewDialog(reviewOwner); review = next;
+        final long id = reviewOwner; next.setOnDismissListener(ignored -> { if (review == next) { review = null; authority.close(id); } });
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34)); text(root, title, 25);
-        button(root, "Back", this::closeReview);
+        button(root, "Back", this::closeReview, true);
         ScrollView scroll = new ScrollView(this); LinearLayout body = column(); scroll.addView(body); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        next.setContentView(root); next.show(); next.getWindow().setLayout(-1, -1); next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        next.setContentView(root); next.show(); next.getWindow().setLayout(-1, -1); if (!preview) next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         return body;
     }
-    /** Entire untruncated body must be offered and scrolled before the deliberate next action. */
-    private void reviewed(String title, String whole, String label, Runnable next) {
+    /** Entire body, exact scope, current modal and focus lifetime precede deliberate confirmation. */
+    private void reviewed(String title, String whole, String label, Runnable next) { reviewed(title, whole, label, actionContext(), next); }
+    private void reviewed(String title, String whole, String label, PanelUiState.Context scope, Runnable next) {
         LinearLayout body = dialog(title); text(body, whole, 20);
         ScrollView scroll = (ScrollView) body.getParent(); LinearLayout root = (LinearLayout) scroll.getParent();
-        Button continueButton = button(root, label, next); continueButton.setEnabled(false);
-        Dialog shown = review;
-        Runnable read = () -> { if (review == shown && visible && body.getHeight() > 0 && scroll.getHeight() > 0 && scroll.getScrollY() + scroll.getHeight() >= body.getHeight()) continueButton.setEnabled(true); };
-        scroll.setOnScrollChangeListener((v, x, y, oldX, oldY) -> read.run()); scroll.post(read);
+        gatedButton(root, body, scroll, label, scope, next);
+    }
+    private void gatedButton(LinearLayout root, LinearLayout body, ScrollView scroll, String label, PanelUiState.Context scope, Runnable next) {
+        PanelUiState.Review ticket = authority.review(reviewOwner, scope); Dialog shown = review;
+        Button continueButton = button(root, label, () -> { if (review == shown && authority.authorize(ticket, actionContext())) next.run(); }); continueButton.setEnabled(false);
+        Runnable read = () -> { if (review == shown && body.getHeight() > 0 && scroll.getHeight() > 0 && scroll.getScrollY() + scroll.getHeight() >= body.getHeight()) continueButton.setEnabled(authority.read(ticket)); };
+        reviewReads.add(read); scroll.getViewTreeObserver().addOnScrollChangedListener(read::run); scroll.getViewTreeObserver().addOnGlobalLayoutListener(read::run); scroll.post(read);
     }
 
-    private void send(String type, Map<String, Object> payload, Map<String, Object> request, List<Object> answers) {
-        if (snapshot == null || identity == null || busy || !visible) return;
+    private void send(String type, Map<String, Object> payload, Map<String, Object> request, List<Object> answers, PanelUiState.Context scope) {
+        if (preview) { closeReview(); connection.setText("Synthetic preview · no request was sent."); return; }
+        if (snapshot == null || identity == null || busy || !visible || scope == null || !scope.same(actionContext())) return;
         rememberDraft();
-        final PanelIdentity target = identity; final String journal = snapshot.journal, selectedWork = workId, selectedProject = projectId, selectedExecution = executionId;
+        final PanelIdentity target = identity; final String journal = scope.journal, selectedWork = scope.work, selectedProject = scope.project, selectedExecution = scope.execution;
         final int requestGeneration = generation;
         if (!selectedExecution.equals(payload.get("execution_id"))) return;
         final Map<String, Object> envelope = PanelModel.command(type, payload);
-        closeReview(); busy = true; connection.setText("Checking this task before sending…");
+        commandId = PanelJson.text(envelope.get("command_id")); closeReview(); busy = true; connection.setText("Checking this task before sending…");
         PanelTransport next = new PanelTransport(files::connection); transport = next;
         worker.execute(() -> {
             String result; boolean submitted = false, accepted = false; PanelModel fresh = null;
@@ -417,7 +517,7 @@ public final class AgentPanelActivity extends Activity {
                         if (!envelope.get("command_id").equals(command.get("command_id"))) throw new IOException();
                         String state = PanelJson.text(command.get("status"));
                         submitted = true; accepted = state.equals("accepted") || state.equals("completed");
-                        result = state.equals("rejected") ? "Your request was refused." : state.equals("completed") ? "The agent confirmed your request." : "Your request was accepted. Waiting for the agent.";
+                        result = PanelModel.commandStatus(command);
                     } else result = "The host did not confirm this request. Check the task before trying again.";
                 }
             } catch (PanelTransport.Refused error) { result = error.unknownEffect ? "The connection ended after sending. The effect is unknown; check this task before trying again." : "Your request was not sent. Check the connection."; }
@@ -427,12 +527,13 @@ public final class AgentPanelActivity extends Activity {
                 if (!visible || generation != requestGeneration) return;
                 busy = false; if (latest != null) snapshot = latest;
                 if (recorded) { commandId = PanelJson.text(envelope.get("command_id")); if (acceptedInstruction && type.equals("execution.send_instruction")) { draft = ""; spoken = false; instruction = null; } }
-                connection.setText(message); show(); saveState(); ui.postDelayed(refresh, 1000);
+                connection.setText(withStorageWarning(message)); show(); saveState(); ui.postDelayed(refresh, 1000);
             });
         });
     }
 
     private void activity() {
+        if (preview) { reviewed("Synthetic activity", "Reported · This is the public synthetic preview. No work ran from this panel and no live activity was read.", "Done", this::closeReview); return; }
         if (snapshot == null || identity == null || busy) return;
         final PanelIdentity target = identity; final String work = workId, journal = snapshot.journal; final int requestGeneration = generation;
         busy = true; PanelTransport next = new PanelTransport(files::connection); transport = next;
@@ -458,18 +559,19 @@ public final class AgentPanelActivity extends Activity {
     }
     private void returnToWorkspace() {
         rememberDraft();
-        if (!saveState()) return;
+        // The selected record is an additional durable recovery path when the aggregate editor
+        // store is full. It carries ordinary context only; Unity must validate fresh state.
+        PanelContinuation selected = editorRecord();
+        String staged = null;
         try {
-            // Saving ordinary state is independent of the one-shot return mark. Failed launches
-            // remove that mark; resuming Unity through another route cannot consume its outbound.
-            files.remove(PanelFiles.RETURN);
-            if (identity != null && snapshot != null) {
-                if (!identity.same(files.connection())) throw new IOException();
-                continuation = PanelContinuation.selection(identity, snapshot, projectId, workId, executionId, draft, spoken, continuation);
-                files.write(PanelFiles.STATE, continuation.json()); files.write(PanelFiles.RETURN, continuation.json());
+            if (identity != null && !identity.same(files.connection())) throw new IOException();
+            boolean previousReturn = files.exists(PanelFiles.RETURN);
+            if (selected != null) {
+                files.write(PanelFiles.STATE, selected.json());
+                if (!previousReturn) { files.write(PanelFiles.RETURN, selected.json()); staged = selected.string("handoff_id"); }
             }
             startActivity(new Intent().setClassName(getPackageName(), "com.unity3d.player.UnityPlayerGameActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             finishAndRemoveTask();
-        } catch (Exception error) { files.remove(PanelFiles.RETURN); connection.setText("Workspace could not open. Your draft remains here."); }
+        } catch (Exception error) { if (staged != null) files.acknowledgeReturn(staged); connection.setText("Workspace could not open. Your draft remains here."); }
     }
 }
