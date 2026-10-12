@@ -176,8 +176,11 @@ namespace Halcyonic.XR.Workspace.Editor
             // Measured as the file column measures them, from the lines the page draws.
             return new PromptMeasure(
                 MenuFrameView.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), Glaze.Menu.FileColumnDegrees),
-                prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.AnswerRow(option, "0"), Glaze.Menu.FileColumnDegrees)).ToList(),
-                prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.SideAnswerLine(option, null), Glaze.Menu.SideColumnDegrees)).ToList());
+                prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.AnswerRow(option, "0", multiple: prompt.Multiple), Glaze.Menu.FileColumnDegrees)).ToList(),
+                prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.SideAnswerLine(option, null), Glaze.Menu.SideColumnDegrees)).ToList(),
+                MenuFrameView.FitsHalf(FileScreens.InputNavigation(true), Glaze.Menu.FileColumnDegrees)
+                    && MenuFrameView.FitsHalf(FileScreens.ChoicePager(), Glaze.Menu.FileColumnDegrees)
+                    && MenuFrameView.FitsHalf(FileScreens.ChoicePager(first: true), Glaze.Menu.FileColumnDegrees));
         }).ToList();
 
         /// <summary>The agent's question with four answers of two rows each, then one chosen whose words run past two rows.</summary>

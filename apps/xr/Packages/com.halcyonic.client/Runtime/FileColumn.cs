@@ -561,7 +561,9 @@ namespace Halcyonic.Client
                     return new PromptMeasure(
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.AnswerRow(option, "0", multiple: prompt.Multiple), File)).ToList(),
-                        prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList());
+                        prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList(),
+                        host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered), File) && host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered, edit: true), File)
+                            && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File));
                 }).ToList();
                 measuredFor = asked;
                 measuredAt = host.TextSize;

@@ -233,9 +233,7 @@ namespace Halcyonic.Client
         public const string GoToQuestion = "go-to-question";
 
         /// <summary>The words on the row for more answers: the next page, or from the last back to the first.</summary>
-        public static string MoreAnswersWords(int page, int pages) => page + 1 < pages
-            ? "More answers, " + (page + 2).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture)
-            : "First answers, 1 of " + pages.ToString(CultureInfo.InvariantCulture);
+        public static string MoreAnswersWords(int page, int pages) => page + 1 < pages ? "More choices" : "First choices";
 
         /// <summary>The words on the row turning the person's answers, where they take more than one page.</summary>
         public static string YourAnswersWords(int page, int pages) =>
@@ -469,8 +467,7 @@ namespace Halcyonic.Client
                 {
                     var typed = draft.Typed(prompt);
                     if (typed != null) lines.Add(SelectedTypedLine(typed, Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
-                    lines.Add(new PageLine(typed == null ? WriteAnswer : EditAnswer, icon: screen.KeyboardOffered ? GlazeIcon.Type : GlazeIcon.Change, action: TypeAnswer,
-                        control: LineControl.Action));
+                    lines.Add(InputNavigation(screen.KeyboardOffered, typed != null, question.Pages > 1 && question.PairInputPager));
                 }
                 if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), icon: GlazeIcon.Next, action: MoreAnswers,
                     control: LineControl.Action));
@@ -549,6 +546,13 @@ namespace Halcyonic.Client
 
         public static PageLine SelectedTypedLine(string typed, int rows = 1) =>
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
+
+        public static PageLine InputNavigation(bool keyboard, bool edit = false, bool besideNext = false) =>
+            new PageLine(edit ? EditAnswer : WriteAnswer, icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,
+                action: TypeAnswer, control: LineControl.Action, besideNext: besideNext);
+
+        public static PageLine ChoicePager(bool first = false) =>
+            new PageLine(first ? "First choices" : "More choices", icon: GlazeIcon.Next, action: MoreAnswers, control: LineControl.Action);
 
         public static PageLine InputLine(FileQuestion question, bool keyboard = true, int rows = 1, int? fromRow = null) =>
             new PageLine(question.Input.Length == 0 ? LineWords.Ours(keyboard ? "Type your answer" : "Hold to talk below") : LineWords.TheirName(question.Input), icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,

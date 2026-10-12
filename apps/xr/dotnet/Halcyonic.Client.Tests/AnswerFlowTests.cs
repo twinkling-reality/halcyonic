@@ -202,4 +202,94 @@ public class AnswerFlowTests
         Assert.That(column.Steering.Instruction, Is.EqualTo("Add pagination"));
         Assert.That(host.Sent, Is.Empty);
     }
+    [TestCase("free_text")] [TestCase("secret")] [TestCase("approval")]
+    public void AQuestionChangedBetweenDrawAndPressNeverOpensAnIncompatibleKeyboard(string change)
+    {
+        var (host, column, work) = Open();
+        ReadQuestion(host, column);
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == FileScreens.TypeAnswer), Is.True);
+        work.Change(execution =>
+        {
+            if (change == "free_text") execution.PendingQuestions[0].Prompts[0].FreeText = false;
+            if (change == "secret") execution.PendingQuestions[0].Prompts[0].Secret = true;
+            if (change == "approval") execution.PendingApprovals.Add(WaitingWork.Approval("new-approval", "Run migration", Samples.Time));
+        });
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That(host.Keyboard, Is.Null, "stale visible input must be revalidated before opening native UI");
+        Assert.That(column.Screen.Question.Writing, Is.False);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [TestCase("approval")] [TestCase("disconnect")]
+    public void TemporarilyPreemptedEditorExpiresItsOldCallbackEvenAfterItBecomesAvailableAgain(string change)
+    {
+        var (host, column, work) = Open();
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        var late = host.Keyboard!.Value.Done;
+        if (change == "approval") work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("new-approval", "Run migration", Samples.Time)));
+        else host.Live = false;
+        host.Wait(1); column.Tick();
+        if (change == "approval") work.Change(execution => execution.PendingApprovals.Clear());
+        else host.Live = true;
+        host.Wait(1); column.Tick();
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        late("Never current");
+        Assert.That(column.Screen.Question.Input, Is.Empty);
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null);
+    }
+
+    private static string LongInput => string.Join(" ", Enumerable.Range(0, 90).Select(index => "word" + index));
+
+    private static void ReadInput(FileMenuHost host, FileColumn column)
+    {
+        for (var part = 0; part < 60; part++)
+        {
+            Draw(host, column);
+            var primary = column.Frame!.Footer[PromptSlot.FarRight]!;
+            if (primary.Id == FileScreens.UseInput) return;
+            Assert.That(primary.Id, Is.EqualTo(FileScreens.NextInputPart));
+            Assert.That(primary.Available, Is.True);
+            column.Act(primary.Id, null);
+        }
+        Assert.Fail("Long input must remain navigable.");
+    }
+
+    [TestCase(false)] [TestCase(true)]
+    public void EditingLongInputUnchangedOrDismissingKeyboardKeepsReadThroughNavigable(bool dismissed)
+    {
+        var (host, column, _) = Open();
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done(LongInput);
+        Assert.That(column.Screen.Question.InputReading, Is.True);
+        ReadInput(host, column);
+        column.Act(FileScreens.EditInput, null);
+        if (dismissed) host.KeyboardDismissed!(); else host.Keyboard!.Value.Done(LongInput);
+        Assert.That(column.Screen.Question.InputFocused, Is.False);
+        Assert.That(column.Screen.Question.InputReading, Is.True);
+        ReadInput(host, column);
+        Primary(host, column, "Use this answer");
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo(LongInput));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void VoiceOnlyLongEditorReturnsFromReadingToVisibleRecordingWithoutPromisingKeyboard()
+    {
+        var (host, column, _) = Open();
+        host.KeyboardOffered = false;
+        host.Wait(1); column.Tick();
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That(column.Frame!.Lines.Single(line => line.Control == LineControl.Input).Words, Is.EqualTo("Hold to talk below"));
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        column.Heard(LongInput);
+        Assert.That(column.Screen.Question.InputReading, Is.True);
+        column.Act(FileScreens.EditInput, null);
+        Assert.That(column.Frame!.Footer[PromptSlot.Secondary]?.Id, Is.EqualTo(FileScreens.SpeakAnswer));
+        Assert.That(host.Keyboard, Is.Null);
+    }
+
 }

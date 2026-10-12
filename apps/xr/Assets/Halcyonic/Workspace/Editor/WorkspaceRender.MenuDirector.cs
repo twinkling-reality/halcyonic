@@ -474,7 +474,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         new QuestionPrompt
                         {
                             Key = "q1", Header = "Pages", Text = "Which pages should change?", Multiple = true, FreeText = false,
-                            Options = new List<QuestionOption> { new QuestionOption { Label = "Orders" }, new QuestionOption { Label = "Settings" } },
+                            Options = new List<QuestionOption> { new QuestionOption { Label = "Sign in" }, new QuestionOption { Label = "Orders" }, new QuestionOption { Label = "Settings" } },
                         },
                     },
                 });
@@ -525,6 +525,31 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (prompt != null) return prompt.Available && Press(prompt.Id);
                     var line = frame?.Lines.FirstOrDefault(each => each.Action != null && (each.Words == words || each.Words.StartsWith(words + " · ", StringComparison.Ordinal)));
                     return line?.Action != null && line.Available && Press(line.Action, line.Key);
+                }
+                bool ChooseWords(string words)
+                {
+                    for (var page = 0; page < 30; page++)
+                    {
+                        if (PressWords(words))
+                        {
+                            for (var part = 0; part < 30 && file?.Frame?.Side != null; part++)
+                            {
+                                director.DrawNow();
+                                var side = plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.Side).View?.Side;
+                                if (side == null) break;
+                                System.Threading.Thread.Sleep(TimeSpan.FromSeconds(0.45));
+                                var footer = plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.Side).View?.Footer.Showing;
+                                var next = footer?.All.FirstOrDefault(each => each.Prompt.Id == Footer.NextPage).Prompt;
+                                if (next != null && file!.Screen.Question.SidePart + 1 < file.Screen.Question.SideParts)
+                                    director.Navigator.Act(MenuColumn.Side, next.Id, null, plane.Showing(MenuColumn.Side), side);
+                                else director.Navigator.Act(MenuColumn.Side, SidePanel.Close, null, plane.Showing(MenuColumn.Side), side);
+                                director.DrawNow();
+                            }
+                            return true;
+                        }
+                        if (!PressWords("More choices") && !PressWords("First choices")) return false;
+                    }
+                    return false;
                 }
                 void Capture(string stage)
                 {
@@ -632,11 +657,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 else failures.Add(name + ": no Hold to talk in the answer editor to watch as the voice speaks.");
                 if (file.Screen.Question.Writing) PressWords("Cancel");
-                if (!PressWords("Dark")) failures.Add(name + ": Dark was not reachable by its visible answer label.");
+                if (!ChooseWords("Dark")) failures.Add(name + ": Dark was not reachable by its visible answer label.");
                 Capture("question1-dark-selected");
                 if (!PressWords("Next question")) failures.Add(name + ": visible Next question took no press.");
                 ReadQuestion();
-                if (!PressWords("Orders")) failures.Add(name + ": Orders was not reachable by its visible answer label.");
+                if (!ChooseWords("Orders")) failures.Add(name + ": Orders was not reachable by its visible answer label.");
                 Capture("question2-orders-selected");
                 if (!PressWords(FileScreens.ReviewAnswers)) failures.Add(name + ": visible Review answers took no press.");
                 for (var part = 0; part < 30 && file.Screen.Question.Page + 1 < file.Screen.Question.Pages; part++) PressWords("Next part");
