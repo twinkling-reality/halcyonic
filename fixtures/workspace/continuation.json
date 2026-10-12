@@ -1,0 +1,448 @@
+{
+  "cases": [
+    {
+      "name": "ordinary selected draft",
+      "valid": true,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "no selection",
+      "valid": true,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": null,
+        "project_id": null,
+        "workstream_id": null,
+        "execution_id": null,
+        "section": "activity",
+        "page": 2,
+        "instruction": null
+      }
+    },
+    {
+      "name": "empty draft",
+      "valid": true,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "",
+          "spoken": false,
+          "part": 0
+        }
+      }
+    },
+    {
+      "name": "new version",
+      "valid": false,
+      "value": {
+        "version": 2,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "version string",
+      "valid": false,
+      "value": {
+        "version": "1",
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "foreign shape",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        },
+        "credential": "fake-never-a-real-secret"
+      }
+    },
+    {
+      "name": "numeric section",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": 1,
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "unknown section",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "approve",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "negative page",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": -1,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "large page",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 100001,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "fractional page",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 0.5,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "string page",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": "1",
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "invalid workstream UUID",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "task",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "non-v7 execution UUID",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-4000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "uppercase handoff UUID",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192F1A0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "bad identity",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "null text record",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": null,
+          "spoken": false,
+          "part": 0
+        }
+      }
+    },
+    {
+      "name": "missing explicit null",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2
+      }
+    },
+    {
+      "name": "string boolean",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": "true",
+          "part": 1
+        }
+      }
+    },
+    {
+      "name": "saved read authority",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true,
+          "part": 1,
+          "read": true
+        }
+      }
+    },
+    {
+      "name": "missing instruction page",
+      "valid": false,
+      "value": {
+        "version": 1,
+        "handoff_id": "0192f1a0-0000-4000-8000-000000000001",
+        "connection_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "journal_id": "0192f1a0-0000-7000-8000-000000000001",
+        "project_id": "0192f1a0-0000-7000-8000-000000000002",
+        "workstream_id": "0192f1a0-0000-7000-8000-000000000003",
+        "execution_id": "0192f1a0-0000-7000-8000-000000000004",
+        "section": "activity",
+        "page": 2,
+        "instruction": {
+          "text": "Review the authentication change.",
+          "spoken": true
+        }
+      }
+    }
+  ],
+  "identities": [
+    {
+      "name": "local",
+      "scheme": "ws",
+      "host": "127.0.0.1",
+      "port": 47800,
+      "device_id": null,
+      "certificate_sha256": null,
+      "credential": "fixture-token-not-a-secret",
+      "connection_key": "90775a1d9c284ca9e9f797d877e53c938e520ac80d78811f234a91403d0b6bfe"
+    },
+    {
+      "name": "paired hostname",
+      "scheme": "wss",
+      "host": "COMPUTER.LOCAL",
+      "port": 47801,
+      "device_id": "0192f1a0-0000-7000-8000-000000000009",
+      "certificate_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "credential": "hlcd_fixture_not_a_secret",
+      "connection_key": "671544aa38faced786f9173d8e5d33b6602187b269631822b624cfc0fa6e252f"
+    },
+    {
+      "name": "paired IPv6",
+      "scheme": "wss",
+      "host": "[FD00::ABCD]",
+      "port": 47801,
+      "device_id": "0192f1a0-0000-7000-8000-000000000009",
+      "certificate_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "credential": "hlcd_fixture_not_a_secret",
+      "connection_key": "1bef1c7174494ae539d0fc468a0eda5b1905e7303f240d24afc15d304b022666"
+    }
+  ]
+}

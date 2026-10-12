@@ -10038,6 +10038,141 @@
           "additionalProperties": false
         }
       ]
+    },
+    "WorkspaceContinuation": {
+      "type": "object",
+      "required": [
+        "version",
+        "handoff_id",
+        "connection_key",
+        "journal_id",
+        "project_id",
+        "workstream_id",
+        "execution_id",
+        "section",
+        "page",
+        "instruction"
+      ],
+      "properties": {
+        "version": {
+          "type": "number",
+          "const": 1
+        },
+        "handoff_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "connection_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "journal_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "project_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workstream_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "section": {
+          "$ref": "#/$defs/WorkspaceSection"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "instruction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkspaceInstructionDraft"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorkspaceInstructionDraft": {
+      "type": "object",
+      "required": [
+        "text",
+        "spoken",
+        "part"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 32000
+        },
+        "spoken": {
+          "type": "boolean"
+        },
+        "part": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorkspaceSection": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "waiting"
+        },
+        {
+          "type": "string",
+          "const": "activity"
+        },
+        {
+          "type": "string",
+          "const": "changes"
+        },
+        {
+          "type": "string",
+          "const": "checks"
+        }
+      ]
     }
   }
 }

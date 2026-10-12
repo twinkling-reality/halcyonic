@@ -4105,4 +4105,58 @@ namespace Halcyonic.Contracts
         [JsonProperty("attempts_left", Required = Required.AllowNull)]
         public long? AttemptsLeft { get; set; }
     }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum WorkspaceSection
+    {
+        [EnumMember(Value = "waiting")] Waiting,
+        [EnumMember(Value = "activity")] Activity,
+        [EnumMember(Value = "changes")] Changes,
+        [EnumMember(Value = "checks")] Checks,
+    }
+
+    public sealed class WorkspaceInstructionDraft
+    {
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("spoken", Required = Required.Always)]
+        public bool Spoken { get; set; }
+
+        [JsonProperty("part", Required = Required.Always)]
+        public long Part { get; set; }
+    }
+
+    public sealed class WorkspaceContinuation
+    {
+        [JsonProperty("version", Required = Required.Always)]
+        public long Version { get; set; } = 1;
+
+        [JsonProperty("handoff_id", Required = Required.Always)]
+        public string HandoffId { get; set; } = default!;
+
+        [JsonProperty("connection_key", Required = Required.Always)]
+        public string ConnectionKey { get; set; } = default!;
+
+        [JsonProperty("journal_id", Required = Required.AllowNull)]
+        public string? JournalId { get; set; }
+
+        [JsonProperty("project_id", Required = Required.AllowNull)]
+        public string? ProjectId { get; set; }
+
+        [JsonProperty("workstream_id", Required = Required.AllowNull)]
+        public string? WorkstreamId { get; set; }
+
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
+
+        [JsonProperty("section", Required = Required.Always)]
+        public WorkspaceSection Section { get; set; }
+
+        [JsonProperty("page", Required = Required.Always)]
+        public long Page { get; set; }
+
+        [JsonProperty("instruction", Required = Required.AllowNull)]
+        public WorkspaceInstructionDraft? Instruction { get; set; }
+    }
 }
