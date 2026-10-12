@@ -752,7 +752,7 @@ namespace Halcyonic.Client
         public string? WhyUseWaits(bool stopOnPage)
         {
             if (!Writing || draft == null) return "Open the answer field first.";
-            if (input.Length == 0) return "Type or say an answer first.";
+            if (input.Length == 0) return "Enter an answer first.";
             return draft.TextProblem(Prompt, input, stopOnPage) ?? (!InputRead ? "Read the whole answer first." : null);
         }
 

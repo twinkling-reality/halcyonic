@@ -77,6 +77,25 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>The focused answer flow at both real-font text sizes, isolated from older workspace scenarios.</summary>
+        public static void AnswerFlowCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "AnswerFlowRenders", variant));
+                Directory.CreateDirectory(folder);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                ViewField.Current = FieldChecks.Quest3S;
+                var result = RenderYourAnswers("far-3s", folder, CharacterStage.DefaultDistance, null).ToList();
+                ViewField.Current = null;
+                KeepFontAssetsAsCommitted();
+                foreach (var failure in result) Debug.LogError("Halcyonic: answer flow render: " + failure);
+                if (result.Count == 0) Debug.Log("Halcyonic: answer flow render: every check passed; " + folder);
+                return result;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
         private static List<string> Run(string variant)
         {

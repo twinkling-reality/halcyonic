@@ -315,6 +315,7 @@ namespace Halcyonic.Client
             var prompt = question.Prompt;
             var session = question.InputSession;
             Rebuild();
+            if (!CurrentInput(forDraft, prompt, session)) return;
             MenuKeyboard.Open(host, question.Input, "Your answer", text =>
             {
                 if (!CurrentInput(forDraft, prompt, session)) return;
@@ -573,7 +574,7 @@ namespace Halcyonic.Client
                     host.RowsOf(FileScreens.SelectedTypedLine(typed), File),
                     host.RowsOf(FileScreens.SideAnswerLine(null, typed), Side));
             }
-            if (Screen.Question.Writing) Screen.Question.MeasureInput(host.RowsOf(FileScreens.InputLine(Screen.Question), File));
+            if (Screen.Question.Writing) Screen.Question.MeasureInput(host.RowsOf(FileScreens.InputLine(Screen.Question, Screen.KeyboardOffered), File));
             if (asked.Prompts.Count > 0)
             {
                 Screen.Question.MeasureReview(Enumerable.Range(0, asked.Prompts.Count)

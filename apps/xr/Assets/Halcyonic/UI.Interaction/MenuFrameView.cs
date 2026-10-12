@@ -697,6 +697,7 @@ namespace Halcyonic.XR.UI
             var room = content;
             if (line.Icon != null) room -= U(Glaze.Menu.IconColumnDegrees) + grid;
             if (line.Opens) room -= ChevronRoom;
+            if (line.AnswerMark != AnswerMark.None) room -= AnswerMarkRoom;
             if (line.Fact != null) room -= FactRoom(line, content) + grid;
             if (line.Chip != null) room -= ChipWidth(line.Chip) + grid;
             return Mathf.Max(U(2f), room);
@@ -709,6 +710,8 @@ namespace Halcyonic.XR.UI
         private static float ChevronRoom => ChevronGlyph * U(Glaze.Menu.BodyDegrees) + U(Glaze.Menu.GridDegrees);
 
         private const float ChevronGlyph = 0.4f;
+
+        private static float AnswerMarkRoom => U(Glaze.Menu.BodyDegrees) + U(Glaze.Menu.GridDegrees);
 
         /// <summary>A line's words as shown (<see cref="PageLine.Drawn"/>): a claim leans, quoted by its builder around the outside words alone.</summary>
         private static string Quoted(PageLine line) => line.Drawn;
@@ -1034,7 +1037,8 @@ namespace Halcyonic.XR.UI
         private float LayLine(Line line, PageLine model, float left, float right, float top, Vector2 center, float zoom)
         {
             var grid = U(Glaze.Menu.GridDegrees);
-            var role = model.Action == null ? (ButtonRole?)null : model.Choice ? ButtonRole.Answer : ButtonRole.Row;
+            var role = model.Action == null ? (ButtonRole?)null : model.Control == LineControl.Input ? ButtonRole.Input
+                : model.Control == LineControl.Action ? ButtonRole.Navigation : model.Choice ? ButtonRole.Answer : ButtonRole.Row;
             line.Show(model, role);
             var lineHeight = GlazeText.LineHeight(line.Words);
             var (rows, theirs) = Wrap(line.Words, model, WordsRoom(model, right - left));
@@ -1043,13 +1047,18 @@ namespace Halcyonic.XR.UI
             // A line reused from one that took a press keeps its target hidden unless this one takes a press too.
             if (role != null && line.Button != null)
             {
-                line.Button.On = model.Chosen;
+                line.Button.On = model.Control == LineControl.Input ? model.InputFocused : model.Chosen;
                 line.Button.Available = model.Available;
                 line.Button.ShowArea(new Vector2((left + right) / 2f, middle), new Vector2(right - left + 2f * Inset, height));
             }
 
             // The right content line: the chevron, then the fact, then the chip, each in the room kept for it at 18 dp.
             var end = right;
+            if (model.AnswerMark != AnswerMark.None)
+            {
+                line.ShowAnswerMark(model.AnswerMark, model.Chosen, model.Available, end - U(Glaze.Menu.BodyDegrees) / 2f, middle);
+                end -= AnswerMarkRoom;
+            }
             if (model.Opens)
             {
                 // The chevron's glyph ends on the content line; its em reaches past it.
@@ -1107,6 +1116,7 @@ namespace Halcyonic.XR.UI
             line.MayCut = model.WordsAreData;
             line.Words.transform.localPosition = new Vector3(wordsLeft, middle + rows * lineHeight / 2f, -U(0.05f));
             LayGrounds(line, model, role != null, theirs, left, right, middle, height);
+            if (model.Control == LineControl.Input && model.InputFocused) line.ShowCaret(wordsLeft, end, middle, rows * lineHeight);
             return top - height;
         }
 
@@ -1365,6 +1375,46 @@ namespace Halcyonic.XR.UI
 
             public GlazeButton? Button { get; private set; }
 
+            private Surface? answerMark;
+            private Surface? answerCentre;
+            private TextMeshPro? answerCheck;
+            private Surface? caret;
+
+            public void ShowAnswerMark(AnswerMark kind, bool chosen, bool available, float x, float y)
+            {
+                var em = U(Glaze.Menu.BodyDegrees);
+                var colour = available ? GlazeTokens.Text : GlazeTokens.TextSecondary;
+                answerMark ??= Surface.Create(parent, name + " selection mark", Order + 3);
+                answerMark.gameObject.SetActive(true);
+                answerMark.Draw(Vector2.one * em, kind == AnswerMark.Single ? em / 2f : U(Glaze.Menu.RadiusDegrees) / 3f, Color.clear, colour, U(Glaze.Menu.HairlineDegrees));
+                answerMark.transform.localPosition = new Vector3(x, y, -U(0.06f));
+                if (!chosen) return;
+                if (kind == AnswerMark.Single)
+                {
+                    answerCentre ??= Surface.Create(parent, name + " selected centre", Order + 4);
+                    answerCentre.gameObject.SetActive(true);
+                    answerCentre.Draw(Vector2.one * em * 0.45f, em / 2f, colour);
+                    answerCentre.transform.localPosition = new Vector3(x, y, -U(0.07f));
+                }
+                else
+                {
+                    answerCheck ??= GlazeIcons.Create(parent, name + " selected check", Glaze.Menu.BodyDegrees, colour, Order + 4);
+                    answerCheck.gameObject.SetActive(true);
+                    answerCheck.color = colour;
+                    GlazeIcons.Show(answerCheck, GlazeIcon.Approve);
+                    answerCheck.transform.localPosition = new Vector3(x, y, -U(0.07f));
+                }
+            }
+
+            public void ShowCaret(float left, float right, float middle, float height)
+            {
+                caret ??= Surface.Create(parent, name + " input caret", Order + 4);
+                caret.gameObject.SetActive(true);
+                var x = model?.Drawn == "Type your answer" ? left : Mathf.Min(right - U(Glaze.Menu.GridDegrees), left + Words.preferredWidth + U(Glaze.Menu.GridDegrees));
+                caret.Draw(new Vector2(U(Glaze.Menu.HairlineDegrees), GlazeText.LineHeight(Words)), 0f, GlazeTokens.Text);
+                caret.transform.localPosition = new Vector3(x, middle + height / 2f - GlazeText.LineHeight(Words) / 2f, -U(0.07f));
+            }
+
             /// <summary>The page line it shows, or null while hidden.</summary>
             public PageLine? Model => model;
 
@@ -1441,6 +1491,10 @@ namespace Halcyonic.XR.UI
                 Chip.gameObject.SetActive(false);
                 ChipShape.gameObject.SetActive(false);
                 Chevron.gameObject.SetActive(false);
+                if (answerMark != null) answerMark.gameObject.SetActive(false);
+                if (answerCentre != null) answerCentre.gameObject.SetActive(false);
+                if (answerCheck != null) answerCheck.gameObject.SetActive(false);
+                if (caret != null) caret.gameObject.SetActive(false);
                 foreach (var ground in WordGrounds.Concat(FactGrounds)) ground.gameObject.SetActive(false);
                 BlockArea = null;
                 Button?.Hide();
