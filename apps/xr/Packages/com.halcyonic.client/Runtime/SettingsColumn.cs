@@ -8,6 +8,7 @@ namespace Halcyonic.Client
     /// <summary>How a setting stands now, read each time Settings is drawn.</summary>
     public sealed class SettingNow
     {
+        private readonly LineWords? explicitNowRuns;
         /// <param name="value">Its value, the row's small fact, as "Standard".</param>
         /// <param name="now">What it is now, in a sentence's words, the side panel's first fact, as "The standard size".</param>
         /// <param name="next">The change its one prompt makes, named, as "A step larger", and what that does, as "Text 15 percent larger, and 3 rows a page".</param>
@@ -18,16 +19,17 @@ namespace Halcyonic.Client
         /// computer": the prompt's press only arms it; null for a change made at once.
         /// </param>
         /// <param name="valueIsData">Its value and what it is now hold words that aren't Halcyonic's, as a paired computer's address: shown as data.</param>
+        /// <param name="nowRuns">Explicit source runs for the current detail, independent of the small row value.</param>
         /// <param name="about">
         /// What a change that asks first is about, as the paired computer's address: given to the
         /// setting's <see cref="MenuSetting.Confirmed"/> as it read when armed, so the Yes acts on what
         /// the person saw; an arming lapses if it changes.
         /// </param>
         public SettingNow(string value, string now, string next, string does, string prompt, string? reason = null, string? confirm = null,
-            bool valueIsData = false, string? about = null)
+            bool valueIsData = false, string? about = null, LineWords? nowRuns = null)
         {
             Value = value;
-            Now = now;
+            Now = nowRuns?.Text ?? now;
             Next = next;
             Does = does;
             Prompt = prompt;
@@ -35,6 +37,7 @@ namespace Halcyonic.Client
             Confirm = confirm;
             ValueIsData = valueIsData;
             About = about;
+            explicitNowRuns = nowRuns;
         }
 
         public string Value { get; }
@@ -59,7 +62,7 @@ namespace Halcyonic.Client
         /// What it is now as runs: Halcyonic's words upright and, where they end with what it is about, as a
         /// paired computer's address, that address leaning, the only words in it that aren't Halcyonic's.
         /// </summary>
-        public LineWords NowRuns => Runs(Now);
+        public LineWords NowRuns => explicitNowRuns ?? Runs(Now);
 
         /// <summary>Its value as runs, as <see cref="NowRuns"/>: a value that is the address itself leans whole.</summary>
         public LineWords ValueRuns => Runs(Value);
@@ -72,7 +75,8 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Everything a row and its side panel show of it, and what an armed change is about, to tell whether it changed.</summary>
-        internal string Shown => string.Join("\u0000", Value, Now, Next, Does, Prompt, Reason ?? "", Confirm ?? "", ValueIsData ? "data" : "", About ?? "");
+        internal string Shown => string.Join("\u0000", Value, Now, Next, Does, Prompt, Reason ?? "", Confirm ?? "", ValueIsData ? "data" : "", About ?? "",
+            explicitNowRuns == null ? "" : string.Join("\u0000", explicitNowRuns.Runs.Select(run => (run.Theirs ? "outside " : "own ") + run.Text)));
     }
 
     /// <summary>

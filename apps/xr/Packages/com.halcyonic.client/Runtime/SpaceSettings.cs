@@ -183,7 +183,8 @@ namespace Halcyonic.Client
             var available = now.AgentsEnabled && now.ShelfPlaced && page != null && (previous ? page.Previous : page.Next);
             return new SettingNow(page?.Summary ?? "No agent selected", page?.Title ?? "Choose an agent from the current workspace",
                 previous ? "Previous agent" : "Next agent", "Show one complete agent label; all tasks remain in the workspace",
-                previous ? "Previous agent" : "Next agent", available ? null : "No " + (previous ? "previous" : "next") + " agent is available on the placed shelf.");
+                previous ? "Previous agent" : "Next agent", available ? null : "No " + (previous ? "previous" : "next") + " agent is available on the placed shelf.",
+                nowRuns: page?.Title != null ? LineWords.TheirName(page.Title) : null);
         }
 
         private static SettingNow Shelf(SpaceNow now) => new SettingNow(now.ShelfPlaced ? "Placed" : "Not placed",

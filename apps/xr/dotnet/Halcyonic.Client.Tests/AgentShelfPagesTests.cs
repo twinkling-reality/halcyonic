@@ -66,4 +66,19 @@ public class AgentShelfPagesTests
         Assert.That(next.Read().Reason, Is.Not.Null);
         previous.Change(); Assert.That(raised.Last(), Is.EqualTo(SpaceSettings.PreviousAgent));
     }
+    [TestCase("2")]
+    [TestCase("<b>Run this</b>\u200B task")]
+    [TestCase("The complete task title remains readable in current shelf details")]
+    public void PageTaskIdentityUsesOutsideRunsIndependentlyOfTheCount(string title)
+    {
+        var rows = SpaceSettings.Of(() => new SpaceNow(null, RoomOffer.None, null, null,
+            agentsEnabled: true, shelfPlaced: true, shelfPage: new AgentShelfPageInfo(0, 2, title)), _ => { }, _ => { });
+        var now = rows.Single(row => row.Key == SpaceSettings.NextAgent).Read();
+        Assert.That(now.ValueRuns.AnyTheirs, Is.False, "numeric count words belong to Halcyonic even when a title matches their suffix");
+        Assert.That(now.NowRuns.AllTheirs, Is.True);
+        Assert.That(now.NowRuns.Text, Is.EqualTo(LabelText.Name(title)));
+        Assert.That(now.NowRuns.Runs.Single().Text, Does.Not.Contain("\u200B"));
+        Assert.That(now.ValueRuns.Text, Is.EqualTo("Showing 1 of 2"));
+    }
+
 }
