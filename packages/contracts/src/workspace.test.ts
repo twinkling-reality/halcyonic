@@ -60,3 +60,16 @@ test('an instruction draft has the command text bound, without authority fields'
     );
   }
 });
+
+test('request continuation has its own bounded draft and exact optional host reference without authority', () => {
+  const sample = fixtures.cases[0]?.value as Record<string, unknown>;
+  const request = { request_id: null, text: 'x'.repeat(32000), spoken: true, part: 0 };
+  assert.equal(validate({ ...sample, request }).ok, true);
+  assert.equal(validate({ ...sample, request: { ...request, text: 'x'.repeat(32001) } }).ok, false);
+  for (const field of ['read', 'armed', 'auto_send', 'answers', 'credential', 'approval_id'])
+    assert.equal(validate({ ...sample, request: { ...request, [field]: true } }).ok, false, field);
+  // Legacy absence is a local-reader migration, not permission for incomplete current envelopes.
+  const legacy = { ...sample };
+  delete legacy.request;
+  assert.equal(validate(legacy).ok, false);
+});

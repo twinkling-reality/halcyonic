@@ -1,5 +1,13 @@
 import Type, { type Static } from 'typebox';
-import { ExecutionId, JournalId, Nullable, ProjectId, Uuid, WorkstreamId } from './primitives.ts';
+import {
+  ExecutionId,
+  JournalId,
+  Nullable,
+  ProjectId,
+  Uuid,
+  WorkspaceRequestId,
+  WorkstreamId,
+} from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -25,6 +33,18 @@ export const WorkspaceInstructionDraft = Type.Object(
 );
 export type WorkspaceInstructionDraft = Static<typeof WorkspaceInstructionDraft>;
 
+/** An ordinary request editor and explicit host request reference, never restored action authority. */
+export const WorkspaceRequestContinuation = Type.Object(
+  {
+    request_id: Nullable(WorkspaceRequestId),
+    text: Type.String({ maxLength: 32000 }),
+    spoken: Type.Boolean(),
+    part: Type.Integer({ minimum: 0, maximum: 100000 }),
+  },
+  strict,
+);
+export type WorkspaceRequestContinuation = Static<typeof WorkspaceRequestContinuation>;
+
 /**
  * Selection exchanged by the immersive workspace and native panel through app-private storage.
  * Consumers must additionally verify connection identity, journal and entity relationships against
@@ -42,6 +62,8 @@ export const WorkspaceContinuation = Type.Object(
     section: WorkspaceSection,
     page: Type.Integer({ minimum: 0, maximum: 100000 }),
     instruction: Nullable(WorkspaceInstructionDraft),
+    // Legacy app-private v1 readers migrate this field's absence to null before validation.
+    request: Nullable(WorkspaceRequestContinuation),
   },
   strict,
 );

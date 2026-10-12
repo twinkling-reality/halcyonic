@@ -22,6 +22,41 @@ public class WorkspaceContinuityTests
     }
 
     [Test]
+    public void LegacyV1MigratesOnlyMissingRequestAndKeepsOrdinaryWords()
+    {
+        var legacy = JObject.Parse(ValidJson);
+        legacy.Remove("request");
+        Assert.That(WorkspaceContinuity.TryParse(legacy.ToString(), out var restored), Is.True);
+        Assert.That(restored!.Request, Is.Null);
+        Assert.That(restored.Instruction!.Text, Is.EqualTo((string)legacy["instruction"]!["text"]!));
+        legacy.Remove("instruction");
+        Assert.That(WorkspaceContinuity.TryParse(legacy.ToString(), out _), Is.False);
+    }
+
+    [Test]
+    public void RequestDraftAndIdentityRoundTripSeparatelyWithNoRestoredAuthority()
+    {
+        Assert.That(WorkspaceContinuity.TryParse(ValidJson, out var saved), Is.True);
+        saved!.Request = new WorkspaceRequestContinuation { RequestId = Samples.ProjectId,
+            Text = "New request words", Spoken = true, Part = 3 };
+        var json = HalcyonicJson.Serialize(saved);
+        Assert.That(WorkspaceContinuity.TryParse(json, out var restored), Is.True);
+        Assert.That(restored!.Request!.Text, Is.EqualTo("New request words"));
+        Assert.That(restored.Request.RequestId, Is.EqualTo(Samples.ProjectId));
+        Assert.That(restored.Request.Spoken, Is.True);
+        Assert.That(restored.Request.Part, Is.EqualTo(3));
+        Assert.That(restored.Instruction!.Text, Is.EqualTo(saved.Instruction!.Text));
+        Assert.That(WorkspaceContinuity.TryParse(json.Replace("\"request_id\":", "\"request_id\":null,\"request_id\":"), out _), Is.False);
+        foreach (var field in new[] { "read", "armed", "auto_send", "answers", "credential", "approval_id" })
+        {
+            var value = JObject.Parse(json); value["request"]![field] = true;
+            Assert.That(WorkspaceContinuity.TryParse(value.ToString(), out _), Is.False, field);
+        }
+        saved.Request.Text = new string('x', 32001);
+        Assert.That(WorkspaceContinuity.TryParse(HalcyonicJson.Serialize(saved), out _), Is.False);
+    }
+
+    [Test]
     public void IdentityMatchesNativeVectorsAndChangesWithCredentials()
     {
         foreach (var item in Fixture["identities"]!)
@@ -113,6 +148,9 @@ public class WorkspaceContinuityTests
         Assert.That(WorkspaceContinuity.MatchesCurrent(continuation, continuation.ConnectionKey, state), Is.False, "draft without its execution");
         continuation.Instruction = null;
         Assert.That(WorkspaceContinuity.MatchesCurrent(continuation, continuation.ConnectionKey, state), Is.True, "task selection alone");
+        continuation.Request = new WorkspaceRequestContinuation { Text = "Ordinary request" };
+        Assert.That(WorkspaceContinuity.MatchesCurrent(continuation, continuation.ConnectionKey, state), Is.False, "request requires its exact execution");
+        continuation.Request = null;
         continuation.JournalId = "0192f1a0-0000-7000-8000-000000000099";
         Assert.That(WorkspaceContinuity.MatchesCurrent(continuation, continuation.ConnectionKey, state), Is.False, "changed journal");
     }

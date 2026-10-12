@@ -34,11 +34,14 @@ public class WorkspaceViewStorageTests
     {
         var original = Store(count);
         if (count > 0) original.Views[0].Instruction!.Text = "Line one\nLine two: \"quoted\" \\ path, λ 🚀";
+        if (count > 0) original.Views[0].Request = new WorkspaceRequestContinuation
+        { RequestId = Samples.ProjectId, Text = "Separate request draft", Spoken = true, Part = 2 };
         Assert.That(WorkspaceViewStorage.TrySerialize(original, out var json), Is.True);
         Assert.That(WorkspaceViewStorage.TryParse(json, out var restored), Is.True);
         Assert.That(HalcyonicJson.Serialize(restored!), Is.EqualTo(HalcyonicJson.Serialize(original)));
         Assert.That(restored, Is.Not.SameAs(original));
         if (count > 0) Assert.That(restored!.Views[0].Instruction, Is.Not.SameAs(original.Views[0].Instruction));
+        if (count > 0) Assert.That(restored!.Views[0].Request, Is.Not.SameAs(original.Views[0].Request));
     }
 
     [Test]

@@ -10986,7 +10986,8 @@
         "execution_id",
         "section",
         "page",
-        "instruction"
+        "instruction",
+        "request"
       ],
       "properties": {
         "version": {
@@ -11062,6 +11063,16 @@
               "type": "null"
             }
           ]
+        },
+        "request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkspaceRequestContinuation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -11074,6 +11085,41 @@
         "part"
       ],
       "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 32000
+        },
+        "spoken": {
+          "type": "boolean"
+        },
+        "part": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorkspaceRequestContinuation": {
+      "type": "object",
+      "required": [
+        "request_id",
+        "text",
+        "spoken",
+        "part"
+      ],
+      "properties": {
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "text": {
           "type": "string",
           "maxLength": 32000

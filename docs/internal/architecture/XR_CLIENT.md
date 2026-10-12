@@ -2828,3 +2828,14 @@ Saved drafts merges these unsaved snapshots with durable records for explicit in
 storage later commits both. Background snapshot/native-return recovery retains selection behind the
 person's latest global Minimize; only Open workspace or an explicit Restore view reopens it. These
 transitions retain no keyboard, ordered reading, armed decision or command authority.
+
+The continuation also carries a separate nullable `request` editor: an explicit host request ID
+(null before submission), ordinary text, spoken origin and editor part. It does not encode a request
+as an instruction draft. The same connection/journal/project/task/execution tuple binds both;
+a request requires an execution. After reading the exact host request, a consumer must compare its
+returned tuple and current principal before offering continuation. The local reference alone is
+not command authority, and restoring it never submits, resumes or cancels work. Canonical records
+include `request: null` when absent. Readers migrate earlier app-private version-1 records by adding
+only that missing field as null before strict validation; they preserve existing instruction words
+and still reject every other missing, duplicate, extra or coerced field. This codec contract does
+not establish native/Unity request handoff until both production consumers pass their own checks.
