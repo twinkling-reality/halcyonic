@@ -68,7 +68,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// recording stands where each step is reached; each state is held to the plane's checks and saved.
         /// Nothing is sent: in a render the file's host has no session, so a press only arms or chooses.
         /// </summary>
-        private static IEnumerable<string> RenderJudgeWalk(string name, string folder, float radius, float? surfaceDrop)
+        private static IEnumerable<string> RenderJudgeWalk(string name, string folder, float radius, float? surfaceDrop, bool usageOnly = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Judge walk render " + name);
@@ -212,6 +212,47 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                 }
 
+                // Usage evidence may need parts once the in-place heading carries named controls.
+                void ReadUsageParts(string step)
+                {
+                    director.DrawNow();
+                    var first = navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Side;
+                    if (first == null) { failures.Add(name + ": the chosen Usage limit offered no details."); return; }
+                    var parts = first.Parts?.Parts ?? 1;
+                    var facts = new List<SideFact>();
+                    for (var part = 0; part < parts; part++)
+                    {
+                        var frame = navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu!;
+                        var details = frame.Side!;
+                        facts.AddRange(details.Facts);
+                        if (details.Source != first.Source || details.Subject != first.Subject)
+                            failures.Add(name + ": Usage detail paging changed the chosen limit or its source.");
+                        if (parts > 1 && details.Parts != (part, parts))
+                            failures.Add(name + ": Usage detail parts did not follow their actual offered order.");
+                        Shot(step + (part == 0 ? "" : " part " + (part + 1)));
+                        if (parts <= 1) continue;
+                        var side = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View?.Side;
+                        var inPlace = Shown(MenuColumn.Menu) == null && side != null;
+                        var footer = inPlace ? frame.Footer.InPlace(details) : frame.Footer;
+                        if (footer[PromptSlot.FarRight]?.Id != Footer.NextPage || !(inPlace
+                            ? navigator.Act(MenuColumn.Side, Footer.NextPage, null, null, side)
+                            : navigator.Act(MenuColumn.Menu, Footer.NextPage, null, Shown(MenuColumn.Menu), null)))
+                            failures.Add(name + ": Usage details refused their actually offered current pager.");
+                        director.DrawNow();
+                    }
+                    if (facts.Select(fact => fact.Name).SequenceEqual(new[] { UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }) == false
+                        || facts.LastOrDefault()?.Value != UsageText.PartOfTheRecording)
+                        failures.Add(name + ": the recorded limit's complete evidence did not retain Agent app, Seen, Resets and Account provenance.");
+                }
+                if (usageOnly)
+                {
+                    director.Open(MenuPlace.Usage);
+                    director.DrawNow();
+                    if (!Press(MenuColumn.Menu, UsageColumn.OpenLimit, "0")) failures.Add(name + ": the visible Usage limit refused its press.");
+                    ReadUsageParts("usage details");
+                    return failures;
+                }
+
                 // The closed bar: one line saying what waits.
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": the judge walk starts with no closed bar.");
@@ -347,8 +388,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Usage));
                 Press(MenuColumn.Menu, UsageColumn.OpenLimit, "0");
                 // With text a step larger the side panel takes its frame's place; it is the menu's either way.
-                if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Side?.Facts.LastOrDefault()?.Value != "Part of the recording") failures.Add(name + ": a recorded limit's Account does not say it is part of the recording.");
-                Shot("10 usage");
+                ReadUsageParts("10 usage");
                 CloseSide();
                 Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
                 var categories = Shown(MenuColumn.Menu);

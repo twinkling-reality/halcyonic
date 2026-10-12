@@ -308,4 +308,7 @@ cannot share the page reads separately under What happened, with Back to choices
 
 Usage pages count the heading at its actual remaining width beside Move and Compact, reserve the
 source line, and show only the rows that fit the measured stage page. The pager preserves source
-order and every limit; a chosen limit keeps its details when text size changes.
+order and every limit; a chosen limit keeps its details when text size changes. Its details page
+measures each fact's label, value and gaps; all Agent app, Seen, Resets and Account facts remain
+reachable through existing side-panel parts, with the exact source repeated on each. List paging
+waits while a limit is chosen; Next page then turns only its details.
