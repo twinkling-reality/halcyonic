@@ -87,7 +87,6 @@ namespace Halcyonic.Client
 
         public const string TakeOffer = "room-offer";
 
-        public const string NextArrangement = "arrangement-next"; // Legacy callers; no user arrangement cycle.
         public const string ToggleAgents = "agents-toggle";
         public const string PlaceAgents = "agents-place";
 
@@ -134,14 +133,6 @@ namespace Halcyonic.Client
             return rows;
         }
 
-        /// <summary>The arrangement after <paramref name="arrangement"/>, in turn: in front, room for a window, either side of it.</summary>
-        public static StageArrangement Next(StageArrangement arrangement) => arrangement switch
-        {
-            StageArrangement.InFront => StageArrangement.TurnedAside,
-            StageArrangement.TurnedAside => StageArrangement.BesideAWindow,
-            _ => StageArrangement.InFront,
-        };
-
         /// <summary>The menu's row: where it stands by itself, or where the person dragged it until Reset position.</summary>
         private static SettingNow Menu(bool moved) => moved
             ? new SettingNow("Where you moved it", "Where you moved it", "In front of you", "The menu comes back in front of you, within reach", "Reset position")
@@ -152,8 +143,8 @@ namespace Halcyonic.Client
             if (room == null) return new SettingNow("Not known", RoomUnread, "Your room", RoomUnread, "Show my room", RoomUnread);
             var reason = room.CanSwitch ? null : "This headset can't show your room now.";
             return room.Shown == RoomSpace.Room
-                ? new SettingNow("Your room", room.Line, "A virtual space", "The characters stand in a virtual space instead of your room", room.SwitchLabel, reason)
-                : new SettingNow("Virtual space", room.Line, "Your room", "The characters stand in your room, seen through the headset", room.SwitchLabel, reason);
+                ? new SettingNow("Your room", room.Line, "A virtual space", "A virtual backdrop replaces your room around the workspace", room.SwitchLabel, reason)
+                : new SettingNow("Virtual space", room.Line, "Your room", "Your room appears through the headset around the workspace", room.SwitchLabel, reason);
         }
 
         private static SettingNow Offer(SpaceNow now) => now.Room is not RoomStatus room

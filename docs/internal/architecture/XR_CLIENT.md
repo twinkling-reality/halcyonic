@@ -2168,7 +2168,8 @@ recorded.
 MRUK. `RoomBootstrap` attaches its controls to the workspace runtime root where a Meta camera rig
 exists. Passthrough remains independent of whether optional characters are present.
 
-- **Space.** The real room shows wherever passthrough works; the person may keep a virtual-space
+- **Space.** Around you changes the surroundings of the full workspace, independently of optional
+  characters. The real room shows wherever passthrough works; the person may keep a virtual-space
   preference. Starting passthrough does not read the scene or request scene permission.
 - **Explicit placement.** Settings offers Spatial agents, initially Off, and Agent shelf. Showing
   agents without a confirmed pose opens `AgentShelfColumn`; the person sees a shelf preview and
