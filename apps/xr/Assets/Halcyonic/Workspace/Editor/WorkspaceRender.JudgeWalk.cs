@@ -238,7 +238,16 @@ namespace Halcyonic.XR.Workspace.Editor
                             ImageConversion.LoadImage(original, System.IO.File.ReadAllBytes(System.IO.Path.Combine(folder, (name + " judge " + shot).Replace(' ', '-') + ".png")));
                             var rotation = camera.transform.rotation;
                             camera.transform.rotation = PlaneLayout.Facing(director.Plane.Direction);
+                            // Prime stale near depth and disable the camera's incidental clear for this one witness.
+                            // The capture helper must produce the complete scene from a reused target itself.
+                            var flags = camera.clearFlags;
+                            var active = RenderTexture.active;
+                            RenderTexture.active = texture;
+                            GL.Clear(true, true, camera.backgroundColor, 0f);
+                            RenderTexture.active = active;
+                            camera.clearFlags = CameraClearFlags.Nothing;
                             var repeated = Render(camera, texture);
+                            camera.clearFlags = flags;
                             camera.transform.rotation = rotation;
                             var (changed, _) = Compare(original, repeated, new RectInt(0, 0, Size, Size));
                             if (changed > 0) failures.Add(name + ": repeating unchanged Usage part " + (part + 1) + " lost or changed " + changed + " pixels.");

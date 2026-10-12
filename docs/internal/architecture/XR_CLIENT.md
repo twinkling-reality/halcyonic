@@ -2708,8 +2708,9 @@ wrapped rows participate in the packing fingerprint; a repeated identical error 
 occurrence. Armed confirmation uses its own existing composition and notice handling.
 The organization render witnesses use the visible Move pointer and production hold maturity, stable
 column frame identity, and matching task/session/state/character identities. Reused editor capture
-targets clear color and depth before Camera.Render; the Usage details witness repeats each unchanged
-scene and compares pixels so stage meshes, titles and panels cannot silently disappear behind stale
+targets clear color and depth before Camera.Render; the component and Usage details witnesses repeat
+unchanged scenes against a deliberately depth-primed target, with the camera's incidental clear
+disabled for that capture, and compare pixels so stage meshes, titles and panels cannot silently disappear behind stale
 depth while geometry checks pass. Synthetic director files
 rebuild their TitleRows/PageHeight packing after text-size changes, take the next draw after a renewed
 Tasks column reports its retained selection, and release the originating pointer before another
