@@ -48,7 +48,7 @@ the missing execution loop.
 On 2026-10-12, Ollama 0.34.4 listed the already-installed `qwen3.5:9b` and
 `qwen3.6:35b-a3b-nvfp4` as local models, with no `remote_host` or `remote_model` values.
 The actual `/api/show` responses declared `tools` capability for both. Only the already-loaded
-`qwen3.6:35b-a3b-nvfp4` was used for the following inference check; no model was downloaded or
+`qwen3.6:35b-a3b-nvfp4` was used for the initial inference check; no model was downloaded or
 configured. [Ollama's tool-calling guide](https://docs.ollama.com/capabilities/tool-calling) and
 [chat API](https://docs.ollama.com/api/chat) were checked against the actual round trip.
 
@@ -60,6 +60,11 @@ no real project data and no message text in the evidence log. Generation used `t
 an 8192-token context, a 256-token output limit and temperature zero. The probe imposed a 60-second
 whole-run deadline, at most 45 seconds per request, at most three model turns and a 128 KiB chat
 response limit. It did not submit a Halcyonic command or alter the running control plane.
+
+The running control plane's authenticated companion status identified `qwen3.5:9b` as its
+configured local model. The same bounded synthetic probe then passed against that model in
+7.354 seconds, again with two turns, one schema-valid read call and a tool-informed answer about
+the pending decision. This second check changed no service configuration or project state.
 
 This verifies one local tool/result/continuation exchange. It does not establish prompt robustness,
 production request persistence, permission enforcement, mutation deduplication, runtime completion,
