@@ -162,41 +162,60 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A part's or a page's row turns nothing until what it shows has stood a moment.
                 void Settle() => Thread.Sleep(TimeSpan.FromSeconds(0.45));
 
-                // The text size changed in Settings with the file open, as the owner's comfort walk does, then back
-                // on Tasks beside the file: the file's page and Tasks' rows are read again at the new size, so the
-                // plane stays inside the field. The render keeps drawing at its own size, so it is put back after,
-                // and the menu opened again, its places made afresh, as the walk goes on.
-                // atNewSize and backAtPass judge the file once its frame's tick has laid it again, before anything is drawn at that size.
+                // Prove Settings' actual reachable change and restore before the file opens. A lone-file
+                // approval budget can legitimately hide the menu, so no hidden Settings target is pressed.
+                void ReachableTextSize()
+                {
+                    var pass = comfort.Text;
+                    if (!Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings))
+                        || !OpenSettingsCategoryForRender(director, Comfort.Heading)
+                        || !Press(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size"))
+                        failures.Add(name + ": the visible Settings and Comfort route offered no text size.");
+                    for (var changeAt = 0; changeAt < 2; changeAt++)
+                    {
+                        director.DrawNow();
+                        var change = navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Footer[PromptSlot.FarRight];
+                        var side = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View?.Side;
+                        var inPlace = Shown(MenuColumn.Menu) == null && side != null;
+                        if (change == null || !(inPlace
+                            ? navigator.Act(MenuColumn.Side, change.Id, null, null, side)
+                            : navigator.Act(MenuColumn.Menu, change.Id, null, Shown(MenuColumn.Menu), null)))
+                            failures.Add(name + ": the text size's visible " + (changeAt == 0 ? "change" : "restore") + " took no press.");
+                        var expected = changeAt == 0 ? (pass == TextSize.Larger ? TextSize.Standard : TextSize.Larger) : pass;
+                        if (comfort.Text != expected) failures.Add(name + ": the visible text-size action did not reach its expected size.");
+                        GlazeText.SetScale(comfort.TextScale);
+                        navigator.Tick();
+                        director.DrawNow();
+                        Shot("2 comfort " + (changeAt == 0 ? "changed" : "restored"));
+                    }
+                    if (comfort.Text != pass) failures.Add(name + ": the visible Comfort restore did not restore the pass's size.");
+                    CloseSide();
+                    director.CloseMenu();
+                    director.Open(MenuPlace.Tasks);
+                    director.DrawNow();
+                }
+
+                // Defensive model reflow witness, not a reachable Settings press while the file hides the
+                // menu. Tick the same retained FileColumn before any draw at either changed size; the
+                // original read/Yes invalidation assertions remain independent of physical visibility.
                 void ChangeTextSize(string step, Action atNewSize, Action backAtPass)
                 {
                     var pass = GlazeText.Scale;
                     try
                     {
-                        Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
-                        if (!OpenSettingsCategoryForRender(director, Comfort.Heading))
-                            failures.Add(name + ": Settings offered no visible Comfort category before text size.");
-                        Press(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size");
-                        var change = navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Footer[PromptSlot.FarRight];
-                        var inPlace = director.Plane.Shown.Count == 1 && director.Plane.Shown[0].Kind == MenuColumn.Side ? director.Plane.Shown[0].View.Side : null;
-                        var changed = change != null && (inPlace != null
-                            ? navigator.Act(MenuColumn.Side, change.Id, null, null, inPlace)
-                            : navigator.Act(MenuColumn.Menu, change.Id, null, Shown(MenuColumn.Menu), null));
-                        if (!changed) failures.Add(name + ": the text size's change took no press.");
-                        // What the app's comfort controls do with the change: reading text at its new size; then a
-                        // frame's tick, as the director's Update gives every column before it draws.
+                        Debug.Log("Halcyonic: judge render: direct Comfort-model transition checks retained request reflow before drawing.");
+                        comfort.Text = pass > 1f ? TextSize.Standard : TextSize.Larger;
                         GlazeText.SetScale(comfort.TextScale);
                         navigator.Tick();
                         atNewSize();
                         director.DrawNow();
-                        CloseSide();
-                        Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks));
                         navigator.Tick();
                         director.DrawNow();
                         if (navigator.Place != MenuPlace.Tasks || Shown(MenuColumn.File) == null)
                         {
                             failures.Add(name + ": after the text size changed, the menu stands on " + navigator.Place + (Shown(MenuColumn.File) == null ? " with no file shown" : "") + ", not Tasks beside the file.");
                         }
-                        Shot(step + " text " + (comfort.Text == TextSize.Larger ? "larger" : "standard"));
+                        Shot(step + " direct model text " + (comfort.Text == TextSize.Larger ? "larger" : "standard"));
                     }
                     finally
                     {
@@ -287,6 +306,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (navigator.Place != MenuPlace.Tasks) failures.Add(name + ": the menu opened on " + navigator.Place + " while a task waits.");
                 if (Shown(MenuColumn.Menu)?.Lines.FirstOrDefault()?.Key != directed) failures.Add(name + ": the waiting task is not Tasks' first row.");
                 Shot("2 tasks");
+                ReachableTextSize();
 
                 // Its row opens its file on Waiting, at the agent's question; an answer chosen.
                 if (!Press(MenuColumn.Menu, TasksColumn.OpenTask, directed) || file == null) failures.Add(name + ": the waiting task's row opened no file.");
