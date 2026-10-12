@@ -191,7 +191,7 @@ namespace Halcyonic.Client
         /// The source line of the work's own state. An app's name arrives only as data, never in
         /// Halcyonic's sentence (WORDS.md), so it names the agent.
         /// </summary>
-        public const string AgentSource = "As the agent reported it";
+        public const string AgentSource = "Reported by agent";
 
         /// <summary>
         /// Activity: what it is doing, what this headset sent last, and what the work did, the newest
@@ -205,7 +205,7 @@ namespace Halcyonic.Client
 
         private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
-            var source = AgentSource;
+            const string? source = null;
             var normal = ActivityFooter(workspace, screen);
             if (steering.Typing)
             {
@@ -238,7 +238,7 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>();
             var waiting = WorkspaceText.SomethingWaits(workspace);
             var tone = waiting ? LineTone.Waiting : workspace.Character.AttentionNotes.Count > 0 ? LineTone.Problem : LineTone.Primary;
-            lines.AddRange(Doing(workspace, waiting, tone));
+            lines.AddRange(Doing(workspace, tone));
             if (normal.Reason == null && !normal.All.Any(each => each.Prompt.Kind == PromptKind.Action) && WorkspaceText.WhyNoActions(workspace) is string why)
             {
                 lines.Add(new PageLine(why, tone: LineTone.Secondary, rows: 2));
@@ -246,7 +246,7 @@ namespace Halcyonic.Client
             if (workspace.Commands.FirstOrDefault() is { } sent) lines.Add(new PageLine(sent.Text, wordsAreData: true, tone: LineTone.Secondary, waits: sent.Waits));
             var used = lines.Sum(line => line.Rows);
             var activity = workspace.Activity;
-            var fits = Math.Max(0, WithSource(room).Rows - used);
+            var fits = Math.Max(0, room.Rows - used);
             if (activity.Count == 0 && screen.ActivityNote.Length > 0 && fits > 0)
             {
                 lines.Add(new PageLine(screen.ActivityNote.TrimStart(' ', '·'), wordsAreData: true, tone: LineTone.Secondary));
@@ -260,27 +260,26 @@ namespace Halcyonic.Client
                 lines.Add(entry.Words.AnyTheirs
                     ? new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null)
                     // A line of Halcyonic's own words alone, as it always was: one row of the log, which may end in an ellipsis.
-                    : new PageLine(entry.Text, wordsAreData: true, fact: time, tone: LineTone.Secondary));
+                    : new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary));
             }
+            if (lines.Count == 0) lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
             return new Page(lines, source, normal);
         }
 
         /// <summary>
-        /// What it is doing, in a line or two: what waits for the person names the section it is in, and
-        /// while nothing does, the latest of the work is the log's last line, so it is said only without one.
+        /// Actual pending decisions or problems lead the activity log; ordinary state is already in its badge.
         /// </summary>
-        private static IReadOnlyList<PageLine> Doing(WorkspacePresentation workspace, bool waiting, LineTone tone)
+        private static IReadOnlyList<PageLine> Doing(WorkspacePresentation workspace, LineTone tone)
         {
-            PageLine Said(string words) => new PageLine(words, wordsAreData: !waiting, tone: tone, rows: words == NothingWaits ? 1 : 2);
-            if (workspace.ApprovalToAnswer != null) return new[] { Said("It wants your approval. See it under " + Word(FileSection.Waiting) + ".") };
-            if (workspace.QuestionToAnswer != null) return new[] { Said("It asks you a question. See it under " + Word(FileSection.Waiting) + ".") };
+            PageLine Said(string words) => new PageLine(words, tone: tone, rows: 2);
+            if (workspace.ApprovalToAnswer != null) return new[] { Said("Approval requested. Open " + Word(FileSection.Waiting) + ".") };
+            if (workspace.QuestionToAnswer != null) return new[] { Said("Agent question. Open " + Word(FileSection.Waiting) + ".") };
             // A tool's name, a command, a question or a check's summary in a reason leans, last (lane V's treatment).
             var attention = workspace.Character.AttentionNoteRuns;
             if (attention.Count > 0) return attention.Select(note => note.AnyTheirs ? new PageLine(note, tone: tone, rows: 2) : Said(note.Text)).ToList();
-            if (workspace.Activity.Count > 0 && !workspace.Character.Stale) return new[] { Said(NothingWaits) };
-            // A name or the agent's message in the latest line leans, and the agent's carries "Agent says" (settled 2026-10-08).
-            var (latest, reported) = WorkspaceText.Latest(workspace);
-            return new[] { Said(NothingWaits), new PageLine(latest, tone: tone, chip: reported ? AgentSays : null, rows: 2) };
+            // State already appears with the task. Activity shows only events, pending decisions
+            // and actual problems, without inventing a latest event from that state.
+            return Array.Empty<PageLine>();
         }
 
         /// <summary>The chip on the agent's own words in Activity and Doing: its class, beside its words, which lean.</summary>
@@ -329,7 +328,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Why Tell it waits while the instructions offered show and none is chosen.</summary>
-        public const string ChooseAnInstruction = "Choose what to tell it first.";
+        public const string ChooseAnInstruction = "Choose an instruction first.";
 
         /// <summary>What a section says while its answer is still being read: plainly so, never an empty page.</summary>
         public static string StillReading(FileSection section) => section switch

@@ -233,7 +233,7 @@ public class WorkspaceTextTests
         Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null), Is.EqualTo("Approve the request above?"));
         Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Deny, null), Is.EqualTo("Deny the request above?"));
         Assert.That(WorkspaceText.Request(approval), Is.EqualTo("bash: Run the migration"), "the whole request shows below the question");
-        Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Instruct, "Add\na test."), Is.EqualTo("Tell it this? “Add a test.”"));
+        Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Instruct, "Add\na test."), Is.EqualTo("Send this instruction? “Add a test.”"));
         Assert.That(WorkspaceText.RequestCaption(1, 1), Is.EqualTo("The whole request"));
         Assert.That(WorkspaceText.RequestCaption(2, 3), Is.EqualTo("The whole request, part 2 of 3"));
     }
@@ -809,7 +809,7 @@ public class WorkspaceSteeringTests
         var steering = Steering();
         steering.Press(WorkspaceAction.Instruct, work.Present());
         Assert.That(steering.Typed("Add a test.", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Tell it this? “Add a test.”"));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send this instruction? “Add a test.”"));
         Assert.That(steering.Confirm(work.Present()).Message, Is.EqualTo(WorkspaceText.InstructionNotRead), "not before its words have shown");
         Assert.That(steering.ToRead(work.Present()), Is.EqualTo("Add a test."), "its words show whole above the question, leaning, never quoted");
         steering.RequestShown(1, 1);

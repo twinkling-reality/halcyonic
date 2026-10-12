@@ -144,11 +144,21 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 
 ### Steering from a file
 
-Settled by the coordinator on 2026-10-02.
+Activity shows recorded events and actual pending decisions or problems. The task's state already
+appears above it: do not invent a latest event from that state or fill the log with "Nothing is
+waiting for you." An empty log says "No recorded activity yet." A loading or unavailable-history
+message takes its place when present. Agent messages retain their individual "Agent says" chip
+and outside-text treatment; observed events are not labeled as agent claims. The mixed log has no
+blanket agent source line. Waiting and request pages use "Reported by agent" for their source.
+
+**Write instruction** opens the draft. **Review instruction** opens its complete review, and
+**Yes, send** sends only after that review. A transcribed draft asks "Review the transcribed
+instruction above. Send it?"; a typed draft asks "Send the instruction above?". These labels do
+not change capability, complete-reading or current-request checks.
 
 | Where | Words |
 | --- | --- |
-| Tell it's reason while the instructions offered show and none is chosen | Choose what to tell it first. |
+| Review instruction while offered instructions show and none is chosen | Choose an instruction first. |
 | A confirmation dropped because the request it asks about now reads differently | Nothing was sent: the request changed. Read it again. |
 | Answers awaiting their Yes, dropped because the question is no longer the one asked | Nothing was sent: the question changed. Read it again. (instead of Check it again) |
 
@@ -177,7 +187,7 @@ surface goes back to them.
 | Unknown effect | Not sure {what may have happened}. {What to check first}. | Not sure the instruction reached it. Check its activity before you try again. |
 | Connection | {What is true}: {plain cause}. {What happens}. | Last known: can't reach your computer. Trying again… |
 | Provenance | From {source} · {when} | From Seorak · 2 min ago |
-| The work's own state | As the agent reported it, the source line of a file's Waiting and Activity, no app's name in it (settled by the coordinator on 2026-10-02) | As the agent reported it |
+| The work's reported request or state | Reported by agent, on Waiting and request pages; Activity identifies each reported message separately | Reported by agent |
 | Confirmation | Yes, {verb}, where no control stood a moment before; Cancel where the first press was | Yes, start building · Change; Yes, clear · Cancel |
 | Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
 | Locked final press | Read to part {n} first | Read to part 3 first |
@@ -315,7 +325,7 @@ within reach. Read title shows the retained task's complete outside title in rea
 
 ## Instructions
 
-Tell it opens Your instruction. An empty keyboard field says Type your instruction; without a
+Write instruction opens Your instruction. An empty keyboard field says Type your instruction; without a
 keyboard it says Hold to talk below. Keyboard Done and completed transcription save only local
 words. The explicit action is Send instruction. Recorded or generic instruction choices lead to
 Review instruction, which copies a local draft; choosing or reviewing never sends. Cancel discards
