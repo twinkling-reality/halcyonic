@@ -297,7 +297,7 @@ namespace Halcyonic.Client
                 foreach (var each in new List<MenuPlace>(places.Keys)) Drop(each);
                 DropQuestion();
             }
-            Leave();
+            Leave(retain: true);
             Beside = column;
             BesideTask = task;
             column.Changed += OnBesideChanged;
@@ -509,12 +509,13 @@ namespace Halcyonic.Client
         private void OnBesideClosed() => CloseBeside();
 
         /// <summary>The column beside the menu leaves the plane: it is heard no more and lets go of what it had armed, as a confirmation.</summary>
-        private void Leave()
+        private void Leave(bool retain = false)
         {
             if (Beside == null) return;
             Beside.Changed -= OnBesideChanged;
             Beside.Closed -= OnBesideClosed;
-            Leaving(Beside);
+            if (retain) Suspend(Beside);
+            else Leaving(Beside);
         }
 
         /// <summary><paramref name="column"/> leaves the plane: what it had armed, as a confirmation, lapses, and the director hears of it.</summary>

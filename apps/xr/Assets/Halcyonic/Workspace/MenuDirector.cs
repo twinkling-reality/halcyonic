@@ -50,6 +50,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>What the director's host gives it: the session and the computer, the stage, and how to make the columns other lanes own.</summary>
         public sealed class Setup
         {
+            public WorkspacePresentationState Presentation { get; set; } = new WorkspacePresentationState();
+            public Func<ControlPlaneTarget?> ConnectionTarget { get; set; } = () => null;
             /// <summary>Makes the commands Projects' Connect sends.</summary>
             public CommandFactory? Commands { get; set; }
 
@@ -179,16 +181,16 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The plane held by a file's subject, while it is (ADR 0026).</summary>
         private MenuDrag? drag;
-        private PlacementColumn? placement;
+        private IMenuColumn? placement;
         private MenuFrame? placementFrame;
+        private MenuFrame? placementDrawn;
         public bool IsCompact => navigator.IsCompact;
         public bool Compact()
         {
             if (Away) return false;
             EndDrag();
             var closedPlacement = placement != null;
-            placement = null;
-            placementFrame = null;
+            if (closedPlacement) LocalClosed();
             if (closedPlacement) { navigator.Moved(); dirty = true; }
             return navigator.Compact() || closedPlacement;
         }
@@ -255,12 +257,41 @@ namespace Halcyonic.XR.Workspace
             }
             FocusGuard.Left += director.OnFocusLeft;
             Glaze.PaletteChanged += director.OnPaletteChanged;
+            setup.Presentation.Suspending += director.SuspendWorkspace;
+            setup.Presentation.Changed += director.PresentationChanged;
             // New project's flow let go for another session or journal comes off the plane.
             director.memory.NewProjectDropped += flow =>
             {
                 if (director.navigator.Beside == flow) director.navigator.CloseBeside();
             };
+            director.memory.FileDropped += (_, column) =>
+            {
+                if (director.navigator.Beside == column) director.navigator.CloseBeside();
+            };
             return director;
+        }
+
+        /// <summary>Minimizes the whole workspace, preserving local work while revoking its authority first.</summary>
+        public bool MinimizeWorkspace() => !Away && setup.Presentation.Minimize();
+
+        public bool RestoreWorkspace() => !Away && setup.Presentation.Restore();
+
+        private void SuspendWorkspace()
+        {
+            EndDrag();
+            voice?.FocusLeft();
+            if (placement != null) LocalClosed();
+            navigator.Compact();
+            memory.SuspendFiles(navigator.Beside);
+            navigator.Moved();
+            dirty = true;
+        }
+
+        private void PresentationChanged()
+        {
+            if (!setup.Presentation.Minimized) navigator.Expand();
+            navigator.Moved();
+            dirty = true;
         }
 
         /// <summary>Opens the menu on <paramref name="place"/>, or as the closed bar's Open does.</summary>
@@ -413,6 +444,12 @@ namespace Halcyonic.XR.Workspace
         {
             FocusGuard.Left -= OnFocusLeft;
             Glaze.PaletteChanged -= OnPaletteChanged;
+            if (setup != null)
+            {
+                setup.Presentation.Suspending -= SuspendWorkspace;
+                setup.Presentation.Changed -= PresentationChanged;
+            }
+            if (placement != null) LocalClosed();
             navigator?.FocusLeft();
         }
 
@@ -428,6 +465,7 @@ namespace Halcyonic.XR.Workspace
             Fold();
             Follow();
             navigator.Tick();
+            memory.TickFiles(navigator.Beside);
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
             if (memory.NewProject is NewProjectFlow flow && navigator.Beside != flow) flow.Tick();
             var nowAway = Away;
@@ -454,8 +492,7 @@ namespace Halcyonic.XR.Workspace
             var another = memory.Session(setup.Session());
             another |= memory.Journal(State?.Journal?.JournalId);
             if (!another) return;
-            placement = null;
-            placementFrame = null;
+            if (placement != null) LocalClosed();
             navigator.CloseBeside();
             navigator.Renew();
         }
@@ -570,10 +607,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A press, only while the app has focus and only on the frame last drawn in its slot; the stage's sounds answer one taken.</summary>
         private bool OnActed(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
-            if (FocusGuard.InputSuspended || drag != null) return false;
+            if (Away || dirty || drag != null || plane.Sliding) return false;
             if (placement != null)
             {
-                if (frame != placementFrame || from != MenuColumn.File || !placement.IsDrawn(frame)) return false;
+                if (frame != placementFrame || from != MenuColumn.File || frame == null || frame != placementDrawn
+                    || !(frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available)
+                        || frame.Lines.Any(line => line.Action == action && line.Key == key && line.Pressable))) return false;
                 placement.Act(action, key);
                 return true;
             }
@@ -591,7 +630,11 @@ namespace Halcyonic.XR.Workspace
             if (Away) return;
             if (placement != null)
             {
-                if (from == MenuColumn.File && view.Frame == placementFrame) placement.Drawn(placementFrame!, null);
+                if (from == MenuColumn.File && view.Frame == placementFrame)
+                {
+                    placementDrawn = placementFrame;
+                    placement.Drawn(placementFrame!, null);
+                }
                 return;
             }
             // A side panel reports the frame whose place it stands in, whose footer it carries.
@@ -616,6 +659,7 @@ namespace Halcyonic.XR.Workspace
             EndDrag();
             voice?.FocusLeft();
             navigator.FocusLeft();
+            placementDrawn = null;
             placement?.FocusLeft();
         }
 
@@ -637,21 +681,46 @@ namespace Halcyonic.XR.Workspace
         private bool OrganizationStanding(MenuColumn from, MenuFrame? frame, SidePanel? side)
         {
             if (Away || dirty || drag != null || plane.Sliding) return false;
-            if (placement != null) return from == MenuColumn.File && placement.IsDrawn(frame);
+            if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
             if (frame == null && side == null) return plane.Bar is MenuBarView bar && bar.Shown >= 1f;
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
         }
 
         private void OpenPlacement()
         {
-            if (Away || drag != null || placement != null) return;
+            OpenLocal(new PlacementColumn(this, () => null, _ => { }, ResetPosition,
+                () => false, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null));
+        }
+
+        /// <summary>An explicitly requested local overlay that preserves retained work and owns no runtime authority.</summary>
+        public bool OpenLocal(IMenuColumn column)
+        {
+            if (Away || drag != null || placement != null || setup.Presentation.Minimized) return false;
             if (!navigator.IsCompact) { navigator.Compact(); navigator.Expand(); }
             navigator.Moved();
             voice?.FocusLeft();
-            placement = new PlacementColumn(this, setup.Arrangement, setup.PlaceCharacters, ResetPosition,
-                () => setup.StageNow().BesideWindow, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null);
-            placement.Changed += () => dirty = true;
-            placement.Closed += () => { placement = null; placementFrame = null; navigator.Moved(); dirty = true; };
+            placement = column;
+            placementDrawn = null;
+            placement.Changed += LocalChanged;
+            placement.Closed += LocalClosed;
+            dirty = true;
+            return true;
+        }
+
+        private void LocalChanged() { placementDrawn = null; dirty = true; }
+        private void LocalClosed()
+        {
+            var closing = placement;
+            placement = null;
+            placementFrame = null;
+            placementDrawn = null;
+            if (closing != null)
+            {
+                closing.Changed -= LocalChanged;
+                closing.Closed -= LocalClosed;
+                closing.FocusLeft();
+            }
+            navigator.Moved();
             dirty = true;
         }
 
@@ -837,17 +906,22 @@ namespace Halcyonic.XR.Workspace
 
         public void OpenFile(string workstreamId)
         {
+            memory.Session(setup.Session());
+            if (setup.Presentation.Minimized) setup.Presentation.Restore();
             if (navigator.TryExpandTask(workstreamId)) return;
             opening = (true, workstreamId);
             try
             {
-                if (setup.File(Bound(), workstreamId) is IMenuColumn file) navigator.ShowBeside(file, workstreamId);
+                if (memory.FileFor(State?.Journal?.JournalId, workstreamId, () => setup.File(Bound(), workstreamId)) is IMenuColumn file)
+                    navigator.ShowBeside(file, workstreamId);
             }
             finally
             {
                 opening = (false, null);
             }
         }
+
+        public bool CloseFile(string workstreamId) => memory.CloseFile(workstreamId);
 
         /// <summary>
         /// The first question's Start a project: New project in its place, with the idea Hold to talk heard,

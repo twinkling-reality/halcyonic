@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace Halcyonic.Client
 {
@@ -18,6 +20,58 @@ namespace Halcyonic.Client
         private bool sessionSeen;
         private string? journal;
         private ProjectsMemory projects = new ProjectsMemory();
+        private readonly Dictionary<string, IMenuColumn> files = new Dictionary<string, IMenuColumn>();
+        private readonly IReadOnlyDictionary<string, IMenuColumn> readOnlyFiles;
+
+        public MenuMemory() => readOnlyFiles = new ReadOnlyDictionary<string, IMenuColumn>(files);
+
+        public IReadOnlyDictionary<string, IMenuColumn> Files => readOnlyFiles;
+        public event Action<string, IMenuColumn>? FileDropped;
+
+        /// <summary>One retained local file per task on this session and journal, without a fixed count limit.</summary>
+        public IMenuColumn? FileFor(string? journalId, string task, Func<IMenuColumn?> make)
+        {
+            Journal(journalId);
+            if (files.TryGetValue(task, out var kept)) return kept;
+            var column = make();
+            if (column == null) return null;
+            files.Add(task, column);
+            column.Closed += () => RemoveFile(task, column);
+            return column;
+        }
+
+        private void RemoveFile(string task, IMenuColumn column)
+        {
+            if (!files.TryGetValue(task, out var kept) || kept != column) return;
+            files.Remove(task);
+            column.FocusLeft();
+            FileDropped?.Invoke(task, column);
+        }
+
+        /// <summary>Requests the retained view's Close action; true does not mean a draft-discard confirmation has completed.</summary>
+        public bool CloseFile(string task)
+        {
+            if (!files.TryGetValue(task, out var column)) return false;
+            column.Act(Footer.Close, null);
+            return true;
+        }
+
+        /// <summary>Hidden files still observe execution, connection and capability changes.</summary>
+        public void TickFiles(IMenuColumn? current)
+        {
+            foreach (var pair in new List<KeyValuePair<string, IMenuColumn>>(files))
+                if (pair.Value != current && files.TryGetValue(pair.Key, out var kept) && kept == pair.Value) pair.Value.Tick();
+        }
+
+        public void SuspendFiles(IMenuColumn? alreadySuspended)
+        {
+            foreach (var pair in new List<KeyValuePair<string, IMenuColumn>>(files))
+            {
+                if (pair.Value == alreadySuspended || !files.TryGetValue(pair.Key, out var kept) || kept != pair.Value) continue;
+                if (pair.Value is ICompactableMenuColumn retained) retained.Compact();
+                else pair.Value.FocusLeft();
+            }
+        }
 
         /// <summary>New project's flow, kept since it was first opened, which a build confirmed in it goes on in; null before.</summary>
         public NewProjectFlow? NewProject { get; private set; }
@@ -84,6 +138,13 @@ namespace Halcyonic.Client
 
         private void Renew()
         {
+            var dropped = new List<KeyValuePair<string, IMenuColumn>>(files);
+            files.Clear();
+            foreach (var pair in dropped)
+            {
+                pair.Value.FocusLeft();
+                FileDropped?.Invoke(pair.Key, pair.Value);
+            }
             projects = new ProjectsMemory();
             DropNewProject();
         }
