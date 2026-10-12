@@ -49,6 +49,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro waiting = null!;
         private TextMeshPro notShown = null!;
         private TextMeshPro stillOpen = null!;
+        private (string Text, BannerKind Kind, string? NeedsYou, string? News, string? NotShown, LineWords? StillOpen)? showing;
 
         /// <summary>The grounds under the kept panel's name.</summary>
         private readonly List<Surface> stillOpenGrounds = new List<Surface>();
@@ -84,6 +85,15 @@ namespace Halcyonic.XR.UI
             return banner;
         }
 
+        private void OnEnable() { Glaze.PaletteChanged += RefreshPalette; RefreshPalette(); }
+        private void OnDisable() => Glaze.PaletteChanged -= RefreshPalette;
+        private void RefreshPalette()
+        {
+            if (!showing.HasValue) return;
+            var value = showing.Value;
+            Show(value.Text, value.Kind, value.NeedsYou, value.News, value.NotShown, value.StillOpen);
+        }
+
         /// <summary>
         /// Shows <paramref name="text"/> as written, under it <paramref name="news"/> when there is a
         /// notice, under that <paramref name="needsYou"/> when something waits for the person, and then
@@ -92,6 +102,11 @@ namespace Halcyonic.XR.UI
         /// <param name="stillOpen">The panel kept open, as runs: its name, which can be a task's title, leans on a ground of Halcyonic's.</param>
         public void Show(string text, BannerKind kind, string? needsYou, string? news = null, string? notShown = null, LineWords? stillOpen = null)
         {
+            showing = (text, kind, needsYou, news, notShown, stillOpen);
+            notice.color = GlazeTokens.Text;
+            waiting.color = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground);
+            this.notShown.color = GlazeTokens.TextSecondary;
+            this.stillOpen.color = GlazeTokens.TextSecondary;
             var side = GlazeTokens.Units(SideDegrees);
             var end = GlazeTokens.Units(EndDegrees);
             var room = GlazeTokens.Units(WidestDegrees) - 2f * side;

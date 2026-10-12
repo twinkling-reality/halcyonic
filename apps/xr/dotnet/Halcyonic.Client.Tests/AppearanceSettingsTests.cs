@@ -184,7 +184,7 @@ public class AppearanceSettingsTests
     }
 
     [Test]
-    public void BackFromAppearanceRollsBackAndDropsTheApplyTarget()
+    public void DefensiveDepartureAlsoDropsTheApplyTarget()
     {
         var settings = new AppearanceSettings();
         var saved = 0;
@@ -196,6 +196,22 @@ public class AppearanceSettingsTests
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default));
         hub.Act(AppearanceColumn.Apply, null);
         Assert.That(saved, Is.Zero);
+    }
+
+    [Test]
+    public void VisibleCancelThenBackReturnsFromPreviewToCategories()
+    {
+        var hub = new SettingsHubColumn(new FakeMenuHost(), Array.Empty<MenuSetting>(), new AppearanceSettings(), () => { });
+        hub.Act(SettingsHubColumn.OpenCategory, SettingsHubColumn.Appearance);
+        hub.Act(AppearanceColumn.Choose, "graphite");
+        hub.Act(AppearanceColumn.Preview, null);
+        Assert.That(hub.Frame!.Footer.All.Select(each => each.Prompt.Id), Does.Contain(AppearanceColumn.Cancel));
+        Assert.That(hub.Frame.Footer.All.Select(each => each.Prompt.Id), Does.Not.Contain(SettingsHubColumn.Back));
+        hub.Act(AppearanceColumn.Cancel, null);
+        Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default));
+        Assert.That(hub.Frame!.Footer.All.Select(each => each.Prompt.Id), Does.Contain(SettingsHubColumn.Back));
+        hub.Act(SettingsHubColumn.Back, null);
+        Assert.That(hub.Frame!.Lines.Single().Key, Is.EqualTo(SettingsHubColumn.Appearance));
     }
 
     [Test]
@@ -215,8 +231,116 @@ public class AppearanceSettingsTests
         hub.Act(SettingsColumn.ChangeSetting, null);
         Assert.That(hub.Frame!.Footer.Confirming, Is.True);
         Assert.That(hub.Frame.Footer.All.Count(), Is.EqualTo(3), "the wrapper adds no fourth control to a confirmation");
+        Assert.That(hub.Frame.Footer.All.Select(each => each.Prompt.Id), Does.Contain(SettingsColumn.Cancel));
+        hub.Act(SettingsColumn.Cancel, null);
+        hub.Act(SidePanel.Close, null);
+        Assert.That(hub.Frame!.Footer.All.Select(each => each.Prompt.Id), Does.Contain(SettingsHubColumn.Back));
         hub.Act(SettingsHubColumn.Back, null);
         hub.Act(SettingsColumn.Yes, null);
         Assert.That(forgotten, Is.Zero, "leaving a leaf does not retain Forget authority");
+    }
+
+    [TestCase("address")]
+    [TestCase("timeout")]
+    [TestCase("focus")]
+    [TestCase("close")]
+    public void WrapperRechecksTheArmedReadingBeforeTheRealForgetCallback(string invalidation)
+    {
+        var host = new FakeMenuHost();
+        var address = "192.0.2.40";
+        var confirmed = new List<string>();
+        var bare = 0;
+        var pairing = new MenuSetting("pairing", SettingsText.YourMac, "Pairing",
+            () => new SettingNow("Paired", "Paired with " + address, "Forget it", "This headset needs pairing again", "Forget this computer",
+                confirm: "Yes, forget this computer", valueIsData: true, about: address), () => bare++,
+            read => confirmed.Add(read.About!));
+        var hub = new SettingsHubColumn(host, new[] { pairing }, new AppearanceSettings(), () => { });
+        hub.Act(SettingsHubColumn.OpenCategory, SettingsText.YourMac);
+        hub.Act(SettingsColumn.OpenSetting, "pairing");
+        Assert.That(hub.Frame!.Footer.All.Any(each => each.Prompt.Id == SettingsColumn.ChangeSetting), Is.True);
+        hub.Act(SettingsColumn.ChangeSetting, null);
+        Assert.That(hub.Frame!.Footer.All.Any(each => each.Prompt.Id == SettingsColumn.Yes), Is.True);
+        if (invalidation == "address") address = "192.0.2.41";
+        else if (invalidation == "timeout") host.Now += SettingsColumn.ConfirmSeconds;
+        else if (invalidation == "focus") hub.FocusLeft();
+        else hub.Act(Footer.Close, null);
+        // Act calls Tick before passing to the leaf: no update frame is needed to expire authority.
+        hub.Act(SettingsColumn.Yes, null);
+        Assert.That(confirmed, Is.Empty);
+        Assert.That(bare, Is.Zero, "Forget never falls back to the bare Change delegate");
+        if (invalidation == "close") hub.Act(SettingsHubColumn.OpenCategory, SettingsText.YourMac);
+        hub.Act(SettingsColumn.OpenSetting, "pairing");
+        if (hub.Frame!.Side == null) hub.Act(SettingsColumn.OpenSetting, "pairing");
+        hub.Act(SettingsColumn.ChangeSetting, null);
+        Assert.That(hub.Frame!.Footer.All.Any(each => each.Prompt.Id == SettingsColumn.Yes), Is.True);
+        hub.Act(SettingsColumn.Yes, null);
+        Assert.That(confirmed, Is.EqualTo(new[] { address }), "fresh confirmation receives exactly the newly seen reading");
+    }
+
+    [TestCase("cancel")]
+    [TestCase("close")]
+    [TestCase("compact")]
+    [TestCase("move")]
+    [TestCase("focus")]
+    [TestCase("renew")]
+    [TestCase("place")]
+    public void NavigatorDeparturesRollBackAndRefuseTheOldApplyFrame(string departure)
+    {
+        var host = new FakeMenuHost();
+        var appearance = new AppearanceSettings();
+        var saved = 0;
+        var makers = MenuBar.Places.ToDictionary(place => place, place => (Func<IMenuColumn>)(() => place == MenuPlace.Settings
+            ? new SettingsHubColumn(host, Array.Empty<MenuSetting>(), appearance, () => saved++)
+            : new SettingsColumn(host, Array.Empty<MenuSetting>())));
+        var navigator = new MenuNavigator(makers);
+        navigator.OpenMenu(MenuPlace.Settings);
+        void Press(string action, string? key = null)
+        {
+            var frame = Draw();
+            Assert.That(navigator.Act(MenuColumn.Menu, action, key, frame, null), Is.True);
+        }
+        MenuFrame Draw()
+        {
+            var frame = navigator.Frames(new MenuBar(navigator.Place, "Nothing waits")).Menu!;
+            navigator.Drawn(MenuColumn.Menu, frame, null);
+            return frame;
+        }
+        Press(SettingsHubColumn.OpenCategory, SettingsHubColumn.Appearance);
+        var beforePreview = Draw();
+        Assert.That(beforePreview.Footer.All.Any(each => each.Prompt.Id == SettingsHubColumn.Back), Is.True);
+        Press(AppearanceColumn.Choose, "graphite");
+        Press(AppearanceColumn.Preview);
+        var preview = Draw();
+        Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite));
+        Assert.That(navigator.Act(MenuColumn.Menu, SettingsHubColumn.Back, null, beforePreview, null), Is.False,
+            "the Back target from the earlier picker is no longer standing");
+        if (departure == "cancel") Press(AppearanceColumn.Cancel);
+        else if (departure == "close") Press(Footer.Close);
+        else if (departure == "compact") navigator.Compact();
+        else if (departure == "move") { navigator.Compact(); navigator.Expand(); }
+        else if (departure == "focus") navigator.FocusLeft();
+        else if (departure == "renew") navigator.Renew();
+        else Press(MenuFrame.ChooseSection, nameof(MenuPlace.Projects));
+        Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default), departure);
+        Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Apply, null, preview, null), Is.False);
+        Assert.That(saved, Is.Zero);
+        Assert.That(appearance.Applied, Is.SameAs(GlazePalette.Default));
+    }
+
+    [Test]
+    public void ColourOnlyRedrawRevokesTargetProofWhileRetainingTheUnchangedFrame()
+    {
+        var host = new FakeMenuHost();
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place,
+            place => (Func<IMenuColumn>)(() => new SettingsColumn(host, Array.Empty<MenuSetting>()))));
+        navigator.OpenMenu(MenuPlace.Tasks);
+        var bar = new MenuBar(MenuPlace.Tasks, "Nothing waits");
+        var frame = navigator.Frames(bar).Menu!;
+        navigator.Drawn(MenuColumn.Menu, frame, null);
+        navigator.Moved();
+        Assert.That(navigator.Frames(bar).Menu, Is.SameAs(frame), "colours do not alter content, layout or frame reading evidence");
+        Assert.That(navigator.Act(MenuColumn.Menu, Footer.Close, null, frame, null), Is.False, "old target proof waits for redraw");
+        navigator.Drawn(MenuColumn.Menu, frame, null);
+        Assert.That(navigator.Act(MenuColumn.Menu, Footer.Close, null, frame, null), Is.True);
     }
 }

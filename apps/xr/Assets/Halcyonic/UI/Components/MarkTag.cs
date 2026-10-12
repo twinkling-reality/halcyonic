@@ -24,6 +24,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro word = null!;
         private TextMeshPro icon = null!;
         private WorkMark? shown;
+        private float opacity = 1f;
 
         public static float Height => GlazeTokens.Units(HeightDegrees);
 
@@ -51,9 +52,20 @@ namespace Halcyonic.XR.UI
         /// <summary>The tag as visible as <paramref name="opacity"/>, from 0 to 1.</summary>
         public void Fade(float opacity)
         {
+            this.opacity = opacity;
             word.alpha = opacity;
             icon.alpha = opacity;
             pill.Fade(opacity);
+        }
+
+        private void OnEnable() { Glaze.PaletteChanged += RefreshPalette; RefreshPalette(); }
+        private void OnDisable() => Glaze.PaletteChanged -= RefreshPalette;
+        private void RefreshPalette()
+        {
+            if (shown == null) return;
+            var current = shown;
+            shown = null;
+            Show(current);
         }
 
         public void Show(WorkMark mark)
@@ -70,6 +82,8 @@ namespace Halcyonic.XR.UI
             icon.transform.localPosition = new Vector3(-Width / 2f + side + em / 2f, 0f, -0.0005f);
             word.transform.localPosition = new Vector3(-Width / 2f + side + em + gap + width / 2f, 0f, -0.0005f);
             var tone = Glaze.Tone(GlazeTone.Simulated);
+            word.color = GlazeTokens.ColorOf(tone.Foreground, opacity);
+            icon.color = GlazeTokens.ColorOf(tone.Foreground, opacity);
             pill.Draw(new Vector2(Width, Height), Height / 2f, GlazeTokens.ColorOf(tone.Container), GlazeTokens.ColorOf(tone.Strong),
                 GlazeTokens.Units(EdgeDegrees), GlazeTokens.Units(DashDegrees));
         }

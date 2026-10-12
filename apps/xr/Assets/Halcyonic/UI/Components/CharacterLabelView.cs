@@ -131,9 +131,18 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
-        private void OnEnable() => GlazeText.ScaleChanged += OnScaleChanged;
+        private void OnEnable()
+        {
+            GlazeText.ScaleChanged += OnScaleChanged;
+            Glaze.PaletteChanged += RefreshPalette;
+            RefreshPalette();
+        }
 
-        private void OnDisable() => GlazeText.ScaleChanged -= OnScaleChanged;
+        private void OnDisable()
+        {
+            GlazeText.ScaleChanged -= OnScaleChanged;
+            Glaze.PaletteChanged -= RefreshPalette;
+        }
 
         /// <summary>The text's size changed: the plate fits the title again.</summary>
         private void OnScaleChanged()
@@ -163,6 +172,11 @@ namespace Halcyonic.XR.UI
             if (shown != null) Layout(shown);
         }
 
+        private void RefreshPalette()
+        {
+            if (shown != null) Layout(shown);
+        }
+
         public void Show(CharacterLabel label)
         {
             shown = label;
@@ -179,6 +193,9 @@ namespace Halcyonic.XR.UI
 
         private void Layout(CharacterLabel label)
         {
+            var text = GlazeTokens.Text;
+            title.color = new Color(text.r, text.g, text.b, title.alpha);
+            shortTitle.color = new Color(text.r, text.g, text.b, shortTitle.alpha);
             var top = -GlazeTokens.Units(topDegrees);
             var badgeHeight = StateBadgeView.Height;
             badge.transform.localPosition = new Vector3(0f, top - badgeHeight / 2f, -0.001f);

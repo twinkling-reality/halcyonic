@@ -57,11 +57,24 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
+        private void OnEnable() { Glaze.PaletteChanged += RefreshPalette; RefreshPalette(); }
+        private void OnDisable() => Glaze.PaletteChanged -= RefreshPalette;
+        private void RefreshPalette()
+        {
+            if (shown == null) return;
+            var current = shown;
+            shown = null;
+            Show(current);
+        }
+
         public void Show(PeekCard peek)
         {
             if (shown != null && shown.Equals(peek) && shownScale == GlazeText.Version) return;
             shown = peek;
             shownScale = GlazeText.Version;
+            reason.color = GlazeTokens.Text;
+            markLine.color = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Simulated).Foreground);
+            next.color = GlazeTokens.TextSecondary;
             var width = Width;
             var side = GlazeTokens.Units(SideDegrees);
             var gap = GlazeTokens.Units(GapDegrees);
