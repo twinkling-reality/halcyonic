@@ -2201,7 +2201,16 @@ exists. Passthrough remains independent of whether optional characters are prese
   Placement measures an actual label model with full title and source marks, and combines its bounds
   with the shelf and conservative animated body extent before field/console clearance. Later head
   motion does not re-place the shelf. Capacity feasibility remains a measured acceptance check;
-  the console continues to expose all work when a group shelf cannot fit.
+  the console continues to expose all work when a group shelf cannot fit. Production uses one
+  grounded agent with explicit Previous agent/Next agent rows under Your space; the shelf row says
+  Showing N of total. Ordinary selected workstream identity survives reorder and rank changes. If
+  that work is removed or the journal changes, another agent requires an explicit page selection;
+  no hidden retarget occurs. Old project stage-visibility preferences do not filter this page list.
+  Paging changes the represented work, never the shelf pose or console position. Production does
+  not create the old stage banner; connection/provenance/state belong to the console or dock, full
+  source/pending marks belong to the agent label, and room state belongs to Your space. Pairing
+  results use the independent workspace notice route rather than requiring a stage banner. Three/six-agent
+  group layouts remain rejected feasibility diagnostics, not available display modes.
 - **Room suggestion.** Find a room surface is an explicit action inside the placement preview.
   Only this action starts scene access and MRUK reading. The existing conservative
   `StageSurfaces.Choose` ranks candidates only after `ShelfFits` checks the entire

@@ -17,9 +17,8 @@ namespace Halcyonic.XR.Pairing
     /// code <c>pnpm pair</c> shows on the computer, pairs in the background, keeps the pairing through
     /// <see cref="ControlPlaneSettings.PairingStore"/>, and connects again. Paired, Settings asks
     /// first, with its own Yes, and only that Yes, naming the address it asked about, forgets the
-    /// computer and asks it to revoke this headset's credential. What it says shows on the stage's banner as a short notice, by the
-    /// banner's rule for words Halcyonic did not write, so a result reached with Settings closed is
-    /// not missed.
+    /// computer and asks it to revoke this headset's credential. Results use the independent workspace's
+    /// measured notice view and never require an optional character.
     /// </summary>
     /// <remarks>
     /// Moving into the menu's Settings changed only where pairing is offered and who asks before
@@ -46,7 +45,6 @@ namespace Halcyonic.XR.Pairing
         }
 
         private ControlPlaneConnection connection = null!;
-        private CharacterStage? stage;
         private WorkspaceDirector? director;
         private Step step;
         private TouchScreenKeyboard? keyboard;
@@ -67,7 +65,6 @@ namespace Halcyonic.XR.Pairing
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
-            stage = GetComponent<CharacterStage>();
             paired = ControlPlaneSettings.ReadPairing();
             // The menu's Settings offers pairing through the workspace director, on the same stage.
             if (TryGetComponent(out director)) director!.Pairing = this;
@@ -212,16 +209,9 @@ namespace Halcyonic.XR.Pairing
             }
         }
 
-        /// <summary>
-        /// Says it on the stage's banner. A refusal or a failure is said in Halcyonic's words by its code
-        /// (<see cref="PairingClient.WhyRefused"/>), never the words of whatever answered at the typed
-        /// address, which nothing has pinned yet, nor an exception's. The typed address it repeats is
-        /// shown by the banner's one rule for text Halcyonic did not write.
-        /// </summary>
-        private void Say(string text)
-        {
-            if (stage != null) stage.ShowNotice(text);
-        }
+        /// <summary>Reports only presentation through the current workspace view. The pairing's state,
+        /// credential and refusal policy remain owned by this component and its verified client.</summary>
+        private void Say(string text) => GetComponent<WorkspaceDirector>()?.ReportLocal(text);
 
         /// <summary>
         /// An address as <c>pnpm pair</c> prints it: <c>192.168.1.23:47801</c>, a name such as

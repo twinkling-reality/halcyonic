@@ -192,7 +192,7 @@ namespace Halcyonic.XR
                 var grow = 1f;
                 foreach (var word in words)
                 {
-                    if (!word.gameObject.activeSelf || string.IsNullOrEmpty(word.text) || GlazeIcons.IsIcon(word)) continue;
+                    if (!word.isActiveAndEnabled || string.IsNullOrEmpty(word.text) || GlazeIcons.IsIcon(word)) continue;
                     var middle = word.transform.TransformPoint(word.textBounds.center);
                     var half = word.transform.up * (word.fontSize * 0.1f * word.transform.lossyScale.y / 2f);
                     var degrees = Vector3.Angle(middle + half - viewer, middle - half - viewer);
