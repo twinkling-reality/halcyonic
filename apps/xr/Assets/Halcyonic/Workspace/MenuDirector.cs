@@ -213,6 +213,7 @@ namespace Halcyonic.XR.Workspace
             go.transform.SetParent(parent, false);
             var director = go.AddComponent<MenuDirector>();
             director.setup = setup;
+            director.viewBindings = new WorkspaceViewBindings(director.RecordFor, director.ViewsChanged);
             director.plane = MenuPlane.Create(go.transform, director.OpenAs);
             // The session shown first is no change; another one later is.
             director.memory.Session(setup.Session());
