@@ -52,6 +52,9 @@ namespace Halcyonic.Client
         private MenuBar? lastBar;
         private bool changed = true;
 
+        /// <summary>The retained menu column hidden by the actual plane composition, released only once per disappearance.</summary>
+        private IMenuColumn? hiddenMenu;
+
         /// <param name="places">How each of the menu's places makes its column: Tasks, Projects, Usage and Settings.</param>
         /// <param name="firstQuestion">How the first question makes its column; with none, the menu always shows its places.</param>
         public MenuNavigator(IReadOnlyDictionary<MenuPlace, Func<IMenuColumn>> places, Func<IMenuColumn>? firstQuestion = null)
@@ -342,6 +345,31 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The director reports whether the retained menu or its own details actually stand on the plane.
+        /// A focused file or a field-limited composition can hide it without closing it. Such a departure
+        /// releases its transient authority once; a return requires a fresh physical draw. True asks the
+        /// director to rebuild the composition after that lifecycle change, never to mark anything drawn.
+        /// </summary>
+        public bool MenuVisibility(bool visible)
+        {
+            var column = Shown;
+            if (IsCompact) { hiddenMenu = column; return false; } // Compact already suspended every retained column.
+            if (visible || column == null)
+            {
+                if (hiddenMenu == null) return false;
+                hiddenMenu = null;
+                Moved();
+                return true;
+            }
+            if (hiddenMenu == column) return false;
+            // FocusLeft may synchronously raise Changed or request another draw. Record the transition first.
+            hiddenMenu = column;
+            Leaving(column);
+            Moved();
+            return true;
+        }
+
+        /// <summary>
         /// A press on the plane, as the view reports it, from the menu's column, the column beside it, or
         /// a side panel, which belongs to the frame in front: the column beside the menu where there is
         /// one, else the menu's place. It carries what the view showed, <paramref name="frame"/> or, from
@@ -387,7 +415,7 @@ namespace Halcyonic.Client
         /// </summary>
         public IMenuColumn? Standing(MenuColumn from, MenuFrame? frame, SidePanel? side) => IsCompact ? null : from switch
         {
-            MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu ? Shown : null,
+            MenuColumn.Menu => IsOpen && hiddenMenu != Shown && frame != null && frame == drawnMenu ? Shown : null,
             MenuColumn.File => Beside != null && !BesideAside && frame != null && frame == drawnBeside ? Beside : null,
             _ => side != null && side == drawnSide ? drawnSideOf : null,
         };
@@ -406,7 +434,7 @@ namespace Halcyonic.Client
             {
                 case MenuColumn.Menu:
                     // The place's column gave its frame without the menu's places; it learns of that very frame.
-                    if (!IsOpen || placeFrame == null || frame == null || frame != menuFrame) return;
+                    if (!IsOpen || hiddenMenu == Shown || placeFrame == null || frame == null || frame != menuFrame) return;
                     drawnMenu = frame;
                     Shown!.Drawn(placeFrame, null);
                     return;
@@ -419,6 +447,7 @@ namespace Halcyonic.Client
                     // As the plane has it: the file's side panel where a file stands, else the menu's, as
                     // when the menu's details stand in front of the file.
                     var front = BesideAside ? menuFrame : besideFrame ?? menuFrame;
+                    if (hiddenMenu == Shown && front == menuFrame) return;
                     if (side == null || front == null || side != front.Side || (frame != null && frame != front)) return;
                     drawnSide = side;
                     drawnSideFooter = frame != null ? front.Footer.InPlace(side) : SidePanel.Footer;
@@ -449,7 +478,7 @@ namespace Halcyonic.Client
         /// <summary>The column whose held prompt, or press, came from <paramref name="from"/>.</summary>
         public IMenuColumn? ColumnOf(MenuColumn from) => IsCompact ? null : from switch
         {
-            MenuColumn.Menu => Shown,
+            MenuColumn.Menu => hiddenMenu == Shown ? null : Shown,
             MenuColumn.File => Beside,
             _ => BesideAside ? Shown : Beside ?? Shown,
         };

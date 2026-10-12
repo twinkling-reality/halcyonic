@@ -173,6 +173,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     try
                     {
                         Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
+                        var categories = Shown(MenuColumn.Menu);
+                        if (categories?.Lines.Any(line => line.Action == SettingsHubColumn.OpenCategory && line.Key == Comfort.Heading) != true
+                            || !Press(MenuColumn.Menu, SettingsHubColumn.OpenCategory, Comfort.Heading))
+                            failures.Add(name + ": Settings offered no visible Comfort category before text size.");
                         Press(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size");
                         var change = navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Footer[PromptSlot.FarRight];
                         var inPlace = director.Plane.Shown.Count == 1 && director.Plane.Shown[0].Kind == MenuColumn.Side ? director.Plane.Shown[0].View.Side : null;
@@ -347,6 +351,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 Shot("10 usage");
                 CloseSide();
                 Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
+                var categories = Shown(MenuColumn.Menu);
+                if (categories?.Lines.Any(line => line.Action == SettingsHubColumn.OpenCategory && line.Key == SettingsText.YourSpace) != true
+                    || !Press(MenuColumn.Menu, SettingsHubColumn.OpenCategory, SettingsText.YourSpace))
+                    failures.Add(name + ": Settings offered no visible Your space category.");
                 Press(MenuColumn.Menu, SettingsColumn.OpenSetting, SpaceSettings.SwitchSpace);
                 if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Lines.FirstOrDefault()?.Words != SettingsText.YourSpace) failures.Add(name + ": Settings does not open on Your space.");
                 Shot("11 settings");

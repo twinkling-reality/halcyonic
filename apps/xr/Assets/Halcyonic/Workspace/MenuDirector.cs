@@ -516,9 +516,25 @@ namespace Halcyonic.XR.Workspace
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             drawnVoice = Voiced();
             plane.Voice = drawnVoice;
-            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
+            void ShowComposition() => plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
                 navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,
                 navigator.IsCompact ? (object?)navigator.Beside ?? navigator.Shown ?? (object)navigator : null);
+            ShowComposition();
+            // The actual layout owns visibility: focused answers and files that cannot fit beside the
+            // menu hide it; menu-owned details in its place still let the person act on that setting.
+            var menuVisible = menu != null && plane.Front == menu;
+            for (var index = 0; index < plane.Shown.Count && !menuVisible; index++)
+                menuVisible = plane.Shown[index].Kind == MenuColumn.Menu;
+            if (navigator.MenuVisibility(menuVisible))
+            {
+                (menu, beside) = navigator.Frames(bar);
+                if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
+                drawnVoice = Voiced();
+                plane.Voice = drawnVoice;
+                // One bounded repaint after FocusLeft changed the retained menu and its temporary palette.
+                // Only the views' normal settled Drawn callbacks grant authority to these refreshed frames.
+                ShowComposition();
+            }
             // Only as much of a drag as still holds for what is laid now; none, and Settings says so.
             moved = plane.Moved;
         }

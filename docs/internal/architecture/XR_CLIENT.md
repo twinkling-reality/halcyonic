@@ -1935,7 +1935,13 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   unsupported values fall back to Glaze. Cancel, Back, Close, focus loss and the existing compact,
   Move and session-replacement `FocusLeft` paths restore the applied palette. These paths never
   change comfort, pairing, project or runtime settings. The director also releases a preview on
-  destruction. A palette change revokes old target proof until redraw through `MenuNavigator.Moved`,
+  destruction. The director reports actual plane composition through `MenuNavigator.MenuVisibility`.
+  A focused file or a file that leaves the menu aside under field limits releases the retained menu's
+  `FocusLeft` once, rolling back any invisible preview without losing drafts or closing its category.
+  Menu-owned details still count as visible; an ordinary visible file beside Settings retains preview.
+  A bounded second composition draw reflects rollback immediately. Hidden frames cannot acquire draw
+  authority, and a return needs the views' normal fresh settled draw. Compact does not release twice.
+  A palette change revokes old target proof until redraw through `MenuNavigator.Moved`,
   without changing geometry or gratuitously expiring unchanged text-reading evidence. Button paint
   caches include `Glaze.PaletteVersion`; other cached consumer refresh is tracked by validation.
 - **Comfort:** Settings' Comfort (`ComfortSettings` its rows, `ComfortControls` keeping and
