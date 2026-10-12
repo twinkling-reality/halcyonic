@@ -523,8 +523,8 @@ namespace Halcyonic.XR.UI
         public void MatureHoldForRender()
         {
             if (pressedAt < 0f) return;
-            pressedAt = Time.unscaledTime - HoldSeconds - 0.01f;
-            Update();
+            UpdateHold(pressedAt + HoldSeconds + 0.01f);
+            Paint();
         }
 
         /// <summary>A press on it is under way, for the editor's renders.</summary>
@@ -679,6 +679,13 @@ namespace Halcyonic.XR.UI
         private void Update()
         {
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime);
+            UpdateHold(Time.unscaledTime);
+            Paint();
+            if (listens) Pulse(Time.unscaledTime);
+        }
+
+        private void UpdateHold(float now)
+        {
             if (pressedAt >= 0f)
             {
                 if (!Accepting() || !target.HandHovered)
@@ -687,14 +694,12 @@ namespace Halcyonic.XR.UI
                     EndPress();
                     if (started) HoldEnded?.Invoke(false);
                 }
-                else if (!holding && Time.unscaledTime - pressedAt >= HoldSeconds)
+                else if (!holding && now - pressedAt >= HoldSeconds)
                 {
                     holding = true;
                     HoldStarted?.Invoke();
                 }
             }
-            Paint();
-            if (listens) Pulse(Time.unscaledTime);
         }
 
         /// <summary>
