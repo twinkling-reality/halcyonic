@@ -151,6 +151,7 @@ import {
   WorkspaceInstructionDraft,
   WorkspaceRequestContinuation,
   WorkspaceSection,
+  WorkspaceSurface,
   WorkspaceViewStore,
 } from './workspace.ts';
 
@@ -311,6 +312,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   WorkspaceInstructionDraft,
   WorkspaceRequestContinuation,
   WorkspaceSection,
+  WorkspaceSurface,
   WorkspaceViewStore,
 };
 

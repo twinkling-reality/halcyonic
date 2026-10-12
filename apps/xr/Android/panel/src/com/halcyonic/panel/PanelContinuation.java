@@ -15,7 +15,9 @@ final class PanelContinuation {
         if (json == null || json.length() > MAXIMUM_BYTES || json.getBytes(StandardCharsets.UTF_8).length > MAXIMUM_BYTES) throw PanelJson.invalid();
         Map<String, Object> v = PanelJson.object(PanelJson.parse(json));
         if (!v.containsKey("request")) v.put("request", null); // Only the legacy v1 omission is migrated.
-        PanelJson.keys(v, "version", "handoff_id", "connection_key", "journal_id", "project_id", "workstream_id", "execution_id", "section", "page", "instruction", "request");
+        if (!v.containsKey("surface")) v.put("surface", "task");
+        PanelJson.keys(v, "version", "handoff_id", "connection_key", "journal_id", "project_id", "workstream_id", "execution_id", "surface", "section", "page", "instruction", "request");
+        if (!java.util.Arrays.asList("task", "request").contains(PanelJson.text(v.get("surface")))) throw PanelJson.invalid();
         PanelJson.integer(v.get("version"), 1, 1);
         matches(v.get("handoff_id"), PanelIdentity.UUID);
         matches(v.get("connection_key"), "[0-9a-f]{64}");
@@ -47,6 +49,7 @@ final class PanelContinuation {
     boolean matches(PanelIdentity identity, PanelModel snapshot) {
         if (!string("connection_key").equals(identity.key) || !snapshot.journal.equals(string("journal_id"))) return false;
         String project = string("project_id"), work = string("workstream_id"), execution = string("execution_id");
+        if ("request".equals(string("surface")) && execution == null) return false;
         if (project == null) return work == null && execution == null && value.get("instruction") == null && value.get("request") == null;
         if (!snapshot.projects.containsKey(project)) return false;
         if (work == null) return execution == null && value.get("instruction") == null && value.get("request") == null;

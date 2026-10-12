@@ -2835,7 +2835,10 @@ as an instruction draft. The same connection/journal/project/task/execution tupl
 a request requires an execution. After reading the exact host request, a consumer must compare its
 returned tuple and current principal before offering continuation. The local reference alone is
 not command authority, and restoring it never submits, resumes or cancels work. Canonical records
-include `request: null` when absent. Readers migrate earlier app-private version-1 records by adding
-only that missing field as null before strict validation; they preserve existing instruction words
-and still reject every other missing, duplicate, extra or coerced field. This codec contract does
+include `request: null` when absent. A separate `surface: task | request` records the view actually
+selected while both drafts remain retained. An inactive request never selects its view implicitly.
+The request surface requires a current execution even when its editor is empty. Readers migrate
+earlier app-private version-1 records by adding only missing `request: null` and `surface: task`
+before strict validation; they preserve existing instruction words and still reject every other
+missing, duplicate, extra or coerced field. This codec contract does
 not establish native/Unity request handoff until both production consumers pass their own checks.

@@ -6,9 +6,28 @@ import { WorkspaceContinuation, WorkspaceViewStore } from './workspace.ts';
 
 const fixtures = JSON.parse(
   readFileSync(new URL('../../../fixtures/workspace/continuation.json', import.meta.url), 'utf8'),
-) as { cases: { name: string; valid: boolean; value: unknown }[] };
+) as {
+  cases: { name: string; valid: boolean; value: unknown }[];
+  text_limits: { symbol: string; count: number; valid: boolean }[];
+};
 const validate = compileValidator(WorkspaceContinuation);
 const validateStore = compileValidator(WorkspaceViewStore);
+
+test('shared Unicode draft limits count codepoints on both independent editors', () => {
+  const sample = fixtures.cases[0]?.value as Record<string, unknown>;
+  for (const vector of fixtures.text_limits) {
+    for (const field of ['instruction', 'request']) {
+      const draft = { text: vector.symbol.repeat(vector.count), spoken: false, part: 0 };
+      assert.equal(
+        validate({
+          ...sample,
+          [field]: field === 'request' ? { ...draft, request_id: null } : draft,
+        }).ok,
+        vector.valid,
+      );
+    }
+  }
+});
 
 test('local view storage retains strict ordinary continuations without a task-count limit', () => {
   const sample = fixtures.cases[0]?.value as Record<string, unknown>;
@@ -72,4 +91,7 @@ test('request continuation has its own bounded draft and exact optional host ref
   const legacy = { ...sample };
   delete legacy.request;
   assert.equal(validate(legacy).ok, false);
+  const oldSurface = { ...sample };
+  delete oldSurface.surface;
+  assert.equal(validate(oldSurface).ok, false);
 });

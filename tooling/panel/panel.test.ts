@@ -49,6 +49,7 @@ const fixtures = JSON.parse(
 ) as {
   cases: { name: string; valid: boolean; value: unknown }[];
   identities: { name: string; connection_key: string; [key: string]: unknown }[];
+  text_limits: { symbol: string; count: number; valid: boolean }[];
 };
 
 function args(command: string, values: readonly string[]) {
@@ -204,6 +205,30 @@ describe('production native agent panel', () => {
   for (const fixture of fixtures.cases)
     test(`shared continuation: ${fixture.name}`, () =>
       assert.equal(run('continuation', JSON.stringify(fixture.value)), String(fixture.valid)));
+  test('shared Unicode limits count codepoints on both independent draft editors', () => {
+    const sample = fixtures.cases[0]?.value as Record<string, unknown>;
+    for (const vector of fixtures.text_limits) {
+      for (const field of ['instruction', 'request']) {
+        const draft = { text: vector.symbol.repeat(vector.count), spoken: false, part: 0 };
+        const value = {
+          ...sample,
+          [field]: field === 'request' ? { ...draft, request_id: null } : draft,
+        };
+        assert.equal(run('continuation', JSON.stringify(value)), String(vector.valid));
+        if (vector.valid) {
+          const stored = run(
+            'drafts',
+            JSON.stringify({ version: 1, drafts: [] }),
+            JSON.stringify([value]),
+          );
+          const retained = JSON.parse(stored).drafts[0];
+          assert.deepEqual(retained, value);
+          assert.ok(Buffer.byteLength(JSON.stringify(retained), 'utf8') < 256 * 1024);
+          assert.equal(run('continuation', JSON.stringify(retained)), 'true');
+        }
+      }
+    }
+  });
   for (const fixture of fixtures.identities)
     test(`shared connection identity: ${fixture.name}`, () =>
       assert.equal(run('identity', JSON.stringify(fixture)), fixture.connection_key));
@@ -381,14 +406,15 @@ describe('production native agent panel', () => {
         /accepted|confirmed/,
       );
   });
-  test('legacy native continuation omission migrates only request to null and preserves ordinary words', () => {
+  test('legacy native continuation migrates only request and surface and preserves ordinary words', () => {
     const first = fixtures.cases[0]?.value as Record<string, unknown>;
     const legacy = { ...first };
     delete legacy.request;
+    delete legacy.surface;
     const saved = JSON.parse(
       run('drafts', JSON.stringify({ version: 1, drafts: [] }), JSON.stringify([legacy])),
     );
-    assert.deepEqual(saved.drafts[0], { ...legacy, request: null });
+    assert.deepEqual(saved.drafts[0], { ...legacy, request: null, surface: 'task' });
     assert.equal(run('continuation', JSON.stringify({ ...legacy, unexpected: true })), 'false');
     const missing = { ...legacy };
     delete missing.instruction;

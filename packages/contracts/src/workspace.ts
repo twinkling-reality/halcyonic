@@ -22,6 +22,10 @@ export const WorkspaceSection = Type.Union([
 ]);
 export type WorkspaceSection = Static<typeof WorkspaceSection>;
 
+/** The selected view is independent of either retained ordinary draft. */
+export const WorkspaceSurface = Type.Union([Type.Literal('task'), Type.Literal('request')]);
+export type WorkspaceSurface = Static<typeof WorkspaceSurface>;
+
 /** Ordinary unsent instruction only. Reading and confirmation authority are never persisted. */
 export const WorkspaceInstructionDraft = Type.Object(
   {
@@ -59,6 +63,7 @@ export const WorkspaceContinuation = Type.Object(
     project_id: Nullable(ProjectId),
     workstream_id: Nullable(WorkstreamId),
     execution_id: Nullable(ExecutionId),
+    surface: WorkspaceSurface,
     section: WorkspaceSection,
     page: Type.Integer({ minimum: 0, maximum: 100000 }),
     instruction: Nullable(WorkspaceInstructionDraft),

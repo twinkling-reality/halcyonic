@@ -22,12 +22,27 @@ public class WorkspaceContinuityTests
     }
 
     [Test]
-    public void LegacyV1MigratesOnlyMissingRequestAndKeepsOrdinaryWords()
+    public void SharedUnicodeLimitsUseCodePointsOnBothIndependentDrafts()
+    {
+        foreach (var sample in Fixture["text_limits"]!)
+        foreach (var field in new[] { "instruction", "request" })
+        {
+            var value = JObject.Parse(ValidJson);
+            value[field] = new JObject { ["text"] = string.Concat(Enumerable.Repeat((string)sample["symbol"]!, (int)sample["count"]!)), ["spoken"] = false, ["part"] = 0 };
+            if (field == "request") value[field]!["request_id"] = null;
+            Assert.That(WorkspaceContinuity.TryParse(value.ToString(Formatting.None), out _), Is.EqualTo((bool)sample["valid"]!), field);
+        }
+    }
+
+    [Test]
+    public void LegacyV1MigratesOnlyMissingRequestAndSurfaceAndKeepsOrdinaryWords()
     {
         var legacy = JObject.Parse(ValidJson);
         legacy.Remove("request");
+        legacy.Remove("surface");
         Assert.That(WorkspaceContinuity.TryParse(legacy.ToString(), out var restored), Is.True);
         Assert.That(restored!.Request, Is.Null);
+        Assert.That(restored.Surface, Is.EqualTo(WorkspaceSurface.Task));
         Assert.That(restored.Instruction!.Text, Is.EqualTo((string)legacy["instruction"]!["text"]!));
         legacy.Remove("instruction");
         Assert.That(WorkspaceContinuity.TryParse(legacy.ToString(), out _), Is.False);
@@ -46,6 +61,12 @@ public class WorkspaceContinuityTests
         Assert.That(restored.Request.Spoken, Is.True);
         Assert.That(restored.Request.Part, Is.EqualTo(3));
         Assert.That(restored.Instruction!.Text, Is.EqualTo(saved.Instruction!.Text));
+        Assert.That(restored.Surface, Is.EqualTo(WorkspaceSurface.Task), "an inactive request does not select its view");
+        saved.Surface = WorkspaceSurface.Request;
+        Assert.That(WorkspaceContinuity.TryParse(HalcyonicJson.Serialize(saved), out var requestView), Is.True);
+        Assert.That(requestView!.Surface, Is.EqualTo(WorkspaceSurface.Request));
+        Assert.That(requestView.Instruction!.Text, Is.EqualTo(saved.Instruction.Text));
+        Assert.That(requestView.Request!.Text, Is.EqualTo(saved.Request.Text));
         Assert.That(WorkspaceContinuity.TryParse(json.Replace("\"request_id\":", "\"request_id\":null,\"request_id\":"), out _), Is.False);
         foreach (var field in new[] { "read", "armed", "auto_send", "answers", "credential", "approval_id" })
         {
@@ -151,6 +172,9 @@ public class WorkspaceContinuityTests
         continuation.Request = new WorkspaceRequestContinuation { Text = "Ordinary request" };
         Assert.That(WorkspaceContinuity.MatchesCurrent(continuation, continuation.ConnectionKey, state), Is.False, "request requires its exact execution");
         continuation.Request = null;
+        continuation.Surface = WorkspaceSurface.Request;
+        Assert.That(WorkspaceContinuity.MatchesCurrent(continuation, continuation.ConnectionKey, state), Is.False, "even an empty request view requires its execution");
+        continuation.Surface = WorkspaceSurface.Task;
         continuation.JournalId = "0192f1a0-0000-7000-8000-000000000099";
         Assert.That(WorkspaceContinuity.MatchesCurrent(continuation, continuation.ConnectionKey, state), Is.False, "changed journal");
     }
