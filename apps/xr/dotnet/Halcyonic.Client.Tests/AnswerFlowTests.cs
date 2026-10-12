@@ -504,4 +504,22 @@ public class AnswerFlowTests
         Assert.That(host.Sent, Is.Empty, "Stop still requires current policy confirmation");
     }
 
+    [Test]
+    public void DrawingCutOptionCannotPromoteItWhenQuestionReadingReleasesReasonSpace()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts.RemoveAt(1);
+        question.Prompts[0].FreeText = false;
+        question.Prompts[0].Options = new List<QuestionOption> { new() { Label = "A long label", Description = "A second row" } };
+        var draft = new QuestionDraft("e1", question);
+        var flow = new FileQuestion();
+        flow.Show(draft, new[] { new PromptMeasure(1, new[] { 2 }, new[] { 2 }) }, new RowBudget(4), new RowBudget(3));
+        Assert.That(flow.AnswerShows(0, 0), Is.EqualTo(1), "the captured initial frame only shows its first row");
+        Assert.That(flow.QuestionCut(0), Is.False);
+        flow.Drawn(DateTimeOffset.Parse(Samples.Time));
+        flow.Choose(0);
+        Assert.That(flow.AnswersRead(0), Is.False, "released layout space cannot certify a second row absent from the frame just drawn");
+        Assert.That(flow.AnswerShows(0, 0), Is.EqualTo(1), "choosing the unread option reinstates its nontrivial reason budget");
+    }
+
 }
