@@ -1104,3 +1104,99 @@ test('runtime wake preserves the exact observe tool name and opaque assistant ca
     await f.close();
   }
 });
+
+test('a pause mid native multi-call batch reports remaining calls as unexecuted without replaying them', async () => {
+  let turn = 0;
+  const f = await fixture({
+    turn: async (messages) => {
+      turn++;
+      if (turn === 1)
+        return answer(
+          [
+            { name: 'continue_task', arguments: { text: 'Authorized continuation' } },
+            { name: 'read_events', arguments: { after: 0 } },
+          ],
+          '',
+        );
+      const batch = messages.filter((message) => message.role === 'tool');
+      assert.deepEqual(
+        batch.map((message) => message.tool_name),
+        ['continue_task', 'read_events'],
+      );
+      assert.deepEqual(JSON.parse(batch[1]?.content ?? 'null'), {
+        executed: false,
+        reason: 'prior_call_paused_batch',
+      });
+      return answer([], 'Reported after the pending action.');
+    },
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    assert.equal(
+      f.coordinator
+        .read(id, { kind: 'local' })
+        ?.steps.some((step) => step.tool_name === 'read_events'),
+      false,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('rejected busy Resume preserves the existing continuation and does not add new human direction', async () => {
+  let turn = 0;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const f = await fixture({
+    turn: async (messages) => {
+      turn++;
+      if (turn === 1) return answer([{ name: 'read_understanding', arguments: {} }], '');
+      if (turn === 2)
+        return answer(
+          [{ name: 'continue_task', arguments: { text: 'Authorized continuation' } }],
+          '',
+        );
+      await gate;
+      assert.equal(
+        messages.some(
+          (message) =>
+            message.role === 'tool' &&
+            message.tool_name === 'read_understanding' &&
+            message.content.includes('synthetic_unavailable'),
+        ),
+        true,
+      );
+      assert.equal(
+        messages.some(
+          (message) => message.role === 'user' && message.content === 'Rejected busy direction',
+        ),
+        false,
+      );
+      return answer([], 'Reported with original continuation.');
+    },
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    await settle();
+    const command = f.command('resume', id);
+    if (command.command_type === 'workspace.request.resume')
+      command.payload.text = 'Rejected busy direction';
+    f.controlPlane.commands.submit(command, 'http', { kind: 'local' });
+    await settle();
+    assert.equal(f.controlPlane.projection.command(command.command_id)?.status, 'failed');
+    release();
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+  } finally {
+    release();
+    await f.close();
+  }
+});

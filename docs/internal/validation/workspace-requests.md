@@ -277,3 +277,9 @@ font sizes with explicitly synthetic metadata and request results. It captures l
 accepted-but-unresolved state, reported reply, recorded actions, spoken review, global Minimize and
 unavailable draft. It never invokes a model, reads private storage or proves a live session
 watermark. Actual run and visual inspection are pending until the integrated Unity gate.
+Independent source review then identified two bounded context cases: pausing after the first
+call of a multi-call turn left unmatched native calls, and a refused busy Resume cleared cached
+context before checking its refusal. Remaining calls now receive truthful `executed: false`
+results without being dispatched or replayed. Resume clears transient context only after its
+busy/stopped checks pass. Twenty-nine focused request checks, typecheck and scoped lint passed;
+this follow-up does not claim a new actual model/runtime witness.
