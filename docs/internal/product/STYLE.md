@@ -449,3 +449,6 @@ analysis, and their clearance, field, readability and visibility thresholds rema
 DirectorCheck runs all three existing director cases at both text sizes with the same PlaneState
 guards and nonzero retained-offset counter. It diagnoses this migration separately from untouched
 raw plane/stage cases; the full WorkspaceRender.Check retains them and remains the acceptance gate.
+The retained FirstQuestion column's regression expects the current concrete Projects subject for
+both choices while preserving its choice/action/voice checks. This legacy column test is not
+evidence that fresh production entry uses the superseded first-question policy.
