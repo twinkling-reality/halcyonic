@@ -1924,6 +1924,20 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   Pairing says it isn't ready yet. The room's and the
   pairing's news shows on the stage's banner as a short notice for eight seconds
   (`CharacterStage.ShowNotice`), never in front of the person.
+- **Appearance and categories:** `SettingsHubColumn` opens a category index over Appearance and
+  actual supported `MenuSetting` groups. Its ordinary leaves retain `SettingsColumn`'s existing
+  value reading and confirmation rules, including pairing. `AppearanceColumn` owns a temporary
+  preview, uses immutable `GlazePalette` semantic colours through `Glaze`, and keeps selection
+  local until Preview theme. The specimen is explicitly labelled and its examples are inert;
+  paging is in the body, with at most three footer prompts. Apply theme updates `AppearanceSettings`
+  and invokes only the local saved callback. `AppearanceControls` stores `version=1;theme=<key>` in
+  the separate `halcyonic.appearance` device preference. Unknown versions, incomplete, extra or
+  unsupported values fall back to Glaze. Cancel, Back, Close, focus loss and the existing compact,
+  Move and session-replacement `FocusLeft` paths restore the applied palette. These paths never
+  change comfort, pairing, project or runtime settings. The director also releases a preview on
+  destruction. A palette change revokes old target proof until redraw through `MenuNavigator.Moved`,
+  without changing geometry or gratuitously expiring unchanged text-reading evidence. Button paint
+  caches include `Glaze.PaletteVersion`; other cached consumer refresh is tracked by validation.
 - **Comfort:** Settings' Comfort (`ComfortSettings` its rows, `ComfortControls` keeping and
   applying them, the words and choices in the client core's `Comfort`) offers three settings, kept on the device and taking effect the moment they
   change and as the stage starts. Make text larger draws reading text a step larger, by 15 percent

@@ -120,6 +120,7 @@ namespace Halcyonic.XR.UI
         private bool isStatic;
         private float rowStack;
         private int paintedState = -1;
+        private int paintedPalette = -1;
 
         /// <summary>The row's words and width its detail was last fitted to, and whether the short one was needed.</summary>
         private (string Detail, string? Short, float Width, int Lines)? fittedDetail;
@@ -720,9 +721,9 @@ namespace Halcyonic.XR.UI
         {
             var white = Color.white;
             var radius = GlazeTokens.Units(Glaze.Menu.RadiusDegrees);
-            var litFill = new Color(1f, 1f, 1f, Glaze.Menu.LitFillOpacity);
-            var litFrame = new Color(1f, 1f, 1f, Glaze.Menu.LitFrameOpacity);
-            var pointedFrame = new Color(1f, 1f, 1f, Glaze.Menu.PointedFrameOpacity);
+            var litFill = GlazeTokens.ColorOf(Glaze.Palette.Selection, Glaze.Menu.LitFillOpacity);
+            var litFrame = GlazeTokens.ColorOf(Glaze.Palette.Selection, Glaze.Menu.LitFrameOpacity);
+            var pointedFrame = GlazeTokens.ColorOf(Glaze.Palette.Focus, Glaze.Menu.PointedFrameOpacity);
             var opacity = away ? AwayOpacity : 1f;
             var lit = on && role != ButtonRole.Prompt;
             if (lit)
@@ -744,7 +745,7 @@ namespace Halcyonic.XR.UI
             }
             else if (role == ButtonRole.Answer || role == ButtonRole.Navigation || role == ButtonRole.Input)
             {
-                plate.Draw(size, radius, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees));
+                plate.Draw(size, radius, Color.clear, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees));
                 plate.Selection = SurfaceSelection.None;
             }
             else
@@ -764,7 +765,7 @@ namespace Halcyonic.XR.UI
             var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed ? 0.92f : 1f);
             if (main) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(accent.Strong));
             else if (listening) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(active.Strong));
-            else cap.Draw(Vector2.one * capSize, capSize / 2f, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
+            else cap.Draw(Vector2.one * capSize, capSize / 2f, Color.clear, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
             cap.Selection = main ? SurfaceSelection.MainCap : SurfaceSelection.None;
             cap.Fade(opacity);
             // A wait's words in the secondary tone, so its shimmer's lift toward white shows even on Hold to talk's.
@@ -790,8 +791,9 @@ namespace Halcyonic.XR.UI
             pressed &= !isStatic;
             var away = FocusGuard.InputSuspended;
             var state = (pressed ? 1 : 0) | (hovered ? 2 : 0) | (away ? 4 : 0);
-            if (state == paintedState) return;
+            if (state == paintedState && paintedPalette == Glaze.PaletteVersion) return;
             paintedState = state;
+            paintedPalette = Glaze.PaletteVersion;
 
             if (role == ButtonRole.Prompt || role == ButtonRole.Row || role == ButtonRole.Answer || role == ButtonRole.Navigation || role == ButtonRole.Input)
             {
