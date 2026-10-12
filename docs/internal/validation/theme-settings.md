@@ -4,23 +4,69 @@
   without changing work, comfort, pairing, provenance or input semantics?
 - Dates: 2026-10-11 and 2026-10-12.
 - Environment: original source candidate based on organization `9ea346cf`; the October 12 replay combines instruction integration `be497166` with Settings through `c7a64021`. Unity 6000.3.25f1 packages, .NET 10.
-- Status: source checkpoints `9f2cbd32` and `9ebebe46`; isolated focused check passed 79/79
-  tests (AppearanceSettings, SettingsColumn, GlazeToken and MenuNavigator). Root's exact
-  `9ebebe46` full gate passed 1033 repository tests and 1527 C# tests, zero skipped, on
-  2026-10-11 at 23:20:08 EDT. Aggregate runtime and all current Editor source compile passed
-  without launching Unity; existing nullable warnings remain. A subsequent actual-composition
-  lifetime fix `f224b498` passed 83/83 focused tests and the same aggregate compile; root's
-  exact full gate passed 1033 repository / 1531 C# tests. A further hidden-side ownership and
-  deterministic cache-witness correction `c7a64021` passed 85/85 focused tests plus aggregate source
-  compile; root's exact full gate passed 1033 repository / 1533 C# tests and independent security
-  review passed. The actual `f224b498` preset pass failed as detailed below. The corrected `c7a64021`
-  rendering and device checks remain unrun; visual acceptance remains open. The October 12 replay
-  passed 238/238 combined focused tests and aggregate runtime/all Editor source compilation, with
-  the same four existing nullable warnings. Four additional real instruction/Settings lifetime
-  cases passed at both text sizes. The combined core/test tree `73d74ab0` passed the full gate
-  on October 12 at 13:11:33 EDT: 1033 repository and 1561 C# tests, zero skipped. The editor-only
-  cache wrapper `92c80f53` also passed aggregate source compilation; actual renders remain a
-  separate check and no Unity assembly-boundary or physical-fit result follows from it.
+- Current result: the integrated `ae6da8f426da47d99ffa8def56a4333d1a29676e` actual Unity
+  `AppearanceCheck` completed with exit 0 on October 12. Glaze and Graphite each passed the
+  component, workspace and task-file galleries at Standard and Larger, all 12 gallery success
+  markers plus the final appearance success marker. This includes the real category, preview,
+  Cancel, Apply, Restore, visibility rollback and seeded cache witnesses. Wearer/device acceptance
+  and live activation remain separate observations.
+
+## Current integrated evidence, October 12
+
+- The final production/C# tree `d7fcecd2` passed 1033 repository and 1566 C# tests, zero skipped,
+  and independent source/security review. `ae6da8f4` changes only the Editor Judge witness and
+  canonical explanation; its repository gate passed 1033 tests. Aggregate runtime/all Editor
+  source compilation also passed, with four existing nullable warnings. Actual Unity compiled
+  the project and ran the final checks; aggregate compilation alone is not assembly-boundary proof.
+- Exact `d7fcecd2` actual `OrganizationCheck` and `InstructionCheck` each exited 0 at both text
+  sizes. Their fresh archives hold 146 and 24 PNGs respectively, including the visible paged
+  Settings index beside the file and retained instruction Compact/Expand. The final `ae6da8f4`
+  appearance run retains the same production and instruction source and includes complete Usage
+  detail parts, both presets' real appearance pages, and all gallery assertions.
+- Exact `d7fcecd2` `AppearanceCacheCheck` exited 0 across both presets and sizes. Individually
+  replacing label, peek and banner `RefreshPalette` with a no-op made each exact same check exit 1
+  with four active cached-versus-fresh failures, one per preset/size. Original bytes were restored
+  after each mutation, and the warm checkout was clean before the final candidate run. Label
+  failures changed 2953 Standard / 3236 Larger pixels, at most 2 RGB levels: the exact comparison
+  catches changes the unrelated general render tolerance would ignore. State/practice colours
+  remain identical by design; their seeded pixel invariance passes but is not neutral-refresh
+  mutation proof.
+- Fresh renders and SHA-256 manifests are retained only in the ignored coordinator scratch area.
+  Representative Standard/Larger category, appearance preview/applied/cancel, instruction
+  compact/resumed/review, and complete Usage parts were visually inspected for full stage,
+  surfaces, words and controls. These images and geometry checks do not establish wearer comfort,
+  headset both-eye rendering or live MonoBehaviour activation.
+
+The synchronous Editor cache fixture explicitly seeds existing OnDisable/OnEnable subscriptions,
+with the same model, pose, breath, turn and opacity for cached and fresh objects. This proves the
+seeded refresh and rollback paths; it does not prove a live play-mode or device activation cycle.
+The capture helpers explicitly clear reused target depth. Controlled near-depth priming with the
+camera's incidental clear disabled catches removal of that helper clear; ordinary repeated
+captures alone did not reliably expose the defect. The controlled regression is not a claim that
+every render backend has the same persistence behavior.
+
+## Historical checkpoints and failures
+
+On October 11, isolated Settings checkpoints `9f2cbd32` / `9ebebe46` passed 79 focused tests;
+`9ebebe46` passed 1033 repository / 1527 C# tests. `f224b498` passed 83 focused tests and
+1033 / 1531 full tests. `c7a64021` passed 85 focused tests, 1033 / 1533 full tests and independent
+security review. Their aggregate source compiles passed without launching Unity. Those source
+checks did not approve the then-unrun corrected compositions.
+
+The October 12 replay first passed 238 combined focused tests and four real instruction/Settings
+lifetime cases; `73d74ab0` passed 1033 / 1561 full tests. The bounded cache entrypoint `92c80f53`
+was source compiled. Final integration added measured Usage main/detail pages, their complete
+Judge traversal, and measured Settings category pages with two additional size regressions.
+
+The actual October 11 `f224b498` appearance failure is detailed below. On October 12, `f75703fe`
+OrganizationCheck exposed a category index that ignored its narrowed heading/page height and hid
+Settings beside the file. `d7fcecd2` corrected measured category packing without reducing limits.
+Its whole appearance pass still failed eight diagnostics: four at Larger per preset from a Judge
+fixture attempting a hidden Settings change while a lone approval file occupied the field.
+`ae6da8f4` preserves the production lone-file budget and proves reachable Comfort change/restore
+before opening the file. A distinctly logged direct Comfort-model transition separately retains
+all before-draw request read/Yes invalidation assertions. The final whole pass succeeds; no hidden
+button authority or physical geometry waiver was introduced.
 
 ## Source behavior and scope
 
@@ -51,15 +97,15 @@ outside-word grounds. Button caches include the palette version. The director re
 and clears old drawn target proof with `Moved`, preserving the existing frames' text-reading
 evidence where layout did not change. Current character labels, state badges, marks, peek cards and stage banners subscribe while
 enabled and refresh their displayed model on palette changes and reactivation. Badge refresh
-preserves its saved breath, turn phase and opacity. Source hooks are complete; their rendered
-same-session consistency remains unverified.
+preserves its saved breath, turn phase and opacity. Seeded same-session rendered consistency and rollback pass as recorded above; live play-mode
+and device lifecycle consistency remain unverified.
 
 Remaining literal colours: CharacterView state lights and testing ring; CharacterIdentity hue,
 saturation and value; CharacterBody shader fog, ink, gloss/glint and ghosting material values;
 WorkspaceVisuals legacy text/connector colours and WorkspaceDirector's reticle; shader-internal
 white glass sheen. The UI palette does not customize body identity or these material treatments.
 
-## Required checks
+## Checks exercised and remaining device observations
 
 1. Focused isolated .NET tests: default exact values, both presets' contrast, strict preference
    fallback/roundtrip, local choice versus temporary preview versus saved apply, rollback on every
@@ -78,18 +124,19 @@ white glass sheen. The UI palette does not customize body identity or these mate
    and allocation guards. Actual headset palette legibility, both-eye rendering and comfort remain
    wearer/device observations.
 
-The owner has released the headset trial. Root executed `AppearanceCheck` at `f224b498` on
-2026-10-11. The whole pass failed: existing organization fixture diagnostics remain, and label,
+The historical actual `AppearanceCheck` at `f224b498` ran on 2026-10-11. The whole pass failed:
+organization fixture diagnostics were present, and label,
 peek and banner neutral-change guards failed at both sizes. Category/Appearance and visibility
 fixtures emitted no diagnostics. Archived images show active cache unchanged and fresh neutral
 plates differing by only 1 or 2 RGB levels, below the general image tolerance. Plain edit-mode
 MonoBehaviour subscriptions were not being exercised. The bounded followup explicitly invokes
 the existing OnDisable/OnEnable lifecycle in its Editor fixture, unsubscribes before activation
 and cleanup, and uses exact RGB comparison for these deterministic same-pose cache witnesses.
-This is seeded lifecycle coverage, not live activation evidence; its rerun remains pending. This record does not claim renders,
-mutation checks, frame cost, discoverability or user complaints resolved.
+The final integrated seeded rerun and neutral mutation checks pass as recorded above. This remains
+seeded lifecycle coverage, not live activation evidence; device frame cost, discoverability and
+wearer comfort are not declared resolved.
 
-## Prepared composition witness
+## Composition witness
 
 `Halcyonic.XR.Workspace.Editor.WorkspaceRender.AppearanceCheck` keeps existing default render
 entrypoints and adds isolated preset folders. It runs the existing component gallery, workspace
@@ -107,7 +154,7 @@ old Apply refusal after returning, and allows a normal larger-text composition t
 if the real layout requires it. No narrower headset field is invented.
 
 The fixtures own only in-memory appearance state and a counted save callback; they never read or write
-preferences, connects a session or sends work. Each state uses the ordinary plane geometry
+preferences, connect a session or send work. Each state uses the ordinary plane geometry
 checks. Cached label, working/waiting badges, peek, practice mark and banner are rendered
 against freshly drawn equivalents at the same palette, transforms, seeded loop pose and
 opacity, both while active and after a disabled palette change/reactivation. Neutral plates
@@ -115,19 +162,18 @@ must visibly change and restore; unchanged status/practice colors must keep thei
 These are deterministic seeded poses, not observations of live animation timing.
 
 All mutable palette, text-size and measured-field state is restored in the batch entrypoint's
-finally block. PNGs go only to ignored Builds directories. The batch entrypoint is prepared
-and source compiled. The `f224b498` whole pass failed as recorded above; the corrected
-seeded-lifecycle/exact-pixel witness remains unrun. Its pixel and geometry assertions require
-a fresh actual Unity pass and screenshot review; passing engine-free tests does not approve Graphite's composition.
+finally block. PNGs go only to ignored Builds directories. The final actual integrated pass and
+image review supersede the earlier prepared-only status and `f224b498` failure for this combined
+source. Passing engine-free tests alone does not approve Graphite's composition.
 
-A source mutation check remains pending: temporarily make each cached component's
-`RefreshPalette` return without updating, run the exact same seeded fixture and require its
+The executed neutral source mutation check temporarily made each targeted cached component's
+`RefreshPalette` return without updating, ran the exact same seeded fixture and required its
 cached-versus-fresh exact RGB guard to fail for changed neutral plates. The bounded
 `WorkspaceRender.AppearanceCacheCheck` entrypoint invokes these same unchanged witnesses at both
 sizes and presets, with the same mutable-state restoration, without unrelated composition galleries.
 Neutral refresh mutations apply individually to label, peek and banner. The preserved state/practice
-colours have no neutral pixel-change claim; their seeded invariance is checked separately. Restore the mutation
-before any candidate run. No palette values or general render tolerances are loosened.
+colours have no neutral pixel-change claim; their seeded invariance is checked separately. Each
+mutation was restored before the final candidate run. No palette values or general render tolerances are loosened.
 
 The hidden-side regression uses real SettingsHub/SettingsColumn Forget details and confirmation,
 then the same stable file becomes focused, with and without its own side. The hidden retained
