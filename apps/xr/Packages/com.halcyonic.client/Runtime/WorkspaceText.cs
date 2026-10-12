@@ -290,7 +290,7 @@ namespace Halcyonic.Client
             CommandType.ExecutionAnswerQuestion => AnswerNotConfirmed,
             CommandType.ExecutionStart => "Not sure it started. " + CheckFirst,
             CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume or CommandType.WorkspaceRequestCancel
-                => "Delivery is unknown. Refresh this request to check its saved result.",
+                => "Not sure this request reached your computer. Refresh this request to check its saved result.",
             _ => "Not sure it happened. " + CheckFirst,
         };
 
