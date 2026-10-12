@@ -99,6 +99,7 @@ namespace Halcyonic.XR.UI.Editor
                 var meters = Meters();
                 foreach (Transform holder in gallery) first.Add(holder);
                 failures.AddRange(Check(folder, "gallery.png", camera, texture, root, eyes, buttons));
+                failures.AddRange(RepeatedCaptureKeepsScene(camera, texture));
                 failures.AddRange(GlazeChecks.BadgesSayTheirState(badges, "component render"));
                 failures.AddRange(GlazeChecks.IconAtlasHoldsEveryIcon("component render"));
                 failures.AddRange(MetersFilled(meters));
@@ -1089,6 +1090,10 @@ namespace Halcyonic.XR.UI.Editor
 
         private static Texture2D Render(Camera camera, RenderTexture texture)
         {
+            var beforeClear = RenderTexture.active;
+            RenderTexture.active = texture;
+            GL.Clear(true, true, camera.backgroundColor);
+            RenderTexture.active = beforeClear;
             camera.Render();
             var previous = RenderTexture.active;
             RenderTexture.active = texture;
@@ -1097,6 +1102,30 @@ namespace Halcyonic.XR.UI.Editor
             image.Apply();
             RenderTexture.active = previous;
             return image;
+        }
+
+        private static IEnumerable<string> RepeatedCaptureKeepsScene(Camera camera, RenderTexture texture)
+        {
+            var original = Render(camera, texture);
+            var flags = camera.clearFlags;
+            var active = RenderTexture.active;
+            RenderTexture.active = texture;
+            GL.Clear(true, true, camera.backgroundColor, 0f);
+            RenderTexture.active = active;
+            camera.clearFlags = CameraClearFlags.Nothing;
+            var repeated = Render(camera, texture);
+            camera.clearFlags = flags;
+            var before = original.GetPixels32();
+            var after = repeated.GetPixels32();
+            var changed = 0;
+            for (var index = 0; index < before.Length; index++)
+            {
+                if (Mathf.Abs(before[index].r - after[index].r) > 2 || Mathf.Abs(before[index].g - after[index].g) > 2
+                    || Mathf.Abs(before[index].b - after[index].b) > 2 || Mathf.Abs(before[index].a - after[index].a) > 2) changed++;
+            }
+            Object.DestroyImmediate(original);
+            Object.DestroyImmediate(repeated);
+            if (changed > 0) yield return "component render: a depth-primed repeated capture lost or changed " + changed + " pixels of the unchanged gallery.";
         }
 
         private static void ForceMeshes(GameObject root)
