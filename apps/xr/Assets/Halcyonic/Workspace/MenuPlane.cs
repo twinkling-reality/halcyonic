@@ -56,8 +56,7 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The closed bar as laid while it stands alone, for its top edge (<see cref="BarElevation"/>).</summary>
         private PlanePart barPart;
-        private bool compactShown;
-        private bool hasPlacement;
+        private Vector3[]? retainedWorkspace;
         private LineRenderer line = null!;
 
         /// <summary>Covers the stage's banner's place while the menu is open or a file stands on the plane, not for the closed bar alone (<see cref="AmbientCover"/>).</summary>
@@ -177,7 +176,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Where the stage placed the composition's centre, before any drag (<see cref="Direction"/> is where it stands).</summary>
         public PanelDirection Placed { get; private set; }
 
-        /// <summary>How much of a drag's offset the plane stands at, as laid last: what still holds of it for this composition (<see cref="MenuDrag.Kept"/>).</summary>
+        /// <summary>The exact retained hand offset. Passive composition changes never clamp or reset it.</summary>
         public (float Yaw, float Elevation) Moved { get; private set; }
 
         /// <summary>
@@ -375,19 +374,11 @@ namespace Halcyonic.XR.Workspace
             Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default,
             object? fileColumn = null, LineWords? compactIdentity = null, StateBadge? compactState = null, int waitingCount = 0, object? compactBinding = null)
         {
-            var wasCompact = compactShown;
-            var previousDirection = Direction;
-            var previousHeight = Composition?.Height ?? (bar.gameObject.activeSelf ? barPart.Height : 0f);
-            compactShown = menuFrame == null && fileFrame == null && compactIdentity != null;
-            var retainTop = hasPlacement && wasCompact != compactShown;
-            (float Yaw, float Elevation) AtRetainedTop(float height) => (
-                Mathf.DeltaAngle(Placed.Yaw, previousDirection.Yaw),
-                previousDirection.Elevation + Mathf.Atan(previousHeight / 2f) * Mathf.Rad2Deg - Mathf.Atan(height / 2f) * Mathf.Rad2Deg - Placed.Elevation);
-            hasPlacement = true;
             // Keep navigator state, but give the pending answer its own focused composition.
             if (fileFrame?.Focused == true) menuFrame = null;
             eyes = at;
-            surfaceDrop = null; // A manual agent shelf is not a desk floor for the independently positioned console.
+            // The host supplies a real furniture surface only; a manually placed shelf has no floor.
+            surfaceDrop = surfaceHeight is float surface ? at.y - surface : (float?)null;
             menu.Voice = Voice is (MenuColumn.Menu, string menuHeld, VoiceStage menuStage) ? (menuHeld, menuStage) : null;
             file.Voice = Voice is (MenuColumn.File, string fileHeld, VoiceStage fileStage) ? (fileHeld, fileStage) : null;
             // The menu's details take the front over a file beside it: laid as if no file stood there, the
@@ -418,11 +409,9 @@ namespace Halcyonic.XR.Workspace
             if (before.Count > 0) wasLaid.Item1 = before[0].Item1;
             if (before.Count > 1) wasLaid.Item2 = before[1].Item1;
             if (before.Count > 2) wasLaid.Item3 = before[2].Item1;
-            // The layout is decided at the drag's offset; where only part of it holds for what is laid, it is decided
-            // again at the part kept, so what stands beside what is judged where the plane will stand.
+            // Layout is measured at the retained position. Only an explicit active hand drag may change it.
             var offset = moved;
             var inPlace = false;
-            for (var pass = 0; ; pass++)
             {
                 // With text a step larger, a frame and its side panel are too wide for a Quest 3S together;
                 // and wherever the two would not fit as the stage places them, as beside a window, the side
@@ -483,29 +472,21 @@ namespace Halcyonic.XR.Workspace
                 {
                     if (shown[index].View == lineTo) lineColumn = index;
                 }
-                if (shown.Count == 0) break;
-
-                var columns = new List<PlaneColumn>();
-                foreach (var (_, view) in shown) columns.Add(ColumnOf(view));
-                Composition = new PlaneComposition(columns, zoom, WorkspaceChromeView.Height);
-                Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
-                // A drag's offset holds only as far as every rule of a drag still does for this composition.
-                var laid = Composition;
-                if (retainTop && pass == 0) offset = AtRetainedTop(laid.Height);
-                Moved = MenuDrag.Kept(offset, kept => Allows(laid, MenuDrag.Turned(Placed, kept)));
-                // At most three passes: should the third still keep less, the plane stands at the part kept,
-                // with the layout chosen at the pass before. That part is one every rule allows for what is laid,
-                // unless it is none: Kept never judges the placement itself, which the stage chose, not the drag.
-                if (Moved == offset || pass == 2) break;
-                offset = Moved;
+                if (shown.Count != 0)
+                {
+                    var columns = new List<PlaneColumn>();
+                    foreach (var (_, view) in shown) columns.Add(ColumnOf(view));
+                    Composition = new PlaneComposition(columns, zoom, WorkspaceChromeView.Height);
+                    Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
+                    Moved = offset;
+                }
             }
-            // What the drag itself changed under the hand, never a re-lay that follows the stage: less of it
-            // kept than was dragged, or another layout standing where it was.
+            // A changed composition settles again without changing the retained world position.
             var laidNow = (MenuColumn.Menu, MenuColumn.Menu, MenuColumn.Menu, shown.Count);
             if (shown.Count > 0) laidNow.Item1 = shown[0].Kind;
             if (shown.Count > 1) laidNow.Item2 = shown[1].Kind;
             if (shown.Count > 2) laidNow.Item3 = shown[2].Kind;
-            var dragMoved = moved != default && (Moved != moved || laidNow != wasLaid);
+            var dragMoved = moved != default && laidNow != wasLaid;
             // Coming back from stepping aside, the menu or the file takes no press as it slides in: its
             // buttons wait to settle again, though their words are as they were.
             foreach (var (kind, view) in shown)
@@ -540,9 +521,7 @@ namespace Halcyonic.XR.Workspace
                 bar.Shown = Glaze.AfterLeaveShown(barFor);
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
                 Placed = PlaceWorkspace(all, looking, surfaceHeight, barSize);
-                var compactComposition = new PlaneComposition(new[] { new PlaneColumn(bar.Size.x, bar.Size.y) }, zoom);
-                if (retainTop) offset = AtRetainedTop(compactComposition.Height);
-                Moved = MenuDrag.Kept(offset, kept => Allows(compactComposition, MenuDrag.Turned(Placed, kept)));
+                Moved = offset;
                 Direction = MenuDrag.Turned(Placed, Moved);
                 var placedBar = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
                 barPart = placedBar;
@@ -655,12 +634,24 @@ namespace Halcyonic.XR.Workspace
             UpdateLightLine();
         }
 
-        /// <summary>Conservatively rejects shelf overlap with the actual visible frame or restore dock, including one degree of spacing.</summary>
+        /// <summary>A local placement overlay reserves the workspace it will return to, as well as itself.</summary>
+        public void RetainWorkspaceFootprint() => retainedWorkspace = VisibleCorners();
+        public void ReleaseWorkspaceFootprint() => retainedWorkspace = null;
+
+        private Vector3[]? VisibleCorners()
+        {
+            var shape = Chrome.Visible ? Chrome.FrameSurface : bar.gameObject.activeInHierarchy ? bar.Shape : null;
+            if (shape == null) return null;
+            var corners = new Vector3[4];
+            for (var corner = 0; corner < 4; corner++) corners[corner] = shape.transform.TransformPoint(new Vector3(
+                corner % 2 == 0 ? -0.5f : 0.5f, corner < 2 ? -0.5f : 0.5f, 0f));
+            return corners;
+        }
+
+        /// <summary>Conservatively rejects shelf overlap with the visible frame/dock and any workspace retained under a local overlay.</summary>
         public bool ClearsShelf(IReadOnlyList<Vector3> worldCorners, Vector3 viewer)
         {
             if (!gameObject.activeInHierarchy || worldCorners.Count == 0) return true;
-            var shape = Chrome.Visible ? Chrome.FrameSurface : bar.gameObject.activeInHierarchy ? bar.Shape : null;
-            if (shape == null) return true;
             (float Left, float Right, float Bottom, float Top) Bounds(IEnumerable<Vector3> points)
             {
                 float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
@@ -673,14 +664,17 @@ namespace Halcyonic.XR.Workspace
                 }
                 return (left, right, bottom, top);
             }
-            var visible = new Vector3[4];
-            for (var corner = 0; corner < 4; corner++) visible[corner] = shape.transform.TransformPoint(new Vector3(corner % 2 == 0 ? -0.5f : 0.5f, corner < 2 ? -0.5f : 0.5f, 0f));
-            var workspace = Bounds(visible);
             var shelf = Bounds(worldCorners);
-            var across = Mathf.Max(workspace.Left - shelf.Right, shelf.Left - workspace.Right);
-            var down = Mathf.Max(workspace.Bottom - shelf.Top, shelf.Bottom - workspace.Top);
-            var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
-            return apart >= WorkspacePlacement.ClearanceDegrees;
+            bool Clear(Vector3[]? corners)
+            {
+                if (corners == null) return true;
+                var workspace = Bounds(corners);
+                var across = Mathf.Max(workspace.Left - shelf.Right, shelf.Left - workspace.Right);
+                var down = Mathf.Max(workspace.Bottom - shelf.Top, shelf.Bottom - workspace.Top);
+                var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
+                return apart >= WorkspacePlacement.ClearanceDegrees;
+            }
+            return Clear(VisibleCorners()) && Clear(retainedWorkspace);
         }
 
         private PanelDirection PlaceWorkspace(IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, PanelSize size)
@@ -779,10 +773,10 @@ namespace Halcyonic.XR.Workspace
             {
                 var top = fileOf.RestPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
                 var bottom = -lineTo.Content.Size.y / 2f;
-                return Joined(top, top, Point(content, -half, bottom), Point(content, half, bottom));
+                return ClearJoin(top, top, Point(content, -half, bottom), Point(content, half, bottom));
             }
             var (plate, covered) = OwnLabel();
-            return Joined(plate.TransformPoint(new Vector3(-0.5f, covered.yMin, 0f)), plate.TransformPoint(new Vector3(0.5f, covered.yMin, 0f)),
+            return ClearJoin(plate.TransformPoint(new Vector3(-0.5f, covered.yMin, 0f)), plate.TransformPoint(new Vector3(0.5f, covered.yMin, 0f)),
                 Point(subject, -half, lineTo.PlateTop), Point(subject, half, lineTo.PlateTop));
         }
 
@@ -1073,11 +1067,29 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void Join(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight)
         {
-            var (from, to) = Joined(labelLeft, labelRight, plateLeft, plateRight);
+            var (from, to) = ClearJoin(labelLeft, labelRight, plateLeft, plateRight);
             line.gameObject.SetActive(true);
             line.SetPosition(0, from);
             // Drawn from the character's end as far as it has come.
             line.SetPosition(1, Vector3.Lerp(from, to, drawnShare));
+        }
+
+        /// <summary>Choose measured edge endpoints that clear every current label and body, without moving the workspace.</summary>
+        private (Vector3 From, Vector3 To) ClearJoin(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight)
+        {
+            var nearest = Joined(labelLeft, labelRight, plateLeft, plateRight);
+            if (!Crosses(nearest.From, nearest.To)) return nearest;
+            for (var start = 0; start <= 4; start++)
+            {
+                var from = Vector3.Lerp(labelLeft, labelRight, start / 4f);
+                for (var end = 0; end <= 4; end++)
+                {
+                    var to = Vector3.Lerp(plateLeft, plateRight, end / 4f);
+                    if (!Crosses(from, to)) return (from, to);
+                }
+            }
+            // Preserve the visible failing geometry if there is no valid straight path; do not conceal it.
+            return nearest;
         }
 
         /// <summary>The light line's two ends between the label's edge and the plate's: straight across from the middle of their overlap, as the eyes see them, else their nearer ends.</summary>

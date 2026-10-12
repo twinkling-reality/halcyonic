@@ -368,3 +368,17 @@ The header repeats only project context; the selected task's full title stays on
 Current state and Practice/Demo/Recorded provenance have independently measured reserved cells,
 so outside project text cannot consume or ellipsize them. Placement failures use a measured local
 explanation with Back to workspace; these details own no runtime or draft authority.
+
+
+Passive redraws preserve the exact retained hand offset, including transitions to and from the global
+restore dock. Only explicit movement or Reset position changes it. Finishing a hand drag, resetting
+position, or returning from a local placement overlay repacks retained files at the current position;
+ordinary instruction text survives, while old keyboard callbacks and ordered reading/confirmation
+proof do not. Shelf placement reserves the workspace beneath its temporary overlay as well as the
+visible overlay, so Apply cannot introduce an overlap that appears only on return. A real furniture
+surface still bounds a hand drag; a manual shelf does not supply a fictitious floor.
+
+A selected agent's light line first uses the nearest label-bottom/subject-top join. If that straight
+path crosses measured current labels or bodies, the same crossing veto checks alternative endpoints
+along those two edges. Neither line routing nor content redraw moves the console. A failure to find
+a clear straight path remains visible to geometry checks instead of being hidden as successful proof.

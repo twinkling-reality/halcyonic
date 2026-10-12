@@ -9,6 +9,47 @@ namespace Halcyonic.Client.Tests;
 [TestFixture, NonParallelizable]
 public class InstructionSettingsTests
 {
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void ExplicitPlacementReflowRepacksOrdinaryDraftAndRevokesOldKeyboardAndReadProof(TextSize size)
+    {
+        var host = new FileMenuHost { TextSize = size, Height = _ => MenuPage.Words(5) };
+        var work = new WaitingWork(true);
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Completed; }, WorkstreamStatus.Completed);
+        var file = new FileColumn(host, () => work.Present(live: true), new CommandFactory(Samples.Client), () => null, _ => null, () => "");
+        file.Drawn(file.Frame!, null);
+        host.Wait(0.5);
+        file.Act(FileScreens.TellIt, null);
+        var oldKeyboard = host.Keyboard!.Value.Done;
+        var words = string.Join(" ", Enumerable.Repeat("Keep this ordinary local instruction.", 12));
+        oldKeyboard(words);
+        for (var part = 0; part < 100 && !file.Screen.Instruction.Read; part++)
+        {
+            file.Drawn(file.Frame!, null);
+            host.Wait(0.5);
+            if (!file.Screen.Instruction.Read) file.Act(FileScreens.NextInstructionPart, null);
+        }
+        Assert.That(file.Screen.Instruction.Read, Is.True);
+        var previouslyReady = file.Frame!;
+        host.Height = _ => MenuPage.Words(2);
+        file.Reflow();
+        oldKeyboard("Late keyboard overwrite");
+        Assert.That(file.Screen.Instruction.Words, Is.EqualTo(words));
+        Assert.That(file.Screen.Instruction.Read, Is.False);
+        Assert.That(file.Screen.Instruction.Part, Is.Zero);
+        file.Drawn(previouslyReady, null);
+        file.Act(FileScreens.SendInstruction, null);
+        Assert.That(host.Sent, Is.Empty, "old layout and keyboard completion grant no new Send authority");
+        for (var part = 0; part < 100 && !file.Screen.Instruction.Read; part++)
+        {
+            file.Drawn(file.Frame!, null);
+            host.Wait(0.5);
+            if (!file.Screen.Instruction.Read) file.Act(FileScreens.NextInstructionPart, null);
+        }
+        Assert.That(file.Screen.Instruction.Read, Is.True, "all preserved words remain reachable in the narrower layout");
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     [TestCase(TextSize.Standard, false)]
     [TestCase(TextSize.Larger, false)]
     [TestCase(TextSize.Standard, true)]
