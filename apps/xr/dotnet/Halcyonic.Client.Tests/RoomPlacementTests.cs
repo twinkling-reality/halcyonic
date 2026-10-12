@@ -520,7 +520,7 @@ public class RoomStatusTests
     }
 
     [Test]
-    public void EveryPlacementInFrontOfThePersonSaysWhy()
+    public void EveryUnavailablePlacementExplainsRecoveryWithoutAFloatingFallback()
     {
         var reasons = new[]
         {
@@ -533,7 +533,8 @@ public class RoomStatusTests
         };
         foreach (var status in reasons)
         {
-            Assert.That(status.Line, Does.EndWith("stand in front of you."), status.ToString());
+            Assert.That(status.Line, Does.Not.Contain("stand in front"), status.ToString());
+            Assert.That(status.Line, Does.Match("shelf|tucked away"), "every failure offers manual placement or hides until recovery");
         }
         Assert.That(reasons.Select(status => status.Line).Distinct().Count(), Is.EqualTo(reasons.Length), "each reason reads differently");
     }

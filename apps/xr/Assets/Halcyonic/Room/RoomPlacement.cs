@@ -12,40 +12,8 @@ using UnityEngine.Android;
 
 namespace Halcyonic.XR.Room
 {
-    /// <summary>
-    /// Puts the stage in the person's real room: passthrough on, the characters on their desk, and
-    /// the place kept with a spatial anchor so they are there again next time. Implements
-    /// <see cref="IStagePlacementSource"/> on the stage object, where <see cref="RoomBootstrap"/>
-    /// adds it; <see cref="Preferred"/> is the point on the surface where the middle of the lineup
-    /// stands, with a yaw facing away from the person.
-    /// </summary>
-    /// <remarks>
-    /// The real room is the default wherever passthrough works; the person can choose the virtual
-    /// space instead (<see cref="SetSpace"/>), and the choice is kept. In the real room it:
-    /// <list type="number">
-    /// <item>waits for the head to be tracked, so choices are made from where the person sits;</item>
-    /// <item>asks once, after a short line of explanation, for access to the room's layout (the
-    /// spatial data permission), unless the person declined before;</item>
-    /// <item>reads the room through the MR Utility Kit;</item>
-    /// <item>restores the anchor saved for that room (or, without a room, the most recent one) if it
-    /// localizes and still suits the seat (<see cref="StageSurfaces.StillSuits"/>);</item>
-    /// <item>otherwise chooses a surface (<see cref="StageSurfaces.Choose"/>), stands the stage there
-    /// at once, and keeps it with a new anchor saved for the room.</item>
-    /// </list>
-    /// Wherever a step cannot be done (no passthrough, no access, no room, no suitable surface, no
-    /// anchor) the stage keeps standing in front of the person and <see cref="Status"/> says why;
-    /// nothing waits on the room before the characters appear.
-    /// <para>
-    /// The anchor follows the real desk. Only its tracked pose moves the stage, never a reference
-    /// space event: with system windows such as Virtual Display's open, the session's focus can flap
-    /// many times a second and the runtime reports reference space changes each time, although
-    /// nothing moved. So while the app has input focus, the pose is published again once the anchor
-    /// has moved more than <see cref="MovedMeters"/> or <see cref="MovedDegrees"/> and then held still
-    /// for <see cref="SettleSeconds"/>, as after a recenter; it is cleared when the anchor stays
-    /// untracked for <see cref="LostSeconds"/> of focused time, and published again when it is
-    /// tracked. Without focus nothing changes. A placement without an anchor stays where it was put.
-    /// </para>
-    /// </remarks>
+    /// <summary>Passthrough and explicit optional shelf placement. Startup never requests scene permission.
+    /// A manual preview remains session-local; a room scan only suggests a measured surface and still needs Apply.</summary>
     [DisallowMultipleComponent]
     public sealed class RoomPlacement : MonoBehaviour, IStagePlacementSource
     {
@@ -99,6 +67,60 @@ namespace Halcyonic.XR.Room
         private int run;
         private bool accessDeclined;
         private bool askedAgain;
+        public AgentShelfDraft Draft { get; } = new AgentShelfDraft();
+        public Pose? Preview => Draft.Candidate is AgentShelfPose candidate ? ToPose(candidate) : (Pose?)null;
+        public bool BeginPreview()
+        {
+            var head = Camera.main;
+            if (head == null) return false;
+            var forward = head.transform.forward; forward.y = 0f;
+            if (forward.sqrMagnitude < 1e-4f) forward = Vector3.forward;
+            forward.Normalize();
+            var pose = Preferred ?? new Pose(head.transform.position + forward * 1.2f - Vector3.up * 0.45f,
+                Quaternion.LookRotation(forward, Vector3.up));
+            run++;
+            Draft.Begin(ToDraft(pose), ToVector(head.transform.position));
+            if (Draft.Candidate == null)
+                Draft.Begin(ToDraft(new Pose(head.transform.position + forward * 1.2f - Vector3.up * 0.45f, Quaternion.LookRotation(forward, Vector3.up))), ToVector(head.transform.position));
+            return Draft.Candidate != null;
+        }
+        public void MovePreview(string direction)
+        {
+            if (FocusGuard.InputSuspended || Draft.Candidate is not AgentShelfPose candidate) return;
+            var yaw = Quaternion.Euler(0f, candidate.Yaw, 0f);
+            var delta = direction switch
+            {
+                "Left" => yaw * Vector3.left * 0.05f,
+                "Right" => yaw * Vector3.right * 0.05f,
+                "Closer" => yaw * Vector3.back * 0.05f,
+                "Farther" => yaw * Vector3.forward * 0.05f,
+                "Up" => Vector3.up * 0.05f,
+                "Down" => Vector3.down * 0.05f,
+                _ => Vector3.zero,
+            };
+            Draft.Move(ToVector(delta), direction == "Turn left" ? -5f : direction == "Turn right" ? 5f : 0f);
+        }
+        public void CancelPreview() { run++; Draft.Cancel(); }
+        public bool ApplyPreview()
+        {
+            if (FocusGuard.InputSuspended) { CancelPreview(); return false; }
+            run++;
+            return Draft.Apply(candidate =>
+            {
+                DropAnchor();
+                Publish(ToPose(candidate), "the person applied a manual shelf preview");
+                SetStatus(Status.With(placement: StagePlacement.OnShelfThisSession, clearSurface: true));
+                return true;
+            });
+        }
+        public void FindRoomSurface()
+        {
+            if (FocusGuard.InputSuspended || Draft.Candidate == null || Status.Shown != RoomSpace.Room) return;
+            _ = PlaceAsync(++run);
+        }
+        private static System.Numerics.Vector3 ToVector(Vector3 value) => new System.Numerics.Vector3(value.x, value.y, value.z);
+        private static AgentShelfPose ToDraft(Pose pose) => new AgentShelfPose(ToVector(pose.position), pose.rotation.eulerAngles.y);
+        private static Pose ToPose(AgentShelfPose pose) => new Pose(new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z), Quaternion.Euler(0f, pose.Yaw, 0f));
 
         /// <inheritdoc />
         public event Action? Changed;
@@ -202,7 +224,7 @@ namespace Halcyonic.XR.Room
         /// <summary>Starts over for the space the person prefers, abandoning anything in progress.</summary>
         private void Apply()
         {
-            var current = ++run;
+            ++run;
             if (Status.Preferred == RoomSpace.Room) passthrough.Start(Time.unscaledTime);
             else passthrough.Stop();
             SetStatus(Status.With(passthrough: passthrough.State));
@@ -210,114 +232,52 @@ namespace Halcyonic.XR.Room
             {
                 if (passthrough.State == PassthroughState.Unavailable) Log("showing the virtual space, because passthrough is unavailable: " + passthrough.Problem);
                 else Log("showing the virtual space");
-                Clear("the virtual space is shown");
-                SetStatus(Status.With(placement: StagePlacement.InFront, scan: RoomScan.NotRead, clearSurface: true));
+                SetStatus(Status.With(scan: RoomScan.NotRead));
                 return;
             }
             Log("showing the real room");
-            _ = PlaceAsync(current);
+            // Reading the room is reserved for FindRoomSurface, an explicit placement action.
         }
 
         private bool Current(int attempt) => attempt == run && this != null;
 
         private async Task PlaceAsync(int attempt)
         {
+            var generation = Draft.Generation;
             try
             {
-                // Back from the virtual space, the surface this session already has stays.
-                if (anchor != null && anchor.Localized)
-                {
-                    Publish(StageAnchors.PoseOf(anchor), "the real room is shown again");
-                    SetStatus(Status.With(placement: anchoredAs, surface: anchoredOn, clearSurface: anchoredOn == null));
-                    return;
-                }
-                SetStatus(Status.With(placement: StagePlacement.Searching, scan: RoomScan.NotRead));
-                if (!await WaitForHeadAsync(attempt)) return;
-
+                if (!await WaitForHeadAsync(attempt) || Draft.Candidate == null) return;
                 var access = HasRoomAccess();
                 if (!access && !accessDeclined)
                 {
                     SetStatus(Status.With(scan: RoomScan.AskingAccess));
-                    controls?.Present();
                     if (!await WaitAsync(ExplainSeconds, attempt)) return;
-                    Log("asking for access to the room's layout");
                     access = await AskRoomAccessAsync();
                     if (!Current(attempt)) return;
-                    Log(access ? "room access allowed" : "room access declined");
                     if (!access) RememberDeclined(true);
                 }
-
-                RoomRead read;
-                if (access)
-                {
-                    SetStatus(Status.With(scan: RoomScan.Reading));
-                    mruk ??= RoomReader.Ensure(root.transform);
-                    read = await RoomReader.ReadAsync(mruk, Head.position);
-                    if (!Current(attempt)) return;
-                }
-                else
-                {
-                    read = RoomRead.Without(RoomScan.NoAccess, "no access");
-                }
-                Log("read the room: " + read.Scan + ", " + read.Detail);
+                if (!access) { SetStatus(Status.With(scan: RoomScan.NoAccess)); return; }
+                SetStatus(Status.With(scan: RoomScan.Reading));
+                mruk ??= RoomReader.Ensure(root.transform);
+                var read = await RoomReader.ReadAsync(mruk, Head.position);
+                if (!Current(attempt) || generation != Draft.Generation) return;
                 SetStatus(Status.With(scan: read.Scan));
-
+                if (read.Surfaces == null || read.Obstacles == null) return;
                 var viewer = ViewerNow();
-                if (await RestoreAsync(read, viewer, attempt) || !Current(attempt)) return;
-
-                if (read.Scan != RoomScan.Read || read.Surfaces == null || read.Obstacles == null || read.RoomId == null)
-                {
-                    Clear("the room's layout is not known");
-                    SetStatus(Status.With(placement: StagePlacement.InFront, clearSurface: true));
-                    controls?.Present();
-                    return;
-                }
                 var spot = StageSurfaces.Choose(read.Surfaces, read.Obstacles, viewer);
-                if (spot == null)
-                {
-                    Log("found no surface that fits the lineup in comfortable reach and view");
-                    foreach (var line in StageSurfaces.Explain(read.Surfaces, read.Obstacles, viewer)) Log("surface: " + line);
-                    Clear("the room has no suitable surface");
-                    SetStatus(Status.With(placement: StagePlacement.NoSurface, clearSurface: true));
-                    controls?.Present();
-                    return;
-                }
+                if (spot == null) { SetStatus(Status.With(placement: StagePlacement.NoSurface)); return; }
+                // This is a suggestion, not a confirmed desk placement or a saved anchor.
                 var pose = PoseOf(spot, viewer);
-                Log($"chose {(spot.Surface.Kind == SurfaceKind.Desk ? "a desk" : "other furniture")} {spot.Reach:0.00} m away, {Describe(spot.Turn)}, {spot.Drop:0.00} m below the eyes");
-                DropAnchor();
-                Publish(pose, "it chose a surface");
-                SetStatus(Status.With(placement: StagePlacement.OnSurfaceThisSession, surface: spot.Surface.Kind));
-
-                var (created, saved, detail) = await StageAnchors.CreateAsync(root.transform, pose, CreateSeconds);
-                if (!Current(attempt))
-                {
-                    if (created != null) Destroy(created.gameObject);
-                    return;
-                }
-                if (created == null)
-                {
-                    Log("the placement holds for this session only: no anchor, because " + detail);
-                    return;
-                }
-                if (!saved)
-                {
-                    Adopt(created, StagePlacement.OnSurfaceThisSession, spot.Surface.Kind);
-                    Log("the placement is anchored for this session only: the anchor was " + detail);
-                    return;
-                }
-                Adopt(created, StagePlacement.OnSurface, spot.Surface.Kind);
-                var dropped = memory.Remember(read.RoomId, created.Uuid.ToString("N"));
-                SaveMemory();
-                Log("kept the placement with a spatial anchor saved for this room");
-                Erase(dropped);
-                SetStatus(Status.With(placement: StagePlacement.OnSurface));
+                var width = GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(6);
+                if (!StageSurfaces.ShelfFits(spot.Surface, read.Obstacles, spot.Point.Plan, pose.rotation.eulerAngles.y, width, AgentShelfDraft.Depth))
+                { SetStatus(Status.With(placement: StagePlacement.NoSurface)); return; }
+                Draft.Suggest(generation, ToDraft(pose));
             }
             catch (Exception error)
             {
                 if (!Current(attempt)) return;
                 Debug.LogException(error);
-                Clear("the room placement failed");
-                SetStatus(Status.With(placement: StagePlacement.InFront, scan: RoomScan.Unavailable, clearSurface: true));
+                SetStatus(Status.With(scan: RoomScan.Unavailable));
             }
         }
 
@@ -449,7 +409,7 @@ namespace Halcyonic.XR.Room
         {
             if (!Preferred.HasValue) return;
             Preferred = null;
-            Log("the stage stands in front of the person, because " + reason);
+            Log("the optional shelf is tucked away, because " + reason);
             Changed?.Invoke();
         }
 

@@ -133,7 +133,10 @@
   ([XR_CLIENT.md](../architecture/XR_CLIENT.md), [ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)).
 - MRUK is configured in code: no loading on startup, no world lock, no automatic space setup.
 - The release build ships the Immersive Debugger's runtime, disabled.
-- Every fallback leaves the characters in front of the person, and says why in one line.
+- Current workspace entry is character-free. Scene access starts only from an explicit shelf placement
+  action, and a missing placement tucks agents away. Manual shelf placement is session-local;
+  the old automatic anchor/arc behavior below is historical device evidence, not current startup behavior.
+  The new flow still needs headset comfort, direct-grab and tracking-session checks.
 
 ## To check on the headset
 

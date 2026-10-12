@@ -293,6 +293,46 @@ namespace Halcyonic.Client
             return ArcFits(surface, onSurface, eyes, toMiddle.Heading, reach, Margin(reach) * marginScale);
         }
 
+        /// <summary>Whether the entire explicitly sized shelf rectangle fits a real surface, including concave edges and obstacles.</summary>
+        public static bool ShelfFits(RoomSurface surface, IEnumerable<RoomObstacle> obstacles, PlanPoint middle, float yaw, float width, float depth)
+        {
+            if (!(width > 0f) || !(depth > 0f) || surface.Outline.Count < 3) return false;
+            var forward = PlanPoint.Toward(yaw);
+            var right = PlanPoint.Toward(yaw + 90f);
+            var corners = new[]
+            {
+                middle - right * (width / 2f) - forward * (depth / 2f),
+                middle + right * (width / 2f) - forward * (depth / 2f),
+                middle + right * (width / 2f) + forward * (depth / 2f),
+                middle - right * (width / 2f) + forward * (depth / 2f),
+            };
+            const float margin = 0.01f;
+            if (corners.Any(point => !Polygon.Contains(surface.Outline, point))) return false;
+            if (!EdgesClear(corners, surface.Outline, margin)) return false;
+            foreach (var obstacle in obstacles.Where(obstacle => Stands(obstacle, surface.Height)))
+            {
+                if (corners.Any(point => Polygon.Contains(obstacle.Footprint, point))
+                    || obstacle.Footprint.Any(point => Polygon.Contains(corners, point))
+                    || !EdgesClear(corners, obstacle.Footprint, margin)) return false;
+            }
+            return true;
+        }
+        private static bool EdgesClear(IReadOnlyList<PlanPoint> a, IReadOnlyList<PlanPoint> b, float margin)
+        {
+            for (var i = 0; i < a.Count; i++)
+                for (var j = 0; j < b.Count; j++)
+                {
+                    var a0 = a[i]; var a1 = a[(i + 1) % a.Count]; var b0 = b[j]; var b1 = b[(j + 1) % b.Count];
+                    float Cross(PlanPoint p, PlanPoint q, PlanPoint r) => (q.X - p.X) * (r.Z - p.Z) - (q.Z - p.Z) * (r.X - p.X);
+                    if (MathF.Max(MathF.Min(a0.X, a1.X), MathF.Min(b0.X, b1.X)) <= MathF.Min(MathF.Max(a0.X, a1.X), MathF.Max(b0.X, b1.X))
+                        && MathF.Max(MathF.Min(a0.Z, a1.Z), MathF.Min(b0.Z, b1.Z)) <= MathF.Min(MathF.Max(a0.Z, a1.Z), MathF.Max(b0.Z, b1.Z))
+                        && Cross(a0, a1, b0) * Cross(a0, a1, b1) <= 0f && Cross(b0, b1, a0) * Cross(b0, b1, a1) <= 0f) return false;
+                    if (Polygon.DistanceToSegment(a0, b0, b1) < margin || Polygon.DistanceToSegment(a1, b0, b1) < margin
+                        || Polygon.DistanceToSegment(b0, a0, a1) < margin || Polygon.DistanceToSegment(b1, a0, a1) < margin) return false;
+                }
+            return true;
+        }
+
         /// <summary>
         /// Whether a placement kept from an earlier session still suits the person where they are
         /// now: within a looser reach, turn and height than a new choice, and, when the room's
@@ -469,7 +509,7 @@ namespace Halcyonic.Client
             return nearest;
         }
 
-        private static float DistanceToSegment(PlanPoint point, PlanPoint a, PlanPoint b)
+        internal static float DistanceToSegment(PlanPoint point, PlanPoint a, PlanPoint b)
         {
             var along = b - a;
             var lengthSquared = along.X * along.X + along.Z * along.Z;

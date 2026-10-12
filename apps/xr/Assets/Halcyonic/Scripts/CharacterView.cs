@@ -130,6 +130,8 @@ namespace Halcyonic.XR
         /// and its forward axis is the direction the character faces.
         /// </summary>
         public Transform Body => body;
+        public bool Grounded { get; set; }
+        private Vector3[] shellVertices = System.Array.Empty<Vector3>();
 
         public string WorkstreamId { get; private set; } = "";
 
@@ -141,7 +143,8 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// The lowest point of the character at rest, the bottom of its label, mark included, in its
-        /// own units below its origin: what rests on a surface.
+        /// own units below its origin, used by legacy label-resting gallery geometry.
+        /// Grounded shelves use the animated shell mesh contact instead.
         /// </summary>
         internal float Footing => label.Bottom;
 
@@ -230,6 +233,7 @@ namespace Halcyonic.XR
 
             shellRenderer = CreateRenderer(body, "Shell", CharacterMeshes.Body(identity.Shape), CharacterMaterials.Body);
             shell = shellRenderer.transform;
+            shellVertices = shellRenderer.GetComponent<MeshFilter>().sharedMesh.vertices;
             shell.localScale = Vector3.one * BodyScale;
 
             haloRenderer = CreateRenderer(body, "Halo", CharacterMeshes.Quad(), CharacterMaterials.Halo);
@@ -542,8 +546,13 @@ namespace Halcyonic.XR
 
         private void Apply(float t)
         {
-            body.localPosition = new Vector3(0f, lift, 0f);
             shell.localScale = new Vector3(BodyScale * (1f + squash), BodyScale * (1f - squash), BodyScale * (1f + squash));
+
+            var floor = float.PositiveInfinity;
+            if (Grounded)
+                foreach (var vertex in shellVertices)
+                    floor = Mathf.Min(floor, (body.localRotation * Vector3.Scale(vertex, shell.localScale)).y);
+            body.localPosition = new Vector3(0f, Grounded && !float.IsPositiveInfinity(floor) ? -floor : lift, 0f);
 
             bodyBlock.SetVector(BodyColorId, bodyColor);
             bodyBlock.SetFloat(ClockId, t);

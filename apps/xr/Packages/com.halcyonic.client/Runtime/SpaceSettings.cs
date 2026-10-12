@@ -50,13 +50,15 @@ namespace Halcyonic.Client
         /// <param name="arrangement">Where the characters stand, or null on a desk, where the room places them.</param>
         /// <param name="pairing">Pairing with the person's computer, or null where it isn't ready or offered.</param>
         /// <param name="menuMoved">The person dragged the menu from where it stands by itself, until Reset position puts it back.</param>
-        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing, bool menuMoved = false)
+        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing, bool menuMoved = false, bool agentsEnabled = false, bool shelfPlaced = false)
         {
             Room = room;
             Offer = offer;
             Arrangement = arrangement;
             Pairing = pairing;
             MenuMoved = menuMoved;
+            AgentsEnabled = agentsEnabled;
+            ShelfPlaced = shelfPlaced;
         }
 
         public RoomStatus? Room { get; }
@@ -68,6 +70,8 @@ namespace Halcyonic.Client
         public PairingNow? Pairing { get; }
 
         public bool MenuMoved { get; }
+        public bool AgentsEnabled { get; }
+        public bool ShelfPlaced { get; }
     }
 
     /// <summary>
@@ -83,7 +87,9 @@ namespace Halcyonic.Client
 
         public const string TakeOffer = "room-offer";
 
-        public const string NextArrangement = "arrangement-next";
+        public const string NextArrangement = "arrangement-next"; // Legacy callers; no user arrangement cycle.
+        public const string ToggleAgents = "agents-toggle";
+        public const string PlaceAgents = "agents-place";
 
         public const string ResetPosition = "reset-position";
 
@@ -110,7 +116,8 @@ namespace Halcyonic.Client
             {
                 new MenuSetting(SwitchSpace, SettingsText.YourSpace, "Around you", () => Space(now().Room), () => act(SwitchSpace)),
                 new MenuSetting(TakeOffer, SettingsText.YourSpace, "Your room's layout", () => Offer(now()), () => act(TakeOffer)),
-                new MenuSetting(NextArrangement, SettingsText.YourSpace, "The characters", () => Arranged(now()), () => act(NextArrangement)),
+                new MenuSetting(ToggleAgents, SettingsText.YourSpace, "Spatial agents", () => Agents(now()), () => act(ToggleAgents)),
+                new MenuSetting(PlaceAgents, SettingsText.YourSpace, "Agent shelf", () => Shelf(now()), () => act(PlaceAgents)),
                 new MenuSetting(ResetPosition, SettingsText.YourSpace, "The menu", () => Menu(now().MenuMoved), () => act(ResetPosition)),
             };
             if (pairing)
@@ -151,6 +158,8 @@ namespace Halcyonic.Client
 
         private static SettingNow Offer(SpaceNow now) => now.Room is not RoomStatus room
             ? new SettingNow("Not known", RoomUnread, "Nothing to set up", RoomUnread, "Set up this room", RoomUnread)
+            : room.Scan == RoomScan.NotRead
+                ? new SettingNow("Not read", room.Line, "Place a shelf", "Room layout is read only from the shelf placement preview", "Place shelf")
             : now.Offer switch
             {
                 RoomOffer.AllowRoomAccess => new SettingNow("No access", room.Line, RoomStatus.OfferLabel(now.Offer),
@@ -161,28 +170,15 @@ namespace Halcyonic.Client
                     "Your room needs nothing set up now."),
             };
 
-        private static SettingNow Arranged(SpaceNow now)
-        {
-            if (now.Room == null)
-            {
-                return new SettingNow("Not known", RoomUnread, "Nothing to change", RoomUnread, SettingsText.ChangeTo(StageArrangement.TurnedAside), RoomUnread);
-            }
-            if (now.Arrangement is not StageArrangement standing)
-            {
-                return new SettingNow("On your desk", SettingsText.ArrangedByRoom, "Nothing to change", SettingsText.ArrangedByRoom,
-                    SettingsText.ChangeTo(StageArrangement.TurnedAside), SettingsText.ArrangedByRoom);
-            }
-            var next = Next(standing);
-            return new SettingNow(Standing(standing), SettingsText.Arrangement(standing), SettingsText.ChangeTo(next),
-                SettingsText.Arrangement(next), SettingsText.ChangeTo(next));
-        }
+        private static SettingNow Agents(SpaceNow now) => now.AgentsEnabled
+            ? new SettingNow("On", "Agents stand on your placed shelf", "Off", "Keep working with the workspace alone", "Hide agents")
+            : new SettingNow("Off", "The workspace works without characters", now.ShelfPlaced ? "On" : "Place a shelf",
+                "Preview and confirm a visible shelf before agents appear", now.ShelfPlaced ? "Show agents" : "Place agents");
 
-        private static string Standing(StageArrangement arrangement) => arrangement switch
-        {
-            StageArrangement.TurnedAside => "Room for a window",
-            StageArrangement.BesideAWindow => "Either side of a window",
-            _ => "In front of you",
-        };
+        private static SettingNow Shelf(SpaceNow now) => new SettingNow(now.ShelfPlaced ? "Placed" : "Not placed",
+            now.ShelfPlaced ? "Where you placed it this session" : "No shelf appears until you Apply its preview",
+            "Move the shelf", "Move a preview, then Apply or Cancel", now.ShelfPlaced ? "Move shelf" : "Place shelf",
+            now.Room == null ? RoomUnread : null);
 
         private static SettingNow Paired(PairingNow? pairing)
         {

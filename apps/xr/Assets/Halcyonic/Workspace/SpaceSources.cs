@@ -14,6 +14,11 @@ namespace Halcyonic.XR.Workspace
 
         RoomOffer Offer { get; }
 
+        bool AgentsEnabled { get; }
+        bool ShelfPlaced { get; }
+        void ToggleAgents();
+        void PlaceAgents();
+
         /// <summary>Where the characters stand, or null on a desk, where the room places them.</summary>
         StageArrangement? Arrangement { get; }
 

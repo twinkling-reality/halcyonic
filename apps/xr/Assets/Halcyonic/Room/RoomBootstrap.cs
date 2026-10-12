@@ -27,7 +27,7 @@ namespace Halcyonic.XR.Room
 
         private void Update()
         {
-            var stage = FindAnyObjectByType<CharacterStage>();
+            var stage = FindAnyObjectByType<Workspace.WorkspaceDirector>();
             if (stage == null && ++frames < MaxFrames) return;
             if (stage != null && stage.GetComponent<RoomPlacement>() == null)
             {

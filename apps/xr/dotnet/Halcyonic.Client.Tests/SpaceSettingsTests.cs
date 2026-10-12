@@ -30,7 +30,7 @@ public class SpaceSettingsTests
         var (rows, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, null));
         Assert.That(rows.Select(row => (row.Group, row.Name)), Is.EqualTo(new[]
         {
-            ("Your space", "Around you"), ("Your space", "Your room's layout"), ("Your space", "The characters"), ("Your space", "The menu"),
+            ("Your space", "Around you"), ("Your space", "Your room's layout"), ("Your space", "Spatial agents"), ("Your space", "Agent shelf"), ("Your space", "The menu"),
         }));
         var (developing, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow(null, PairingStep.Idle, true)));
         Assert.That(developing.Last().Group, Is.EqualTo("Your computer"));
@@ -55,7 +55,7 @@ public class SpaceSettingsTests
     {
         var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.SetUpRoom, StageArrangement.InFront, new PairingNow(null, PairingStep.Idle, true)));
         foreach (var row in rows) row.Change();
-        Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.NextArrangement, SpaceSettings.ResetPosition, SpaceSettings.Pairing }));
+        Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.ToggleAgents, SpaceSettings.PlaceAgents, SpaceSettings.ResetPosition, SpaceSettings.Pairing }));
     }
 
     [Test]
@@ -84,26 +84,24 @@ public class SpaceSettingsTests
     }
 
     [Test]
-    public void TheCharactersStepThroughTheThreeArrangementsInTurnAndNotOnADesk()
+    public void AgentsAreOffByDefaultAndTheOnlyEnableRouteRequiresAPlacedShelf()
     {
-        StageArrangement? standing = StageArrangement.InFront;
-        var (rows, _) = Of(() => new SpaceNow(Room, RoomOffer.None, standing, null));
-        var seen = new List<(string, string)>();
-        foreach (var arrangement in new[] { StageArrangement.InFront, StageArrangement.TurnedAside, StageArrangement.BesideAWindow })
-        {
-            standing = arrangement;
-            var now = Read(rows, SpaceSettings.NextArrangement);
-            seen.Add((now.Value, now.Prompt));
-            Assert.That(now.Now, Is.EqualTo(SettingsText.Arrangement(arrangement)));
-            Assert.That(now.Reason, Is.Null);
-        }
-        Assert.That(seen, Is.EqualTo(new[]
-        {
-            ("In front of you", "Make room for a window"), ("Room for a window", "Either side of a window"), ("Either side of a window", "Characters in front"),
-        }));
-        Assert.That(SpaceSettings.Next(StageArrangement.BesideAWindow), Is.EqualTo(StageArrangement.InFront));
-        standing = null;
-        Assert.That(Read(rows, SpaceSettings.NextArrangement).Reason, Is.EqualTo(SettingsText.ArrangedByRoom), "on a desk the room places them");
+        var enabled = false;
+        var placed = false;
+        var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.BesideAWindow, null,
+            agentsEnabled: enabled, shelfPlaced: placed));
+        var agents = Read(rows, SpaceSettings.ToggleAgents);
+        Assert.That((agents.Value, agents.Prompt), Is.EqualTo(("Off", "Place agents")));
+        Assert.That(agents.Now, Is.EqualTo("The workspace works without characters"));
+        Assert.That(rows.Any(row => row.Key == SpaceSettings.NextArrangement), Is.False, "there is no guessed window layout route");
+        Assert.That(Read(rows, SpaceSettings.PlaceAgents).Value, Is.EqualTo("Not placed"));
+        rows.Single(row => row.Key == SpaceSettings.ToggleAgents).Change();
+        Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.ToggleAgents }), "the owning room must confirm a pose before enabling");
+        placed = true;
+        Assert.That(Read(rows, SpaceSettings.ToggleAgents).Prompt, Is.EqualTo("Show agents"));
+        enabled = true;
+        Assert.That((Read(rows, SpaceSettings.ToggleAgents).Value, Read(rows, SpaceSettings.ToggleAgents).Prompt), Is.EqualTo(("On", "Hide agents")));
+        Assert.That(Read(rows, SpaceSettings.PlaceAgents).Prompt, Is.EqualTo("Move shelf"));
     }
 
     [Test]
@@ -133,9 +131,9 @@ public class SpaceSettingsTests
     public void SettingsTakesNoChangeARowSaysCantBeMadeNow()
     {
         var host = new FakeMenuHost();
-        var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, null, null));
+        var (rows, raised) = Of(() => new SpaceNow(null, RoomOffer.None, null, null));
         var settings = new SettingsColumn(host, rows);
-        settings.Act(SettingsColumn.OpenSetting, SpaceSettings.NextArrangement);
+        settings.Act(SettingsColumn.OpenSetting, SpaceSettings.PlaceAgents);
         Assert.That(settings.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.False);
         settings.Act(SettingsColumn.ChangeSetting, null);
         Assert.That(raised, Is.Empty);
@@ -220,7 +218,7 @@ public class SpaceSettingsTests
     {
         var host = new FakeMenuHost();
         var (rows, raised) = Of(() => new SpaceNow(null, RoomOffer.None, null, null));
-        foreach (var key in new[] { SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.NextArrangement })
+        foreach (var key in new[] { SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.PlaceAgents })
         {
             Assert.That(Read(rows, key).Reason, Is.EqualTo(SpaceSettings.RoomUnread), key);
         }
@@ -241,7 +239,7 @@ public class SpaceSettingsTests
         var (rows, _) = Of(() => new SpaceNow(room, RoomOffer.None, room == null ? null : StageArrangement.InFront, pairing), new List<string>(), pairing: true);
         Assert.That(rows.Select(row => row.Key), Is.EqualTo(new[]
         {
-            SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.NextArrangement, SpaceSettings.ResetPosition, SpaceSettings.Pairing,
+            SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.ToggleAgents, SpaceSettings.PlaceAgents, SpaceSettings.ResetPosition, SpaceSettings.Pairing,
         }), "a development build's rows, before the room or the pairing is there");
         Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Not ready", (string?)SpaceSettings.PairingNotReady)));
         room = Room;
