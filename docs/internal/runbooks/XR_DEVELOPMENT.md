@@ -24,10 +24,12 @@ agent completion. Return selection restores only when Unity uses that same conne
 
 Native agent text and drafts are protected from OS screenshots by `FLAG_SECURE`. In a development
 APK, choose **Connection (development)** then **Preview synthetic panel (screenshots allowed)**.
-That offline preview uses the real native views with a fixed public mock Snapshot and sends no
-request. Capture the project/task header, instruction review, whole approval, every question
-prompt/answer review and Back/Workspace/Other apps controls there. Its fixture asset is excluded
-from release builds. Separately verify with the headset display that the real secure panel is
+That offline preview opens a separate internal Activity and task that has never loaded private
+work. It uses the real native views with a fixed public mock Snapshot, reads no private connection
+or saved editor and sends no request. Capture the project/task header, instruction review, whole
+approval, every question prompt/answer review and Back/Workspace/Other apps controls there. Its
+Activity, source and fixture asset are excluded from release builds. The real panel keeps its
+secure flag throughout preview and return. Separately verify with the headset display that it is
 visible and usable: a secure-off preview cannot establish that Horizon's production virtual
 display accepts `FLAG_SECURE`. Do not export a live panel's private text to obtain evidence.
 Native voice and capture/share attachments remain separate acceptance work; the panel grants no

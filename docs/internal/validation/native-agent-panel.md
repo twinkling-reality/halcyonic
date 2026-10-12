@@ -123,11 +123,14 @@ and agent requests, and there is no reliable field-level rule saying only a pass
 It also stays out of recent-app thumbnails. This blocks ordinary OS screenshot/screen-share
 capture of the panel, and the development-only offline synthetic preview provides a deliberate
 capture path for visual verification. The preview consumes a fixed public mock Snapshot through
-the actual native renderer, cancels transport and clears live views/keyboard before capture is
-allowed. It neither reads live work nor sends commands while active, and never saves fixture
-selection or drafts. New intents and return to a live connection re-secure the window first.
-The preview asset is removed before a release reuses the Gradle project, and release APKs refuse
-the preview. The native secure panel itself still needs an actual Quest display check:
+the actual native renderer in a separate, internal development Activity and task. That window
+has never held private work: its initialization reads only the fixed APK asset, creates no
+private store or connection, ignores intent extras, sends no request and writes no selection
+or draft. The real panel never clears `FLAG_SECURE`, including while preview is in front;
+real review dialogs set it before showing. Java references being cleared would not establish
+that a previously private compositor buffer had been replaced, so the preview does not reuse
+the private window. Its Activity, source and asset are excluded from release builds and removed
+before a release reuses the Gradle project. The native secure panel itself still needs an actual Quest display check:
 Android documents blanking on non-secure displays, and Meta has not verified this flag for
 Horizon virtual displays in the sources reviewed. It is not a claim that every system or
 physical-camera capture is prevented.
@@ -147,7 +150,8 @@ resolved before a real attachment flow. Opening this panel grants no capture per
 ## Evidence and remaining acceptance
 
 `tooling/panel/panel.test.ts` compiles every native source against Android's API and runs the
-actual plain-Java consumer. Its 46 cases pass: shared continuation/identity parity; native
+actual plain-Java consumer. The first 46 cases passed before the separate-preview follow-up:
+shared continuation/identity parity; native
 capability, stale request, secret and full-answer rules; retained drafts and aggregate byte bound;
 real ephemeral paired and loopback snapshot/events/command framing; revocation; wrong pin,
 replacement connection, redirects, ambiguous headers, partial command reply and proof impostors.
@@ -161,6 +165,12 @@ the kernel stall was reproduced. All four native actions are accepted and runtim
 through the real ephemeral paired producer with its explicitly synthetic mock runtime.
 TypeScript type checking and scoped Biome checks pass. These are source/API and host-protocol
 checks, not Android view, JNI, packaging, IL2CPP or headset-runtime certification.
+
+The separate-preview follow-up adds one privacy boundary case (47 cases total). Three focused
+cases passed: both production-only and development Android source compilation, no clearing of
+the real window's secure flag with an internal development-only preview declaration, and the
+fixed asset's Snapshot/synthetic execution validation. These checks establish source boundaries,
+not compositor pixels or final APK manifest merging.
 
 Still required: independent source review; integration gates; actual development/release APK
 packaging and JNI inspection; synthetic native visual proof; headset launch/Home/return and
