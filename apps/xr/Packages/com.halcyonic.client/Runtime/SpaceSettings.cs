@@ -50,7 +50,7 @@ namespace Halcyonic.Client
         /// <param name="arrangement">Where the characters stand, or null on a desk, where the room places them.</param>
         /// <param name="pairing">Pairing with the person's computer, or null where it isn't ready or offered.</param>
         /// <param name="menuMoved">The person dragged the menu from where it stands by itself, until Reset position puts it back.</param>
-        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing, bool menuMoved = false, bool agentsEnabled = false, bool shelfPlaced = false)
+        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing, bool menuMoved = false, bool agentsEnabled = false, bool shelfPlaced = false, AgentShelfPageInfo? shelfPage = null)
         {
             Room = room;
             Offer = offer;
@@ -59,6 +59,7 @@ namespace Halcyonic.Client
             MenuMoved = menuMoved;
             AgentsEnabled = agentsEnabled;
             ShelfPlaced = shelfPlaced;
+            ShelfPage = shelfPage;
         }
 
         public RoomStatus? Room { get; }
@@ -72,6 +73,7 @@ namespace Halcyonic.Client
         public bool MenuMoved { get; }
         public bool AgentsEnabled { get; }
         public bool ShelfPlaced { get; }
+        public AgentShelfPageInfo? ShelfPage { get; }
     }
 
     /// <summary>
@@ -89,6 +91,8 @@ namespace Halcyonic.Client
 
         public const string ToggleAgents = "agents-toggle";
         public const string PlaceAgents = "agents-place";
+        public const string PreviousAgent = "agents-previous";
+        public const string NextAgent = "agents-next";
 
         public const string ResetPosition = "reset-position";
 
@@ -119,6 +123,13 @@ namespace Halcyonic.Client
                 new MenuSetting(PlaceAgents, SettingsText.YourSpace, "Agent shelf", () => Shelf(now()), () => act(PlaceAgents)),
                 new MenuSetting(ResetPosition, SettingsText.YourSpace, "The menu", () => Menu(now().MenuMoved), () => act(ResetPosition)),
             };
+            if (now().ShelfPage != null)
+            {
+                rows.Insert(rows.Count - 1, new MenuSetting(PreviousAgent, SettingsText.YourSpace, "Previous agent",
+                    () => AgentPage(now(), previous: true), () => act(PreviousAgent)));
+                rows.Insert(rows.Count - 1, new MenuSetting(NextAgent, SettingsText.YourSpace, "Next agent",
+                    () => AgentPage(now(), previous: false), () => act(NextAgent)));
+            }
             if (pairing)
             {
                 rows.Add(new MenuSetting(Pairing, HostText.YourStart, "Pairing", () => Paired(now().Pairing), () =>
@@ -166,8 +177,17 @@ namespace Halcyonic.Client
             : new SettingNow("Off", "The workspace works without characters", now.ShelfPlaced ? "On" : "Place a shelf",
                 "Preview and confirm a visible shelf before agents appear", now.ShelfPlaced ? "Show agents" : "Place agents");
 
+        private static SettingNow AgentPage(SpaceNow now, bool previous)
+        {
+            var page = now.ShelfPage;
+            var available = now.AgentsEnabled && now.ShelfPlaced && page != null && (previous ? page.Previous : page.Next);
+            return new SettingNow(page?.Summary ?? "No agent selected", page?.Title ?? "Choose an agent from the current workspace",
+                previous ? "Previous agent" : "Next agent", "Show one complete agent label; all tasks remain in the workspace",
+                previous ? "Previous agent" : "Next agent", available ? null : "No " + (previous ? "previous" : "next") + " agent is available on the placed shelf.");
+        }
+
         private static SettingNow Shelf(SpaceNow now) => new SettingNow(now.ShelfPlaced ? "Placed" : "Not placed",
-            now.ShelfPlaced ? "Where you placed it this session" : "No shelf appears until you Apply its preview",
+            now.ShelfPlaced ? (now.ShelfPage?.Summary ?? "Where you placed it this session") : "No shelf appears until you Apply its preview",
             "Move the shelf", "Move a preview, then Apply or Cancel", now.ShelfPlaced ? "Move shelf" : "Place shelf",
             now.Room == null ? RoomUnread : null);
 

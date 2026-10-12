@@ -410,7 +410,7 @@ namespace Halcyonic.XR.Workspace
         private SpaceNow SpaceNow()
         {
             var room = Room;
-            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, null, Pairing?.Now, menu.MovedByHand, Presentation.AgentsEnabled, Room?.ShelfPlaced == true);
+            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, null, Pairing?.Now, menu.MovedByHand, Presentation.AgentsEnabled, Room?.ShelfPlaced == true, stage?.ShelfPage);
         }
 
         /// <summary>Does what a row of Your space or Your computer raised, through what owns it.</summary>
@@ -429,6 +429,12 @@ namespace Halcyonic.XR.Workspace
                     break;
                 case SpaceSettings.PlaceAgents:
                     Room?.PlaceAgents();
+                    break;
+                case SpaceSettings.PreviousAgent:
+                    if (!FocusGuard.InputSuspended && Presentation.AgentsVisible && Room?.ShelfPlaced == true) stage?.ShowShelfPage(-1);
+                    break;
+                case SpaceSettings.NextAgent:
+                    if (!FocusGuard.InputSuspended && Presentation.AgentsVisible && Room?.ShelfPlaced == true) stage?.ShowShelfPage(1);
                     break;
                 case SpaceSettings.ResetPosition:
                     menu.ResetPosition();

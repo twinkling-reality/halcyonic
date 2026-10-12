@@ -25,16 +25,19 @@ namespace Halcyonic.XR
         /// </summary>
         public const float DefaultHeightFromEyes = -0.17f;
 
-        /// <summary>How long a notice from the room or the Mac shows on the banner.</summary>
-        public const float NoticeSeconds = 8f;
-
         /// <summary>The angle between the lowest a label reaches and the banner under it: more than the degree kept between things.</summary>
         public const float BannerGapDegrees = 1.25f;
 
         private const float spanDegrees = 60f; // Internal slot interpolation, not an eye-relative arc.
 
-        [Tooltip("How many characters the stage shows at most.")]
-        [SerializeField] private int maxCharacters = 6;
+        private const int maxCharacters = 1;
+        private readonly AgentShelfPages shelfPages = new AgentShelfPages();
+        public AgentShelfPageInfo ShelfPage => shelfPages.Info;
+        public bool ShowShelfPage(int direction)
+        {
+            if (FocusGuard.InputSuspended || !presentation.AgentsVisible || !Visible || !shelfPages.Move(direction)) return false;
+            Refresh(); return true;
+        }
 
         /// <summary>
         /// How far to the person's right the lineup's middle turns when they make room for a window
@@ -77,8 +80,6 @@ namespace Halcyonic.XR
         private ControlPlaneConnection connection = null!;
         private CharacterLineup lineup = null!;
         private Transform arc = null!;
-        private Transform bannerRoot = null!;
-        private StageBanner banner = null!;
         private Transform? head;
         private IStagePlacementSource? source;
         private float nextSourceSearch;
@@ -156,23 +157,6 @@ namespace Halcyonic.XR
 
         /// <summary>The arc's radius now: the distance setting in front of the person, or the reach to a surface.</summary>
         private float radius;
-        private string? shownBanner;
-        private BannerKind shownKind;
-        private string? shownWaiting;
-        private string? shownNotice;
-        private string? shownNotShown;
-        private LineWords? shownStillOpen;
-        private bool shownRaised;
-
-        /// <summary>The banner says its line alone, with no notice under it: raised over the open menu, which says what waits.</summary>
-        private bool shownAlone;
-        private float? shownPanelTop;
-        private int shownScale = -1;
-
-        /// <summary>Where the banner stands now: in its place, stepped aside, or above the stage in the demonstration.</summary>
-        private BannerStand bannerStand = BannerStand.InPlace;
-        private string? notice;
-        private float noticeUntil;
         private StageVisibility visibility = new StageVisibility();
 
         /// <summary>
@@ -214,8 +198,7 @@ namespace Halcyonic.XR
         /// </summary>
         public void Request(string? workstreamId)
         {
-            if (lineup.Requested == workstreamId) return;
-            lineup.Request(workstreamId);
+            if (workstreamId == null || !shelfPages.Select(workstreamId)) return;
             Refresh();
         }
 
@@ -248,10 +231,6 @@ namespace Halcyonic.XR
             arc.SetParent(transform, false);
             arc.gameObject.SetActive(false);
 
-            // The banner reads along its parent's forward axis, away from the person, as the arc's does.
-            bannerRoot = new GameObject("Banner").transform;
-            bannerRoot.SetParent(arc, false);
-            banner = StageBanner.Create(bannerRoot);
             MakeShelf(arc, "Agent shelf", new Color(0.12f, 0.19f, 0.22f, 1f));
             preview = new GameObject("Shelf preview").transform;
             preview.SetParent(transform, false);
@@ -265,8 +244,6 @@ namespace Halcyonic.XR
             presentation.Changed += PresentationChanged;
             connection.Changed += OnChanged;
             FocusGuard.FoldChanged += Refresh;
-            AmbientCover.Changed += ShowBannerUncovered;
-            ShowBannerUncovered();
         }
 
         private void OnDisable()
@@ -274,7 +251,6 @@ namespace Halcyonic.XR
             presentation.Changed -= PresentationChanged;
             connection.Changed -= OnChanged;
             FocusGuard.FoldChanged -= Refresh;
-            AmbientCover.Changed -= ShowBannerUncovered;
             if (source != null) source.Changed -= OnPreferredChanged;
             source = null;
             nextSourceSearch = 0f;
@@ -292,11 +268,6 @@ namespace Halcyonic.XR
                 foreach (var view in views.Values) view.Person = head;
             }
             FindPlacementSource();
-            if (notice != null && Time.unscaledTime >= noticeUntil)
-            {
-                notice = null;
-                ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised, shownAlone);
-            }
             var preferred = source?.Preferred;
             if (!presentation.AgentsVisible || !preferred.HasValue)
             {
@@ -311,8 +282,6 @@ namespace Halcyonic.XR
                 Refresh();
             }
             Glide();
-            // Raised, the banner follows the panel in its place as it is laid anew, as a page that grows.
-            if (shownRaised && AmbientCover.RaisedOver != shownPanelTop) PlaceBanner();
         }
 
         /// <summary>
@@ -350,19 +319,15 @@ namespace Halcyonic.XR
             var session = connection.Session;
             if (session == null)
             {
-                ShowLine(null);
                 Refreshed?.Invoke();
                 return;
             }
 
             var live = session.Status.IsLive;
-            visibility.UseJournal(session.State.Journal?.JournalId);
+            // Optional paging exposes all work independently of old project stage-visibility preferences.
+            shelfPages.Update(session.State.Journal?.JournalId, session.State.Workstreams.Values);
             eligible.Clear();
-            foreach (var workstream in session.State.Workstreams.Values)
-            {
-                if (visibility.Shows(workstream.ProjectId) || workstream.WorkstreamId == lineup.Requested) eligible.Add(workstream);
-            }
-            // New and just opened work keeps its slot a while, by this device's clock.
+            if (shelfPages.ShownId is string selected && session.State.Workstreams.TryGetValue(selected, out var chosen)) eligible.Add(chosen);
             lineup.UseJournal(session.State.Journal?.JournalId);
             lineup.Update(eligible, System.DateTimeOffset.UtcNow);
             departed.Clear();
@@ -372,6 +337,7 @@ namespace Halcyonic.XR
             }
             foreach (var id in departed)
             {
+                views[id].gameObject.SetActive(false);
                 Destroy(views[id].gameObject);
                 views.Remove(id);
                 standings.Remove(id);
@@ -393,35 +359,7 @@ namespace Halcyonic.XR
                 view.BadgeOnly = BesideAWindow;
                 MoveToSlot(id, view, slot);
             }
-            ShowLine(session);
             Refreshed?.Invoke();
-        }
-
-        /// <summary>
-        /// The banner's line: whether what the stage shows is live, or a demonstration in its own words,
-        /// so a recording is never read as live work. While another window keeps focus it also counts
-        /// what waits for the person, so it stays findable when the window covers the characters; beside
-        /// a window, how many more tasks have no character; and the panel still open, kept as it was.
-        /// </summary>
-        private void ShowLine(RealtimeSession? session)
-        {
-            var demonstration = connection.DemonstrationLine;
-            var raised = StandBanner() && demonstration != null;
-            // Raised above the stage while the menu stands in its place, it says only that the demonstration plays;
-            // over the closed bar alone it keeps a notice and what the folded stage says, as pairing's prompts.
-            if (raised && AmbientCover.PanelShowing)
-            {
-                ShowBanner(demonstration!, BannerKind.Practice, null, null, null, raised: true, alone: true);
-                return;
-            }
-            var folded = FocusGuard.Folded && session != null;
-            var waiting = folded ? AmbientText.NeedsYouLine(AmbientText.NeedsYou(session!.State)) : null;
-            var notShown = folded && BesideAWindow ? AmbientText.NotShown(session!.State.Workstreams.Count - views.Count) : null;
-            var stillOpen = folded && AmbientCover.OpenPanel is string panel ? AmbientText.StillOpen(panel) : null;
-            ShowBanner(
-                demonstration ?? (session == null ? connection.SetupProblem ?? NotConnected : Describe(session)),
-                demonstration != null ? BannerKind.Practice : session != null && session.Status.IsLive ? BannerKind.Live : BannerKind.NotLive,
-                waiting, notShown, stillOpen, raised, alone: false);
         }
 
         /// <summary>
@@ -461,7 +399,6 @@ namespace Halcyonic.XR
                 }
                 Stand(pair.Value, standing.Angle, standing.Lift, 1f);
             }
-            PlaceBanner();
             Debug.Log("Halcyonic: placed the stage " + (onSurface ? "on its surface" : "in front of the person") + " because " + reason + ".");
         }
 
@@ -594,74 +531,6 @@ namespace Halcyonic.XR
         }
 
         /// <summary>
-        /// Shows a short notice on the banner for <see cref="NoticeSeconds"/>: news from the room or the
-        /// Mac, which no longer comes up in front of the person (ADR 0023); the controls that act on
-        /// it are in Settings. The latest notice replaces the one before.
-        /// </summary>
-        public void ShowNotice(string text)
-        {
-            notice = text;
-            noticeUntil = Time.unscaledTime + NoticeSeconds;
-            ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised, shownAlone);
-        }
-
-        /// <param name="waiting">What needs the person, said on a line of its own and in the attention color, or null.</param>
-        /// <param name="notShown">Beside a window, how many more tasks have no character, or null.</param>
-        /// <param name="stillOpen">The panel kept while another window has focus, or null.</param>
-        /// <param name="raised">Above the stage, as the demonstration's banner always stands.</param>
-        /// <param name="alone">Saying <paramref name="text"/> alone, with no notice under it, as over the open menu.</param>
-        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, LineWords? stillOpen, bool raised, bool alone)
-        {
-            if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice
-                && notShown == shownNotShown && stillOpen?.ToString() == shownStillOpen?.ToString() && raised == shownRaised && alone == shownAlone && shownScale == GlazeText.Version) return;
-            // The text's size changes the banner and how deep the labels above it reach.
-            shownScale = GlazeText.Version;
-            shownBanner = text;
-            shownKind = kind;
-            shownWaiting = waiting;
-            shownNotice = notice;
-            shownNotShown = notShown;
-            shownStillOpen = stillOpen;
-            shownRaised = raised;
-            shownAlone = alone;
-            // A connection's detail, a setup problem or a notice can carry a server's or an exception's
-            // words, and the panel kept a task's title; the banner shows them by the one rule for text
-            // Halcyonic did not write.
-            banner.Show(text, kind, waiting, alone ? null : notice, notShown, stillOpen);
-            PlaceBanner();
-        }
-
-        /// <summary>
-        /// In front of the person, the banner hangs under the lowest a label reaches, where the ambient
-        /// strip goes, or beside a window, under the window's lane; over a surface, it stands above the
-        /// highest a character reaches, risen included, since the lineup puts what waits for the person
-        /// in its middle. Raised in the demonstration while the menu stands in its place, it stands above
-        /// the highest a character reaches in front of the person too, and beside a window above its lane.
-        /// </summary>
-        private void PlaceBanner()
-        {
-            var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
-            var top = onSurface ? BannerBottomOnSurface(radius, eyesAbove)
-                : shownRaised ? BesideAWindow ? BannerBottomAboveWindow(radius) : BannerBottomAbove(radius, DefaultHeightFromEyes)
-                : BesideAWindow ? BannerTopBesideWindow(radius) : BannerTop(radius, DefaultHeightFromEyes);
-            // Raised, it also clears the panel in its place, as the menu over a desk's lineup stands where the banner would,
-            // or the closed bar alone, which a risen character there lifts as high.
-            shownPanelTop = shownRaised ? AmbientCover.RaisedOver : null;
-            if (shownRaised) top = RaisedBannerBottom(radius, top - eyesAbove, shownPanelTop) + eyesAbove;
-            if (onSurface)
-            {
-                bannerRoot.localPosition = new Vector3(0f, 0.22f, 0.06f);
-                bannerRoot.localScale = Vector3.one * radius;
-                banner.transform.localPosition = Vector3.zero;
-                return;
-            }
-            bannerRoot.localPosition = new Vector3(0f, top, radius);
-            bannerRoot.localScale = Vector3.one * radius;
-            // The banner hangs from its top edge; on a surface or raised it stands on its bottom edge instead.
-            banner.transform.localPosition = new Vector3(0f, onSurface || shownRaised ? banner.Height : 0f, 0f);
-        }
-
-        /// <summary>
         /// The height of the banner's bottom edge from the eyes when it is raised in front of the person,
         /// in meters, with the characters <paramref name="radius"/> away and their centers
         /// <paramref name="heightFromEyes"/> from the eyes: a little more than a degree over the highest a
@@ -706,29 +575,6 @@ namespace Halcyonic.XR
             * Mathf.Sqrt(radius * radius + eyesAbove * eyesAbove);
 
         /// <summary>
-        /// The banner shows unless a panel or the peek is where it goes (<see cref="AmbientCover"/>); in the
-        /// demonstration it always stands raised above the stage instead (<see cref="BannerPlace"/>), saying
-        /// its line alone while a panel shows and keeping its notice over the closed bar, so it says its line
-        /// again as either changes.
-        /// </summary>
-        private void ShowBannerUncovered()
-        {
-            var wasRaised = bannerStand == BannerStand.AboveTheStage;
-            // Raised in the demonstration, it says its lines alone over the open menu and keeps its notice over the bar.
-            if (StandBanner() != wasRaised || (shownRaised && AmbientCover.PanelShowing != shownAlone)) ShowLine(connection.Session);
-        }
-
-        /// <summary>Where the banner stands now, showing it or not; true when it is raised above the stage.</summary>
-        private bool StandBanner()
-        {
-            bannerStand = BannerPlace.Of(connection.DemonstrationLine != null, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
-            banner.gameObject.SetActive(bannerStand != BannerStand.Hidden);
-            return bannerStand == BannerStand.AboveTheStage;
-        }
-
-        private const string NotConnected = "Not connected to " + HostText.Your;
-
-        /// <summary>
         /// The height of the banner's top edge from the eyes, in meters, with the characters
         /// <paramref name="radius"/> away and their centers <paramref name="heightFromEyes"/> from the
         /// eyes: a little more than a degree under the lowest any label reaches, all along it. The
@@ -746,23 +592,6 @@ namespace Halcyonic.XR
         /// </summary>
         public static float BannerTopBesideWindow(float radius) =>
             -Mathf.Tan((WindowLaneHalfHeightDegrees + BannerGapDegrees) * Mathf.Deg2Rad) * radius / Mathf.Cos(StageBanner.WidestDegrees / 2f * Mathf.Deg2Rad);
-
-        private static string Describe(RealtimeSession session)
-        {
-            var status = session.Status;
-            var origin = session.State.Journal?.Origin == JournalOrigin.Fixture ? " · Recorded" : "";
-            switch (status.Phase)
-            {
-                case ConnectionPhase.Live:
-                    return "Connected to " + HostText.Your + origin;
-                case ConnectionPhase.WaitingToRetry:
-                    return ConnectionText.Retrying(status);
-                case ConnectionPhase.Refused:
-                    return ConnectionText.WhyNotLive(status);
-                default:
-                    return ConnectionText.Phase(status) + origin;
-            }
-        }
 
         /// <summary>Where a character stands on the arc, and how high in front of the person, and where it is gliding to.</summary>
         private sealed class Standing

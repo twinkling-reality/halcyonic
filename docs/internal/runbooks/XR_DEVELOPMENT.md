@@ -1157,6 +1157,9 @@ Current optional-shelf checks (previous automatic arc/anchor checks do not prove
 - **Apply and Cancel:** Cancel, external focus loss and global Minimize revoke the preview. Apply
   enables only the pose currently shown and still clear. Bodies contact the shelf through working,
   checking, waiting, failure and finished animation; labels remain legible at both text sizes.
+- **Agent pages:** one complete agent is shown. Your space exposes Showing N of total and Previous/Next
+  agent. Verify selection survives a reordered update, and removed work/new journals require a new
+  explicit selection. Every task remains reachable in the console.
 - **Work alongside optional agents:** open another task and a taller details page. The independently
   placed console retains its position; enabled agents retain their confirmed pose and occupied
   geometry while the console pages around them. If minimum controls cannot fit, record the exact

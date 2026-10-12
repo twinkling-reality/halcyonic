@@ -17,7 +17,12 @@ namespace Halcyonic.XR.Workspace.Editor
     public static partial class WorkspaceRender
     {
         /// <summary>Complete optional shelf and independently placed production console, including real labels and file controls.</summary>
-        public static void ShelfWorkspaceCheck()
+        public static void ShelfWorkspaceCheck() => CheckShelfCapacity(supportedOnly: true);
+
+        /// <summary>Explicit feasibility diagnostics for rejected group capacities; not supported production modes.</summary>
+        public static void ShelfCapacityCheck() => CheckShelfCapacity(supportedOnly: false);
+
+        private static void CheckShelfCapacity(bool supportedOnly)
         {
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
@@ -26,7 +31,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 ViewField.Current = FieldChecks.Quest3S;
                 var result = new List<string>();
-                foreach (var count in new[] { 1, 3, 6 })
+                foreach (var count in supportedOnly ? new[] { 1 } : new[] { 1, 3, 6 })
                     result.AddRange(RenderShelfWorkspace(Path.Combine(folder, count + "-slots"), count).Select(failure => count + " slots: " + failure));
                 ViewField.Current = null;
                 KeepFontAssetsAsCommitted();
@@ -143,6 +148,36 @@ namespace Halcyonic.XR.Workspace.Editor
                 Shot("long task title");
                 if (holder.position != pose.position || holder.rotation != pose.rotation || characters.Any(each => !each.View.gameObject.activeInHierarchy))
                     failures.Add("growing a file changed or silently hid the confirmed shelf");
+                if (count == 1)
+                {
+                    // Explicit visual presentation variants exercise every existing state and source treatment.
+                    // These are geometry samples; they never mutate the journal or authorize a command.
+                    foreach (CharacterActivity activity in Enum.GetValues(typeof(CharacterActivity)))
+                    foreach (var source in new[] { "live", "practice", "demo", "recorded" })
+                    {
+                        var view = characters[0].View;
+                        view.Show(new CharacterPresentation(view.WorkstreamId, "Review complete source and pending-state label geometry",
+                            activity, activity.ToString(), activity == CharacterActivity.WaitingForHuman ? AttentionLevel.ActionRequired : AttentionLevel.None,
+                            Array.Empty<string>(), activity == CharacterActivity.WaitingForHuman ? 1 : 0,
+                            source == "practice" || source == "demo", source == "recorded" || source == "demo", activity == CharacterActivity.Unknown));
+                        view.PlaceShelfLabel(eyes); view.AdvanceForRender(1f / 60f);
+                        CharacterStage.WriteShelfCorners(pose, AgentShelfDraft.Width(1), eyes, corners);
+                        var envelope = new Bounds(Quaternion.Inverse(pose.rotation) * (corners[0] - pose.position), Vector3.zero);
+                        foreach (var corner in corners) envelope.Encapsulate(Quaternion.Inverse(pose.rotation) * (corner - pose.position));
+                        foreach (var renderer in view.Label.GetComponentsInChildren<Renderer>(false))
+                        {
+                            var bounds = renderer.bounds;
+                            for (var corner = 0; corner < 8; corner++)
+                            {
+                                var point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(corner % 2 == 0 ? -1f : 1f, corner < 4 ? -1f : 1f, corner % 4 < 2 ? -1f : 1f));
+                                if (!envelope.Contains(Quaternion.Inverse(pose.rotation) * (point - pose.position)))
+                                    failures.Add(activity + " " + source + ": actual complete label escapes the placement envelope");
+                            }
+                        }
+                        Shot("label " + activity + " " + source);
+                    }
+                    characters[0].View.Show(work.Present().Character); characters[0].View.PlaceShelfLabel(eyes);
+                }
                 presentation.Minimize(); holder.gameObject.SetActive(false);
                 Shot("global dock");
                 presentation.Restore(); holder.gameObject.SetActive(true);
