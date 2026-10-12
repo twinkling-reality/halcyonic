@@ -108,6 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 void ReadDraft(string step)
                 {
+                    Shot(step + " current");
                     for (var part = 0; part < 100 && !file!.Screen.Instruction.Read; part++)
                     {
                         Shot(step + " part " + (file.Screen.Instruction.Part + 1));
