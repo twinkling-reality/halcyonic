@@ -46,6 +46,8 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The closed bar as laid while it stands alone, for its top edge (<see cref="BarElevation"/>).</summary>
         private PlanePart barPart;
+        private bool compactShown;
+        private bool hasPlacement;
         private LineRenderer line = null!;
 
         /// <summary>Covers the stage's banner's place while the menu is open or a file stands on the plane, not for the closed bar alone (<see cref="AmbientCover"/>).</summary>
@@ -181,6 +183,13 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public void UnsettleShown(float since)
         {
+            if (bar.gameObject.activeSelf)
+            {
+                bar.Controls.Move.Unsettle();
+                bar.Controls.Move.EndPressSince(since);
+                bar.Controls.Toggle.Unsettle();
+                bar.Controls.Toggle.EndPressSince(since);
+            }
             for (var index = 0; index < shown.Count; index++)
             {
                 shown[index].View.Unsettle();
@@ -205,6 +214,8 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The subject's press ended, its hold matured or not.</summary>
         public event Action? SubjectLetGo;
+        public event Action<MenuColumn, MenuFrame?, SidePanel?>? CompactPressed;
+        public event Action<MenuColumn, MenuFrame?, SidePanel?>? MovePressed;
 
         /// <summary>The closed bar, while it shows.</summary>
         public MenuBarView? Bar => bar.gameObject.activeSelf ? bar : null;
@@ -266,10 +277,15 @@ namespace Halcyonic.XR.Workspace
             plane.menu = plane.View("Menu", MenuColumn.Menu);
             plane.file = plane.View("File", MenuColumn.File);
             // A file's subject drags the whole plane (ADR 0026).
-            plane.file.EnableSubjectHold();
+
             plane.side = plane.View("Side panel", MenuColumn.Side);
             plane.frameViews = new[] { plane.menu, plane.file, plane.side };
             plane.bar = MenuBarView.Create(go.transform, "Menu, closed");
+            plane.bar.Controls.MovePressed += () => plane.MovePressed?.Invoke(MenuColumn.Menu, null, null);
+            plane.bar.Controls.PressStarted += () => plane.SubjectPressed?.Invoke(MenuColumn.Menu, null);
+            plane.bar.Controls.Held += point => plane.SubjectHeld?.Invoke(MenuColumn.Menu, null, point);
+            plane.bar.Controls.Dragged += point => plane.SubjectDragged?.Invoke(point);
+            plane.bar.Controls.LetGo += () => plane.SubjectLetGo?.Invoke();
             plane.bar.Acted += _ => plane.Opened?.Invoke();
             plane.bar.Hide();
             plane.line = WorkspaceVisuals.Line(go.transform, "Light line", 2, 1f, loop: false);
@@ -297,6 +313,8 @@ namespace Halcyonic.XR.Workspace
                 if (Takes(view)) HoldStarted?.Invoke(kind, prompt, view.Frame, view.Side);
             };
             view.HoldEnded += (prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
+            view.CompactPressed += () => { if (Takes(view)) CompactPressed?.Invoke(kind, view.Frame, view.Side); };
+            view.MovePressed += () => { if (Takes(view)) MovePressed?.Invoke(kind, view.Frame, view.Side); };
             view.SubjectHeld += point =>
             {
                 if (Takes(view)) SubjectHeld?.Invoke(kind, view.Frame, point);
@@ -334,8 +352,17 @@ namespace Halcyonic.XR.Workspace
         /// </param>
         public void Show(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, CharacterTarget? fileCharacter, IReadOnlyList<CharacterTarget> all,
             Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default,
-            object? fileColumn = null)
+            object? fileColumn = null, LineWords? compactIdentity = null, string? compactState = null)
         {
+            var wasCompact = compactShown;
+            var previousDirection = Direction;
+            var previousHeight = Composition?.Height ?? (bar.gameObject.activeSelf ? barPart.Height : 0f);
+            compactShown = menuFrame == null && fileFrame == null && compactIdentity != null;
+            var retainTop = hasPlacement && wasCompact != compactShown;
+            (float Yaw, float Elevation) AtRetainedTop(float height) => (
+                Mathf.DeltaAngle(Placed.Yaw, previousDirection.Yaw),
+                previousDirection.Elevation + Mathf.Atan(previousHeight / 2f) * Mathf.Rad2Deg - Mathf.Atan(height / 2f) * Mathf.Rad2Deg - Placed.Elevation);
+            hasPlacement = true;
             // Keep navigator state, but give the pending answer its own focused composition.
             if (fileFrame?.Focused == true) menuFrame = null;
             eyes = at;
@@ -360,6 +387,9 @@ namespace Halcyonic.XR.Workspace
             // Standing in its frame's place, a side panel is as wide as that frame, so the footer it carries fits.
             var frontDegrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
             var pill = fileFrame?.Pill != null;
+            menu.OrganizationControls = fileFrame == null;
+            file.OrganizationControls = true;
+            side.OrganizationControls = false;
             var zoom = GlazeText.Scale;
             var wasAside = MenuAside;
             var before = new List<(MenuColumn, MenuFrameView)>(shown);
@@ -382,8 +412,8 @@ namespace Halcyonic.XR.Workspace
                 var fits = !besideWindow;
                 if (fits && menuFrame != null && fileFrame != null)
                 {
-                    var level = Mathf.Max(MenuFrameView.SubjectHeight(menuFrame.Subject, Glaze.Menu.MenuColumnDegrees, pill),
-                        MenuFrameView.SubjectHeight(fileFrame.Subject, Glaze.Menu.FileColumnDegrees, pill));
+                    var level = Mathf.Max(MenuFrameView.SubjectHeight(menuFrame.Subject, Glaze.Menu.MenuColumnDegrees, pill, menu.OrganizationControls),
+                        MenuFrameView.SubjectHeight(fileFrame.Subject, Glaze.Menu.FileColumnDegrees, pill, file.OrganizationControls));
                     menu.Show(menuFrame, Glaze.Menu.MenuColumnDegrees, level, pill);
                     file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, level, pill);
                     var beside = new PlaneComposition(new[] { ColumnOf(menu), ColumnOf(file) }, zoom);
@@ -410,9 +440,10 @@ namespace Halcyonic.XR.Workspace
                         MenuColumn.File => (fileFrame!.Subject, Glaze.Menu.FileColumnDegrees),
                         _ => (panel!.Subject, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees),
                     };
-                    subject = Mathf.Max(subject, MenuFrameView.SubjectHeight(words, degrees, pill));
+                    subject = Mathf.Max(subject, MenuFrameView.SubjectHeight(words, degrees, pill, kind == MenuColumn.File || kind == MenuColumn.Menu && fileFrame == null || kind == MenuColumn.Side && inPlace));
                 }
 
+                side.OrganizationControls = inPlace;
                 shown.Clear();
                 foreach (var kind in kinds)
                 {
@@ -441,6 +472,7 @@ namespace Halcyonic.XR.Workspace
                     : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction;
                 // A drag's offset holds only as far as every rule of a drag still does for this composition.
                 var laid = Composition;
+                if (retainTop && pass == 0) offset = AtRetainedTop(laid.Height);
                 Moved = MenuDrag.Kept(offset, kept => Allows(laid, MenuDrag.Turned(Placed, kept)));
                 // At most three passes: should the third still keep less, the plane stands at the part kept,
                 // with the layout chosen at the pass before. That part is one every rule allows for what is laid,
@@ -478,7 +510,7 @@ namespace Halcyonic.XR.Workspace
                 // Where something closes, the bar shows only once it has left, then fades in, so the bar's words
                 // never stand over the file's; newly laid otherwise, as the plane starts, it stands whole at once.
                 var barWas = bar.gameObject.activeSelf;
-                bar.Show(menuBar, Glaze.Menu.MenuColumnDegrees);
+                bar.Show(menuBar, Glaze.Menu.FileColumnDegrees, compactIdentity, compactState);
                 if (!barWas)
                 {
                     var closing = false;
@@ -489,9 +521,10 @@ namespace Halcyonic.XR.Workspace
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
                 Placed = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
                     : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, barSize)).Direction;
-                // Only a file's subject drags the plane; the bar alone stands where the stage puts it.
-                Moved = default;
-                Direction = Placed;
+                var compactComposition = new PlaneComposition(new[] { new PlaneColumn(bar.Size.x, bar.Size.y) }, zoom);
+                if (retainTop) offset = AtRetainedTop(compactComposition.Height);
+                Moved = MenuDrag.Kept(offset, kept => Allows(compactComposition, MenuDrag.Turned(Placed, kept)));
+                Direction = MenuDrag.Turned(Placed, Moved);
                 var placedBar = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
                 barPart = placedBar;
                 SlideTo(bar.transform, placedBar, zoom, null, true);
@@ -573,7 +606,13 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public void Turn((float Yaw, float Elevation) moved)
         {
-            if (Composition == null) return;
+            if (Composition == null)
+            {
+                if (!bar.gameObject.activeSelf) return;
+                Direction = MenuDrag.Turned(Placed, moved);
+                Stand(bar.transform, barPart, GlazeText.Scale);
+                return;
+            }
             Direction = MenuDrag.Turned(Placed, moved);
             var zoom = Composition.Zoom;
             var all = Composition.Parts;
@@ -610,7 +649,7 @@ namespace Halcyonic.XR.Workspace
             if (front == null) return true;
             var frontView = fileFrame != null ? file : menu;
             var degrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
-            var level = Mathf.Max(MenuFrameView.SubjectHeight(front.Subject, degrees, pill), MenuFrameView.SubjectHeight(panel.Subject, Glaze.Menu.SideColumnDegrees, pill));
+            var level = Mathf.Max(MenuFrameView.SubjectHeight(front.Subject, degrees, pill), MenuFrameView.SubjectHeight(panel.Subject, Glaze.Menu.SideColumnDegrees, pill, false));
             frontView.Show(front, degrees, level, pill);
             side.Show(panel, Glaze.Menu.SideColumnDegrees, level, pill);
             var together = new PlaneComposition(new[] { ColumnOf(frontView), ColumnOf(side) }, GlazeText.Scale);
@@ -646,7 +685,8 @@ namespace Halcyonic.XR.Workspace
         /// to, inside the headset's measured field, clear of every character's body and label, and with its
         /// light line crossing no label or body as the eyes see them. Judged from the geometry alone, moving nothing.
         /// </summary>
-        public bool Allows(PanelDirection at) => Composition != null && Allows(Composition, at);
+        public bool Allows(PanelDirection at) => Composition != null ? Allows(Composition, at)
+            : bar.gameObject.activeSelf && Allows(new PlaneComposition(new[] { new PlaneColumn(bar.Size.x, bar.Size.y) }, GlazeText.Scale), at);
 
         private bool Allows(PlaneComposition composition, PanelDirection at)
         {

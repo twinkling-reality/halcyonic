@@ -72,6 +72,8 @@ namespace Halcyonic.XR.Workspace
 
             /// <summary>Settings' rows for where the person is (Your space), from what owns each: the room, the characters' arrangement, the menu's position.</summary>
             public Func<IReadOnlyList<MenuSetting>> Space { get; set; } = () => Array.Empty<MenuSetting>();
+            public Func<StageArrangement?> Arrangement { get; set; } = () => null;
+            public Action<StageArrangement> PlaceCharacters { get; set; } = _ => { };
 
             /// <summary>A task's file as a column, or null when it can't be shown.</summary>
             public Func<IMenuHost, string, IMenuColumn?> File { get; set; } = (_, _) => null;
@@ -170,15 +172,28 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>How far a drag left the plane from where the stage places it, kept until the plane is placed afresh.</summary>
         private (float Yaw, float Elevation) moved;
+        private bool movedByHand;
 
         /// <summary>The plane held by a file's subject, while it is (ADR 0026).</summary>
         private MenuDrag? drag;
+        private PlacementColumn? placement;
+        private MenuFrame? placementFrame;
+        public bool IsCompact => navigator.IsCompact;
+        public bool Compact()
+        {
+            if (Away) return false;
+            EndDrag();
+            placement = null;
+            placementFrame = null;
+            return navigator.Compact();
+        }
+        public bool Expand() => !Away && navigator.Expand();
 
         /// <summary>A file's subject holds the plane, which follows the hand: nothing is pressed or held meanwhile.</summary>
         public bool Dragging => drag != null;
 
         /// <summary>The person dragged the plane from where it stands by itself, until Reset position or a fresh placement puts it back: Settings says so.</summary>
-        public bool MovedByHand => moved != default;
+        public bool MovedByHand => movedByHand && moved != default;
 
         /// <summary>What the menu keeps for the session; its host forgets it on a re-pairing.</summary>
         public MenuMemory Memory => memory;
@@ -211,7 +226,12 @@ namespace Halcyonic.XR.Workspace
             () => new FirstQuestionColumn(director.Bound(), director.StartFirstProject, () => director.navigator.OpenMenu(MenuPlace.Projects)));
             director.navigator.Changed += () => director.dirty = true;
             director.plane.Acted += (from, action, key, frame, side) => director.OnActed(from, action, key, frame, side);
-            director.plane.Opened += () => director.navigator.OpenMenu(somethingWaits: setup.SomethingWaits());
+            director.plane.Opened += () =>
+            {
+                if (director.OrganizationStanding(MenuColumn.Menu, null, null)) director.navigator.OpenMenu(somethingWaits: setup.SomethingWaits());
+            };
+            director.plane.CompactPressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.Compact(); };
+            director.plane.MovePressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.OpenPlacement(); };
             director.plane.Drawn += director.OnDrawn;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
@@ -302,6 +322,7 @@ namespace Halcyonic.XR.Workspace
         {
             drag = null;
             anchor = null;
+            movedByHand = false;
             navigator.Moved();
             dirty = true;
         }
@@ -386,6 +407,8 @@ namespace Halcyonic.XR.Workspace
             var another = memory.Session(setup.Session());
             another |= memory.Journal(State?.Journal?.JournalId);
             if (!another) return;
+            placement = null;
+            placementFrame = null;
             navigator.CloseBeside();
             navigator.Renew();
         }
@@ -427,12 +450,14 @@ namespace Halcyonic.XR.Workspace
             if (navigator.Shown is TasksColumn tasks) tasks.Showing(navigator.BesideTask);
             var (menu, beside) = navigator.Frames(bar);
             var stage = setup.StageNow();
+            if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
             var standing = (navigator.IsOpen, navigator.Beside);
             if (anchor == null || standing != anchoredFor)
             {
                 anchor = (stage.Eyes, stage.Looking);
                 anchoredFor = standing;
                 moved = default;
+                movedByHand = false;
             }
             // Another arrangement, as beside a window, or another surface: a drag made for the last holds no more.
             var arrangement = (stage.BesideWindow, stage.SurfaceHeight);
@@ -440,12 +465,13 @@ namespace Halcyonic.XR.Workspace
             {
                 arranged = arrangement;
                 moved = default;
+                movedByHand = false;
             }
             var (eyes, looking) = anchor.Value;
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             drawnVoice = Voiced();
             plane.Voice = drawnVoice;
-            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, navigator.Beside);
+            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null);
             // Only as much of a drag as still holds for what is laid now; none, and Settings says so.
             moved = plane.Moved;
         }
@@ -480,6 +506,12 @@ namespace Halcyonic.XR.Workspace
         private bool OnActed(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
             if (FocusGuard.InputSuspended || drag != null) return false;
+            if (placement != null)
+            {
+                if (frame != placementFrame || from != MenuColumn.File || !placement.IsDrawn(frame)) return false;
+                placement.Act(action, key);
+                return true;
+            }
             if (!navigator.Act(from, action, key, frame, side)) return false;
             setup.Acted?.Invoke(from, action, key);
             return true;
@@ -492,6 +524,11 @@ namespace Halcyonic.XR.Workspace
         private void OnDrawn(MenuColumn from, MenuFrameView view)
         {
             if (Away) return;
+            if (placement != null)
+            {
+                if (from == MenuColumn.File && view.Frame == placementFrame) placement.Drawn(placementFrame!, null);
+                return;
+            }
             // A side panel reports the frame whose place it stands in, whose footer it carries.
             navigator.Drawn(from, from == MenuColumn.Side ? view.InPlaceOf : view.Frame, view.Side);
         }
@@ -514,9 +551,46 @@ namespace Halcyonic.XR.Workspace
             EndDrag();
             voice?.FocusLeft();
             navigator.FocusLeft();
+            placement?.FocusLeft();
         }
 
         /// <summary>What stands on the plane changed under a drag: it lets go, and the plane is placed afresh.</summary>
+        private LineWords CompactIdentity()
+        {
+            if (navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true)
+                return LineWords.TheirName(work.Title);
+            return LineWords.Ours(navigator.Beside != null ? ProjectsText.NewProject : MenuBar.Word(navigator.Place));
+        }
+
+        private string? CompactState()
+        {
+            if (navigator.BesideTask is not string task || State?.Workstreams.TryGetValue(task, out var work) != true) return null;
+            var state = StateLanguage.BadgeOf(CharacterPresenter.Present(work, State, Connected)).Word;
+            var waiting = State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired);
+            return waiting > 0 ? state + " · " + waiting + " waiting" : state;
+        }
+
+        private bool OrganizationStanding(MenuColumn from, MenuFrame? frame, SidePanel? side)
+        {
+            if (Away || dirty || drag != null || plane.Sliding) return false;
+            if (placement != null) return from == MenuColumn.File && placement.IsDrawn(frame);
+            if (frame == null && side == null) return plane.Bar is MenuBarView bar && bar.Shown >= 1f;
+            return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
+        }
+
+        private void OpenPlacement()
+        {
+            if (Away || drag != null || placement != null) return;
+            if (!navigator.IsCompact) { navigator.Compact(); navigator.Expand(); }
+            navigator.Moved();
+            voice?.FocusLeft();
+            placement = new PlacementColumn(this, setup.Arrangement, setup.PlaceCharacters, ResetPosition,
+                () => setup.StageNow().BesideWindow, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null);
+            placement.Changed += () => dirty = true;
+            placement.Closed += () => { placement = null; placementFrame = null; navigator.Moved(); dirty = true; };
+            dirty = true;
+        }
+
         private void LetGoIfMoved()
         {
             if (drag != null && (navigator.IsOpen, navigator.Beside) != anchoredFor) EndDrag();
@@ -524,8 +598,14 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The subject's press, taken only where a drag may start now; its hold matures into a drag only if this one was.</summary>
         private bool subjectPressTaken;
+        private (MenuColumn From, MenuFrame? Frame, SidePanel? Side, bool Compact, IMenuColumn? Retained)? subjectOrigin;
 
-        private void OnSubjectPressed(MenuColumn from, MenuFrame? frame) => subjectPressTaken = MayDrag(from, frame);
+        private void OnSubjectPressed(MenuColumn from, MenuFrame? frame)
+        {
+            var side = plane.Shown.FirstOrDefault(item => item.Kind == from).View?.Side;
+            subjectOrigin = (from, frame, side, navigator.IsCompact, navigator.Beside);
+            subjectPressTaken = MayDrag(from, frame);
+        }
 
         /// <summary>
         /// Whether a hold on <paramref name="from"/>'s subject, showing <paramref name="frame"/>, may drag the
@@ -534,11 +614,15 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private bool MayDrag(MenuColumn from, MenuFrame? frame)
         {
-            if (FocusGuard.InputSuspended || drag != null || from != MenuColumn.File || navigator.BesideTask == null) return false;
+            if (Away || drag != null || placement != null) return false;
+            if (navigator.IsCompact) return !dirty && !plane.Sliding && plane.Bar != null && plane.Bar.Shown >= 1f && !setup.StageNow().BesideWindow;
+            var drawnView = plane.Shown.FirstOrDefault(item => item.Kind == from).View;
+            if (drawnView == null || drawnView.Frame != frame || plane.Opening(from) || dirty || plane.Sliding) return false;
+            if (navigator.Standing(from, frame, drawnView.Side) == null) return false;
             // Beside a window the plane stands under the window's lane, which no drag may take it into: the
             // stage as it stands now, not as the plane was last drawn.
             if (setup.StageNow().BesideWindow) return false;
-            if (navigator.Standing(MenuColumn.File, frame, null) == null || plane.Composition == null) return false;
+            if (plane.Composition == null) return false;
             if (plane.Front?.Footer.Confirming == true) return false;
             foreach (var (_, view) in plane.Shown)
             {
@@ -556,9 +640,22 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void OnSubjectHeld(MenuColumn from, MenuFrame? frame, Vector3 point)
         {
-            var taken = subjectPressTaken;
+            var origin = subjectOrigin;
+            var currentSide = plane.Shown.FirstOrDefault(item => item.Kind == from).View?.Side;
+            var same = origin == (from, frame, currentSide, navigator.IsCompact, navigator.Beside);
+            var taken = subjectPressTaken && same;
             subjectPressTaken = false;
-            if (!taken || !MayDrag(from, frame) || !(plane.Composition is PlaneComposition composition)) return;
+            subjectOrigin = null;
+            if (!same) return;
+            if (!taken || !MayDrag(from, frame))
+            {
+                var side = plane.Shown.FirstOrDefault(item => item.Kind == from).View?.Side;
+                if (setup.StageNow().BesideWindow && OrganizationStanding(from, frame, side)) OpenPlacement();
+                return;
+            }
+            var composition = plane.Composition ?? (plane.Bar is MenuBarView bar
+                ? new PlaneComposition(new[] { new PlaneColumn(bar.Size.x, bar.Size.y) }, GlazeText.Scale) : null);
+            if (composition == null) return;
             var stage = setup.StageNow();
             var eyes = plane.Eyes;
             var bodies = new List<BodyInView>(stage.Characters.Count);
@@ -593,6 +690,7 @@ namespace Halcyonic.XR.Workspace
             var (yaw, elevation) = AnglesOf(point - plane.Eyes);
             if (!drag.Follow(yaw, elevation)) return;
             moved = drag.Moved;
+            movedByHand = true;
             plane.Turn(moved);
         }
 
@@ -600,6 +698,7 @@ namespace Halcyonic.XR.Workspace
         private void OnSubjectLetGo()
         {
             subjectPressTaken = false;
+            subjectOrigin = null;
             EndDrag();
         }
 
@@ -674,6 +773,7 @@ namespace Halcyonic.XR.Workspace
 
         public void OpenFile(string workstreamId)
         {
+            if (navigator.TryExpandTask(workstreamId)) return;
             opening = (true, workstreamId);
             try
             {

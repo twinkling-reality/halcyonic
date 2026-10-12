@@ -529,3 +529,20 @@ paging retains selections with per-option whole-read evidence; mandatory review 
 prompt; explicit bounded answer navigation/input controls and unavailable-choice Read why navigation are local row exceptions. Stop remains a
 confirmed footer action on the dedicated explanation. Drafts remain scoped to one open file. The field, font, hit-area, provenance,
 policy confirmation and runtime-confirmation limits still apply. Historical rationale above remains.
+
+## Amendment, 2026-10-11: named manual organization controls
+
+The owner's next organization slice makes Compact/Expand and Move explicit while retaining one
+active composition. The primary subject reserves its right side for named Move and Compact targets;
+the compact bar keeps the exact retained identity with separate Move and Expand targets. A whole-bar
+Open action and an unnamed whole-subject grip no longer define production interaction. Close keeps
+its existing draft lifetime. Controls retain the type, target, physical spacing, field, one-plane and
+footer contracts. Exact prompt/font measurement reduces title width; the subject grows downwards
+when it requires the existing second row, and page packing uses the matching height.
+
+A short Move press opens local placement details, with Reset position and actual arrangements chosen
+then applied explicitly. A window constraint is explained there and never leaves an inert hold. A
+full task title remains reachable through Read title. Manual compaction preserves current valid
+reading/draft state while revoking callbacks, armed confirmation and old draw/action authority;
+expansion and the matching character resume that same instance. This amendment does not settle a
+multiple-reader architecture, a retained-file count limit or disk draft persistence.

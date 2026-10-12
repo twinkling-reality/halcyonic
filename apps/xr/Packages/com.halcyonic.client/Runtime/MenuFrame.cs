@@ -940,7 +940,7 @@ namespace Halcyonic.Client
             var room = pill ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
             var inner = pill ? room - U(Glaze.Menu.SubjectPaddingDegrees) + Grid / 2f : 0f;
             var title = rows * U(Glaze.Menu.TitleDegrees) * Glaze.Menu.LineSpacing;
-            return room + MathF.Max(U(Glaze.Menu.SubjectDegrees), inner + title + 2f * U(Glaze.Menu.SubjectPaddingDegrees));
+            return room + MathF.Max(U(Glaze.TargetDegrees), MathF.Max(U(Glaze.Menu.SubjectDegrees), inner + title + 2f * U(Glaze.Menu.SubjectPaddingDegrees)));
         }
 
         /// <summary>The row of sections, a 48 dp target's height.</summary>

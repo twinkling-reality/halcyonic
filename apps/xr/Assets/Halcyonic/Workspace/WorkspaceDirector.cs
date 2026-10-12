@@ -169,6 +169,8 @@ namespace Halcyonic.XR.Workspace
                 ComfortSaved = comfort.Keep,
                 // Your space always, so Reset position is always there; Your computer where the build
                 // offers pairing (PairingBootstrap's gate), each row reading whatever stands now.
+                Arrangement = () => Room?.Arrangement,
+                PlaceCharacters = choice => Room?.ChooseArrangement(choice),
                 Space = () => SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address), pairing: Debug.isDebugBuild),
                 Commands = commands,
                 Overview = Overview,
@@ -626,6 +628,11 @@ namespace Halcyonic.XR.Workspace
         private void OnSelected(CharacterTarget target)
         {
             if (FocusGuard.InputSuspended) return;
+            if (OpenWorkstream == target.WorkstreamId && menu.IsCompact)
+            {
+                menu.OpenFile(target.WorkstreamId);
+                return;
+            }
             if (OpenWorkstream == target.WorkstreamId)
             {
                 Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);

@@ -297,3 +297,14 @@ Settled by the coordinator on 2026-10-08, old beside new.
 | The demonstration's word on an answer it continues from its recording | Nothing is sent to an agent. The recording goes on as if you answered “{label}”.; Not sent to any agent; the recording continues as recorded for “{label}”.; …so it continues as recorded for “{label}”. | Nothing is sent to an agent. The recording goes on as if you had chosen its recorded answer.; Not sent to any agent; the recording continues as recorded for this instruction.; Not sent to any agent; the recording holds only its own instructions, so it continues with the one it recorded. (Halcyonic's message names no outside text) |
 | A provenance line | From Salidium {version}, 2 minutes ago | The same words, {version} leaning on its ground: a source names its own version |
 | Unchanged, now marked | Started on {app}; Tests started: {label}; Tests passed: {summary}; Approval requested to use {tool}: {summary}; It wants to use {tool}:; Tests passed at 14:02: {label}; Still open: {title}; New task in {name}; New folder in {root}; Directly in {root}; In {root}; Files go straight into {root}; From now on, … | The same words, {x} leaning on its ground |
+
+## Workspace organization
+
+Move, Compact and Expand are persistent named workspace controls outside the decision footer.
+Compact keeps the exact current page and valid local draft. Expand resumes that composition;
+Close retains its existing leave/discard meaning. Move's short press opens placement details;
+Hold Move to drag the whole workspace explains its hold. Below a window the detail says,
+"The workspace stays below the window. Choose where the characters stand."
+The actual choices are In front of you, Room for a window and Either side of a window. Selecting
+one shows Apply; it changes only on that explicit press. Reset position brings the workspace back
+within reach. Read title shows the retained task's complete outside title in readable parts.

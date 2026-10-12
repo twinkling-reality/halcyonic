@@ -25,6 +25,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>Stands the characters in the next arrangement (<see cref="SpaceSettings.Next"/>).</summary>
         void NextArrangement();
+
+        /// <summary>Applies the explicit arrangement the person selected in placement details.</summary>
+        void ChooseArrangement(StageArrangement arrangement);
     }
 
     /// <summary>

@@ -129,6 +129,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     ReadLocations = _ => System.Threading.Tasks.Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     Comfort = comfort,
                     // Your space as the room and a paired computer give it, in a development build.
+                    Arrangement = () => surfaceNow.HasValue ? null : windowNow ? StageArrangement.BesideAWindow : StageArrangement.InFront,
+                    PlaceCharacters = choice => windowNow = choice == StageArrangement.BesideAWindow,
                     Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront,
                         new PairingNow("192.168.1.23:47801", PairingStep.Idle, true)), _ => { }, _ => { }, pairing: true),
                     File = (host, task) =>
@@ -206,6 +208,26 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, window));
 
+                // A Move press belongs to the exact frame it began on, including after a content redraw.
+                var moveView = director.Plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.File).View;
+                var move = moveView?.Targets.FirstOrDefault(button => button.Label.text == "Move");
+                if (move != null && file != null && !besideWindow)
+                {
+                    moveView!.SettleSubjectForRender();
+                    move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Select, move.transform.position);
+                    file.Change();
+                    director.DrawNow();
+                    director.MatureHoldForRender(move.transform.position);
+                    move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Unselect, move.transform.position);
+                    if (director.Dragging || director.Plane.Showing(MenuColumn.File)?.Subject == PlacementColumn.Subject)
+                        failures.Add(name + ": an old Move press survived a file-frame rebind.");
+                    director.PressSubjectForRender();
+                    director.MatureHoldForRender(move.transform.position);
+                    if (!director.Dragging) failures.Add(name + ": a fresh Move press on the rebound drawn frame could not drag.");
+                    director.LetGoForRender();
+                    director.DrawNow();
+                }
+
                 // Beside a window the plane stands under the window's lane, and a file's subject drags nothing: no drag can take it into the lane.
                 if (besideWindow)
                 {
@@ -219,7 +241,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         director.DragSubjectForRender(eyes + Quaternion.Euler(-20f, 0f, 0f) * (under.Subject.position - eyes));
                         director.LetGoForRender();
                         director.DrawNow();
-                        if (Mathf.Abs(director.Plane.Direction.Elevation - underLane.Elevation) > 0.01f || director.MovedByHand) failures.Add(name + ": beside a window, the plane moved by hand.");
+                        if (director.MovedByHand) failures.Add(name + ": beside a window, the plane moved by hand.");
+                        if (director.Plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject)
+                            failures.Add(name + ": a window-constrained Move hold offered no placement detail.");
                         failures.AddRange(PlaneState(name + " director held beside the window", folder, camera, texture, director.Plane, characters, eyes, window));
                     }
                     return failures;
@@ -692,6 +716,24 @@ namespace Halcyonic.XR.Workspace.Editor
                     keyboardDone?.Invoke(words);
                     director.DrawNow();
                     Capture("editor-" + length + "-part1");
+                    var retained = file!;
+                    var retainedPart = retained.Screen.Question.InputPart;
+                    var lateKeyboard = keyboardDone;
+                    var sendsBeforeCompact = sent.Count;
+                    director.Compact();
+                    director.DrawNow();
+                    failures.AddRange(PlaneState(name + " compact-editor-" + length, folder, camera, texture, plane, characters, eyes, null));
+                    SelectCharacterThroughWorkspace(director, opened.Target);
+                    if (director.Navigator.IsCompact || director.Navigator.Beside != retained || file != retained)
+                        failures.Add(name + ": actual same-task character selection replaced or closed its retained editor.");
+                    if (director.Navigator.Act(MenuColumn.File, FileScreens.UseInput, null, retained.Frame, null))
+                        failures.Add(name + ": character resume acted before its exact resumed frame drew.");
+                    lateKeyboard?.Invoke("late words after compaction");
+                    director.DrawNow();
+                    if (retained.Screen.Question.Input != words || retained.Screen.Question.InputPart != retainedPart || sent.Count != sendsBeforeCompact)
+                        failures.Add(name + ": character resume lost editor position/buffer or accepted a late keyboard callback.");
+                    Capture("expanded-editor-" + length);
+
                     for (var part = 0; part < 60 && file!.Screen.Question.InputPart + 1 < file.Screen.Question.InputParts; part++)
                     {
                         if (!PressWords("Next part")) { failures.Add(name + ": custom read-through Next part took no press."); break; }

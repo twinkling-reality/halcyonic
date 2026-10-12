@@ -9,9 +9,8 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The menu closed (ADR 0026): one rounded glass shape, the menu's width, on the plane's top line.
-    /// Its line at 18 dp says what waits, in amber with the waiting icon, or that nothing is waiting,
-    /// and Open stands at its right as a prompt's cap and words. The whole shape is one place to press,
-    /// which raises <see cref="MenuBar.Open"/>. Built in units of the plane's distance at the designed
+    /// Its line at 18 dp identifies the retained composition. Move and Expand are separate named targets;
+    /// Expand raises <see cref="MenuBar.Open"/>. Built in units of the plane's distance at the designed
     /// size, centred on its transform.
     /// </summary>
     public sealed class MenuBarView : MonoBehaviour
@@ -19,12 +18,10 @@ namespace Halcyonic.XR.UI
         private const int Order = 20;
 
         private Surface shape = null!;
-        private GlazeButton target = null!;
-        private TextMeshPro icon = null!;
         private TextMeshPro line = null!;
-        private Surface cap = null!;
-        private TextMeshPro capIcon = null!;
-        private TextMeshPro open = null!;
+        private OrganizationControlsView controls = null!;
+        private TextMeshPro state = null!;
+        private readonly List<Surface> identityGrounds = new List<Surface>();
         private Vector2 size;
         private float shown = 1f;
         private readonly List<Surface> shapes = new List<Surface>();
@@ -37,7 +34,8 @@ namespace Halcyonic.XR.UI
         public Vector2 Size => size;
 
         /// <summary>The bar's one place to press, for the renders' checks.</summary>
-        public GlazeButton Target => target;
+        public GlazeButton Target => controls.Toggle;
+        public OrganizationControlsView Controls => controls;
 
         /// <summary>
         /// How far into view the bar is, from 0 to 1, as it appears where a file or the menu closed: by opacity
@@ -65,62 +63,40 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<MenuBarView>();
             view.shape = Surface.Create(go.transform, "Shape", Order);
-            view.target = GlazeButton.Create(go.transform, "Open the menu", ButtonRole.Row, compact: false, order: Order + 1);
-            view.target.Pressed += () => view.Acted?.Invoke(MenuBar.Open);
-            view.target.Accepting = () => view.shown >= 1f;
-            view.icon = GlazeIcons.Create(go.transform, "Waits", Glaze.Menu.BodyDegrees, GlazeTokens.Text, Order + 3);
-            view.line = GlazeText.Create(go.transform, "Line", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, Order + 3);
+            view.controls = OrganizationControlsView.Create(go.transform);
+            view.controls.Accepting = () => view.shown >= 1f && !FocusGuard.InputSuspended;
+            view.controls.Toggled += () => view.Acted?.Invoke(MenuBar.Open);
+            view.line = GlazeText.Create(go.transform, "Retained identity", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, Order + 3);
             view.line.rectTransform.pivot = new Vector2(0f, 0.5f);
-            view.cap = Surface.Create(go.transform, "Cap", Order + 2);
-            view.capIcon = GlazeIcons.Create(go.transform, "Cap icon", Glaze.Menu.PromptIconDegrees, GlazeTokens.Text, Order + 3);
-            view.open = GlazeText.Create(go.transform, "Open", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, Order + 3);
-            view.open.rectTransform.pivot = new Vector2(0f, 0.5f);
-            view.open.textWrappingMode = TextWrappingModes.NoWrap;
+            view.state = GlazeText.Create(go.transform, "Retained state", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, Order + 3);
+            view.state.rectTransform.pivot = new Vector2(0f, 0.5f);
             return view;
         }
 
         /// <summary>Shows <paramref name="bar"/> closed, <paramref name="columnDegrees"/> wide.</summary>
-        public void Show(MenuBar bar, float columnDegrees)
+        public void Show(MenuBar bar, float columnDegrees, LineWords? identity = null, string? status = null)
         {
+            controls.Bind(identity ?? (object)bar);
             gameObject.SetActive(true);
-            float U(float degrees) => GlazeTokens.Units(degrees);
             size = new Vector2(PlaneComposition.Units(columnDegrees), Height);
             shape.DrawGlass(size);
-            target.ShowArea(Vector2.zero, size);
-            var padding = U(Glaze.Menu.PaddingDegrees);
-            var grid = U(Glaze.Menu.GridDegrees);
+            var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
             var left = -size.x / 2f + padding;
             var right = size.x / 2f - padding;
-
-            // Open at the right: its cap, a grid step, its words.
-            GlazeText.SetLiteral(open, "Open");
-            var words = open.GetPreferredValues(open.text).x;
-            GlazeText.Lay(open, words + U(0.1f), 1);
-            open.transform.localPosition = new Vector3(right - words, 0f, -U(0.05f));
-            var capSize = U(Glaze.Menu.PromptCapDegrees);
-            var capX = right - words - grid - capSize / 2f;
-            cap.Draw(Vector2.one * capSize, capSize / 2f, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.CapOutlineOpacity), U(Glaze.Menu.CapOutlineDegrees));
-            cap.transform.localPosition = new Vector3(capX, 0f, -U(0.04f));
-            GlazeIcons.Show(capIcon, GlazeIcon.Next);
-            capIcon.transform.localPosition = new Vector3(capX, 0f, -U(0.05f));
-
-            // What waits, in amber with its icon, or that nothing does.
-            var waits = false;
-            foreach (var place in MenuBar.Places) waits |= bar.Waits(place);
-            var colour = waits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
-            icon.gameObject.SetActive(waits);
-            var start = left;
-            if (waits)
+            controls.Show(right, 0f, compact: true);
+            var room = right - left - OrganizationControlsView.Width(compact: true) - MenuPage.TargetGap;
+            var words = identity ?? LineWords.Ours(bar.ClosedLine);
+            var theirs = GlazeRuns.Of(line).Set(words, _ => true);
+            GlazeText.Lay(line, room, 1);
+            line.transform.localPosition = new Vector3(left, status == null ? 0f : -GlazeText.LineHeight(line) / 2f, -GlazeTokens.Units(0.05f));
+            GlazeRuns.TokenGrounds(line, theirs, identityGrounds, transform, Order + 1);
+            state.gameObject.SetActive(status != null);
+            if (status != null)
             {
-                GlazeIcons.Show(icon, GlazeIcon.WaitingForYou);
-                icon.color = colour;
-                icon.transform.localPosition = new Vector3(left + U(Glaze.Menu.IconColumnDegrees) / 2f, 0f, -U(0.05f));
-                start = left + U(Glaze.Menu.IconColumnDegrees) + grid;
+                GlazeText.SetLiteral(state, status);
+                GlazeText.Lay(state, room, 1);
+                state.transform.localPosition = new Vector3(left, GlazeText.LineHeight(line) / 2f, -GlazeTokens.Units(0.05f));
             }
-            line.color = colour;
-            GlazeText.SetLiteral(line, bar.ClosedLine);
-            GlazeText.Lay(line, capX - capSize / 2f - grid - start, 1);
-            line.transform.localPosition = new Vector3(start, 0f, -U(0.05f));
         }
 
         public void Hide() => gameObject.SetActive(false);
