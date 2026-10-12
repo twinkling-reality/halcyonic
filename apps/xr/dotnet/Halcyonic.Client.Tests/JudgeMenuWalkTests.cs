@@ -419,8 +419,25 @@ public class JudgeMenuWalkTests
         var presets = player.InstructionsFor(file.Now!.Execution!.ExecutionId);
         Assert.That(JudgePath.Instructions(frame!), Is.EqualTo(presets.Select(preset => WorkspaceText.OneLine(preset.Text))));
         host.Press(MenuColumn.File, FileScreens.Preset, "0");
+        Assert.That(host.Sent, Has.Count.EqualTo(2), "choosing a preset submits nothing");
         host.Press(MenuColumn.File, FileScreens.TellIt);
-        Assert.That(host.Sent, Has.Count.EqualTo(3));
+        Assert.That((file.Screen.Instruction.Words, host.Sent.Count), Is.EqualTo((presets[0].Text, 2)), "Review instruction creates only the selected local draft");
+        for (var part = 0; part < file.Screen.Instruction.Parts && !file.Screen.Instruction.Read; part++)
+        {
+            (_, frame) = host.Draw();
+            Assert.That(frame!.Lines.Single(line => line.Control == LineControl.Input).Words, Is.EqualTo(presets[0].Text));
+            if (!file.Screen.Instruction.Read)
+            {
+                host.Wait();
+                Assert.That(host.Press(MenuColumn.File, FileScreens.NextInstructionPart), Is.True);
+            }
+            Assert.That(host.Sent, Has.Count.EqualTo(2), "reading each preset part submits nothing");
+        }
+        (_, frame) = host.Draw();
+        Assert.That((frame!.Footer[PromptSlot.FarRight]!.Id, frame.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo((FileScreens.SendInstruction, true)));
+        Assert.That(host.Press(MenuColumn.File, FileScreens.SendInstruction), Is.True, "the first visible explicit Send takes its press");
+        host.Press(MenuColumn.File, FileScreens.SendInstruction);
+        Assert.That(host.Sent, Has.Count.EqualTo(3), "the explicit instruction send remains exact-once");
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Last()).Payload.Text, Is.EqualTo(presets[0].Text));
         await host.Acks.Last();
         await Pumping.Until(player.Session, s => s.State.Runtimes.Count == 0, "the recording plays the instruction and ends");
