@@ -57,7 +57,7 @@ namespace Halcyonic.Client
                     + (saved?.Invoke(chosen) == false ? "Not saved. " : ""));
                 if (chosen.Instruction != null) runs = runs.Then(LineWords.Written("\nInstruction draft\n")).Then(LineWords.Theirs(chosen.Instruction.Text));
                 if (chosen.Request != null) runs = runs.Then(LineWords.Written("\nRequest draft\n")).Then(LineWords.Theirs(chosen.Request.Text))
-                    .Then(LineWords.Ours(chosen.Request.RequestId == null ? "\nNot submitted." : "\nSubmitted request reference retained. Restore to read its recorded result."));
+                    .Then(LineWords.Ours(chosen.Request.PendingCommandId != null ? "\nPending result. Restore to check." : chosen.Request.RequestId == null ? "\nNot submitted." : "\nSubmitted request reference retained. Restore to read its recorded result."));
                 if (chosen.Instruction == null && chosen.Request == null) runs = runs.Then(LineWords.Ours("This saved task view has no draft."));
                 var rows = Math.Max(1, host.RowsOf(new PageLine(runs, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
                 var room = Math.Max(1, (int)Math.Floor(host.PageHeight(host.TitleRows("Saved task view", Glaze.Menu.FileColumnDegrees), false, focused: true) / MenuPage.Words(1)));

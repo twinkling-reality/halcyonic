@@ -20,10 +20,15 @@ namespace Halcyonic.Client
         private readonly Func<bool> current;
         private readonly Func<CancellationToken, Task<WorkspaceAgentStatus>> offer;
         private readonly Func<string, CancellationToken, Task<WorkspaceRequestResponse>> read;
+        private readonly Func<string, CancellationToken, Task<WorkspaceCommandResponse>> readCommand;
         private readonly FileInstruction editor = new FileInstruction();
         private CancellationTokenSource reads = new CancellationTokenSource();
         private Task<WorkspaceAgentStatus>? offerPending;
         private Task<WorkspaceRequestResponse>? readPending;
+        private Task<WorkspaceCommandResponse>? commandReadPending;
+        private bool commandReadAttempted;
+        private long commandReadPosition = -1;
+        private CommandType? submittedType;
         private Task<CommandAckMessage>? acknowledgement;
         private AvailableWorkspaceAgent? agent;
         private WorkspaceRequestView? request;
@@ -36,7 +41,8 @@ namespace Halcyonic.Client
         private TextSize measuredSize;
         public WorkspaceRequestColumn(IMenuHost host, CommandFactory commands, WorkspaceContinuation context, Func<bool> current,
             Func<CancellationToken, Task<WorkspaceAgentStatus>>? offer = null,
-            Func<string, CancellationToken, Task<WorkspaceRequestResponse>>? read = null)
+            Func<string, CancellationToken, Task<WorkspaceRequestResponse>>? read = null,
+            Func<string, CancellationToken, Task<WorkspaceCommandResponse>>? readCommand = null)
         {
             if (context.JournalId == null || context.ProjectId == null || context.WorkstreamId == null || context.ExecutionId == null)
                 throw new ArgumentException("A request needs a bound task and execution.", nameof(context));
@@ -44,6 +50,7 @@ namespace Halcyonic.Client
             this.context = HalcyonicJson.Deserialize<WorkspaceContinuation>(HalcyonicJson.Serialize(context));
             this.offer = offer ?? (token => host.Api?.GetWorkspaceAgentAsync(token) ?? Task.FromException<WorkspaceAgentStatus>(new InvalidOperationException()));
             this.read = read ?? ((id, token) => host.Api?.ReadWorkspaceRequestAsync(id, token) ?? Task.FromException<WorkspaceRequestResponse>(new InvalidOperationException()));
+            this.readCommand = readCommand ?? ((id, token) => host.Api?.ReadWorkspaceCommandAsync(id, token) ?? Task.FromException<WorkspaceCommandResponse>(new InvalidOperationException()));
             editor.Begin(context.ExecutionId);
             currentBefore = Current;
             if (context.Request != null) Restore(context.Request);
@@ -51,10 +58,12 @@ namespace Halcyonic.Client
         public event Action? Changed;
         public event Action? Closed;
         public Action? BackToTask { get; set; }
+        public Func<WorkspaceRequestContinuation, bool>? BeforeSubmit { get; set; }
+        public Action? InputContextLeft { get; set; }
         public string ExecutionId => context.ExecutionId!;
         public string? RequestId => requestId;
         public WorkspaceRequestContinuation Draft => new WorkspaceRequestContinuation
-        { RequestId = requestId, Text = editor.Words, Spoken = editor.Spoken, Part = editor.Part };
+        { RequestId = requestId, PendingCommandId = commandId, Text = editor.Words, Spoken = editor.Spoken, Part = editor.Part };
         private bool Current => !host.Demonstration && host.Connected && current()
             && (host.State == null || host.State.Executions.TryGetValue(context.ExecutionId!, out var execution)
                 && !execution.PendingQuestions.Any(question => question.Prompts.Any(prompt => prompt.Secret)));
@@ -70,6 +79,7 @@ namespace Halcyonic.Client
         {
             FocusLeft();
             requestId = saved.RequestId;
+            commandId = saved.PendingCommandId; submittedType = null; acknowledgement = null; commandReadAttempted = false; commandReadPosition = -1;
             request = null; readAttempted = false;
             editor.Restore(context.ExecutionId!, saved.Text, saved.Spoken, (int)saved.Part);
             section = requestId == null ? "draft" : "response";
@@ -93,7 +103,9 @@ namespace Halcyonic.Client
             if (!active || !Current) return;
             if (reads.IsCancellationRequested) { reads.Dispose(); reads = new CancellationTokenSource(); }
             if (!offerRead && offerPending == null) { offerRead = true; offerPending = offer(reads.Token); }
-            if (requestId != null && readPending == null && (!readAttempted || readPosition != host.State?.Position))
+            if (commandId != null && commandReadPending == null && (!commandReadAttempted || commandReadPosition != (host.State?.Position ?? -1)))
+            { commandReadAttempted = true; commandReadPosition = host.State?.Position ?? -1; commandReadPending = readCommand(commandId, reads.Token); }
+            if (requestId != null && readPending == null && (!readAttempted || readPosition != (host.State?.Position ?? -1)))
             { readAttempted = true; readPosition = host.State?.Position ?? -1; readPending = read(requestId, reads.Token); }
         }
         private MenuFrame Build()
@@ -123,9 +135,9 @@ namespace Halcyonic.Client
             var draftRoom = new HeightBudget(room.Room + MenuPage.SourceLine - Math.Max(0, grantRows - 1) * MenuPage.Words(1));
             var allRows = Math.Max(1, host.RowsOf(EditorLine(int.MaxValue), Glaze.Menu.FileColumnDegrees));
             editor.Measure(allRows, draftRoom, host.TextSize, pairedPager: true);
-            var reason = !Current ? "Reconnect to the current task and run." : agent == null ? "Workspace assistant is unavailable. Refresh to try again."
-                : commandId != null ? "Waiting for the recorded result." : editor.Words.Length == 0 ? "Write or say a request first."
-                : !WorkspaceContinuity.IsDraftTextWithinLimit(editor.Words) ? "Shorten this request before sending." : !editor.Read ? "Read every part of this request first." : notice;
+            var reason = !Current ? "Reconnect before sending." : agent == null ? "Assistant unavailable. Refresh."
+                : commandId != null ? "Waiting for recorded result." : editor.Words.Length == 0 ? "Write or say a request first."
+                : !WorkspaceContinuity.IsDraftTextWithinLimit(editor.Words) ? "Shorten this request." : !editor.Read ? "Read the full request first." : notice;
             var lines = new List<PageLine> { new PageLine(grant, rows: grantRows), EditorLine(Math.Min(editor.PartRows, allRows - editor.Part * editor.PartRows)) };
             if (editor.Parts > 1)
             {
@@ -136,9 +148,11 @@ namespace Halcyonic.Client
             var maySend = requestId == null || CanResume;
             var send = new Prompt(action, requestId == null ? "Start request" : "Continue request", GlazeIcon.Next,
                 main: true, available: reason == null && maySend,
-                reason: reason ?? (!maySend ? "Refresh the current request before continuing." : null));
+                reason: reason ?? (!maySend ? "Refresh before continuing." : null));
             var before = new Footer(close, rare: new Prompt(Refresh, "Refresh", GlazeIcon.Refresh),
-                secondary: host.VoiceOffered ? new Prompt(Talk, "Hold to talk", GlazeIcon.HoldToTalk, holds: true) : null, farRight: send);
+                secondary: host.VoiceOffered ? new Prompt(Talk, "Hold to talk", GlazeIcon.HoldToTalk, holds: true,
+                    available: Current && commandId == null && !editor.InputFocused,
+                    reason: Current && commandId == null && !editor.InputFocused ? null : reason ?? "Finish typing first.", pageExplains: true) : null, farRight: send);
             var footer = armed ? Footer.Confirm(before, PromptSlot.FarRight,
                 reason == null && maySend ? new Prompt(Yes, "Yes, send request", GlazeIcon.Next, PromptKind.Yes) : null,
                 new Prompt(CancelReview, "Cancel", GlazeIcon.Close, PromptKind.Cancel)) : before;
@@ -146,19 +160,20 @@ namespace Halcyonic.Client
         }
         private PageLine EditorLine(int rows) => new PageLine(editor.Words.Length == 0 ? LineWords.Ours("Write a request") : LineWords.Theirs(editor.Words),
             action: host.KeyboardOffered ? Edit : null, rows: rows, fromRow: editor.Words.Length == 0 ? null : editor.Part * editor.PartRows,
-            control: LineControl.Input, inputFocused: editor.InputFocused);
+            control: LineControl.Input, inputFocused: editor.InputFocused, available: Current && commandId == null && !armed);
         private LineWords Report()
         {
             if (!Current) return LineWords.Ours("This request belongs to an earlier or disconnected task and run. Reconnect before continuing.");
             if (notice != null) return LineWords.Ours(notice);
+            if (commandId != null) return LineWords.Ours("Waiting for this request's recorded result. Refresh to check.");
             if (!Verified) return LineWords.Ours(requestId == null ? "No request has been submitted." : "Reading the recorded request.");
             if (section == "receipts")
             {
-                var words = LineWords.Written("Observed action receipts\n");
+                var words = LineWords.Written("Actions\n");
                 if (request!.Steps.Count == 0) return words.Then(LineWords.Ours("No actions have been recorded."));
                 if (request.EarlierSteps > 0) words = words.Then(LineWords.Written(request.EarlierSteps + " earlier actions are retained on the computer.\n"));
                 foreach (var step in request.Steps)
-                    words = words.Then(LineWords.Written("\n" + ReceiptWords(step.Status.ToString()) + " · recorded position " + step.ObservationPosition + "\n"))
+                    words = words.Then(LineWords.Written("\n" + ReceiptWords(step.Status.ToString(), step.CommandId != null) + "\n"))
                         .Then(LineWords.Theirs(step.Summary)).Then(LineWords.Written("\n"));
                 return words;
             }
@@ -168,10 +183,10 @@ namespace Halcyonic.Client
             else result = result.Then(LineWords.Ours("No reply has been recorded yet."));
             return result;
         }
-        private static string ReceiptWords(string status) => status switch
+        private static string ReceiptWords(string status, bool command) => status switch
         {
-            "prepared" => "Prepared", "running" => "In progress", "waiting" => "Waiting", "confirmed" => "Confirmed",
-            "rejected" => "Refused", "failed" => "Failed", _ => "Outcome unknown",
+            "prepared" => "Not sent", "running" => command ? "Sent" : "Reading", "waiting" => "Waiting", "confirmed" => "Confirmed",
+            "rejected" => "Not sent", "failed" => "Failed", _ => "Unknown",
         };
         private static string StatusWords(string status) => status switch
         {
@@ -183,8 +198,8 @@ namespace Halcyonic.Client
             if (drawn == null || drawn != given) return;
             if (id == Footer.Close) { FocusLeft(); if (BackToTask != null) BackToTask(); else Closed?.Invoke(); return; }
             if (id == MenuFrame.ChooseSection && new[] { "draft", "response", "receipts" }.Contains(key))
-            { section = key!; reportPart = 0; armed = false; Invalidate(); return; }
-            if (id == Refresh) { notice = null; agent = null; request = null; offerRead = false; readAttempted = false; readPosition = -1; Invalidate(); return; }
+            { SuspendDraft(); section = key!; reportPart = 0; Invalidate(); return; }
+            if (id == Refresh) { notice = null; agent = null; request = null; offerRead = false; readAttempted = false; commandReadAttempted = false; readPosition = -1; Invalidate(); return; }
             if (id == Next && section != "draft") { reportPart++; Invalidate(); return; }
             if (id == Next) { editor.Next(host.Clock); Invalidate(); return; }
             if (id == Previous) { editor.Previous(host.Clock); Invalidate(); return; }
@@ -195,7 +210,7 @@ namespace Halcyonic.Client
                 editor.Edit(); var epoch = ++keyboardGeneration;
                 MenuKeyboard.Open(host, editor.Words, "Workspace request", text =>
                 {
-                    if (epoch != keyboardGeneration || !Current || !editor.InputFocused) return;
+                    if (epoch != keyboardGeneration || !Current || section != "draft" || !editor.InputFocused) return;
                     editor.Changed(text, false); notice = null; armed = false; Invalidate();
                 }, () => { if (epoch == keyboardGeneration) { SuspendDraft(); Invalidate(); } });
                 Invalidate(); return;
@@ -211,9 +226,65 @@ namespace Halcyonic.Client
         }
         private void Submit(CommandEnvelope command)
         {
-            var sent = host.Submit(command);
-            if (sent == null) { notice = "The request was not sent. Reconnect and try again."; Invalidate(); return; }
-            commandId = command.CommandId; acknowledgement = sent; armed = false; notice = null; Invalidate();
+            commandId = command.CommandId;
+            submittedType = command is WorkspaceRequestSubmitCommand ? CommandType.WorkspaceRequestSubmit
+                : command is WorkspaceRequestResumeCommand ? CommandType.WorkspaceRequestResume : CommandType.WorkspaceRequestCancel;
+            // Persist this exact ordinary draft and UUID before any call can reach the host.
+            if (!PersistPending())
+            {
+                commandId = null; submittedType = null; notice = "Draft could not be saved. Refresh."; Invalidate(); return;
+            }
+            if (!Current) { ClearKnownUnsent(); Invalidate(); return; }
+            try
+            {
+                acknowledgement = host.Submit(command);
+                if (acknowledgement == null) ClearKnownUnsent();
+                else { notice = null; commandReadAttempted = false; commandReadPosition = -1; }
+            }
+            catch (Exception) { notice = "Delivery is unknown. Refresh."; }
+            armed = false; Invalidate();
+        }
+        private bool PersistPending()
+        {
+            try { return BeforeSubmit?.Invoke(Draft) == true; }
+            catch (Exception) { return false; }
+        }
+        private void ClearKnownUnsent()
+        {
+            var pending = commandId;
+            commandId = null;
+            if (!PersistPending()) commandId = pending;
+            else submittedType = null;
+            notice = "Request not sent. Refresh.";
+        }
+        private bool MatchesCommand(CommandView command) => command.CommandId == commandId && command.ProjectId == context.ProjectId
+            && command.WorkstreamId == context.WorkstreamId && command.ExecutionId == context.ExecutionId
+            && (command.CommandType == CommandType.WorkspaceRequestSubmit || command.CommandType == CommandType.WorkspaceRequestResume || command.CommandType == CommandType.WorkspaceRequestCancel)
+            && (submittedType == null || submittedType == command.CommandType)
+            && (requestId != null || command.CommandType == CommandType.WorkspaceRequestSubmit);
+        private void ApplyCommand(WorkspaceCommandResponse found)
+        {
+            if (found.JournalId != context.JournalId || !MatchesCommand(found.Command))
+            { notice = "The saved result belongs to another request context. Its draft is retained."; return; }
+            var command = found.Command;
+            if (command.Status == CommandStatus.Completed)
+            {
+                if (command.CommandType == CommandType.WorkspaceRequestSubmit)
+                {
+                    if (command.Result is not WorkspaceRequestCreatedResult created || requestId != null && requestId != created.RequestId)
+                    { notice = "The saved request has no confirmed reference. Refresh."; return; }
+                    var candidate = HalcyonicJson.Deserialize<WorkspaceContinuation>(HalcyonicJson.Serialize(context));
+                    candidate.Request = Draft; candidate.Request.RequestId = created.RequestId; candidate.Request.PendingCommandId = null;
+                    if (!WorkspaceContinuity.TryParse(HalcyonicJson.Serialize(candidate), out _))
+                    { notice = "The saved request reference could not be verified. Refresh."; return; }
+                    requestId = created.RequestId;
+                }
+                else if (requestId == null) { notice = "The saved request reference is unavailable. Refresh."; return; }
+                commandId = null; submittedType = null; request = null; readAttempted = false; readPosition = -1; notice = null; section = "response";
+            }
+            else if (command.Status == CommandStatus.Rejected || command.Status == CommandStatus.Failed && command.Failure?.Effect == FailureEffect.None)
+            { commandId = null; submittedType = null; notice = "Request not sent. Refresh."; }
+            else if (command.Status == CommandStatus.Failed) notice = "Delivery is unknown. Refresh.";
         }
         public void Drawn(MenuFrame frame, Footer? sidePanel)
         {
@@ -242,28 +313,39 @@ namespace Halcyonic.Client
             }
             if (acknowledgement?.IsCompleted == true)
             {
-                try { if (acknowledgement.GetAwaiter().GetResult().Disposition != CommandAckDisposition.Accepted) { commandId = null; notice = "The request was refused. Refresh before trying again."; } }
-                catch (Exception) { notice = "Delivery is unknown. Reconnect to check the recorded result."; }
+                try
+                {
+                    var ack = acknowledgement.GetAwaiter().GetResult();
+                    // Even Duplicate is only an acknowledgement. Resolve its exact original-owner
+                    // command through GET; a foreign/partial ack cannot discard a pending identity.
+                    if (ack.CommandId != commandId || ack.Command != null && !MatchesCommand(ack.Command)
+                        || ack.Disposition != CommandAckDisposition.Accepted && ack.Disposition != CommandAckDisposition.Duplicate)
+                        notice = "Delivery is unknown. Refresh.";
+                }
+                catch (Exception) { notice = "Delivery is unknown. Refresh."; }
                 acknowledgement = null; Invalidate();
             }
-            if (commandId != null && host.State?.Commands.TryGetValue(commandId, out var command) == true)
+            if (commandReadPending?.IsCompleted == true)
             {
-                if (command.Result is WorkspaceRequestCreatedResult created) { requestId = created.RequestId; commandId = null; request = null; section = "response"; readPosition = -1; }
-                else if (command.Status == CommandStatus.Failed || command.Status == CommandStatus.Rejected) { commandId = null; notice = "The request was not completed. Refresh before trying again."; }
-                else if (command.Status == CommandStatus.Completed) { commandId = null; request = null; readPosition = -1; }
-                if (commandId == null) Invalidate();
+                try { ApplyCommand(commandReadPending.GetAwaiter().GetResult()); }
+                catch (Exception) { notice = "The pending result could not be read. Refresh."; }
+                commandReadPending = null; Invalidate();
             }
             BeginReads();
         }
-        private void SuspendDraft() { keyboardGeneration++; armed = false; talking = false; editor.Restore(context.ExecutionId!, editor.Words, editor.Spoken, editor.Part); }
+        private void SuspendDraft() { InputContextLeft?.Invoke(); keyboardGeneration++; armed = false; talking = false; editor.Restore(context.ExecutionId!, editor.Words, editor.Spoken, editor.Part); }
         private void Invalidate() { given = null; drawn = null; Changed?.Invoke(); }
         public void FocusLeft()
-        { active = false; reads.Cancel(); offerPending = null; readPending = null; offerRead = false; readAttempted = false; agent = null; SuspendDraft(); Invalidate(); }
+        { active = false; reads.Cancel(); offerPending = null; readPending = null; commandReadPending = null; offerRead = false; readAttempted = false; commandReadAttempted = false; agent = null; SuspendDraft(); Invalidate(); }
         public void Compact() => FocusLeft();
-        public void HoldStarted(string id) { if (id != Talk || !Current || !host.VoiceOffered || armed || drawn?.Footer.All.Any(each => each.Prompt.Id == Talk && each.Prompt.Available) != true) return; talking = true; voiceEpoch = editor.Epoch; }
+        public void HoldStarted(string id) { if (id != Talk || !Current || !host.VoiceOffered || armed || commandId != null || drawn?.Footer.All.Any(each => each.Prompt.Id == Talk && each.Prompt.Available) != true) return; talking = true; voiceEpoch = editor.Epoch; }
         public void HoldEnded(string id, bool letGo) { if (id == Talk && !letGo) talking = false; }
         public void Heard(string words)
-        { if (!talking || !Current || voiceEpoch != editor.Epoch) return; talking = false; editor.Changed(words, true); notice = null; Invalidate(); }
-        public void Said(string words) { notice = words; Invalidate(); }
+        { if (!talking || !Current || section != "draft" || voiceEpoch != editor.Epoch) return; talking = false; editor.Changed(words, true); notice = null; Invalidate(); }
+        public void Said(string words)
+        {
+            if (!active || words == VoiceText.Listening || words == VoiceText.Hearing) return;
+            notice = words; section = "response"; reportPart = 0; Invalidate();
+        }
     }
 }

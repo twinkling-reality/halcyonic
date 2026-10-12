@@ -41,6 +41,7 @@ public class WorkspaceRequestColumnTests
         Func<string, CancellationToken, Task<WorkspaceRequestResponse>>? read = null)
     {
         var column = new WorkspaceRequestColumn(host, Commands, context ?? Context(), current ?? (() => true), Offered, read);
+        column.BeforeSubmit = _ => true;
         _ = column.Frame; column.Tick(); return column;
     }
 
@@ -147,4 +148,179 @@ public class WorkspaceRequestColumnTests
         Assert.That(stopHost.Sent.Single(), Is.InstanceOf<WorkspaceRequestCancelCommand>());
         Assert.That(stopHost.Sent.OfType<ExecutionInterruptCommand>(), Is.Empty);
     }
+    [Test]
+    public void SectionDepartureRevokesTheActualOutstandingKeyboardAndVoiceDestinations()
+    {
+        var host = new FileMenuHost(); var column = Open(host);
+        Write(host, column, "Keep the latest local request");
+        Draw(host, column); column.Act(WorkspaceRequestColumn.Edit, null); var keyboard = host.Keyboard!.Value.Done;
+        Draw(host, column); column.Act(MenuFrame.ChooseSection, "response");
+        keyboard("Late hidden keyboard words");
+        Assert.That(column.Draft.Text, Is.EqualTo("Keep the latest local request"));
+        Draw(host, column); column.Act(MenuFrame.ChooseSection, "draft");
+        Draw(host, column);
+        var busy = false; var drops = 0;
+        var voice = new MenuVoice(() => busy, () => busy = true, () => { }, () => { busy = false; drops++; });
+        column.InputContextLeft = () => voice.Left(column);
+        Assert.That(voice.Hold(column, WorkspaceRequestColumn.Talk), Is.True);
+        var transcription = voice.CaptureHeard();
+        Draw(host, column); column.Act(MenuFrame.ChooseSection, "response");
+        transcription("Late hidden voice words"); column.Heard("Another late transcription");
+        Assert.That(voice.Speaking, Is.Null, "the production-used callback drops MenuVoice's destination too");
+        Assert.That(drops, Is.EqualTo(1));
+        Assert.That(column.Draft.Text, Is.EqualTo("Keep the latest local request"));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    private sealed class PendingHost : IMenuHost
+    {
+        public FileMenuHost View { get; } = new();
+        public ClientProjection? State { get; set; }
+        public Func<CommandEnvelope, Task<CommandAckMessage>>? Ack { get; set; }
+        public Action? Posting { get; set; }
+        public bool Connected => View.Connected;
+        public bool Demonstration => false;
+        public double Now => View.Now;
+        public DateTimeOffset Clock => View.Clock;
+        public TimeZoneInfo Zone => View.Zone;
+        public TextSize TextSize => View.TextSize;
+        public bool VoiceOffered => View.VoiceOffered;
+        public ControlPlaneApi? Api => null;
+        public bool KeyboardOffered => View.KeyboardOffered;
+        public Task<CommandAckMessage>? Submit(CommandEnvelope command)
+        {
+            Posting?.Invoke();
+            if (Ack == null) return View.Submit(command);
+            View.Sent.Add(command); return Ack(command);
+        }
+        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) => View.OpenKeyboard(text, prompt, done, dismissed);
+        public int RowsOf(string words, float degrees) => View.RowsOf(words, degrees);
+        public int RowsOf(PageLine line, float degrees) => View.RowsOf(line, degrees);
+        public bool FitsHalf(PageLine line, float degrees) => View.FitsHalf(line, degrees);
+        public int TitleRows(string words, float degrees) => View.TitleRows(words, degrees);
+        public int PageRows(bool source) => View.PageRows(source);
+        public float PageHeight(int rows, bool besideMenu, bool focused = false) => View.PageHeight(rows, besideMenu, focused);
+        public void OpenFile(string id) { }
+        public void OpenNewProject(string? id, string? name) { }
+    }
+    private static WorkspaceCommandResponse Created(WorkspaceContinuation context, string commandId) => new()
+    {
+        JournalId = context.JournalId!, Command = new CommandView
+        {
+            CommandId = commandId, CommandType = CommandType.WorkspaceRequestSubmit, Status = CommandStatus.Completed,
+            ProjectId = context.ProjectId, WorkstreamId = context.WorkstreamId, ExecutionId = context.ExecutionId,
+            IssuedAt = Samples.Time, UpdatedAt = Samples.Time, Result = new WorkspaceRequestCreatedResult { RequestId = RequestId },
+        },
+    };
+
+    [Test]
+    public void FailedDurableCaptureBlocksPostAndSuccessfulCapturePrecedesTheExactPost()
+    {
+        var host = new PendingHost(); var context = Context();
+        context.Request = new WorkspaceRequestContinuation { Text = "Inspect this task before changing it" };
+        var column = new WorkspaceRequestColumn(host, Commands, context, () => true, Offered);
+        var saved = false; string? captured = null;
+        column.BeforeSubmit = draft =>
+        {
+            Assert.That(host.View.Sent, Is.Empty, "the private write must precede POST");
+            Assert.That(draft.PendingCommandId, Is.Not.Null);
+            captured = draft.PendingCommandId; return saved;
+        };
+        _ = column.Frame; column.Tick(); Read(host.View, column);
+        column.Act(WorkspaceRequestColumn.Start, null);
+        Assert.That(host.View.Sent, Is.Empty);
+        Assert.That(column.Draft.Text, Is.EqualTo(context.Request.Text));
+        Assert.That(column.Draft.PendingCommandId, Is.Null, "a failed save proves POST was never attempted");
+        saved = true;
+        Draw(host.View, column); column.Act(WorkspaceRequestColumn.Refresh, null); _ = column.Frame; column.Tick();
+        Read(host.View, column); column.Act(WorkspaceRequestColumn.Start, null);
+        Assert.That(host.View.Sent.Single().CommandId, Is.EqualTo(captured));
+        Assert.That(Guid.Parse(captured!).ToString("D"), Is.EqualTo(captured), "the actual factory UUIDv4 is retained verbatim");
+        Assert.That(column.Draft.PendingCommandId, Is.EqualTo(captured));
+    }
+
+    [TestCase(CommandAckDisposition.Duplicate)]
+    [TestCase(CommandAckDisposition.Rejected)]
+    [TestCase(CommandAckDisposition.Conflict)]
+    public void AnAcknowledgementCannotClearTheOriginalPendingIdentityOrMintAnotherSubmit(CommandAckDisposition disposition)
+    {
+        var host = new PendingHost(); var context = Context(); context.Request = new WorkspaceRequestContinuation { Text = "Keep the original request identity" };
+        host.Ack = command => Task.FromResult(new CommandAckMessage
+        { CommandId = command.CommandId, Disposition = disposition, Command = Created(context, command.CommandId).Command });
+        var column = new WorkspaceRequestColumn(host, Commands, context, () => true, Offered,
+            readCommand: (_, _) => Task.FromException<WorkspaceCommandResponse>(new Exception("PRIVATE failure"))) { BeforeSubmit = _ => true };
+        _ = column.Frame; column.Tick(); Read(host.View, column); column.Act(WorkspaceRequestColumn.Start, null);
+        var sent = host.View.Sent.Single().CommandId;
+        for (var turn = 0; turn < 4; turn++) { _ = column.Frame; column.Tick(); Draw(host.View, column); column.Act(WorkspaceRequestColumn.Start, null); }
+        Assert.That(column.Draft.PendingCommandId, Is.EqualTo(sent));
+        Assert.That(column.RequestId, Is.Null, "even a complete duplicate ack is resolved through original-owner GET");
+        Assert.That(host.View.Sent, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void RecreationResolvesTheSavedUuidByExactOwnerReadWithoutPostingAgain()
+    {
+        var context = Context(); context.Request = new WorkspaceRequestContinuation { Text = "Recover this exact request" };
+        var firstHost = new PendingHost { Ack = _ => Task.FromException<CommandAckMessage>(new Exception("lost response")) };
+        WorkspaceContinuation? stored = null;
+        var first = new WorkspaceRequestColumn(firstHost, Commands, context, () => true, Offered);
+        first.BeforeSubmit = draft =>
+        {
+            context.Request = draft;
+            Assert.That(WorkspaceContinuity.TryParse(HalcyonicJson.Serialize(context), out stored), Is.True); return true;
+        };
+        _ = first.Frame; first.Tick(); Read(firstHost.View, first); first.Act(WorkspaceRequestColumn.Start, null);
+        var pending = firstHost.View.Sent.Single().CommandId;
+        Assert.That(stored!.Request!.PendingCommandId, Is.EqualTo(pending));
+        var recreatedHost = new PendingHost(); var reads = 0;
+        var recreated = new WorkspaceRequestColumn(recreatedHost, Commands, stored, () => true, Offered,
+            readCommand: (id, _) => { reads++; Assert.That(id, Is.EqualTo(pending)); return Task.FromResult(Created(stored, id)); });
+        _ = recreated.Frame; recreated.Tick();
+        Assert.That(recreated.RequestId, Is.EqualTo(RequestId));
+        Assert.That(recreated.Draft.PendingCommandId, Is.Null);
+        Assert.That(recreated.Draft.Text, Is.EqualTo("Recover this exact request"));
+        Assert.That((reads, recreatedHost.View.Sent.Count), Is.EqualTo((1, 0)));
+    }
+
+    [TestCase("journal")]
+    [TestCase("task")]
+    [TestCase("execution")]
+    [TestCase("id")]
+    [TestCase("type")]
+    [TestCase("unknown")]
+    [TestCase("not-found")]
+    public void AForeignOrUnresolvedCommandNeverDropsPendingAuthority(string change)
+    {
+        var context = Context(); var pending = Guid.NewGuid().ToString("D");
+        context.Request = new WorkspaceRequestContinuation { Text = "Retain my pending words", PendingCommandId = pending };
+        var response = Created(context, pending);
+        if (change == "journal") response.JournalId = "0192f1a0-0000-7000-8000-000000000111";
+        if (change == "task") response.Command.WorkstreamId = "0192f1a0-0000-7000-8000-000000000112";
+        if (change == "execution") response.Command.ExecutionId = "0192f1a0-0000-7000-8000-000000000113";
+        if (change == "id") response.Command.CommandId = Guid.NewGuid().ToString("D");
+        if (change == "type") response.Command.CommandType = CommandType.ExecutionInterrupt;
+        if (change == "unknown") { response.Command.Status = CommandStatus.Failed; response.Command.Failure = new CommandFailure { Code = "unavailable", Message = "PRIVATE", Effect = FailureEffect.Unknown }; }
+        var host = new PendingHost();
+        var column = new WorkspaceRequestColumn(host, Commands, context, () => true, Offered,
+            readCommand: (_, _) => change == "not-found" ? Task.FromException<WorkspaceCommandResponse>(new Exception("PRIVATE")) : Task.FromResult(response));
+        _ = column.Frame; column.Tick(); Draw(host.View, column); column.Act(WorkspaceRequestColumn.Start, null);
+        Assert.That((column.RequestId, column.Draft.PendingCommandId, column.Draft.Text), Is.EqualTo(((string?)null, pending, "Retain my pending words")));
+        Assert.That(host.View.Sent, Is.Empty);
+        Assert.That(column.Frame!.Footer.All.Where(each => each.Prompt.Reason != null).Select(each => each.Prompt.Reason), Has.None.Contains("PRIVATE"));
+    }
+
+    [Test]
+    public void NormalActionsUseMeaningfulStatusAndOmitInternalCursorOrReceiptTerms()
+    {
+        var context = Context(); context.Request = new WorkspaceRequestContinuation { RequestId = RequestId, Text = "Retained words" };
+        var response = Result(context);
+        response.Steps.Add(new WorkspaceRequestStep { Status = new JValue("prepared"), Summary = "An instruction is ready for dispatch.", ObservationPosition = 987654 });
+        response.Steps.Add(new WorkspaceRequestStep { Status = new JValue("unknown"), Summary = "Its outcome remains unknown.", ObservationPosition = 987655 });
+        var host = new FileMenuHost(); var column = Open(host, context, read: (_, _) => Task.FromResult(new WorkspaceRequestResponse { Request = response }));
+        Draw(host, column); column.Act(MenuFrame.ChooseSection, "receipts");
+        var words = column.Frame!.Lines.Single().Words;
+        Assert.That(words, Does.Contain("Actions").And.Contain("Not sent").And.Contain("Unknown"));
+        Assert.That(words, Does.Not.Contain("position").And.Not.Contain("receipt").And.Not.Contain("987654"));
+    }
+
 }

@@ -99,17 +99,26 @@ namespace Halcyonic.Client
 
         public MenuFrame? Frame { get; private set; }
         private WorkspaceRequestContinuation? retainedRequest;
+        private string? requestExecution;
         private Action? openWorkspaceRequest;
         public WorkspaceRequestColumn? RequestView { get; private set; }
         public WorkspaceSurface Surface { get; set; } = WorkspaceSurface.Task;
         public void OfferWorkspaceRequests(Action open)
         { if (openWorkspaceRequest != null) return; openWorkspaceRequest = open; Screen.WorkspaceRequestOffered = true; Rebuild(); }
-        public WorkspaceRequestContinuation? ContinuationRequest() => RequestView?.Draft ?? (retainedRequest == null ? null : new WorkspaceRequestContinuation
-        { RequestId = retainedRequest.RequestId, Text = retainedRequest.Text, Spoken = retainedRequest.Spoken, Part = retainedRequest.Part });
+        public WorkspaceRequestContinuation? ContinuationRequest() => RequestView?.ExecutionId == Now?.Execution?.ExecutionId
+            ? RequestView?.Draft : requestExecution == Now?.Execution?.ExecutionId && retainedRequest != null ? new WorkspaceRequestContinuation
+            { RequestId = retainedRequest.RequestId, PendingCommandId = retainedRequest.PendingCommandId, Text = retainedRequest.Text, Spoken = retainedRequest.Spoken, Part = retainedRequest.Part } : null;
         public WorkspaceRequestColumn RequestFor(WorkspaceContinuation context, Func<bool> current)
         {
-            if (RequestView != null && RequestView.ExecutionId == context.ExecutionId) return RequestView;
+            if (context.ExecutionId != Now?.Execution?.ExecutionId || context.WorkstreamId != Now?.Character.WorkstreamId)
+                throw new InvalidOperationException("A request view cannot retarget another task or execution.");
+            if (RequestView != null)
+            {
+                if (RequestView.ExecutionId != context.ExecutionId) throw new InvalidOperationException("A retained request belongs to another execution.");
+                return RequestView;
+            }
             context.Request = ContinuationRequest();
+            requestExecution = context.ExecutionId;
             RequestView = new WorkspaceRequestColumn(host, commands, context, current);
             RequestView.Changed += RequestChanged;
             return RequestView;
@@ -118,7 +127,7 @@ namespace Halcyonic.Client
         private void DropRequest()
         {
             if (RequestView != null) { RequestView.Changed -= RequestChanged; RequestView.FocusLeft(); }
-            RequestView = null; retainedRequest = null;
+            RequestView = null; retainedRequest = null; requestExecution = null;
         }
 
         /// <summary>The local ordinary editor draft, never a question answer or armed decision.</summary>
@@ -144,8 +153,9 @@ namespace Halcyonic.Client
             else Screen.Instruction.Close();
             DropRequest();
             Surface = continuation.Surface;
+            requestExecution = continuation.ExecutionId;
             retainedRequest = requestDraft == null ? null : new WorkspaceRequestContinuation
-            { RequestId = requestDraft.RequestId, Text = requestDraft.Text, Spoken = requestDraft.Spoken, Part = requestDraft.Part };
+            { RequestId = requestDraft.RequestId, PendingCommandId = requestDraft.PendingCommandId, Text = requestDraft.Text, Spoken = requestDraft.Spoken, Part = requestDraft.Part };
             budget = null;
             Rebuild();
             return true;
@@ -186,7 +196,16 @@ namespace Halcyonic.Client
             if (Resized()) Rebuild();
             // A press is judged against the work as it is now, not as the last rebuild read it up to
             // RefreshSeconds ago, so the steering's checks see a request or question that changed since.
-            if (present() is WorkspacePresentation fresh) Now = fresh;
+            if (present() is WorkspacePresentation fresh)
+            {
+                if (Now.Execution?.ExecutionId != fresh.Execution?.ExecutionId)
+                {
+                    // Preserve/revoke the old editors while Now still belongs to their execution.
+                    // The old drawn action is discarded; the new run needs a new physical draw.
+                    Rebuild(); return;
+                }
+                Now = fresh;
+            }
             else
             {
                 Closed?.Invoke();

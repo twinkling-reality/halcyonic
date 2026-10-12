@@ -192,6 +192,13 @@ namespace Halcyonic.XR.Workspace
         {
             var view = file.RequestFor(record, () => IsCurrent(record) && State?.Executions.TryGetValue(record.ExecutionId!, out var execution) == true
                 && !execution.PendingQuestions.Any(question => question.Prompts.Any(prompt => prompt.Secret)));
+            view.InputContextLeft = () => voice?.Left(view);
+            view.BeforeSubmit = _ =>
+            {
+                ViewsChanged();
+                var captured = viewBindings.Captured(file);
+                return CurrentSnapshot && !storageFailed && captured != null && recovery?.IsSaved(captured) == true;
+            };
             view.BackToTask = () => { file.Surface = WorkspaceSurface.Task; navigator.ShowBeside(file, record.WorkstreamId); ViewsChanged(); };
             return view;
         }

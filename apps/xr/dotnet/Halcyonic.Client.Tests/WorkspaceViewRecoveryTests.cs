@@ -52,6 +52,8 @@ public class WorkspaceViewRecoveryTests
         record.Request.Part = 0; Assert.That(recovery.IsSaved(record), Is.False); record.Request.Part = 1;
         record.Request.RequestId = "0192f1a0-0000-7000-8000-000000000104"; Assert.That(recovery.IsSaved(record), Is.False);
         record.Request.RequestId = null; Assert.That(recovery.IsSaved(record), Is.True);
+        record.Request.PendingCommandId = Guid.NewGuid().ToString("D"); Assert.That(recovery.IsSaved(record), Is.False);
+        record.Request.PendingCommandId = null; Assert.That(recovery.IsSaved(record), Is.True);
     }
 
     [Test]

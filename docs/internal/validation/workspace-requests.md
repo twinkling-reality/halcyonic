@@ -165,7 +165,7 @@ The production Activity entry now opens the retained request view for its exact 
 availability GET, typed and held-voice draft, full-read Start/Continue and spoken review use the
 actual engine-free column and normal director navigation. GET-by-request-ID results must match
 all original journal/project/task/execution fields before Resume or Cancel is actionable. Replies
-are reported; observed action receipts remain separate. Request cancellation stops planning,
+are reported; recorded actions remain separate. Request cancellation stops planning,
 without claiming executor interruption or software-task completion.
 
 Focused request, actual file binding, recovery and instruction tests passed 46/46, zero skipped;
@@ -173,9 +173,9 @@ Editor and Android player-symbol aggregate source compilation passed. Cases incl
 open-ended typed text, accepted-submit duplicate blocking, stale keyboard/voice and review
 callbacks, foreign tuples, unavailable offers, both-size spoken restore, unsaved request A retired
 before fresh B, independent inactive drafts and exact16,001-astral instruction/request restoration.
-This checkpoint preserves an unknown pending command in memory. Saving that identity before POST
-and exact original-owner recovery after process recreation is still required before claiming
-restart-safe request delivery. Actual request renders, native round-trip, model/runtime outcomes
+That historical UI checkpoint preserved unknown pending commands in memory. The following source
+checkpoint supplies durable-before-POST and exact original-owner recovery; actual process-death
+and native round-trip acceptance remain separate. Actual request renders, native round-trip, model/runtime outcomes
 and wearer acceptance are separate; no end-to-end outcome is claimed by these UI source checks.
 
 ### Producer identity and bounded context follow-up
@@ -251,3 +251,29 @@ runtime waits, single fresh-snapshot replacement, bounded receipt metadata, exac
 identity and a named-to-new-anonymous turn. Typecheck and scoped lint passed. Actual local model
 and software-output acceptance remains a separate witness; prior real probes completed software
 work but exhausted planning before a reported final response, so they are not overall passes.
+
+## Consumed pending identity and input lifetime
+
+The XR request consumer now saves its exact pending command UUID before POST through the consumed
+MenuDirector BeforeSubmit hook and exact durable IsSaved comparison. Request copiers, retirement,
+recovery and ordinary draft inspection include that ID. A failed save performs no POST. Original
+command GET verifies journal, ID, full project/task/execution binding and command type. Duplicate
+or partial acknowledgements do not resolve it; foreign, unreadable, not-found and unknown-effect
+results keep the original identity without retrying or minting another command. Confirmed host
+request references are adopted only from the typed original-owner read, then request GET separately
+checks the request's full tuple before action offers.
+
+Focused tests pass 66/66, zero skipped, including persistence-before-POST ordering, failed writes,
+UUIDv4 recreation without another POST, duplicate/rejected/conflict acknowledgements, foreign ID,
+type, journal, task and execution results, unknown effects and unavailable reads. Actual FileColumn
+regressions cover an old drawn entry pressed after snapshot B but before Tick: A's latest words
+remain on A and fresh B stays empty. Actual keyboard and MenuVoice destinations are revoked when
+leaving the draft section. Existing both-size Unicode, spoken review, retention and Judge walk
+coverage remains passing. Actions uses meaningful recorded status and omits journal positions or
+receipt jargon, with no task-completion claim.
+
+RequestCheck exercises the actual request column, director input and complete console at both real
+font sizes with explicitly synthetic metadata and request results. It captures local typed parts,
+accepted-but-unresolved state, reported reply, recorded actions, spoken review, global Minimize and
+unavailable draft. It never invokes a model, reads private storage or proves a live session
+watermark. Actual run and visual inspection are pending until the integrated Unity gate.
