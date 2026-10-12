@@ -26,9 +26,10 @@ can do next.
 4. **Lead with the state or the action**, in at most two short sentences.
 5. **Buttons** begin with a verb, in sentence case, in one to three words. A confirmation is
    "Yes, {verb}" beside Cancel. An icon may stand before a button's words, never in their place.
-6. **"You" for the person, "it" for the agent, "your computer" for the host**, never a product
-   name such as Mac, which the competition rules forbid in what judges see. The word lives in one
-   place, `HostText`.
+6. **Use familiar names for the work and its actor.** Projects, Tasks, Approvals, Activity, Changes,
+   Tests and Send instruction say what the person can do. Agent and assistant are ordinary nouns;
+   avoid forced pronouns and invented circumlocutions. Your computer identifies the connected host.
+   Halcyonic identifies this workspace. Brands supplied as data remain outside text.
 7. **No blame, and a next step.** Every refusal ends with what to do: "Couldn't start: this project
    has no folder yet. Choose where its files live."
 8. **The agent's words are its own**, marked as theirs and never restated as fact: tagged by their
@@ -72,19 +73,19 @@ started").
 | Word | Means | Instead of |
 | --- | --- | --- |
 | project | One body of work, in one folder | |
-| task | One workstream: one character on the stage | workstream, work item |
+| task | One durable workstream, with or without a spatial character | workstream, work item |
 | work | What the agents do, in general | execution |
 | agent | The AI working on a task; the character is the task, not the agent | runtime, bot |
 | round | One stretch of the agent's work, until it stops to wait | turn |
-| request | Something the agent wants your approval for | approval as a noun, permission |
+| approval | A specific decision the agent requests | |
 | question | Something the agent asks you | prompt |
-| checks | Tests and other verification | tests, lint |
+| tests / checks | Tests when actual test evidence is available; checks for broader verification | |
 | your computer | The host and its control plane | control plane, server, Mac |
 | folder | Where a project's files live | location, directory, path |
 | agent app | The runtime, such as OpenCode or Codex, named as data | runtime, adapter |
 | practice run | Work on the simulated runtime: nothing is built | mock, simulated |
 | demo | The recorded demonstration | interactive example |
-| companion | The AI on your computer that helps shape an idea in Create; it builds nothing and is never a task | assistant, AI, chatbot |
+| assistant | The AI helping shape an idea; it builds nothing until a task starts | |
 
 A person never reads: execution, journal, command, principal, scenario, capability, projection,
 snapshot, workstream, access token (an access code, only where the person must act on one).
@@ -326,3 +327,19 @@ sent: the instruction's task changed.
 Next choices names the preset chooser's body pager. Back to choices acknowledges the full notice
 and returns to the preserved selection. Task unavailable is the compact fallback only when the
 retained task is missing and no verified last title is available.
+
+
+## Dedicated workspace navigation
+
+The workspace opens with normal Projects and Tasks navigation for fresh, demonstration,
+disconnected and returning sessions. Halcyonic, connection mode and Project > Task context are
+visible on the composed frame. Minimize workspace is global; Close task is local. Open workspace
+restores the retained selection and valid local drafts after fresh drawn authority. Other apps
+opens the actual native panel when supported and explains unavailability otherwise. Move and
+Reset position describe real workspace movement, with no promises about another app's window.
+
+Navigation uses familiar capability names. Run ended does not mean the task is accepted, its
+result is correct, or tests passed. Synthetic and recorded work remain explicitly marked beside
+the task even inside a live journal containing real work. Existing wording elsewhere in this document is historical
+where it mandates character-first discovery or forbids these familiar labels; implementation
+updates must preserve source provenance and current-action truth.

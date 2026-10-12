@@ -228,17 +228,20 @@ namespace Halcyonic.XR.Workspace
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
                 [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
-            },
-            // Until the computer's first task, the menu asks what the person would like to work on (ADR 0026).
-            () => new FirstQuestionColumn(director.Bound(), director.StartFirstProject, () => director.navigator.OpenMenu(MenuPlace.Projects)));
+            });
+            director.navigator.OpenMenu(MenuPlace.Projects);
             director.navigator.Changed += () => director.dirty = true;
             director.plane.Acted += (from, action, key, frame, side) => director.OnActed(from, action, key, frame, side);
             director.plane.Opened += () =>
             {
-                if (director.OrganizationStanding(MenuColumn.Menu, null, null)) director.navigator.OpenMenu(somethingWaits: setup.SomethingWaits());
+                if (director.OrganizationStanding(MenuColumn.Menu, null, null))
+                {
+                    if (!director.RestoreWorkspace()) director.navigator.OpenMenu();
+                }
             };
-            director.plane.CompactPressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.Compact(); };
+            director.plane.CompactPressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.MinimizeWorkspace(); };
             director.plane.MovePressed += (from, frame, side) => { if (director.OrganizationStanding(from, frame, side)) director.OpenPlacement(); };
+            director.plane.MinimizePressed += () => { if (director.OrganizationStanding(MenuColumn.Menu, null, null)) director.MinimizeWorkspace(); };
             director.plane.Drawn += director.OnDrawn;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
@@ -295,10 +298,14 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Opens the menu on <paramref name="place"/>, or as the closed bar's Open does.</summary>
-        public void Open(MenuPlace? place = null) => navigator.OpenMenu(place, setup.SomethingWaits());
+        public void Open(MenuPlace? place = null)
+        {
+            if (setup.Presentation.Minimized) setup.Presentation.Restore();
+            navigator.OpenMenu(place);
+        }
 
         /// <summary>Closes the menu to its bar.</summary>
-        public void CloseMenu() => navigator.CloseMenu();
+        public void CloseMenu() => MinimizeWorkspace();
 
         /// <summary>The computer has had no task yet: the menu asks the first question, with Settings alone in its row (<see cref="MenuNavigator.BeforeFirstTask"/>).</summary>
         public bool BeforeFirstTask
@@ -382,7 +389,8 @@ namespace Halcyonic.XR.Workspace
             renderMove?.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Unhover, renderMove.transform.position);
             var view = plane.Shown.FirstOrDefault(item => item.Kind == MenuColumn.File).View;
             view?.SettleSubjectForRender();
-            renderMove = view?.Targets.FirstOrDefault(button => button.Label.text == "Move") ?? plane.Bar?.Controls.Move;
+            renderMove = plane.Chrome.Visible ? plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == WorkspaceText.MoveWorkspace)
+                : plane.Bar?.Controls.Move.gameObject.activeSelf == true ? plane.Bar.Controls.Move : null;
             if (renderMove == null) return;
             renderMove.SettleForRender();
             renderMove.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Hover, renderMove.transform.position);
@@ -555,6 +563,8 @@ namespace Halcyonic.XR.Workspace
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             drawnVoice = Voiced();
             plane.Voice = drawnVoice;
+            plane.ConnectionState = Demonstration ? WorkspaceText.Demo : Connected ? WorkspaceText.Connected : State?.Journal == null ? WorkspaceText.Connecting : WorkspaceText.Disconnected;
+            plane.SelectionContext = WorkspaceContext();
             void ShowComposition() => plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
                 navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,
                 navigator.IsCompact ? (object?)navigator.Beside ?? navigator.Shown ?? (object)navigator : null);
@@ -672,6 +682,21 @@ namespace Halcyonic.XR.Workspace
             return LineWords.Ours(navigator.Beside is NewProjectFlow ? ProjectsText.NewProject : MenuBar.Word(navigator.Place));
         }
 
+        private LineWords WorkspaceContext()
+        {
+            if (navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true)
+            {
+                var context = State.Projects.TryGetValue(work.ProjectId, out var project)
+                    ? LineWords.TheirName(project.Name).Then(LineWords.Ours(" > ")) : LineWords.None;
+                context = context.Then(LineWords.TheirName(work.Title));
+                var presentation = CharacterPresenter.Present(work, State, Connected && !Demonstration);
+                context = context.Then(LineWords.Ours(" · " + StateLanguage.BadgeOf(presentation).Text));
+                foreach (var mark in StateLanguage.MarksOf(presentation)) context = context.Then(LineWords.Ours(" · " + mark.Word));
+                return context;
+            }
+            return LineWords.Ours(MenuBar.Word(navigator.Place));
+        }
+
         private StateBadge? CompactState()
         {
             if (navigator.BesideTask is not string task || State?.Workstreams.TryGetValue(task, out var work) != true) return null;
@@ -682,14 +707,13 @@ namespace Halcyonic.XR.Workspace
         {
             if (Away || dirty || drag != null || plane.Sliding) return false;
             if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
-            if (frame == null && side == null) return plane.Bar is MenuBarView bar && bar.Shown >= 1f;
+            if (frame == null && side == null) return plane.Chrome.Visible || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
         }
 
         private void OpenPlacement()
         {
-            OpenLocal(new PlacementColumn(this, () => null, _ => { }, ResetPosition,
-                () => false, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null));
+            OpenLocal(new PlacementColumn(this, ResetPosition, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null));
         }
 
         /// <summary>An explicitly requested local overlay that preserves retained work and owns no runtime authority.</summary>
@@ -748,6 +772,7 @@ namespace Halcyonic.XR.Workspace
         private bool MayDrag(MenuColumn from, MenuFrame? frame)
         {
             if (Away || drag != null || placement != null) return false;
+            if (frame == null && plane.Chrome.Visible) return OrganizationStanding(from, frame, null) && plane.Composition != null && plane.Front?.Footer.Confirming != true;
             if (navigator.IsCompact) return !dirty && !plane.Sliding && plane.Bar != null && plane.Bar.Shown >= 1f && !setup.StageNow().BesideWindow;
             var drawnView = plane.Shown.FirstOrDefault(item => item.Kind == from).View;
             if (drawnView == null || drawnView.Frame != frame || plane.Opening(from) || dirty || plane.Sliding) return false;
@@ -901,7 +926,7 @@ namespace Halcyonic.XR.Workspace
             var task = opening.Opening ? opening.Task : navigator?.BesideTask;
             var character = task != null ? setup.CharacterOf(task) : null;
             var top = MenuPlane.TopLine(character, stage.Characters, stage.Eyes, stage.Looking, stage.SurfaceHeight, stage.BesideWindow, besideMenu);
-            return MenuPage.Height(TextSize, subjectRows, top, ViewField.Current, besideMenu, focused);
+            return MenuPage.Height(TextSize, subjectRows, top, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height, centered: stage.Characters.Count == 0);
         }
 
         public void OpenFile(string workstreamId)

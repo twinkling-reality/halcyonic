@@ -129,8 +129,8 @@ namespace Halcyonic.XR.UI
         /// height unless given (a content surface's ends within its top padding, so no row under it
         /// looks lit), and a sheen just inside its top edge, all in one draw.
         /// </summary>
-        public void DrawGlass(Vector2 size, float? glowReach = null) =>
-            Shape(size, GlazeTokens.Units(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.Menu.GlassOpacity),
+        public void DrawGlass(Vector2 size, float? glowReach = null, float? radius = null) =>
+            Shape(size, radius ?? GlazeTokens.Units(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.Menu.GlassOpacity),
                 GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees), 0f, 0f,
                 new Vector4(Glaze.Menu.GlowOpacity, glowReach ?? size.y * Glaze.Menu.GlowReach, Glaze.Menu.SheenOpacity, GlazeTokens.Units(Glaze.Menu.SheenDegrees)));
 

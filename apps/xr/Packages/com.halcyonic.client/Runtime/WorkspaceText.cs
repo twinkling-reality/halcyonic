@@ -71,6 +71,15 @@ namespace Halcyonic.Client
     /// </summary>
     public static class WorkspaceText
     {
+        public const string Product = "Halcyonic";
+        public const string OtherApps = "Other apps";
+        public const string Minimize = "Minimize";
+        public const string OpenWorkspace = "Open workspace";
+        public const string Connected = "Connected";
+        public const string Disconnected = "Disconnected";
+        public const string Connecting = "Connecting";
+        public const string Demo = "Demo";
+        public const string MoveWorkspace = "Move";
         public const string WhatIsItDoing = "What is it doing?";
 
         /// <summary>What is it doing?, turned to the run's details in place of its log.</summary>

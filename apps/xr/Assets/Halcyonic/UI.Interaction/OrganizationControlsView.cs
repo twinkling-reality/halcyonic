@@ -41,7 +41,7 @@ namespace Halcyonic.XR.UI
         public GlazeButton Move => move;
         public GlazeButton Toggle => toggle;
 
-        public static float Width(bool compact = false) => Measure("Move") + MenuPage.TargetGap + Measure(compact ? "Expand" : "Compact");
+        public static float Width(bool compact = false) => compact ? Measure(WorkspaceText.OpenWorkspace) : Measure("Move") + MenuPage.TargetGap + Measure("Compact");
         public static float Measure(string words)
         {
             if (measurer == null)
@@ -86,11 +86,13 @@ namespace Halcyonic.XR.UI
         public void Show(float right, float middle, bool compact)
         {
             gameObject.SetActive(true);
-            var toggleWords = compact ? "Expand" : "Compact";
+            var toggleWords = compact ? WorkspaceText.OpenWorkspace : "Compact";
             var toggleWidth = Measure(toggleWords);
             var moveWidth = Measure("Move");
             Stand(toggle, toggleBoundary, toggleWords, GlazeIcon.Next, right - toggleWidth / 2f, middle, toggleWidth);
-            Stand(move, moveBoundary, "Move", GlazeIcon.Move, right - toggleWidth - MenuPage.TargetGap - moveWidth / 2f, middle, moveWidth);
+            move.gameObject.SetActive(!compact);
+            moveBoundary.gameObject.SetActive(!compact);
+            if (!compact) Stand(move, moveBoundary, "Move", GlazeIcon.Move, right - toggleWidth - MenuPage.TargetGap - moveWidth / 2f, middle, moveWidth);
         }
 
         private static void Stand(GlazeButton button, Surface boundary, string words, GlazeIcon icon, float x, float y, float width)

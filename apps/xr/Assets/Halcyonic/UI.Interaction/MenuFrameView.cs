@@ -761,7 +761,7 @@ namespace Halcyonic.XR.UI
             var titleHeight = Mathf.Max(1, rows) * GlazeText.LineHeight(subjectTitle);
             var top = subjectHeight / 2f;
             var plate = subjectHeight - reserve;
-            subjectPlate.DrawGlass(new Vector2(width, plate));
+            subjectPlate.DrawGlass(new Vector2(width, plate), radius: 0f);
             subjectPlate.transform.localPosition = new Vector3(0f, top - reserve - plate / 2f, 0f);
             subjectPlateAt = new Vector3(0f, top - reserve - plate / 2f, 0f);
             controls.gameObject.SetActive(OrganizationControls);
@@ -926,7 +926,7 @@ namespace Halcyonic.XR.UI
             footerLine.Draw(new Vector2(width - 2f * U(1f), U(0.05f)), 0f, new Color(1f, 1f, 1f, 0.09f));
             footerLine.transform.localPosition = new Vector3(0f, footerMiddle + FooterView.Height / 2f + TargetGap / 2f, -U(0.02f));
             // The light ends within the top padding, above the first row: a row looks lit only when chosen.
-            content.DrawGlass(new Vector2(width, tall), padding);
+            content.DrawGlass(new Vector2(width, tall), padding, radius: 0f);
             content.transform.localPosition = Vector3.zero;
             return needed;
         }
