@@ -280,6 +280,45 @@ public class WorkspaceTextTests
 public class CommandSubmissionsTests
 {
     [Test]
+    public async Task WorkspaceRequestsReachTheSharedTransportAndKeepUnknownDeliveryUnsettled()
+    {
+        var commands = new CommandFactory(Samples.Client);
+        const string request = "0192f1a0-0000-7000-8000-000000000104";
+        foreach (var command in new CommandEnvelope[] {
+            commands.Request(Samples.ProjectId, "w1", "e1", "Inspect the task and continue its work"),
+            commands.ResumeRequest(request, "Use the latest result"), commands.CancelRequest(request) })
+        {
+            var submissions = new CommandSubmissions();
+            var calls = 0;
+            var pending = submissions.Submit(sent =>
+            {
+                calls++;
+                Assert.That(sent, Is.SameAs(command));
+                return Task.FromResult(new CommandAckMessage { CommandId = sent.CommandId, Disposition = CommandAckDisposition.Accepted });
+            }, command, "e1");
+            await pending.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.That(calls, Is.EqualTo(1));
+            Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.Acknowledged));
+            var feedback = submissions.FeedbackFor("e1", new ClientProjection(), 1).Single();
+            Assert.That(feedback.Text, Does.Contain("Waiting for confirmation"));
+            Assert.That(feedback.Status, Is.Null, "an acknowledgement is not a journaled outcome");
+            var recorded = WorkspacePresenter.Feedback(new CommandView
+            {
+                CommandId = command.CommandId, CommandType = feedback.CommandType, Status = CommandStatus.Completed,
+                IssuedAt = Samples.Time, UpdatedAt = Samples.Time,
+            });
+            Assert.That(recorded.Text, Does.Contain("request").IgnoreCase.And.Not.Contain("task completed").IgnoreCase);
+
+            var failed = new CommandSubmissions();
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await failed.Submit(
+                _ => Task.FromException<CommandAckMessage>(new InvalidOperationException("synthetic lost response")),
+                command, "e1").WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.That(failed.StateOf(command.CommandId), Is.EqualTo(SubmissionState.OutcomeUnknown));
+            Assert.That(WorkspaceText.NotSure(feedback.CommandType), Does.Contain("Refresh").And.Not.Contain("try again"));
+        }
+    }
+
+    [Test]
     public async Task EveryCommandAClientCanSendIsRecorded()
     {
         // Send answer once threw here, before anything was sent: the answer command had no type.

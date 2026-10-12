@@ -289,6 +289,8 @@ namespace Halcyonic.Client
             CommandType.ExecutionRespondToApproval => "Not sure it has your decision. " + CheckFirst,
             CommandType.ExecutionAnswerQuestion => AnswerNotConfirmed,
             CommandType.ExecutionStart => "Not sure it started. " + CheckFirst,
+            CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume or CommandType.WorkspaceRequestCancel
+                => "Delivery is unknown. Refresh this request to check its saved result.",
             _ => "Not sure it happened. " + CheckFirst,
         };
 
@@ -437,6 +439,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? WhyRefused(RejectionCode? code) => code switch
         {
+            RejectionCode.RequestNotFound => "This request isn't available for this task. Refresh the task to check its current request.",
             RejectionCode.ProjectNotFound => "This project isn't on " + HostText.Your + " any more. Choose another in Projects.",
             RejectionCode.WorkstreamNotFound => "This task isn't on " + HostText.Your + " any more. Choose another in Tasks.",
             RejectionCode.ExecutionNotFound => "This work isn't on " + HostText.Your + " any more. " + StateLanguage.AddItAgain,
