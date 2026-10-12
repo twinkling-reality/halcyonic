@@ -2707,7 +2707,10 @@ happened pages and Back to choices acknowledgement, preserving the candidate. No
 wrapped rows participate in the packing fingerprint; a repeated identical error is a new visible
 occurrence. Armed confirmation uses its own existing composition and notice handling.
 The organization render witnesses use the visible Move pointer and production hold maturity, stable
-column frame identity, and matching task/session/state/character identities. Synthetic director files
+column frame identity, and matching task/session/state/character identities. Reused editor capture
+targets clear color and depth before Camera.Render; the Usage details witness repeats each unchanged
+scene and compares pixels so stage meshes, titles and panels cannot silently disappear behind stale
+depth while geometry checks pass. Synthetic director files
 rebuild their TitleRows/PageHeight packing after text-size changes, take the next draw after a renewed
 Tasks column reports its retained selection, and release the originating pointer before another
 hand's scenario. Each measured page must still offer its first two answers, Hold to talk and Send

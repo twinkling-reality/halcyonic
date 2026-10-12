@@ -1339,6 +1339,12 @@ namespace Halcyonic.XR.Workspace.Editor
 
         internal static Texture2D Render(Camera camera, RenderTexture texture)
         {
+            // Edit-mode Camera.Render can retain this target's depth between captures in one editor frame.
+            // Clear it explicitly so unchanged meshes do not fail against their own preceding depth.
+            var beforeClear = RenderTexture.active;
+            RenderTexture.active = texture;
+            GL.Clear(true, true, camera.backgroundColor);
+            RenderTexture.active = beforeClear;
             camera.Render();
             var previous = RenderTexture.active;
             RenderTexture.active = texture;
