@@ -27,6 +27,7 @@ namespace Halcyonic.Client
         public const double NoticeSeconds = 8;
 
         private readonly IMenuHost host;
+        private readonly CommandFactory commands;
         private readonly Func<WorkspacePresentation?> present;
         private readonly Func<string, IReadOnlyList<PresetInstruction>?> recorded;
         private readonly Func<string> historyNote;
@@ -73,6 +74,7 @@ namespace Halcyonic.Client
             Func<string, IReadOnlyList<PresetInstruction>?> recorded, Func<string> historyNote, Action<WorkspaceAct>? acted = null)
         {
             this.host = host;
+            this.commands = commands;
             this.present = present;
             this.reader = reader;
             this.recorded = recorded;
@@ -96,6 +98,28 @@ namespace Halcyonic.Client
         public WorkspacePresentation? Now { get; private set; }
 
         public MenuFrame? Frame { get; private set; }
+        private WorkspaceRequestContinuation? retainedRequest;
+        private Action? openWorkspaceRequest;
+        public WorkspaceRequestColumn? RequestView { get; private set; }
+        public WorkspaceSurface Surface { get; set; } = WorkspaceSurface.Task;
+        public void OfferWorkspaceRequests(Action open)
+        { if (openWorkspaceRequest != null) return; openWorkspaceRequest = open; Screen.WorkspaceRequestOffered = true; Rebuild(); }
+        public WorkspaceRequestContinuation? ContinuationRequest() => RequestView?.Draft ?? (retainedRequest == null ? null : new WorkspaceRequestContinuation
+        { RequestId = retainedRequest.RequestId, Text = retainedRequest.Text, Spoken = retainedRequest.Spoken, Part = retainedRequest.Part });
+        public WorkspaceRequestColumn RequestFor(WorkspaceContinuation context, Func<bool> current)
+        {
+            if (RequestView != null && RequestView.ExecutionId == context.ExecutionId) return RequestView;
+            context.Request = ContinuationRequest();
+            RequestView = new WorkspaceRequestColumn(host, commands, context, current);
+            RequestView.Changed += RequestChanged;
+            return RequestView;
+        }
+        private void RequestChanged() => Changed?.Invoke();
+        private void DropRequest()
+        {
+            if (RequestView != null) { RequestView.Changed -= RequestChanged; RequestView.FocusLeft(); }
+            RequestView = null; retainedRequest = null;
+        }
 
         /// <summary>The local ordinary editor draft, never a question answer or armed decision.</summary>
         public WorkspaceInstructionDraft? ContinuationDraft() => Screen.Instruction.Open && Screen.Instruction.ExecutionId == Now?.Execution?.ExecutionId
@@ -108,7 +132,9 @@ namespace Halcyonic.Client
                 || continuation.ExecutionId != Now.Execution?.ExecutionId || continuation.Page < 0 || continuation.Page > 100000
                 || !Enum.IsDefined(typeof(WorkspaceSection), continuation.Section)) return false;
             var draft = continuation.Instruction;
-            if (draft != null && (continuation.ExecutionId == null || draft.Text == null || draft.Text.Length > 32000 || draft.Part < 0 || draft.Part > 100000)) return false;
+            var requestDraft = continuation.Request;
+            if (requestDraft != null && (continuation.ExecutionId == null || !WorkspaceContinuity.IsDraftTextWithinLimit(requestDraft.Text) || requestDraft.Part < 0 || requestDraft.Part > 100000)) return false;
+            if (draft != null && (continuation.ExecutionId == null || !WorkspaceContinuity.IsDraftTextWithinLimit(draft.Text) || draft.Part < 0 || draft.Part > 100000)) return false;
             Compact();
             Steering.Cancel();
             Screen.ReadAgainAtNewSize();
@@ -116,6 +142,10 @@ namespace Halcyonic.Client
             Screen.Page = (int)continuation.Page;
             if (draft != null) Screen.Instruction.Restore(continuation.ExecutionId!, draft.Text, draft.Spoken, (int)draft.Part);
             else Screen.Instruction.Close();
+            DropRequest();
+            Surface = continuation.Surface;
+            retainedRequest = requestDraft == null ? null : new WorkspaceRequestContinuation
+            { RequestId = requestDraft.RequestId, Text = requestDraft.Text, Spoken = requestDraft.Spoken, Part = requestDraft.Part };
             budget = null;
             Rebuild();
             return true;
@@ -141,6 +171,7 @@ namespace Halcyonic.Client
 
         /// <summary>Preserve only ordinary words before an execution change invalidates the local editor.</summary>
         public event Action<string, WorkspaceInstructionDraft>? OrdinaryDraftLeaving;
+        public event Action<string, WorkspaceRequestContinuation>? RequestDraftLeaving;
 
         /// <summary>A refused credential, as the connection says it for how this headset reaches the computer.</summary>
         private string AccessRefused() => host.Api?.AccessRefused ?? ConnectionText.AccessRefused;
@@ -165,6 +196,10 @@ namespace Halcyonic.Client
             var clock = host.Clock;
             switch (id)
             {
+                case FileScreens.OpenWorkspaceRequest:
+                    if (Frame?.Lines.Any(line => line.Action == id && line.Available) == true
+                        && Now.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true) openWorkspaceRequest?.Invoke();
+                    return;
                 case Footer.Close:
                     instructionKeyboardSession++;
                     Screen.Instruction.Close();
@@ -628,6 +663,7 @@ namespace Halcyonic.Client
         /// <summary>Retains the exact local page and buffer while dropping every interaction authorization.</summary>
         public void Compact()
         {
+            RequestView?.Compact();
             drawnPresetFrame = null;
             Screen.SuspendPresets();
             Screen.Question.SuspendPresentation();
@@ -645,6 +681,7 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
+            RequestView?.FocusLeft();
             drawnPresetFrame = null;
             Screen.SuspendPresets();
             Screen.Question.InvalidateInput();
@@ -684,6 +721,9 @@ namespace Halcyonic.Client
                 Closed?.Invoke();
                 return;
             }
+            var leavingExecution = Now?.Execution?.ExecutionId;
+            if (leavingExecution != null && leavingExecution != presentation.Execution?.ExecutionId && ContinuationRequest() is WorkspaceRequestContinuation leavingRequest)
+            { RequestDraftLeaving?.Invoke(leavingExecution, leavingRequest); DropRequest(); Surface = WorkspaceSurface.Task; }
             Now = presentation;
             drawnInstructionFrame = null;
             drawnInstructionNoticeFrame = null;

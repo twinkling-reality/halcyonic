@@ -346,4 +346,32 @@ public class InstructionEditorTests
         Assert.That(restored.RestoreContinuation(record), Is.False, "the draft never retargets another execution");
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void ContinuationRestoresAstralInstructionAndRequestWithinTheCanonicalCodepointBound(TextSize size)
+    {
+        var (host, _, file) = Setup();
+        host.TextSize = size; file.Reflow();
+        var words = string.Concat(Enumerable.Repeat("\U0001F680", 16001));
+        var record = new WorkspaceContinuation
+        {
+            HandoffId = Guid.NewGuid().ToString("D"), ConnectionKey = new string('a', 64), JournalId = Samples.JournalId,
+            ProjectId = Samples.ProjectId, WorkstreamId = file.Now!.Character.WorkstreamId, ExecutionId = file.Now.Execution!.ExecutionId,
+            Surface = WorkspaceSurface.Request, Section = WorkspaceSection.Activity,
+            Instruction = new WorkspaceInstructionDraft { Text = words, Spoken = true },
+            Request = new WorkspaceRequestContinuation { Text = words, Spoken = true },
+        };
+        Assert.That(file.RestoreContinuation(record), Is.True, "valid astral text is bounded in codepoints, never shortened by UTF16 length");
+        Assert.That(file.Screen.Instruction.Words, Is.EqualTo(words));
+        Assert.That(file.Screen.Instruction.Read, Is.False);
+        Assert.That(file.ContinuationRequest()!.Text, Is.EqualTo(words));
+        var request = file.RequestFor(record, () => true);
+        Assert.That(request.Draft.Text, Is.EqualTo(words));
+        Assert.That((file.Surface, request.Draft.Spoken, request.Draft.RequestId), Is.EqualTo((WorkspaceSurface.Request, true, (string?)null)));
+        Assert.That(host.Sent, Is.Empty);
+        record.Request.Text = string.Concat(Enumerable.Repeat("\U0001F680", 32001));
+        Assert.That(file.RestoreContinuation(record), Is.False);
+        Assert.That(request.Draft.Text, Is.EqualTo(words), "failed import preserves the existing local words");
+    }
+
 }

@@ -404,3 +404,16 @@ The Larger project-detail fixture closes the actually visible detail panel befor
 project again: details replace the project list at that size. The first navigation render passed
 Standard but correctly refused the hidden Larger project row. This fixture correction preserves
 that visibility guard and awaits the repeated exact render.
+
+The corrected DedicatedWorkspaceCheck ran on integration fc32 at both Standard and Larger with
+30 current PNGs (2026-10-12). The project-to-task path, visible detail return, Projects breadcrumb,
+retained instruction and header state/provenance passed the existing field, target, text and
+coplanarity checks. The Larger project-task and reopened-instruction images were reviewed. This
+is simulated source/render evidence, not acceptance by a wearer or a real command delivery.
+
+Workspace request uses the attached console and measured focused-file room. Its local editor
+retains the existing paged input/read guard; scope text, held voice, explicit Start/Continue and
+spoken Yes remain visible controls. Model reply and recorded receipts have separate sections and
+full measured paging, with source names treated as outside text. Request and recovery-focused
+checks pass 46/46 with zero skips, and Editor/Android source compilation passes. Actual request
+screenshots and full integrated gates remain pending.

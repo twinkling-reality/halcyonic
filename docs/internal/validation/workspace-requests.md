@@ -158,3 +158,22 @@ TLS ownership/revocation test and 19 C# codec/API checks, with zero skipped. Typ
 generation and scoped lint passed. Independent source review found no remaining authority,
 replay or schema issue in this delta. Actual UI submission/return and headset acceptance remain
 pending.
+
+## Consumed XR request view checkpoint
+
+The production Activity entry now opens the retained request view for its exact task/run. Its
+availability GET, typed and held-voice draft, full-read Start/Continue and spoken review use the
+actual engine-free column and normal director navigation. GET-by-request-ID results must match
+all original journal/project/task/execution fields before Resume or Cancel is actionable. Replies
+are reported; observed action receipts remain separate. Request cancellation stops planning,
+without claiming executor interruption or software-task completion.
+
+Focused request, actual file binding, recovery and instruction tests passed 46/46, zero skipped;
+Editor and Android player-symbol aggregate source compilation passed. Cases include arbitrary
+open-ended typed text, accepted-submit duplicate blocking, stale keyboard/voice and review
+callbacks, foreign tuples, unavailable offers, both-size spoken restore, unsaved request A retired
+before fresh B, independent inactive drafts and exact16,001-astral instruction/request restoration.
+This checkpoint preserves an unknown pending command in memory. Saving that identity before POST
+and exact original-owner recovery after process recreation is still required before claiming
+restart-safe request delivery. Actual request renders, native round-trip, model/runtime outcomes
+and wearer acceptance are separate; no end-to-end outcome is claimed by these UI source checks.

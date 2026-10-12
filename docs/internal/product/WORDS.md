@@ -367,3 +367,12 @@ The Projects header control remains reachable while an instruction is open and r
 An empty folder list says No folders are approved for projects, with the concrete next step to
 approve a project folder on the computer and try again. Earlier copy tables above are historical
 for these replaced subjects and navigation routes.
+
+
+Ask workspace opens a general request for the selected task and run. Request, Reply and Actions
+are views of the same request, not a catalogue of accepted phrases. Start request and Continue
+request are explicit actions; heard words first offer Yes, send request with Cancel. The visible
+scope says Read this task and send instructions to this run. Assistant reply is marked reported;
+recorded action receipts show observed outcomes separately. Cancel request stops the planner;
+the task may keep running. Back to task retains both local drafts. Unavailable assistant or
+connection state keeps the words and gives a concrete Refresh or reconnect route.

@@ -24,6 +24,7 @@ namespace Halcyonic.Client
         public const string Approve = WorkspaceScreens.Approve;
         public const string Deny = WorkspaceScreens.Deny;
         public const string Stop = WorkspaceScreens.Stop;
+        public const string OpenWorkspaceRequest = "file-workspace-request";
         public const string TellIt = WorkspaceScreens.TellIt;
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
         internal static bool FocusesAnswer(WorkspacePresentation workspace, bool questionPage, WorkspaceSteering steering) =>
@@ -262,6 +263,8 @@ namespace Halcyonic.Client
                     // A line of Halcyonic's own words alone, as it always was: one row of the log, which may end in an ellipsis.
                     : new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary));
             }
+            if (screen.WorkspaceRequestOffered && workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true)
+                lines.Insert(0, new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true));
             if (lines.Count == 0) lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
             return new Page(lines, source, normal);
         }
