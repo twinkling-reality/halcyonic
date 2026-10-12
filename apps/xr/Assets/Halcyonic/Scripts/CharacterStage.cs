@@ -91,13 +91,23 @@ namespace Halcyonic.XR
         private Transform preview = null!;
         /// <summary>Conservative occupied shelf, label and banner envelope shared by placement and actual scene checks.</summary>
         private static CharacterView? shelfMeasure;
+        private static int shelfMeasureAt = -1;
         public static void WriteShelfCorners(Pose pose, float width, Vector3 viewer, Vector3[] corners)
         {
             if (corners.Length != 8) throw new System.ArgumentException("Shelf envelope has eight corners.", nameof(corners));
             // A real label model measures font metrics, whole source marks, title wrapping and eye-facing tilt.
             // It is created only by the explicit placement/geometry consumer and never has a target.
-            if (shelfMeasure == null)
+            if (shelfMeasure == null || shelfMeasureAt != GlazeText.Version)
             {
+                if (shelfMeasure != null)
+                {
+#if UNITY_EDITOR
+                    Object.DestroyImmediate(shelfMeasure.transform.parent.gameObject);
+#else
+                    Object.Destroy(shelfMeasure.transform.parent.gameObject);
+#endif
+                }
+                shelfMeasureAt = GlazeText.Version;
                 var model = new GameObject("Shelf label measurement") { hideFlags = HideFlags.HideAndDontSave };
                 shelfMeasure = CharacterView.Create(model.transform, "shelf-label-measurement");
                 shelfMeasure.enabled = false;
@@ -129,6 +139,9 @@ namespace Halcyonic.XR
                 }
             }
             foreach (var renderer in shelfMeasure.GetComponentsInChildren<Renderer>(true)) renderer.enabled = false;
+            // Round the measured envelope outward in production. This strengthens clearance and
+            // contains matrix/bounds roundoff without relaxing the actual-render containment guard.
+            minimum -= Vector3.one * 0.002f; maximum += Vector3.one * 0.002f;
             for (var index = 0; index < 8; index++)
                 corners[index] = pose.position + pose.rotation * new Vector3(index % 2 == 0 ? minimum.x : maximum.x,
                     index < 4 ? minimum.y : maximum.y, index % 4 < 2 ? minimum.z : maximum.z);

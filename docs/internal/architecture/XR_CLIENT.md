@@ -2201,7 +2201,9 @@ exists. Passthrough remains independent of whether optional characters are prese
   character title can ellipsize after two lines; this is not a complete task-identity claim. Full
   identity is retained in current shelf details and the task presentation.
   Placement measures an actual label model with full title and source marks, and combines its bounds
-  with the shelf and conservative animated body extent before field/console clearance. Later head
+  with the shelf and conservative animated body extent before field/console clearance. The model
+  is recreated when the type geometry version changes; a 2 mm outward measurement allowance makes
+  production clearance conservative without relaxing the actual label-containment checks. Later head
   motion does not re-place the shelf. Capacity feasibility remains a measured acceptance check;
   the console continues to expose all work when a group shelf cannot fit. The current measured shelf capacity is one
   grounded agent with explicit Previous agent/Next agent rows under Your space; the shelf row says
