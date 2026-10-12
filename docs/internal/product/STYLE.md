@@ -312,3 +312,12 @@ order and every limit; a chosen limit keeps its details when text size changes. 
 measures each fact's label, value and gaps; all Agent app, Seen, Resets and Account facts remain
 reachable through existing side-panel parts, with the exact source repeated on each. List paging
 waits while a limit is chosen; Next page then turns only its details.
+
+## Workspace presentation
+
+The workspace opens expanded without characters. Optional spatial agents share one local
+presentation state with the menu. Minimize workspace hides the complete workspace and optional
+agents into one dock; it retains work identity and valid local drafts, rather than meaning close
+or send. Input, voice and armed decision authority are suspended before the visibility change.
+Restoring requires current layout and fresh drawn authority. Showing agents remains a separate
+explicit display choice and does not create or change work.
