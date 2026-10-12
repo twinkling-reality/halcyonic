@@ -161,6 +161,7 @@ public class AnswerFlowTests
     }
 
     [TestCase(0)] [TestCase(1)] [TestCase(2)] [TestCase(3)] [TestCase(4)] [TestCase(5)] [TestCase(6)] [TestCase(7)]
+    [TestCase(8)] [TestCase(9)] [TestCase(10)] [TestCase(11)] [TestCase(12)] [TestCase(13)]
     public void SameIdSemanticChangesInvalidateDraftIncludingMutatedDtos(int field)
     {
         var asked = AskingWork.Scripted();
@@ -176,6 +177,12 @@ public class AnswerFlowTests
             case 5: changed.Multiple = !changed.Multiple; break;
             case 6: changed.FreeText = !changed.FreeText; break;
             case 7: changed.Secret = !changed.Secret; break;
+            case 8: changed.Key = "different-key"; break;
+            case 9: asked.Prompts.Reverse(); break;
+            case 10: asked.Prompts.RemoveAt(1); break;
+            case 11: asked.QuestionId = "different-question"; break;
+            case 12: asked.Answerable = false; break;
+            case 13: asked.Prompts.Add(new QuestionPrompt { Key = "extra", Text = "Another question?", FreeText = true }); break;
         }
         Assert.That(draft.Answers("e", asked), Is.False);
     }
@@ -487,7 +494,7 @@ public class AnswerFlowTests
         };
         var (host, column, _) = Open(question);
         ReadQuestion(host, column);
-        var why = column.Frame!.Lines.Single(line => line.Action == FileScreens.ReadWhy);
+        var why = column.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
         Assert.That((why.Fact, why.Control, why.Choice, why.AnswerMark), Is.EqualTo(("Unavailable · Read why", LineControl.Action, false, AnswerMark.None)));
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done("Yes.");
@@ -586,7 +593,7 @@ public class AnswerFlowTests
     }
 
     [Test]
-    public void HiddenOrNonalikeReadWhyAndStaleReplacedExplanationCannotChangeCurrentFlow()
+    public void NonalikeReadWhyAndStaleReplacedExplanationCannotChangeCurrentFlow()
     {
         var (host, column, work) = Open();
         ReadQuestion(host, column);
@@ -636,6 +643,20 @@ public class AnswerFlowTests
         Assert.That(frame!.Footer[PromptSlot.FarRight], Is.Null, "no unsupported Stop is implied");
         Assert.That(navigator.Act(MenuColumn.File, FileScreens.BackAmbiguity, null, frame, null), Is.True);
         Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.False);
+    }
+
+    [Test]
+    public void AnOffPageUnavailableChoiceCannotOpenAnExplanationUntilItsRowIsActuallyDrawn()
+    {
+        var asked = AskingWork.Scripted();
+        asked.Prompts[0].Options = Enumerable.Range(0, 9).Select(index => new QuestionOption { Label = "Unique " + index }).ToList();
+        asked.Prompts[0].Options.Add(new QuestionOption { Label = " Unique 8 " });
+        var (host, column, _) = Open(asked);
+        ReadQuestion(host, column);
+        Assert.That(column.Screen.Question.Answers, Does.Not.Contain(8));
+        column.Act(FileScreens.ReadWhy, "8");
+        Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.False);
+        Assert.That(host.Sent, Is.Empty);
     }
 
 }
