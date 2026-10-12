@@ -79,7 +79,8 @@ the same definition names, as the JSON Schema document:
 `WorkspaceContinuation` is a versioned app-private selection and ordinary instruction draft,
 defined in the shared TypeBox contracts. It is not a server command or journal state. The native
 panel and immersive workspace use the same schema and parity fixtures. `WorkspaceContinuity`
-strictly bounds parsing, rejects extra or duplicate fields and serializer coercions, and validates
+strictly bounds parsing, rejects JavaScript-only syntax, extra or duplicate fields and serializer
+coercions, rejects trailing newlines in identity fields, and validates
 the connection, journal and Project → Workstream → current Execution relationship before a view
 can be restored. A draft tied to an old execution is never redirected to its replacement.
 

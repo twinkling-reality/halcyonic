@@ -15,9 +15,9 @@ namespace Halcyonic.Client
     public static class WorkspaceContinuity
     {
         public const int MaximumBytes = 256 * 1024;
-        private static readonly Regex Uuid = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOptions.CultureInvariant);
-        private static readonly Regex EntityId = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", RegexOptions.CultureInvariant);
-        private static readonly Regex Digest = new Regex("^[0-9a-f]{64}$", RegexOptions.CultureInvariant);
+        private static readonly Regex Uuid = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\z", RegexOptions.CultureInvariant);
+        private static readonly Regex EntityId = new Regex("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\z", RegexOptions.CultureInvariant);
+        private static readonly Regex Digest = new Regex("^[0-9a-f]{64}\\z", RegexOptions.CultureInvariant);
 
         /// <summary>
         /// Opaque private identity, including credential changes. Do not log it or send it to the host.
@@ -38,7 +38,8 @@ namespace Halcyonic.Client
             if (host.Length == 0 || host.Length > 253 || host.Any(c => c <= 32 || c >= 127 || "/\\?#@%[]".IndexOf(c) >= 0))
                 throw new ArgumentException("This host cannot share workspace continuity.", nameof(target));
             if (paired != null && (!EntityId.IsMatch(paired.DeviceId)
-                || !Regex.IsMatch(paired.Credential, "^hlcd_[A-Za-z0-9_-]{1,4096}$", RegexOptions.CultureInvariant)))
+                || !Regex.IsMatch(paired.Credential, "^hlcd_[A-Za-z0-9_-]{1,4096}\\z", RegexOptions.CultureInvariant)
+                || !Digest.IsMatch(paired.CertificateSha256)))
                 throw new ArgumentException("This pairing cannot share workspace continuity.", nameof(target));
             var material = JsonConvert.SerializeObject(new object?[]
             {
@@ -53,7 +54,8 @@ namespace Halcyonic.Client
         public static bool TryParse(string? json, out WorkspaceContinuation? continuation)
         {
             continuation = null;
-            if (json == null || json.Length > MaximumBytes || Encoding.UTF8.GetByteCount(json) > MaximumBytes) return false;
+            if (json == null || json.Length > MaximumBytes || Encoding.UTF8.GetByteCount(json) > MaximumBytes
+                || !new ContinuationSyntax(json).Valid()) return false;
             try
             {
                 using var reader = new JsonTextReader(new StringReader(json)) { DateParseHandling = DateParseHandling.None, MaxDepth = 8 };
@@ -108,5 +110,68 @@ namespace Halcyonic.Client
         private static bool TextMatches(JToken? token, Regex pattern) => token?.Type == JTokenType.String && token.Value<string>() is string text && pattern.IsMatch(text);
         private static bool Integer(JToken? token, long minimum, long maximum) =>
             token?.Type == JTokenType.Integer && (long)token >= minimum && (long)token <= maximum;
+
+        // Json.NET also accepts JavaScript syntax. The native handoff reader does not: check the
+        // JSON value forms this contract uses before Json.NET checks keys, duplicates and types.
+        private sealed class ContinuationSyntax
+        {
+            private readonly string source;
+            private int at;
+            public ContinuationSyntax(string source) => this.source = source;
+            public bool Valid() { var valid = Value(0); Space(); return valid && at == source.Length; }
+            private bool Value(int depth)
+            {
+                Space();
+                if (depth > 8 || at == source.Length) return false;
+                if (source[at] == '"') return Text();
+                if (Take('{'))
+                {
+                    Space();
+                    if (Take('}')) return true;
+                    do
+                    {
+                        Space();
+                        if (!Text()) return false;
+                        Space();
+                        if (!Take(':') || !Value(depth + 1)) return false;
+                        Space();
+                        if (Take('}')) return true;
+                    } while (Take(','));
+                    return false;
+                }
+                foreach (var literal in new[] { "true", "false", "null" })
+                    if (source.Length - at >= literal.Length
+                        && string.CompareOrdinal(source, at, literal, 0, literal.Length) == 0)
+                    { at += literal.Length; return true; }
+                Take('-');
+                if (Take('0')) return true;
+                if (at == source.Length || source[at] < '1' || source[at] > '9') return false;
+                while (at < source.Length && source[at] >= '0' && source[at] <= '9') at++;
+                return true;
+            }
+            private bool Text()
+            {
+                if (!Take('"')) return false;
+                while (at < source.Length)
+                {
+                    var c = source[at++];
+                    if (c == '"') return true;
+                    if (c < 32) return false;
+                    if (c != '\\') continue;
+                    if (at == source.Length) return false;
+                    var escaped = source[at++];
+                    if ("\"\\/bfnrt".IndexOf(escaped) >= 0) continue;
+                    if (escaped != 'u' || source.Length - at < 4) return false;
+                    for (var i = 0; i < 4; i++)
+                    {
+                        var hex = source[at++];
+                        if (!(hex >= '0' && hex <= '9' || hex >= 'a' && hex <= 'f' || hex >= 'A' && hex <= 'F')) return false;
+                    }
+                }
+                return false;
+            }
+            private bool Take(char c) { if (at >= source.Length || source[at] != c) return false; at++; return true; }
+            private void Space() { while (at < source.Length && " \r\n\t".IndexOf(source[at]) >= 0) at++; }
+        }
     }
 }
