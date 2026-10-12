@@ -272,6 +272,15 @@ export class CommandService {
     admission: Admission,
     command: CommandEnvelope,
   ): Admission {
+    if (command.command_type.startsWith('workspace.request.') && principal === null)
+      return {
+        admitted: false,
+        scope: admission.scope,
+        rejection: {
+          code: 'invalid_state',
+          message: 'Workspace requests require an authenticated principal.',
+        },
+      };
     if (
       (command.command_type === 'workspace.request.resume' ||
         command.command_type === 'workspace.request.cancel') &&

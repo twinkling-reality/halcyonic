@@ -201,6 +201,9 @@
         "command_status",
         "observation_position",
         "active_turn_id",
+        "had_active_turn",
+        "observation_after",
+        "observed_turn_id",
         "runtime_status",
         "summary"
       ],
@@ -244,6 +247,25 @@
           "minimum": 0
         },
         "active_turn_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "had_active_turn": {
+          "type": "boolean"
+        },
+        "observation_after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observed_turn_id": {
           "anyOf": [
             {
               "type": "string",

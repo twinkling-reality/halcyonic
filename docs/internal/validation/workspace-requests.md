@@ -99,3 +99,45 @@ zero skipped, after both corrections. Typecheck, contract generation and scoped 
 Independent source review found no remaining selector/codec issue. The instruction restore and
 native input consumers have separate Unicode-limit follow-ups; these codec results do not claim
 the unfinished request controls or headset return path are accepted.
+
+## Host coordinator and consumed read routes
+
+The production host now attaches a journal-backed coordinator and consumes the bounded local
+Ollama tool transport. `GET /api/workspace/agent` reads local configured model/tool metadata only;
+`GET /api/workspace/requests/:id` requires the original authenticated principal. The first scope is
+one existing current task execution. The typed catalog provides scoped workspace/event/provider
+reads, instruction continuation, observed receipts and a reported question to the person. It has
+no shell, approval-answer, secret-answer, credential, arbitrary-network or other-project tool.
+Instruction offering uses current declared capability. Every dispatch retains the original
+principal through `CommandService` and rechecks context after awaits and before action.
+
+Model-only tool turns may have empty content: no blank/invented reported reply is journaled. A
+clarification tool's actual question is retained as reported text. Provider conclusions remain
+transient read-through. Outside results are explicitly shortened when larger than their context
+budget; event pages advance over all scanned rows even when other executions are filtered out.
+Conversation history keeps the exact original direction and bounded recent complete tool batches.
+An oversized exact input fails by its named transport bound instead of silently changing the ask.
+
+One local inference runs at once, at most four planning workers may hold leases, and each principal
+has eight new planning starts per fixed minute. Cancelled workers retain a lease until an awaited
+provider/transport actually exits. Each continuation has eight model turns, 64 calls and 180 seconds
+of active model/tool time; runtime/human waiting makes no repeated model calls. A full queue or scan
+bound interrupts explicitly for Resume. All prior prepared action IDs remain retained.
+
+Native outcomes come only from the projection's accepted observed lifecycle receipts. Baselines
+include whether a native turn was already active, its opaque reference and journal position;
+anonymous new turns retain their accepted start position. Superseded/old sequence journal events
+never unlock another action. Scan progress is separately journaled and never rewinds. Synchronous
+completion and waiting-to-worker-release races coalesce a fresh read rather than losing the wake.
+
+Focused deterministic pipeline tests exercise the actual Recorder/CommandService with a synthetic
+controllable runtime and model; these are separate from the current-model transport proof. Actual
+model-to-real-runtime work, independent final security review, Unity/native request UI consumption,
+headset voice/return and visual acceptance remain pending. The installed older APK/live host are
+unchanged by this source implementation. Upgrade order is explicit in REALTIME.md.
+
+The frozen host checkpoint passed 44 focused tests (18 new pipeline cases, five request projection
+cases, the raw duplicate case, and 20 existing control-plane lifecycle cases), zero skipped,
+plus TypeScript typecheck, regenerated contracts, scoped lint and diff checks. The cursor-page
+fixture uses actual reported agent-message provenance so the producer contract accepts its older
+run rows. No real project/provider/model/device action was invoked by these tests.

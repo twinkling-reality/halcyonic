@@ -235,3 +235,19 @@ device                                            control plane
 - `fixtures/pairing/vectors.json` holds a complete exchange for fixed inputs, which both
   implementations reproduce.
 
+
+## Workspace request upgrade order
+
+The journaled general request coordinator adds `workspace.request.submit`, `.resume` and `.cancel`
+to every welcome policy catalogue, and adds request lifecycle events to realtime/history. An older
+generated C# client can reject these enum variants during welcome before a request is submitted.
+These additions are coordinated development changes, not a promise of backward compatibility.
+Install and validate the regenerated client against an isolated updated host first, then update the
+live control plane. Do not restart the current live host underneath an older installed client.
+
+`GET /api/workspace/agent` verifies configured local model/tool availability without inference.
+A missing route on an older host is unavailable, and request words remain an ordinary local draft.
+`GET /api/workspace/requests/:request_id` reads the exact original-principal request; no newest
+request is guessed. Clients compare the returned journal/project/task/execution tuple with their
+fresh bound selection before offering Resume/Cancel. Restoration never submits or grants input,
+reading or confirmation authority. Command acceptance creates direction, not task completion.

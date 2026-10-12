@@ -110,6 +110,9 @@ test('bounded latest receipt view retains prepared command identity beyond 64 st
         command_status: null,
         observation_position: projection.position,
         active_turn_id: null,
+        had_active_turn: false,
+        observation_after: projection.position,
+        observed_turn_id: null,
         runtime_status: null,
         summary: 'Instruction prepared; runtime outcome not yet observed.',
       },
@@ -137,7 +140,7 @@ test('bounded latest receipt view retains prepared command identity beyond 64 st
   );
 });
 test('prepared request record cannot carry approval or recursive workspace command data', () => {
-  const { b, scope, view } = setup();
+  const { b, projection, scope, view } = setup();
   assert.throws(() =>
     b.controlPlane('workspace.request.step_recorded', scope, {
       request_id: view.request_id,
@@ -149,6 +152,9 @@ test('prepared request record cannot carry approval or recursive workspace comma
         command_status: null,
         observation_position: 0,
         active_turn_id: null,
+        had_active_turn: false,
+        observation_after: projection.position,
+        observed_turn_id: null,
         runtime_status: null,
         summary: 'Synthetic unsupported record.',
       },
@@ -204,6 +210,9 @@ test('request creation refuses cross-project execution and immutable action iden
     command_status: null,
     observation_position: projection.position,
     active_turn_id: 'active-original',
+    had_active_turn: true,
+    observation_after: projection.position,
+    observed_turn_id: null,
     runtime_status: null,
     summary: 'Prepared instruction.',
   };
@@ -236,4 +245,33 @@ test('request creation refuses cross-project execution and immutable action iden
   const replay = new Projection();
   for (const event of events) replay.apply(event);
   assert.deepEqual(replay.workspacePreparedActions(view.request_id), [{ command, step }]);
+});
+
+test('request creation cannot preload unbound receipts or earlier history', () => {
+  const { b, projection, scope, view } = setup();
+  const step = {
+    step_id: b.id() as WorkspaceRequestId,
+    tool_name: 'continue_task',
+    status: 'prepared' as const,
+    command_id: b.id() as CommandId,
+    command_status: null,
+    observation_position: 0,
+    active_turn_id: null,
+    had_active_turn: false,
+    observation_after: projection.position,
+    observed_turn_id: null,
+    runtime_status: null,
+    summary: 'Unbound receipt',
+  };
+  for (const invalid of [
+    { ...view, request_id: b.id() as WorkspaceRequestId, steps: [step] },
+    { ...view, request_id: b.id() as WorkspaceRequestId, earlier_steps: 1 },
+  ]) {
+    const event = b.controlPlane('workspace.request.created', scope, {
+      request: invalid,
+      principal: { kind: 'local' },
+    });
+    assert.equal(projection.apply(event).notes.length, 1);
+    assert.equal(projection.workspaceRequest(invalid.request_id), undefined);
+  }
 });
