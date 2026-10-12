@@ -563,7 +563,8 @@ namespace Halcyonic.XR.Workspace
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             drawnVoice = Voiced();
             plane.Voice = drawnVoice;
-            plane.ConnectionState = Demonstration ? WorkspaceText.Demo : Connected ? WorkspaceText.Connected : State?.Journal == null ? WorkspaceText.Connecting : WorkspaceText.Disconnected;
+            plane.ConnectionState = Demonstration ? WorkspaceText.Demo : Connected ? WorkspaceText.Connected
+                : setup.Session()?.Status.Phase is ConnectionPhase.Connecting or ConnectionPhase.Synchronizing ? WorkspaceText.Connecting : WorkspaceText.Disconnected;
             plane.SelectionContext = WorkspaceContext();
             void ShowComposition() => plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
                 navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,

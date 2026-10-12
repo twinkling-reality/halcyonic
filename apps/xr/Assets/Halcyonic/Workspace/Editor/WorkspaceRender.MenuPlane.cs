@@ -44,7 +44,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var bar = new MenuBar(MenuPlace.Tasks, "1 task is waiting for you", MenuPlace.Tasks);
                 // Tasks beside a file packs its rows by the stage's real height there, when the menu opens.
                 var besideTop = MenuPlane.TopLine(opened.Target, targets, eyes, looking, surface, besideWindow, besideMenu: true);
-                var besideBudget = MenuPage.Height(text, 1, besideTop, ViewField.Current, besideMenu: true);
+                var besideBudget = MenuPage.Height(text, 1, besideTop, ViewField.Current, besideMenu: true, header: WorkspaceChromeView.Height);
                 var rows = Enumerable.Range(1, MenuFrame.RowsAPage(text, sourceLine: false)).LastOrDefault(count => MenuPage.Rows(count) <= besideBudget);
                 Debug.Log("Halcyonic: workspace render " + name + ": beside a file the plane's top line is " + GlazeChecks.Degrees(besideTop) + " degrees below eye level, so Tasks holds "
                     + rows + " rows.");
@@ -52,7 +52,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var badge = StateLanguage.BadgeOf(opened.View.Presentation!);
                 // The file's page packed for this stage, as the screens pack it: as much as its top line and the field leave.
                 var top = MenuPlane.TopLine(opened.Target, targets, eyes, looking, surface, besideWindow);
-                var budget = MenuPage.Height(text, MenuFrameView.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), top, ViewField.Current);
+                var budget = MenuPage.Height(text, MenuFrameView.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), top, ViewField.Current, header: WorkspaceChromeView.Height);
                 Debug.Log("Halcyonic: workspace render " + name + ": the plane's top line here is " + GlazeChecks.Degrees(top) + " degrees below eye level; a file's page holds "
                     + GlazeChecks.Degrees(2f * Mathf.Atan(budget / 2f) * Mathf.Rad2Deg) + " degrees of lines.");
 
@@ -1064,11 +1064,13 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 columns.Add(new[] { new GlazeChecks.PlaneShape("the closed bar", bar.transform, bar.Size * bar.transform.localScale.x) });
             }
-            failures.AddRange(GlazeChecks.OnePlane(columns, eyes, what));
+            GlazeChecks.PlaneShape? header = plane.Chrome.Visible
+                ? new GlazeChecks.PlaneShape("workspace header", plane.Chrome.transform, plane.Chrome.Size * plane.Chrome.transform.localScale.x) : (GlazeChecks.PlaneShape?)null;
+            failures.AddRange(GlazeChecks.OnePlane(columns, eyes, what, header));
             failures.AddRange(GlazeChecks.TypeStepsDown(columns, eyes, what));
             failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, what));
             failures.AddRange(GlazeChecks.TextAsSeen(plane.gameObject, eyes, what));
-            var buttons = plane.Shown.SelectMany(column => column.View.Targets).Concat(plane.Bar != null ? new[] { plane.Bar.Target } : new GlazeButton[0]).ToList();
+            var buttons = plane.Shown.SelectMany(column => column.View.Targets).Concat(plane.Chrome.Visible ? plane.Chrome.Targets : new GlazeButton[0]).Concat(plane.Bar != null ? new[] { plane.Bar.Target } : new GlazeButton[0]).ToList();
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, what));
             foreach (var (_, view) in plane.Shown)
             {
@@ -1078,6 +1080,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
             // A degree from every label and body, as the eyes see them, and inside the measured field.
             var shapes = columns.SelectMany(column => column).ToList();
+            if (header is GlazeChecks.PlaneShape fullHeader) shapes.Add(fullHeader);
             var others = characters.Where(character => character.View.gameObject.activeInHierarchy)
                 .SelectMany(character => new[] { GlazeChecks.Of(character.View.WorkstreamId + "'s label", eyes, character.View.Label.gameObject), BodyExtent(character.View, eyes) })
                 .ToList();

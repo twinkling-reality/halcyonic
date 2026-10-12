@@ -21,6 +21,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A vertical insertion caret in a focused input field, never a selection marker.</summary>
         InputCaret,
+
+        /// <summary>A neutral structural separator inside a composed workspace, never a selection or action marker.</summary>
+        CompositionDivider,
     }
 
     /// <summary>
