@@ -65,8 +65,10 @@ public class SpaceSettingsTests
         var (rows, _) = Of(() => new SpaceNow(room, RoomOffer.None, StageArrangement.InFront, null));
         var now = Read(rows, SpaceSettings.SwitchSpace);
         Assert.That((now.Value, now.Now, now.Prompt, now.Reason), Is.EqualTo(("Your room", room.Line, "Show a virtual space", (string?)null)));
+        Assert.That(now.Does, Does.Contain("workspace").And.Not.Contain("characters"));
         room = new RoomStatus(RoomSpace.Virtual, PassthroughState.Running, RoomScan.NotRead, StagePlacement.InFront, null);
         Assert.That(Read(rows, SpaceSettings.SwitchSpace).Prompt, Is.EqualTo("Show my room"), "read afresh each time");
+        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Does, Does.Contain("workspace").And.Not.Contain("characters"));
         room = new RoomStatus(RoomSpace.Room, PassthroughState.Unavailable, RoomScan.NotRead, StagePlacement.InFront, null);
         Assert.That(Read(rows, SpaceSettings.SwitchSpace).Reason, Is.EqualTo("This headset can't show your room now."));
     }
@@ -93,7 +95,7 @@ public class SpaceSettingsTests
         var agents = Read(rows, SpaceSettings.ToggleAgents);
         Assert.That((agents.Value, agents.Prompt), Is.EqualTo(("Off", "Place agents")));
         Assert.That(agents.Now, Is.EqualTo("The workspace works without characters"));
-        Assert.That(rows.Any(row => row.Key == SpaceSettings.NextArrangement), Is.False, "there is no guessed window layout route");
+        Assert.That(rows.Any(row => row.Key == "arrangement-next"), Is.False, "there is no guessed window layout route");
         Assert.That(Read(rows, SpaceSettings.PlaceAgents).Value, Is.EqualTo("Not placed"));
         rows.Single(row => row.Key == SpaceSettings.ToggleAgents).Change();
         Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.ToggleAgents }), "the owning room must confirm a pose before enabling");
