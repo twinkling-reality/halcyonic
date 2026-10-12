@@ -109,15 +109,14 @@ public class FileQuestionTests
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
-            "Question 1 of 2",
+            "Question 1 of 2 · Choose one",
             "Which colour scheme should the dashboard use?",
-            "Choose one",
             "Light · Dark text on a light background",
             "Dark · Light text on a dark background",
             FileScreens.WriteAnswer,
         }));
         Assert.That(frame.Lines.Select(line => (line.Runs.AllTheirs, line.Icon == GlazeIcon.Quote)),
-            Is.EqualTo(new[] { (false, false), (true, true), (false, false), (true, true), (true, true), (false, false) }));
+            Is.EqualTo(new[] { (false, false), (true, true), (true, true), (true, true), (false, false) }));
         Assert.That(frame.Lines.Where(line => line.Choice).Select(line => line.Action).Distinct(), Is.EqualTo(new[] { FileScreens.Choose }));
         Assert.That(frame.Lines.Single(line => line.Action == FileScreens.TypeAnswer).Control, Is.EqualTo(LineControl.Action), "input entry is a distinct action, never a choice");
         Assert.That(frame.Lines.Any(line => line.Chosen), Is.False);
@@ -210,9 +209,10 @@ public class FileQuestionTests
         var labels = new[] { "Postgres", "SQLite", "MySQL", "DynamoDB", "Redis" };
         var question = OnePrompt(labels);
         var measured = new[] { new PromptMeasure(1, labels.Select(_ => 2).ToList(), labels.Select(_ => 2).ToList()) };
-        // Seven rows include Question number, the full question, Choose guidance, a two-row option,
-        // the paired Write/pager target and the immediate-step reason. One complete option fits.
-        var (_, workspace, screen, draft) = Asking(question, measured, rows: 7);
+        // Six rows include the compact Question/Choose caption, the full question, a two-row option,
+        // the paired Write/pager target and the initial unread-question reason. No choose-first reason is needed.
+        var (_, workspace, screen, draft) = Asking(question, measured, rows: 6);
+        Assert.That(screen.Question.AnswerShows(0, 0), Is.EqualTo(2), "one complete measured option fits even before the question is drawn");
         ShowAnswers(screen);
         Assert.That(screen.Question.Pages, Is.EqualTo(5));
         var seen = new List<int>();
@@ -220,7 +220,7 @@ public class FileQuestionTests
         {
             var frame = Screen(workspace, screen);
             seen.AddRange(screen.Question.Answers);
-            Assert.That(Height(frame, new RowBudget(7)), Is.LessThanOrEqualTo(7), "the page fits its rows, Type my answer beside the row for more answers");
+            Assert.That(Height(frame, new RowBudget(6)), Is.LessThanOrEqualTo(6), "the page fits its rows, Type my answer beside the row for more answers");
             Assert.That(frame.Lines.Single(line => line.Action == FileScreens.TypeAnswer).BesideNext, Is.True);
             Assert.That(frame.Lines.Single(line => line.Action == FileScreens.TypeAnswer).Words, Is.EqualTo(FileScreens.WriteAnswer), "Type my answer stands last among the answers");
             Assert.That(frame.Lines.Last().Words, Is.EqualTo(FileScreens.MoreAnswersWords(page, 5)));
@@ -362,9 +362,9 @@ public class FileQuestionTests
     {
         var labels = new[] { "Postgres", "SQLite", "MySQL", "DynamoDB", "Redis" };
         var question = OnePrompt(labels);
-        var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, rows: 7);
+        var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, rows: 6);
         ShowAnswers(screen);
-        Assert.That(screen.Question.Answers, Is.EqualTo(new[] { 0, 1 }), "Question-number, Choose guidance and the always-visible reason add three rows to the previous four-row fixture");
+        Assert.That(screen.Question.Answers, Is.EqualTo(new[] { 0, 1 }), "the compact Question/Choose caption and initial unread-question reason add two rows to the original four-row fixture; the redundant choose-first reason is omitted");
         Draw(screen);
         screen.Question.Choose(4);
         Assert.That(draft.IsChosen(0, "Redis"), Is.False, "an answer not on the page in view can't be chosen");
@@ -378,7 +378,7 @@ public class FileQuestionTests
         Assert.That(draft.IsChosen(0, "Redis"), Is.True);
 
         // The text grows a size: a row fewer a page.
-        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, new RowBudget(6), new RowBudget(3));
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, new RowBudget(5), new RowBudget(3));
         Assert.That(screen.Question.AnswersRead(0), Is.False, "a relayout invalidates the option's old read binding");
         ShowAnswers(screen);
         Assert.That(screen.Question.Answers, Does.Contain(4), "laid out anew, the page shows what was chosen");
