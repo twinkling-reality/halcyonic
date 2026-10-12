@@ -2658,6 +2658,11 @@ retains its originating frame/side/compact composition before maturity. Moving i
 geometry authorization; resumed task content obtains
 fresh exact-frame draw proof through the existing navigator and file lifecycle.
 
+Settings' category index packs its targets against the actual narrowed heading rows and current
+stage page height, without reserving a source line it does not show. All supported groups remain
+reachable through the offered pager with their original value runs. Production render routes walk
+those visible category pages before entering Comfort or Your space.
+
 ### Instruction editor and explicit send
 
 Tell it opens a focused editor with Your instruction, the existing bounded Input role and empty

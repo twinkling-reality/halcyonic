@@ -179,7 +179,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(FileScreens.BackInstructionNotice);
                 Shot("after notice");
                 if (file.Screen.Notice != null || file.Screen.Instruction.Part != 0 || sent.Count != 3) failures.Add(name + ": acknowledging notice lost the draft or sent it");
-                director.Compact(); Draw(); director.OpenFile(work.Workstream.WorkstreamId); Draw();
+                director.Compact(); Draw();
+                Shot("compact local draft");
+                director.OpenFile(work.Workstream.WorkstreamId); Draw();
                 Shot("resumed local draft");
             }
             finally { UnityEngine.Object.DestroyImmediate(texture); UnityEngine.Object.DestroyImmediate(root); }
