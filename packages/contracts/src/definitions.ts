@@ -97,6 +97,15 @@ import {
   ServerMessage,
 } from './realtime.ts';
 import {
+  WorkspaceAgentStatus,
+  WorkspaceRequestReply,
+  WorkspaceRequestResponse,
+  WorkspaceRequestStatus,
+  WorkspaceRequestStep,
+  WorkspaceRequestStepStatus,
+  WorkspaceRequestView,
+} from './requests.ts';
+import {
   ModelChoice,
   ModelServed,
   ModelToolCalling,
@@ -150,6 +159,13 @@ import {
  * for it, so every language calls each concept by the same name.
  */
 export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
+  WorkspaceAgentStatus,
+  WorkspaceRequestResponse,
+  WorkspaceRequestView,
+  WorkspaceRequestReply,
+  WorkspaceRequestStatus,
+  WorkspaceRequestStep,
+  WorkspaceRequestStepStatus,
   EventEnvelope,
   StoredEvent,
   EventSource,

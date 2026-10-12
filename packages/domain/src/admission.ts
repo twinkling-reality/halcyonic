@@ -48,6 +48,49 @@ export function admitCommand(
 ): Admission {
   const policy = COMMAND_POLICY[command.command_type];
   switch (command.command_type) {
+    case 'workspace.request.submit': {
+      const { project_id, workstream_id, execution_id } = command.payload;
+      const work = projection.workstream(workstream_id),
+        run = projection.execution(execution_id);
+      const scope = { project_id, workstream_id, execution_id };
+      if (!projection.project(project_id))
+        return reject(scope, 'project_not_found', 'The selected project does not exist.');
+      if (
+        !work ||
+        work.project_id !== project_id ||
+        work.current_execution_id !== execution_id ||
+        !run ||
+        run.project_id !== project_id ||
+        run.workstream_id !== workstream_id
+      )
+        return reject(
+          scope,
+          'invalid_state',
+          'The request no longer matches the selected task and current execution.',
+        );
+      return { admitted: true, policy, scope, runtime: null };
+    }
+    case 'workspace.request.resume':
+    case 'workspace.request.cancel': {
+      const request = projection.workspaceRequest(command.payload.request_id);
+      if (!request)
+        return reject(NO_SCOPE, 'request_not_found', 'The workspace request does not exist.');
+      const scope = {
+        project_id: request.project_id,
+        workstream_id: request.workstream_id,
+        execution_id: request.execution_id,
+      };
+      if (
+        command.command_type === 'workspace.request.resume' &&
+        projection.workstream(request.workstream_id)?.current_execution_id !== request.execution_id
+      )
+        return reject(
+          scope,
+          'invalid_state',
+          'The task has another execution. Start a new request for it.',
+        );
+      return { admitted: true, policy, scope, runtime: null };
+    }
     case 'project.create':
       return { admitted: true, policy, scope: NO_SCOPE, runtime: null };
 

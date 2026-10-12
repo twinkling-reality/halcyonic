@@ -10,6 +10,7 @@ import {
   RuntimeId,
   Text,
   Timestamp,
+  WorkspaceRequestId,
   WorkstreamId,
 } from './primitives.ts';
 import { QuestionAnswer } from './questions.ts';
@@ -124,6 +125,27 @@ export const ExecutionInterruptCommand = defineCommand(
   Type.Object({ execution_id: ExecutionId }, strict),
 );
 
+export const WorkspaceRequestSubmitCommand = defineCommand(
+  'workspace.request.submit',
+  Type.Object(
+    {
+      project_id: ProjectId,
+      workstream_id: WorkstreamId,
+      execution_id: ExecutionId,
+      text: Text(32000),
+    },
+    strict,
+  ),
+);
+export const WorkspaceRequestResumeCommand = defineCommand(
+  'workspace.request.resume',
+  Type.Object({ request_id: WorkspaceRequestId, text: Nullable(Text(32000)) }, strict),
+);
+export const WorkspaceRequestCancelCommand = defineCommand(
+  'workspace.request.cancel',
+  Type.Object({ request_id: WorkspaceRequestId }, strict),
+);
+
 export const COMMAND_VARIANTS = [
   ProjectCreateCommand,
   ProjectSetLocationCommand,
@@ -133,6 +155,9 @@ export const COMMAND_VARIANTS = [
   ExecutionRespondToApprovalCommand,
   ExecutionAnswerQuestionCommand,
   ExecutionInterruptCommand,
+  WorkspaceRequestSubmitCommand,
+  WorkspaceRequestResumeCommand,
+  WorkspaceRequestCancelCommand,
 ] as const;
 
 export const CommandEnvelope = Type.Union([...COMMAND_VARIANTS]);
@@ -149,6 +174,9 @@ export const CommandType = Type.Union([
   Type.Literal('execution.respond_to_approval'),
   Type.Literal('execution.answer_question'),
   Type.Literal('execution.interrupt'),
+  Type.Literal('workspace.request.submit'),
+  Type.Literal('workspace.request.resume'),
+  Type.Literal('workspace.request.cancel'),
 ]);
 
 /**
@@ -163,6 +191,7 @@ export const PolicyCategory = Type.Union([
 export type PolicyCategory = Static<typeof PolicyCategory>;
 
 export const RejectionCode = Type.Union([
+  Type.Literal('request_not_found'),
   Type.Literal('project_not_found'),
   Type.Literal('workstream_not_found'),
   Type.Literal('execution_not_found'),
@@ -222,6 +251,10 @@ export const CommandFailure = Type.Object(
 export type CommandFailure = Static<typeof CommandFailure>;
 
 export const CommandResult = Type.Union([
+  Type.Object(
+    { kind: Type.Literal('workspace_request_created'), request_id: WorkspaceRequestId },
+    strict,
+  ),
   Type.Object({ kind: Type.Literal('project_created'), project_id: ProjectId }, strict),
   Type.Object({ kind: Type.Literal('workstream_created'), workstream_id: WorkstreamId }, strict),
   Type.Object({ kind: Type.Literal('execution_created'), execution_id: ExecutionId }, strict),

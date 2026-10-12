@@ -16,4 +16,7 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'execution.respond_to_approval': 'review_required',
   'execution.answer_question': 'low_consequence',
   'execution.interrupt': 'review_required',
+  'workspace.request.submit': 'low_consequence',
+  'workspace.request.resume': 'low_consequence',
+  'workspace.request.cancel': 'low_consequence',
 };

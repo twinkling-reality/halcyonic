@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import type {
   CommandEnvelope,
   CommandFailure,
+  CommandOf,
   CommandResult,
   CommandView,
   ExecutionId,
@@ -41,12 +42,19 @@ import {
   NO_CAUSE,
 } from './drafts.ts';
 import type { Recorder } from './recorder.ts';
-import { type Redaction, withinLimit } from './redaction.ts';
+import { fitted, type Redaction, withinLimit } from './redaction.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
 
 export type SubmitOutcome =
   | { readonly disposition: 'accepted' | 'rejected' | 'duplicate'; readonly command: CommandView }
   | { readonly disposition: 'conflict'; readonly command: null };
+
+export type WorkspaceRequestCommand = CommandOf<
+  'workspace.request.submit' | 'workspace.request.resume' | 'workspace.request.cancel'
+>;
+export interface WorkspaceRequestHandler {
+  handle(command: WorkspaceRequestCommand, principal: Principal | null): CommandResult | null;
+}
 
 export interface CommandServiceDeps {
   readonly projection: Projection;
@@ -84,6 +92,12 @@ const REFUSED_RESENDS_PER_MINUTE = 6;
 
 export class CommandService {
   readonly #deps: CommandServiceDeps;
+  #workspaceRequests: WorkspaceRequestHandler | null = null;
+  /** The actual consumed host coordinator; absent means these commands are refused. */
+  attachWorkspaceRequests(handler: WorkspaceRequestHandler): void {
+    if (this.#workspaceRequests !== null) throw new Error('workspace coordinator already attached');
+    this.#workspaceRequests = handler;
+  }
   /**
    * Keyed digests of refused commands as sent, by id, with who sent them, for those the journal
    * keeps only in part (journaledRejection), so a reused id with another answer is still a
@@ -91,6 +105,8 @@ export class CommandService {
    * guesses of a short secret. Gone after a restart, when such a command sent again is a conflict.
    */
   readonly #refusedDigests = new Map<string, { readonly digest: string; readonly by: string }>();
+  /** Raw request identity is compared only for the original principal; no text is kept here. */
+  readonly #requestDigests = new Map<string, { readonly digest: string; readonly by: string }>();
   readonly #digestKey = randomBytes(32);
   /** Resends of refused answers compared in the current fixed minute, by principal. */
   readonly #resends = new Map<string, { readonly minute: number; count: number }>();
@@ -108,18 +124,50 @@ export class CommandService {
    * duplicate changes nothing, so it is answered as one whoever sends it.
    */
   submit(
-    command: CommandEnvelope,
+    submitted: CommandEnvelope,
     via: ReceivedVia,
     principal: Principal | null = null,
   ): SubmitOutcome {
+    const command: CommandEnvelope =
+      submitted.command_type === 'workspace.request.submit'
+        ? {
+            ...submitted,
+            payload: {
+              ...submitted.payload,
+              text: fitted(this.#deps.redaction.held(submitted.payload.text), 32000),
+            },
+          }
+        : submitted.command_type === 'workspace.request.resume' && submitted.payload.text !== null
+          ? {
+              ...submitted,
+              payload: {
+                ...submitted.payload,
+                text: fitted(this.#deps.redaction.held(submitted.payload.text), 32000),
+              },
+            }
+          : submitted;
     const known = this.#deps.projection.commandEnvelope(command.command_id);
     if (known !== undefined) {
-      return this.#sameAsKnown(known, command, principal)
+      return (
+        known.command_type.startsWith('workspace.request.')
+          ? this.#sameRequest(submitted, principal)
+          : this.#sameAsKnown(known, command, principal)
+      )
         ? { disposition: 'duplicate', command: this.#view(command) }
         : { disposition: 'conflict', command: null };
     }
 
-    const admission = this.#authorize(principal, this.#admit(command));
+    if (command.command_type.startsWith('workspace.request.')) {
+      this.#requestDigests.set(command.command_id, {
+        digest: this.#digest(submitted),
+        by: principalKey(principal),
+      });
+      if (this.#requestDigests.size > REFUSED_ANSWERS_KEPT) {
+        const oldest = this.#requestDigests.keys().next().value;
+        if (oldest !== undefined) this.#requestDigests.delete(oldest);
+      }
+    }
+    const admission = this.#authorize(principal, this.#admit(command), command);
     const cause = causedBy(command.command_id);
     if (!admission.admitted) {
       this.#deps.recorder.record(
@@ -160,7 +208,7 @@ export class CommandService {
         cause,
       ),
     );
-    this.#dispatch(command, admission, cause);
+    this.#dispatch(command, admission, cause, principal);
     return { disposition: 'accepted', command: this.#view(command) };
   }
 
@@ -219,7 +267,26 @@ export class CommandService {
   }
 
   /** Rejects a command from a device that is no longer paired, whatever its admission. */
-  #authorize(principal: Principal | null, admission: Admission): Admission {
+  #authorize(
+    principal: Principal | null,
+    admission: Admission,
+    command: CommandEnvelope,
+  ): Admission {
+    if (
+      (command.command_type === 'workspace.request.resume' ||
+        command.command_type === 'workspace.request.cancel') &&
+      principalKey(
+        this.#deps.projection.workspaceRequestOwner(command.payload.request_id) ?? null,
+      ) !== principalKey(principal)
+    )
+      return {
+        admitted: false,
+        scope: admission.scope,
+        rejection: {
+          code: 'request_not_found',
+          message: 'This request does not belong to this principal.',
+        },
+      };
     if (principal?.kind !== 'device') return admission;
     const device = this.#deps.projection.device(principal.device_id);
     if (device !== undefined && device.revoked_at === null) return admission;
@@ -239,6 +306,15 @@ export class CommandService {
    * to, the folder a start would run in, and the runtime's own options.
    */
   #admit(command: CommandEnvelope): Admission {
+    if (command.command_type.startsWith('workspace.request.') && this.#workspaceRequests === null)
+      return {
+        admitted: false,
+        scope: { project_id: null, workstream_id: null, execution_id: null },
+        rejection: {
+          code: 'capability_unsupported',
+          message: 'The workspace coordinator is unavailable on this computer.',
+        },
+      };
     const admission = admitCommand(command, this.#deps.projection, this.#deps.registry);
     if (!admission.admitted) return admission;
     const refuse = (code: RejectionCode, message: string): Admission => ({
@@ -285,9 +361,43 @@ export class CommandService {
     return this.#deps.projection.project(scope.project_id)?.location?.path ?? null;
   }
 
-  #dispatch(command: CommandEnvelope, admission: Admitted, cause: Cause): void {
+  #dispatch(
+    command: CommandEnvelope,
+    admission: Admitted,
+    cause: Cause,
+    principal: Principal | null,
+  ): void {
     const { recorder } = this.#deps;
     switch (command.command_type) {
+      case 'workspace.request.submit':
+      case 'workspace.request.resume':
+      case 'workspace.request.cancel': {
+        try {
+          if (!this.#workspaceRequests)
+            throw new RuntimeActionError(
+              'coordinator_unavailable',
+              'The workspace coordinator is unavailable.',
+            );
+          if (
+            command.command_type !== 'workspace.request.submit' &&
+            principalKey(
+              this.#deps.projection.workspaceRequestOwner(command.payload.request_id) ?? null,
+            ) !== principalKey(principal)
+          )
+            throw new RuntimeActionError(
+              'request_not_found',
+              'This request does not belong to this principal.',
+            );
+          this.#complete(
+            command,
+            admission.scope,
+            this.#workspaceRequests.handle(command, principal),
+          );
+        } catch (error) {
+          this.#fail(command, admission.scope, toFailure(error, this.#deps.redaction));
+        }
+        return;
+      }
       case 'project.create': {
         let location: ProjectLocation | null = null;
         if (command.payload.location !== null) {
@@ -597,6 +707,16 @@ export class CommandService {
     if (refused === undefined || refused.by !== principalKey(principal)) return false;
     if (!this.#mayCompareResend(principal)) return false;
     return refused.digest === this.#digest(command);
+  }
+
+  #sameRequest(command: CommandEnvelope, principal: Principal | null): boolean {
+    const kept = this.#requestDigests.get(command.command_id);
+    return (
+      kept !== undefined &&
+      kept.by === principalKey(principal) &&
+      this.#mayCompareResend(principal) &&
+      kept.digest === this.#digest(command)
+    );
   }
 
   #mayCompareResend(principal: Principal | null): boolean {
