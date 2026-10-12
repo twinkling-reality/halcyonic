@@ -564,9 +564,13 @@ namespace Halcyonic.Client
                 if (drawn.Count >= QuestionParts(Prompt)) draft.ShownWhole(Prompt);
                 return;
             }
-            if (!QuestionCut(Prompt)) draft.ShownWhole(Prompt);
+            // Snapshot what this frame actually showed before ShownWhole or any read entry can
+            // change reason reservation, option packing or the full/cut classification.
+            var wholeQuestion = !QuestionCut(Prompt);
+            var wholeOptions = Answers.Where(option => !AnswerCut(Prompt, option)).ToArray();
+            if (wholeQuestion) draft.ShownWhole(Prompt);
             if (!answersRead.TryGetValue(Prompt, out var read)) answersRead[Prompt] = read = new HashSet<int>();
-            foreach (var option in Answers) if (!AnswerCut(Prompt, option)) read.Add(option);
+            foreach (var option in wholeOptions) read.Add(option);
         }
 
         /// <summary>
