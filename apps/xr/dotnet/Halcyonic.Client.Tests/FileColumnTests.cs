@@ -1685,8 +1685,8 @@ public class FileColumnTests
     }
 
     /// <summary>
-    /// Where only some of a prompt's answers read the same, those rows show and can't be chosen, a line under
-    /// them says so, and Stop stands on the page as the way to the one meant; the rest are answered as ever, and
+    /// Where only some answers read the same, their rows navigate to Read why without selecting; the
+    /// explanation offers the ordinary confirmed Stop escape. The rest are answered as ever, and
     /// nothing, pressed, typed or heard, sends a label that reads alike (the review's L2, settled 2026-10-07).
     /// </summary>
     [Test]
@@ -1706,8 +1706,7 @@ public class FileColumnTests
         var host = new FileMenuHost();
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
         ReadQuestion(host, column);
-        // Every page of its answers: those rows can't be chosen, a press on one chooses nothing, and the line stands under them.
-        const string alike = "Stop task";
+        // Alike rows remain visible as navigation, never selectable answer marks.
         var draft = column.Screen.Question.Draft!;
         var rows = new List<(string Words, bool Available)>();
         for (var page = 0; page < column.Screen.Question.Pages; page++)
@@ -1718,16 +1717,29 @@ public class FileColumnTests
                 Draw(host, column);
             }
             var shown = column.Frame!.Lines.ToList();
-            var answers = shown.Where(line => line.Action == FileScreens.Choose).ToList();
-            rows.AddRange(answers.Select(line => (line.Words, line.Available)));
-            Assert.That(shown[shown.FindLastIndex(line => line.Action == FileScreens.Choose) + 1].Words, Is.EqualTo(alike), "under its answers, page " + page);
-            var stop = shown.Single(line => line.Action == FileScreens.Stop);
-            Assert.That((stop.Control, stop.Icon, stop.Rows, stop.Fact), Is.EqualTo((LineControl.Action, (GlazeIcon?)GlazeIcon.Stop, 1, "Alike answers cannot be chosen")), "the bounded Stop task target explains the ambiguous choices without promising an absent escape");
+            var answers = shown.Where(line => line.Action == FileScreens.Choose || line.Action == FileScreens.ReadWhy).ToList();
+            rows.AddRange(answers.Select(line => (line.Words, line.Action == FileScreens.Choose && line.Available)));
+            Assert.That(shown.Any(line => line.Action == FileScreens.Stop), Is.False, "Stop is offered only in its read explanation, never as a competing body action");
             Assert.That(column.Frame!.Footer[PromptSlot.Secondary], Is.Null, "voice belongs only inside the dedicated editor");
-            foreach (var row in answers.Where(line => !line.Available))
+            foreach (var row in answers.Where(line => line.Action == FileScreens.ReadWhy))
             {
+                Assert.That((row.Available, row.Control, row.Choice, row.AnswerMark, row.Fact, row.Opens),
+                    Is.EqualTo((true, LineControl.Action, false, AnswerMark.None, "Unavailable · Read why", true)), "an unavailable answer offers readable navigation, no selection mark");
                 column.Act(FileScreens.Choose, row.Key);
-                Assert.That(draft.IsAnswered(0), Is.False, row.Words + " chooses nothing");
+                Assert.That(draft.IsAnswered(0), Is.False, row.Words + " cannot be forged into a selection");
+                column.Act(FileScreens.ReadWhy, row.Key);
+                Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.True);
+                Assert.That((draft.IsAnswered(0), host.Sent.Count), Is.EqualTo((false, 0)), "Read why neither selects nor sends");
+                for (var part = 0; part < column.Screen.Question.AmbiguityParts; part++)
+                {
+                    Draw(host, column);
+                    if (column.Screen.Question.AmbiguityPart + 1 >= column.Screen.Question.AmbiguityParts) break;
+                    column.Act(FileScreens.NextAmbiguityPart, null);
+                }
+                Assert.That((column.Frame!.Footer[PromptSlot.FarRight]!.Id, column.Frame.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo((FileScreens.Stop, true)), "the whole explanation read offers the ordinary Stop escape");
+                column.Act(FileScreens.BackAmbiguity, null);
+                Draw(host, column);
+                Assert.That((column.Screen.Question.Page, draft.IsAnswered(0)), Is.EqualTo((page, false)), "Back restores the same choices without an answer");
             }
         }
         Assert.That(rows, Is.EqualTo(new[]
@@ -1772,13 +1784,38 @@ public class FileColumnTests
         var other = new FileMenuHost();
         var unstoppable = Column(other, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
         ReadQuestion(other, unstoppable);
-        Assert.That(unstoppable.Frame!.Lines.Select(line => line.Words), Does.Contain("Answers that read the same can't be chosen here."));
-        Assert.That(unstoppable.Frame!.Footer[PromptSlot.Rare], Is.Null);
+        var unavailable = unstoppable.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
+        unstoppable.Act(unavailable.Action!, unavailable.Key);
+        for (var part = 0; part < unstoppable.Screen.Question.AmbiguityParts; part++)
+        {
+            Draw(other, unstoppable);
+            if (unstoppable.Screen.Question.AmbiguityPart + 1 >= unstoppable.Screen.Question.AmbiguityParts) break;
+            unstoppable.Act(FileScreens.NextAmbiguityPart, null);
+        }
+        Assert.That(unstoppable.Frame!.Footer.All.Any(each => each.Prompt.Id == FileScreens.Stop), Is.False, "the explanation never offers Stop without the capability");
+        Assert.That(unstoppable.Screen.Question.Draft!.IsAnswered(0), Is.False);
+        unstoppable.Act(FileScreens.BackAmbiguity, null);
+        Draw(other, unstoppable);
         unstoppable.Act(FileScreens.TypeAnswer, "3");
         other.Keyboard!.Value.Done("Yes.");
         Assert.That(unstoppable.Frame!.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."),
             "never Stop where the page offers none");
         Assert.That(unstoppable.Screen.Question.Draft!.Typed(0), Is.Null);
+
+        var stopWork = new AskingWork(question, new[] { new CommandPolicy { CommandType = CommandType.ExecutionInterrupt, Policy = PolicyCategory.ReviewRequired } });
+        var stopHost = new FileMenuHost();
+        var stopping = Column(stopHost, () => FileScreensTests.Offering(stopWork.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
+        ReadQuestion(stopHost, stopping);
+        var why = stopping.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
+        stopping.Act(why.Action!, why.Key);
+        for (var part = 0; part < stopping.Screen.Question.AmbiguityParts; part++)
+        {
+            Draw(stopHost, stopping);
+            if (stopping.Screen.Question.AmbiguityPart + 1 >= stopping.Screen.Question.AmbiguityParts) break;
+            stopping.Act(FileScreens.NextAmbiguityPart, null);
+        }
+        stopping.Act(FileScreens.Stop, null);
+        Assert.That((stopping.Steering.Armed, stopHost.Sent.Count), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Interrupt, 0)), "the escape still requires ordinary policy confirmation");
     }
 
     /// <summary>
