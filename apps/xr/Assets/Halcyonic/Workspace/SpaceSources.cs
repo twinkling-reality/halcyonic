@@ -19,20 +19,12 @@ namespace Halcyonic.XR.Workspace
         void ToggleAgents();
         void PlaceAgents();
 
-        /// <summary>Where the characters stand, or null on a desk, where the room places them.</summary>
-        StageArrangement? Arrangement { get; }
-
         /// <summary>Shows the real room where a virtual space shows, and the other way round.</summary>
         void SwitchSpace();
 
         /// <summary>Does what <see cref="Offer"/> offers.</summary>
         void TakeOffer();
 
-        /// <summary>Stands the characters in the next arrangement (<see cref="SpaceSettings.Next"/>).</summary>
-        void NextArrangement();
-
-        /// <summary>Applies the explicit arrangement the person selected in placement details.</summary>
-        void ChooseArrangement(StageArrangement arrangement);
     }
 
     /// <summary>
