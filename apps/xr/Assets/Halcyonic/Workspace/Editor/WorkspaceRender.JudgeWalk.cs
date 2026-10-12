@@ -224,19 +224,52 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Its row opens its file on Waiting, at the agent's question; an answer chosen.
                 if (!Press(MenuColumn.Menu, TasksColumn.OpenTask, directed) || file == null) failures.Add(name + ": the waiting task's row opened no file.");
                 Shot("3 question");
-                for (var turn = 0; turn < 8 && Shown(MenuColumn.File)?.Lines.Any(line => line.Action == FileScreens.NextPart) == true; turn++)
+                for (var turn = 0; turn < file!.Screen.Question.QuestionParts(0) && Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight]?.Id == FileScreens.NextPart; turn++)
                 {
                     Settle();
                     Press(MenuColumn.File, FileScreens.NextPart, FileScreens.QuestionKey);
                 }
-                for (var turn = 0; turn < 4 && Shown(MenuColumn.File)?.Lines.Any(line => line.Action == FileScreens.Choose && line.Key == "0") != true; turn++)
+                for (var turn = 0; turn < file.Screen.Question.Pages && Shown(MenuColumn.File)?.Lines.Any(line => line.Action == FileScreens.Choose && line.Key == "0") != true; turn++)
                 {
                     Settle();
                     Press(MenuColumn.File, FileScreens.MoreAnswers);
                 }
-                Press(MenuColumn.File, FileScreens.Choose, "0");
-                if (Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight]?.Available != true) failures.Add(name + ": with an answer chosen and read, Send answer takes no press.");
+                if (!Press(MenuColumn.File, FileScreens.Choose, "0")) failures.Add(name + ": the first visible answer took no choice press.");
+                // A cut offered choice is read on its actual detail surface, then closed. Reading
+                // proof comes from the director's rendered-view callbacks, never a fabricated draw.
+                for (var part = 0; part < file.Screen.Question.SideParts && file.Screen.Question.SideOption != null; part++)
+                {
+                    director.DrawNow();
+                    var sideView = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View;
+                    if (sideView?.Side == null) { failures.Add(name + ": the selected cut answer has no visible details."); break; }
+                    Settle();
+                    if (file.Screen.Question.SidePart + 1 >= file.Screen.Question.SideParts)
+                    {
+                        if (!navigator.Act(MenuColumn.Side, SidePanel.Close, null, director.Plane.Showing(MenuColumn.Side), sideView.Side)) failures.Add(name + ": read details took no Close press.");
+                        director.DrawNow();
+                        break;
+                    }
+                    var next = sideView.Footer.Showing.All.FirstOrDefault(each => each.Prompt.Id == Footer.NextPage).Prompt;
+                    if (next == null || !navigator.Act(MenuColumn.Side, next.Id, null, director.Plane.Showing(MenuColumn.Side), sideView.Side))
+                    { failures.Add(name + ": the visible detail pager took no press."); break; }
+                    director.DrawNow();
+                }
+                var answerPage = Shown(MenuColumn.File);
+                if (answerPage?.Footer[PromptSlot.FarRight]?.Id != FileScreens.NextQuestion || answerPage.Footer[PromptSlot.FarRight]?.Available != true)
+                    failures.Add(name + ": the chosen and read answer offers no next review step.");
+                if (answerPage?.Footer.All.Any(each => each.Prompt.Id == FileScreens.SendAnswer) == true) failures.Add(name + ": Send answer appears before mandatory review.");
                 Shot("4 answer chosen");
+                Settle();
+                if (!Press(MenuColumn.File, FileScreens.NextQuestion) || !file.Screen.Question.Reviewing) failures.Add(name + ": the chosen answer opened no mandatory review.");
+                for (var part = 0; part < file.Screen.Question.Pages && Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight]?.Id == FileScreens.MoreAnswers; part++)
+                {
+                    Settle();
+                    if (!Press(MenuColumn.File, FileScreens.MoreAnswers)) { failures.Add(name + ": the visible review pager took no press."); break; }
+                }
+                director.DrawNow();
+                if (Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight]?.Id != FileScreens.SendAnswer || Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight]?.Available != true)
+                    failures.Add(name + ": the rendered whole review did not offer Send answer.");
+                Shot("4 answers reviewed");
 
                 // Where the recording stands after that answer: the approval, its request in parts, and Yes only after the last.
                 (state, activity) = RecordedAt(recording, new[] { 0, asked });

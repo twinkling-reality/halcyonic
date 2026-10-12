@@ -78,7 +78,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>One shot: a file's frame on its plane, seen from the eyes, saved, and held to the page's rows.</summary>
-        private static IEnumerable<string> Shoot(string folder, string name, MenuFrame frame, bool sideExpected = false)
+        private static IEnumerable<string> Shoot(string folder, string name, MenuFrame frame, bool sideExpected = false, FileScreen? reading = null, DateTimeOffset? at = null)
         {
             var failures = new List<string>();
             var root = new GameObject("File render " + name);
@@ -91,8 +91,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 var side = MenuFrameView.Create(root.transform, "Side panel");
                 var drawn = 0;
                 var sideDrawn = 0;
-                file.Drawn += _ => drawn++;
-                side.Drawn += _ => sideDrawn++;
+                file.Drawn += _ =>
+                {
+                    drawn++;
+                    reading?.Question.Drawn(at ?? DateTimeOffset.UtcNow);
+                };
+                side.Drawn += _ =>
+                {
+                    sideDrawn++;
+                    reading?.Question.SideDrawn(at ?? DateTimeOffset.UtcNow);
+                };
                 Lay(frame, file, side, eyes);
                 var image = WorkspaceRender.Render(camera, texture);
                 File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
@@ -102,7 +110,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (sideExpected && frame.Side == null) failures.Add(name + ": a chosen cut answer brought no side panel.");
                 if (frame.Side != null && sideDrawn != 1) failures.Add(name + ": the side panel raised Drawn " + sideDrawn.ToString(CultureInfo.InvariantCulture) + " times, not once.");
                 // The page's lines as the view wraps them, priced by height against what a lone file's page holds.
-                var budget = HeightBudget.Of(TextSizeNow, MenuFrameView.TitleRows(frame.Subject, Glaze.Menu.FileColumnDegrees));
+                var budget = HeightBudget.Of(TextSizeNow, MenuFrameView.TitleRows(frame.Subject, Glaze.Menu.FileColumnDegrees), focused: frame.Focused);
                 var height = Height(frame, budget);
                 Debug.Log("Halcyonic: file render " + name + ": its lines stand " + Degrees(height) + " of the " + Degrees(budget.Room) + " a page holds beside its source line.");
                 if (height > budget.Room + 1e-4f) failures.Add(name + ": its lines stand " + Degrees(height) + ", past the " + Degrees(budget.Room) + " a page holds.");
@@ -211,26 +219,69 @@ namespace Halcyonic.XR.Workspace.Editor
             var workspace = work.Present();
             var draft = new QuestionDraft("render-execution", question);
             var screen = new FileScreen { Section = FileSection.Waiting, Speak = true };
-            var budget = HeightBudget.Of(TextSizeNow, MenuFrameView.TitleRows(workspace.Character.Title, Glaze.Menu.FileColumnDegrees));
-            screen.ReadQuestion(draft, Measure(draft), budget, budget);
+            var titleRows = MenuFrameView.TitleRows(workspace.Character.Title, Glaze.Menu.FileColumnDegrees);
+            var budget = HeightBudget.Of(TextSizeNow, titleRows, focused: true);
+            var sideBudget = HeightBudget.Of(TextSizeNow, titleRows);
+            screen.ReadQuestion(draft, Measure(draft), budget, sideBudget);
             var steering = new WorkspaceSteering(new CommandFactory(new ClientInfo { Name = "halcyonic-render", Version = "0", DeviceLabel = "editor" }));
             var room = new AnswerRoom(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false));
-            failures.AddRange(Shoot(folder, "waiting-four-answers", FileScreens.Screen(workspace, steering, screen, room)));
-
-            // The longest answer, on whichever page holds it, chosen: it brings its side panel. The
-            // question's own pages first, where it has them, each drawn and stood a second.
             var at = DateTimeOffset.UtcNow;
-            for (var step = 0; step < 20 && !screen.Question.Answers.Contains(3); step++)
+            failures.AddRange(Shoot(folder, "waiting-four-answers", FileScreens.Screen(workspace, steering, screen, room), reading: screen, at: at));
+
+            // Follow only the actual visible footer/choice controls. Read evidence comes from the
+            // rendered views settling, including the last choice page after a page turn.
+            for (var step = 0; step < 20; step++)
             {
-                screen.Question.Drawn(at);
+                var frame = FileScreens.Screen(workspace, steering, screen, room);
+                failures.AddRange(Shoot(folder, "waiting-choice-page-" + step.ToString(CultureInfo.InvariantCulture), frame, reading: screen, at: at));
+                if (frame.Lines.Any(line => line.Action == FileScreens.Choose && line.Key == "3")) break;
                 at = at.AddSeconds(1);
-                if (screen.Question.QuestionPart != null) screen.Question.NextPart(at);
-                else screen.Question.MoreAnswers(at);
+                if (frame.Footer[PromptSlot.FarRight]?.Id == FileScreens.NextPart) screen.Question.NextPart(at);
+                else if (frame.Lines.Any(line => line.Action == FileScreens.MoreAnswers)) screen.Question.MoreAnswers(at);
+                else break;
             }
-            if (!screen.Question.Answers.Contains(3)) failures.Add("waiting-answer-chosen: no page of answers holds the fourth answer.");
+            var choices = FileScreens.Screen(workspace, steering, screen, room);
+            // Rereading may remove the question's missing-read reason and reveal more of this
+            // page's option. Render that rebuilt page too; the previous snapshot proves only its rows.
+            failures.AddRange(Shoot(folder, "waiting-choice-ready", choices, reading: screen, at: at));
+            if (!choices.Lines.Any(line => line.Action == FileScreens.Choose && line.Key == "3"))
+            {
+                failures.Add("waiting-answer-chosen: no visible page of answers holds the fourth answer.");
+                return failures;
+            }
             screen.Question.Choose(3);
+            if (!draft.IsChosen(0, question.Prompts[0].Options[3].Label)) failures.Add("waiting-answer-chosen: its visible answer did not become selected.");
             var cut = screen.Question.AnswerCut(0, 3);
-            failures.AddRange(Shoot(folder, "waiting-answer-chosen", FileScreens.Screen(workspace, steering, screen, room), sideExpected: cut));
+            failures.AddRange(Shoot(folder, "waiting-answer-chosen", FileScreens.Screen(workspace, steering, screen, room), sideExpected: cut, reading: screen, at: at));
+            for (var part = 0; part < screen.Question.SideParts && screen.Question.SideOption != null; part++)
+            {
+                var frame = FileScreens.Screen(workspace, steering, screen, room);
+                failures.AddRange(Shoot(folder, "waiting-answer-detail-" + part.ToString(CultureInfo.InvariantCulture), frame, sideExpected: true, reading: screen, at: at));
+                if (screen.Question.SidePart + 1 >= screen.Question.SideParts) break;
+                at = at.AddSeconds(1);
+                screen.Question.NextSidePart(at);
+            }
+            screen.Question.CloseSide();
+            var read = FileScreens.Screen(workspace, steering, screen, room);
+            failures.AddRange(Shoot(folder, "waiting-answer-read", read, reading: screen, at: at));
+            if (read.Footer[PromptSlot.FarRight]?.Id != FileScreens.NextQuestion || read.Footer[PromptSlot.FarRight]?.Available != true)
+                failures.Add("waiting-answer-read: the whole selected answer did not offer Review answers.");
+            if (read.Footer.All.Any(each => each.Prompt.Id == FileScreens.SendAnswer)) failures.Add("waiting-answer-read: Send answer bypasses mandatory review.");
+            at = at.AddSeconds(1);
+            screen.Question.NextQuestion(at);
+            if (!screen.Question.Reviewing) failures.Add("waiting-answer-review: Review answers did not open the review.");
+            screen.Question.MeasureReview(Enumerable.Range(0, draft.Prompts.Count)
+                .Select(prompt => MenuFrameView.RowsOf(FileScreens.ReviewRow(draft, prompt), Glaze.Menu.FileColumnDegrees)).ToList());
+            for (var page = 0; page < screen.Question.Pages; page++)
+            {
+                var review = FileScreens.Screen(workspace, steering, screen, room);
+                failures.AddRange(Shoot(folder, "waiting-answer-review-" + page.ToString(CultureInfo.InvariantCulture), review, reading: screen, at: at));
+                if (review.Footer[PromptSlot.FarRight]?.Id == FileScreens.SendAnswer) break;
+                if (review.Footer[PromptSlot.FarRight]?.Id != FileScreens.MoreAnswers) break;
+                at = at.AddSeconds(1);
+                screen.Question.MoreAnswers(at);
+            }
+            if (FileScreens.WhySendWaits(screen) != null) failures.Add("waiting-answer-review: all rendered review parts did not unlock Send answer: " + FileScreens.WhySendWaits(screen));
             return failures;
         }
 
@@ -270,8 +321,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var draft = new QuestionDraft("render-execution", question);
             var screen = new FileScreen { Section = FileSection.Waiting, Speak = true };
             var titleRows = MenuFrameView.TitleRows(workspace.Character.Title, Glaze.Menu.FileColumnDegrees);
-            var budget = HeightBudget.Of(TextSizeNow, titleRows);
-            screen.ReadQuestion(draft, Measure(draft), budget, budget);
+            var budget = HeightBudget.Of(TextSizeNow, titleRows, focused: true);
+            var sideBudget = HeightBudget.Of(TextSizeNow, titleRows);
+            screen.ReadQuestion(draft, Measure(draft), budget, sideBudget);
             // At the standard size, its own case; larger text wraps it longer, and it takes its own page anyway.
             var standard = TextSizeNow == TextSize.Standard && titleRows == 1;
             if (standard && screen.Question.QuestionMeasured(0) != 2) failures.Add("waiting-long-question: the question wraps to " + screen.Question.QuestionMeasured(0) + " rows, not 2.");
@@ -281,15 +333,17 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var steering = new WorkspaceSteering(new CommandFactory(new ClientInfo { Name = "halcyonic-render", Version = "0", DeviceLabel = "editor" }));
             var room = new AnswerRoom(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false));
-            failures.AddRange(Shoot(folder, "waiting-long-question", FileScreens.Screen(workspace, steering, screen, room)));
             var at = DateTimeOffset.UtcNow;
-            for (var step = 0; step < 5 && screen.Question.QuestionPart != null; step++)
+            failures.AddRange(Shoot(folder, "waiting-long-question", FileScreens.Screen(workspace, steering, screen, room), reading: screen, at: at));
+            for (var step = 0; step < screen.Question.QuestionParts(0) && screen.Question.QuestionPart != null; step++)
             {
-                screen.Question.Drawn(at);
+                var frame = FileScreens.Screen(workspace, steering, screen, room);
+                failures.AddRange(Shoot(folder, "waiting-long-question-part-" + step.ToString(CultureInfo.InvariantCulture), frame, reading: screen, at: at));
+                if (frame.Footer[PromptSlot.FarRight]?.Id != FileScreens.NextPart) break;
                 at = at.AddSeconds(1);
                 screen.Question.NextPart(at);
             }
-            failures.AddRange(Shoot(folder, "waiting-long-question-answers", FileScreens.Screen(workspace, steering, screen, room)));
+            failures.AddRange(Shoot(folder, "waiting-long-question-answers", FileScreens.Screen(workspace, steering, screen, room), reading: screen, at: at));
             return failures;
         }
 
