@@ -190,8 +190,19 @@ byte refusal; and source checks for the fixed filename and absent-versus-failed 
 These establish format behavior and source/API boundaries. Actual Android syscall faults, JNI
 dispatch, process-death recovery and headset disk/render performance still require device evidence.
 
-Still required: independent source review; integration gates; actual development/release APK
-packaging and JNI inspection; synthetic native visual proof; headset launch/Home/return and
+Preliminary APK packaging was checked on 2026-10-12. A development build from `f60dec7a`
+contained the native activity and separate internal synthetic preview activity and asset. A
+release build from `572e1b00` succeeded at 74,325,937 bytes, SHA-256
+`8463e9051a2589f7f88e90a33b0e5c65286a5bb74a9a32f99f6f2a4c8413a284`.
+Its actual manifest and DEX contained the production activity, view-store validator and the
+`PanelBridge` open, Peek, exact-Ack and private-view read/write entry points. The preview activity,
+preview class and asset, microphone permission and media-projection service permission were absent.
+These builds were not installed and do not establish JNI dispatch or compositor behavior. Their
+source revisions precede later recovery and request-loop changes; final packaging must be checked
+again on the source selected for installation.
+
+Still required: final independent consumer review and integration gates; final APK packaging and
+actual JNI dispatch; synthetic native visual proof; headset launch/Home/return and
 process-death recovery; explicit USB installed journey; real Wi-Fi pairing, pin failure and
 revocation; native keyboard and complete review with hands/controllers; focus over another
 immersive app, including `FLAG_SECURE` on the actual Horizon virtual display and native keyboard
