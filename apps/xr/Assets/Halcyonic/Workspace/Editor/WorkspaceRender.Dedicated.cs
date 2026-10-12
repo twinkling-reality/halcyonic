@@ -122,6 +122,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(FileScreens.TellIt);
                 done?.Invoke("Add a regression test for the rate limit.");
                 Shot("local instruction");
+                var move = director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace);
+                var grab = move.transform.position;
+                director.HoldSubjectForRender(grab);
+                if (!director.Dragging) failures.Add(name + ": the current visible workspace Move did not begin a real hand drag");
+                var offset = grab - eyes;
+                director.DragSubjectForRender(eyes + Quaternion.Euler(0f, 4f, 0f) * offset);
+                director.LetGoForRender();
+                Shot("hand placed instruction");
+                var retainedDirection = director.Plane.Direction;
+                var retainedOffset = director.Plane.Moved;
+                if (retainedOffset == default) failures.Add(name + ": the real Move pointer left no retained hand offset");
+                var fullFrame = director.Plane.Chrome.FrameSurface;
+                var retainedCorners = Enumerable.Range(0, 4).Select(corner => fullFrame.transform.TransformPoint(new Vector3(
+                    corner % 2 == 0 ? -0.5f : 0.5f, corner < 2 ? -0.5f : 0.5f, 0f))).ToArray();
+                if (!director.OpenLocal(new WorkspaceNoticeColumn(director, "Move agents clear of the workspace before applying their placement.")))
+                    failures.Add(name + ": a local placement explanation could not open");
+                Shot("placement overlay");
+                if (director.ClearsShelf(retainedCorners, eyes)) failures.Add(name + ": shelf placement forgot the full retained workspace under its smaller overlay");
+                Press(Footer.Close);
+                Shot("returned hand placed instruction");
+                if (director.Plane.Direction.Yaw != retainedDirection.Yaw || director.Plane.Direction.Elevation != retainedDirection.Elevation
+                    || director.Plane.Moved != retainedOffset) failures.Add(name + ": overlay return changed the hand-placed console position");
+
                 var kept = file;
                 ChromePress(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.Minimize), 731);
                 Shot("minimized dock");
@@ -130,6 +153,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.Plane.Bar is not MenuBarView dock) failures.Add(name + ": minimized workspace has no restore target");
                 else ChromePress(dock.Target, 732);
                 Shot("restored instruction");
+                if (director.Plane.Direction.Yaw != retainedDirection.Yaw || director.Plane.Direction.Elevation != retainedDirection.Elevation
+                    || director.Plane.Moved != retainedOffset) failures.Add(name + ": global Minimize/restore changed the hand-placed console position");
                 if (presentation.Minimized || file != kept || file?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                     failures.Add(name + ": global restore lost selected task or local draft");
                 connected = false;

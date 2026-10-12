@@ -318,6 +318,7 @@ namespace Halcyonic.XR.Workspace
         public void Redraw()
         {
             EndDrag();
+            ReflowFiles();
             dirty = true;
         }
 
@@ -364,8 +365,16 @@ namespace Halcyonic.XR.Workspace
             drag = null;
             anchor = null;
             movedByHand = false;
+            moved = default;
+            ReflowFiles();
             navigator.Moved();
             dirty = true;
+        }
+
+        private void ReflowFiles()
+        {
+            foreach (var pair in memory.Files.ToList())
+                if (memory.Files.TryGetValue(pair.Key, out var kept) && kept == pair.Value && kept is FileColumn file) file.Reflow();
         }
 
 #if UNITY_EDITOR
@@ -580,7 +589,7 @@ namespace Halcyonic.XR.Workspace
                 // Only the views' normal settled Drawn callbacks grant authority to these refreshed frames.
                 ShowComposition();
             }
-            // Only as much of a drag as still holds for what is laid now; none, and Settings says so.
+            // Passive redraws preserve the exact hand placement; the active drag owns changes to it.
             moved = plane.Moved;
         }
 
@@ -715,6 +724,7 @@ namespace Halcyonic.XR.Workspace
         public bool OpenLocal(IMenuColumn column)
         {
             if (Away || drag != null || placement != null || setup.Presentation.Minimized) return false;
+            plane.RetainWorkspaceFootprint();
             if (!navigator.IsCompact) { navigator.Compact(); navigator.Expand(); }
             navigator.Moved();
             voice?.FocusLeft();
@@ -733,12 +743,14 @@ namespace Halcyonic.XR.Workspace
             placement = null;
             placementFrame = null;
             placementDrawn = null;
+            plane.ReleaseWorkspaceFootprint();
             if (closing != null)
             {
                 closing.Changed -= LocalChanged;
                 closing.Closed -= LocalClosed;
                 closing.FocusLeft();
             }
+            ReflowFiles();
             navigator.Moved();
             dirty = true;
         }
@@ -772,9 +784,6 @@ namespace Halcyonic.XR.Workspace
             var drawnView = plane.Shown.FirstOrDefault(item => item.Kind == from).View;
             if (drawnView == null || drawnView.Frame != frame || plane.Opening(from) || dirty || plane.Sliding) return false;
             if (navigator.Standing(from, frame, drawnView.Side) == null) return false;
-            // Beside a window the plane stands under the window's lane, which no drag may take it into: the
-            // stage as it stands now, not as the plane was last drawn.
-
             if (plane.Composition == null) return false;
             if (plane.Front?.Footer.Confirming == true) return false;
             foreach (var (_, view) in plane.Shown)
@@ -860,6 +869,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (drag == null) return;
             drag = null;
+            ReflowFiles();
             dirty = true;
             // What was pressed under the moving plane is no press, nor a hold, as it settles again.
             plane.UnsettleShown(dragStartedAt);

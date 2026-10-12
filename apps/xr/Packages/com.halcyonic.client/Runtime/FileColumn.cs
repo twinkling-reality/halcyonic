@@ -121,6 +121,17 @@ namespace Halcyonic.Client
             return true;
         }
 
+        /// <summary>Explicit workspace movement changes page room and revokes prior input and reading proof.</summary>
+        public void Reflow()
+        {
+            Compact();
+            Screen.ReadAgainAtNewSize();
+            Steering.Cancel();
+            budget = null;
+            Rebuild();
+            Changed?.Invoke();
+        }
+
         /// <summary>Whether the page drawn offers Stop, so a refusal of words says to press it only where it can be.</summary>
         private bool StopOnPage => Frame?.Footer[PromptSlot.Rare]?.Id == FileScreens.Stop || Frame?.Lines.Any(line => line.Action == FileScreens.Stop) == true;
 
