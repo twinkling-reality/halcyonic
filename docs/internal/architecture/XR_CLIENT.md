@@ -571,7 +571,9 @@ the same definition names, as the JSON Schema document:
   and stage page height, reserving its source line; every limit stays reachable in source order,
   and a chosen limit keeps its identity when the text size repacks the page; its full Agent app,
   Seen, Resets and Account facts use measured SidePanel parts when needed, with the exact source on
-  every part and the existing carried Next page while details occupy the frame) and `SettingsColumn` (each setting under its
+  every part and the existing carried Next page while details occupy the frame; the recorded Judge
+  walk follows the offered parts, including the in-place pager at Larger, and verifies the complete
+  fact sequence with unchanged subject, source and selected limit) and `SettingsColumn` (each setting under its
   group's heading, its one change the main action; the comfort settings from `ComfortSettings`, and
   Your space and, in a development build, Your computer from `SpaceSettings`, each row's change only
   raising its id for what owns it (`IRoomSettings`, `IPairingSettings`, `MenuDirector.ResetPosition`); a change that asks first, as forgetting the computer, arms on that press
