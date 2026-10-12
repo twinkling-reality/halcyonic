@@ -431,6 +431,23 @@ the editor closed, build in batch mode from the repository root, naming the meth
 Close the editor first: only one Unity instance can have the project open. In batch mode a failed
 build exits with status 1, and the log says why.
 
+On a shared development machine, isolate the editor's Android Debug Bridge before each Android
+editor run. This editor can stop its ADB server on exit, including after a render check. Use an
+unused private server port and a device filter that matches no attached device, so that server
+does not take the headset away from the ordinary ADB server. For example, after checking that
+port 5038 is free:
+
+```bash
+"/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb" -L tcp:localhost:5038 --one-device halcyonic-editor-no-device start-server
+ADB_SERVER_SOCKET=tcp:localhost:5038 ANDROID_ADB_SERVER_PORT=5038 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
+```
+
+Start that private server with the same filter again before the next editor run; an implicit
+restart would lose the filter. Keep installation and headset commands on the ordinary server.
+Do not stop another project's ADB server or remove its reverse routes. This isolation preserved
+the shared server and its existing routes during the recorded check in
+[meta-xr-platform.md](../validation/meta-xr-platform.md#editor-adb-isolation-2026-10-12).
+
 A build changes the project in ways that are expected:
 - Meta's build step adds `OculusRuntimeSettings` to the preloaded assets and never removes it; that
   entry is committed.
@@ -640,10 +657,11 @@ tcp:47800` is in place.
 - **Run the control plane without `--watch` for a headset session:**
   `node apps/control-plane/src/main.ts`, not `pnpm dev`. `pnpm dev` restarts it whenever code in the
   checkout changes, as a merge does, and that leaves every running execution in an unknown state.
-- **Run `adb reverse` again after any Unity run for Android.** Every Unity run with the Android
-  target kills the adb server as it exits, an import as well as a build, which drops the rule. Until
-  the rule is back, an app that has not yet been live plays the recorded demonstration; it keeps
-  trying, and switches to the control plane by itself once it connects.
+- **Preserve the headset's ADB connection during editor work.** Use the isolated editor server
+  described under Build. If an earlier non-isolated run stopped the ordinary server, inspect
+  `adb reverse --list` and restore Halcyonic's known `tcp:47800` route. Do not remove unrelated
+  routes. Until its route is back, an app that has not yet been live plays the recorded
+  demonstration; it keeps trying and switches to the control plane once it connects.
 - **Stage placement:** in the real room the stage stands on the surface the room placement found
   (`Halcyonic: room placed the stage on the surface, because ...`) and stays there through
   recenters. Otherwise it places itself in front of the person when the session starts, after a

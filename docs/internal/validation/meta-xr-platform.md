@@ -123,3 +123,23 @@ Sustained frame rate with hand tracking and network traffic; focus changes under
 Universal Menu; WebSocket survival across sleep, headset removal and focus loss; pinch reliability
 when seated or reclined; text legibility; battery and thermals; LAN discovery; long-session
 comfort.
+
+## Editor ADB isolation (2026-10-12)
+
+Unity `6000.3.25f1`, Android target, on the development Mac stopped its ADB server when a batch
+render check exited. The ordinary server disappeared and its two existing reverse routes were
+absent afterward. Restoring only those previously observed routes recovered the connection.
+
+The follow-up `WorkspaceRender.Check` used a separate ADB server on a verified unused loopback
+port. It was started with `--one-device halcyonic-editor-no-device`, a filter matching no device,
+and the editor received both `ADB_SERVER_SOCKET` and `ANDROID_ADB_SERVER_PORT` for that port.
+The private server listed no devices. After the editor exited, the ordinary server's process ID
+was unchanged and both existing reverse routes were still present. The render itself reported
+layout failures; this experiment establishes ADB isolation for that invocation, not layout
+acceptance or a guarantee for every Unity toolchain.
+
+The [official ADB command-line source](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/client/commandline.cpp)
+documents these environment variables and the `--one-device` option. Explicit command-line
+server options can override environment selection. Restart the private server with its no-device
+filter before each editor invocation because Unity may stop it on exit; never let an implicit
+restart capture devices without the filter. The runbook includes the scoped commands.
