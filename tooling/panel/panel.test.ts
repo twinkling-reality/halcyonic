@@ -38,6 +38,7 @@ const PLAIN = [
   'PanelProof.java',
   'PanelUiState.java',
   'PanelRestore.java',
+  'PanelViewStore.java',
 ];
 const ANDROID_ONLY = ['PanelFiles.java', 'PanelBridge.java', 'AgentPanelActivity.java'];
 const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
@@ -215,6 +216,63 @@ describe('production native agent panel', () => {
       `${' '.repeat(256 * 1024 + 1)}${value}`,
     ])
       assert.equal(run('continuation', invalid), 'false');
+  });
+  test('Unity view storage consumes shared continuation parity without adding a record-count cap', () => {
+    for (const fixture of fixtures.cases) {
+      const record = fixture.value as { handoff_id: string };
+      assert.equal(
+        run(
+          'viewstore',
+          JSON.stringify({ version: 1, selected: record.handoff_id, views: [record] }),
+        ),
+        String(fixture.valid),
+        fixture.name,
+      );
+    }
+    const template = fixtures.cases[0]?.value as Record<string, unknown>;
+    const views = Array.from({ length: 24 }, (_, i) => ({
+      ...template,
+      handoff_id: `0192f1a0-0000-4000-8000-${i.toString(16).padStart(12, '0')}`,
+    }));
+    assert.equal(
+      run('viewstore', JSON.stringify({ version: 1, selected: views[0]?.handoff_id, views })),
+      'true',
+    );
+  });
+  test('Unity view storage rejects duplicate records, absent selection, extra fields and syntax coercions', () => {
+    const view = fixtures.cases[0]?.value as Record<string, unknown>;
+    for (const value of [
+      { version: 1, selected: view.handoff_id, views: [view, view] },
+      { version: 1, selected: '0192f1a0-0000-4000-8000-000000000099', views: [view] },
+      { version: 1, selected: null, views: [], confirmation: true },
+      { version: 1.0, selected: null, views: '[]' },
+    ])
+      assert.equal(run('viewstore', JSON.stringify(value)), 'false');
+    const empty = '{"version":1,"selected":null,"views":[]}';
+    for (const value of [
+      empty.replace('"version":1', '"version":1,"version":1'),
+      empty.replace('"version":1', '"version":1.0'),
+      `${empty}[]`,
+    ])
+      assert.equal(run('viewstore', value), 'false');
+  });
+  test('Unity view storage enforces the aggregate UTF-8 byte boundary', () => {
+    assert.equal(run('viewstore_bound', JSON.stringify(fixtures.cases[0]?.value)), 'true');
+  });
+  test('Unity JNI storage uses one fixed private record and distinguishes actual absent from failed IO', () => {
+    const files = readFileSync(join(SOURCES, 'PanelFiles.java'), 'utf8');
+    const bridge = readFileSync(join(SOURCES, 'PanelBridge.java'), 'utf8');
+    assert.match(files, /UNITY_VIEWS = "halcyonic-unity-workspace-views.json"/);
+    assert.match(files, /error.errno == OsConstants.ENOENT/);
+    assert.match(files, /readLocked\(UNITY_VIEWS, PanelViewStore.MAXIMUM_BYTES\)/);
+    assert.match(files, /catch \(RecordAbsent missing\) \{ return null; \}/);
+    assert.match(files, /name.equals\(UNITY_VIEWS\)\) PanelViewStore.validate\(json\)/);
+    assert.match(files, /O_NOFOLLOW \| OsConstants.O_NONBLOCK/);
+    assert.match(files, /O_EXCL \| OsConstants.O_NOFOLLOW/);
+    assert.match(files, /stat.st_size > maximum/);
+    assert.match(files, /byte\[maximum \+ 1\]/);
+    assert.match(bridge, /readWorkspaceViews\(Activity activity\) throws IOException/);
+    assert.match(bridge, /write\(PanelFiles.UNITY_VIEWS, json\)/);
   });
   test('identity rejects unsafe endpoint material, including non-ASCII and local host alternatives', () => {
     for (const host of [
