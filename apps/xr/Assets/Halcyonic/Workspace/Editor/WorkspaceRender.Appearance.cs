@@ -16,6 +16,43 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>The unchanged deterministic cache witnesses alone, for bounded refresh mutation checks.</summary>
+        public static void AppearanceCacheCheck()
+        {
+            var previousPalette = Glaze.Palette;
+            var previousField = ViewField.Current;
+            var previousScale = GlazeText.Scale;
+            var failures = new List<string>();
+            try
+            {
+                foreach (var palette in GlazePalette.Presets)
+                {
+                    Glaze.SetPalette(palette);
+                    GlazeText.SetScale(1f);
+                    failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
+                    {
+                        var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "AppearanceCacheRenders", palette.Key, variant));
+                        Directory.CreateDirectory(folder);
+                        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                        ViewField.Current = FieldChecks.Quest3S;
+                        return AppearanceCaches(folder, palette);
+                    }));
+                    if (Glaze.Palette != palette) failures.Add(palette.Key + ": cache witnesses leaked another applied palette.");
+                }
+            }
+            catch (Exception error) { failures.Add(error.ToString()); }
+            finally
+            {
+                Glaze.SetPalette(previousPalette);
+                GlazeText.SetScale(previousScale);
+                ViewField.Current = previousField;
+                KeepFontAssetsAsCommitted();
+            }
+            foreach (var failure in failures) Debug.LogError("Halcyonic: appearance cache render: " + failure);
+            if (failures.Count == 0) Debug.Log("Halcyonic: appearance cache render: every check passed.");
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         /// <summary>Real production pages at both text sizes and presets, plus same-pose cache witnesses. No preferences are read or saved.</summary>
         public static void AppearanceCheck()
         {
