@@ -191,7 +191,6 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       this.#changed(request, 'stopped', request.reply);
       return null;
     }
-    this.#conversations.delete(request.request_id);
     if (this.#active.has(request.request_id))
       throw new RuntimeActionError('request_busy', 'This request is already planning.');
     if (request.status === 'stopped')
@@ -199,6 +198,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         'request_stopped',
         'Start a new request after cancelling this direction.',
       );
+    this.#conversations.delete(request.request_id);
     if (command.payload.text !== null) {
       this.#step(
         request,
@@ -559,7 +559,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         this.#changed(request, 'responded', reply);
         return;
       }
-      for (const call of result.toolCalls) {
+      for (const [callIndex, call] of result.toolCalls.entries()) {
         request = this.#current(id, controller);
         if (!request) return;
         if (budget.calls >= MAX_CALLS) {
@@ -603,6 +603,14 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
                   served: result.served,
                 }
               : reply;
+          // A paused batch remains a complete native tool protocol exchange. Later calls were
+          // not executed, and are not implicitly replayed when the runtime wakes this request.
+          for (const skipped of result.toolCalls.slice(callIndex + 1))
+            messages.push({
+              role: 'tool',
+              tool_name: skipped.function.name,
+              content: JSON.stringify({ executed: false, reason: 'prior_call_paused_batch' }),
+            });
           const captured = structuredClone(messages);
           const bytes =
             [...this.#conversations.entries()]
