@@ -21,6 +21,12 @@ evidence of documented behavior, not independent usability or reliability measur
 - [Meta hybrid apps](https://developers.meta.com/vr/documentation/spatial-sdk/hybrid-apps-overview/)
   documents native panel surfaces and lifecycle transitions. It does not establish continuous
   microphone ownership across those transitions or access to other apps' contents.
+- [OpenClaw agent loop](https://docs.openclaw.ai/agent-loop) documents context assembly, model
+  inference, tool execution, streaming and persistence across a run. Its
+  [runtime architecture](https://docs.openclaw.ai/agent-runtime-architecture) separates tool
+  schemas and policy from the loop and model transport. This supports the owner's clarified
+  requirement for open-ended requests executed through tools, rather than a voice phrase catalogue.
+  It does not establish a Halcyonic integration or permission to install, configure or run OpenClaw.
 
 ## Halcyonic source facts
 
@@ -33,13 +39,17 @@ The authenticated `/api/transcriptions` route uses the configured local whisper.
 [voice-transcription.md](voice-transcription.md) records synthetic speech measurements and their
 limits. Those numbers are not a measurement of natural-language intent resolution or real Quest
 microphone accuracy. The existing local companion handles project creation; no workspace intent
-resolver or voice navigation contract exists at this review.
+agent loop exists at this review. Its prompt explicitly says it cannot read, run or build anything,
+and its transport submits no tools. Renaming or widening that ask/propose reply would not supply
+the missing execution loop.
 
 ## Design inference and validation required
 
 A stable workspace with contextual views can make the result of speech visible and correctable.
-This is a design hypothesis. Contextual interpretation must select from implemented views and
-actions, retain task identity and distinguish a navigation request from a draft instruction.
+This is a design hypothesis. A general workspace agent must compose implemented tools around the
+request, inspect actual results and retain task identity. A keyword router or one model call that
+selects a predetermined menu action does not satisfy the clarified requirement. Tool availability
+and permissions remain explicit; open-ended reasoning cannot manufacture access or runtime support.
 No model interpretation grants command authority. Ambiguous names, stale results and unsupported
 requests must be handled explicitly without guessing a target or reporting an action as complete.
 

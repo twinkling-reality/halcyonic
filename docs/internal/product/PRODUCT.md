@@ -98,28 +98,38 @@ hands and text. A person should be able to ask for an outcome in ordinary langua
 the current project, task and relevant evidence in view. The interface must show when it listens,
 what it understood and what happened, with a clear way to correct or cancel.
 
-The stable workspace hosts contextual views. An unambiguous request such as "show this task's
-changes" may open its existing Changes view; "what needs me?" may surface current questions and
-approvals. Relevant options come from current work and supported capabilities. Speech does not
-generate arbitrary layouts, invent actions or make all controls move between requests. Opening a
-new view preserves ordinary drafts and gives a clear return path. Characters appear only when
-enabled or explicitly requested and never become a requirement for voice interaction.
+The owner clarified that this must be a general agent for the VR workspace, capable of understanding
+open-ended requests and carrying them through. It is not a fixed voice-command menu or a catalogue
+of supported request phrases. The agent assembles relevant context, chooses and sequences available
+tools, observes their results, revises its approach and continues until the requested outcome is
+verified or a real decision or limitation requires the person. Rephrasing a request must not require
+a new intent branch. A tool's validated schema defines what it can do; it does not prescribe the
+person's goals or the sequence used to fulfil them.
+
+The stable workspace makes that ongoing work inspectable. Contextual panels show relevant evidence,
+results, progress and decisions, with supported controls when useful. Their contents follow the work
+and the person's request; they are not the extent of the agent's ability to reason. Reusable visual
+components keep text, input and placement predictable without hardcoding a layout for each request.
+Opening a new view preserves ordinary drafts and gives a clear return path. Characters appear only
+when enabled or explicitly requested and never become a requirement for voice interaction.
 
 Context must be explicit: the selected project and task, the current execution and the item the
 person deliberately selected or pointed at. Looking near a character does not authorize an action.
 An ambiguous reference asks which item was meant. Halcyonic cannot assume access to another app's
 screen merely because its own native panel is visible beside it.
 
-Requests to direct work become visible, editable drafts through the existing action path. Voice
-never bypasses whole-request reading, capability checks, current execution binding or confirmation.
+Requests to direct work use the existing authorized action path. Where an action requires human
+review, its complete request becomes visible and editable before confirmation. The agent may perform
+authorized steps within the approved scope without requiring the person to navigate each panel.
+Voice never bypasses required whole-request reading, capability checks, current execution binding or confirmation.
 Agent text, task titles and quoted content remain data, never spoken instructions from the person.
 A delayed interpretation cannot act on a new selection or a new connection. Failure leaves the
 person's words available to correct without silently retrying a command.
 
 **Current status:** development builds transcribe held speech locally on the Mac into a particular
 field, under [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md). The
-creation companion helps develop an idea; it is not a workspace navigation service. Contextual
-workspace interpretation, native-panel microphone continuity and voice in release builds are not
+creation companion helps develop an idea; its ask/propose exchange has no tools and is not the
+general workspace agent. The open-ended workspace agent loop, native-panel microphone continuity and voice in release builds are not
 implemented or accepted on hardware. The next implementation must measure target selection,
 ambiguity recovery, interruption, correction and end-to-end latency with real headset speech.
 Product references and their limits are recorded in
