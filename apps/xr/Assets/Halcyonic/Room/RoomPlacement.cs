@@ -76,6 +76,7 @@ namespace Halcyonic.XR.Room
             var forward = head.transform.forward; forward.y = 0f;
             if (forward.sqrMagnitude < 1e-4f) forward = Vector3.forward;
             forward.Normalize();
+            Draft.Allows = AllowsShelf;
             var pose = Preferred ?? new Pose(head.transform.position + forward * 1.2f - Vector3.up * 0.45f,
                 Quaternion.LookRotation(forward, Vector3.up));
             run++;
@@ -100,18 +101,41 @@ namespace Halcyonic.XR.Room
             };
             Draft.Move(ToVector(delta), direction == "Turn left" ? -5f : direction == "Turn right" ? 5f : 0f);
         }
+        public void StopRoomSuggestion() => run++;
+        private bool AllowsShelf(AgentShelfPose candidate)
+        {
+            var head = Camera.main;
+            if (head == null) return false;
+            var pose = ToPose(candidate);
+            var measured = ViewField.Current ?? new ViewField(48, 48, 45, 45);
+            var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
+                measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
+            var half = (GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(6)) / 2f;
+            for (var corner = 0; corner < 8; corner++)
+            {
+                var local = new Vector3(corner % 2 == 0 ? -half : half, corner < 4 ? UI.CharacterLabelView.DeepestBottom * AgentShelfDraft.Scale : 0.5f,
+                    corner % 4 < 2 ? -AgentShelfDraft.Depth / 2f : AgentShelfDraft.Depth / 2f);
+                var direction = Quaternion.Inverse(head.transform.rotation) * (pose.position + pose.rotation * local - head.transform.position);
+                var yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
+                var elevation = Mathf.Atan2(direction.y, new Vector2(direction.x, direction.z).magnitude) * Mathf.Rad2Deg;
+                if (!field.Shows(yaw, elevation)) return false;
+            }
+            return true;
+        }
         public void CancelPreview() { run++; Draft.Cancel(); }
         public bool ApplyPreview()
         {
             if (FocusGuard.InputSuspended) { CancelPreview(); return false; }
             run++;
-            return Draft.Apply(candidate =>
+            var applied = Draft.Apply(candidate =>
             {
                 DropAnchor();
                 Publish(ToPose(candidate), "the person applied a manual shelf preview");
                 SetStatus(Status.With(placement: StagePlacement.OnShelfThisSession, clearSurface: true));
                 return true;
             });
+            if (!applied) CancelPreview();
+            return applied;
         }
         public void FindRoomSurface()
         {
@@ -264,14 +288,16 @@ namespace Halcyonic.XR.Room
                 SetStatus(Status.With(scan: read.Scan));
                 if (read.Surfaces == null || read.Obstacles == null) return;
                 var viewer = ViewerNow();
-                var spot = StageSurfaces.Choose(read.Surfaces, read.Obstacles, viewer);
-                if (spot == null) { SetStatus(Status.With(placement: StagePlacement.NoSurface)); return; }
-                // This is a suggestion, not a confirmed desk placement or a saved anchor.
-                var pose = PoseOf(spot, viewer);
                 var width = GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(6);
-                if (!StageSurfaces.ShelfFits(spot.Surface, read.Obstacles, spot.Point.Plan, pose.rotation.eulerAngles.y, width, AgentShelfDraft.Depth))
-                { SetStatus(Status.With(placement: StagePlacement.NoSurface)); return; }
-                Draft.Suggest(generation, ToDraft(pose));
+                var spot = StageSurfaces.Choose(read.Surfaces, read.Obstacles, viewer, candidate =>
+                {
+                    var proposed = PoseOf(candidate, viewer);
+                    return StageSurfaces.ShelfFits(candidate.Surface, read.Obstacles, candidate.Point.Plan,
+                        proposed.rotation.eulerAngles.y, width, AgentShelfDraft.Depth) && AllowsShelf(ToDraft(proposed));
+                });
+                if (spot == null) { SetStatus(Status.With(placement: StagePlacement.NoSurface)); return; }
+                // A fully fitting suggestion still needs the person's Apply.
+                if (!Draft.Suggest(generation, ToDraft(PoseOf(spot, viewer)))) SetStatus(Status.With(placement: StagePlacement.NoSurface));
             }
             catch (Exception error)
             {

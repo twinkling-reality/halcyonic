@@ -28,6 +28,8 @@ namespace Halcyonic.Client
             this.host = host; this.draft = draft; this.move = move; this.apply = apply; this.cancel = cancel; this.readRoom = readRoom;
             draft.Changed += Refresh;
         }
+        public bool Active => !ended && draft.Candidate != null;
+        public bool CurrentDraw => Active && drawn != null && ReferenceEquals(drawn, frame);
         public event Action? Changed;
         public event Action? Closed;
         public MenuFrame? Frame
@@ -37,7 +39,7 @@ namespace Halcyonic.Client
                 if (ended || draft.Candidate == null) return null;
                 if (frame != null) return frame;
                 var room = host.PageHeight(host.TitleRows(Subject, Glaze.Menu.FileColumnDegrees), false, focused: true);
-                const string explanation = "Preview only. Apply places this shelf for this session.";
+                const string explanation = "Hold Move shelf to drag its preview. Apply places it for this session.";
                 var note = new PageLine(explanation, rows: host.RowsOf(explanation, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary);
                 var used = MenuPage.Words(host.RowsOf(note, Glaze.Menu.FileColumnDegrees)) + MenuPage.TargetGap;
                 var count = Math.Max(1, (int)Math.Floor((room - used + MenuPage.TargetGap) / (MenuPage.Target() + MenuPage.TargetGap)));

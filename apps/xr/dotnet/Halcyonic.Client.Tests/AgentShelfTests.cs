@@ -104,4 +104,46 @@ public class AgentShelfTests
         Assert.That(StageSurfaces.ShelfFits(surface, new[] { obstruction }, middle, 0f, AgentShelfDraft.Width(6), AgentShelfDraft.Depth), Is.False, "a small object wholly inside the shelf footprint still blocks it");
     }
 
+    [Test]
+    public void ADirectGrabNeedsCurrentDrawAndStopsWhenAuthorityOrItsGenerationChanges()
+    {
+        var draft = Draft(); var drag = new AgentShelfDrag(draft); var original = draft.Candidate!.Value.Position;
+        Assert.That(drag.Begin(Vector3.Zero, currentDraw: false), Is.False);
+        Assert.That(drag.Begin(new Vector3(float.NaN, 0, 0), currentDraw: true), Is.False);
+        Assert.That(drag.Begin(Vector3.Zero, currentDraw: true), Is.True);
+        Assert.That(drag.Follow(Vector3.UnitX * 0.05f, authorized: true), Is.True);
+        Assert.That(draft.Candidate!.Value.Position, Is.EqualTo(original + Vector3.UnitX * 0.05f));
+        Assert.That(drag.Follow(Vector3.UnitX * 0.1f, authorized: false), Is.False);
+        Assert.That(drag.Active, Is.False);
+        Assert.That(draft.Candidate!.Value.Position, Is.EqualTo(original + Vector3.UnitX * 0.05f));
+        drag.Begin(Vector3.Zero, currentDraw: true);
+        draft.Cancel(); draft.Begin(new AgentShelfPose(original, 0), new Vector3(0, 1.6f, 0));
+        Assert.That(drag.Follow(Vector3.UnitX * 0.1f, authorized: true), Is.False, "a replaced preview cannot inherit a held gesture");
+        Assert.That(draft.Candidate!.Value.Position, Is.EqualTo(original));
+    }
+    [Test]
+    public void ApplyRechecksTheOwnersPhysicalVisibilityGuard()
+    {
+        var draft = Draft(); var visible = true; draft.Allows = _ => visible;
+        Assert.That(draft.Move(Vector3.UnitX * 0.05f), Is.True);
+        visible = false;
+        Assert.That(draft.Move(Vector3.UnitX * 0.05f), Is.False);
+        Assert.That(draft.Apply(_ => throw new Exception("an unseen preview cannot authorize placement")), Is.False);
+        visible = true;
+        Assert.That(draft.Apply(_ => true), Is.True);
+    }
+
+    [Test]
+    public void TheRoomSearchKeepsLookingWhenItsNearestCandidateCannotFitTheActualShelf()
+    {
+        var surface = new RoomSurface(SurfaceKind.Desk, 0.75f, new[] { new PlanPoint(-1f, 0.1f), new PlanPoint(1f, 0.1f), new PlanPoint(1f, 1.2f), new PlanPoint(-1f, 1.2f) });
+        var eyes = new Viewer(new RoomPoint(0, 1.2f, 0), new PlanPoint(0, 1));
+        var regular = StageSurfaces.Choose(new[] { surface }, Array.Empty<RoomObstacle>(), eyes);
+        Assert.That(regular, Is.Not.Null); Assert.That(regular!.Reach, Is.LessThan(0.8f));
+        var shelf = StageSurfaces.Choose(new[] { surface }, Array.Empty<RoomObstacle>(), eyes, spot => spot.Reach >= 0.8f
+            && StageSurfaces.ShelfFits(spot.Surface, Array.Empty<RoomObstacle>(), spot.Point.Plan, spot.Turn, AgentShelfDraft.Width(6), AgentShelfDraft.Depth));
+        Assert.That(shelf, Is.Not.Null); Assert.That(shelf!.Reach, Is.GreaterThanOrEqualTo(0.8f));
+        Assert.That(StageSurfaces.Choose(new[] { surface }, Array.Empty<RoomObstacle>(), eyes, _ => false), Is.Null);
+    }
+
 }

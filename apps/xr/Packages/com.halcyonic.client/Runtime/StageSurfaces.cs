@@ -251,7 +251,7 @@ namespace Halcyonic.Client
         /// The best spot for the stage, or null when no surface fits the lineup within comfortable
         /// reach and view. Desks and tables win over other furniture wherever both fit.
         /// </summary>
-        public static StageSpot? Choose(IEnumerable<RoomSurface> surfaces, IEnumerable<RoomObstacle> obstacles, Viewer viewer)
+        public static StageSpot? Choose(IEnumerable<RoomSurface> surfaces, IEnumerable<RoomObstacle> obstacles, Viewer viewer, Func<StageSpot, bool>? accepts = null)
         {
             if (surfaces == null) throw new ArgumentNullException(nameof(surfaces));
             if (obstacles == null) throw new ArgumentNullException(nameof(obstacles));
@@ -264,7 +264,7 @@ namespace Halcyonic.Client
                 var drop = viewer.Eyes.Y - surface.Height;
                 if (drop < LeastDrop || drop > MostDrop) continue;
                 var onSurface = blocking.Where(obstacle => Stands(obstacle, surface.Height)).ToList();
-                var (spot, cost) = BestOn(surface, onSurface, viewer, drop);
+                var (spot, cost) = BestOn(surface, onSurface, viewer, drop, accepts: accepts);
                 if (spot == null) continue;
                 if (best == null || Better(spot, cost, best, bestCost))
                 {
@@ -413,7 +413,7 @@ namespace Halcyonic.Client
             return turn;
         }
 
-        private static (StageSpot? Spot, float Cost) BestOn(RoomSurface surface, List<RoomObstacle> obstacles, Viewer viewer, float drop, float marginScale = 1f)
+        private static (StageSpot? Spot, float Cost) BestOn(RoomSurface surface, List<RoomObstacle> obstacles, Viewer viewer, float drop, float marginScale = 1f, Func<StageSpot, bool>? accepts = null)
         {
             var eyes = viewer.Eyes.Plan;
             var facing = viewer.Facing.Heading;
@@ -435,7 +435,9 @@ namespace Halcyonic.Client
                     if (cost >= bestCost) continue;
                     if (!ArcFits(surface, obstacles, eyes, facing + turn, reach, Margin(reach) * marginScale)) continue;
                     var middle = eyes + PlanPoint.Toward(facing + turn) * reach;
-                    best = new StageSpot(surface, new RoomPoint(middle.X, surface.Height, middle.Z), reach, turn, drop);
+                    var candidate = new StageSpot(surface, new RoomPoint(middle.X, surface.Height, middle.Z), reach, turn, drop);
+                    if (accepts != null && !accepts(candidate)) continue;
+                    best = candidate;
                     bestCost = cost;
                 }
             }

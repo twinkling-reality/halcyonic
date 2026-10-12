@@ -52,6 +52,9 @@ namespace Halcyonic.XR.Sound.Editor
             var host = new GameObject("Sound check");
             try
             {
+                host.AddComponent<StageSound>();
+                foreach (var component in host.GetComponents<MonoBehaviour>())
+                    if (component.GetType().Name == "CharacterStage") failures.Add("workspace sound created a mandatory character stage");
                 foreach (var headRelated in new[] { true, false })
                 {
                     foreach (var spread in new[] { 0f, StageSound.StageSpread })

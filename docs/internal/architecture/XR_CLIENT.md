@@ -2162,7 +2162,9 @@ exists. Passthrough remains independent of whether optional characters are prese
   preference. Starting passthrough does not read the scene or request scene permission.
 - **Explicit placement.** Settings offers Spatial agents, initially Off, and Agent shelf. Showing
   agents without a confirmed pose opens `AgentShelfColumn`; the person sees a shelf preview and
-  measured Left/Right/Closer/Farther/Up/Down/Turn controls, each moving 5 cm or turning 5 degrees.
+  a visible Move shelf handle to hold and drag, plus measured Left/Right/Closer/Farther/Up/Down/Turn
+  controls, each moving 5 cm or turning 5 degrees. A held gesture starts only from the column
+  actually drawn and cannot outlive its placement generation, focus authority or local overlay.
   A manual candidate starts in view only because the person requested placement. Apply publishes
   its position and yaw, then enables the shared presentation state. Cancel, leaving the column,
   input-focus loss or global minimization discards the preview. The previous confirmed shelf stays
@@ -2171,14 +2173,18 @@ exists. Passthrough remains independent of whether optional characters are prese
 - **Authority and limits.** The shelf column keeps its exact offered frame until Changed. Only a
   current drawn, offered movement, room-read or Apply can act. `AgentShelfDraft` bounds candidates
   to 0.4–2 m horizontally from the placement-time eyes and 0.15–0.9 m below them, rejects non-finite
-  values, and invalidates its generation before Apply or Cancel. Late room suggestions cannot
+  values, and invalidates its generation before Apply or Cancel. The Unity owner also checks the
+  entire shelf/label/banner envelope against the current head-relative measured field, with the
+  existing lens-edge margin, before preview movement and again before Apply. Late room suggestions cannot
   replace a cancelled, superseded or committed preview. New tracking sessions do not regain
-  placement authority from the stored agents preference.
+  placement authority from device preferences; they begin Off and unplaced.
 - **Room suggestion.** Find a room surface is an explicit action inside the placement preview.
   Only this action starts scene access and MRUK reading. The existing conservative
-  `StageSurfaces.Choose` selects a possible point; `ShelfFits` additionally checks the entire
+  `StageSurfaces.Choose` ranks candidates only after `ShelfFits` checks the entire
   actual shelf rectangle against concave surface edges and obstacles, including an obstacle
-  wholly inside its footprint. A result updates only the preview, still requiring Apply. Permission
+  wholly inside its footprint, and the current field contains its envelope. It continues searching
+  when the nearest candidate cannot fit the actual shelf. A result updates only the preview, still
+  requiring Apply. Permission
   denial or no fitting surface leaves manual placement available. This flow does not automatically
   restore or create durable anchors; the existing anchor/memory primitives are retained, with no
   new claim of cross-session recovery.
