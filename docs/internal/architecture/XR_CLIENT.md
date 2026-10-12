@@ -2701,7 +2701,13 @@ happened pages and Back to choices acknowledgement, preserving the candidate. No
 wrapped rows participate in the packing fingerprint; a repeated identical error is a new visible
 occurrence. Armed confirmation uses its own existing composition and notice handling.
 The organization render witnesses use the visible Move pointer and production hold maturity, stable
-column frame identity, and matching task/session/state/character identities. A compact task absent
+column frame identity, and matching task/session/state/character identities. Synthetic director files
+rebuild their TitleRows/PageHeight packing after text-size changes, take the next draw after a renewed
+Tasks column reports its retained selection, and release the originating pointer before another
+hand's scenario. Each measured page must still offer its first two answers, Hold to talk and Send
+answer. The separate Settings-over-file witness requires a measured one-row ordinary-file subject
+and an actually visible Settings section; title-growth tests retain their own taller-file scenarios.
+A compact task absent
 from the current projection retains its verified last title if available, otherwise Task unavailable;
 New project is reserved for an actual NewProjectFlow. No field/type/target/gap limit changes.
 

@@ -996,7 +996,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// panel with all its words. Packed against <paramref name="budget"/>, the height its page holds on
         /// this stage, as the screens pack it: what doesn't fit goes to the next page.
         /// </summary>
-        private static MenuFrame WaitingFile(string title, StateBadge badge, bool chosen, float budget)
+        private static MenuFrame WaitingFile(string title, StateBadge badge, bool chosen, float budget, int minimumLines = 4)
         {
             const string cut = "Lock the account for 15 minutes after five failed sign-ins, then email its owner a link to reset the password and unlock it at once";
             var sections = new[] { "Waiting", "Activity", "Changes", "Checks" }.Select(words => new FrameSection(words, words, chosen: words == "Waiting", waits: words == "Waiting")).ToList();
@@ -1010,16 +1010,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     new PageLine("1 hour", wordsAreData: true, action: "answer", key: "1", choice: true),
                     new PageLine(cut, wordsAreData: true, action: "answer", key: "2", choice: true, chosen: chosen, rows: 2),
                     new PageLine("Type my answer", icon: GlazeIcon.Type, action: "answer", key: "own", choice: true),
-                }, budget),
+                }, budget, minimumLines),
                 side: chosen ? new SidePanel("The whole answer", lines: new[] { new PageLine(cut, wordsAreData: true, claim: true, rows: 4) }, source: "As the agent offered it") : null);
         }
 
         /// <summary>
         /// The lines that fit <paramref name="budget"/> from the top, measured as the client core measures
         /// them (<see cref="MenuPage"/>): each line its rows, two short answers sharing a row, 12 mm between
-        /// targets and a grid step elsewhere. The first four always stand, as this page needs them.
+        /// targets and a grid step elsewhere. Static gallery samples reserve their first four lines, including
+        /// the full-answer opener. Director lifecycle fixtures set zero and obey the measured page budget.
         /// </summary>
-        private static IReadOnlyList<PageLine> Packed(PageLine[] lines, float budget)
+        private static IReadOnlyList<PageLine> Packed(PageLine[] lines, float budget, int minimumLines = 4)
         {
             var kept = new List<PageLine>();
             var used = 0f;
@@ -1031,7 +1032,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var rows = Mathf.Min(line.Rows, MenuFrameView.RowsOf(line, Glaze.Menu.FileColumnDegrees));
                 var height = line.Action == null ? MenuPage.Words(rows) : MenuPage.Target(rows);
                 var gap = kept.Count == 0 ? 0f : kept[kept.Count - 1].Action != null && line.Action != null ? MenuPage.TargetGap : MenuPage.Grid;
-                if (index >= 4 && used + gap + height > budget) break;
+                if (index >= minimumLines && used + gap + height > budget) break;
                 used += gap + height;
                 kept.Add(line);
                 if (paired) kept.Add(lines[++index]);
