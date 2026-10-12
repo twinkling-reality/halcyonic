@@ -520,3 +520,12 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   and turning between a file and its side panel.
 - Revisit if reading at 0.46 m strains, if the low edge strains the neck, if unseen hit areas bring
   wrong presses, if the glass fails contrast in real rooms, or if the draw call budget is exceeded.
+
+### Focused answer flow amendment, 2026-10-11
+
+The current [XR client contract](../architecture/XR_CLIENT.md) and [style contract](../product/STYLE.md)
+supersede this decision's original question-page rules only for the pending answer flow. Option
+paging retains selections with per-option whole-read evidence; mandatory review includes a single
+prompt; explicit bounded answer navigation/input controls and the ambiguous-answer Stop escape are
+local row exceptions. Drafts remain scoped to one open file. The field, font, hit-area, provenance,
+policy confirmation and runtime-confirmation limits still apply. Historical rationale above remains.

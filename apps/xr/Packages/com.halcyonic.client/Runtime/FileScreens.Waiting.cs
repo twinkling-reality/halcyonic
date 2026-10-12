@@ -321,6 +321,17 @@ namespace Halcyonic.Client
             return question.QuestionPart != null ? question.QuestionPartRead ? null : "Read this part first." : WhyNextWaits(question);
         }
 
+        internal static bool ChoiceReasonExplained(FileQuestion question) => question.Draft is QuestionDraft draft
+            && !question.Reviewing && !question.Writing && question.QuestionPart == null && draft.WasShownWhole(question.Prompt) && !draft.IsAnswered(question.Prompt);
+
+        internal static string? QuestionForwardReason(WorkspacePresentation workspace, FileScreen screen)
+        {
+            if (workspace.AnswerInFlight) return SentWaiting;
+            if (QuestionForwardAvailable(workspace, screen) == null) return null;
+            return WhyForwardWaits(screen, StopsHere(workspace, screen.Question.Draft!.Question))
+                ?? (screen.Question.Reviewing && screen.Question.Page == screen.Question.Pages - 1 && !workspace.Actions.Contains(WorkspaceAction.Answer) ? QuestionNotReady : null);
+        }
+
         internal static bool? QuestionForwardAvailable(WorkspacePresentation workspace, FileScreen screen)
         {
             if (workspace.AnswerInFlight) return false;
@@ -384,7 +395,7 @@ namespace Halcyonic.Client
             {
                 var reason = WhyNextWaits(question);
                 var words = question.ReturningToReview || question.Prompt == draft.Prompts.Count - 1 ? ReviewAnswers : "Next question";
-                forward = new Prompt(NextQuestion, words, GlazeIcon.Next, main: true, available: available, reason: reason);
+                forward = new Prompt(NextQuestion, words, GlazeIcon.Next, main: true, available: available, reason: reason, pageExplains: ChoiceReasonExplained(question));
             }
             return new Footer(CloseFile, rare: back, farRight: forward);
         }
@@ -424,7 +435,7 @@ namespace Halcyonic.Client
                 };
                 return new Page(partLines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
             }
-            var lines = new List<PageLine> { new PageLine(QuestionNumber(prompt, draft.Prompts.Count), tone: LineTone.Secondary) };
+            var lines = new List<PageLine> { new PageLine(QuestionCaption(prompt, draft.Prompts.Count, asked, question.Page, question.Pages), tone: LineTone.Secondary, rows: question.CaptionRows(prompt, question.Pages > 1)) };
             // The question heads its answers where it leaves room for one; a long one by its first row.
             if (question.HeadRows(prompt) > 0)
             {
@@ -440,9 +451,6 @@ namespace Halcyonic.Client
             }
             else
             {
-                var how = asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose one or more" : "Choose one";
-                if (question.Pages > 1) how += " · Choices " + (question.Page + 1).ToString(CultureInfo.InvariantCulture) + " of " + question.Pages.ToString(CultureInfo.InvariantCulture);
-                lines.Add(new PageLine(how, tone: LineTone.Secondary));
                 foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
                 // Under its answers, where some read the same and can't be chosen, why, and the way to the one meant.
                 if (WorkspaceText.OffersALabelTwice(asked))
@@ -522,6 +530,10 @@ namespace Halcyonic.Client
             lines.AddRange(question.Reviewed.Select(prompt => ReviewRow(draft, prompt, question.ReviewShows(prompt), question.ReviewFirst(prompt))));
             return new Page(lines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
         }
+
+        public static string QuestionCaption(int prompt, int prompts, QuestionPrompt asked, int page = 0, int pages = 1) =>
+            QuestionNumber(prompt, prompts) + " · " + (asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose one or more" : "Choose one")
+                + (pages > 1 ? " · Choices " + (page + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture) : "");
 
         public static string QuestionNumber(int prompt, int prompts) => "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture);
 

@@ -1792,7 +1792,7 @@ counts as read counts only when the director hands back the very frame the colum
 built as the question's own page (`FileScreen.QuestionPage`): an approval shown on Waiting meanwhile
 never counts, even where its request, the agent's data, reads word for word as the prompt. Hold to talk's one voice tells the column whether
 it held Hold to talk in the custom-answer editor (a pending buffer) or on Activity (an instruction, asked
-before it is sent); where no keyboard opens, Tell it offers instructions to choose instead, and an
+before it is sent); where no keyboard opens, Tell it offers instructions to choose instead, and
 free-text input is offered only when keyboard or voice is actually available. The voice-only field
 says Hold to talk below, and a keyboard field says Type your answer. Each recording captures its own
 callback identity, so a delayed answer cannot fall through as a later instruction and a deliberate

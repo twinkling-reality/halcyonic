@@ -12,18 +12,23 @@ namespace Halcyonic.Client
         /// <param name="questionRows">The rows the prompt's text wraps to across the page.</param>
         /// <param name="answerRows">The rows each answer offered wraps to across the page, in the prompt's order, one for every answer.</param>
         /// <param name="answerSideRows">The rows each answer wraps to across a side panel, where a cut one shows whole, one for every answer.</param>
-        public PromptMeasure(int questionRows, IReadOnlyList<int> answerRows, IReadOnlyList<int> answerSideRows, bool inputPagerFitsHalf = true, bool selectedInputPagerFitsHalf = true)
+        public PromptMeasure(int questionRows, IReadOnlyList<int> answerRows, IReadOnlyList<int> answerSideRows, bool inputPagerFitsHalf = true, bool selectedInputPagerFitsHalf = true, int captionRows = 1, int pagedCaptionRows = 1)
         {
             QuestionRows = Math.Max(1, questionRows);
             AnswerRows = answerRows ?? throw new ArgumentNullException(nameof(answerRows));
             AnswerSideRows = answerSideRows ?? throw new ArgumentNullException(nameof(answerSideRows));
             InputPagerFitsHalf = inputPagerFitsHalf;
             SelectedInputPagerFitsHalf = selectedInputPagerFitsHalf;
+            CaptionRows = Math.Max(1, captionRows);
+            PagedCaptionRows = Math.Max(1, pagedCaptionRows);
         }
 
         public bool InputPagerFitsHalf { get; }
 
         public bool SelectedInputPagerFitsHalf { get; }
+
+        public int CaptionRows { get; }
+        public int PagedCaptionRows { get; }
 
         public int QuestionRows { get; }
 
@@ -142,25 +147,29 @@ namespace Halcyonic.Client
         /// answer's row, the row on, the reason, and, where the answers take more than one page, the row
         /// for more answers.
         /// </summary>
+        public int CaptionRows(int prompt, bool paged) => paged ? measures[prompt].PagedCaptionRows : measures[prompt].CaptionRows;
+
+        private float ChoiceReason(int prompt) => draft == null || !draft.WasShownWhole(prompt) || (draft.IsAnswered(prompt) && !AnswersRead(prompt)) ? page.Reason : 0f;
+
         private bool HeadFits(int prompt, int headRows)
         {
             if (draft == null) return true;
             var asked = draft.Prompts[prompt];
             if (asked.Options.Count == 0) return true;
             var several = draft.Prompts.Count > 1;
-            var room = page.Room - Head(prompt, headRows) - Below(asked.FreeText, several) - Alike(asked);
+            var room = page.Room - Head(prompt, headRows) - Below(prompt, asked.FreeText, paged: false) - Alike(asked);
             if (page.Targets(Enumerable.Range(0, asked.Options.Count).Select(option => AnswerShows(prompt, option)).ToArray()) <= room + 1e-6f) return true;
             var least = Enumerable.Range(0, asked.Options.Count).Min(option => AnswerShows(prompt, option));
-            return page.Target(least) + MoreRow(asked.FreeText, PairInputPagerFor(prompt)) <= room + 1e-6f;
+            return page.Target(least) + MoreRow(asked.FreeText, PairInputPagerFor(prompt)) + page.Words(CaptionRows(prompt, true)) - page.Words(CaptionRows(prompt, false)) <= room + 1e-6f;
         }
 
         /// <summary>A head of words and the gap after it, the question and its answers being one group; none for no head.</summary>
         private float Head(int prompt, int rows) => rows <= 0 ? 0f
-            : (rows < QuestionMeasured(prompt) ? page.Target(rows) : page.Words(rows)) + page.LineGap;
+            : rows < QuestionMeasured(prompt) ? page.Target(rows) + page.TargetGap : page.Words(rows) + page.LineGap;
 
         /// <summary>The choice page's counter, selection caption, custom-answer target, reason and gaps.</summary>
-        private float Below(bool typed, bool several) =>
-            (typed ? page.Target() + page.TargetGap : 0f) + page.Reason + page.Words(2) + 2f * page.LineGap;
+        private float Below(int prompt, bool typed, bool paged) =>
+            (typed ? page.Target() + page.TargetGap : 0f) + ChoiceReason(prompt) + page.Words(CaptionRows(prompt, paged)) + page.LineGap;
 
         /// <summary>The rows of the line under a prompt's answers where some read the same (<see cref="WorkspaceText.AlikeCantBeChosen"/>).</summary>
         public const int AlikeRows = 2;
@@ -192,15 +201,16 @@ namespace Halcyonic.Client
         /// The rows the question shows heading its answers: all of a short one, the first row of a long one
         /// where that leaves room for an answer, else none.
         /// </summary>
-        public int HeadRows(int prompt) => !QuestionCut(prompt) ? QuestionMeasured(prompt) : HeadFits(prompt, 1) ? 1 : 0;
+        public int HeadRows(int prompt) => !QuestionCut(prompt) ? QuestionMeasured(prompt) : 1;
 
         private int AnswerLimit(int prompt)
         {
             if (draft == null) return AnswerRows;
             var asked = draft.Prompts[prompt];
-            var room = page.Room - Below(asked.FreeText, draft.Prompts.Count > 1) - Alike(asked);
+            var room = page.Room - Below(prompt, asked.FreeText, paged: false) - Alike(asked);
             var full = measures[prompt].AnswerRows.Select(rows => Math.Min(AnswerRows, rows)).ToArray();
-            if (page.Targets(full) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt));
+            if (page.Targets(full) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt)) + page.Words(CaptionRows(prompt, true)) - page.Words(CaptionRows(prompt, false));
+            room -= Head(prompt, 1);
             return page.Target(AnswerRows) <= room + 1e-6f ? AnswerRows : 1;
         }
 
@@ -348,7 +358,7 @@ namespace Halcyonic.Client
 
         private static bool SameMeasures(IReadOnlyList<PromptMeasure> a, IReadOnlyList<PromptMeasure> b) =>
             a.Count == b.Count && a.Zip(b, (x, y) => x.QuestionRows == y.QuestionRows && x.AnswerRows.SequenceEqual(y.AnswerRows)
-                && x.AnswerSideRows.SequenceEqual(y.AnswerSideRows) && x.InputPagerFitsHalf == y.InputPagerFitsHalf && x.SelectedInputPagerFitsHalf == y.SelectedInputPagerFitsHalf).All(same => same);
+                && x.AnswerSideRows.SequenceEqual(y.AnswerSideRows) && x.InputPagerFitsHalf == y.InputPagerFitsHalf && x.SelectedInputPagerFitsHalf == y.SelectedInputPagerFitsHalf && x.CaptionRows == y.CaptionRows && x.PagedCaptionRows == y.PagedCaptionRows).All(same => same);
 
         /// <summary>The agent's ordered choices packed under question context, counter and caption, reserving every visible control and reason.</summary>
         private List<List<int>> Lay(QuestionDraft answering, int prompt, int headRows)
@@ -356,8 +366,8 @@ namespace Halcyonic.Client
             var asked = answering.Prompts[prompt];
             var options = Enumerable.Range(0, asked.Options.Count).ToList();
             var several = answering.Prompts.Count > 1;
-            var room = page.Room - Head(prompt, headRows) - Below(asked.FreeText, several) - Alike(asked);
-            if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt));
+            var room = page.Room - Head(prompt, headRows) - Below(prompt, asked.FreeText, paged: false) - Alike(asked);
+            if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt)) + page.Words(CaptionRows(prompt, true)) - page.Words(CaptionRows(prompt, false));
             var laid = new List<List<int>> { new List<int>() };
             var used = 0f;
             foreach (var option in options)

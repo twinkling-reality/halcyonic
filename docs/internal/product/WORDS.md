@@ -138,7 +138,7 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 | Review and editor part navigation | Next part, 2 of 3; Previous part | Your answers as a plain paging row |
 | Custom-answer navigation | Write an answer; once saved, selected Edit answer with Selected | Type my answer styled as an offered choice |
 | The custom-answer editor | Your answer; Use this answer; Cancel | Saving or sending on keyboard Done or transcription |
-| The saved custom answer | Your answer: {words}; Selected, the words leaning | Quoting the person's words |
+| The saved custom answer | Selected Edit answer control; full saved words in editor and mandatory review, leaning | A duplicate preview row among the choices |
 | A free-text-only question | Write an answer; Write an answer first. | Choose one with no offered choices |
 
 ### Steering from a file

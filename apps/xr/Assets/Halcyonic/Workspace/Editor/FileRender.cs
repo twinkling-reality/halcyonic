@@ -171,7 +171,7 @@ namespace Halcyonic.XR.Workspace.Editor
             return total + (frame.Reason != null ? budget.Reason : 0f);
         }
 
-        private static IReadOnlyList<PromptMeasure> Measure(QuestionDraft draft) => draft.Prompts.Select(prompt =>
+        private static IReadOnlyList<PromptMeasure> Measure(QuestionDraft draft) => draft.Prompts.Select((prompt, index) =>
         {
             // Measured as the file column measures them, from the lines the page draws.
             return new PromptMeasure(
@@ -183,7 +183,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     && MenuFrameView.FitsHalf(FileScreens.ChoicePager(first: true), Glaze.Menu.FileColumnDegrees),
                 MenuFrameView.FitsHalf(FileScreens.InputNavigation(true, edit: true), Glaze.Menu.FileColumnDegrees)
                     && MenuFrameView.FitsHalf(FileScreens.ChoicePager(), Glaze.Menu.FileColumnDegrees)
-                    && MenuFrameView.FitsHalf(FileScreens.ChoicePager(first: true), Glaze.Menu.FileColumnDegrees));
+                    && MenuFrameView.FitsHalf(FileScreens.ChoicePager(first: true), Glaze.Menu.FileColumnDegrees),
+                MenuFrameView.RowsOf(new PageLine(FileScreens.QuestionCaption(index, draft.Prompts.Count, prompt)), Glaze.Menu.FileColumnDegrees),
+                MenuFrameView.RowsOf(new PageLine(FileScreens.QuestionCaption(index, draft.Prompts.Count, prompt, Math.Max(0, prompt.Options.Count - 1), Math.Max(1, prompt.Options.Count))), Glaze.Menu.FileColumnDegrees));
         }).ToList();
 
         /// <summary>The agent's question with four answers of two rows each, then one chosen whose words run past two rows.</summary>

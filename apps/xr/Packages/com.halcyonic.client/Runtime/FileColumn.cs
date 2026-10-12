@@ -367,9 +367,12 @@ namespace Halcyonic.Client
             if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.QuestionPage && Screen.Question.Draft != null)
             {
                 var before = Frame!.Footer[PromptSlot.FarRight]?.Available;
+                var beforeReason = Frame.Footer[PromptSlot.FarRight]?.Reason;
+                var beforeExplains = Frame.Footer[PromptSlot.FarRight]?.PageExplains;
                 Screen.Question.Drawn(clock);
                 var after = FileScreens.QuestionForwardAvailable(Now, Screen);
-                if (before != after) Rebuild();
+                if (before != after || beforeReason != FileScreens.QuestionForwardReason(Now, Screen)
+                    || (before.HasValue && Screen.Question.QuestionPart == null && !Screen.Question.Reviewing && !Screen.Question.Writing && beforeExplains != FileScreens.ChoiceReasonExplained(Screen.Question))) Rebuild();
             }
         }
 
@@ -488,7 +491,7 @@ namespace Halcyonic.Client
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
-            var focused = FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting, Steering);
+            var focused = FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting && Steering.Armed == null, Steering);
             if (budget == null || resized || budgetFocused != focused)
             {
                 budgetFocused = focused;
@@ -562,14 +565,16 @@ namespace Halcyonic.Client
             const float Side = Glaze.Menu.SideColumnDegrees;
             if (measuredFor != asked || measuredAt != host.TextSize || measures == null)
             {
-                measures = asked.Prompts.Select(prompt =>
+                measures = asked.Prompts.Select((prompt, index) =>
                 {
                     return new PromptMeasure(
                         host.RowsOf(new PageLine(FileScreens.QuestionWords(prompt)), File),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.AnswerRow(option, "0", multiple: prompt.Multiple), File)).ToList(),
                         prompt.Options.Select(option => host.RowsOf(FileScreens.SideAnswerLine(option, null), Side)).ToList(),
                         host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File),
-                        host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered, edit: true), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File));
+                        host.FitsHalf(FileScreens.InputNavigation(Screen.KeyboardOffered, edit: true), File) && host.FitsHalf(FileScreens.ChoicePager(), File) && host.FitsHalf(FileScreens.ChoicePager(first: true), File),
+                        host.RowsOf(new PageLine(FileScreens.QuestionCaption(index, asked.Prompts.Count, prompt)), File),
+                        host.RowsOf(new PageLine(FileScreens.QuestionCaption(index, asked.Prompts.Count, prompt, Math.Max(0, prompt.Options.Count - 1), Math.Max(1, prompt.Options.Count))), File));
                 }).ToList();
                 measuredFor = asked;
                 measuredAt = host.TextSize;
