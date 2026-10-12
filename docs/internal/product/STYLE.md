@@ -305,3 +305,7 @@ Send is explicit and remains quiet/unavailable until the complete current draft 
 Preset instructions are a focused choice page. Their actual wrapped rows, source, reason and body
 pager fit the same measured field budget; browsing keeps the selected candidate. A full notice that
 cannot share the page reads separately under What happened, with Back to choices.
+
+Usage pages count the heading at its actual remaining width beside Move and Compact, reserve the
+source line, and show only the rows that fit the measured stage page. The pager preserves source
+order and every limit; a chosen limit keeps its details when text size changes.

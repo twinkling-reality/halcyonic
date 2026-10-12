@@ -93,6 +93,67 @@ public class UsageColumnTests
         Assert.That(usage.Frame!.Side!.Subject, Is.EqualTo("Codex, weekly"), "a key past the list does nothing");
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void MeasuredHeadingAndSourceLeaveEveryLimitReachable(TextSize text)
+    {
+        var (usage, host) = Demonstration(Recorded);
+        host.TextSize = text;
+        host.MeasureTitle = (subject, width) =>
+        {
+            Assert.That(subject, Is.EqualTo(UsageText.Subject));
+            Assert.That(width, Is.EqualTo(Glaze.Menu.MenuColumnDegrees));
+            return 2;
+        };
+        host.MeasurePage = (subjectRows, besideMenu) =>
+        {
+            Assert.That(subjectRows, Is.EqualTo(2), "the narrowed heading's actual rows affect page room");
+            Assert.That(besideMenu, Is.True);
+            return MenuPage.Rows(1) + MenuPage.SourceLine + MenuPage.TargetGap / 2f;
+        };
+        var keys = new System.Collections.Generic.List<string>();
+        for (var part = 0; part < 4; part++)
+        {
+            var frame = usage.Frame!;
+            var line = frame.Lines.Single();
+            keys.Add(line.Key!);
+            Assert.That(frame.Source, Is.EqualTo(UsageLeftPresenter.Recorded));
+            Assert.That(frame.Footer[PromptSlot.FarRight], Is.Not.Null, "each limit remains offered through the pager");
+            usage.Act(UsageColumn.OpenLimit, line.Key);
+            var opened = usage.Frame!;
+            Assert.That(opened.Side!.Subject, Is.EqualTo(line.Words));
+            Assert.That(opened.Side.Facts.Single(fact => fact.Name == UsageText.Account).Value, Is.EqualTo(UsageText.PartOfTheRecording));
+            Assert.That(opened.Footer[PromptSlot.FarRight], Is.Null, "a chosen limit still suspends paging");
+            usage.Act(SidePanel.Close, null);
+            usage.Act(Footer.NextPage, null);
+        }
+        Assert.That(keys, Is.EqualTo(new[] { "0", "1", "2", "3" }));
+        Assert.That(usage.Frame!.Lines.Single().Key, Is.EqualTo("0"), "the offered pager returns to the first page");
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void ResizingKeepsTheChosenGlobalLimitAndItsEvidence()
+    {
+        var (usage, host) = Demonstration(Recorded);
+        usage.Act(UsageColumn.OpenLimit, "3");
+        var before = usage.Frame!.Side!;
+        host.TextSize = TextSize.Larger;
+        host.MeasureTitle = (_, _) => 2;
+        host.MeasurePage = (_, _) => MenuPage.Rows(1) + MenuPage.SourceLine;
+        var frame = usage.Frame!;
+        Assert.That(frame.Lines.Single().Key, Is.EqualTo("3"));
+        Assert.That(frame.Lines.Single().Chosen, Is.True);
+        Assert.That(frame.Side!.SubjectRuns.Runs, Is.EqualTo(before.SubjectRuns.Runs));
+        Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(before.Facts.Select(fact => (fact.Name, fact.Value))));
+        Assert.That(frame.Side.Source, Is.EqualTo(before.Source));
+        Assert.That(frame.Footer[PromptSlot.FarRight], Is.Null);
+        usage.Act(SidePanel.Close, null);
+        Assert.That(usage.Frame!.Lines.Single().Key, Is.EqualTo("3"));
+        usage.Act(Footer.NextPage, null);
+        Assert.That(usage.Frame!.Lines.Single().Key, Is.EqualTo("0"));
+    }
+
     [Test]
     public void WithoutLimitsItSaysWhyAndNeverSends()
     {
