@@ -209,6 +209,33 @@ public class ProjectsColumnTests
     }
 
     [Test]
+    public void AProductionProjectRowOpensItsTasksAndDetailsRetainExistingActions()
+    {
+        var state = new Portfolio().Project("p", "Alpha").Work("w", "p", WorkstreamStatus.Running).Apply();
+        var host = new Host { State = state };
+        var opened = new List<string>();
+        var shown = new List<(string, bool)>();
+        var column = new ProjectsColumn(host, Commands, new ProjectsMemory(),
+            () => WorkOverview.Of(state, new StageVisibility(), _ => true),
+            (project, show) => shown.Add((project, show)), _ => Task.FromResult(Listing("shop")), opened.Add);
+        column.Tick();
+        column.Act(ProjectsScreens.ChooseProject, "missing");
+        Assert.That(opened, Is.Empty, "only an offered project can change navigation");
+        column.Act(ProjectsScreens.ChooseProject, "p");
+        Assert.That(opened, Is.EqualTo(new[] { "p" }));
+        Assert.That(column.Frame!.Side, Is.Null, "the project row goes directly to Tasks");
+        column.OpenDetails("missing");
+        Assert.That(column.Frame.Side, Is.Null);
+        column.OpenDetails("p");
+        Assert.That(column.Frame.Side!.Subject, Is.EqualTo("Alpha"));
+        column.Act(ProjectsScreens.AddTask, null);
+        column.Act(ProjectsScreens.HideProject, null);
+        Assert.That(host.Opened.Single(), Is.EqualTo(((string?)"p", (string?)"Alpha")));
+        Assert.That(shown.Single(), Is.EqualTo(("p", false)));
+        Assert.That(host.Sent, Is.Empty, "navigation and local agent visibility do not issue commands");
+    }
+
+    [Test]
     public void NewProjectAndAddATaskOpenNewProjectBesideTheMenu()
     {
         var state = new Portfolio().Project("p", "Alpha").Work("w", "p", WorkstreamStatus.Running).Apply();

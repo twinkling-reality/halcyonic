@@ -92,6 +92,39 @@ public class TasksColumnTests
         return task;
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void ProjectTaskPagesPreserveEveryTaskAndVisibleDetailsAndDrafts(TextSize size)
+    {
+        var own = Enumerable.Range(0, 8).Select(index => Task("t" + index, WorkstreamStatus.Running, index)).ToList();
+        own.Add(Task("foreign", WorkstreamStatus.Running, 20, project: "other"));
+        var host = new FakeMenuHost { State = StateWith(own, twoProjects: true), TextSize = size };
+        string? selected = Samples.ProjectId;
+        var details = 0; var drafts = 0;
+        var column = new TasksColumn(host, () => 1, () => drafts++, () => selected, () => details++, () => selected = null);
+        var reached = new List<string>();
+        var pages = (8 + column.Rows - 1) / column.Rows;
+        for (var page = 0; page < pages; page++)
+        {
+            var frame = column.Frame!;
+            Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(host.PageRows(false)), "All projects reserves a real measured row");
+            Assert.That(frame.Lines.Any(line => line.Action == TasksColumn.AllProjects), Is.True);
+            Assert.That(frame.Footer.All.Any(prompt => prompt.Prompt.Id == TasksColumn.SavedViews && prompt.Prompt.Available), Is.True);
+            Assert.That(frame.Footer.All.Any(prompt => prompt.Prompt.Id == TasksColumn.ProjectDetails && prompt.Prompt.Available), Is.True);
+            reached.AddRange(frame.Lines.Where(line => line.Action == TasksColumn.OpenTask).Select(line => line.Key!));
+            column.Act(Footer.NextPage, null);
+        }
+        Assert.That(reached, Is.EquivalentTo(own.Where(task => task.ProjectId == Samples.ProjectId).Select(task => task.WorkstreamId)));
+        column.Act(TasksColumn.OpenTask, "foreign");
+        Assert.That(host.Opened, Is.Empty, "another project's task is not offered by this list");
+        column.Act(TasksColumn.ProjectDetails, null); column.Act(TasksColumn.SavedViews, null);
+        Assert.That((details, drafts), Is.EqualTo((1, 1)));
+        column.Act(TasksColumn.AllProjects, null); column.Tick();
+        Assert.That(selected, Is.Null);
+        Assert.That(column.Frame!.Lines.All(line => line.Action != TasksColumn.AllProjects), Is.True);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     [Test]
     public void WhatWaitsComesFirstThenWhatRunsThenWhatEnded()
     {
@@ -106,11 +139,11 @@ public class TasksColumnTests
         };
         var frame = new TasksColumn(host).Frame!;
         Assert.That(frame.Lines.Select(line => line.Key), Is.EqualTo(new[] { "asks", "running", "done" }));
-        Assert.That(frame.Subject, Is.EqualTo("1 task is waiting for you"));
-        Assert.That(frame.SubjectWaits, Is.True, "its subject takes the waiting colour");
+        Assert.That(frame.Subject, Is.EqualTo("Tasks"));
+        Assert.That(frame.SubjectWaits, Is.False, "the view name stays stable; actual waiting state belongs to its row");
         var waiting = frame.Lines[0];
         Assert.That((waiting.Tone, waiting.Opens, waiting.WordsAreData, waiting.Action), Is.EqualTo((LineTone.Waiting, true, true, TasksColumn.OpenTask)));
-        Assert.That(frame.Lines.All(line => line.Fact == null), Is.True, "one project: no fact");
+        Assert.That(frame.Lines.All(line => line.Fact?.Contains(StateLanguage.Practice, StringComparison.Ordinal) == true), Is.True, "each synthetic task is marked even inside a live journal");
         Assert.That(frame.Sections, Is.Empty, "the director adds the menu's places");
     }
 
@@ -122,8 +155,9 @@ public class TasksColumnTests
             State = StateWith(new[] { Task("a", WorkstreamStatus.Running, 1), Task("b", WorkstreamStatus.Running, 2, project: "other") }, twoProjects: true),
         };
         var frame = new TasksColumn(host).Frame!;
-        Assert.That(frame.Lines.Select(line => (line.Fact, line.FactIsData)), Is.EquivalentTo(new[] { ("Sample", true), ("Docs site", true) }));
-        Assert.That(frame.Subject, Is.EqualTo("Nothing is waiting for you."));
+        Assert.That(frame.Lines.Select(line => line.FactRuns!.Runs.Where(run => run.Theirs).Select(run => run.Text).Single()), Is.EquivalentTo(new[] { "Sample", "Docs site" }));
+        Assert.That(frame.Lines.All(line => line.Fact?.Contains(StateLanguage.Practice, StringComparison.Ordinal) == true), Is.True);
+        Assert.That(frame.Subject, Is.EqualTo("Tasks"));
         Assert.That(frame.SubjectWaits, Is.False);
     }
 

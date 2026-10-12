@@ -76,6 +76,23 @@ public class MenuMemoryTests
         Assert.That(host.Sent, Has.Count.EqualTo(1), "no second project.create, for that folder or another, while the first may have run");
     }
 
+    [Test]
+    public void ProjectSelectionSurvivesSameJournalReconnectAndClearsOnRenewal()
+    {
+        var memory = new MenuMemory();
+        memory.Journal("first");
+        Assert.That(memory.SelectProject("project"), Is.True);
+        Assert.That(memory.SelectProject("project"), Is.False);
+        memory.Journal(null);
+        memory.Journal("first");
+        Assert.That(memory.SelectedProjectId, Is.EqualTo("project"));
+        memory.Journal("other");
+        Assert.That(memory.SelectedProjectId, Is.Null);
+        memory.SelectProject("new");
+        memory.Forget();
+        Assert.That(memory.SelectedProjectId, Is.Null);
+    }
+
     private sealed class Kept : IKeptCommand
     {
         public string? Id { get; set; }

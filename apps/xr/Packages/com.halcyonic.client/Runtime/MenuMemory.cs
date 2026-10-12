@@ -26,6 +26,13 @@ namespace Halcyonic.Client
         public MenuMemory() => readOnlyFiles = new ReadOnlyDictionary<string, IMenuColumn>(files);
 
         public IReadOnlyDictionary<string, IMenuColumn> Files => readOnlyFiles;
+        public string? SelectedProjectId { get; private set; }
+        public bool SelectProject(string? projectId)
+        {
+            if (SelectedProjectId == projectId) return false;
+            SelectedProjectId = projectId;
+            return true;
+        }
         public event Action<string, IMenuColumn>? FileDropped;
 
         /// <summary>One retained local file per task on this session and journal, without a fixed count limit.</summary>
@@ -138,6 +145,7 @@ namespace Halcyonic.Client
 
         private void Renew()
         {
+            SelectedProjectId = null;
             var dropped = new List<KeyValuePair<string, IMenuColumn>>(files);
             files.Clear();
             foreach (var pair in dropped)

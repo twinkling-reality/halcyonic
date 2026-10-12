@@ -7,13 +7,9 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// Tasks, the menu's first place (ADR 0026): every task as a row, what waits for the person first,
-    /// then what runs, then what has ended, in the stage's own order (<see cref="CharacterLineup.Compare"/>);
-    /// its icon its state's, the tone on the icon and, where it waits, on its fact; its words its title;
-    /// its one kind of small fact its project's name where there is more than one project; and a chevron,
-    /// since pressing it opens its file beside the menu, where its row stays chosen. Its subject says
-    /// what waits, in the waiting colour, or that nothing is waiting. A page holds the rows that fit
-    /// beside a file on this stage, decided when the menu opens, so opening a file never packs it again.
+    /// Tasks for all projects or the explicitly selected project, with actual state and provenance on
+    /// every row. Project details and saved drafts remain reachable through offered controls. Paging
+    /// reserves the All projects row and the measured room beside a retained file.
     /// </summary>
     public sealed class TasksColumn : IMenuColumn
     {
@@ -23,18 +19,28 @@ namespace Halcyonic.Client
         private readonly IMenuHost host;
         private readonly Func<int>? savedViews;
         private readonly Action? openSavedViews;
+        private readonly Func<string?>? project;
+        private readonly Action? openProjectDetails;
+        private readonly Action? allProjects;
+        private string? measuredProject;
         public const string SavedViews = "tasks-saved-views";
+        public const string ProjectDetails = "tasks-project-details";
+        public const string AllProjects = "tasks-all-projects";
         private int rows;
         private TextSize rowsAt;
         private int page;
         private string? showing;
         private long position = -1;
 
-        public TasksColumn(IMenuHost host, Func<int>? savedViews = null, Action? openSavedViews = null)
+        public TasksColumn(IMenuHost host, Func<int>? savedViews = null, Action? openSavedViews = null,
+            Func<string?>? project = null, Action? openProjectDetails = null, Action? allProjects = null)
         {
             this.host = host;
             this.savedViews = savedViews;
             this.openSavedViews = openSavedViews;
+            this.project = project;
+            this.openProjectDetails = openProjectDetails;
+            this.allProjects = allProjects;
             Measure();
         }
 
@@ -42,8 +48,9 @@ namespace Halcyonic.Client
         private void Measure()
         {
             var height = host.PageHeight(1, besideMenu: true);
-            var most = host.PageRows(sourceLine: false);
-            rows = Math.Max(1, Enumerable.Range(1, most).LastOrDefault(count => MenuPage.Rows(count) <= height));
+            var reserved = project?.Invoke() != null && allProjects != null ? 1 : 0;
+            var most = Math.Max(1, host.PageRows(sourceLine: false) - reserved);
+            rows = Math.Max(1, Enumerable.Range(1, most).LastOrDefault(count => MenuPage.Rows(count + reserved) <= height));
             rowsAt = host.TextSize;
         }
 
@@ -82,7 +89,6 @@ namespace Halcyonic.Client
                 var rows = Rows;
                 var pages = Math.Max(1, (tasks.Count + rows - 1) / rows);
                 if (page >= pages) page = 0;
-                var waiting = tasks.Count(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou);
                 var projects = tasks.Select(task => task.ProjectId).Distinct().Count();
                 var lines = tasks.Skip(page * rows).Take(rows).Select(task => Row(task, projects > 1)).ToList();
                 if (lines.Count == 0) lines.Add(new PageLine(TasksText.None, tone: LineTone.Secondary));
@@ -92,7 +98,16 @@ namespace Halcyonic.Client
                     : new Footer(close);
                 if (savedViews?.Invoke() > 0 && openSavedViews != null) footer = new Footer(close,
                     rare: new Prompt(SavedViews, "Saved drafts", GlazeIcon.Next), farRight: footer[PromptSlot.FarRight]);
-                return new MenuFrame(TasksText.Waiting(waiting), footer, subjectWaits: waiting > 0, lines: lines);
+                if (project?.Invoke() != null)
+                {
+                    footer = new Footer(close, rare: footer[PromptSlot.Rare],
+                        secondary: openProjectDetails != null ? new Prompt(ProjectDetails, "Project details", GlazeIcon.Next) : null,
+                        farRight: footer[PromptSlot.FarRight]);
+                    // All projects is a real measured content row, independent of the agent shelf's display filter.
+                    if (allProjects != null) lines.Insert(0, new PageLine("All projects", icon: GlazeIcon.Back, action: AllProjects));
+                    return new MenuFrame("Tasks", footer, lines: lines);
+                }
+                return new MenuFrame("Tasks", footer, lines: lines);
             }
         }
 
@@ -111,7 +126,13 @@ namespace Halcyonic.Client
                 case SavedViews when savedViews?.Invoke() > 0:
                     openSavedViews?.Invoke();
                     break;
-                case OpenTask when key != null && host.State?.Workstreams.ContainsKey(key) == true:
+                case ProjectDetails when project?.Invoke() != null:
+                    openProjectDetails?.Invoke();
+                    break;
+                case AllProjects when project?.Invoke() != null:
+                    allProjects?.Invoke();
+                    break;
+                case OpenTask when key != null && Tasks().Any(task => task.WorkstreamId == key):
                     host.OpenFile(key);
                     break;
                 case Footer.NextPage:
@@ -148,8 +169,10 @@ namespace Halcyonic.Client
         public void Tick()
         {
             var now = host.State?.Position ?? -1;
-            if (now == position) return;
+            var selected = project?.Invoke();
+            if (now == position && measuredProject == selected) return;
             position = now;
+            if (measuredProject != selected) { measuredProject = selected; page = 0; Measure(); }
             Changed?.Invoke();
         }
 
@@ -160,6 +183,7 @@ namespace Halcyonic.Client
         private List<WorkstreamView> Tasks()
         {
             var tasks = host.State?.Workstreams.Values.ToList() ?? new List<WorkstreamView>();
+            if (project?.Invoke() is string selected) tasks.RemoveAll(task => task.ProjectId != selected);
             tasks.Sort(CharacterLineup.Compare);
             return tasks;
         }
@@ -167,7 +191,8 @@ namespace Halcyonic.Client
         private PageLine Row(WorkstreamView task, bool withProject)
         {
             var state = host.State!;
-            var badge = StateLanguage.BadgeOf(CharacterPresenter.Present(task, state, host.Connected && !host.Demonstration));
+            var presentation = CharacterPresenter.Present(task, state, host.Connected && !host.Demonstration);
+            var badge = StateLanguage.BadgeOf(presentation);
             var tone = badge.Tone switch
             {
                 GlazeTone.Attention => LineTone.Waiting,
@@ -175,9 +200,11 @@ namespace Halcyonic.Client
                 GlazeTone.Failure => LineTone.Problem,
                 _ => LineTone.Primary,
             };
-            var project = withProject && state.Projects.TryGetValue(task.ProjectId, out var view) ? LineWords.TheirName(view.Name) : null;
+            var marks = StateLanguage.MarksOf(presentation);
+            var fact = LineWords.Ours(badge.Text + (marks.Count > 0 ? " · " + string.Join(" · ", marks.Select(mark => mark.Word)) : ""));
+            if (withProject && state.Projects.TryGetValue(task.ProjectId, out var view)) fact = fact.Then(LineWords.Ours(" · ")).Then(LineWords.TheirName(view.Name));
             // A row all of outside text: the title and its project's name lean, the state's icon stays Halcyonic's.
-            return new PageLine(LineWords.TheirName(task.Title), icon: badge.Icon, fact: project, tone: tone,
+            return new PageLine(LineWords.TheirName(task.Title), icon: badge.Icon, fact: fact, tone: tone,
                 action: OpenTask, key: task.WorkstreamId, opens: true, chosen: task.WorkstreamId == showing);
         }
     }
