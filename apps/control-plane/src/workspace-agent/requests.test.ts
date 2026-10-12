@@ -18,7 +18,7 @@ import { createHttpServer } from '../http/server.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
-import type { ToolMessage, ToolTurnResult } from './ollama.ts';
+import type { ToolDefinition, ToolMessage, ToolTurnResult } from './ollama.ts';
 import { WorkspaceRequests } from './requests.ts';
 
 const unavailable = {
@@ -51,7 +51,13 @@ async function fixture(
   options: {
     path?: string;
     mode?: 'delayed' | 'immediate' | 'unknown';
-    turn?: (messages: readonly ToolMessage[]) => Promise<ToolTurnResult>;
+    turn?: (
+      messages: readonly ToolMessage[],
+      tools?: readonly ToolDefinition[],
+    ) => Promise<ToolTurnResult>;
+    projectName?: string;
+    title?: string;
+    objective?: string;
     understand?: () => Promise<typeof unavailable>;
   } = {},
 ) {
@@ -62,6 +68,7 @@ async function fixture(
     type: RuntimeObservation['type'],
     payload: object,
     sequence: number | null = null,
+    epistemic: 'observed' | 'inferred' = 'observed',
   ) => {
     sink?.({
       type,
@@ -69,10 +76,13 @@ async function fixture(
       occurred_at: '2026-09-26T10:00:00.000Z',
       native_event_id: null,
       sequence,
-      provenance: {
-        epistemic: type === 'runtime.agent_message' ? 'reported' : 'observed',
-        native_type: null,
-      },
+      provenance:
+        epistemic === 'inferred'
+          ? { epistemic, rule: 'synthetic.reconstructed_turn', native_type: null }
+          : {
+              epistemic: type === 'runtime.agent_message' ? 'reported' : 'observed',
+              native_type: null,
+            },
     } as RuntimeObservation);
   };
   const adapter: RuntimeAdapter = {
@@ -117,10 +127,10 @@ async function fixture(
   const ids = createUuidV7Generator({ now: () => h.time.now().getTime() }),
     model = {
       status: async () => available,
-      turn: async (messages: readonly ToolMessage[]) => {
+      turn: async (messages: readonly ToolMessage[], offered?: readonly ToolDefinition[]) => {
         turns++;
         return options.turn
-          ? options.turn(messages)
+          ? options.turn(messages, offered)
           : turns === 1
             ? answer([
                 {
@@ -138,9 +148,17 @@ async function fixture(
     ...providers,
     ...(options.understand ? { understanding: { understand: options.understand } } : {}),
   });
-  const scenario = DEMO_WORKSTREAMS[0];
-  assert.ok(scenario);
-  const p = h.controlPlane.commands.submit(h.commands.createProject('Synthetic'), 'internal');
+  const initial = DEMO_WORKSTREAMS[0];
+  assert.ok(initial);
+  const scenario = {
+    ...initial,
+    title: options.title ?? initial.title,
+    objective: options.objective ?? initial.objective,
+  };
+  const p = h.controlPlane.commands.submit(
+    h.commands.createProject(options.projectName ?? 'Synthetic'),
+    'internal',
+  );
   if (p.command?.result?.kind !== 'project_created') throw new Error('project missing');
   const w = h.controlPlane.commands.submit(
     h.commands.createWorkstream(p.command.result.project_id, scenario),
@@ -830,5 +848,134 @@ test('exact command recovery survives snapshot eviction and restart without a co
     await app.close();
     await replay.controlPlane.close();
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('accepted anonymous terminal resolves the actual named active-turn association', async () => {
+  const f = await fixture();
+  try {
+    const id = f.submit();
+    await settle();
+    f.emit('runtime.turn.completed', { turn_id: null });
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    assert.equal(f.turns, 2);
+  } finally {
+    await f.close();
+  }
+});
+test('legitimate inferred reconstructed outcome interrupts explicitly instead of becoming observed or waiting forever', async () => {
+  const f = await fixture();
+  try {
+    const id = f.submit();
+    await settle();
+    f.emit('runtime.turn.started', { turn_id: 'reconstructed-turn' }, null, 'inferred');
+    f.emit('runtime.turn.completed', { turn_id: 'reconstructed-turn' }, null, 'inferred');
+    await settle();
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.equal(request?.status, 'interrupted');
+    assert.match(request?.steps[0]?.summary ?? '', /^missing_observed_outcome:/);
+    assert.equal(request?.steps[0]?.status, 'unknown');
+    assert.equal(f.turns, 1);
+    f.controlPlane.commands.submit(f.command('resume', id), 'http', { kind: 'local' });
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'interrupted');
+    assert.equal(f.instructions, 1);
+    assert.equal(f.turns, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('compact workspace context preserves essential state and all declared capabilities while shortening only outside text', async () => {
+  let turns = 0,
+    seen: Record<string, unknown> | null = null;
+  const f = await fixture({
+    projectName: '😀'.repeat(200),
+    title: 'Long task title '.repeat(10),
+    objective: '🙂'.repeat(4000),
+    turn: async (messages) => {
+      if (++turns === 1) return answer([{ name: 'read_workspace', arguments: {} }], '');
+      const tool = messages.find(
+        (value) => value.role === 'tool' && value.tool_name === 'read_workspace',
+      );
+      if (tool) seen = JSON.parse(tool.content);
+      return answer();
+    },
+  });
+  try {
+    f.submit();
+    await settle();
+    const value = seen as Record<string, unknown> | null;
+    assert.ok(value);
+    const execution = value.execution as Record<string, unknown>;
+    assert.equal(execution.status, 'running');
+    assert.equal(execution.synthetic, true);
+    assert.equal(execution.native_session_observed, true);
+    assert.equal((execution.capabilities as Record<string, unknown>).instruct_while_running, true);
+    assert.equal((execution.capabilities as Record<string, unknown>).start_execution, true);
+    assert.equal(
+      ((value.task as Record<string, unknown>).objective as Record<string, unknown>).complete,
+      false,
+    );
+    assert.equal((value.project as Record<string, unknown>).name !== undefined, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(value)) < 2048);
+  } finally {
+    await f.close();
+  }
+});
+test('bounded event text preserves page cursor and explicit completeness flags', async () => {
+  let after = 0,
+    turns = 0,
+    seen: Record<string, unknown> | null = null;
+  const f = await fixture({
+    turn: async (messages) => {
+      if (++turns === 1) return answer([{ name: 'read_events', arguments: { after } }], '');
+      const tool = messages.find(
+        (value) => value.role === 'tool' && value.tool_name === 'read_events',
+      );
+      if (tool) seen = JSON.parse(tool.content);
+      return answer();
+    },
+  });
+  try {
+    after = f.controlPlane.projection.position;
+    f.emit('runtime.agent_message', { text: 'Synthetic '.repeat(3000) });
+    f.emit('runtime.agent_message', { text: 'Another synthetic '.repeat(1500) });
+    f.submit();
+    await settle();
+    const value = seen as Record<string, unknown> | null;
+    assert.ok(value);
+    assert.equal(typeof value.next_after, 'number');
+    assert.ok((value.next_after as number) > after);
+    const events = value.events as Record<string, unknown>[];
+    assert.equal(events.length, 2);
+    assert.equal(events[0]?.complete, false);
+    assert.equal(events[1]?.complete, false);
+    assert.ok(Buffer.byteLength(JSON.stringify(value)) < 2048);
+  } finally {
+    await f.close();
+  }
+});
+test('complete assistant/tool batches pack under the existing input bound instead of retaining two oversized batches', async () => {
+  let turns = 0;
+  const bytes: number[] = [];
+  const f = await fixture({
+    turn: async (messages, tools) => {
+      bytes.push(Buffer.byteLength(JSON.stringify({ messages, tools })));
+      turns++;
+      return turns < 8
+        ? answer([{ name: 'read_workspace', arguments: {} }], 'x'.repeat(3900))
+        : answer([], 'Reported final response');
+    },
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    assert.equal(turns, 8);
+    assert.ok(bytes.every((value) => value <= 11264));
+  } finally {
+    await f.close();
   }
 });
