@@ -120,7 +120,7 @@ namespace Halcyonic.XR.Workspace
             public Func<bool> SomethingWaits { get; set; } = () => false;
 
             /// <summary>The system keyboard: done only when the person finishes.</summary>
-            public Action<string, string, Action<string>> Keyboard { get; set; } = (_, _, _) => { };
+            public Action<string, string, Action<string>, Action?> Keyboard { get; set; } = (_, _, _, _) => { };
 
             /// <summary>Hold to talk's one voice, or null where the build has none.</summary>
             public HoldToTalk? Voice { get; set; }
@@ -222,7 +222,7 @@ namespace Halcyonic.XR.Workspace
             if (setup.Voice is HoldToTalk talk)
             {
                 var voice = new MenuVoice(() => talk.Busy, talk.Begin, () => talk.End(true), talk.Drop);
-                talk.Heard += voice.Heard;
+                talk.CaptureHeard = voice.CaptureHeard;
                 talk.Said += voice.Said;
                 // The column that held leaving the plane stops the voice: its words would reach no one.
                 director.navigator.Left += voice.Left;
@@ -647,7 +647,7 @@ namespace Halcyonic.XR.Workspace
 
         public bool KeyboardOffered => setup.KeyboardOffered();
 
-        public void OpenKeyboard(string text, string prompt, Action<string> done) => setup.Keyboard(text, prompt, done);
+        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) => setup.Keyboard(text, prompt, done, dismissed);
 
         public int RowsOf(string words, float columnDegrees) => MenuFrameView.RowsOf(words, columnDegrees);
 

@@ -51,7 +51,7 @@ public class NewProjectFlowTests
             return Acknowledge(command);
         }
 
-        public void OpenKeyboard(string text, string prompt, Action<string> done)
+        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null)
         {
             Prompts.Add(prompt);
             Prefills.Add(text);

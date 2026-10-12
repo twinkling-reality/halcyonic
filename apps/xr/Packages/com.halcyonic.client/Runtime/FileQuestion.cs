@@ -73,7 +73,26 @@ namespace Halcyonic.Client
         private bool relayNext;
         private IReadOnlyList<int> reviewRows = Array.Empty<int>();
         private IReadOnlyList<string> reviewWords = Array.Empty<string>();
-        private List<List<int>> reviewPages = new List<List<int>> { new List<int>() };
+        private List<List<(int Prompt, int First, int Rows)>> reviewPages = new List<List<(int, int, int)>> { new List<(int, int, int)>() };
+        private bool returnToReview;
+        private string input = "";
+        private string? inputMeasured;
+        private int inputRows = 1;
+        private readonly HashSet<int> inputDrawn = new HashSet<int>();
+        private (QuestionDraft Draft, int Prompt, string Words, int Generation)? inputUsed;
+        private int readingGeneration;
+
+        public bool Writing { get; private set; }
+        public bool InputFocused { get; set; }
+        public bool InputEditing { get; set; }
+        public bool InputReading => Writing && InputParts > 1 && !InputEditing;
+        public int InputSession { get; private set; }
+        public string Input => input;
+        public int InputPart { get; private set; }
+        public int InputPartRows => page.WordsIn(page.Room - page.Words(1) - page.LineGap - page.Reason - page.Target() - page.TargetGap - 2f * page.LineGap);
+        public int InputParts => FileScreen.PartsOf(inputRows, InputPartRows);
+        public bool InputRead => Writing && inputMeasured == input && Enumerable.Range(0, InputParts).All(inputDrawn.Contains);
+        public bool ReturningToReview => returnToReview;
         private readonly HashSet<int> reviewDrawn = new HashSet<int>();
         private DateTimeOffset? drawnAt;
 
@@ -89,16 +108,18 @@ namespace Halcyonic.Client
         public int Page { get; private set; }
 
         /// <summary>The page of the person's answers shows: a question of several prompts, after its last.</summary>
-        public bool Reviewing => draft != null && draft.Prompts.Count > 1 && Prompt == draft.Prompts.Count;
+        public bool Reviewing => draft != null && Prompt == draft.Prompts.Count;
 
         /// <summary>How many pages the prompt's answers, or the person's answers, take.</summary>
         public int Pages => draft == null ? 1 : Reviewing ? reviewPages.Count : pages[Prompt].Count;
 
         /// <summary>The answers on the page showing, by their index among the prompt's options; none while the question's own pages show.</summary>
-        public IReadOnlyList<int> Answers => draft == null || Reviewing || QuestionPart != null ? Array.Empty<int>() : pages[Prompt][Page];
+        public IReadOnlyList<int> Answers => draft == null || Reviewing || Writing || QuestionPart != null ? Array.Empty<int>() : pages[Prompt][Page];
 
         /// <summary>The prompts listed on the page of the person's answers showing.</summary>
-        public IReadOnlyList<int> Reviewed => Reviewing ? reviewPages[Page] : Array.Empty<int>();
+        public IReadOnlyList<int> Reviewed => Reviewing ? reviewPages[Page].Select(part => part.Prompt).ToList() : Array.Empty<int>();
+
+        public int ReviewFirst(int prompt) => Reviewing ? reviewPages[Page].First(part => part.Prompt == prompt).First : 0;
 
         /// <summary>
         /// The prompt's question shows first on pages of its own: it is longer than
@@ -144,7 +165,7 @@ namespace Halcyonic.Client
         /// explains it (<see cref="Prompt.PageExplains"/>).
         /// </summary>
         private float Below(bool typed, bool several) =>
-            (typed || several ? page.Target() + page.TargetGap : 0f) + (several ? page.Reason : 0f);
+            (typed ? page.Target() + page.TargetGap : 0f) + page.Reason + page.Words(2) + 2f * page.LineGap;
 
         /// <summary>The rows of the line under a prompt's answers where some read the same (<see cref="WorkspaceText.AlikeCantBeChosen"/>).</summary>
         public const int AlikeRows = 2;
@@ -157,13 +178,13 @@ namespace Halcyonic.Client
             WorkspaceText.OffersALabelTwice(asked) ? page.Words(AlikeRows) + Math.Max(page.LineGap, page.TargetGap) : 0f;
 
         /// <summary>The row for more answers, where a page needs it: beside Type my answer it takes no row of its own.</summary>
-        private float MoreRow(bool typed, bool several) => typed && !several ? 0f : page.Target() + page.TargetGap;
+        private float MoreRow(bool typed, bool several) => page.Target() + page.TargetGap;
 
         /// <summary>The rows the prompt's whole question wraps to.</summary>
         public int QuestionMeasured(int prompt) => measures[prompt].QuestionRows;
 
         /// <summary>The rows of a long question each of its own pages shows: as many as fit beside the part's row and the reason.</summary>
-        public int QuestionPartRows => page.WordsIn(page.Room - page.LineGap - page.Target() - page.Reason);
+        public int QuestionPartRows => page.WordsIn(page.Room - page.Words(1) - page.LineGap - page.Reason);
 
         /// <summary>How many pages of its own a long question takes; none for a short one.</summary>
         public int QuestionParts(int prompt) => QuestionCut(prompt) ? FileScreen.PartsOf(QuestionMeasured(prompt), QuestionPartRows) : 0;
@@ -194,7 +215,10 @@ namespace Halcyonic.Client
         public int TypedMeasured(int prompt) => TypedMeasuredNow(prompt) ? typedRows[prompt].Rows : AnswerRows;
 
         /// <summary>The rows each prompt's answer takes on the page of the person's answers, as the layout measured it.</summary>
-        public int ReviewShows(int prompt) => prompt < reviewRows.Count ? Math.Max(1, reviewRows[prompt]) : 1;
+        public int ReviewShows(int prompt) => Reviewing && reviewPages[Page].Any(part => part.Prompt == prompt)
+            ? reviewPages[Page].First(part => part.Prompt == prompt).Rows : ReviewMeasured(prompt);
+
+        private int ReviewMeasured(int prompt) => prompt < reviewRows.Count ? Math.Max(1, reviewRows[prompt]) : 1;
 
         /// <summary>
         /// Shows <paramref name="answering"/>, each prompt laid out as <paramref name="measured"/> says, one
@@ -225,6 +249,10 @@ namespace Halcyonic.Client
             relayNext = false;
             if (another)
             {
+                CancelInput();
+                readingGeneration++;
+                inputUsed = null;
+                returnToReview = false;
                 draft = answering;
                 Prompt = 0;
                 Page = 0;
@@ -248,7 +276,7 @@ namespace Halcyonic.Client
                 QuestionPart = QuestionParts(0) > 0 ? 0 : (int?)null;
                 return;
             }
-            Prompt = Math.Min(Prompt, answering.Prompts.Count > 1 ? answering.Prompts.Count : 0);
+            Prompt = Math.Min(Prompt, answering.Prompts.Count);
             if (!relaid)
             {
                 Page = Math.Min(Page, Pages - 1);
@@ -256,6 +284,11 @@ namespace Halcyonic.Client
             }
             drawnAt = null;
             reviewDrawn.Clear();
+            readingGeneration++;
+            inputUsed = null;
+            answersRead.Clear();
+            typedRead.Clear();
+            inputDrawn.Clear();
             // A side panel's parts read so far no longer map to its new parts: what is unread is read again.
             sidePartsDrawn.Clear();
             SidePart = 0;
@@ -298,7 +331,6 @@ namespace Halcyonic.Client
             if (holding.Count == 1) Page = holding[0];
             else
             {
-                if (holding.Count > 1) answering.ClearChosen(Prompt);
                 Page = Math.Min(Page, pages[Prompt].Count - 1);
             }
         }
@@ -342,23 +374,31 @@ namespace Halcyonic.Client
         /// <summary>The person's answers in pages of whole answers, beside the reason and, where they page, the row to the next page.</summary>
         private void LayReview()
         {
-            reviewPages = new List<List<int>> { new List<int>() };
-            if (draft == null || draft.Prompts.Count < 2) return;
-            var room = page.Room - page.Reason;
-            if (page.Targets(Enumerable.Range(0, draft.Prompts.Count).Select(ReviewShows).ToArray()) > room + 1e-6f) room -= page.Target() + page.TargetGap;
+            reviewPages = new List<List<(int, int, int)>> { new List<(int, int, int)>() };
+            if (draft == null) return;
+            var room = page.Room - page.Words(1) - page.LineGap - page.Reason;
+            var perPart = page.WordsIn(room);
+            while (perPart > 1 && page.Target(perPart) > room) perPart--;
             var used = 0f;
             for (var prompt = 0; prompt < draft.Prompts.Count; prompt++)
             {
-                var current = reviewPages[reviewPages.Count - 1];
-                var takes = page.Target(ReviewShows(prompt)) + (current.Count > 0 ? page.TargetGap : 0f);
-                if (current.Count > 0 && used + takes > room + 1e-6f)
+                var rows = ReviewMeasured(prompt);
+                for (var first = 0; first < rows;)
                 {
-                    reviewPages.Add(new List<int>());
-                    used = 0f;
-                    takes = page.Target(ReviewShows(prompt));
+                    var count = Math.Min(rows - first, perPart);
+                    var current = reviewPages[reviewPages.Count - 1];
+                    var takes = page.Target(count) + (current.Count > 0 ? page.TargetGap : 0f);
+                    if (current.Count > 0 && used + takes > room + 1e-6f)
+                    {
+                        reviewPages.Add(new List<(int, int, int)>());
+                        current = reviewPages[reviewPages.Count - 1];
+                        used = 0f;
+                        takes = page.Target(count);
+                    }
+                    current.Add((prompt, first, count));
+                    used += takes;
+                    first += count;
                 }
-                reviewPages[reviewPages.Count - 1].Add(prompt);
-                used += takes;
             }
         }
 
@@ -381,7 +421,13 @@ namespace Halcyonic.Client
             typedRows[prompt] = (typed, Math.Max(1, measured), Math.Max(1, sideMeasured));
             var index = draft.Prompts[prompt].Options.Count;
             if (fresh || reparted) sidePartsDrawn.Remove((prompt, index));
-            if (prompt != Prompt || Reviewing || QuestionPart != null) return;
+            if (inputUsed is { } used && ReferenceEquals(used.Draft, draft) && used.Prompt == prompt && used.Words == typed && used.Generation == readingGeneration)
+            {
+                typedRead[prompt] = typed;
+                inputUsed = null;
+                return;
+            }
+            if (prompt != Prompt || Reviewing || Writing || QuestionPart != null) return;
             if (!TypedCut(prompt))
             {
                 if (sideOption == index) sideOption = null;
@@ -411,7 +457,7 @@ namespace Halcyonic.Client
         /// <summary>Back on a prompt whose typed answer is cut and unread, its side panel opens at the first part not yet drawn.</summary>
         private void OpenTypedIfUnread()
         {
-            if (draft == null || Reviewing || QuestionPart != null || Prompt >= draft.Prompts.Count || !TypedUnread(Prompt)) return;
+            if (draft == null || Reviewing || Writing || QuestionPart != null || Prompt >= draft.Prompts.Count || !TypedUnread(Prompt)) return;
             OpenAtUnread(draft.Prompts[Prompt].Options.Count);
         }
 
@@ -445,7 +491,7 @@ namespace Halcyonic.Client
         /// <summary>The person chose an answer: only one on the page showing is taken, so nothing out of view is sent.</summary>
         public void Choose(int option)
         {
-            if (draft == null || !Answers.Contains(option)) return;
+            if (draft == null || drawnAt == null || !Answers.Contains(option)) return;
             var asked = draft.Prompts[Prompt];
             // Chosen and cut but not read whole, as after the text size changed, its panel closed: its row
             // opens the panel again at the part to read next, as the typed answer's does, rather than unchoosing it.
@@ -503,6 +549,11 @@ namespace Halcyonic.Client
         {
             if (draft == null) return;
             drawnAt ??= now;
+            if (Writing)
+            {
+                if (inputMeasured == input) inputDrawn.Add(InputPart);
+                return;
+            }
             if (Reviewing)
             {
                 reviewDrawn.Add(Page);
@@ -516,6 +567,8 @@ namespace Halcyonic.Client
                 return;
             }
             if (!QuestionCut(Prompt)) draft.ShownWhole(Prompt);
+            if (!answersRead.TryGetValue(Prompt, out var read)) answersRead[Prompt] = read = new HashSet<int>();
+            foreach (var option in Answers) if (!AnswerCut(Prompt, option)) read.Add(option);
         }
 
         /// <summary>
@@ -552,6 +605,10 @@ namespace Halcyonic.Client
         public void ReadAgainAtNewSize()
         {
             relayNext = true;
+            readingGeneration++;
+            inputUsed = null;
+            InvalidateInput();
+            inputMeasured = null;
             draft?.ReadAgain();
             partsDrawn.Clear();
             answersRead.Clear();
@@ -592,7 +649,6 @@ namespace Halcyonic.Client
         public void MoreAnswers(DateTimeOffset now)
         {
             if (draft == null || QuestionPart != null || Pages < 2 || !Settled(now)) return;
-            if (!Reviewing) draft.ClearChosen(Prompt);
             Page = (Page + 1) % Pages;
             Turned();
             sideOption = null;
@@ -607,8 +663,9 @@ namespace Halcyonic.Client
         /// <summary>The row on to the next question, or after the last, to the person's answers.</summary>
         public void NextQuestion(DateTimeOffset now)
         {
-            if (draft == null || draft.Prompts.Count < 2 || Reviewing || QuestionPart != null || !Settled(now)) return;
-            Prompt++;
+            if (draft == null || Reviewing || Writing || QuestionPart != null || !Settled(now)) return;
+            Prompt = returnToReview ? draft.Prompts.Count : Prompt + 1;
+            returnToReview = false;
             Page = 0;
             sideOption = null;
             QuestionPart = !Reviewing && QuestionParts(Prompt) > 0 && !draft.WasShownWhole(Prompt) ? 0 : (int?)null;
@@ -620,6 +677,8 @@ namespace Halcyonic.Client
         public void GoTo(int prompt)
         {
             if (draft == null || prompt < 0 || prompt >= draft.Prompts.Count) return;
+            CancelInput();
+            returnToReview = Reviewing;
             Prompt = prompt;
             Page = 0;
             sideOption = null;
@@ -629,6 +688,127 @@ namespace Halcyonic.Client
             OpenTypedIfUnread();
         }
 
+        public void Back(DateTimeOffset now)
+        {
+            if (draft == null || Writing || !Settled(now)) return;
+            if (Reviewing) { Prompt = draft.Prompts.Count - 1; returnToReview = false; }
+            else if (Prompt > 0) Prompt--;
+            else return;
+            Page = 0;
+            sideOption = null;
+            QuestionPart = QuestionParts(Prompt) > 0 && !draft.WasShownWhole(Prompt) ? 0 : (int?)null;
+            Land(draft);
+            Turned();
+        }
+
+        public bool BeginInput()
+        {
+            if (draft == null || Reviewing || QuestionPart != null || !draft.Prompts[Prompt].FreeText) return false;
+            Writing = true;
+            input = draft.Typed(Prompt) ?? "";
+            inputMeasured = null;
+            inputDrawn.Clear();
+            InputPart = 0;
+            InputFocused = false;
+            InputEditing = true;
+            InputSession++;
+            sideOption = null;
+            Turned();
+            return true;
+        }
+
+        public void KeyboardClosed()
+        {
+            InputFocused = false;
+            if (InputParts > 1) InputEditing = false;
+        }
+
+        public void ChangeInput(string text)
+        {
+            if (!Writing) return;
+            var next = text.Trim();
+            KeyboardClosed();
+            if (next == input) return;
+            input = next;
+            inputMeasured = null;
+            inputDrawn.Clear();
+            InputPart = 0;
+            Turned();
+        }
+
+        public void MeasureInput(int rows)
+        {
+            if (!Writing) return;
+            rows = Math.Max(1, rows);
+            if (rows > InputPartRows && !InputFocused) InputEditing = false;
+            if (inputMeasured == input && inputRows == rows) return;
+            inputMeasured = input;
+            inputRows = rows;
+            if (InputParts > 1) InputEditing = false;
+            inputDrawn.Clear();
+            InputPart = 0;
+        }
+
+        public string? WhyUseWaits(bool stopOnPage)
+        {
+            if (!Writing || draft == null) return "Open the answer field first.";
+            if (input.Length == 0) return "Type or say an answer first.";
+            return draft.TextProblem(Prompt, input, stopOnPage) ?? (!InputRead ? "Read the whole answer first." : null);
+        }
+
+        public bool UseInput(bool stopOnPage)
+        {
+            if (draft == null || WhyUseWaits(stopOnPage) != null) return false;
+            var problem = draft.Type(Prompt, input, stopOnPage);
+            if (problem != null) return false;
+            var words = input;
+            CancelInput();
+            inputUsed = (draft, Prompt, words, readingGeneration);
+            typedRead[Prompt] = words;
+            return true;
+        }
+
+        public void NextInputPart(DateTimeOffset now)
+        {
+            if (!InputReading || !Settled(now) || InputPart >= InputParts - 1) return;
+            InputSession++;
+            InputPart++;
+            Turned();
+        }
+
+        public void PreviousInputPart(DateTimeOffset now)
+        {
+            if (!InputReading || !Settled(now) || InputPart <= 0) return;
+            InputSession++;
+            InputPart--;
+            Turned();
+        }
+
+        public void PreviousReviewPart(DateTimeOffset now)
+        {
+            if (!Reviewing || !Settled(now) || Page <= 0) return;
+            Page--;
+            Turned();
+        }
+
+        public void InvalidateInput()
+        {
+            InputSession++;
+            InputFocused = false;
+            inputDrawn.Clear();
+            Turned();
+        }
+
+        public void CancelInput()
+        {
+            Writing = false;
+            inputUsed = null;
+            input = "";
+            inputMeasured = null;
+            InputPart = 0;
+            InvalidateInput();
+        }
+
         /// <summary>Every answer chosen or typed for the prompt has been read whole: a cut one or a long typed one in its side panel.</summary>
         public bool AnswersRead(int prompt)
         {
@@ -636,7 +816,7 @@ namespace Halcyonic.Client
             var asked = draft.Prompts[prompt];
             for (var option = 0; option < asked.Options.Count; option++)
             {
-                if (draft.IsChosen(prompt, asked.Options[option].Label) && AnswerCut(prompt, option)
+                if (draft.IsChosen(prompt, asked.Options[option].Label)
                     && !(answersRead.TryGetValue(prompt, out var read) && read.Contains(option)))
                 {
                     return false;
@@ -659,6 +839,12 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Every page of the person's answers has been drawn.</summary>
+        public bool InputPageRead => Writing && inputMeasured == input && inputDrawn.Contains(InputPart);
+
+        public bool QuestionPartRead => draft != null && QuestionPart is int part && partsDrawn.TryGetValue(Prompt, out var read) && read.Contains(part);
+
+        public bool ReviewPageRead => Reviewing && ReviewMeasuredNow && reviewDrawn.Contains(Page);
+
         public bool ReviewRead => Reviewing && ReviewMeasuredNow && Enumerable.Range(0, reviewPages.Count).All(reviewDrawn.Contains);
 
         /// <summary>Every prompt's answer was measured as the page of the person's answers shows it now.</summary>

@@ -132,6 +132,10 @@ namespace Halcyonic.Client
     /// button of their own; while one is chosen, the screen may set the footer's Secondary or far right
     /// prompt for it. Text from outside is shown by <see cref="LabelText"/>'s rule before it is given.
     /// </summary>
+    public enum AnswerMark { None, Single, Multiple }
+
+    public enum LineControl { None, Action, Input }
+
     public sealed class PageLine
     {
         /// <param name="wordsAreData">The words are text from outside, which may end in an ellipsis where they don't fit; Halcyonic's own never do.</param>
@@ -162,9 +166,9 @@ namespace Halcyonic.Client
         public PageLine(string words, bool wordsAreData = false, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, bool claim = false, string? action = null, string? key = null, bool opens = false, bool choice = false,
             bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false, bool besideNext = false,
-            bool waits = false)
+            bool waits = false, AnswerMark answerMark = AnswerMark.None, LineControl control = LineControl.None, bool inputFocused = false)
             : this(LineWords.Written(words), wordsAreData, icon, fact, tone, chip, claim, action, key, opens, choice, chosen, available, rows, fromRow,
-                factIsData, besideNext, waits)
+                factIsData, besideNext, waits, answerMark, control, inputFocused)
         {
         }
 
@@ -178,10 +182,10 @@ namespace Halcyonic.Client
         public PageLine(LineWords words, GlazeIcon? icon = null, LineWords? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, string? action = null, string? key = null, bool opens = false, bool choice = false,
             bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool besideNext = false,
-            bool waits = false)
+            bool waits = false, AnswerMark answerMark = AnswerMark.None, LineControl control = LineControl.None, bool inputFocused = false)
             : this(words ?? throw new ArgumentNullException(nameof(words)), words.AnyTheirs, icon ?? (words.AllTheirs ? GlazeIcon.Quote : (GlazeIcon?)null),
                 fact == null || fact.IsEmpty ? null : fact.Text, tone, chip, false, action, key, opens, choice, chosen, available, rows, fromRow,
-                fact?.AnyTheirs == true, besideNext, waits)
+                fact?.AnyTheirs == true, besideNext, waits, answerMark, control, inputFocused)
         {
             if (fact != null && !fact.IsEmpty) FactRuns = fact;
         }
@@ -189,7 +193,7 @@ namespace Halcyonic.Client
         private PageLine(LineWords words, bool wordsAreData, GlazeIcon? icon, string? fact, LineTone tone,
             string? chip, bool claim, string? action, string? key, bool opens, bool choice,
             bool chosen, bool available, int rows, int? fromRow, bool factIsData, bool besideNext,
-            bool waits)
+            bool waits, AnswerMark answerMark, LineControl control, bool inputFocused)
         {
             if (words == null) throw new ArgumentNullException(nameof(words));
             if (string.IsNullOrWhiteSpace(words.Text)) throw new ArgumentException("A line has words.", nameof(words));
@@ -204,6 +208,9 @@ namespace Halcyonic.Client
             if (fromRow < 0) throw new ArgumentOutOfRangeException(nameof(fromRow), fromRow, "A line shows from its first row or a later one.");
             if (icon == GlazeIcon.HoldToTalk) throw new ArgumentException("A line never shows the microphone: Hold to talk is the footer's Secondary.", nameof(icon));
             Runs = words;
+            AnswerMark = answerMark;
+            Control = control;
+            InputFocused = inputFocused;
             Words = words.Text;
             WordsAreData = wordsAreData;
             Icon = icon;
@@ -232,6 +239,14 @@ namespace Halcyonic.Client
         public LineWords Runs { get; }
 
         public bool WordsAreData { get; }
+
+        /// <summary>An offered answer's persistent single/multiple selection mark; hover never changes it.</summary>
+        public AnswerMark AnswerMark { get; }
+
+        /// <summary>A navigation or input row whose boundary is visible before hover.</summary>
+        public LineControl Control { get; }
+
+        public bool InputFocused { get; }
 
         public GlazeIcon? Icon { get; }
 
@@ -774,7 +789,7 @@ namespace Halcyonic.Client
 
         /// <summary>This frame with <paramref name="footer"/>, <paramref name="lines"/> and <paramref name="side"/> in place of its own, its subject and source line as they are.</summary>
         public MenuFrame With(Footer footer, IReadOnlyList<PageLine> lines, SidePanel? side) =>
-            new MenuFrame(SubjectRuns, footer, SubjectIsData, Pill, Sections, lines, SourceRuns, side, SourceIsData, SubjectWaits);
+            CopyFocus(new MenuFrame(SubjectRuns, footer, SubjectIsData, Pill, Sections, lines, SourceRuns, side, SourceIsData, SubjectWaits));
 
         private MenuFrame(LineWords subject, Footer footer, bool subjectIsData, StateBadge? pill, IReadOnlyList<FrameSection>? sections,
             IReadOnlyList<PageLine>? lines, LineWords? source, SidePanel? side, bool sourceIsData, bool subjectWaits, int? sectionSlots = null)
@@ -828,6 +843,13 @@ namespace Halcyonic.Client
         public bool SubjectWaits { get; }
 
         public StateBadge? Pill { get; }
+
+        /// <summary>A focused answer card: ordinary file sections and competing menu content stay out of view.</summary>
+        public bool Focused { get; private set; }
+
+        public MenuFrame Focus() { Focused = true; return this; }
+
+        private MenuFrame CopyFocus(MenuFrame frame) { frame.Focused = Focused; return frame; }
 
         public IReadOnlyList<FrameSection> Sections { get; }
 

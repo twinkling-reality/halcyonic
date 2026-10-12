@@ -46,7 +46,7 @@ internal sealed class FakeMenuHost : IMenuHost
         return Ack?.Task;
     }
 
-    public void OpenKeyboard(string text, string prompt, Action<string> done)
+    public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null)
     {
     }
 

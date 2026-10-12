@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -105,16 +106,19 @@ namespace Halcyonic.Client
             var lines = page.Lines.ToList();
             if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
             // The task's title leans in its plate, which is its ground; the pill on its edge stays upright.
-            return new MenuFrame(
+            var focused = WorkspaceText.NeedFromYou(workspace) == null && workspace.QuestionToAnswer is QuestionView currentQuestion && WorkspaceText.Answerable(currentQuestion)
+                && (page.OfQuestion || steering.Armed == WorkspaceAction.Answer);
+            var frame = new MenuFrame(
                 LineWords.TheirName(workspace.Character.Title),
                 page.Footer,
                 pill: StateLanguage.BadgeOf(workspace.Character),
-                sections: Sections(workspace, screen.Section),
+                sections: focused ? Array.Empty<FrameSection>() : Sections(workspace, screen.Section),
                 lines: lines,
                 source: page.Source,
                 sourceIsData: page.SourceIsData,
                 side: page.Side,
                 sourceRuns: page.SourceRuns);
+            return focused ? frame.Focus() : frame;
         }
 
         /// <summary>The four sections, the one showing chosen, Waiting's amber dot while something waits.</summary>

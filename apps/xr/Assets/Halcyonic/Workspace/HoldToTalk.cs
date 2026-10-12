@@ -29,6 +29,11 @@ namespace Halcyonic.XR.Workspace
         /// <summary>What the Mac heard: untrusted text, a draft to show through <see cref="LabelText"/> and confirm.</summary>
         public event Action<string>? Heard;
 
+        /// <summary>Capture a recording's scoped delivery before asking for its transcription.</summary>
+        public Func<Action<string>>? CaptureHeard { get; set; }
+
+        private Action<string>? heardForPending;
+
         private const int RequestedRate = SpeechClip.SampleRate;
 
         /// <summary>Recording, so a second hold anywhere waits for this one.</summary>
@@ -103,6 +108,7 @@ namespace Halcyonic.XR.Workspace
             }
             Said?.Invoke(VoiceText.Hearing);
             cancellation = new CancellationTokenSource();
+            heardForPending = CaptureHeard?.Invoke();
             pending = api!.TranscribeAsync(wav, cancellation.Token);
         }
 
@@ -119,6 +125,7 @@ namespace Halcyonic.XR.Workspace
             cancellation?.Cancel();
             cancellation = null;
             pending = null;
+            heardForPending = null;
         }
 
         private void Update()
@@ -135,6 +142,8 @@ namespace Halcyonic.XR.Workspace
             }
             if (pending == null || !pending.IsCompleted) return;
             var answered = pending;
+            var deliver = heardForPending;
+            heardForPending = null;
             pending = null;
             cancellation?.Dispose();
             cancellation = null;
@@ -148,7 +157,8 @@ namespace Halcyonic.XR.Workspace
             switch (answered.Result)
             {
                 case HeardTranscription heard:
-                    Heard?.Invoke(heard.Text);
+                    if (deliver != null) deliver(heard.Text);
+                    else Heard?.Invoke(heard.Text);
                     break;
                 default:
                     Said?.Invoke(VoiceText.NothingHeard);
@@ -181,6 +191,7 @@ namespace Halcyonic.XR.Workspace
         public event Action<string>? Said { add { } remove { } }
 
         public event Action<string>? Heard { add { } remove { } }
+        public Func<Action<string>>? CaptureHeard { get; set; }
 
         /// <summary>Voice is in this build: development builds and the editor.</summary>
         public static bool Offered => false;

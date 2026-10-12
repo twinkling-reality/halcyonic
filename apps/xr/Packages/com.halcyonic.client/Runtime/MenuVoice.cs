@@ -32,6 +32,7 @@ namespace Halcyonic.Client
         private readonly Action drop;
         private (IMenuColumn Column, string Id)? held;
         private (IMenuColumn Column, string Id)? lastHeld;
+        private int recording;
 
         /// <param name="busy">The voice records, or waits for the computer's answer.</param>
         /// <param name="begin">Starts recording where it may, and says why not where it can't.</param>
@@ -65,6 +66,7 @@ namespace Halcyonic.Client
         {
             if (busy()) return false;
             // What the voice says as it starts, as why it can't, is this column's.
+            recording++;
             Speaking = column;
             begin();
             if (!busy()) return false;
@@ -84,7 +86,18 @@ namespace Halcyonic.Client
             held = null;
             holder.HoldEnded(id, letGo);
             if (letGo) send();
-            else drop();
+            else { recording++; drop(); }
+        }
+
+        /// <summary>Capture the current recording's delivery route before its transcription request starts.</summary>
+        public Action<string> CaptureHeard()
+        {
+            var generation = recording;
+            var column = Speaking;
+            return text =>
+            {
+                if (generation == recording && column != null && ReferenceEquals(column, Speaking)) column.Heard(text);
+            };
         }
 
         /// <summary>What the computer heard, for the column that held.</summary>
@@ -106,6 +119,7 @@ namespace Halcyonic.Client
 
         private void Stop()
         {
+            recording++;
             if (held is (IMenuColumn holder, string id))
             {
                 held = null;

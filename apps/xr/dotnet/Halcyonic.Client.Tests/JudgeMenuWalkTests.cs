@@ -88,7 +88,7 @@ internal sealed class DemonstrationMenuHost : IMenuHost
 
     public bool KeyboardOffered => false;
 
-    public void OpenKeyboard(string text, string prompt, Action<string> done) => throw new InvalidOperationException("No keyboard opens in the walk.");
+    public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) => throw new InvalidOperationException("No keyboard opens in the walk.");
 
     public int RowsOf(string words, float columnDegrees) => Math.Max(1, (words.Length + 39) / 40);
 

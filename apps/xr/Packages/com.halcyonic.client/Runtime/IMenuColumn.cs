@@ -55,7 +55,7 @@ namespace Halcyonic.Client
         /// The keyboard draws both itself, with no lean or ground, so <paramref name="prompt"/> is Halcyonic's words alone and
         /// <paramref name="text"/> is given by <see cref="LabelText.Plain"/>'s rule, as the page showed it.
         /// </summary>
-        void OpenKeyboard(string text, string prompt, Action<string> done);
+        void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null);
 
         /// <summary>How many rows <paramref name="words"/> wrap to across a column's content, as the view lays them.</summary>
         int RowsOf(string words, float columnDegrees);
@@ -94,8 +94,8 @@ namespace Halcyonic.Client
     /// </summary>
     public static class MenuKeyboard
     {
-        public static void Open(IMenuHost host, string? original, string prompt, Action<string> done) =>
-            host.OpenKeyboard(LabelText.Plain(original), prompt, text => done(Returned(original, text)));
+        public static void Open(IMenuHost host, string? original, string prompt, Action<string> done, Action? dismissed = null) =>
+            host.OpenKeyboard(LabelText.Plain(original), prompt, text => done(Returned(original, text)), dismissed);
 
         /// <summary>What the keyboard gave back, or the original where it gave back the original as shown.</summary>
         public static string Returned(string? original, string text) => original != null && text == LabelText.Plain(original) ? original : text;
