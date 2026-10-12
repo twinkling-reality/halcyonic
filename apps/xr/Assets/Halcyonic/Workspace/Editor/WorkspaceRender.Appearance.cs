@@ -261,6 +261,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     holder.localPosition = eyes + Vector3.forward * PlaneComposition.Distance;
                     holder.localScale = Vector3.one * PlaneComposition.Distance;
                     var old = fixture.Make(holder);
+                    AppearanceLifecycle(old, true);
                     SeedAppearancePose(old);
                     Texture2D Shot(string name)
                     {
@@ -271,38 +272,41 @@ namespace Halcyonic.XR.Workspace.Editor
                         return image;
                     }
                     var rect = new RectInt(0, 0, Size, Size);
-                    old.SetActive(false);
+                    AppearanceActive(old, false);
                     var empty = Shot("empty");
-                    old.SetActive(true);
+                    AppearanceActive(old, true);
                     var initial = Shot("initial");
-                    if (Compare(initial, empty, rect).Changed == 0) failures.Add(fixture.Name + ": the witness drew no visible pixels.");
+                    if (CompareAppearancePixels(initial, empty, rect).Changed == 0) failures.Add(fixture.Name + ": the witness drew no visible pixels.");
                     void AgainstFresh(string name)
                     {
                         CheckAppearancePose(old, fixture.Name + " " + name, failures);
                         var actual = Shot(name);
-                        old.SetActive(false);
+                        AppearanceActive(old, false);
                         var fresh = fixture.Make(holder);
+                        AppearanceLifecycle(fresh, true);
                         SeedAppearancePose(fresh);
                         var expected = Shot(name + "-fresh");
-                        var (changed, largest) = Compare(actual, expected, rect);
+                        var (changed, largest) = CompareAppearancePixels(actual, expected, rect);
                         if (changed != 0) failures.Add(fixture.Name + " " + name + ": cached versus fresh differs in " + changed + " pixels, largest channel " + largest + ".");
+                        AppearanceLifecycle(fresh, false);
                         UnityEngine.Object.DestroyImmediate(fresh);
-                        old.SetActive(true);
+                        AppearanceActive(old, true);
                     }
                     var other = palette == GlazePalette.Default ? GlazePalette.Graphite : GlazePalette.Default;
                     Glaze.SetPalette(other);
                     AgainstFresh("active-changed");
-                    var changedPixels = Compare(initial, shots[2], rect).Changed;
+                    var changedPixels = CompareAppearancePixels(initial, shots[2], rect).Changed;
                     if (fixture.Changes && changedPixels == 0) failures.Add(fixture.Name + ": changed neutral surfaces never reached rendered pixels.");
                     if (!fixture.Changes && changedPixels != 0) failures.Add(fixture.Name + ": unchanged status/practice semantics or saved fade/pose changed rendered pixels.");
-                    old.SetActive(false);
+                    AppearanceActive(old, false);
                     Glaze.SetPalette(palette);
-                    old.SetActive(true);
+                    AppearanceActive(old, true);
                     AgainstFresh("reactivated-restored");
-                    if (Compare(initial, shots[4], rect).Changed != 0) failures.Add(fixture.Name + ": restoring the preset did not restore the same rendered pose/fade.");
+                    if (CompareAppearancePixels(initial, shots[4], rect).Changed != 0) failures.Add(fixture.Name + ": restoring the preset did not restore the same rendered pose/fade.");
                 }
                 finally
                 {
+                    AppearanceLifecycle(root, false);
                     UnityEngine.Object.DestroyImmediate(root);
                     foreach (var shot in shots) UnityEngine.Object.DestroyImmediate(shot);
                     texture.Release();
@@ -311,6 +315,44 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             return failures;
+        }
+
+        // Plain MonoBehaviours do not run these subscriptions in a synchronous edit-mode fixture.
+        // Invoke the existing production lifecycle explicitly, unsubscribing first to avoid duplication.
+        // This seeds lifecycle coverage; actual play-mode/device activation remains a separate observation.
+        private static void AppearanceActive(GameObject root, bool active)
+        {
+            root.SetActive(active);
+            AppearanceLifecycle(root, active);
+        }
+
+        private static void AppearanceLifecycle(GameObject root, bool active)
+        {
+            foreach (var component in root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (!(component is CharacterLabelView || component is StateBadgeView || component is PeekCardView
+                    || component is MarkTag || component is StageBanner)) continue;
+                var type = component.GetType();
+                type.GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(component, null);
+                if (active) type.GetMethod("OnEnable", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(component, null);
+            }
+        }
+
+        private static (int Changed, int Largest) CompareAppearancePixels(Texture2D actual, Texture2D expected, RectInt rect)
+        {
+            var a = actual.GetPixels32();
+            var b = expected.GetPixels32();
+            var changed = 0;
+            var largest = 0;
+            for (var y = rect.yMin; y < rect.yMax; y++)
+                for (var x = rect.xMin; x < rect.xMax; x++)
+                {
+                    var index = y * actual.width + x;
+                    var delta = Math.Max(Math.Abs(a[index].r - b[index].r), Math.Max(Math.Abs(a[index].g - b[index].g), Math.Abs(a[index].b - b[index].b)));
+                    largest = Math.Max(largest, delta);
+                    if (delta != 0) changed++;
+                }
+            return (changed, largest);
         }
 
         // Editor-only seeded pose, not a claim about live timing. Both cached and fresh use exactly the same transforms,

@@ -330,15 +330,22 @@ public class AppearanceSettingsTests
     private sealed class CompositionFile : IMenuColumn
     {
         private MenuFrame frame;
-        public CompositionFile(bool focused) => frame = Make(focused);
-        private static MenuFrame Make(bool focused) => focused ? new MenuFrame("Your answer", new Footer(), lines: new[] { new PageLine("Draft retained") }).Focus()
-            : new MenuFrame("Task file", new Footer(), lines: new[] { new PageLine("Draft retained") });
+        private readonly SidePanel? side;
+        public CompositionFile(bool focused, SidePanel? side = null) { this.side = side; frame = Make(focused); }
+        private MenuFrame Make(bool focused)
+        {
+            var next = new MenuFrame(focused ? "Your answer" : "Task file", new Footer(farRight: new Prompt("keep-draft", "Keep draft", GlazeIcon.Change, safeInPlace: true)),
+                lines: new[] { new PageLine("Draft retained", action: "draft-details", opens: true, chosen: side != null) }, side: side);
+            return focused ? next.Focus() : next;
+        }
         public MenuFrame? Frame => frame;
+        public int Draws { get; private set; }
+        public List<string> Acts { get; } = new();
         public event Action? Changed;
         public event Action? Closed;
-        public void Focus() { frame = Make(true); Changed?.Invoke(); }
-        public void Act(string id, string? key) { if (id == Footer.Close) Closed?.Invoke(); }
-        public void Drawn(MenuFrame drawn, Footer? sidePanel) { }
+        public void Focus(bool focused = true) { frame = Make(focused); Changed?.Invoke(); }
+        public void Act(string id, string? key) { Acts.Add(id); if (id == Footer.Close) Closed?.Invoke(); }
+        public void Drawn(MenuFrame drawn, Footer? sidePanel) => Draws++;
         public void HoldStarted(string id) { }
         public void HoldEnded(string id, bool letGo) { }
         public void Heard(string text) { }
@@ -407,6 +414,82 @@ public class AppearanceSettingsTests
         Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Apply, null, originalPreview, null), Is.False);
         Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Preview, null, returning, null), Is.True);
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default), "preview selection was rolled back to the applied preset");
+        hub.FocusLeft();
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void HiddenSettingsDetailsGiveFocusedFileAuthorityAndRecoverTheirOwnerOnReturn(bool fileHasSide)
+    {
+        var host = new FakeMenuHost();
+        var confirmed = new List<string>();
+        var pairing = new MenuSetting("pairing", SettingsText.YourMac, "Pairing",
+            () => new SettingNow("192.0.2.40", "Paired with 192.0.2.40", "Forget it", "This headset needs pairing again", "Forget this computer",
+                confirm: "Yes, forget this computer", valueIsData: true, about: "192.0.2.40"), () => Assert.Fail("bare Change must not run"),
+            read => confirmed.Add(read.About!));
+        var hub = new SettingsHubColumn(host, new[] { pairing }, new AppearanceSettings(), () => { });
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, place => (Func<IMenuColumn>)(() => hub)));
+        var bar = new MenuBar(MenuPlace.Settings, "Nothing waits");
+        var fileSide = fileHasSide ? new SidePanel("File details", facts: new[] { new SideFact("Draft", "Retained") }) : null;
+        var file = new CompositionFile(false, fileSide);
+        navigator.OpenMenu(MenuPlace.Settings);
+        navigator.ShowBeside(file, "pending-task");
+        MenuFrame DrawMenu()
+        {
+            var frame = navigator.Frames(bar).Menu!;
+            navigator.MenuVisibility(true);
+            navigator.Drawn(MenuColumn.Menu, frame, null);
+            return frame;
+        }
+        void Press(string id, string? key = null) => Assert.That(navigator.Act(MenuColumn.Menu, id, key, DrawMenu(), null), Is.True);
+        Press(SettingsHubColumn.OpenCategory, SettingsText.YourMac);
+        Press(SettingsColumn.OpenSetting, "pairing");
+        var chosen = DrawMenu();
+        Assert.That(chosen.Side, Is.Not.Null);
+        Assert.That(navigator.BesideAside, Is.True);
+        navigator.Drawn(MenuColumn.Side, chosen, chosen.Side);
+        Assert.That(navigator.Act(MenuColumn.Side, SettingsColumn.ChangeSetting, null, chosen, chosen.Side), Is.True,
+            "the visible in-place details carry the real Forget prompt");
+        var armed = DrawMenu();
+        Assert.That(armed.Footer.All.Any(each => each.Prompt.Id == SettingsColumn.Yes), Is.True);
+        navigator.Drawn(MenuColumn.Side, armed, armed.Side);
+        file.Focus();
+        navigator.Frames(bar);
+        Assert.That(navigator.MenuVisibility(false), Is.True);
+        var hidden = navigator.Frames(bar);
+        Assert.That(hidden.Menu!.Side, Is.Not.Null, "Settings retains its chosen details while confirmation authority is released");
+        Assert.That(hidden.Menu.Footer.All.Any(each => each.Prompt.Id == SettingsColumn.Yes), Is.False);
+        Assert.That(navigator.BesideAside, Is.False, "hidden retained menu details do not own the focused composition");
+        Assert.That(navigator.ColumnOf(MenuColumn.Side), Is.SameAs(file));
+        navigator.Drawn(MenuColumn.Side, hidden.Menu, hidden.Menu.Side);
+        Assert.That(navigator.Standing(MenuColumn.Side, hidden.Menu, hidden.Menu.Side), Is.Null);
+        Assert.That(navigator.Act(MenuColumn.Side, SettingsColumn.Yes, null, armed, armed.Side), Is.False);
+        Assert.That(navigator.Act(MenuColumn.Menu, SettingsColumn.Yes, null, armed, null), Is.False);
+        navigator.Drawn(MenuColumn.File, hidden.Beside, null);
+        Assert.That(file.Draws, Is.EqualTo(1));
+        Assert.That(hidden.Beside!.Footer.All.Any(each => each.Prompt.Id == "keep-draft"), Is.True);
+        Assert.That(navigator.Act(MenuColumn.File, "keep-draft", null, hidden.Beside, null), Is.True);
+        if (fileSide != null)
+        {
+            navigator.Drawn(MenuColumn.Side, hidden.Beside, fileSide);
+            Assert.That(navigator.Act(MenuColumn.Side, "keep-draft", null, hidden.Beside, fileSide), Is.True);
+        }
+        var focusedFrame = hidden.Beside;
+        file.Focus(false);
+        navigator.Frames(bar);
+        Assert.That(navigator.MenuVisibility(true), Is.True);
+        var returned = navigator.Frames(bar);
+        Assert.That(navigator.BesideAside, Is.True, "actual menu-owned details regain the front on return");
+        Assert.That(navigator.ColumnOf(MenuColumn.Side), Is.SameAs(hub));
+        Assert.That(navigator.Act(MenuColumn.File, "keep-draft", null, focusedFrame, null), Is.False);
+        navigator.Drawn(MenuColumn.File, returned.Beside, null);
+        Assert.That(file.Draws, Is.EqualTo(fileHasSide ? 2 : 1), "the retained file cannot earn proof behind menu details");
+        Assert.That(navigator.Act(MenuColumn.Side, SettingsColumn.Yes, null, armed, armed.Side), Is.False);
+        navigator.Drawn(MenuColumn.Side, returned.Menu, returned.Menu!.Side);
+        Assert.That(navigator.Standing(MenuColumn.Side, returned.Menu, returned.Menu.Side), Is.SameAs(hub));
+        Assert.That(navigator.Act(MenuColumn.Side, SettingsColumn.ChangeSetting, null, returned.Menu, returned.Menu.Side), Is.True,
+            "a fresh physical details draw can arm a fresh confirmation");
+        Assert.That(confirmed, Is.Empty);
         hub.FocusLeft();
     }
 

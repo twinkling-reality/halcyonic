@@ -9,8 +9,10 @@
   `9ebebe46` full gate passed 1033 repository tests and 1527 C# tests, zero skipped, on
   2026-10-11 at 23:20:08 EDT. Aggregate runtime and all current Editor source compile passed
   without launching Unity; existing nullable warnings remain. A subsequent actual-composition
-  lifetime fix passed 83/83 focused tests and the same aggregate compile. Its full gate remains
-  pending; the 1033/1527 result above applies specifically to `9ebebe46`. Actual preset rendering and
+  lifetime fix `f224b498` passed 83/83 focused tests and the same aggregate compile; root's
+  exact full gate passed 1033 repository / 1531 C# tests. A further hidden-side ownership and
+  deterministic cache-witness correction passed 85/85 focused tests plus aggregate source
+  compile; its exact full gate and independent review remain pending. Actual preset rendering and
   device checks have not run. The composition harness is prepared; visual acceptance remains open.
 
 ## Source behavior and scope
@@ -69,8 +71,15 @@ white glass sheen. The UI palette does not customize body identity or these mate
    and allocation guards. Actual headset palette legibility, both-eye rendering and comfort remain
    wearer/device observations.
 
-The owner has released the headset trial; Unity execution is coordinated separately and remains
-unrun for this settings candidate. This record does not claim renders,
+The owner has released the headset trial. Root executed `AppearanceCheck` at `f224b498` on
+2026-10-11. The whole pass failed: existing organization fixture diagnostics remain, and label,
+peek and banner neutral-change guards failed at both sizes. Category/Appearance and visibility
+fixtures emitted no diagnostics. Archived images show active cache unchanged and fresh neutral
+plates differing by only 1 or 2 RGB levels, below the general image tolerance. Plain edit-mode
+MonoBehaviour subscriptions were not being exercised. The bounded followup explicitly invokes
+the existing OnDisable/OnEnable lifecycle in its Editor fixture, unsubscribes before activation
+and cleanup, and uses exact RGB comparison for these deterministic same-pose cache witnesses.
+This is seeded lifecycle coverage, not live activation evidence; its rerun remains pending. This record does not claim renders,
 mutation checks, frame cost, discoverability or user complaints resolved.
 
 ## Prepared composition witness
@@ -100,5 +109,17 @@ These are deterministic seeded poses, not observations of live animation timing.
 
 All mutable palette, text-size and measured-field state is restored in the batch entrypoint's
 finally block. PNGs go only to ignored Builds directories. The batch entrypoint is prepared
-and source compiled, not executed. Its pixel and geometry assertions are pending actual Unity
-runs and screenshot review; passing engine-free tests does not approve Graphite's composition.
+and source compiled. The `f224b498` whole pass failed as recorded above; the corrected
+seeded-lifecycle/exact-pixel witness remains unrun. Its pixel and geometry assertions require
+a fresh actual Unity pass and screenshot review; passing engine-free tests does not approve Graphite's composition.
+
+A source mutation check remains pending: temporarily make each cached component's
+`RefreshPalette` return without updating, run the exact same seeded fixture and require its
+cached-versus-fresh exact RGB guard to fail for changed neutral plates. Restore the mutation
+before any candidate run. No palette values or general render tolerances are loosened.
+
+The hidden-side regression uses real SettingsHub/SettingsColumn Forget details and confirmation,
+then the same stable file becomes focused, with and without its own side. The hidden retained
+menu side cannot block fresh file draw/action proof or retain old Yes. Returning menu-owned
+details regain the front after a fresh draw and block the file behind them. This is an
+engine-free ownership regression; combined production instruction behavior still needs review.
