@@ -520,6 +520,33 @@ public class AnswerFlowTests
         flow.Choose(0);
         Assert.That(flow.AnswersRead(0), Is.False, "released layout space cannot certify a second row absent from the frame just drawn");
         Assert.That(flow.AnswerShows(0, 0), Is.EqualTo(1), "choosing the unread option reinstates its nontrivial reason budget");
+        Assert.That(flow.SideOption, Is.EqualTo(0), "the cut option remains reachable through full details");
+        flow.SideDrawn(DateTimeOffset.Parse(Samples.Time));
+        Assert.That(flow.AnswersRead(0), Is.True, "actually drawing all measured description rows earns proof and restores progress");
+    }
+
+    [Test]
+    public void RelayoutExpiresReadProofBeforePackingSelectedOptionPages()
+    {
+        var asked = AskingWork.Scripted();
+        asked.Prompts.RemoveAt(1);
+        asked.Prompts[0].FreeText = false;
+        asked.Prompts[0].Multiple = true;
+        asked.Prompts[0].Options = Enumerable.Range(0, 3).Select(index => new QuestionOption { Label = "Option " + index }).ToList();
+        var draft = new QuestionDraft("e1", asked);
+        var measured = new[] { new PromptMeasure(1, new[] { 2, 2, 2 }, new[] { 2, 2, 2 }) };
+        var flow = new FileQuestion();
+        flow.Show(draft, measured, new RowBudget(9), new RowBudget(3));
+        flow.Drawn(DateTimeOffset.Parse(Samples.Time));
+        flow.Choose(0);
+        Assert.That(flow.AnswersRead(0), Is.True);
+        flow.Show(draft, measured, new RowBudget(6), new RowBudget(3));
+        Assert.That(flow.AnswersRead(0), Is.False);
+        var screen = new FileScreen();
+        screen.ReadQuestion(draft, measured, new RowBudget(6), new RowBudget(3));
+        var first = flow.Answers.Sum(index => flow.AnswerShows(0, index));
+        var actual = first + flow.CaptionRows(0, flow.Pages > 1) + flow.HeadRows(0) + (flow.Pages > 1 ? 1 : 0) + 1;
+        Assert.That(actual, Is.LessThanOrEqualTo(6), "expired selected-option proof must reserve its required reason before cached pages are laid");
     }
 
 }
