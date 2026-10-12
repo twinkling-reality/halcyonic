@@ -61,6 +61,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
 | [quest-3-device.md](validation/quest-3-device.md) | The XR client on a Meta Quest 3: build, install, WebSocket under IL2CPP, milestone 2 checks |
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, background limits |
+| [native-agent-panel.md](validation/native-agent-panel.md) | Production native hybrid panel, paired and explicit development USB transports, reviewed commands, private continuity and source-versus-headset acceptance |
 | [horizon-store-release.md](validation/horizon-store-release.md) | Meta Horizon Store requirements for a Quest build, and the release APK checked against them |
 | [competition-judge-build.md](validation/competition-judge-build.md) | The judge build against the competition's rules and today's product: the demonstration's path and timings, names a judge reads, field of view, frame rate, pause and the release APK |
 | [mixed-reality-room.md](validation/mixed-reality-room.md) | Passthrough, the scene model through MRUK, spatial anchors and their permissions |

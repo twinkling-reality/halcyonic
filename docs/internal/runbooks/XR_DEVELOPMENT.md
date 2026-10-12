@@ -6,6 +6,28 @@ Running the Unity client against a local control plane. The architecture is in
 
 ## One-time setup
 
+The production native agent panel is packaged beside Unity in both development and release APKs
+and requires Horizon OS 69 or later. Its connection, command and continuity checks and remaining
+device acceptance are in [native-agent-panel.md](../validation/native-agent-panel.md). In
+Workspace, **Other apps** opens that panel through the explicit hybrid launch bridge. The panel's
+**Workspace** action returns selected ordinary context after Unity validates a fresh snapshot.
+The panel reads the existing app-private pairing; pairing credentials never travel in intents.
+
+For the installed USB development journey, deliberately choose **Connection (development)**,
+then **Use USB connection (development)** in a debuggable APK. It uses the already provisioned
+private `access-token` and the existing `adb reverse tcp:47800 tcp:47800` mapping. It does not
+provision or replace a token, change pairing or fall back from a failed paired connection. The
+native client proves the local listener before sending the token. A release APK exposes only
+the paired connection. Test a complete instruction review/send, stop, whole approval and every
+question prompt on synthetic work before attempting real tasks; host acceptance alone is not
+agent completion. Return selection restores only when Unity uses that same connection.
+
+Native agent text and drafts are protected from OS screenshots by `FLAG_SECURE`. Actual visual
+verification requires a deliberate synthetic development render; do not infer that a black
+screenshot means no window opened. Do not export a live panel's private text to obtain evidence.
+Native voice and capture/share attachments remain separate acceptance work; the panel grants no
+microphone or projection permission.
+
 These steps need the owner's accounts and are not automated.
 
 1. Install Unity Hub and sign in with a Unity account.
