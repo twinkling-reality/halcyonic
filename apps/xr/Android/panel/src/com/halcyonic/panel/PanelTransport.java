@@ -64,7 +64,7 @@ final class PanelTransport {
     void cancel() { cancelled = true; Lease lease = active; if (lease != null) lease.close(); }
 
     Result request(PanelIdentity expected, String method, String path, String body) throws IOException {
-        if (!(method.equals("GET") && (path.equals("/api/snapshot") || path.matches("/api/events\\?after=[0-9]{1,16}&limit=50&workstream_id=" + PanelIdentity.ENTITY)))
+        if (!(method.equals("GET") && (path.equals("/api/snapshot") || path.equals("/api/workspace/agent") || path.matches("/api/workspace/requests/" + PanelIdentity.ENTITY) || path.matches("/api/workspace/commands/" + PanelIdentity.UUID) || path.matches("/api/events\\?after=[0-9]{1,16}&limit=50&workstream_id=" + PanelIdentity.ENTITY)))
             && !(method.equals("POST") && path.equals("/api/commands") && body != null)) throw new Refused("unsupported_request", false);
         boolean wrote = false;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);

@@ -17,6 +17,8 @@ import {
   compileValidator,
   parseCommandEnvelope,
   Snapshot,
+  WorkspaceAgentStatus,
+  WorkspaceRequestResponse,
 } from '../../packages/contracts/src/index.ts';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -35,6 +37,9 @@ const PLAIN = [
   'PanelModel.java',
   'PanelText.java',
   'PanelInputText.java',
+  'PanelWorkspaceRequest.java',
+  'PanelRequestDispatch.java',
+  'PanelRequestSends.java',
   'PanelDrafts.java',
   'PanelProof.java',
   'PanelUiState.java',
@@ -77,6 +82,9 @@ async function runAsync(command: string, ...values: string[]) {
     body?: string;
     code?: string;
     unknown?: boolean;
+    persisted?: boolean;
+    settled?: boolean;
+    request_id?: string | null;
   };
 }
 const device = '0192f1a0-0000-7000-8000-000000000009';
@@ -130,6 +138,71 @@ function response(body: string, status = 200) {
 const projectId = '0192f1a0-0000-7000-8000-000000000002';
 const workId = '0192f1a0-0000-7000-8000-000000000003';
 const executionId = '0192f1a0-0000-7000-8000-000000000004';
+const requestId = '0192f1a0-0000-7000-8000-000000000008';
+const commandId = '0192f1a0-0000-4000-8000-000000000010';
+const nativeContext = {
+  connection: 'synthetic-key',
+  journal: '0192f1a0-0000-7000-8000-000000000001',
+  project: projectId,
+  work: workId,
+  execution: executionId,
+};
+function workspaceRequest() {
+  return {
+    request: {
+      request_id: requestId,
+      journal_id: nativeContext.journal,
+      project_id: projectId,
+      workstream_id: workId,
+      execution_id: executionId,
+      original_text: 'Investigate this synthetic task.',
+      status: 'responded',
+      reply: {
+        text: 'Reported result, not software verification.',
+        epistemic: 'reported',
+        model: 'synthetic-model',
+        served: 'this_mac',
+      },
+      steps: [
+        {
+          step_id: '0192f1a0-0000-7000-8000-000000000011',
+          tool_name: 'continue_task',
+          status: 'confirmed',
+          command_id: commandId,
+          command_status: 'completed',
+          observation_position: 1,
+          active_turn_id: 'synthetic-turn',
+          had_active_turn: true,
+          observation_after: 2,
+          observed_turn_id: 'synthetic-turn',
+          runtime_status: 'completed',
+          summary: 'Instruction delivered; subsequent native turn ended.',
+        },
+      ],
+      earlier_steps: 0,
+      created_at: '2026-10-12T10:00:00.000Z',
+      updated_at: '2026-10-12T10:01:00.000Z',
+    },
+  };
+}
+function workspaceCommand() {
+  return {
+    journal_id: nativeContext.journal,
+    command: {
+      command_id: commandId,
+      command_type: 'workspace.request.submit',
+      status: 'completed',
+      project_id: projectId,
+      workstream_id: workId,
+      execution_id: executionId,
+      issued_at: '2026-10-12T10:00:00.000Z',
+      updated_at: '2026-10-12T10:01:00.000Z',
+      rejection: null,
+      failure: null,
+      result: { kind: 'workspace_request_created', request_id: requestId },
+    },
+  };
+}
 function model() {
   return {
     journal: { journal_id: '0192f1a0-0000-7000-8000-000000000001', origin: 'live' },
@@ -182,6 +255,213 @@ describe('production native agent panel', () => {
     ]);
   });
   after(() => rmSync(classes, { recursive: true, force: true }));
+  test('native workspace offer and exact request consumer accept canonical producer fields and reject foreign or malformed records', () => {
+    const offer = { availability: 'available', model: 'synthetic-model', served: 'this_mac' };
+    assert.equal(compileValidator(WorkspaceAgentStatus)(offer).ok, true);
+    assert.deepEqual(JSON.parse(run('workspace_offer', JSON.stringify(offer))), offer);
+    assert.equal(run('workspace_offer', JSON.stringify({ ...offer, served: 'remote' })), 'refused');
+    const response = workspaceRequest();
+    assert.equal(compileValidator(WorkspaceRequestResponse)(response).ok, true);
+    assert.deepEqual(
+      JSON.parse(
+        run('workspace_read', JSON.stringify(response), requestId, JSON.stringify(nativeContext)),
+      ),
+      response.request,
+    );
+    for (const field of [
+      'journal_id',
+      'project_id',
+      'workstream_id',
+      'execution_id',
+      'request_id',
+    ] as const) {
+      const foreign = structuredClone(response);
+      foreign.request[field] = '0192f1a0-0000-7000-8000-000000000099';
+      assert.equal(
+        run('workspace_read', JSON.stringify(foreign), requestId, JSON.stringify(nativeContext)),
+        'refused',
+      );
+    }
+    const malformed = structuredClone(response);
+    malformed.request.reply.epistemic = 'observed';
+    assert.equal(
+      run('workspace_read', JSON.stringify(malformed), requestId, JSON.stringify(nativeContext)),
+      'refused',
+    );
+    assert.equal(
+      run(
+        'workspace_read',
+        JSON.stringify({ ...response, unexpected: true }),
+        requestId,
+        JSON.stringify(nativeContext),
+      ),
+      'refused',
+    );
+  });
+  test('native exact command recovery distinguishes creation, refusal, unknown effect and wrong identity without success fallback', () => {
+    const value = workspaceCommand();
+    const read = (body: unknown) =>
+      run(
+        'workspace_command',
+        JSON.stringify(body),
+        commandId,
+        'null',
+        JSON.stringify(nativeContext),
+        'workspace.request.submit',
+      );
+    const created = JSON.parse(read(value));
+    assert.equal(created.settled, true);
+    assert.equal(created.request_id, requestId);
+    assert.match(created.message, /not software completion/);
+    for (const field of ['command_id', 'project_id', 'workstream_id', 'execution_id'] as const) {
+      const foreign = structuredClone(value);
+      foreign.command[field] = '0192f1a0-0000-7000-8000-000000000099';
+      assert.equal(read(foreign), 'refused');
+    }
+    assert.equal(read({ ...value, journal_id: '0192f1a0-0000-7000-8000-000000000099' }), 'refused');
+    assert.equal(
+      read({ ...value, command: { ...value.command, command_type: 'execution.send_instruction' } }),
+      'refused',
+    );
+    assert.equal(read({ ...value, command: { ...value.command, result: null } }), 'refused');
+    for (const effect of ['none', 'unknown']) {
+      const failed = {
+        ...value,
+        command: {
+          ...value.command,
+          status: 'failed',
+          result: null,
+          failure: { code: 'synthetic_failure', message: 'Synthetic failure.', effect },
+        },
+      };
+      assert.equal(JSON.parse(read(failed)).settled, effect === 'none');
+    }
+    assert.equal(
+      read({ ...value, command: { ...value.command, status: 'not_a_status' } }),
+      'refused',
+    );
+  });
+  test('native workspace POST proof requires persisted original identity and permits only one attempt', async () => {
+    const server = await listener((_text, socket) =>
+      socket.end(response(JSON.stringify({ synthetic: true }))),
+    );
+    const envelope = JSON.parse(
+      run(
+        'command',
+        'workspace.request.submit',
+        JSON.stringify({
+          project_id: projectId,
+          workstream_id: workId,
+          execution_id: executionId,
+          text: 'Synthetic authorized request.',
+        }),
+      ),
+    );
+    assert.equal(parseCommandEnvelope(envelope).ok, true);
+    try {
+      const target = pairing(server.port, server.pin);
+      assert.equal(run('workspace_dispatch', JSON.stringify(envelope), target, 'fail'), 'not_sent');
+      assert.equal(server.heard.length, 0);
+      assert.equal(
+        run('workspace_dispatch', JSON.stringify(envelope), target, 'phasefail'),
+        'not_sent',
+      );
+      assert.equal(server.heard.length, 0);
+      const sent = await runAsync('workspace_dispatch', JSON.stringify(envelope), target, 'save');
+      assert.equal(sent.persisted, true);
+      assert.equal(sent.status, 200);
+      assert.equal(server.heard.length, 1);
+      assert.match(server.heard[0] ?? '', /^POST \/api\/commands /);
+    } finally {
+      await server.close();
+    }
+  });
+  test('native duplicate completed ACK never imports a reference when exact original-owner command GET is unavailable', async () => {
+    const receipt = workspaceCommand();
+    const server = await listener((request, socket) =>
+      socket.end(
+        request.startsWith('POST ')
+          ? response(JSON.stringify({ disposition: 'duplicate', command: receipt.command }))
+          : response(
+              JSON.stringify({
+                code: 'not_found',
+                message: 'Unavailable for this original sender.',
+              }),
+              404,
+            ),
+      ),
+    );
+    try {
+      const envelope = JSON.parse(
+        run(
+          'command',
+          'workspace.request.submit',
+          JSON.stringify({
+            project_id: projectId,
+            workstream_id: workId,
+            execution_id: executionId,
+            text: 'Synthetic request.',
+          }),
+        ),
+      );
+      envelope.command_id = commandId;
+      const result = await runAsync(
+        'workspace_dispatch',
+        JSON.stringify(envelope),
+        pairing(server.port, server.pin),
+        'save',
+        JSON.stringify(nativeContext),
+      );
+      assert.equal(result.settled, false);
+      assert.equal(result.request_id, null);
+      assert.equal(server.heard.filter((value) => value.startsWith('POST ')).length, 1);
+      assert.equal(
+        server.heard.filter((value) =>
+          value.startsWith(`GET /api/workspace/commands/${commandId} `),
+        ).length,
+        1,
+      );
+    } finally {
+      await server.close();
+    }
+  });
+  test('native send phases preserve partial-store identities, permit only exact unsent cleanup and never downgrade unknown after restart', () => {
+    assert.equal(
+      run('workspace_phases', JSON.stringify(fixtures.cases[0]?.value), pairing(1, 'a'.repeat(64))),
+      'true',
+    );
+  });
+  test('native earlier-request word copy cannot replace an unresolved current send', () => {
+    const current = {
+      request_id: requestId,
+      pending_command_id: commandId,
+      text: 'Current words.',
+      spoken: false,
+      part: 0,
+    };
+    const earlier = {
+      request_id: '0192f1a0-0000-7000-8000-000000000009',
+      pending_command_id: null,
+      text: 'Earlier words.',
+      spoken: true,
+      part: 4,
+    };
+    assert.equal(
+      run('workspace_copy', JSON.stringify(current), JSON.stringify(earlier)),
+      'refused',
+    );
+    assert.equal(current.pending_command_id, commandId);
+    assert.deepEqual(
+      JSON.parse(
+        run(
+          'workspace_copy',
+          JSON.stringify({ ...current, pending_command_id: null }),
+          JSON.stringify(earlier),
+        ),
+      ),
+      { request_id: null, pending_command_id: null, text: 'Earlier words.', spoken: true, part: 0 },
+    );
+  });
 
   test('all production sources compile against Android API and are explicitly covered', () => {
     const output = mkdtempSync(join(tmpdir(), 'halcyonic-panel-api-'));
@@ -974,6 +1254,100 @@ time.sleep(25)
       assert.equal(server.devices.revoke(paired.deviceId, { kind: 'local' }), 'revoked');
       const revoked = await runAsync('request', target, 'GET', '/api/snapshot', 'null');
       assert.equal(revoked.status, 401);
+    } finally {
+      await server.stop();
+    }
+  });
+  test('native workspace availability and exact pending outcome consume the actual paired producer without assuming a model', async () => {
+    const server = await startTestServer({ network: {} });
+    const feature = DEMO_WORKSTREAMS[0];
+    assert.ok(feature);
+    try {
+      assert.ok(server.network);
+      const paired = server.devices.pair(
+        'Synthetic workspace client',
+        server.network.identity.certificateSha256,
+      );
+      const target = pairing(
+        server.network.target.port,
+        server.network.identity.certificateSha256,
+        credentialFromBytes(paired.credential),
+        paired.deviceId,
+      );
+      const status = await runAsync('request', target, 'GET', '/api/workspace/agent', 'null');
+      assert.equal(status.status, 200);
+      const offer = JSON.parse(run('workspace_offer', status.body as string));
+      assert.equal(offer.availability, 'unavailable');
+      const project = server.controlPlane.commands.submit(
+        server.commands.createProject('Synthetic workspace request'),
+        'internal',
+      );
+      assert.ok(project.command?.result?.kind === 'project_created');
+      const work = server.controlPlane.commands.submit(
+        server.commands.createWorkstream(project.command.result.project_id, feature),
+        'internal',
+      );
+      assert.ok(work.command?.result?.kind === 'workstream_created');
+      server.controlPlane.commands.submit(
+        server.commands.startExecution(work.command.result.workstream_id, feature),
+        'internal',
+      );
+      await server.time.runUntilIdle();
+      const execution = server.controlPlane.projection.workstream(
+        work.command.result.workstream_id,
+      )?.current_execution_id;
+      assert.ok(execution);
+      const envelope = JSON.parse(
+        run(
+          'command',
+          'workspace.request.submit',
+          JSON.stringify({
+            project_id: project.command.result.project_id,
+            workstream_id: work.command.result.workstream_id,
+            execution_id: execution,
+            text: 'Synthetic authorized request.',
+          }),
+        ),
+      );
+      const sent = await runAsync('workspace_dispatch', JSON.stringify(envelope), target, 'save');
+      assert.equal(sent.persisted, true);
+      assert.equal(sent.status, 422);
+      await server.time.advance(0);
+      const read = await runAsync(
+        'request',
+        target,
+        'GET',
+        `/api/workspace/commands/${envelope.command_id}`,
+        'null',
+      );
+      assert.equal(read.status, 200);
+      const scope = {
+        connection: 'synthetic-key',
+        journal: server.controlPlane.journal.info.journal_id,
+        project: project.command.result.project_id,
+        work: work.command.result.workstream_id,
+        execution,
+      };
+      const resolved = run(
+        'workspace_command',
+        read.body as string,
+        envelope.command_id,
+        'null',
+        JSON.stringify(scope),
+        'workspace.request.submit',
+      );
+      // A coordinator-unavailable rejection has no admitted target scope. It cannot settle
+      // this task-bound pending reference merely because the sender can read the receipt.
+      assert.equal(resolved, 'refused');
+      assert.equal(server.devices.revoke(paired.deviceId, { kind: 'local' }), 'revoked');
+      const refused = await runAsync(
+        'request',
+        target,
+        'GET',
+        `/api/workspace/commands/${envelope.command_id}`,
+        'null',
+      );
+      assert.equal(refused.status, 401);
     } finally {
       await server.stop();
     }

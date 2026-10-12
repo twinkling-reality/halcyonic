@@ -209,3 +209,46 @@ immersive app, including `FLAG_SECURE` on the actual Horizon virtual display and
 focus callbacks. Foreground visible polling stops on pause or loss of top-resumed ownership.
 Background notifications and arbitrary
 app control are not implemented capabilities.
+
+## Native workspace request consumer
+
+The actual native task page now offers a separate workspace-request surface. Its ordinary editor,
+spoken-origin label, page and saved request reference remain separate from task instructions.
+The page reads host availability and verifies every exact request response against the current
+connection, journal, project, task and execution. Older-host 404/unavailability retains words.
+Reported replies and Actions are separate from task completion; Stop planning does not stop the
+runtime. Submit, Resume and Cancel bind immutable reviewed context and recheck fresh host state.
+Availability and action refresh preserve the active editor instead of replacing its view.
+
+Pending request command IDs are saved to the ordinary private stores before POST. Every POST ACK,
+including a completed duplicate, leaves the pending reference until an authenticated original-owner
+command GET proves its journal, UUID, exact type and full task tuple. Missing, unavailable, foreign,
+malformed or unknown-effect receipts preserve that ID without resubmitting. A rejected receipt
+without an admitted target scope cannot prove the saved task binding. Earlier-run word copy is
+refused while the current send remains unresolved. Back expires the owned operation; stale
+callbacks cannot retain its busy lease or import a result into another selection.
+
+The fixed private `halcyonic-native-request-sends.json` contains only command identity, full tuple,
+expected request/type and `unsent`/`unknown` phase, under a 4MiB aggregate/parser bound. It stores
+no credential, envelope or words. Atomic `unsent` is written before ordinary pending stores;
+atomic `unknown` must succeed before the first POST byte. Failed phase writes block POST.
+Only an exact matching unsent record offers deliberate cleanup after ordinary stores clear;
+missing/corrupt/mismatched records and unknown attempts never grant cleanup or retry. Unrelated
+entries survive replacement. These records provide local input safety, not domain lifecycle facts.
+
+Seven focused checks passed with zero skipped: canonical producer offer/request consumption and
+scope negatives; honest command outcome parsing; persistence/phase-before-POST and one attempt;
+duplicate-completed ACK with unavailable owner GET; four partial-store/phase failures and restart;
+copy with an unresolved ID; and actual ephemeral paired-host availability/rejection/revocation.
+Production/development Android API and plain harness compilation passed, as did TypeScript
+typecheck and scoped lint. The paired-host case deliberately had no coordinator/model and was
+unavailable: it does not claim a positive native model journey. Faults exercise the consumed
+dispatch/phase/draft models, not actual Android filesystem or Activity instrumentation.
+
+Independent exact-source review and integrated gates remain required for this checkpoint.
+Actual Android Back/focus/multi-resume/IME and crash recovery, secure Horizon rendering, JNI/APK
+packaging, paired connected request controls and Unity/native/Unity return remain device gates.
+File fsync/atomic replacement establish the source ordering; sudden device power-loss behavior
+is unverified. Native input is EditText/system keyboard only. It preserves speech-origin words
+from the shared handoff but has no native microphone capture/transcription consumer. Capture/share
+still requires a separate deliberate consent and real attachment path; none was invented here.
