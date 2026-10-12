@@ -137,7 +137,12 @@ import {
   WorkstreamStatus,
   WorkstreamView,
 } from './views.ts';
-import { WorkspaceContinuation, WorkspaceInstructionDraft, WorkspaceSection } from './workspace.ts';
+import {
+  WorkspaceContinuation,
+  WorkspaceInstructionDraft,
+  WorkspaceSection,
+  WorkspaceViewStore,
+} from './workspace.ts';
 
 /**
  * Definitions published by name. Wherever a schema with the same shape appears, the schema
@@ -288,6 +293,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   WorkspaceContinuation,
   WorkspaceInstructionDraft,
   WorkspaceSection,
+  WorkspaceViewStore,
 };
 
 export interface DefinitionIndex {

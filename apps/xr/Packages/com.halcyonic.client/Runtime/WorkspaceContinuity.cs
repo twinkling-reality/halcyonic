@@ -55,7 +55,7 @@ namespace Halcyonic.Client
         {
             continuation = null;
             if (json == null || json.Length > MaximumBytes || Encoding.UTF8.GetByteCount(json) > MaximumBytes
-                || !new ContinuationSyntax(json).Valid()) return false;
+                || !HasStorageSyntax(json)) return false;
             try
             {
                 using var reader = new JsonTextReader(new StringReader(json)) { DateParseHandling = DateParseHandling.None, MaxDepth = 8 };
@@ -111,6 +111,9 @@ namespace Halcyonic.Client
         private static bool Integer(JToken? token, long minimum, long maximum) =>
             token?.Type == JTokenType.Integer && (long)token >= minimum && (long)token <= maximum;
 
+        /// <summary>Syntax guard for bounded local recovery records; caller enforces bytes and schema.</summary>
+        internal static bool HasStorageSyntax(string json) => new ContinuationSyntax(json).Valid();
+
         // Json.NET also accepts JavaScript syntax. The native handoff reader does not: check the
         // JSON value forms this contract uses before Json.NET checks keys, duplicates and types.
         private sealed class ContinuationSyntax
@@ -124,6 +127,18 @@ namespace Halcyonic.Client
                 Space();
                 if (depth > 8 || at == source.Length) return false;
                 if (source[at] == '"') return Text();
+                if (Take('['))
+                {
+                    Space();
+                    if (Take(']')) return true;
+                    do
+                    {
+                        if (!Value(depth + 1)) return false;
+                        Space();
+                        if (Take(']')) return true;
+                    } while (Take(','));
+                    return false;
+                }
                 if (Take('{'))
                 {
                     Space();

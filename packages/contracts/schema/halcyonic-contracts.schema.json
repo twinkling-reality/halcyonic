@@ -10173,6 +10173,38 @@
           "const": "checks"
         }
       ]
+    },
+    "WorkspaceViewStore": {
+      "type": "object",
+      "required": [
+        "version",
+        "selected",
+        "views"
+      ],
+      "properties": {
+        "version": {
+          "type": "number",
+          "const": 1
+        },
+        "selected": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkspaceContinuation"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
