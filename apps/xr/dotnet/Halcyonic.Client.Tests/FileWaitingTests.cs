@@ -46,7 +46,7 @@ public class FileWaitingTests
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         Assert.That(frame.Footer[PromptSlot.Secondary]!.DrawnAsMain, Is.False);
         Assert.That(frame.Lines.Any(line => line.Pressable), Is.False, "nothing on the page sends anything");
-        Assert.That(frame.Source, Is.EqualTo("As the agent reported it"), "the work's own state names the agent, never an app's name");
+        Assert.That(frame.Source, Is.EqualTo("Reported by agent"), "the work's own state names the agent, never an app's name");
     }
 
     private DateTimeOffset clock = DateTimeOffset.Parse("2026-10-02T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
