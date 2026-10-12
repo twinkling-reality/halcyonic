@@ -2726,3 +2726,19 @@ still require an explicit draft-discard decision.
 Local placement details open as stable menu overlays with named lifecycle callbacks. Only their
 exact offered frame after a physical draw accepts input; opening or closing them revokes retained
 menu input. Closing an overlay restores the retained composition for a fresh draw.
+
+
+Workspace return waits for the current realtime connection's welcome journal/head watermark to be
+applied, rather than trusting a cached projection during reconnect. `SnapshotCurrent` is false
+while disconnected, while another journal is awaiting its snapshot, or while the applied position
+has not reached the welcome head. It is a continuity validation signal; existing command submission,
+capability, current execution, read and deliberate-confirmation checks remain authoritative.
+
+
+The selected-view continuation exports only an ordinary instruction draft's text, spoken-origin
+flag and editor part, together with selection, section and page. Import checks the exact current
+task/execution and restores no keyboard focus, ordered read prefix or armed action. Spoken origin
+continues to require the normal reviewed confirmation. A stale execution cannot receive the draft.
+Other retained task views are currently session memory only: v1 selected-view transport is not
+proof that every open draft survives OS process recreation. Approval/question answers are never
+exported. Focus loss closes terminal local shelf overlays through their normal cancellation route.

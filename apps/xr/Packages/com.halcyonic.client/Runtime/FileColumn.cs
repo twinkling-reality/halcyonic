@@ -97,6 +97,30 @@ namespace Halcyonic.Client
 
         public MenuFrame? Frame { get; private set; }
 
+        /// <summary>The local ordinary editor draft, never a question answer or armed decision.</summary>
+        public WorkspaceInstructionDraft? ContinuationDraft() => Screen.Instruction.Open && Screen.Instruction.ExecutionId == Now?.Execution?.ExecutionId
+            ? new WorkspaceInstructionDraft { Text = Screen.Instruction.Words, Spoken = Screen.Instruction.Spoken, Part = Screen.Instruction.Part } : null;
+
+        /// <summary>Applies a validated current panel view with fresh input/read/confirmation proof. It sends nothing.</summary>
+        public bool RestoreContinuation(WorkspaceContinuation continuation)
+        {
+            if (Now == null || continuation.WorkstreamId != Now.Character.WorkstreamId
+                || continuation.ExecutionId != Now.Execution?.ExecutionId || continuation.Page < 0 || continuation.Page > 100000
+                || !Enum.IsDefined(typeof(WorkspaceSection), continuation.Section)) return false;
+            var draft = continuation.Instruction;
+            if (draft != null && (continuation.ExecutionId == null || draft.Text == null || draft.Text.Length > 32000 || draft.Part < 0 || draft.Part > 100000)) return false;
+            Compact();
+            Steering.Cancel();
+            Screen.ReadAgainAtNewSize();
+            Screen.Section = (FileSection)continuation.Section;
+            Screen.Page = (int)continuation.Page;
+            if (draft != null) Screen.Instruction.Restore(continuation.ExecutionId!, draft.Text, draft.Spoken, (int)draft.Part);
+            else Screen.Instruction.Close();
+            budget = null;
+            Rebuild();
+            return true;
+        }
+
         /// <summary>Whether the page drawn offers Stop, so a refusal of words says to press it only where it can be.</summary>
         private bool StopOnPage => Frame?.Footer[PromptSlot.Rare]?.Id == FileScreens.Stop || Frame?.Lines.Any(line => line.Action == FileScreens.Stop) == true;
 

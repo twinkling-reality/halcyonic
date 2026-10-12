@@ -177,11 +177,13 @@ public class RealtimeSessionTests
         second.Send(Samples.Welcome(resumed: false, head: 2, journalId: otherJournal));
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.Synchronizing, "welcomed to another journal, its snapshot still to come");
         Assert.That(session.State.Journal!.JournalId, Is.EqualTo(Samples.JournalId), "the state still shows the last journal");
+        Assert.That(session.SnapshotCurrent, Is.False, "return cannot use the previous journal during resynchronization");
         var decided = new CommandFactory(Samples.Client).CreateProject("Halcyonic");
         Assert.ThrowsAsync<SessionUnavailableException>(() => session.SubmitAsync(decided), "not sent, so it can be tried again on what shows next");
 
         second.Send(new SnapshotMessage { Snapshot = Samples.Snapshot(2, journal: Samples.Journal(otherJournal)) });
         await Pumping.Until(session, s => s.Status.IsLive && s.State.Journal?.JournalId == otherJournal, "the other journal is live");
+        Assert.That(session.SnapshotCurrent, Is.True, "the fresh other-journal snapshot has reached its welcome head");
         var next = new CommandFactory(Samples.Client).CreateProject("Halcyonic");
         var submitted = session.SubmitAsync(next);
         var sent = await second.ReceiveFromClientAsync();
@@ -576,4 +578,24 @@ public class RealtimeSessionTests
         await session.SetPausedAsync(false);
         Assert.DoesNotThrow(() => session.Start(), "the session was not running");
     }
+    [Test]
+    public async Task ReturnWatermarkRejectsDisconnectedCachedStateAndAResumedHeadAheadOfTheAppliedProjection()
+    {
+        StartSession(options => { options.InitialRetryDelay = TimeSpan.FromMilliseconds(200); options.MaxRetryDelay = TimeSpan.FromMilliseconds(400); });
+        var first = await ConnectLiveAsync(Samples.Snapshot(5, new[] { Samples.Workstream("w1") }));
+        Assert.That(session.SnapshotCurrent, Is.True);
+        first.Close("1001 going away");
+        await Pumping.Until(session, current => current.Status.Phase == ConnectionPhase.WaitingToRetry, "cached state is disconnected");
+        Assert.That(session.SnapshotCurrent, Is.False);
+        Assert.That(session.State.Journal, Is.Not.Null, "a cached projection survives without current return authority");
+        var second = await server.AcceptAsync();
+        await second.ReceiveFromClientAsync();
+        second.Send(Samples.Welcome(resumed: true, head: 6));
+        await Pumping.Until(session, current => current.Status.IsLive, "a welcome arrived ahead of the applied state");
+        Assert.That(session.SnapshotCurrent, Is.False, "Live alone cannot cover an unapplied welcome head");
+        second.Send(Samples.Event(6, Samples.Workstream("w1", WorkstreamStatus.Running)));
+        await Pumping.Until(session, current => current.State.Position == 6, "the welcome watermark is applied");
+        Assert.That(session.SnapshotCurrent, Is.True);
+    }
+
 }

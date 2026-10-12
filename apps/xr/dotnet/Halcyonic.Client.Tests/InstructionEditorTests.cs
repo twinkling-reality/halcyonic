@@ -310,4 +310,40 @@ public class InstructionEditorTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ContinuationRestoresOnlyOrdinaryDraftWithFreshReadAndSpokenProtection(bool spoken)
+    {
+        var (host, _, original) = Setup();
+        original.Act(FileScreens.TellIt, null);
+        host.Keyboard!.Value.Done("Continue with a regression test");
+        if (spoken)
+        {
+            original.HoldStarted(FileScreens.HoldToTalk);
+            original.HoldEnded(FileScreens.HoldToTalk, true);
+            original.Heard("Continue with a regression test");
+        }
+        Read(host, original);
+        Assert.That(original.Screen.Instruction.Read, Is.True);
+        var draft = original.ContinuationDraft();
+        Assert.That(draft, Is.Not.Null);
+        var record = new WorkspaceContinuation
+        {
+            WorkstreamId = original.Now!.Character.WorkstreamId, ExecutionId = original.Now.Execution!.ExecutionId,
+            Section = WorkspaceSection.Activity, Page = 0, Instruction = draft,
+        };
+        var (restoredHost, _, restored) = Setup();
+        Assert.That(restored.RestoreContinuation(record), Is.True);
+        Assert.That((restored.Screen.Instruction.Words, restored.Screen.Instruction.Spoken, restored.Screen.Instruction.Read, restored.Screen.Instruction.InputFocused, restored.Steering.Armed),
+            Is.EqualTo((draft!.Text, spoken, false, false, (WorkspaceAction?)null)));
+        restored.Act(FileScreens.SendInstruction, null);
+        Assert.That((host.Sent.Count, restoredHost.Sent.Count), Is.EqualTo((0, 0)));
+        Assert.That(draft!.GetType().GetProperties().Select(property => property.Name), Is.EquivalentTo(new[] { "Text", "Spoken", "Part" }), "no question answer or read/armed field is exported");
+        Read(restoredHost, restored);
+        restored.Act(FileScreens.SendInstruction, null);
+        Assert.That((restoredHost.Sent.Count, restored.Steering.Armed), Is.EqualTo(spoken ? (0, (WorkspaceAction?)WorkspaceAction.Instruct) : (1, (WorkspaceAction?)null)), "only explicit current Send may send; spoken words still require reviewed Yes");
+        record.ExecutionId = "other-execution";
+        Assert.That(restored.RestoreContinuation(record), Is.False, "the draft never retargets another execution");
+    }
+
 }
