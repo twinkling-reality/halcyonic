@@ -18,6 +18,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The main action's key cap, the one shape the accent fills.</summary>
         MainCap,
+
+        /// <summary>A vertical insertion caret in a focused input field, never a selection marker.</summary>
+        InputCaret,
     }
 
     /// <summary>

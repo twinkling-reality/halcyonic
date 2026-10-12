@@ -421,7 +421,12 @@ namespace Halcyonic.XR.UI.Editor
                 if (accented && shape.Selection != SurfaceSelection.MainCap) yield return what + ": " + name + " is filled with the accent, which marks only the main action's cap.";
                 var scale = shape.transform.lossyScale;
                 var thinnest = Glaze.DegreesOf(Mathf.Min(Mathf.Abs(scale.x), Mathf.Abs(scale.y)), PlaneDistance(eyes, shape.transform));
-                if (thinnest < 0.2f && fill.a > 0.2f) yield return what + ": " + name + " is a bar, " + thinnest.ToString("0.00", CultureInfo.InvariantCulture) + " degrees thin; nothing is marked by a bar or an underline.";
+                if (shape.Selection == SurfaceSelection.InputCaret)
+                {
+                    if (shape.Size.x >= shape.Size.y || shape.Size.y <= 0f || framed || !Same(fill, GlazeTokens.Text))
+                        yield return what + ": " + name + " is not a plain vertical input caret.";
+                }
+                else if (thinnest < 0.2f && fill.a > 0.2f) yield return what + ": " + name + " is a bar, " + thinnest.ToString("0.00", CultureInfo.InvariantCulture) + " degrees thin; nothing is marked by a bar or an underline.";
             }
         }
 

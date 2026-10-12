@@ -1116,7 +1116,7 @@ namespace Halcyonic.XR.UI
             line.MayCut = model.WordsAreData;
             line.Words.transform.localPosition = new Vector3(wordsLeft, middle + rows * lineHeight / 2f, -U(0.05f));
             LayGrounds(line, model, role != null, theirs, left, right, middle, height);
-            if (model.Control == LineControl.Input && model.InputFocused) line.ShowCaret(wordsLeft, end, middle, rows * lineHeight);
+            if (model.Control == LineControl.Input && model.InputFocused && !model.Runs.AnyTheirs) line.ShowCaret(wordsLeft, end, middle, rows * lineHeight);
             return top - height;
         }
 
@@ -1410,7 +1410,8 @@ namespace Halcyonic.XR.UI
             {
                 caret ??= Surface.Create(parent, name + " input caret", Order + 4);
                 caret.gameObject.SetActive(true);
-                var x = model?.Drawn == "Type your answer" ? left : Mathf.Min(right - U(Glaze.Menu.GridDegrees), left + Words.preferredWidth + U(Glaze.Menu.GridDegrees));
+                caret.Selection = SurfaceSelection.InputCaret;
+                var x = left;
                 caret.Draw(new Vector2(U(Glaze.Menu.HairlineDegrees), GlazeText.LineHeight(Words)), 0f, GlazeTokens.Text);
                 caret.transform.localPosition = new Vector3(x, middle + height / 2f - GlazeText.LineHeight(Words) / 2f, -U(0.07f));
             }
