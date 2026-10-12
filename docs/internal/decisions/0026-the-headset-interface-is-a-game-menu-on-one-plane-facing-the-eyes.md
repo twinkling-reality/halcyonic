@@ -4,6 +4,11 @@
   on 2026-10-08.
 - Date: 2026-10-02
 
+Mandatory character entry and closed-on-return behavior are superseded by
+[ADR 0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md).
+The record below preserves the original decision and its evidence; reading and input safeguards
+remain requirements of the new composition.
+
 ## Context
 
 [ADR 0023](0023-the-headset-interface-is-one-system-of-tokens-and-components.md) kept a task's
