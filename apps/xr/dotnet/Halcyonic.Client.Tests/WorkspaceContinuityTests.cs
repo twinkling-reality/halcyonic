@@ -42,10 +42,37 @@ public class WorkspaceContinuityTests
             Assert.Throws<ArgumentException>(() => WorkspaceContinuity.ConnectionKey(ControlPlaneTarget.Local(new Uri(endpoint), "fixture")));
         var pairing = new PairedControlPlane("not a host", 47801, new string('b', 64), "device", "hlcd_fixture");
         Assert.Throws<UriFormatException>(() => WorkspaceContinuity.ConnectionKey(ControlPlaneTarget.Paired(pairing)));
-        foreach (var credential in new[] { "hlcd_", "hlcd_bad\r\nvalue", "hlcd_" + new string('a', 4097) })
+        foreach (var credential in new[] { "hlcd_", "hlcd_bad\r\nvalue", "hlcd_fixture\n", "hlcd_" + new string('a', 4097) })
         {
             var invalid = new PairedControlPlane("computer.local", 47801, new string('b', 64), Samples.ProjectId, credential);
             Assert.Throws<ArgumentException>(() => WorkspaceContinuity.ConnectionKey(ControlPlaneTarget.Paired(invalid)));
+        }
+    }
+
+    [Test]
+    public void JavaScriptExtensionsAndUnescapedControlsCannotCrossTheNativeBoundary()
+    {
+        foreach (var json in new[]
+        {
+            ValidJson.Replace("\"version\":1", "version:1"),
+            ValidJson.Replace("\"version\":1", "'version':1"),
+            ValidJson.Replace("\"version\":1", "\"version\":01"),
+            ValidJson.Replace("\"version\":1", "\"version\":0x1"),
+            ValidJson.Replace("\"version\":1", "\"version\":1/*comment*/"),
+            ValidJson.Insert(ValidJson.Length - 1, ","),
+            ValidJson.Replace("\"version\":1", "\"version\":1\v"),
+            ValidJson.Replace("\"spoken\":true", "\"spoken\":true,"),
+        }) Assert.That(WorkspaceContinuity.TryParse(json, out _), Is.False, json);
+
+        var value = JObject.Parse(ValidJson);
+        value["instruction"]!["text"] = "Line one\nLine two: \"quoted\" \\ path, λ 🚀";
+        Assert.That(WorkspaceContinuity.TryParse(value.ToString(Formatting.Indented), out _), Is.True);
+        Assert.That(WorkspaceContinuity.TryParse(value.ToString(Formatting.None).Replace("\\n", "\n"), out _), Is.False);
+        foreach (var key in new[] { "handoff_id", "connection_key", "journal_id" })
+        {
+            var malformed = (JObject)value.DeepClone();
+            malformed[key] = (string)malformed[key]! + "\n";
+            Assert.That(WorkspaceContinuity.TryParse(malformed.ToString(Formatting.None), out _), Is.False, key);
         }
     }
 
