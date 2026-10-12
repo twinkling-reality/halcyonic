@@ -4,6 +4,10 @@
   [mixed-reality-room.md](../validation/mixed-reality-room.md) are still to run.
 - Date: 2026-09-29
 
+Automatic whole-stage placement and floating fallback are superseded by
+[ADR 0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md).
+The record below preserves the original decision and its evidence.
+
 ## Context
 
 Halcyonic's idea for mixed reality is that a person's agents live in their real workspace: the
