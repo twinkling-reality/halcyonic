@@ -393,9 +393,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(PlaneState(name + " director settings", folder, camera, texture, director.Plane, characters, eyes, null));
 
                 // Enter the visible Comfort category before choosing its supported setting.
-                var index = director.Plane.Showing(MenuColumn.Menu);
-                if (index == null || !index.Lines.Any(line => line.Action == SettingsHubColumn.OpenCategory && line.Key == Comfort.Heading)
-                    || !director.Navigator.Act(MenuColumn.Menu, SettingsHubColumn.OpenCategory, Comfort.Heading, index, null))
+                if (!OpenSettingsCategoryForRender(director, Comfort.Heading))
                     failures.Add(name + ": Settings offered no visible Comfort category.");
                 director.DrawNow();
                 failures.AddRange(PlaneState(name + " director comfort category", folder, camera, texture, director.Plane, characters, eyes, null));
@@ -1422,6 +1420,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 FocusGuard.FoldForRender(null);
             }
             return failures;
+        }
+
+        private static bool OpenSettingsCategoryForRender(MenuDirector director, string category)
+        {
+            var pages = new HashSet<string>();
+            while (true)
+            {
+                director.DrawNow();
+                var frame = director.Plane.Showing(MenuColumn.Menu);
+                if (frame == null) return false;
+                if (frame.Lines.Any(line => line.Action == SettingsHubColumn.OpenCategory && line.Key == category))
+                    return director.Navigator.Act(MenuColumn.Menu, SettingsHubColumn.OpenCategory, category, frame, null);
+                if (!pages.Add(string.Join("\u0001", frame.Lines.Select(line => line.Key)))) return false;
+                var next = frame.Footer.All.FirstOrDefault(each => each.Prompt.Id == Footer.NextPage).Prompt;
+                if (next == null || !director.Navigator.Act(MenuColumn.Menu, next.Id, null, frame, null)) return false;
+            }
         }
 
         private static IEnumerable<string> DirectorFileControls(string name, MenuFrame? frame)

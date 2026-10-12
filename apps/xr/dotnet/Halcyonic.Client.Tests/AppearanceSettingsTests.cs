@@ -183,6 +183,51 @@ public class AppearanceSettingsTests
         Assert.That(hub.Frame.Lines.All(line => line.Action == SettingsHubColumn.OpenCategory), Is.True);
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void MeasuredCategoryHeadingKeepsEverySupportedGroupAndItsValueReachable(TextSize size)
+    {
+        var host = new FakeMenuHost { TextSize = size };
+        host.MeasureTitle = (subject, width) =>
+        {
+            Assert.That((subject, width), Is.EqualTo((SettingsText.Subject, Glaze.Menu.MenuColumnDegrees)));
+            return 2;
+        };
+        host.MeasurePage = (rows, besideMenu) =>
+        {
+            Assert.That((rows, besideMenu), Is.EqualTo((2, true)));
+            return MenuPage.Rows(2) + MenuPage.TargetGap / 2f;
+        };
+        var comfort = new Comfort();
+        var settings = ComfortSettings.Of(comfort, () => { }).Concat(new[]
+        {
+            new MenuSetting("room", SettingsText.YourSpace, "Around you", () => new SettingNow("Around you", "Your room", "Change", "", "Change room"), () => { }),
+            new MenuSetting("pairing", SettingsText.YourMac, "Pairing", () => new SettingNow("192.0.2.40", "Paired with 192.0.2.40", "Forget", "", "Forget", valueIsData: true, about: "192.0.2.40"), () => { }),
+        }).ToList();
+        var hub = new SettingsHubColumn(host, settings, new AppearanceSettings(), () => { });
+        var seen = new List<string>();
+        for (var page = 0; page < 2; page++)
+        {
+            var frame = hub.Frame!;
+            Assert.That(frame.Source, Is.Null);
+            Assert.That(frame.Lines.Count, Is.EqualTo(2), "the full measured room has no reserved source line");
+            Assert.That(MenuPage.Rows(frame.Lines.Count), Is.LessThanOrEqualTo(host.MeasurePage(2, true)));
+            seen.AddRange(frame.Lines.Select(line => line.Key!));
+            var computer = frame.Lines.SingleOrDefault(line => line.Key == SettingsText.YourMac);
+            if (computer != null) Assert.That(computer.FactRuns!.AllTheirs, Is.True, "paging preserves the outside computer value");
+            var next = frame.Footer.All.Single(each => each.Prompt.Id == Footer.NextPage).Prompt;
+            Assert.That(next.Words, Is.EqualTo(Footer.NextPageWords(page, 2)));
+            hub.Act(next.Id, null);
+        }
+        Assert.That(seen, Is.EqualTo(new[] { SettingsHubColumn.Appearance, Comfort.Heading, SettingsText.YourSpace, SettingsText.YourMac }));
+        Assert.That(hub.Frame!.Lines.Select(line => line.Key), Is.EqualTo(seen.Take(2)), "the offered pager returns to the first categories");
+        Assert.That(hub.Frame.Lines.Any(line => line.Key == Comfort.Heading), Is.True);
+        hub.Act(SettingsHubColumn.OpenCategory, Comfort.Heading);
+        Assert.That(hub.Frame!.Lines.First().Words, Is.EqualTo(Comfort.Heading), "the offered category opens its existing leaf");
+        Assert.That(hub.Frame.Lines.Any(line => line.Action == SettingsColumn.OpenSetting), Is.True);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     [Test]
     public void DefensiveDepartureAlsoDropsTheApplyTarget()
     {

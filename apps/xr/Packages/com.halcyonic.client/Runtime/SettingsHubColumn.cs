@@ -44,7 +44,11 @@ namespace Halcyonic.Client
                         : frame;
                 }
                 var categories = Categories;
-                var each = Math.Max(1, host.PageRows(sourceLine: false));
+                var subjectRows = host.TitleRows(SettingsText.Subject, Glaze.Menu.MenuColumnDegrees);
+                var room = host.PageHeight(subjectRows, besideMenu: true);
+                var most = host.PageRows(sourceLine: false);
+                // This index has no source line: its full measured page holds category targets.
+                var each = Math.Max(1, Enumerable.Range(1, most).LastOrDefault(count => MenuPage.Rows(count) <= room + 1e-6f));
                 var pages = Math.Max(1, (categories.Count + each - 1) / each);
                 if (page >= pages) page = 0;
                 given = Summary();
