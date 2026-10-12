@@ -26,6 +26,10 @@ namespace Halcyonic.Client
         public const string Stop = WorkspaceScreens.Stop;
         public const string TellIt = WorkspaceScreens.TellIt;
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
+        internal static bool FocusesAnswer(WorkspacePresentation workspace, bool questionPage, WorkspaceSteering steering) =>
+            WorkspaceText.NeedFromYou(workspace) == null && workspace.QuestionToAnswer is QuestionView question && WorkspaceText.Answerable(question)
+                && (questionPage || steering.Armed == WorkspaceAction.Answer);
+
         /// <summary>Hold to talk on Activity, which speaks an instruction.</summary>
         public const string HoldToTalk = WorkspaceScreens.HoldToTalk;
 
@@ -106,8 +110,7 @@ namespace Halcyonic.Client
             var lines = page.Lines.ToList();
             if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
             // The task's title leans in its plate, which is its ground; the pill on its edge stays upright.
-            var focused = WorkspaceText.NeedFromYou(workspace) == null && workspace.QuestionToAnswer is QuestionView currentQuestion && WorkspaceText.Answerable(currentQuestion)
-                && (page.OfQuestion || steering.Armed == WorkspaceAction.Answer);
+            var focused = FocusesAnswer(workspace, page.OfQuestion, steering);
             var frame = new MenuFrame(
                 LineWords.TheirName(workspace.Character.Title),
                 page.Footer,

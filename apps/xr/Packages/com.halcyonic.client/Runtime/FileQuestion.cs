@@ -81,6 +81,7 @@ namespace Halcyonic.Client
         private IReadOnlyList<string> reviewWords = Array.Empty<string>();
         private List<List<(int Prompt, int First, int Rows)>> reviewPages = new List<List<(int, int, int)>> { new List<(int, int, int)>() };
         private bool returnToReview;
+        private int? questionReturnPage;
         private string input = "";
         private string? inputMeasured;
         private int inputRows = 1;
@@ -154,14 +155,15 @@ namespace Halcyonic.Client
             var asked = draft.Prompts[prompt];
             if (asked.Options.Count == 0) return true;
             var several = draft.Prompts.Count > 1;
-            var room = page.Room - Head(headRows) - Below(asked.FreeText, several) - Alike(asked);
+            var room = page.Room - Head(prompt, headRows) - Below(asked.FreeText, several) - Alike(asked);
             if (page.Targets(Enumerable.Range(0, asked.Options.Count).Select(option => AnswerShows(prompt, option)).ToArray()) <= room + 1e-6f) return true;
             var least = Enumerable.Range(0, asked.Options.Count).Min(option => AnswerShows(prompt, option));
             return page.Target(least) + MoreRow(asked.FreeText, PairInputPagerFor(prompt)) <= room + 1e-6f;
         }
 
         /// <summary>A head of words and the gap after it, the question and its answers being one group; none for no head.</summary>
-        private float Head(int rows) => rows <= 0 ? 0f : page.Words(rows) + page.LineGap;
+        private float Head(int prompt, int rows) => rows <= 0 ? 0f
+            : (rows < QuestionMeasured(prompt) ? page.Target(rows) : page.Words(rows)) + page.LineGap;
 
         /// <summary>
         /// What a page of answers takes besides its head and answers: Type my answer, sharing its row with
@@ -181,7 +183,7 @@ namespace Halcyonic.Client
         /// the larger, wherever the line meets one.
         /// </summary>
         private float Alike(QuestionPrompt asked) =>
-            WorkspaceText.OffersALabelTwice(asked) ? page.Words(AlikeRows) + Math.Max(page.LineGap, page.TargetGap) : 0f;
+            WorkspaceText.OffersALabelTwice(asked) ? page.Target(AlikeRows) + Math.Max(page.LineGap, page.TargetGap) : 0f;
 
         /// <summary>The row for more answers, where a page needs it: beside Type my answer it takes no row of its own.</summary>
         private float MoreRow(bool typed, bool pair) => typed && pair ? 0f : page.Target() + page.TargetGap;
@@ -273,6 +275,7 @@ namespace Halcyonic.Client
                 readingGeneration++;
                 inputUsed = null;
                 returnToReview = false;
+                questionReturnPage = null;
                 draft = answering;
                 Prompt = 0;
                 Page = 0;
@@ -372,7 +375,7 @@ namespace Halcyonic.Client
             var asked = answering.Prompts[prompt];
             var options = Enumerable.Range(0, asked.Options.Count).ToList();
             var several = answering.Prompts.Count > 1;
-            var room = page.Room - Head(headRows) - Below(asked.FreeText, several) - Alike(asked);
+            var room = page.Room - Head(prompt, headRows) - Below(asked.FreeText, several) - Alike(asked);
             if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, PairInputPagerFor(prompt));
             var laid = new List<List<int>> { new List<int>() };
             var used = 0f;
@@ -642,7 +645,17 @@ namespace Halcyonic.Client
         {
             if (draft == null || !(QuestionPart is int part) || !Settled(now)) return;
             QuestionPart = part + 1 < QuestionParts(Prompt) ? part + 1 : (int?)null;
-            Page = 0;
+            Page = QuestionPart == null ? Math.Min(questionReturnPage ?? 0, Pages - 1) : 0;
+            if (QuestionPart == null) questionReturnPage = null;
+            Turned();
+        }
+
+        public void ReopenQuestion()
+        {
+            if (draft == null || Reviewing || Writing || QuestionPart != null || QuestionParts(Prompt) == 0) return;
+            questionReturnPage = Page;
+            QuestionPart = 0;
+            sideOption = null;
             Turned();
         }
 
@@ -683,6 +696,7 @@ namespace Halcyonic.Client
             if (draft == null || prompt < 0 || prompt >= draft.Prompts.Count) return;
             CancelInput();
             returnToReview = Reviewing;
+            questionReturnPage = null;
             Prompt = prompt;
             Page = 0;
             sideOption = null;
@@ -694,6 +708,7 @@ namespace Halcyonic.Client
         public void Back(DateTimeOffset now)
         {
             if (draft == null || Writing || !Settled(now)) return;
+            questionReturnPage = null;
             if (Reviewing) { Prompt = draft.Prompts.Count - 1; returnToReview = false; }
             else if (Prompt > 0) Prompt--;
             else return;
