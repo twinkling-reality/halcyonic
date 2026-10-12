@@ -744,6 +744,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 Capture("alike-stop-escape");
                 if (!file!.Frame!.Lines.Any(line => line.Action == FileScreens.Stop && line.Control == LineControl.Action)) failures.Add(name + ": alike answers have no visible bounded Stop escape.");
 
+                work.Execution.PendingQuestions[0].Prompts[0].Text = "Which colour scheme should the dashboard use?";
+                work.Execution.PendingQuestions[0].Prompts[0].Options = new List<QuestionOption>
+                {
+                    new QuestionOption { Label = "Light", Description = string.Join(" ", Enumerable.Range(0, 80).Select(index => "condition" + index)) },
+                    new QuestionOption { Label = "Dark" },
+                };
+                director.OpenFile(work.Workstream.WorkstreamId);
+                director.DrawNow();
+                ReadQuestion();
+                if (!PressWords("Light")) failures.Add(name + ": long option could not be selected from its current drawn row.");
+                director.DrawNow();
+                var detail = plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.Side).View?.Side;
+                System.Threading.Thread.Sleep(TimeSpan.FromSeconds(0.45));
+                if (detail == null || !director.Navigator.Act(MenuColumn.Side, SidePanel.Close, null, plane.Showing(MenuColumn.Side), detail))
+                    failures.Add(name + ": partially read long option details did not close through their visible Close control.");
+                director.DrawNow();
+                Capture("long-option-partial-details-closed");
+                if (file!.Screen.Question.AnswersRead(0) || file.Frame!.Footer[PromptSlot.FarRight]?.Available != false)
+                    failures.Add(name + ": closing partial details wrongly enabled question forward.");
+
+
             }
             finally
             {
