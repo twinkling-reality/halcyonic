@@ -30,6 +30,8 @@ namespace Halcyonic.Client
         private CancellationTokenSource? cancel;
         private int? chosen;
         private int page;
+        private int detailPart;
+        private int detailParts;
         private int minute = -1;
 
         /// <param name="recorded">The demonstration's limits as if read at a time (<see cref="DemonstrationRecording.UsageLimitsAt"/>), or null where it holds none.</param>
@@ -80,6 +82,8 @@ namespace Halcyonic.Client
                     footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage));
                 }
                 var side = chosen is int open ? Side(presentation, presentation.Rows[open]) : null;
+                if (side?.Parts is (int part, int parts) && parts > 1)
+                    footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(part, parts), GlazeIcon.Next, PromptKind.NextPage));
                 return new MenuFrame(UsageText.Subject, footer, lines: lines, source: presentation.Source, side: side);
             }
         }
@@ -90,14 +94,20 @@ namespace Halcyonic.Client
             {
                 case OpenLimit when int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && shown != null && index < shown.Rows.Count:
                     chosen = chosen == index ? (int?)null : index;
+                    detailPart = 0;
                     Changed?.Invoke();
                     break;
                 case SidePanel.Close when chosen != null:
                     chosen = null;
+                    detailPart = 0;
                     Changed?.Invoke();
                     break;
                 case UsageLeftScreens.Refresh when !host.Demonstration && reading == null:
                     Read();
+                    break;
+                case Footer.NextPage when chosen != null && detailParts > 1:
+                    detailPart = (detailPart + 1) % detailParts;
+                    Changed?.Invoke();
                     break;
                 case Footer.NextPage when chosen == null:
                     page++;
@@ -185,7 +195,33 @@ namespace Halcyonic.Client
             facts.Add(new SideFact(UsageText.Seen, UsageText.Sentence(row.Seen)));
             facts.Add(new SideFact(UsageText.Resets, UsageText.Sentence(row.Resets)));
             facts.Add(new SideFact(UsageText.Account, host.Demonstration ? UsageText.PartOfTheRecording : UsageText.NotIdentified));
-            return new SidePanel(row.TitleRuns, facts: facts, source: presentation.Source == null ? null : LineWords.Written(presentation.Source));
+            // Use the existing side-panel parts and carried footer, preserving each fact and its runs.
+            var subjectRows = host.TitleRows(row.Title, Glaze.Menu.SideColumnDegrees);
+            var budget = new HeightBudget(host.PageHeight(subjectRows, besideMenu: true));
+            var parts = new List<IReadOnlyList<SideFact>>();
+            var part = new List<SideFact>();
+            var used = 0f;
+            foreach (var fact in facts)
+            {
+                // MenuFrameView.LayFact uses one label row, its label/value gap, and up to three value rows.
+                var valueRows = Math.Min(3, Math.Max(1, host.RowsOf(new PageLine(fact.ValueRuns), Glaze.Menu.SideColumnDegrees)));
+                var height = budget.Words(1) + PlaneComposition.Units(Glaze.Menu.LabelToValueDegrees) + budget.Words(valueRows);
+                var gap = part.Count == 0 ? 0f : budget.GroupGap;
+                if (part.Count > 0 && used + gap + height > budget.Room + 1e-6f)
+                {
+                    parts.Add(part);
+                    part = new List<SideFact>();
+                    used = 0f;
+                    gap = 0f;
+                }
+                part.Add(fact);
+                used += gap + height;
+            }
+            if (part.Count > 0) parts.Add(part);
+            detailParts = parts.Count;
+            detailPart = Math.Min(detailPart, detailParts - 1);
+            return new SidePanel(row.TitleRuns, facts: parts[detailPart], source: presentation.Source == null ? null : LineWords.Written(presentation.Source),
+                parts: detailParts > 1 ? (detailPart, detailParts) : ((int, int)?)null);
         }
     }
 

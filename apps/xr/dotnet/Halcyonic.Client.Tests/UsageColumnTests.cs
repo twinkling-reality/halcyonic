@@ -37,7 +37,7 @@ public class UsageColumnTests
 
     private static (UsageColumn Usage, FakeMenuHost Host) Demonstration(AvailableUsageLimits? limits)
     {
-        var host = new FakeMenuHost { Demonstration = true, Connected = false, Clock = Now };
+        var host = new FakeMenuHost { Demonstration = true, Connected = false, Clock = Now, Height = MenuPage.Rows(6) };
         return (new UsageColumn(host, _ => limits), host);
     }
 
@@ -101,8 +101,8 @@ public class UsageColumnTests
         host.TextSize = text;
         host.MeasureTitle = (subject, width) =>
         {
-            Assert.That(subject, Is.EqualTo(UsageText.Subject));
-            Assert.That(width, Is.EqualTo(Glaze.Menu.MenuColumnDegrees));
+            if (width == Glaze.Menu.MenuColumnDegrees) Assert.That(subject, Is.EqualTo(UsageText.Subject));
+            else Assert.That(width, Is.EqualTo(Glaze.Menu.SideColumnDegrees));
             return 2;
         };
         host.MeasurePage = (subjectRows, besideMenu) =>
@@ -122,8 +122,10 @@ public class UsageColumnTests
             usage.Act(UsageColumn.OpenLimit, line.Key);
             var opened = usage.Frame!;
             Assert.That(opened.Side!.Subject, Is.EqualTo(line.Words));
-            Assert.That(opened.Side.Facts.Single(fact => fact.Name == UsageText.Account).Value, Is.EqualTo(UsageText.PartOfTheRecording));
-            Assert.That(opened.Footer[PromptSlot.FarRight], Is.Null, "a chosen limit still suspends paging");
+            var allFacts = DetailFacts(usage);
+            Assert.That(allFacts.Single(fact => fact.Name == UsageText.Account).Value, Is.EqualTo(UsageText.PartOfTheRecording));
+            Assert.That(allFacts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
+            Assert.That(usage.Frame!.Lines.Single().Key, Is.EqualTo(line.Key), "detail paging never advances the limit list");
             usage.Act(SidePanel.Close, null);
             usage.Act(Footer.NextPage, null);
         }
@@ -145,13 +147,36 @@ public class UsageColumnTests
         Assert.That(frame.Lines.Single().Key, Is.EqualTo("3"));
         Assert.That(frame.Lines.Single().Chosen, Is.True);
         Assert.That(frame.Side!.SubjectRuns.Runs, Is.EqualTo(before.SubjectRuns.Runs));
-        Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(before.Facts.Select(fact => (fact.Name, fact.Value))));
+        Assert.That(DetailFacts(usage).Select(fact => (fact.Name, fact.Value)), Is.EqualTo(before.Facts.Select(fact => (fact.Name, fact.Value))));
         Assert.That(frame.Side.Source, Is.EqualTo(before.Source));
-        Assert.That(frame.Footer[PromptSlot.FarRight], Is.Null);
+        Assert.That(frame.Side.Parts!.Value.Parts, Is.GreaterThan(1), "the larger detail offers complete evidence through existing side-panel parts");
         usage.Act(SidePanel.Close, null);
         Assert.That(usage.Frame!.Lines.Single().Key, Is.EqualTo("3"));
         usage.Act(Footer.NextPage, null);
         Assert.That(usage.Frame!.Lines.Single().Key, Is.EqualTo("0"));
+    }
+
+    private static SideFact[] DetailFacts(UsageColumn usage)
+    {
+        var facts = new System.Collections.Generic.List<SideFact>();
+        var first = usage.Frame!;
+        var count = first.Side!.Parts?.Parts ?? 1;
+        var key = first.Lines.Single(line => line.Chosen).Key;
+        for (var part = 0; part < count; part++)
+        {
+            var frame = usage.Frame!;
+            Assert.That(frame.Side!.Source, Is.EqualTo(first.Side.Source), "each part retains the exact source");
+            Assert.That(frame.Lines.Single(line => line.Chosen).Key, Is.EqualTo(key));
+            facts.AddRange(frame.Side.Facts);
+            if (count > 1)
+            {
+                Assert.That(frame.Side.Parts, Is.EqualTo((part, count)));
+                Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(Footer.NextPage));
+                Assert.That(frame.Footer.InPlace(frame.Side)[PromptSlot.FarRight]!.Id, Is.EqualTo(Footer.NextPage));
+                usage.Act(Footer.NextPage, null);
+            }
+        }
+        return facts.ToArray();
     }
 
     [Test]

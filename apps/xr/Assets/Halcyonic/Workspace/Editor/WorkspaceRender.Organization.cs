@@ -40,6 +40,25 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>Complete recorded Usage evidence, with every offered part held to the real field at both text sizes.</summary>
+        public static void UsageDetailsCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "UsageDetailsRenders", variant));
+                Directory.CreateDirectory(folder);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                ViewField.Current = FieldChecks.Quest3S;
+                var result = RenderJudgeWalk("far-3s", folder, CharacterStage.DefaultDistance, null, usageOnly: true).ToList();
+                ViewField.Current = null;
+                KeepFontAssetsAsCommitted();
+                foreach (var failure in result) Debug.LogError("Halcyonic: Usage details render: " + failure);
+                if (result.Count == 0) Debug.Log("Halcyonic: Usage details render: every check passed; " + folder);
+                return result;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         private static IEnumerable<string> CompactStateSemanticsForRender()
         {
             var holder = new GameObject("Compact state semantics witness");

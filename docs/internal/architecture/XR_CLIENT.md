@@ -569,7 +569,9 @@ the same definition names, as the JSON Schema document:
   fit beside a file on this stage, read again when the text size changes), `UsageColumn` (each limit's share left in words, its side panel
   when it was seen, when it resets and whose account; pages measured from its actual heading rows
   and stage page height, reserving its source line; every limit stays reachable in source order,
-  and a chosen limit keeps its identity when the text size repacks the page) and `SettingsColumn` (each setting under its
+  and a chosen limit keeps its identity when the text size repacks the page; its full Agent app,
+  Seen, Resets and Account facts use measured SidePanel parts when needed, with the exact source on
+  every part and the existing carried Next page while details occupy the frame) and `SettingsColumn` (each setting under its
   group's heading, its one change the main action; the comfort settings from `ComfortSettings`, and
   Your space and, in a development build, Your computer from `SpaceSettings`, each row's change only
   raising its id for what owns it (`IRoomSettings`, `IPairingSettings`, `MenuDirector.ResetPosition`); a change that asks first, as forgetting the computer, arms on that press
