@@ -180,7 +180,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static void PressMoveForOrganizationRender(MenuDirector menu, int pointer)
         {
-            var move = menu.Plane.Bar?.Controls.Move ?? menu.Plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.File).View?.Targets.FirstOrDefault(button => button.Label.text == "Move");
+            var move = menu.Plane.Chrome.Visible ? menu.Plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == WorkspaceText.MoveWorkspace)
+                : menu.Plane.Bar?.Controls.Move.gameObject.activeSelf == true ? menu.Plane.Bar.Controls.Move : null;
             if (move == null) throw new InvalidOperationException("No visible Move target in the organization witness.");
             // Advance only the prompt's settling witness, then use the real pointer/release route.
             typeof(Halcyonic.XR.UI.GlazeButton).GetField("shownAt", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(move, float.NegativeInfinity);

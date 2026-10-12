@@ -290,9 +290,10 @@ namespace Halcyonic.XR.UI.Editor
         /// within half a degree; no two parts closer on the plane than a degree at its distance, 8 mm at
         /// 0.46 m; and the columns starting on one line and ending on one line, within half a millimetre.
         /// </summary>
-        public static IEnumerable<string> OnePlane(IReadOnlyList<IReadOnlyList<PlaneShape>> columns, Vector3 eyes, string what)
+        public static IEnumerable<string> OnePlane(IReadOnlyList<IReadOnlyList<PlaneShape>> columns, Vector3 eyes, string what, PlaneShape? sharedHeader = null)
         {
             var parts = columns.SelectMany(column => column).ToList();
+            if (sharedHeader is PlaneShape header) parts.Add(header);
             if (parts.Count == 0) yield break;
             var plane = parts[0].Root;
             foreach (var part in parts)
@@ -425,6 +426,12 @@ namespace Halcyonic.XR.UI.Editor
                 {
                     if (shape.Size.x >= shape.Size.y || shape.Size.y <= 0f || framed || !Same(fill, GlazeTokens.Text))
                         yield return what + ": " + name + " is not a plain vertical input caret.";
+                }
+                else if (shape.Selection == SurfaceSelection.CompositionDivider)
+                {
+                    if (shape.Size.x <= shape.Size.y || thinnest >= 0.2f || framed || !Same(fill, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight))
+                        || shape.GetComponentInParent<GlazeButton>() != null)
+                        yield return what + ": " + name + " is not a plain neutral structural divider.";
                 }
                 else if (thinnest < 0.2f && fill.a > 0.2f) yield return what + ": " + name + " is a bar, " + thinnest.ToString("0.00", CultureInfo.InvariantCulture) + " degrees thin; nothing is marked by a bar or an underline.";
             }

@@ -336,3 +336,20 @@ label band above it. Header, perimeter and connected panes participate in field/
 both text sizes. Source, outside-text and decision-proof treatments remain on actual content.
 Move offers direct hand movement and Reset position, without guessed window arrangements.
 Actual Unity render and wearer acceptance of this redesign are still pending.
+
+
+A neutral structural divider may separate the attached workspace header from its connected panes.
+It is horizontal, thinner than 0.2 degrees, uses only the neutral edge color, carries no action and
+marks no selection. Chosen and pointed-at actions retain the existing fill/frame treatment; an
+arbitrary bar or underline still fails that rule. The workspace perimeter is an unfilled outline,
+so content's opening/closing remains visibly distinct from its actual background. Geometry
+witnesses include the full shared header when measuring the composition center, field corners
+and coplanarity; measuring only body panes would exclude real visible workspace content.
+
+
+`DedicatedWorkspaceCheck` exercises the production menu without characters at Standard and Larger:
+fresh/connected Projects, visible Tasks selection, a marked synthetic task in a live-origin journal,
+local instruction, global Minimize/restore and disconnected draft. Its structural negative controls
+remove the divider role and rotate the header against its body, preserving the arbitrary-bar and
+coplanarity rejection paths. It is a simulated renderer fixture, not proof of a real runtime send,
+native JNI return or wearer acceptance. Its actual Unity outcome is pending until run.

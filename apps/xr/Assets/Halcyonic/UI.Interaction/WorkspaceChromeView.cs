@@ -31,6 +31,7 @@ namespace Halcyonic.XR.UI
         public IReadOnlyList<GlazeButton> Targets { get; private set; } = Array.Empty<GlazeButton>();
         public static float Height => MenuPage.Words(2) + MenuPage.Target() + 3f * MenuPage.TargetGap;
         public bool Visible => gameObject.activeSelf;
+        public Vector2 Size { get; private set; }
 
         public static WorkspaceChromeView Create(Transform parent)
         {
@@ -69,7 +70,9 @@ namespace Halcyonic.XR.UI
             var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
             var left = -width / 2f + padding;
             var right = width / 2f - padding;
-            frame.DrawGlass(new Vector2(width, totalHeight), radius: 0f);
+            Size = new Vector2(width, Height);
+            frame.Draw(new Vector2(width, totalHeight), 0f, Color.clear,
+                GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees));
             frame.transform.localPosition = new Vector3(0f, -(totalHeight - Height) / 2f, 0.001f);
             heading.DrawGlass(new Vector2(width, Height), radius: 0f);
             var top = Height / 2f - MenuPage.TargetGap;
@@ -91,6 +94,7 @@ namespace Halcyonic.XR.UI
             apps.Available = appsAvailable;
             apps.Show(WorkspaceText.OtherApps, new Vector2(left + 1.5f * buttonWidth + gap, y), buttonWidth);
             minimize.Show(WorkspaceText.Minimize, new Vector2(right - buttonWidth / 2f, y), buttonWidth);
+            rule.Selection = SurfaceSelection.CompositionDivider;
             rule.Draw(new Vector2(width, GlazeTokens.Units(0.08f)), 0f, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight));
             rule.transform.localPosition = new Vector3(0f, -Height / 2f, -0.001f);
             foreach (var button in Targets) { button.EndPressSince(float.MinValue); button.Unsettle(); }
