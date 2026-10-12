@@ -60,7 +60,17 @@ warnings. The same response with the original director source reproduces the exa
 failure. Player metadata contains none of the guarded director helper names or fields. The
 aggregate all-Editor compile also passes with its four existing nullable warnings, preserving
 the render entrypoints. These checks isolate the source boundary; the actual Android APK build
-rerun remains a separate coordinator check.
+is a separate coordinator check.
+
+The actual development APK build from `a6db5702` subsequently succeeded with Unity exit 0 on
+October 12, producing 114517436 bytes. It was installed over the existing development app on a
+Quest 3 and launched. The live connection proved the control plane's token before upgrading;
+the existing app-private token retained mode 600 and 44 bytes, no temporary token write or shared
+copy remained, and no cleartext or StrictMode line was reported. No token rewrite was needed.
+The device checker exited 1 solely because its exclusive-USB-route assumption rejected an
+existing unrelated route alongside Halcyonic's correct loopback route; that unrelated route was
+preserved. This is not an all-pass checker result or wearer acceptance. Both-eye rendering,
+gesture feel, live palette activation and comfort still require the focused headset trial.
 
 ## Historical checkpoints and failures
 
