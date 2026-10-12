@@ -42,6 +42,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>An answer to choose on the menu (ADR 0026): a hairline shape at rest, lit when chosen (<see cref="GlazeButton.On"/>); its words stand on it.</summary>
         Answer,
+
+        /// <summary>A visible bounded control that opens or advances a focused flow.</summary>
+        Navigation,
+
+        /// <summary>A visible answer field, with its own keyboard focus treatment.</summary>
+        Input,
     }
 
     /// <summary>
@@ -332,7 +338,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public void ShowArea(Vector2 center, Vector2 area)
         {
-            if (role != ButtonRole.Row && role != ButtonRole.Answer) throw new InvalidOperationException("Only a row or an answer is shown as an area.");
+            if (role != ButtonRole.Row && role != ButtonRole.Answer && role != ButtonRole.Navigation && role != ButtonRole.Input) throw new InvalidOperationException("Only a page control is shown as an area.");
             var changed = !gameObject.activeSelf || area != size;
             label.gameObject.SetActive(false);
             detail.gameObject.SetActive(false);
@@ -720,7 +726,7 @@ namespace Halcyonic.XR.UI
                 plate.Draw(framed, radius, Color.clear, pointedFrame, GlazeTokens.Units(Glaze.Menu.PointedFrameDegrees));
                 plate.Selection = SurfaceSelection.Pointed;
             }
-            else if (role == ButtonRole.Answer)
+            else if (role == ButtonRole.Answer || role == ButtonRole.Navigation || role == ButtonRole.Input)
             {
                 plate.Draw(size, radius, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees));
                 plate.Selection = SurfaceSelection.None;
@@ -771,7 +777,7 @@ namespace Halcyonic.XR.UI
             if (state == paintedState) return;
             paintedState = state;
 
-            if (role == ButtonRole.Prompt || role == ButtonRole.Row || role == ButtonRole.Answer)
+            if (role == ButtonRole.Prompt || role == ButtonRole.Row || role == ButtonRole.Answer || role == ButtonRole.Navigation || role == ButtonRole.Input)
             {
                 PaintOnTheMenu(hovered, pressed, away);
                 return;

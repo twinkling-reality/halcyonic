@@ -468,13 +468,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         new QuestionPrompt
                         {
-                            Key = "q0", Header = "Lockout", Text = "How long should a sign-in lockout last?", Multiple = false, FreeText = true,
-                            Options = new List<QuestionOption> { new QuestionOption { Label = "15 minutes" }, new QuestionOption { Label = "1 hour" } },
+                            Key = "q0", Header = "Colour scheme", Text = "Which colour scheme should the dashboard use?", Multiple = false, FreeText = true,
+                            Options = new List<QuestionOption> { new QuestionOption { Label = "Light", Description = "Dark text on a light background" }, new QuestionOption { Label = "Dark", Description = "Light text on a dark background" } },
                         },
                         new QuestionPrompt
                         {
-                            Key = "q1", Header = "Notice", Text = "Should the person be told when their account locks?", Multiple = false, FreeText = false,
-                            Options = new List<QuestionOption> { new QuestionOption { Label = "Yes, by email" }, new QuestionOption { Label = "No" } },
+                            Key = "q1", Header = "Pages", Text = "Which pages should change?", Multiple = true, FreeText = false,
+                            Options = new List<QuestionOption> { new QuestionOption { Label = "Orders" }, new QuestionOption { Label = "Settings" } },
                         },
                     },
                 });
@@ -483,12 +483,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 var session = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
                 var sent = new List<CommandEnvelope>();
                 FileColumn? file = null;
+                Action<string>? keyboardDone = null;
+                Action? keyboardDismissed = null;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     Commands = commands,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     File = (host, task) => file = new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
                     Connected = () => true,
+                    KeyboardOffered = () => true,
+                    Keyboard = (_, _, done, dismissed) => { keyboardDone = done; keyboardDismissed = dismissed; },
                     Session = () => session,
                     Submit = (_, command) =>
                     {
@@ -513,6 +517,21 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                     return taken;
                 }
+                bool PressWords(string words)
+                {
+                    director.DrawNow();
+                    var frame = plane.Showing(MenuColumn.File);
+                    var prompt = frame?.Footer.All.FirstOrDefault(each => each.Prompt.Words == words).Prompt;
+                    if (prompt != null) return prompt.Available && Press(prompt.Id);
+                    var line = frame?.Lines.FirstOrDefault(each => each.Action != null && (each.Words == words || each.Words.StartsWith(words + " · ", StringComparison.Ordinal)));
+                    return line?.Action != null && line.Available && Press(line.Action, line.Key);
+                }
+                void Capture(string stage)
+                {
+                    director.DrawNow();
+                    if (plane.Showing(MenuColumn.Menu) != null || plane.Shown.Any(each => each.Kind == MenuColumn.Menu)) failures.Add(name + ": " + stage + " still competes with Tasks.");
+                    failures.AddRange(PlaneState(name + " answer-flow " + stage, folder, camera, texture, plane, characters, eyes, null));
+                }
                 void ReadQuestion()
                 {
                     for (var step = 0; step < 8 && file?.Screen.Question.QuestionPart != null; step++) Press(FileScreens.NextPart, FileScreens.QuestionKey);
@@ -527,6 +546,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     return failures;
                 }
                 ReadQuestion();
+                Capture("question1-unselected");
+                if (!PressWords(FileScreens.WriteAnswer)) failures.Add(name + ": visible Write an answer took no press.");
+                Capture("editor-empty-focused");
+                keyboardDismissed?.Invoke();
+                director.DrawNow();
 
                 // The voice listens, then writes down: shown on Hold to talk itself from the director's one voice
                 // (ADR 0027), so the page never grows and nothing under the hand moves; a press under way goes on,
@@ -606,20 +630,21 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                     ReadQuestion();
                 }
-                else failures.Add(name + ": no Hold to talk on the question's page to watch as the voice speaks.");
-                Press(FileScreens.Choose, "0");
-                Press(FileScreens.NextQuestion);
+                else failures.Add(name + ": no Hold to talk in the answer editor to watch as the voice speaks.");
+                if (file.Screen.Question.Writing) PressWords("Cancel");
+                if (!PressWords("Dark")) failures.Add(name + ": Dark was not reachable by its visible answer label.");
+                Capture("question1-dark-selected");
+                if (!PressWords("Next question")) failures.Add(name + ": visible Next question took no press.");
                 ReadQuestion();
-                Press(FileScreens.Choose, "0");
-                Press(FileScreens.NextQuestion);
-                if (!file.Screen.Question.Reviewing) failures.Add(name + ": the second prompt answered, Next question did not bring Your answers.");
-
-                failures.AddRange(PlaneState(name + " your answers", folder, camera, texture, plane, characters, eyes, null));
-                // Drawn, Your answers counts as read: Send answer takes the press, once.
-                director.DrawNow();
-                if (FileScreens.WhySendWaits(file.Screen) is string waits) failures.Add(name + ": Your answers drawn, Send answer still waits: \"" + waits + "\"");
-                if (!Press(FileScreens.SendAnswer)) failures.Add(name + ": Send answer on Your answers took no press.");
-                if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add(name + ": Your answers sent " + sent.OfType<ExecutionAnswerQuestionCommand>().Count() + " answers, not one.");
+                if (!PressWords("Orders")) failures.Add(name + ": Orders was not reachable by its visible answer label.");
+                Capture("question2-orders-selected");
+                if (!PressWords(FileScreens.ReviewAnswers)) failures.Add(name + ": visible Review answers took no press.");
+                for (var part = 0; part < 30 && file.Screen.Question.Page + 1 < file.Screen.Question.Pages; part++) PressWords("Next part");
+                if (!file.Screen.Question.Reviewing) failures.Add(name + ": Review answers did not bring the mandatory review.");
+                Capture("review-dark-orders");
+                if (FileScreens.WhySendWaits(file.Screen) is string waits) failures.Add(name + ": review drawn, Send answer still waits: \"" + waits + "\"");
+                if (!PressWords("Send answer")) failures.Add(name + ": visible Send answer took no press.");
+                if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add(name + ": review sent " + sent.OfType<ExecutionAnswerQuestionCommand>().Count() + " answers, not one.");
             }
             finally
             {

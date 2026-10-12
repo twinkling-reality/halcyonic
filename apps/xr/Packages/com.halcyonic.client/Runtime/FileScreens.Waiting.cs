@@ -469,7 +469,7 @@ namespace Halcyonic.Client
                 {
                     var typed = draft.Typed(prompt);
                     if (typed != null) lines.Add(SelectedTypedLine(typed, Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
-                    lines.Add(new PageLine(typed == null ? WriteAnswer : EditAnswer, icon: GlazeIcon.Type, action: TypeAnswer,
+                    lines.Add(new PageLine(typed == null ? WriteAnswer : EditAnswer, icon: screen.KeyboardOffered ? GlazeIcon.Type : GlazeIcon.Change, action: TypeAnswer,
                         control: LineControl.Action));
                 }
                 if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), icon: GlazeIcon.Next, action: MoreAnswers,
@@ -550,8 +550,8 @@ namespace Halcyonic.Client
         public static PageLine SelectedTypedLine(string typed, int rows = 1) =>
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
 
-        public static PageLine InputLine(FileQuestion question, int rows = 1, int? fromRow = null) =>
-            new PageLine(question.Input.Length == 0 ? LineWords.Ours("Type your answer") : LineWords.TheirName(question.Input), icon: GlazeIcon.Type,
+        public static PageLine InputLine(FileQuestion question, bool keyboard = true, int rows = 1, int? fromRow = null) =>
+            new PageLine(question.Input.Length == 0 ? LineWords.Ours(keyboard ? "Type your answer" : "Hold to talk below") : LineWords.TheirName(question.Input), icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,
                 action: EditInput, control: LineControl.Input, inputFocused: question.InputFocused, rows: rows, fromRow: fromRow);
 
         private static Page InputPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
@@ -560,9 +560,9 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>
             {
                 new PageLine("Your answer", tone: LineTone.Secondary),
-                InputLine(question, question.InputPartRows, question.InputPart * question.InputPartRows),
+                InputLine(question, screen.KeyboardOffered, question.InputPartRows, question.InputPart * question.InputPartRows),
             };
-            if (question.InputReading) lines.Add(new PageLine(EditAnswer, icon: GlazeIcon.Type, action: EditInput, control: LineControl.Action));
+            if (question.InputReading) lines.Add(new PageLine(EditAnswer, icon: screen.KeyboardOffered ? GlazeIcon.Type : GlazeIcon.Change, action: EditInput, control: LineControl.Action));
             return new Page(lines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
         }
 

@@ -827,7 +827,7 @@ namespace Halcyonic.Client
         /// <summary>This frame with <paramref name="sections"/> in place of its own, as the menu's places on a place's page.</summary>
         /// <param name="slots">How many slots the row is laid in, the sections given standing in the last of them; as many as there are when null.</param>
         public MenuFrame WithSections(IReadOnlyList<FrameSection> sections, int? slots = null) =>
-            new MenuFrame(SubjectRuns, Footer, SubjectIsData, Pill, sections, Lines, SourceRuns, Side, SourceIsData, SubjectWaits, slots);
+            CopyFocus(new MenuFrame(SubjectRuns, Footer, SubjectIsData, Pill, sections, Lines, SourceRuns, Side, SourceIsData, SubjectWaits, slots));
 
         public string Subject { get; }
 

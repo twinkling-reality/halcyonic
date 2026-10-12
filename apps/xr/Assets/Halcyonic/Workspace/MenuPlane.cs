@@ -336,6 +336,8 @@ namespace Halcyonic.XR.Workspace
             Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default,
             object? fileColumn = null)
         {
+            // Keep navigator state, but give the pending answer its own focused composition.
+            if (fileFrame?.Focused == true) menuFrame = null;
             eyes = at;
             surfaceDrop = surfaceHeight.HasValue ? at.y - surfaceHeight.Value : (float?)null;
             menu.Voice = Voice is (MenuColumn.Menu, string menuHeld, VoiceStage menuStage) ? (menuHeld, menuStage) : null;
