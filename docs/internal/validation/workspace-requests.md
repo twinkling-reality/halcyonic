@@ -227,3 +227,27 @@ visibility, field-of-view and coplanarity guards unchanged. Thirty-four current-
 were retained; visual inspection confirmed the Larger task view exposes Ask workspace without
 clipping its existing controls. This verifies the entry in its actual menu, not the request form,
 headset legibility or wearer acceptance, which require separate checks.
+The recovery delta passed 119 focused host/domain/contract/native checks, one real paired-device
+TLS ownership/revocation test and 19 C# codec/API checks, with zero skipped. Typecheck, contract
+generation and scoped lint passed. Independent source review found no remaining authority,
+replay or schema issue in this delta. Actual UI submission/return and headset acceptance remain
+pending.
+
+## Context after a runtime wait
+
+Natural runtime wakes retain bounded transient complete tool batches, including prior unavailable
+provider reads. This context has a 1MiB aggregate memory bound and is discarded on restart,
+explicit Resume, Cancel or settlement; it grants no authority and is not a durable request status.
+One replaceable current snapshot supplies bounded action totals and recent reported native words.
+The original tool name and opaque assistant call identity survive the wake. Remaining planning
+turns/calls are explicit, without changing the existing limits or forcing a final model answer.
+
+An accepted new anonymous turn keeps its own null native identity rather than borrowing the
+previous named turn; terminal association still uses the actually applied active turn. Inferred
+reconstruction remains a plainly explained interrupted state, not confirmed completion.
+
+Thirty-two focused real pipeline/domain/identity checks passed with zero skipped, including two
+runtime waits, single fresh-snapshot replacement, bounded receipt metadata, exact observe-tool
+identity and a named-to-new-anonymous turn. Typecheck and scoped lint passed. Actual local model
+and software-output acceptance remains a separate witness; prior real probes completed software
+work but exhausted planning before a reported final response, so they are not overall passes.

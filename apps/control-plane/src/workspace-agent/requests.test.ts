@@ -781,76 +781,6 @@ test('the bounded global worker queue serializes local inference and rejects fan
   }
 });
 
-test('exact command recovery survives snapshot eviction and restart without a coordinator or submitted words', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'halcyonic-command-recovery-'));
-  const path = join(directory, 'journal.db');
-  const first = await fixture({ path, turn: async () => answer() });
-  const command = first.command('submit', undefined, 'Synthetic words excluded from recovery');
-  const submitted = first.controlPlane.commands.submit(command, 'http', { kind: 'local' });
-  await settle();
-  assert.equal(submitted.command?.result?.kind, 'workspace_request_created');
-  for (let i = 0; i < 55; i++)
-    first.controlPlane.commands.submit(first.commands.createProject('Synthetic churn'), 'internal');
-  assert.equal(
-    first.controlPlane.projection.commands(50).some((c) => c.command_id === command.command_id),
-    false,
-  );
-  const journalId = first.journal.info.journal_id;
-  await first.close();
-  const replay = createTestControlPlane({ path });
-  const app = await createHttpServer({ token: 'synthetic-access-token', logLevel: 'silent' });
-  try {
-    registerRoutes(app, replay.controlPlane, providers);
-    const headers = { host: '127.0.0.1:0', authorization: 'Bearer synthetic-access-token' };
-    const read = await app.inject({
-      method: 'GET',
-      url: `/api/workspace/commands/${command.command_id}`,
-      headers,
-    });
-    assert.equal(read.statusCode, 200);
-    assert.equal(read.json().journal_id, journalId);
-    assert.deepEqual(read.json().command, submitted.command);
-    assert.equal(read.body.includes('Synthetic words excluded from recovery'), false);
-    assert.equal('payload' in read.json().command, false);
-    const unknown = await app.inject({
-      method: 'GET',
-      url: '/api/workspace/commands/550e8400-e29b-41d4-a716-446655440000',
-      headers,
-    });
-    assert.equal(unknown.statusCode, 404);
-    const other = replay.controlPlane.commands.submit(
-      replay.commands.createProject('Synthetic'),
-      'http',
-      { kind: 'local' },
-    );
-    const nonrequest = await app.inject({
-      method: 'GET',
-      url: `/api/workspace/commands/${other.command?.command_id}`,
-      headers,
-    });
-    assert.equal(nonrequest.statusCode, 404);
-    assert.deepEqual(nonrequest.json(), unknown.json());
-    assert.equal(
-      (await app.inject({ method: 'GET', url: '/api/workspace/commands/bad', headers })).statusCode,
-      400,
-    );
-    assert.equal(
-      (
-        await app.inject({
-          method: 'GET',
-          url: `/api/workspace/commands/${command.command_id}`,
-          headers: { host: '127.0.0.1:0' },
-        })
-      ).statusCode,
-      401,
-    );
-  } finally {
-    await app.close();
-    await replay.controlPlane.close();
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
 test('accepted anonymous terminal resolves the actual named active-turn association', async () => {
   const f = await fixture();
   try {
@@ -874,7 +804,7 @@ test('legitimate inferred reconstructed outcome interrupts explicitly instead of
     await settle();
     const request = f.coordinator.read(id, { kind: 'local' });
     assert.equal(request?.status, 'interrupted');
-    assert.match(request?.steps[0]?.summary ?? '', /^missing_observed_outcome:/);
+    assert.match(request?.steps[0]?.summary ?? '', /has not observed that outcome/);
     assert.equal(request?.steps[0]?.status, 'unknown');
     assert.equal(f.turns, 1);
     f.controlPlane.commands.submit(f.command('resume', id), 'http', { kind: 'local' });
@@ -975,6 +905,201 @@ test('complete assistant/tool batches pack under the existing input bound instea
     assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
     assert.equal(turns, 8);
     assert.ok(bytes.every((value) => value <= 11264));
+  } finally {
+    await f.close();
+  }
+});
+
+test('exact command recovery survives snapshot eviction and restart without a coordinator or submitted words', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'halcyonic-command-recovery-'));
+  const path = join(directory, 'journal.db');
+  const first = await fixture({ path, turn: async () => answer() });
+  const command = first.command('submit', undefined, 'Synthetic words excluded from recovery');
+  const submitted = first.controlPlane.commands.submit(command, 'http', { kind: 'local' });
+  await settle();
+  assert.equal(submitted.command?.result?.kind, 'workspace_request_created');
+  for (let i = 0; i < 55; i++)
+    first.controlPlane.commands.submit(first.commands.createProject('Synthetic churn'), 'internal');
+  assert.equal(
+    first.controlPlane.projection.commands(50).some((c) => c.command_id === command.command_id),
+    false,
+  );
+  const journalId = first.journal.info.journal_id;
+  await first.close();
+  const replay = createTestControlPlane({ path });
+  const app = await createHttpServer({ token: 'synthetic-access-token', logLevel: 'silent' });
+  try {
+    registerRoutes(app, replay.controlPlane, providers);
+    const headers = { host: '127.0.0.1:0', authorization: 'Bearer synthetic-access-token' };
+    const read = await app.inject({
+      method: 'GET',
+      url: `/api/workspace/commands/${command.command_id}`,
+      headers,
+    });
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.json().journal_id, journalId);
+    assert.deepEqual(read.json().command, submitted.command);
+    assert.equal(read.body.includes('Synthetic words excluded from recovery'), false);
+    assert.equal('payload' in read.json().command, false);
+    const unknown = await app.inject({
+      method: 'GET',
+      url: '/api/workspace/commands/550e8400-e29b-41d4-a716-446655440000',
+      headers,
+    });
+    assert.equal(unknown.statusCode, 404);
+    const other = replay.controlPlane.commands.submit(
+      replay.commands.createProject('Synthetic'),
+      'http',
+      { kind: 'local' },
+    );
+    const nonrequest = await app.inject({
+      method: 'GET',
+      url: `/api/workspace/commands/${other.command?.command_id}`,
+      headers,
+    });
+    assert.equal(nonrequest.statusCode, 404);
+    assert.deepEqual(nonrequest.json(), unknown.json());
+    assert.equal(
+      (await app.inject({ method: 'GET', url: '/api/workspace/commands/bad', headers })).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/workspace/commands/${command.command_id}`,
+          headers: { host: '127.0.0.1:0' },
+        })
+      ).statusCode,
+      401,
+    );
+  } finally {
+    await app.close();
+    await replay.controlPlane.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('new anonymous turn never inherits the preceding named turn identity', async () => {
+  const f = await fixture();
+  try {
+    const id = f.submit();
+    await settle();
+    f.emit('runtime.turn.started', { turn_id: null });
+    await settle();
+    assert.equal(
+      f.controlPlane.projection.workspacePreparedActions(id)[0]?.step.observed_turn_id,
+      null,
+    );
+    f.emit('runtime.turn.completed', { turn_id: null });
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+  } finally {
+    await f.close();
+  }
+});
+test('runtime wait preserves bounded prior unavailable reads and includes fresh reported native output without forcing a final answer', async () => {
+  let turn = 0,
+    sawUnavailable = false,
+    sawReport = false;
+  const f = await fixture({
+    turn: async (messages) => {
+      turn++;
+      if (turn === 1) return answer([{ name: 'read_understanding', arguments: {} }], '');
+      if (turn === 2)
+        return answer(
+          [{ name: 'continue_task', arguments: { text: 'Synthetic authorized continuation' } }],
+          '',
+        );
+      sawUnavailable = messages.some(
+        (message) =>
+          message.role === 'tool' &&
+          message.tool_name === 'read_understanding' &&
+          message.content.includes('synthetic_unavailable'),
+      );
+      sawReport = messages.some(
+        (message) =>
+          message.role === 'system' &&
+          message.content.includes('Synthetic reported native result') &&
+          message.content.includes('reported'),
+      );
+      const fresh = messages.filter(
+        (message) => message.role === 'system' && message.content.startsWith('Fresh host receipts'),
+      );
+      assert.equal(fresh.length, 1);
+      const snapshot = fresh[0];
+      assert.ok(snapshot);
+      const receipts = JSON.parse(snapshot.content.slice(snapshot.content.indexOf('{')));
+      assert.equal(receipts.actions.total_actions, turn === 3 ? 1 : 2);
+      assert.equal(receipts.actions.unsettled_actions, 0);
+      assert.equal(receipts.actions.complete, true);
+      if (turn === 3)
+        return answer(
+          [{ name: 'continue_task', arguments: { text: 'A second authorized continuation' } }],
+          '',
+        );
+      return answer([], 'Reported response informed by native output.');
+    },
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    assert.equal(f.turns, 2);
+    f.emit('runtime.agent_message', { text: 'Synthetic reported native result' });
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'waiting_for_runtime');
+    f.emit('runtime.turn.started', { turn_id: 'second-turn' });
+    f.emit('runtime.agent_message', {
+      text: 'Synthetic reported native result from the second turn',
+    });
+    f.emit('runtime.turn.completed', { turn_id: 'second-turn' });
+    await settle();
+    assert.equal(sawUnavailable, true);
+    assert.equal(sawReport, true);
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    assert.equal(f.instructions, 2);
+  } finally {
+    await f.close();
+  }
+});
+test('runtime wake preserves the exact observe tool name and opaque assistant call identity', async () => {
+  let turn = 0;
+  const f = await fixture({
+    turn: async (messages) => {
+      turn++;
+      if (turn === 1)
+        return answer(
+          [{ name: 'continue_task', arguments: { text: 'Authorized continuation' } }],
+          '',
+        );
+      if (turn === 2)
+        return {
+          ...answer([], ''),
+          toolCalls: [
+            { id: 'synthetic-observe-id', function: { name: 'observe_task', arguments: {} } },
+          ],
+        };
+      assert.equal(
+        messages.findLast((message) => message.role === 'tool')?.tool_name,
+        'observe_task',
+      );
+      assert.equal(
+        messages.findLast((message) => message.role === 'assistant')?.tool_calls?.[0]?.id,
+        'synthetic-observe-id',
+      );
+      return answer([], 'Reported outcome after the exact observation.');
+    },
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    f.controlPlane.commands.submit(f.command('resume', id), 'http', { kind: 'local' });
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'waiting_for_runtime');
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    await settle();
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
   } finally {
     await f.close();
   }
