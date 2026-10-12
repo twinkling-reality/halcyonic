@@ -42,6 +42,11 @@ public class WorkspaceContinuityTests
             Assert.Throws<ArgumentException>(() => WorkspaceContinuity.ConnectionKey(ControlPlaneTarget.Local(new Uri(endpoint), "fixture")));
         var pairing = new PairedControlPlane("not a host", 47801, new string('b', 64), "device", "hlcd_fixture");
         Assert.Throws<UriFormatException>(() => WorkspaceContinuity.ConnectionKey(ControlPlaneTarget.Paired(pairing)));
+        foreach (var credential in new[] { "hlcd_", "hlcd_bad\r\nvalue", "hlcd_" + new string('a', 4097) })
+        {
+            var invalid = new PairedControlPlane("computer.local", 47801, new string('b', 64), Samples.ProjectId, credential);
+            Assert.Throws<ArgumentException>(() => WorkspaceContinuity.ConnectionKey(ControlPlaneTarget.Paired(invalid)));
+        }
     }
 
     [Test]
