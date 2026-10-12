@@ -333,6 +333,7 @@ namespace Halcyonic.XR.Workspace
             dirty = true;
         }
 
+#if UNITY_EDITOR
         private GlazeButton? renderMove;
         private const int RenderMovePointer = 734;
 
@@ -406,6 +407,7 @@ namespace Halcyonic.XR.Workspace
             Draw(immediately: true);
             plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
         }
+#endif
 
         private void OnDestroy()
         {

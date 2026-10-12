@@ -45,6 +45,23 @@ camera's incidental clear disabled catches removal of that helper clear; ordinar
 captures alone did not reliably expose the defect. The controlled regression is not a claim that
 every render backend has the same persistence behavior.
 
+## Player/editor build boundary
+
+The first Android player build at `f2eb95e3` failed with CS1061: the unguarded
+`MenuDirector.PressSubjectForRender` called `MenuFrameView.SettleSubjectForRender`, which exists
+only under `UNITY_EDITOR`. The director's contiguous render-only fields and helper block,
+including `DrawNow`, now share that editor guard. Consumer inspection found only Editor callers
+and the internal render helper chain. Production settling, pointer handling and action authority
+are unchanged; the player does not acquire a settle bypass to make the build compile.
+
+An aggregate runtime-only compile with Android/development symbols, no `UNITY_EDITOR` symbols,
+no Editor source files and no Editor assembly references passes with two existing nullable
+warnings. The same response with the original director source reproduces the exact CS1061
+failure. Player metadata contains none of the guarded director helper names or fields. The
+aggregate all-Editor compile also passes with its four existing nullable warnings, preserving
+the render entrypoints. These checks isolate the source boundary; the actual Android APK build
+rerun remains a separate coordinator check.
+
 ## Historical checkpoints and failures
 
 On October 11, isolated Settings checkpoints `9f2cbd32` / `9ebebe46` passed 79 focused tests;
