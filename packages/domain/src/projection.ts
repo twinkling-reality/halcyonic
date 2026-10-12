@@ -133,6 +133,10 @@ export class Projection {
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
   readonly #devices = new DeviceRegistry();
+  readonly #inferredTurnOutcomes = new Map<
+    string,
+    { position: number; turnId: string | null; startPosition: number | null; rule: string }[]
+  >();
   readonly #turnStarts = new Map<string, number>();
   readonly #turnObservations = new Map<
     string,
@@ -181,11 +185,18 @@ export class Projection {
     this.#position = stored.position;
     const changes = new ChangeSet();
     const notes: ProjectionNote[] = [];
+    const beforeTurn = this.#executions.get(stored.event.execution_id as ExecutionId)?.activeTurn;
     const hadActive = Boolean(
       this.#executions.get(stored.event.execution_id as ExecutionId)?.activeTurn,
     );
     this.#dispatch(stored.event, changes, notes);
     const event = stored.event;
+    if (
+      notes.length === 0 &&
+      event.event_type === 'runtime.turn.started' &&
+      event.provenance.epistemic !== 'reported'
+    )
+      this.#turnStarts.set(event.execution_id, stored.position);
     if (
       notes.length === 0 &&
       event.provenance.epistemic === 'observed' &&
@@ -200,7 +211,7 @@ export class Projection {
       list.push({
         position: stored.position,
         type: event.event_type,
-        turnId: event.payload.turn_id,
+        turnId: event.payload.turn_id ?? beforeTurn?.turnId ?? null,
         startPosition:
           event.event_type === 'runtime.turn.started'
             ? stored.position
@@ -209,6 +220,22 @@ export class Projection {
               : null,
       });
       this.#turnObservations.set(event.execution_id, list);
+    }
+    if (
+      notes.length === 0 &&
+      event.provenance.epistemic === 'inferred' &&
+      (event.event_type === 'runtime.turn.completed' ||
+        event.event_type === 'runtime.turn.failed' ||
+        event.event_type === 'runtime.turn.interrupted')
+    ) {
+      const list = this.#inferredTurnOutcomes.get(event.execution_id) ?? [];
+      list.push({
+        position: stored.position,
+        turnId: event.payload.turn_id ?? beforeTurn?.turnId ?? null,
+        startPosition: hadActive ? (this.#turnStarts.get(event.execution_id) ?? null) : null,
+        rule: event.provenance.rule,
+      });
+      this.#inferredTurnOutcomes.set(event.execution_id, list);
     }
     return { changes: this.#materialize(changes), notes };
   }
@@ -267,6 +294,16 @@ export class Projection {
     return (this.#turnObservations.get(id) ?? [])
       .filter((value) => value.position > after)
       .slice(0, limit)
+      .map((value) => ({ ...value }));
+  }
+
+  /** Accepted reconstruction is kept as inferred, never promoted to an observed outcome. */
+  executionInferredTurnOutcomes(
+    id: string,
+    after: number,
+  ): { position: number; turnId: string | null; startPosition: number | null; rule: string }[] {
+    return (this.#inferredTurnOutcomes.get(id) ?? [])
+      .filter((value) => value.position > after)
       .map((value) => ({ ...value }));
   }
 

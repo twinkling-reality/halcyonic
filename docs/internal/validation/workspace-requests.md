@@ -177,3 +177,26 @@ This checkpoint preserves an unknown pending command in memory. Saving that iden
 and exact original-owner recovery after process recreation is still required before claiming
 restart-safe request delivery. Actual request renders, native round-trip, model/runtime outcomes
 and wearer acceptance are separate; no end-to-end outcome is claimed by these UI source checks.
+Seventy-one contract/native checks and seventeen C# continuation/storage checks passed, with
+zero skipped, after both corrections. Typecheck, contract generation and scoped lint passed.
+Independent source review found no remaining selector/codec issue. The instruction restore and
+native input consumers have separate Unicode-limit follow-ups; these codec results do not claim
+the unfinished request controls or headset return path are accepted.
+
+### Producer identity and bounded context follow-up
+
+OpenCode can legitimately reconstruct an inferred turn outcome after stream disconnection. This
+slice keeps the observed-outcome threshold: an applied inferred reconstruction interrupts with
+`missing_observed_outcome`, and never becomes confirmed or waits forever. An accepted anonymous
+terminal keeps its actual pre-apply named active-turn association, without rewriting the source
+journal event. Two real pipeline regressions cover both cases.
+
+Workspace tool context now preserves structured status, native-session presence, synthetic origin,
+all declared capabilities and pending human counts. Only outside titles/objectives/check words are
+explicitly shortened. Event pages retain their cursor and completeness flags. Complete recent
+assistant/tool batches pack by serialized bytes under the existing 12KiB transport limit; the
+latest result is preserved or fails by a named bound. No input/output limit was enlarged.
+
+The follow-up passed 29 focused request/domain/raw-identity cases, including five new producer and
+context/packing regressions, zero skipped, plus typecheck and scoped lint. Actual model/runtime
+acceptance remains separate; deterministic model fixtures do not establish useful planning.
