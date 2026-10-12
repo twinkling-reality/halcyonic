@@ -1005,7 +1005,7 @@ namespace Halcyonic.Client
         /// where they don't fit (<see cref="MenuColumns"/>).
         /// </summary>
         /// <param name="besideMenu">The page stands beside the menu, as Tasks' beside a file: the plane is the two columns, each this page.</param>
-        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false, bool focused = false, float header = 0f, bool centered = false)
+        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false, bool focused = false, float header = 0f, bool centered = false, PanelDirection? placement = null, IReadOnlyList<BodyInView>? occupied = null)
         {
             if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows), subjectRows, "A subject takes a row or two.");
             var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
@@ -1018,7 +1018,9 @@ namespace Halcyonic.Client
                 var composition = new PlaneComposition(besideMenu
                     ? new[] { Column(Glaze.Menu.MenuColumnDegrees, page), Column(Glaze.Menu.FileColumnDegrees, page) }
                     : new[] { Column(Glaze.Menu.FileColumnDegrees, page) }, zoom, header);
-                return centered ? Inside(composition, new PanelDirection(0f, 0f, true, false), within) : Fits(composition, topDegrees, within);
+                var direction = placement ?? new PanelDirection(0f, 0f, true, false);
+                return (centered ? Inside(composition, direction, within) : Fits(composition, topDegrees, within))
+                    && (occupied == null || WorkspacePlacement.Clears(direction, occupied, composition.Size));
             }
             float low = 0f, high = 2f;
             if (!Holds(low)) return 0f;

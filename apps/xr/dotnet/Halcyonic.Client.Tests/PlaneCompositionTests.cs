@@ -166,4 +166,21 @@ public class PlaneCompositionTests
         Assert.That(MenuPage.Height(text, 1, header: heading, centered: true), Is.GreaterThan(MenuPage.Rows(2)), "the full field stays usable without a character label band");
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void IndependentConsolePacksAgainstOccupiedShelfWithoutChangingItsPosition(TextSize text)
+    {
+        var heading = MenuPage.Words(2) + MenuPage.Target() + 3f * MenuPage.TargetGap;
+        var position = new PanelDirection(0f, 0f, true, false);
+        var shelf = new[] { new BodyInView(0f, -27f, 3f, lowest: -32f, halfWidth: 8f) };
+        var available = MenuPage.Height(text, 1, header: heading, centered: true, placement: position, occupied: shelf);
+        var clear = MenuPage.Height(text, 1, header: heading, centered: true, placement: position);
+        Assert.That(available, Is.GreaterThan(0f));
+        Assert.That(available, Is.LessThan(clear), "visible agent geometry constrains height rather than relocating the console");
+        var scale = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
+        var packed = new PlaneComposition(new[] { new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), MenuPage.Subject(1, true), MenuPage.Sections, MenuPage.Content(available)) }, scale, heading);
+        Assert.That(WorkspacePlacement.Clears(position, shelf, packed.Size), Is.True);
+        Assert.That(MenuPage.Inside(packed, position, MenuPage.Quest3S), Is.True);
+    }
+
 }

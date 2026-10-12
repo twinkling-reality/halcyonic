@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -16,6 +17,8 @@ namespace Halcyonic.XR.UI
         private TextMeshPro product = null!;
         private TextMeshPro connection = null!;
         private TextMeshPro context = null!;
+        private TextMeshPro provenance = null!;
+        private StateBadgeView status = null!;
         private readonly List<Surface> grounds = new List<Surface>();
         private GlazeButton move = null!;
         private GlazeButton apps = null!;
@@ -32,6 +35,7 @@ namespace Halcyonic.XR.UI
         public static float Height => MenuPage.Words(2) + MenuPage.Target() + 3f * MenuPage.TargetGap;
         public bool Visible => gameObject.activeSelf;
         public Vector2 Size { get; private set; }
+        public Surface FrameSurface => frame;
 
         public static WorkspaceChromeView Create(Transform parent)
         {
@@ -44,6 +48,9 @@ namespace Halcyonic.XR.UI
             view.product = GlazeText.Create(go.transform, "Halcyonic", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 23, strong: true);
             view.connection = GlazeText.Create(go.transform, "Connection state", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Right, 23);
             view.context = GlazeText.Create(go.transform, "Project and task", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, 23);
+            view.status = StateBadgeView.Create(go.transform, "Selected task state", 22, pill: true);
+            view.provenance = GlazeText.Create(go.transform, "Selected task provenance", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Right, 23);
+            view.provenance.rectTransform.pivot = new Vector2(1f, 0.5f);
             view.product.rectTransform.pivot = view.context.rectTransform.pivot = new Vector2(0f, 0.5f);
             view.connection.rectTransform.pivot = new Vector2(1f, 0.5f);
             view.move = GlazeButton.Create(go.transform, "Move workspace", ButtonRole.Navigation, order: 23);
@@ -64,7 +71,7 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
-        public void Show(float width, float totalHeight, string connectionState, LineWords selection, bool appsAvailable)
+        public void Show(float width, float totalHeight, string connectionState, LineWords selection, bool appsAvailable, StateBadge? selectedState, IReadOnlyList<WorkMark> marks)
         {
             gameObject.SetActive(true);
             var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
@@ -83,9 +90,27 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(connection, connectionState);
             GlazeText.Lay(connection, (right - left) / 2f, 1);
             connection.transform.localPosition = new Vector3(right, top - line / 2f, -0.001f);
-            var theirs = GlazeRuns.Of(context).Set(selection, _ => true);
-            GlazeText.Lay(context, right - left, 1);
-            context.transform.localPosition = new Vector3(left, top - 1.5f * line, -0.001f);
+            var contextY = top - 1.5f * line;
+            var contextRight = right;
+            provenance.gameObject.SetActive(marks.Count > 0);
+            if (marks.Count > 0)
+            {
+                GlazeText.SetLiteral(provenance, string.Join(" · ", marks.Select(mark => mark.Word)));
+                var needed = provenance.GetPreferredValues().x;
+                GlazeText.Lay(provenance, needed, 1);
+                provenance.transform.localPosition = new Vector3(right, contextY, -0.001f);
+                contextRight -= needed + MenuPage.TargetGap;
+            }
+            status.gameObject.SetActive(selectedState != null);
+            if (selectedState != null)
+            {
+                status.Show(selectedState);
+                status.transform.localPosition = new Vector3(contextRight - status.Width / 2f, contextY, -0.001f);
+                contextRight -= status.Width + MenuPage.TargetGap;
+            }
+            var theirs = GlazeRuns.Of(context).Set(selection, tried => context.GetPreferredValues(tried).x <= Mathf.Max(0f, contextRight - left));
+            GlazeText.Lay(context, Mathf.Max(0f, contextRight - left), 1);
+            context.transform.localPosition = new Vector3(left, contextY, -0.001f);
             GlazeRuns.TokenGrounds(context, theirs, grounds, transform, 21);
             var y = -Height / 2f + MenuPage.TargetGap + MenuPage.Target() / 2f;
             var gap = MenuPage.TargetGap;

@@ -353,3 +353,18 @@ local instruction, global Minimize/restore and disconnected draft. Its structura
 remove the divider role and rotate the header against its body, preserving the arbitrary-bar and
 coplanarity rejection paths. It is a simulated renderer fixture, not proof of a real runtime send,
 native JNI return or wearer acceptance. Its actual Unity outcome is pending until run.
+
+
+The console owns its world position independently of optional agents. Selecting a task or changing
+agent placement never re-centers a hand-placed workspace; Reset position is explicit. The console
+starts centered, retains its anchor and hand offset, and packs against current occupied agent
+geometry and measured field bounds. Manual shelf height is not a desk floor for the console.
+Shelf previews use the actual visible workspace perimeter or restore dock as a collision veto,
+with at least one degree of spacing; they do not displace the workspace. Legacy floating arcs and
+guessed window bands are not the presentation model for this workspace.
+
+
+The header repeats only project context; the selected task's full title stays on its content pane.
+Current state and Practice/Demo/Recorded provenance have independently measured reserved cells,
+so outside project text cannot consume or ellipsize them. Placement failures use a measured local
+explanation with Back to workspace; these details own no runtime or draft authority.

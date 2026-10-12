@@ -143,9 +143,6 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Hold to talk's one voice, its words only for the column that held; null where the build has none.</summary>
         private MenuVoice? voice;
 
-        /// <summary>The column being made beside the menu, a task's file or New project (no task), whose page height reads against it.</summary>
-        private (bool Opening, string? Task) opening;
-
         /// <summary>What outlives a column and a reconnect, for the app's run on one journal.</summary>
         private readonly MenuMemory memory = new MenuMemory();
 
@@ -544,20 +541,18 @@ namespace Halcyonic.XR.Workspace
             var stage = setup.StageNow();
             if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
             var standing = (navigator.IsOpen, navigator.Beside);
-            if (anchor == null || standing != anchoredFor)
+            if (anchor == null)
             {
                 anchor = (stage.Eyes, stage.Looking);
-                anchoredFor = standing;
                 moved = default;
                 movedByHand = false;
             }
-            // Another arrangement, as beside a window, or another surface: a drag made for the last holds no more.
+            anchoredFor = standing;
+            // Optional agent geometry can revoke a drag, but never re-anchor the console.
             var arrangement = (stage.BesideWindow, stage.SurfaceHeight);
             if (arrangement != arranged)
             {
                 arranged = arrangement;
-                moved = default;
-                movedByHand = false;
             }
             var (eyes, looking) = anchor.Value;
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
@@ -684,15 +679,15 @@ namespace Halcyonic.XR.Workspace
 
         private LineWords WorkspaceContext()
         {
+            plane.SelectedState = null;
+            plane.SelectedMarks = Array.Empty<WorkMark>();
             if (navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true)
             {
-                var context = State.Projects.TryGetValue(work.ProjectId, out var project)
-                    ? LineWords.TheirName(project.Name).Then(LineWords.Ours(" > ")) : LineWords.None;
-                context = context.Then(LineWords.TheirName(work.Title));
                 var presentation = CharacterPresenter.Present(work, State, Connected && !Demonstration);
-                context = context.Then(LineWords.Ours(" · " + StateLanguage.BadgeOf(presentation).Text));
-                foreach (var mark in StateLanguage.MarksOf(presentation)) context = context.Then(LineWords.Ours(" · " + mark.Word));
-                return context;
+                plane.SelectedState = StateLanguage.BadgeOf(presentation);
+                plane.SelectedMarks = StateLanguage.MarksOf(presentation);
+                return State.Projects.TryGetValue(work.ProjectId, out var project)
+                    ? LineWords.Ours("Project: ").Then(LineWords.TheirName(project.Name)) : LineWords.Ours("Project unavailable");
             }
             return LineWords.Ours(MenuBar.Word(navigator.Place));
         }
@@ -773,13 +768,13 @@ namespace Halcyonic.XR.Workspace
         {
             if (Away || drag != null || placement != null) return false;
             if (frame == null && plane.Chrome.Visible) return OrganizationStanding(from, frame, null) && plane.Composition != null && plane.Front?.Footer.Confirming != true;
-            if (navigator.IsCompact) return !dirty && !plane.Sliding && plane.Bar != null && plane.Bar.Shown >= 1f && !setup.StageNow().BesideWindow;
+            if (navigator.IsCompact) return !dirty && !plane.Sliding && plane.Bar != null && plane.Bar.Shown >= 1f;
             var drawnView = plane.Shown.FirstOrDefault(item => item.Kind == from).View;
             if (drawnView == null || drawnView.Frame != frame || plane.Opening(from) || dirty || plane.Sliding) return false;
             if (navigator.Standing(from, frame, drawnView.Side) == null) return false;
             // Beside a window the plane stands under the window's lane, which no drag may take it into: the
             // stage as it stands now, not as the plane was last drawn.
-            if (setup.StageNow().BesideWindow) return false;
+
             if (plane.Composition == null) return false;
             if (plane.Front?.Footer.Confirming == true) return false;
             foreach (var (_, view) in plane.Shown)
@@ -917,16 +912,21 @@ namespace Halcyonic.XR.Workspace
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
         /// <summary>
-        /// The page height on this stage, read against the character of the file being opened while it
-        /// is made, else of the file beside the menu; New project, being opened, has none.
+        /// The available page at the independently positioned console, respecting full header, field
+        /// and retained occupied agent geometry without moving either object.
         /// </summary>
         public float PageHeight(int subjectRows, bool besideMenu, bool focused = false)
         {
             var stage = setup.StageNow();
-            var task = opening.Opening ? opening.Task : navigator?.BesideTask;
-            var character = task != null ? setup.CharacterOf(task) : null;
-            var top = MenuPlane.TopLine(character, stage.Characters, stage.Eyes, stage.Looking, stage.SurfaceHeight, stage.BesideWindow, besideMenu);
-            return MenuPage.Height(TextSize, subjectRows, top, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height, centered: stage.Characters.Count == 0);
+            var at = anchor?.Eyes ?? stage.Eyes;
+            var occupied = new List<BodyInView>();
+            foreach (var character in stage.Characters)
+                if (character != null) occupied.Add(WorkspaceLayout.InView(character, at));
+            var looking = anchor?.Looking ?? stage.Looking;
+            var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
+            return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height,
+                centered: true, placement: direction, occupied: occupied);
+
         }
 
         public void OpenFile(string workstreamId)
@@ -934,19 +934,16 @@ namespace Halcyonic.XR.Workspace
             memory.Session(setup.Session());
             if (setup.Presentation.Minimized) setup.Presentation.Restore();
             if (navigator.TryExpandTask(workstreamId)) return;
-            opening = (true, workstreamId);
-            try
-            {
-                if (memory.FileFor(State?.Journal?.JournalId, workstreamId, () => setup.File(Bound(), workstreamId)) is IMenuColumn file)
-                    navigator.ShowBeside(file, workstreamId);
-            }
-            finally
-            {
-                opening = (false, null);
-            }
+            if (memory.FileFor(State?.Journal?.JournalId, workstreamId, () => setup.File(Bound(), workstreamId)) is IMenuColumn file)
+                navigator.ShowBeside(file, workstreamId);
         }
 
         public bool CloseFile(string workstreamId) => memory.CloseFile(workstreamId);
+
+        /// <summary>Actual visible workspace geometry vetoes shelf overlap; placement never displaces this console.</summary>
+        public bool ClearsShelf(IReadOnlyList<Vector3> worldCorners, Vector3 viewer) => plane.ClearsShelf(worldCorners, viewer);
+
+        public bool ReportLocal(string reason) => OpenLocal(new WorkspaceNoticeColumn(this, reason));
 
         /// <summary>
         /// The first question's Start a project: New project in its place, with the idea Hold to talk heard,
@@ -965,19 +962,12 @@ namespace Halcyonic.XR.Workspace
 
         public void OpenNewProject(string? projectId, string? projectName)
         {
-            opening = (true, null);
-            try
-            {
-                // The flow kept for this session and journal, or one made now, bound to the session shown.
-                Follow();
-                if (!(memory.NewProjectFor(State?.Journal?.JournalId, () => setup.MakeNewProject(Bound())) is NewProjectFlow flow)) return;
-                flow.Open(projectId, projectName);
-                navigator.ShowBeside(flow, null);
-            }
-            finally
-            {
-                opening = (false, null);
-            }
+            if (setup.Presentation.Minimized) setup.Presentation.Restore();
+            // The flow kept for this session and journal, or one made now, bound to the session shown.
+            Follow();
+            if (!(memory.NewProjectFor(State?.Journal?.JournalId, () => setup.MakeNewProject(Bound())) is NewProjectFlow flow)) return;
+            flow.Open(projectId, projectName);
+            navigator.ShowBeside(flow, null);
         }
     }
 }
