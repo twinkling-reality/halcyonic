@@ -21,15 +21,20 @@ namespace Halcyonic.Client
         public const string OpenTask = "tasks-open-task";
 
         private readonly IMenuHost host;
+        private readonly Func<int>? savedViews;
+        private readonly Action? openSavedViews;
+        public const string SavedViews = "tasks-saved-views";
         private int rows;
         private TextSize rowsAt;
         private int page;
         private string? showing;
         private long position = -1;
 
-        public TasksColumn(IMenuHost host)
+        public TasksColumn(IMenuHost host, Func<int>? savedViews = null, Action? openSavedViews = null)
         {
             this.host = host;
+            this.savedViews = savedViews;
+            this.openSavedViews = openSavedViews;
             Measure();
         }
 
@@ -85,6 +90,8 @@ namespace Halcyonic.Client
                 var footer = pages > 1
                     ? new Footer(close).WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage))
                     : new Footer(close);
+                if (savedViews?.Invoke() > 0 && openSavedViews != null) footer = new Footer(close,
+                    rare: new Prompt(SavedViews, "Saved drafts", GlazeIcon.Next), farRight: footer[PromptSlot.FarRight]);
                 return new MenuFrame(TasksText.Waiting(waiting), footer, subjectWaits: waiting > 0, lines: lines);
             }
         }
@@ -101,6 +108,9 @@ namespace Halcyonic.Client
         {
             switch (id)
             {
+                case SavedViews when savedViews?.Invoke() > 0:
+                    openSavedViews?.Invoke();
+                    break;
                 case OpenTask when key != null && host.State?.Workstreams.ContainsKey(key) == true:
                     host.OpenFile(key);
                     break;

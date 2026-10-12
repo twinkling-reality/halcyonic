@@ -139,6 +139,9 @@ namespace Halcyonic.Client
 
         public event Action? Closed;
 
+        /// <summary>Preserve only ordinary words before an execution change invalidates the local editor.</summary>
+        public event Action<string, WorkspaceInstructionDraft>? OrdinaryDraftLeaving;
+
         /// <summary>A refused credential, as the connection says it for how this headset reaches the computer.</summary>
         private string AccessRefused() => host.Api?.AccessRefused ?? ConnectionText.AccessRefused;
 
@@ -686,6 +689,8 @@ namespace Halcyonic.Client
             drawnInstructionNoticeFrame = null;
             if (Screen.Instruction.Open && Screen.Instruction.ExecutionId != presentation.Execution?.ExecutionId)
             {
+                OrdinaryDraftLeaving?.Invoke(Screen.Instruction.ExecutionId!, new WorkspaceInstructionDraft
+                { Text = Screen.Instruction.Words, Spoken = Screen.Instruction.Spoken, Part = Screen.Instruction.Part });
                 Screen.Instruction.Close();
                 instructionKeyboardSession++;
                 instructionVoiceValid = false;
