@@ -40,6 +40,7 @@ const PLAIN = [
   'PanelWorkspaceRequest.java',
   'PanelRequestDispatch.java',
   'PanelRequestSends.java',
+  'PanelAtomicWrite.java',
   'PanelDrafts.java',
   'PanelProof.java',
   'PanelUiState.java',
@@ -430,6 +431,14 @@ describe('production native agent panel', () => {
       run('workspace_phases', JSON.stringify(fixtures.cases[0]?.value), pairing(1, 'a'.repeat(64))),
       'true',
     );
+  });
+  test('native private write refuses success before record sync rename and containing directory sync', () => {
+    assert.equal(run('directory_sync'), 'true');
+    const source = readFileSync(join(SOURCES, 'PanelFiles.java'), 'utf8');
+    assert.match(source, /PanelAtomicWrite\.commit/);
+    assert.match(source, /Os\.fsync\(parent\)/);
+    assert.match(source, /O_RDONLY\|OsConstants\.O_NOFOLLOW\|OsConstants\.O_NONBLOCK/);
+    assert.match(source, /S_ISDIR\(held\.st_mode\)/);
   });
   test('native earlier-request word copy cannot replace an unresolved current send', () => {
     const current = {
