@@ -476,9 +476,42 @@ public class JudgeMenuWalkTests
         Assert.That(menu.Footer[PromptSlot.Rare], Is.Null, "no Refresh in the demonstration");
         host.Press(MenuColumn.Menu, UsageColumn.OpenLimit, "0");
         (menu, _) = host.Draw();
-        var side = menu!.Side ?? host.DrawnSides.Last();
-        Assert.That(side.Facts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
-        Assert.That(side.Facts.Last().Value, Is.EqualTo("Part of the recording"));
+        var side = menu!.Side!;
+        var subject = side.SubjectRuns.Runs.Select(run => (run.Text, run.Theirs)).ToList();
+        var source = side.SourceRuns!.Runs.Select(run => (run.Text, run.Theirs)).ToList();
+        var detailParts = side.Parts?.Parts ?? 1;
+        var facts = new List<SideFact>();
+        var sentBeforeDetails = host.Sent.Count;
+        Assert.That(side.Source, Is.EqualTo(UsageLeftPresenter.Recorded));
+        for (var part = 0; part < detailParts; part++)
+        {
+            (menu, _) = host.Draw();
+            side = menu!.Side!;
+            Assert.That(side.Parts?.Part ?? 0, Is.EqualTo(part));
+            Assert.That(side.Parts?.Parts ?? 1, Is.EqualTo(detailParts));
+            Assert.That(side.SubjectRuns.Runs.Select(run => (run.Text, run.Theirs)), Is.EqualTo(subject), "every detail part names the same limit");
+            Assert.That(side.SourceRuns!.Runs.Select(run => (run.Text, run.Theirs)), Is.EqualTo(source), "every detail part preserves its recorded source");
+            Assert.That(menu.Lines.Where(line => line.Chosen).Select(line => line.Key), Is.EqualTo(new[] { "0" }),
+                "detail paging keeps the original global limit chosen");
+            facts.AddRange(side.Facts);
+            if (detailParts > 1)
+            {
+                var pager = menu.Footer.All.Single(each => each.Prompt.Id == Footer.NextPage).Prompt;
+                Assert.That(pager.Words, Is.EqualTo(Footer.NextPageWords(part, detailParts)));
+                if (text == TextSize.Larger)
+                {
+                    // A full-size detail replaces its frame at Larger, carrying that frame's pager.
+                    // The current physical side draw, including the frame it replaces, grants this route.
+                    navigator.Drawn(MenuColumn.Side, menu, side);
+                    Assert.That(navigator.Act(MenuColumn.Side, pager.Id, null, menu, side), Is.True);
+                }
+                else Assert.That(host.Press(MenuColumn.Menu, pager.Id), Is.True);
+            }
+            Assert.That(host.Sent.Count, Is.EqualTo(sentBeforeDetails), "inspecting each recorded detail sends nothing");
+        }
+        Assert.That(facts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
+        Assert.That(facts.Last().Value, Is.EqualTo("Part of the recording"));
+        Assert.That(host.Draw().Menu!.Side!.Parts?.Part ?? 0, Is.Zero, "the offered detail pager returns to its first part");
 
         // Projects: the demonstration's own projects, nothing read from a computer.
         host.Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Projects));
