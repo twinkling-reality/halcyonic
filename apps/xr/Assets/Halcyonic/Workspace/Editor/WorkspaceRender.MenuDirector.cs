@@ -103,6 +103,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // and whether it asks its Yes, as a confirmation standing on the plane.
                 var fileTitle = opened.View.Presentation!.Title;
                 var fileConfirming = false;
+                var fileBesideMenu = false;
                 looking = besideWindow ? Vector3.forward : opened.Target.BodyPosition - eyes;
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
                 // The stage as the director reads it: the drag's checks arrange it beside a window, or on another surface, for a while.
@@ -141,7 +142,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         return file = new StubColumn(() =>
                         {
                             var waiting = WaitingFile(fileTitle, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
-                                host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: false));
+                                host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: fileBesideMenu), minimumLines: 0);
                             return fileConfirming ? Confirming(waiting) : waiting;
                         });
                     },
@@ -217,6 +218,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (chosen != opened.View.WorkstreamId) failures.Add(name + ": Tasks does not show the open file's row chosen.");
                     if (director.Plane.LightLine == null && !besideWindow) failures.Add(name + ": the file opened from Tasks shows no light line.");
                 }
+                director.DrawNow(); // Tasks.Showing may notify during the first draw; the next frame settles that change.
+                failures.AddRange(DirectorFileControls(name, director.Plane.Showing(MenuColumn.File)));
                 failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, window));
 
                 // A Move press belongs to the exact frame it began on, including after a content redraw.
@@ -353,6 +356,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     GlazeText.SetScale(scale);
                     comfort.Text = scale > 1f ? TextSize.Larger : TextSize.Standard;
+                    // A real FileColumn ticks and rebuilds its measured page on Resized().
+                    file?.Change();
                 }, (window, standOn) =>
                 {
                     windowNow = window;
@@ -362,6 +367,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Folded while another window keeps focus: the plane goes, the banner shows again naming the task still open.
                 failures.AddRange(FoldMenu(name, folder, camera, texture, root, director, opened.View.Presentation!.Title));
 
+                // This separate ordinary-file exercise uses the same measured packing at the two-column top line.
+                // The earlier drag exercise deliberately uses the full lone-file budget.
+                fileBesideMenu = true;
+                fileTitle = "Task";
+                if (director.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees) != 1)
+                    failures.Add(name + ": the ordinary-file subject is not the measured one-row setup.");
+                file?.Change();
+                director.DrawNow();
+                director.DrawNow();
+                var offeredMenu = director.Plane.Showing(MenuColumn.Menu);
+                if (offeredMenu == null || !offeredMenu.Sections.Any(section => section.Key == nameof(MenuPlace.Settings)))
+                    failures.Add(name + ": the ordinary-file setup offered no visible Settings section.");
                 // Choosing a place is the menu's own; the file stays beside it.
                 // A press from the frame drawn before the file opened is passed over: it no longer stands.
                 if (director.Navigator.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Usage), drawnTasks, null))
@@ -1061,6 +1078,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.Navigator.Renew();
                     director.ResetPosition();
                     director.DrawNow();
+                    director.DrawNow(); // The renewed Tasks column first learns the retained file selection.
+                    failures.AddRange(DirectorFileControls(name + " standard Move " + way, plane.Showing(MenuColumn.File)));
                     held = subject.Subject.position;
                     var off = plane.Direction.Above ? -1f : 1f;
                     director.HoldSubjectForRender(held);
@@ -1074,6 +1093,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     textAt(Comfort.LargerTextScale);
                     director.Navigator.Renew();
                     director.DrawNow();
+                    failures.AddRange(DirectorFileControls(name + " larger Move " + way, plane.Showing(MenuColumn.File)));
                     if (dragged != default && !plane.Allows(MenuDrag.Turned(plane.Placed, dragged)))
                     {
                         keptLessAtLarger++;
@@ -1110,6 +1130,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             director.Navigator.Renew();
             director.ResetPosition();
+            director.DrawNow();
             director.DrawNow();
 
             // A confirmation standing on the plane keeps it where it is, held then or pressed then.
@@ -1177,6 +1198,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
             // Two hands on the subject: the second's press is no press and its release ends nothing; only the
             // first's release lets go, so a drag is never orphaned, refusing every press while it seems over.
+            director.LetGoForRender(); // The previous scenario closed under pointer 734; it must release before pointer 1 arrives.
+            director.DrawNow();
             if (subject.SubjectHoldForRender is PointerTarget hand)
             {
                 var selects = 0;
@@ -1389,6 +1412,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     FocusGuard.FoldForRender(true);
                     director.DrawNow();
                     if (director.Dragging) failures.Add(name + ": folded under a drag, the plane still followed the hand.");
+                    director.LetGoForRender();
                     FocusGuard.FoldForRender(false);
                     director.DrawNow();
                 }
@@ -1398,6 +1422,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 FocusGuard.FoldForRender(null);
             }
             return failures;
+        }
+
+        private static IEnumerable<string> DirectorFileControls(string name, MenuFrame? frame)
+        {
+            if (frame == null || !new[] { "0", "1" }.All(key => frame.Lines.Any(line => line.Action == "answer" && line.Key == key)))
+                yield return name + ": the measured file omitted its question's first two offered answers.";
+            if (frame?.Footer[PromptSlot.Secondary]?.Id != "talk" || frame.Footer[PromptSlot.FarRight]?.Id != "send")
+                yield return name + ": the measured file omitted Hold to talk or Send answer.";
         }
 
         /// <summary>The session as the stage shows it: each character a task of one project, the opened one waiting for the person.</summary>
