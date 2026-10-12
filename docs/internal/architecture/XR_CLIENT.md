@@ -2707,3 +2707,9 @@ New project is reserved for an actual NewProjectFlow. No field/type/target/gap l
 
 A preset choice may replace the candidate only from the exact current drawn preset frame and an
 index actually offered on its current page. Stale draws and off-page keys preserve the candidate.
+
+The instruction and Settings lifetime regression uses a real FileColumn at both text sizes.
+Hiding retained Settings releases its preview or Forget confirmation without discarding the local
+instruction. Compact retains draft words and complete read proof, revokes input and drawn target
+authority, and preserves spoken review policy. Returning Settings and compacting again require
+fresh authority; neither old Apply nor old Forget can act on the retained composition.
