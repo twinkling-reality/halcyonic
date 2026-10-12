@@ -77,7 +77,7 @@ public class AgentShelfPagesTests
         Assert.That(now.ValueRuns.AnyTheirs, Is.False, "numeric count words belong to Halcyonic even when a title matches their suffix");
         Assert.That(now.NowRuns.AllTheirs, Is.True);
         Assert.That(now.NowRuns.Text, Is.EqualTo(LabelText.Name(title)));
-        Assert.That(now.NowRuns.Runs.Single().Text, Does.Not.Contain("\u200B"));
+        Assert.That(now.NowRuns.Runs.Single().Text.IndexOf('\u200B'), Is.EqualTo(-1), "the literal control code point must be spelled out");
         Assert.That(now.ValueRuns.Text, Is.EqualTo("Showing 1 of 2"));
     }
 
