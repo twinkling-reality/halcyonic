@@ -128,11 +128,15 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 | The primary action after a prompt | Next question; after the last, Review answers | Your answers as a plain navigation row |
 | The primary action on a long question | Next part, 2 of 3; after the last, See answers | On to the answers as a plain row |
 | The question's progress and selection rule | Question 1 of 2; Choose one; Choose one or more | A disabled Send answer throughout selection |
+| Choice-page position and navigation | Choices 1 of 2; More choices; First choices | Paging without a visible current position |
+| Clipped long-question context | Read question | A hidden target or no way to reread the question |
+| A partial ambiguous-label escape | Alike answers cannot be chosen. Stop if you meant one. | Saying Press Stop without an offered Stop control |
+| Empty custom-answer field | Type your answer with a keyboard; Hold to talk below with voice only | Promising an unavailable keyboard |
 | Send answer's reason while a long question isn't read to its end | Read the whole question first. | Open the question to read the rest. |
 | Send answer's reason while a chosen cut answer or a long typed one isn't read whole | Read the whole answer you chose first. | |
 | Send answer's reason while a page of Your answers isn't drawn | Read all your answers first. | |
 | Review and editor part navigation | Next part, 2 of 3; Previous part | Your answers as a plain paging row |
-| Custom-answer navigation | Write an answer; once saved, Edit answer | Type my answer styled as an offered choice |
+| Custom-answer navigation | Write an answer; once saved, selected Edit answer with Selected | Type my answer styled as an offered choice |
 | The custom-answer editor | Your answer; Use this answer; Cancel | Saving or sending on keyboard Done or transcription |
 | The saved custom answer | Your answer: {words}; Selected, the words leaning | Quoting the person's words |
 | A free-text-only question | Write an answer; Write an answer first. | Choose one with no offered choices |

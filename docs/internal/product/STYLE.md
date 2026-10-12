@@ -167,22 +167,37 @@ One treatment for places, sections, rows, answers and prompts:
   page none of whose rows has an icon, as Usage's and Settings', words start on the content line.
   Nothing is drawn under a row: a meter there reads as an underline, so the small fact carries a
   share in words.
-- **Rows only take you somewhere**: to a side panel, a page or a place. A row never acts and carries
-  no side action. Choosing one may set the footer's main action or the prompt beside it, as a
+- **Rows only take you somewhere**: to a side panel, a page or a place. Ordinary rows never act and carry
+  no side action. Focused answer controls are explicit bounded exceptions, including the truthful
+  Stop escape inside the ambiguous-answer explanation. Choosing one may set the footer's main action or the prompt beside it, as a
   project's Add a task and Hide from stage. A line that reports a problem is a row that opens its
   side panel, and what fixes it is the footer's main action while it is chosen.
-- **An answer** is a shape round its words, "Type my answer" included; an agent's or the companion's
-  answer is a row of theirs, leaning beside our quote mark, so one labelled as our row never reads as it. Two stand side by side where
-  each fits half the row in one row. Choosing one lights it, and the footer's main action sends or
-  records it.
+- **An offered answer** has a hairline shape at rest and the existing lit fill/frame when selected.
+  Its provenance quote/lean stays at left; a persistent radio mark for one choice or checkbox mark for
+  multiple choices stands in a separately reserved area at right. Hover adds only the frame and never
+  changes that mark. The selected centre/check uses existing surface and check-glyph primitives.
+- **Focused answer controls** are visibly bounded at rest: More choices, Write an answer, selected
+  Edit answer, review Edit and clipped Read question. They keep the 48 dp targets and 12 mm spacing.
+  Write/pager pairing uses actual half-width measurement. A saved custom answer has one lit Edit
+  answer control with Selected fact, and its words stay fully accessible in editor and review.
+- **The answer field** is bounded and labeled Your answer. Keyboard focus uses the lit treatment;
+  a plain vertical insertion caret is shown only for the empty focused keyboard field. It is an input
+  cue, not a selection bar; the generic prohibition on bars/underlines remains. Populated/long fields
+  do not invent a caret position while the native keyboard owns editing. Voice-only fields promise
+  Hold to talk below, never a keyboard. Done/transcription only change a buffer; Use this answer saves.
+- **The focused composition** keeps the task title/state and one question, its choices and forward
+  footer. File tabs and the competing Tasks/menu are suppressed without dropping navigator state.
+  Short question text stays complete; long questions have full read-through and bounded clipped
+  context with Read question. Choice-page count stays in the selection caption, with no extra target.
+  Mandatory review shows all answers; only its final read part offers Send answer. Editor Cancel is
+  the local Close-slot exception and preserves the saved draft. The column's Close discards the draft.
+
 - **A page packs by height**, not rows: a line of words takes its line, a target its 48 dp, against
   the page's content height (`MenuFrame`), for the file alone. A question and its answers are one
   group, 8 dp apart.
-- **Answers that don't fit** page by a row: "Type my answer" and "More answers, 2 of 2" stand side
-  by side last on every page, and paging clears what was chosen, so what is sent is always in view.
-  A question too long to share a page with a row of answers has its own pages first, in parts. An
-  answer longer than 2 rows is cut, and choosing it slides out its side panel with all its words.
-  No answer the agent offered is left out.
+- **Offered answers keep their order** and none is omitted. An answer that does not fit whole
+  opens guarded full details; the page does not shrink text or hit targets. New project's own
+  question/recap flow retains its separate behavior in the client contract.
 - **A claim keeps its evidence class's chip**: "Agent says", "Subagent says", "Inferred", "Planned",
   "Author unknown" or "Model explains", beside the claim's words, which lean. Observed and measured
   facts, and Halcyonic's own words, take none.

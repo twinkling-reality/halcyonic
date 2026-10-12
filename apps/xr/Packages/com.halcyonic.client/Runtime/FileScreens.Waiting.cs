@@ -291,13 +291,7 @@ namespace Halcyonic.Client
             return joined;
         }
 
-        /// <summary>
-        /// Why Send answer can't send yet, or null when it can, so nothing goes that was not read whole and
-        /// in view: a question of several prompts sends only from the person's answers, every page of them
-        /// drawn; every prompt answered and its question read to the end; every answer chosen on the page
-        /// in view; and a cut answer or a long typed one read whole beside the page. The director asks this
-        /// before Send answer reaches the steering.
-        /// </summary>
+        /// <summary>Final Send waits for mandatory current review, a valid saved draft and complete question/option/custom-word reading.</summary>
         public static string? WhySendWaits(FileScreen screen)
         {
             var question = screen.Question;
@@ -347,11 +341,7 @@ namespace Halcyonic.Client
         public const string WriteAnswer = "Write an answer";
         public const string EditAnswer = "Edit answer";
 
-        /// <summary>
-        /// A question's footer: Close, Stop beside it, Hold to talk beside Send answer, and Send answer as
-        /// the main action, waiting in its place with its reason until it can send; while an answer sent
-        /// may still take effect, Sent… in its place, taking no press.
-        /// </summary>
+        /// <summary>The current stage's explicit forward footer, within three targets; final Send alone submits the saved draft.</summary>
         private static Footer QuestionFooter(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft)
         {
             var question = screen.Question;
@@ -399,32 +389,10 @@ namespace Halcyonic.Client
             return new Footer(CloseFile, rare: back, farRight: forward);
         }
 
-        /// <summary>
-        /// The page itself says why Send answer waits, so its reason isn't drawn (lane V, 2026-10-02): a
-        /// question of one prompt waiting only for a choice, as its answers above say what to do; a short
-        /// question before its first drawing; or a chosen answer read whole beside the page, whose side
-        /// panel shows what to read. A question of several prompts always says to send from Your answers.
-        /// </summary>
-        private static bool PageExplains(QuestionDraft draft, FileQuestion question, string problem)
-        {
-            if (draft.Prompts.Count > 1 || question.Reviewing) return false;
-            if (!draft.IsAnswered(0)) return true;
-            if (problem == ReadTheQuestion) return !question.QuestionCut(0);
-            return problem == ReadTheAnswer && question.SideOption != null;
-        }
-
         /// <summary>Why Send answer takes no press while an answer sent may still take effect.</summary>
         public const string SentWaiting = "Sent. Waiting for the agent…";
 
-        /// <summary>
-        /// The agent's question (ADR 0022, ADR 0026), one prompt at a time. A long question shows first on
-        /// pages of its own, a part at a time, each ending in a row to the next and the last in a row on to
-        /// its answers. Then its answers in the agent's order as rows to choose, in at most two rows each,
-        /// headed by the question, whole where it is short and by its first row where it is long; the row
-        /// for the person's own answer last; then a row for more answers and a row on to the next
-        /// question. Choosing only drafts the answer; Send answer sends it. A question Halcyonic can't
-        /// answer says why. After the last of several prompts, the person's answers.
-        /// </summary>
+        /// <summary>One complete question with ordered marked choices, scoped editor navigation and a visible forward footer; longer content reads through measured parts.</summary>
         private static Page Question(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
         {
             var question = screen.Question;
@@ -493,7 +461,7 @@ namespace Halcyonic.Client
             SidePanel? side = null;
             if (question.SideOption is int open)
             {
-                // All the words of the chosen cut answer, or of the typed one, beside the page, in parts
+                // All the words of the selected cut option beside the page, in parts
                 // where they don't fit; the footer's Next page turns them, in Hold to talk's place.
                 var perPart = question.SidePartRows;
                 var parts = question.SideParts;
@@ -543,7 +511,7 @@ namespace Halcyonic.Client
             : LineWords.Ours("Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture));
 
         /// <summary>
-        /// The person's answers to a question of several prompts, the only page it sends from: each
+        /// The mandatory answer review, including a single prompt, the only page it sends from: each
         /// prompt's answer whole, by its name, choosing one going back to that prompt; paged by a row
         /// where they don't fit, and sent only once every page has been drawn.
         /// </summary>

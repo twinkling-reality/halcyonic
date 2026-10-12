@@ -652,7 +652,7 @@ the same definition names, as the JSON Schema document:
   same, where it is the way to the one meant), and while a decision sent on it may still
   take effect, Sent… in Approve's place and no Deny, so a second decision never races the first
   (`CommandSubmissions.ApprovalPending`, `WorkspacePresentation.ApprovalInFlight`); the agent's question with its answers as
-  rows to choose, Send answer as the main action and Hold to talk beside it. A question with any
+  rows to choose, an explicit forward action to the next question or mandatory review, and a separate editor only where free text is allowed. A question with any
   secret prompt, or with a prompt offering two answers whose labels read the same and no other way to answer (`WorkspaceText.OffersALabelTwice`,
   compared as their rows show them, `WorkspaceText.AsShown`: the NFC form of `LabelText.Plain`, runs of spaces as one, ordinal, so
   white space at the ends, a tab for a space, a run of spaces and a letter composed or decomposed tell none apart; case,
@@ -679,38 +679,43 @@ the same definition names, as the JSON Schema document:
   Back/edit/focus return preserve them, Close/reopen and column/session replacement do not.
   QuestionDraft captures semantic prompt/option content and flags immutably; changes under the same
   question id invalidate it without allocating a serialized question on each check.
-  The question shows a prompt at a time (`FileQuestion`). A question longer than two rows, or one
-  whose own page leaves fewer pages in all (its answers' pages then holding more answers each),
-  shows first on pages of its own, a part at a time, each ending in a row to the next and the last
-  in "On to the answers"; its answers' pages are headed by its first row, cut. Otherwise, a tie
-  included, the question heads its answers whole. The answers keep the agent's order, none left out, each in at most two rows, paged by
-  a row at the page's end ("More answers, 2 of 2"), with Type my answer last; for a question of
-  several prompts, a row on to the next question and after the last to Your answers, which lists
-  each prompt's answer whole, paged where it doesn't fit, and is the only page it sends from. Every
-  prompt and every answer must be measured, or nothing is shown. Nothing counts as read until the
-  view reports it drawn (`FileQuestion.Drawn`, `SideDrawn`): a question once every part has been,
-  or the page heading its answers when it is short; a chosen cut answer, or a typed one longer than
-  its row, once its side panel has shown all of it; and Your answers once every page has. A typed
-  answer or a line of Your answers counts as cut and unread until the layout has measured it as it
-  reads now (`FileQuestion.MeasureTyped`, `MeasureReview`), never as one row by default. A choice
-  is taken only from the currently drawn page. Option paging keeps chosen labels, and whole-read
-  evidence is tracked per option, including its description; relayout/text-size change invalidates
-  that evidence while keeping the choices. Final review lists every retained label and saved word. A part's row turns
-  nothing until its part has been drawn and stood for 0.4 seconds. Send answer waits in its place
-  with its reason until all of this holds (`FileScreens.WhySendWaits`), and the steering refuses
-  too, given the same reason (`WorkspaceSteering.SendAnswer`'s `waits`). A chosen cut answer, or a typed
-  one longer than its row, brings a side panel with all its words, in parts worked out from its own
-  measurement at the side panel's width (`PromptMeasure.AnswerSideRows`, `FileQuestion.SideParts`),
-  turned by the footer's Next page in Hold to talk's place; the view reports only that the side
-  panel was drawn (`SideDrawn`), never which part or how many. A typed answer's panel opens for new
-  words, from their own first part; the same words keep it as the person has it, open on their part
-  or closed, and laid into another number of parts are read again from the first. While they are
-  unread, its row opens the panel again at the first part not yet drawn (`FileQuestion.ReopenTyped`),
-  and so does coming back to the prompt; read whole, the row edits them. Close details always brings
-  the page back. The file's Send answer always carries
-  the page's reason (`WorkspaceSteering.SendAnswer(FileScreen, …)`). A question that waits before
-  it is laid out shows what it asks, with Send answer waiting ("Getting the question ready."), never
-  that nothing waits.
+  The question shows a prompt at a time (`FileQuestion`), with Question i of n and its selection rule.
+  A short complete question stays with its choices. A long question first shows all its parts through
+  Next part and See answers; its clipped repeated context is a bounded Read question control which
+  reopens those parts and returns to the same choice page without changing the draft. Offered answers
+  keep the agent's order. More choices / First choices are bounded controls; Choices i of n reports
+  the current choice page. Write an answer and the pager share a row only when both actual controls
+  fit half width, including icons, selection state and facts. An option that cannot fit whole uses
+  guarded details rather than smaller text. The right-side radio or checkbox mark is independent of
+  the quote/provenance marker; hover does not select it.
+  The focused composition omits file sections and the competing menu while retaining navigator state.
+  Its height budget measures precisely the subject and content parts (`MenuPage.Height(focused: true)`),
+  within the same field and font limits; ordinary callers still include sections. The file recomputes
+  the cached budget when focus composition or text size changes, never continuously as the head moves.
+  Nothing counts as read before the view reports the current exact frame drawn (`FileQuestion.Drawn`,
+  `SideDrawn`). A choice can be pressed only on the currently drawn option page. Paging retains choices;
+  per-option whole-label/description evidence binds to the question content and layout. A selected cut
+  option opens details and every part must be read. Relayout or text-size changes expire reading while
+  retaining draft choices. Semantic question changes, including same-id in-place changes to ordered
+  prompts/options and their flags, replace the draft and expire keyboard, voice, review and confirmation.
+  The editor saves only through Use this answer after every buffer part is read. Keyboard Done and
+  heard words update the pending buffer; dismissing the keyboard leaves words unchanged and restores
+  reading. A long editor uses Previous part / Next part; its Edit answer control returns to editing.
+  Voice is hidden during read-through and never offered for a prompt with FreeText=false. A saved custom
+  answer is represented by one selected Edit answer control and a Selected fact, with all words in the
+  editor and mandatory review. No duplicate text preview competes with the options. Cancel preserves the
+  previously saved draft. Read evidence from Use binds to the exact draft, prompt, text and layout generation;
+  identical words on another prompt or a subsequent resize cannot inherit it.
+  Review is mandatory even for one prompt. It enumerates every retained selection and saved custom word;
+  Edit returns to that prompt and Review answers returns directly to review. Long review rows paginate
+  without losing parts. Previous part goes back within review, Back on its first part returns to the
+  last question. Only the final wholly read review exposes enabled Send answer. Its availability is
+  shared with Drawn's refresh logic, including no-main unanswerable screens and the current Answer
+  capability, so a redraw does not continually invalidate the navigator's fresh press handles. A
+  policy-required Cancel/Yes still binds to the exact armed answers; the existing session, capability,
+  freshness and runtime-confirmation rules remain. While a sent answer may take effect, it cannot be
+  sent again. Parts turn only after their current draw stood for 0.4 seconds. The column's draft lives
+  only within that open file; Close/reopen, file replacement or session/journal replacement discards it.
   Approving or denying, or an instruction armed to send, heard through Hold to talk or typed for a
   policy's review, shows the whole request, or all the instruction's words, as a block of theirs, in parts, as rows
   of one measured line
@@ -741,7 +746,7 @@ the same definition names, as the JSON Schema document:
   and at a new size they fall into other parts, so a part counted as read was not seen as it stands
   now. The question is laid out again even where its room comes out the same, so a question read
   again always shows from its first part with a row leading on; a chosen cut answer read again opens
-  its side panel from its row, as a typed one does, rather than being unchosen; an answer armed to
+  its side panel from its row; saved custom words are reread through their editor, rather than being unchosen; an answer armed to
   send is cancelled ("Nothing was sent: the text size changed. Read it again."); and until the file
   lays its page again, a press is judged and a draw counted only at the new size. New project keeps
   its own rule, the coordinator's decision of 2026-10-04: what was read whole stays read across a
@@ -750,7 +755,7 @@ the same definition names, as the JSON Schema document:
   file is drawn, with why as its notice. Yes sends once, and for an answer only the answers it was
   asked for: words heard or typed that change an answer armed to send cancel its Yes ("Nothing was
   sent: your answer changed. Read it again."), as does anything else that reaches the answer while
-  its Yes stands, a choice or a page turned that clears one (`WorkspaceSteering.AnswersMoved`, asked
+  its Yes stands, a choice or saved editor change (`WorkspaceSteering.AnswersMoved`, asked
   as the file builds), so Send answer's checks apply to the answer as it is. Approve, Deny and Stop always ask, whatever
   the control plane's policy says (`WorkspacePresenter.AlwaysConfirmed`), so a policy of low
   consequence can't send an approval from its preview.
@@ -1779,19 +1784,19 @@ answer's place) and a second decision waits for the first. The column measures w
 panel's widths, each typed answer and each line of Your answers as they read now, the request an
 approval answers, and the brief answers' lines. It packs the question and the request's parts by
 height against what the file's page holds alone on its stage (`IMenuHost.PageHeight`), the menu
-stepping aside where the two would not fit (`MenuColumns`), read when the file opens and again only
-when the text size changes, so a page never packs again as the head moves and never stands taller
+stepping aside where the two would not fit (`MenuColumns`), read when the file opens and again when its focused/ordinary composition or text size changes, so a page never packs again as the head moves and never stands taller
 than the field at the new size; Tasks reads its rows again then too. It counts the gaps the view draws: 12 mm between two targets and
 8 dp between any other two lines, so a question and its answers are one group. What
 counts as read counts only when the director hands back the very frame the column last built
 (`IMenuColumn.Drawn`), the page or its side panel, and toward the question only when that frame was
 built as the question's own page (`FileScreen.QuestionPage`): an approval shown on Waiting meanwhile
 never counts, even where its request, the agent's data, reads word for word as the prompt. Hold to talk's one voice tells the column whether
-it held Hold to talk under the question (an answer, drafted) or on Activity (an instruction, asked
+it held Hold to talk in the custom-answer editor (a pending buffer) or on Activity (an instruction, asked
 before it is sent); where no keyboard opens, Tell it offers instructions to choose instead, and an
-empty Type my answer row is left off (a typed answer heard through Hold to talk stays as a choice,
-and pressing it opens nothing). The page still keeps that row's room, so an answer heard lands
-without packing the page again. Another window taking focus lapses every armed confirmation, and
+free-text input is offered only when keyboard or voice is actually available. The voice-only field
+says Hold to talk below, and a keyboard field says Type your answer. Each recording captures its own
+callback identity, so a delayed answer cannot fall through as a later instruction and a deliberate
+new instruction recording still works. Another window taking focus lapses every armed confirmation, and
 what was read within that arming goes with it, so an approval's request is read again from its first
 part; what was read outside an arming, as a question's parts and answers, stays, since an answer is
 still chosen and sent deliberately, in view. Not yet

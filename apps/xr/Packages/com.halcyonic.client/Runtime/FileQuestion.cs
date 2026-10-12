@@ -33,23 +33,16 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// Where the person is in the agent's question on a file's Waiting page (ADR 0026, lane V's calls of
-    /// 2026-10-02), and what of it they have read. One prompt at a time: a question longer than
-    /// <see cref="QuestionRows"/> rows first on pages of its own, in parts, its last part ending in a
-    /// row on to the answers; then its answers in the agent's order, none left out, paged by a row at
-    /// the page's end, the question heading each page, whole where it is short and by its first row
-    /// where it is long. For a question of several prompts, then the person's answers, each whole,
-    /// which is the only page it sends from.
+    /// The focused pending-question sequence: choices, a scoped custom-answer buffer, and mandatory
+    /// review. It packs actual targets and words by the measured page height. Long questions have
+    /// read-through parts and clipped repeated context which reopens them without changing choices.
     /// </summary>
     /// <remarks>
-    /// Nothing counts as read until the view reports it drawn (<see cref="Drawn"/>,
-    /// <see cref="SideDrawn"/>), never by building a page or turning to it: a question once every part
-    /// of it, or the page heading its answers when it is short; a cut answer or a typed answer longer
-    /// than its row once its side panel has shown all of it; the person's answers once every page of
-    /// them. Send answer sends only what is on the page in view: a choice is taken only from the page
-    /// showing, turning a prompt's page clears it, and laid out anew, the page shows the choice or the
-    /// choice is cleared. A part's row turns nothing until the part showing has been drawn and stood
-    /// for <see cref="TurnGuard"/>.
+    /// Only current drawn frames earn reading. Choices are pressed only on the drawn option page;
+    /// paging retains them with per-option whole-label/description evidence. Layout changes retain
+    /// saved answers but expire reading. Use saves only a fully read valid editor buffer; Cancel
+    /// preserves the saved draft. Every prompt, selected description, saved word and review part must
+    /// be read before final Send. Parts wait for their draw and TurnGuard before advancing.
     /// </remarks>
     public sealed class FileQuestion
     {
@@ -105,7 +98,7 @@ namespace Halcyonic.Client
 
         public QuestionDraft? Draft => draft;
 
-        /// <summary>The prompt showing, from 0; for a question of several prompts, their count while the person's answers show.</summary>
+        /// <summary>The prompt showing, from 0; their count while the mandatory review shows.</summary>
         public int Prompt { get; private set; }
 
         /// <summary>The part of a long question showing on a page of its own, from 0; null while its answers or the person's show.</summary>
@@ -114,7 +107,7 @@ namespace Halcyonic.Client
         /// <summary>The page of the prompt's answers, or of the person's answers, showing, from 0.</summary>
         public int Page { get; private set; }
 
-        /// <summary>The page of the person's answers shows: a question of several prompts, after its last.</summary>
+        /// <summary>The mandatory review shows after the last prompt, including a single prompt.</summary>
         public bool Reviewing => draft != null && Prompt == draft.Prompts.Count;
 
         /// <summary>How many pages the prompt's answers, or the person's answers, take.</summary>
@@ -165,13 +158,7 @@ namespace Halcyonic.Client
         private float Head(int prompt, int rows) => rows <= 0 ? 0f
             : (rows < QuestionMeasured(prompt) ? page.Target(rows) : page.Words(rows)) + page.LineGap;
 
-        /// <summary>
-        /// What a page of answers takes besides its head and answers: Type my answer, sharing its row with
-        /// the paging row after it (lane V's rule 4), the row on to the next question, and their gaps; and
-        /// for a question of several prompts the reason Send answer waits, which always shows there. A
-        /// question of one prompt draws no reason while it waits only for a choice, or while the page
-        /// explains it (<see cref="Prompt.PageExplains"/>).
-        /// </summary>
+        /// <summary>The choice page's counter, selection caption, custom-answer target, reason and gaps.</summary>
         private float Below(bool typed, bool several) =>
             (typed ? page.Target() + page.TargetGap : 0f) + page.Reason + page.Words(2) + 2f * page.LineGap;
 
@@ -185,7 +172,7 @@ namespace Halcyonic.Client
         private float Alike(QuestionPrompt asked) =>
             WorkspaceText.OffersALabelTwice(asked) ? page.Target(AlikeRows) + Math.Max(page.LineGap, page.TargetGap) : 0f;
 
-        /// <summary>The row for more answers, where a page needs it: beside Type my answer it takes no row of its own.</summary>
+        /// <summary>The bounded pager target; it shares the custom navigation target only when both measured controls fit.</summary>
         private float MoreRow(bool typed, bool pair) => typed && pair ? 0f : page.Target() + page.TargetGap;
 
         private bool PairInputPagerFor(int prompt) => draft?.Typed(prompt) == null ? measures[prompt].InputPagerFitsHalf : measures[prompt].SelectedInputPagerFitsHalf;
@@ -247,8 +234,7 @@ namespace Halcyonic.Client
         /// measure for every prompt and every answer, on pages as <paramref name="pageBudget"/> holds them
         /// and side panels as <paramref name="sideBudget"/> does, each source line already taken,
         /// source line's already taken: from its first prompt when it is another question, else where the
-        /// person was. Laid out anew, the page showing is the one holding what was chosen, or the choice
-        /// is cleared; a long question partly read is read again, and one read whole stays read.
+        /// person was. Laid out anew, it lands on a selected option page without clearing other pages' selections; a long question partly read is read again, and one read whole stays read.
         /// </summary>
         public void Show(QuestionDraft answering, IReadOnlyList<PromptMeasure> measured, PageBudget pageBudget, PageBudget sideBudget)
         {
@@ -345,7 +331,7 @@ namespace Halcyonic.Client
             Land(answering);
         }
 
-        /// <summary>Lands on the page holding what is chosen for the prompt showing; chosen across pages, the choice is cleared.</summary>
+        /// <summary>Lands on the page holding the selection when unique; selections across pages remain intact.</summary>
         private void Land(QuestionDraft answering)
         {
             var asked = answering.Prompts[Prompt];
@@ -364,12 +350,7 @@ namespace Halcyonic.Client
             a.Count == b.Count && a.Zip(b, (x, y) => x.QuestionRows == y.QuestionRows && x.AnswerRows.SequenceEqual(y.AnswerRows)
                 && x.AnswerSideRows.SequenceEqual(y.AnswerSideRows) && x.InputPagerFitsHalf == y.InputPagerFitsHalf && x.SelectedInputPagerFitsHalf == y.SelectedInputPagerFitsHalf).All(same => same);
 
-        /// <summary>
-        /// A prompt's answers in pages: what is left of the rows under the question's head, beside the
-        /// typed answer's row, the row on to the next question and the reason Send answer waits, filled in
-        /// the agent's order; with a row for more answers where they take more than one page. The head
-        /// is <paramref name="headRows"/> rows of the question.
-        /// </summary>
+        /// <summary>The agent's ordered choices packed under question context, counter and caption, reserving every visible control and reason.</summary>
         private List<List<int>> Lay(QuestionDraft answering, int prompt, int headRows)
         {
             var asked = answering.Prompts[prompt];
@@ -394,7 +375,7 @@ namespace Halcyonic.Client
             return laid;
         }
 
-        /// <summary>The person's answers in pages of whole answers, beside the reason and, where they page, the row to the next page.</summary>
+        /// <summary>Mandatory review parts, with its title, bounded Edit targets and reason.</summary>
         private void LayReview()
         {
             reviewPages = new List<List<(int, int, int)>> { new List<(int, int, int)>() };
@@ -433,10 +414,8 @@ namespace Halcyonic.Client
         public void MeasureTyped(int prompt, int measured, int sideMeasured)
         {
             if (!(draft?.Typed(prompt) is string typed)) return;
-            // Every rebuild measures again: only new words open the panel, from their first part, and
-            // what was drawn of the old words counts for nothing. The same words leave it as the person
-            // has it, closed or on the part they turned to; reopening it is the row's, or coming back to
-            // the prompt (OpenTypedIfUnread).
+            // Measure saved words as current without opening a competing side panel; the editor is
+            // their explicit reread route and the mandatory review enumerates every saved word.
             var fresh = !typedRows.TryGetValue(prompt, out var before) || before.Words != typed;
             // The same words laid into another number of parts: the parts drawn so far no longer map to
             // the new ones, so what is unread is read again, from the first.
@@ -659,11 +638,7 @@ namespace Halcyonic.Client
             Turned();
         }
 
-        /// <summary>
-        /// The row for more answers: the prompt's next page, or from the last the first. What was chosen
-        /// for this prompt is cleared, so Send answer only ever sends what is on the page in view; the
-        /// typed answer stays, as its row is on every page. On the person's answers, their next page.
-        /// </summary>
+        /// <summary>Advances the current choice or review page without clearing saved selections or reading already earned on other pages.</summary>
         public void MoreAnswers(DateTimeOffset now)
         {
             if (draft == null || QuestionPart != null || Pages < 2 || !Settled(now)) return;
@@ -827,7 +802,7 @@ namespace Halcyonic.Client
             InvalidateInput();
         }
 
-        /// <summary>Every answer chosen or typed for the prompt has been read whole: a cut one or a long typed one in its side panel.</summary>
+        /// <summary>Every selected option label/description and saved custom word has current whole-read evidence.</summary>
         public bool AnswersRead(int prompt)
         {
             if (draft == null) return false;
