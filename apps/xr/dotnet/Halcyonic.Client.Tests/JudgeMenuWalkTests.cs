@@ -417,7 +417,22 @@ public class JudgeMenuWalkTests
         host.Press(MenuColumn.File, FileScreens.TellIt);
         (_, frame) = host.Draw();
         var presets = player.InstructionsFor(file.Now!.Execution!.ExecutionId);
-        Assert.That(JudgePath.Instructions(frame!), Is.EqualTo(presets.Select(preset => WorkspaceText.OneLine(preset.Text))));
+        var seenInstructions = new List<string>();
+        var presetPages = file.Screen.PresetPages;
+        for (var page = 0; page < presetPages; page++)
+        {
+            seenInstructions.AddRange(JudgePath.Instructions(frame!));
+            if (presetPages > 1)
+            {
+                Assert.That(frame!.Lines.Any(line => line.Action == FileScreens.NextPresetPage), Is.True);
+                host.Wait();
+                Assert.That(host.Press(MenuColumn.File, FileScreens.NextPresetPage), Is.True);
+                (_, frame) = host.Draw();
+            }
+            Assert.That(host.Sent, Has.Count.EqualTo(2), "inspecting all preset pages sends nothing");
+        }
+        Assert.That(seenInstructions, Is.EqualTo(presets.Select(preset => WorkspaceText.OneLine(preset.Text))));
+        Assert.That(file.Screen.PresetPage, Is.Zero, "the offered pager returns to the first choice without losing place");
         host.Press(MenuColumn.File, FileScreens.Preset, "0");
         Assert.That(host.Sent, Has.Count.EqualTo(2), "choosing a preset submits nothing");
         host.Press(MenuColumn.File, FileScreens.TellIt);

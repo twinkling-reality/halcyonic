@@ -225,10 +225,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (move != null && file != null && !besideWindow)
                 {
                     moveView!.SettleSubjectForRender();
+                    move.SettleForRender();
+                    move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Hover, move.transform.position);
                     move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Select, move.transform.position);
                     file.Change();
                     director.DrawNow();
-                    director.MatureHoldForRender(move.transform.position);
+                    move.MatureHoldForRender();
                     move.Target.PointerForRender(701, Oculus.Interaction.PointerEventType.Unselect, move.transform.position);
                     if (director.Dragging || director.Plane.Showing(MenuColumn.File)?.Subject == PlacementColumn.Subject)
                         failures.Add(name + ": an old Move press survived a file-frame rebind.");
@@ -308,6 +310,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     // presses as before, unless the columns beside it changed, as the menu stepping aside for a file
                     // too tall for it: then the file slides to a new place and waits to settle as it does.
                     var oneRow = fileTitle;
+                    fileTitle = "Task";
+                    file?.Change();
+                    director.DrawNow();
+                    if (MenuFrameView.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees) != 1) failures.Add(name + ": the short-title height witness is not one measured row.");
                     var oneRowAt = bobbing.Parts.Select(part => part.position).ToList();
                     var columnsBefore = director.Plane.Shown.Select(column => column.Kind).ToList();
                     fileTitle = oneRow + ", and keep a record of every lockout for the security review at the end of the month";
@@ -1173,14 +1179,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 hand.Released += Ended;
                 try
                 {
-                    var at = subject.Subject.position;
+                    var moveButton = subject.Targets.First(button => button.Label.text == "Move");
+                    var at = moveButton.transform.position;
                     director.ResetPosition();
                     director.DrawNow();
                     // Opened again, the file's subject waits to settle as a new one does; a hand finds it a moment later.
                     subject.SettleSubjectForRender();
+                    moveButton.SettleForRender();
+                    hand.PointerForRender(1, Oculus.Interaction.PointerEventType.Hover, at);
                     hand.PointerForRender(1, Oculus.Interaction.PointerEventType.Select, at);
                     // As the first hand's hold matures.
-                    director.MatureHoldForRender(at);
+                    moveButton.MatureHoldForRender();
                     if (!director.Dragging) failures.Add(name + ": the first hand's hold took no hold of the plane.");
                     hand.PointerForRender(2, Oculus.Interaction.PointerEventType.Select, at);
                     hand.PointerForRender(2, Oculus.Interaction.PointerEventType.Unselect, at);
@@ -1218,6 +1227,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.HoldSubjectForRender(subject.Subject.position);
                     if (director.Dragging) failures.Add(name + ": the stage " + what + ", holding the file's subject took hold of the plane.");
                     director.LetGoForRender();
+                    director.DrawNow();
+                    var placement = director.Plane.Showing(MenuColumn.File);
+                    if (placement?.Subject != PlacementColumn.Subject || !director.PressForRender(MenuColumn.File, Footer.Close, null, placement, null))
+                        failures.Add(name + ": the window-constrained Move detail had no usable Close details route.");
+                    director.DrawNow();
                 }
                 arrange(false, standOn);
                 director.DrawNow();
