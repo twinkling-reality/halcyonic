@@ -62,6 +62,7 @@ public final class PanelSelfTest {
                 catch (Exception error) { result = "refused"; } break;
             }
             case "status": result = PanelModel.commandStatus(PanelJson.object(PanelJson.parse(args[0]))); break;
+            case "input_text": result=String.valueOf(PanelInputText.acceptedEnd(args[0],0,args[0].length(),args[1],Integer.parseInt(args[2]),Integer.parseInt(args[3]),32000)); break;
             case "text": result = PanelText.plain(args[0]); break;
             case "command": result = PanelJson.encode(PanelModel.command(args[0], PanelJson.object(PanelJson.parse(args[1])))); break;
             case "model": {

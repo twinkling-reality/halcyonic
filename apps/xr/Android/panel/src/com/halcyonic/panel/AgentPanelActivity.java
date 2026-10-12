@@ -125,6 +125,12 @@ public class AgentPanelActivity extends Activity {
     @Override public void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
     @Override public void onBackPressed() { if (review != null) closeReview(); else if (workId != null) { if (!saveState()) return; workId = null; executionId = null; draft = ""; show(); } else if (projectId != null) { if (!saveState()) return; projectId = null; show(); } else super.onBackPressed(); }
 
+    private static InputFilter ordinaryTextLimit() {
+        return (source, start, end, destination, replaceStart, replaceEnd) -> {
+            int accepted = PanelInputText.acceptedEnd(source, start, end, destination, replaceStart, replaceEnd, 32000);
+            return accepted == end ? null : source.subSequence(start, accepted);
+        };
+    }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private LinearLayout column() { LinearLayout v = new LinearLayout(this); v.setOrientation(LinearLayout.VERTICAL); v.setPadding(dp(20), dp(16), dp(20), dp(16)); return v; }
     private TextView text(LinearLayout parent, String value, int size) {
@@ -391,7 +397,7 @@ public class AgentPanelActivity extends Activity {
             if (snapshot.instruct(run)) {
                 text(content, spoken ? "Your instruction · from speech, review every word" : "Your instruction", 20);
                 instruction = new EditText(this); instruction.setText(draft); instruction.setTextColor(Color.WHITE); instruction.setContentDescription("Your instruction"); instruction.setTextSize(20); instruction.setMinLines(3); instruction.setMaxLines(8);
-                instruction.setFilters(new InputFilter[] {new InputFilter.LengthFilter(32000)}); instruction.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+                instruction.setFilters(new InputFilter[] {ordinaryTextLimit()}); instruction.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
                 content.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
                 button(content, "Review instruction", () -> { rememberDraft(); if (!draft.trim().isEmpty()) reviewInstruction(displayed); });
             } else text(content, "Instructions are unavailable while this agent needs a decision or cannot receive one.", 18);

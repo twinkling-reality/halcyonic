@@ -34,6 +34,7 @@ const PLAIN = [
   'PanelContinuation.java',
   'PanelModel.java',
   'PanelText.java',
+  'PanelInputText.java',
   'PanelDrafts.java',
   'PanelProof.java',
   'PanelUiState.java',
@@ -314,6 +315,12 @@ describe('production native agent panel', () => {
       run('identity', JSON.stringify({ ...fixtures.identities[0], host: 'localhost' })),
       'refused',
     );
+  });
+  test('actual native editor insertion counts canonical codepoints and never splits a supplementary pair', () => {
+    assert.equal(run('input_text', '😀'.repeat(16001), '', '0', '0'), String(32002));
+    assert.equal(run('input_text', '😀'.repeat(32001), '', '0', '0'), String(64000));
+    assert.equal(run('input_text', '😀🙂', 'x'.repeat(31999), '0', '0'), '2');
+    assert.equal(run('input_text', '😀🙂', 'x'.repeat(32000), '0', '1'), '2');
   });
   test('outside text renders invisibles literally without markup interpretation', () => {
     assert.equal(run('text', 'x\u202Ey <b>yes</b>'), 'x‹U+202E›y <b>yes</b>');

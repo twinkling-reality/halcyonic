@@ -200,3 +200,8 @@ latest result is preserved or fails by a named bound. No input/output limit was 
 The follow-up passed 29 focused request/domain/raw-identity cases, including five new producer and
 context/packing regressions, zero skipped, plus typecheck and scoped lint. Actual model/runtime
 acceptance remains separate; deterministic model fixtures do not establish useful planning.
+
+The native instruction editor now applies the canonical 32,000-codepoint insertion limit through a
+plain helper consumed by its actual Android InputFilter. Incoming drafts are not shortened. The
+focused production/development Android compile and insertion/replacement/supplementary-pair checks
+passed (2/2). Actual keyboard/composition behavior on a headset is still pending.
