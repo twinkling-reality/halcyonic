@@ -87,6 +87,18 @@ namespace Halcyonic.XR
         private bool onSurface;
         private WorkspacePresentationState presentation = new WorkspacePresentationState();
         private Transform preview = null!;
+        /// <summary>Conservative occupied shelf, label and banner envelope shared by placement and actual scene checks.</summary>
+        public static void WriteShelfCorners(Pose pose, float width, Vector3[] corners)
+        {
+            if (corners.Length != 8) throw new System.ArgumentException("Shelf envelope has eight corners.", nameof(corners));
+            for (var corner = 0; corner < 8; corner++)
+            {
+                var local = new Vector3(corner % 2 == 0 ? -width / 2f : width / 2f,
+                    corner < 4 ? CharacterLabelView.DeepestBottom * AgentShelfDraft.Scale : 0.5f,
+                    corner % 4 < 2 ? -AgentShelfDraft.Depth / 2f : AgentShelfDraft.Depth / 2f);
+                corners[corner] = pose.position + pose.rotation * local;
+            }
+        }
         public float ShelfWidth => AgentShelfDraft.Width(maxCharacters);
         public bool Visible => presentation.AgentsVisible && onSurface && arc != null && arc.gameObject.activeInHierarchy;
         public void BindPresentation(WorkspacePresentationState state)

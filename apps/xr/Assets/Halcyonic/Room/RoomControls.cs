@@ -52,7 +52,11 @@ namespace Halcyonic.XR.Room
         {
             if (director == null || FocusGuard.InputSuspended || director.Presentation.Minimized || director.MenuHost == null) return;
             director.EnsureAgentStage();
-            if (!placement.BeginPreview()) return;
+            if (!placement.BeginPreview())
+            {
+                director.ReportLocal("No shelf position fits beside the workspace in view. Move the workspace, then choose Place agents again.");
+                return;
+            }
             drag?.End();
             column = new AgentShelfColumn(director.MenuHost, placement.Draft, direction => { drag?.End(); placement.MovePreview(direction); },
                 () => { if (placement.ApplyPreview()) SetEnabled(true); }, placement.CancelPreview, placement.FindRoomSurface);
