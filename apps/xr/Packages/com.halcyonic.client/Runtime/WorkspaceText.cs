@@ -525,7 +525,7 @@ namespace Halcyonic.Client
         /// What an instruction's confirmation asks once all its words, shown above in parts where they are
         /// long, have been read: as heard on the computer, or as typed (settled by the coordinator, 2026-10-04).
         /// </summary>
-        public static string SendWordsAbove(bool heard) => heard ? HostText.YourStart + " heard the words above. Send them?" : "Tell it the words above?";
+        public static string SendWordsAbove(bool heard) => heard ? "Review the transcribed instruction above. Send it?" : "Send the instruction above?";
 
         /// <summary>What the Doing tab says before anything was sent to the work from here.</summary>
         public const string NothingSentYet = "Nothing sent from here yet.";
@@ -614,7 +614,7 @@ namespace Halcyonic.Client
             WorkspaceAction.Approve => "Approve",
             WorkspaceAction.Deny => "Deny",
             WorkspaceAction.Interrupt => "Stop",
-            WorkspaceAction.Instruct => "Tell it",
+            WorkspaceAction.Instruct => "Write instruction",
             WorkspaceAction.Answer => "Send answer",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
@@ -628,7 +628,7 @@ namespace Halcyonic.Client
             WorkspaceAction.Approve => "Approve the request above?",
             WorkspaceAction.Deny => "Deny the request above?",
             WorkspaceAction.Interrupt => "Stop what it's doing now? It counts as stopped once the agent confirms.",
-            WorkspaceAction.Instruct => "Tell it this? “" + OneLine(instruction ?? "") + "”",
+            WorkspaceAction.Instruct => "Send this instruction? “" + OneLine(instruction ?? "") + "”",
             WorkspaceAction.Answer => "Send these answers?",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
@@ -660,7 +660,7 @@ namespace Halcyonic.Client
             WorkspaceAction.Approve => "Yes, approve",
             WorkspaceAction.Deny => "Yes, deny",
             WorkspaceAction.Interrupt => "Yes, stop",
-            WorkspaceAction.Instruct => "Yes, tell it",
+            WorkspaceAction.Instruct => "Yes, send",
             WorkspaceAction.Answer => "Yes, send answer",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };

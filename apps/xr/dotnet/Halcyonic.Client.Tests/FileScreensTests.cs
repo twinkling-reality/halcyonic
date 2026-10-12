@@ -263,7 +263,7 @@ public class FileScreensTests
         var changes = Screen(Read(FileSection.Changes));
         Assert.That(changes.SourceIsData, Is.True);
         var activity = Screen(new FileScreen { Section = FileSection.Activity });
-        Assert.That((activity.Source, activity.SourceIsData), Is.EqualTo((FileScreens.AgentSource, false)));
+        Assert.That(activity.Source, Is.Null, "activity identifies reported claims on their own rows");
     }
 
     [Test]
@@ -283,7 +283,7 @@ public class FileScreensTests
     }
 
     [Test]
-    public void ActivityOffersTellItAsTheMainActionWithStopBesideCloseAndHoldToTalkBesideTellIt()
+    public void ActivityKeepsObservedEventsAndAgentClaimsDistinctWithoutRepeatingTaskState()
     {
         var present = Running().Present();
         var activity = new[]
@@ -297,12 +297,26 @@ public class FileScreensTests
         var frame = Screen(new FileScreen { Section = FileSection.Activity, Speak = true }, workspace);
         Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.HoldToTalk, FileScreens.TellIt }));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Write instruction"));
         var quote = frame.Lines.Last();
         // The agent's words alone, no quotes, leaning beside Halcyonic's quote mark, "Agent says" their class (settled 2026-10-08).
         Assert.That((quote.Words, quote.Chip, quote.Runs.AllTheirs, quote.Icon, quote.Fact), Is.EqualTo(("Done with the migration", "Agent says", true, (GlazeIcon?)GlazeIcon.Quote, "09:00")));
         Assert.That(quote.FactRuns!.AnyTheirs, Is.False, "the time is Halcyonic's");
-        Assert.That(frame.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(Room.Rows), "the source line takes one of the page's rows");
-        Assert.That(frame.Source, Is.EqualTo(FileScreens.AgentSource));
+        Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(Room.Rows));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(activity.Select(entry => entry.Text)));
+        Assert.That(frame.Lines[0].Runs.AnyTheirs, Is.False, "an observed event is not restyled as agent text");
+        Assert.That(frame.Source, Is.Null, "a mixed event log cannot be attributed wholesale to the agent");
+    }
+
+    [Test]
+    public void EmptyActivityDoesNotInventAnEventFromTheCurrentState()
+    {
+        var frame = Screen(new FileScreen { Section = FileSection.Activity });
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No recorded activity yet." }));
+        Assert.That(frame.Source, Is.Null);
+        Assert.That(frame.Pill, Is.Not.Null, "the actual task state remains visible above activity");
+        var reading = Screen(new FileScreen { Section = FileSection.Activity, ActivityNote = "Reading activity" });
+        Assert.That(reading.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Reading activity" }));
     }
 
     [Test]
@@ -310,7 +324,7 @@ public class FileScreensTests
     {
         var work = new WaitingWork();
         var frame = Screen(new FileScreen { Section = FileSection.Activity }, work.Present());
-        Assert.That((frame.Lines[0].Words, frame.Lines[0].Tone), Is.EqualTo(("It wants your approval. See it under Waiting.", LineTone.Waiting)));
+        Assert.That((frame.Lines[0].Words, frame.Lines[0].Tone), Is.EqualTo(("Approval requested. Open Waiting.", LineTone.Waiting)));
     }
 
     [Test]
