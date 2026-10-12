@@ -17,7 +17,10 @@
   rendering and device checks remain unrun; visual acceptance remains open. The October 12 replay
   passed 238/238 combined focused tests and aggregate runtime/all Editor source compilation, with
   the same four existing nullable warnings. Four additional real instruction/Settings lifetime
-  cases passed at both text sizes; full combined gates and actual renders remain separate checks.
+  cases passed at both text sizes. The combined core/test tree `73d74ab0` passed the full gate
+  on October 12 at 13:11:33 EDT: 1033 repository and 1561 C# tests, zero skipped. The editor-only
+  cache wrapper `92c80f53` also passed aggregate source compilation; actual renders remain a
+  separate check and no Unity assembly-boundary or physical-fit result follows from it.
 
 ## Source behavior and scope
 
