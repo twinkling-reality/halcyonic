@@ -1603,7 +1603,7 @@ public class FileColumnTests
         // Answered, the approval goes, and the question's own page counts once drawn.
         work.Change(execution => execution.PendingApprovals.Clear());
         column.Tick();
-        Assert.That((column.Frame!.Footer[PromptSlot.FarRight]?.Id, column.Screen.Question.Draft), Is.EqualTo((FileScreens.NextPart, draft)), "the question's own parts must now be read");
+        Assert.That((column.Frame!.Footer[PromptSlot.FarRight]?.Id, column.Screen.Question.Draft), Is.EqualTo((FileScreens.NextQuestion, draft)), "the short question now fits beside its answers but still needs its own visible draw");
         Assert.That(draft.WasShownWhole(0), Is.False);
         Draw(host, column);
         Assert.That(draft.WasShownWhole(0), Is.True, "the question's page drawn");
@@ -1707,7 +1707,7 @@ public class FileColumnTests
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
         ReadQuestion(host, column);
         // Every page of its answers: those rows can't be chosen, a press on one chooses nothing, and the line stands under them.
-        const string alike = "Alike answers cannot be chosen. Stop if you meant one.";
+        const string alike = "Stop task";
         var draft = column.Screen.Question.Draft!;
         var rows = new List<(string Words, bool Available)>();
         for (var page = 0; page < column.Screen.Question.Pages; page++)
@@ -1721,7 +1721,8 @@ public class FileColumnTests
             var answers = shown.Where(line => line.Action == FileScreens.Choose).ToList();
             rows.AddRange(answers.Select(line => (line.Words, line.Available)));
             Assert.That(shown[shown.FindLastIndex(line => line.Action == FileScreens.Choose) + 1].Words, Is.EqualTo(alike), "under its answers, page " + page);
-            Assert.That((shown.Single(line => line.Action == FileScreens.Stop).Control, shown.Single(line => line.Action == FileScreens.Stop).Icon), Is.EqualTo((LineControl.Action, (GlazeIcon?)GlazeIcon.Stop)), "the same truthful Stop escape is now a bounded action on the page");
+            var stop = shown.Single(line => line.Action == FileScreens.Stop);
+            Assert.That((stop.Control, stop.Icon, stop.Rows, stop.Fact), Is.EqualTo((LineControl.Action, (GlazeIcon?)GlazeIcon.Stop, 1, "Alike answers cannot be chosen")), "the bounded Stop task target explains the ambiguous choices without promising an absent escape");
             Assert.That(column.Frame!.Footer[PromptSlot.Secondary], Is.Null, "voice belongs only inside the dedicated editor");
             foreach (var row in answers.Where(line => !line.Available))
             {
@@ -1736,11 +1737,11 @@ public class FileColumnTests
             ("Ask me later", true),
         }));
         Assert.That(draft.Problem, Is.EqualTo("Choose or type an answer first."));
-        // Words typed or heard that read like one of them aren't taken, and say Stop since the page offers it.
-        const string typedAlike = "Your answer reads the same as answers that can't be chosen here. Answer another way, or press Stop if you meant one of them.";
+        // Typed or heard alike words are refused; the editor has no Stop action, so its refusal promises none.
+        const string typedAlike = "Your answer reads the same as answers that can't be chosen here. Answer another way.";
         column.Act(FileScreens.TypeAnswer, "3");
         host.Keyboard!.Value.Done("Yes\t");
-        Assert.That((draft.Typed(0), column.Frame!.Footer[PromptSlot.FarRight]!.Reason), Is.EqualTo(((string?)null, typedAlike)), "alike text is not usable and says why beside Use");
+        Assert.That((draft.Typed(0), column.Frame!.Footer[PromptSlot.FarRight]!.Reason), Is.EqualTo(((string?)null, typedAlike)), "alike text is not usable and says why beside Use, without promising Stop absent from the editor");
         column.Act(FileScreens.UseInput, null);
         Assert.That(draft.Typed(0), Is.Null);
         column.HoldStarted(FileScreens.SpeakAnswer);
