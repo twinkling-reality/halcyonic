@@ -1604,7 +1604,7 @@ Run `pnpm test:csharp` (the .NET 10 SDK and Node.js must be on `PATH`).
 Interaction SDKs and the MR Utility Kit 207.0.0, XR Hands 1.9.0 and Newtonsoft.Json 3.2.2. Its
 scripts use only long-stable core Unity APIs:
 
-- `HalcyonicBootstrap` adds the stage to any scene that lacks one. The stage scene carries its own,
+- `HalcyonicBootstrap` ensures the connection, focus guard and device measures without creating a character stage. `WorkspaceDirector.EnsureWorkspace` attaches the normal workspace independently. The stage scene carries its own,
   so that its `FocusGuard` can reference the rig's hands, and the bootstrap adds `DeviceMeasures`
   beside it there, which no scene file carries: without it the headset's field of view is never
   measured (`ViewField.Current`) and no device lines are logged (`HalcyonicBootstrap.EnsureStage`).
@@ -1628,57 +1628,24 @@ scripts use only long-stable core Unity APIs:
   ends with, so a phase that begins and ends within one frame, such as `Connecting` when the
   connection is refused at once, has no line of its own. For the demonstration it also logs each
   start from the beginning, with its count, and each end it reaches, never what was answered.
-- `CharacterStage` stands the characters on an arc of fixed slots in front of the person and says
-  on a banner under their labels, in the ambient strip, whether the state is live ("Connected to
-  your computer", "Last known: can't reach your computer. Trying again…"), or, while the demonstration is
-  shown, its `DemonstrationLine`, with how many tasks wait for the person while another window has
-  focus ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
-  The banner steps aside while a foreground panel or the peek is where it goes (`AmbientCover`):
-  a panel says itself whether it is live, and the peek says it of its character. In the
-  demonstration it always stands raised instead, the closed bar included (`BannerPlace`, in the
-  client core): it stands a little more than a degree over the highest a risen character reaches
-  (`CharacterStage.BannerBottomAbove`; beside a window, over the window's lane), as it stands over a
-  surface, and a little more than a degree over the open plane's top edge, or the closed bar's
-  while it stands alone, which the plane gives as laid (`MenuPlane.TopElevation`,
-  `MenuPlane.BarElevation`, `AmbientCover.RaisedOver`) and which over a desk's lineup stand where
-  the banner would (`CharacterStage.RaisedBannerBottom`). Over the open menu it says the
-  `DemonstrationLine` alone, since the menu says what waits; over the closed bar it keeps a notice,
-  as pairing's prompts and the room's offer, and the folded stage's lines under it. So the
-  demonstration's lines stay in view whatever the menu shows (ADR 0026), and the banner follows
-  the plane as it is laid anew. The peek still hides it. The arc is 2.4 m
-  away, beyond the system windows, such as Virtual Display's screens, that open within about 2 m
-  ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); the characters' centers
-  0.17 m below the eyes, about 4 degrees, so their labels end about 14 degrees down (15 with a mark
-  and two lines of title) and the banner and any panel open under them in the comfortable band;
-  and 60 degrees between its outermost characters, so every character and its labels stay within
-  about 36 degrees of where the person faced, a comfortable field on narrower headsets too. All
-  three are serialized settings (`DefaultDistance`, `DefaultHeightFromEyes`), to be judged on the
-  headset. Characters and labels scale with their distance from the eyes, so they keep their
-  apparent size near or far, above or below (`Stance`); seen from above, as on a desk, the arc
-  spreads so neighbours look as far apart as in front of the person (`Spread`), and each label hangs
-  a little lower so its body never covers its badge and leans back about its top edge to face the
-  eyes (`CharacterLabelView.ViewFrom`): upright, seen from above, its words read at about two thirds
-  of their size, under 14 dp as the eyes see it; leaned, at their size, which the stage render holds. A character the lineup moves glides along the arc, swinging out behind the
-  others. Everything is looked at and pointed at from the seat; nothing needs the person to stand
-  or reach. The arc is placed at the person's head, facing where they face, when
-  `InFrontPlacement` says so, fed by `PersonPlacement` with the head's pose, whether it is tracked,
-  focus changes, pauses and the runtime's reference space changes
-  (`XRInputSubsystem.trackingOriginUpdated`): at the start, after a real pause, when the person
-  recenters, and after a head jump no person makes. Reference space changes that move nothing,
-  as the bursts that come while system windows take and give back focus, never move it; a tracking
-  space that does move takes the stage with it, so it stays where it was around the person. The
-  log says which: `placed the stage in front of the person because ...`, `moved the stage with the
-  tracking space ...`, or `kept the stage where it stands: ...`. `SurfaceHeight` says how high the
-  surface the characters stand on is, for the workspace. An `IStagePlacementSource` on the stage object, such as a room placement
-  that found the person's desk, can give it a surface instead: the pose's position is where the
-  middle of the lineup stands, the arc curves around the person's side of it at their distance
-  when the pose arrived, and every label rests on the surface, with the banner above the highest a
-  character reaches, risen included. While that pose is set, only
-  the source moves the stage, and recenters leave it. The stage keeps animating and updating while
-  the app lacks input focus. It raises `CharacterCreated` and offers `TryGetCharacter` and
-  `SlotOf`, so other components add to characters without changing them. The lineup it keeps covers
-  only the work of the projects its `Visibility` shows, plus the one work `Request` asks for, and
-  it raises `Refreshed` after each update.
+- `CharacterStage` is optional. `WorkspaceDirector` creates one only for an explicit shelf placement
+  action when the scene carries none. `WorkspacePresentationState` starts with agents off; a
+  confirmed `IStagePlacementSource.Preferred` pose and `AgentsVisible` are both required before the
+  stage creates or exposes characters. Missing or lost placement hides the shelf and its targets,
+  with no eye-relative arc or guessed window lane fallback. A confirmed shelf uses the pose's
+  position and yaw unchanged, a straight row at 0.24 character units per slot and 0.85 scale, and a
+  visible horizontal shelf under the bodies. Recenter, head motion and system-window focus do not
+  move a manual session placement. Existing static arc/label-resting helpers remain for historical
+  render fixtures; they are not runtime entry or recovery behavior.
+  `CharacterView.Grounded` computes the lowest transformed shell vertex after each frame's squash
+  and body rotation, and offsets the body by its negative height. Thus hover, hop and waiting-rise
+  cues cannot lift a grounded body off the shelf or push it through. Labels remain attached below
+  the body; their bottom does not establish grounded body contact. `StageRender.AgentShelfCheck`
+  samples actual shell vertices through 300 frames of all twelve existing character presentations
+  and saves both-size witnesses. This is an editor geometry check, not a headset comfort or cost claim.
+  `CharacterCreated`, `TryGetCharacter`, `SlotOf` and project display preferences remain optional
+  character presentation. Task entry does not `Request` or `Keep` a character. `StageNow`, peeks,
+  onboarding hints and character input include only actually active visible shelf targets.
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
@@ -2186,64 +2153,43 @@ recorded.
 
 ### The room
 
-`Assets/Halcyonic/Room` is its own assembly, `Halcyonic.XR.Room`, the only one that references
-the MR Utility Kit. It puts the stage in the person's real room: passthrough on, the characters on
-their desk, and the place kept with a spatial anchor so they are there again the next session
-([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md),
-[mixed-reality-room.md](../validation/mixed-reality-room.md)). `RoomBootstrap` adds
-`RoomPlacement` to the stage object after the scene loads, in any scene with Meta's camera rig, so
-neither the scene nor the stage refers to it; the stage finds it as its `IStagePlacementSource`.
+`Assets/Halcyonic/Room` is the separate `Halcyonic.XR.Room` assembly, the only one that references
+MRUK. `RoomBootstrap` attaches its controls to the workspace runtime root where a Meta camera rig
+exists. Passthrough remains independent of whether optional characters are present.
 
-- **Space.** The real room is the default wherever passthrough works; the virtual space shows when
-  the person chooses it, a choice kept on the device, or by itself when passthrough is
-  unavailable (unsupported, failed, or not started within 6 seconds). `PassthroughView` turns on
-  `OVRManager.isInsightPassthroughEnabled`, adds an `OVRPassthroughLayer` underlay, and clears the
-  rig's cameras to transparent black while it runs; the virtual space gives them their background
-  back.
-- **Room access.** On the first visit to the real room, once the head is tracked, the controls
-  show "To stand your agents on your desk, allow access to this room's layout." for 2.5 seconds,
-  and then the app asks for the spatial data permission, which the headset explains once and
-  confirms. A person who declines is not asked again; the controls offer to ask, once more per
-  session, and after a second refusal say that the headset's settings can allow it.
-- **Reading the room.** `RoomReader` creates MRUK in code, with loading on startup off, world lock
-  off (the rig's tracking space is never moved) and space setup only on request, loads the scene
-  model, and takes the room around the eyes. It describes, in world coordinates, every surface
-  facing up that is a table (a desk) or other furniture top (storage, a bed, anything else), from
-  its plane's outline or its volume's top, and every object with a volume, as its footprint and
-  height. Couches are only obstacles: a couch's box top is its backrest.
-- **Choosing and keeping the place.** `RoomPlacement` first restores the anchor saved for that
-  room, or, without a room, the most recent one, when it localizes within 6 seconds and still
-  suits the seat (`StageSurfaces.StillSuits`). Otherwise it chooses a spot
-  (`StageSurfaces.Choose`), publishes it at once, so the stage moves there while the anchor is
-  made, and keeps it with an `OVRSpatialAnchor` created there and saved on the headset
-  (`StageAnchors`), remembered for the room by `PlacementMemory` in a player preference. An anchor
-  the headset no longer holds is forgotten; an anchor a room no longer uses is erased when the
-  new one is saved or the room is dropped from the memory's eight.
-- **The pose.** `Preferred` is the spot on the surface where the middle of the lineup stands, with
-  a yaw facing away from the person; the stage draws the arc around the person's side of it.
-  Only the anchor's tracked pose moves it afterwards: after the anchor moves more than 2 cm or 2
-  degrees and holds still for half a second with input focus, as after a recenter, the pose is
-  published again. Reference space events never move it, because with system windows open the
-  session's focus can flap many times a second and each flap reports one. An anchor untracked for
-  5 seconds of focused time returns the stage in front of the person until it is tracked again; a
-  placement without an anchor stays where it was put.
-- **Fallbacks.** Without passthrough, room access, a room set up, the person inside a set-up room,
-  a surface that fits, or an anchor, the stage stands in front of the person, as it does without
-  a placement source, and the line says why. Space setup is offered where it would help (no room,
-  outside the rooms, or no surface), started only when the person presses it
-  (`OVRScene.RequestSpaceSetup`, which pauses the app until the person finishes or cancels), and
-  the room is read again afterwards. A placement without a saved anchor holds for the session.
-  Nothing waits on the room before the characters appear.
-- **Controls.** `RoomControls` gives the workspace director the room's part of the menu's
-  Settings, Your space (`IRoomSettings`, its rows from `SpaceSettings`): Around you, whose change
-  is the switch ("Show a virtual space" or "Show my room"), Your room's layout, whose change is the
-  offer ("Allow room access" or "Set up this room"), each side panel saying `RoomStatus.Line`, and
-  The characters; its changes are ignored while `FocusGuard.InputSuspended`. When the line changes,
-  and when the room is about to ask for access, the stage's banner shows it as a notice for eight
-  seconds, instead of the controls coming up in front of the person as they used to.
-- **Logs.** `Halcyonic: room ...` lines say what was shown, asked, read, chosen, restored, kept,
-  lost and erased, and why, with distances and angles, and never an anchor or room id or a
-  position.
+- **Space.** The real room shows wherever passthrough works; the person may keep a virtual-space
+  preference. Starting passthrough does not read the scene or request scene permission.
+- **Explicit placement.** Settings offers Spatial agents, initially Off, and Agent shelf. Showing
+  agents without a confirmed pose opens `AgentShelfColumn`; the person sees a shelf preview and
+  measured Left/Right/Closer/Farther/Up/Down/Turn controls, each moving 5 cm or turning 5 degrees.
+  A manual candidate starts in view only because the person requested placement. Apply publishes
+  its position and yaw, then enables the shared presentation state. Cancel, leaving the column,
+  input-focus loss or global minimization discards the preview. The previous confirmed shelf stays
+  unchanged during preview, and work/drafts remain in the workspace. Manual placement is for this
+  tracking session only, with no asserted furniture support or durable anchor.
+- **Authority and limits.** The shelf column keeps its exact offered frame until Changed. Only a
+  current drawn, offered movement, room-read or Apply can act. `AgentShelfDraft` bounds candidates
+  to 0.4–2 m horizontally from the placement-time eyes and 0.15–0.9 m below them, rejects non-finite
+  values, and invalidates its generation before Apply or Cancel. Late room suggestions cannot
+  replace a cancelled, superseded or committed preview. New tracking sessions do not regain
+  placement authority from the stored agents preference.
+- **Room suggestion.** Find a room surface is an explicit action inside the placement preview.
+  Only this action starts scene access and MRUK reading. The existing conservative
+  `StageSurfaces.Choose` selects a possible point; `ShelfFits` additionally checks the entire
+  actual shelf rectangle against concave surface edges and obstacles, including an obstacle
+  wholly inside its footprint. A result updates only the preview, still requiring Apply. Permission
+  denial or no fitting surface leaves manual placement available. This flow does not automatically
+  restore or create durable anchors; the existing anchor/memory primitives are retained, with no
+  new claim of cross-session recovery.
+- **Missing placement.** `Preferred == null` tucks agents and their targets away. There is no arc
+  fallback or fictional room-for-window arrangement. The normal workspace remains usable with
+  agents Off or unavailable. Room status names the recovery route rather than saying that agents
+  float in front of the person.
+- **Validation.** C# regressions cover preview authority, Apply/Cancel, generation invalidation,
+  bounded moves, measured paging at both text sizes, whole-shelf surface and obstacle checks, and
+  the truthful Off/Placed settings route. `StageRender.AgentShelfCheck` checks actual animated body
+  contact and saves editor pictures. Headset placement comfort, direct grab handling, relocalization
+  and frame cost require separate device evidence; no earlier arc renders prove this shelf.
 
 ### Sound
 

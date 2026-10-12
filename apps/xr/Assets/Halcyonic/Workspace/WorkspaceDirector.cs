@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Halcyonic.Client;
@@ -22,7 +23,7 @@ namespace Halcyonic.XR.Workspace
     /// <see cref="CommandSubmissions"/> here, so what is in flight shows as sent. No peek, hint or
     /// input while the app lacks focus (<see cref="FocusGuard"/>).
     /// </summary>
-    [RequireComponent(typeof(ControlPlaneConnection), typeof(CharacterStage))]
+    [RequireComponent(typeof(ControlPlaneConnection))]
     public sealed class WorkspaceDirector : MonoBehaviour
     {
         /// <summary>Farther than a character's own motion, in its units: the stage moved it.</summary>
@@ -40,7 +41,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The characters standing now, gathered every frame for the peek into one list, so no frame allocates.</summary>
         private readonly List<CharacterTarget> standing = new List<CharacterTarget>();
         private ControlPlaneConnection connection = null!;
-        private CharacterStage stage = null!;
+        private CharacterStage? stage;
+        public WorkspacePresentationState Presentation { get; } = new WorkspacePresentationState();
         private CommandFactory commands = null!;
         private PeekLabel peek = null!;
         private SpriteRenderer reticle = null!;
@@ -58,7 +60,6 @@ namespace Halcyonic.XR.Workspace
         private string? journalId;
         private int shownSubmissions = -1;
         private float nextRefresh;
-        private string? pendingOpen;
         private string? shownBeside;
         private Vector3 besidePlacedAt;
         private string historyNote = "";
@@ -69,12 +70,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Which projects the stage shows, for each journal, kept on the device under the key the project rail kept it under.</summary>
         private const string VisibilityPreference = "halcyonic.stage.visibility";
 
-        /// <summary>The journals of the computers that have had a task, which the first question never asks again (<see cref="FirstVisit.Started"/>).</summary>
-        private const string StartedPreference = "halcyonic.entry.started";
-
         private StageVisibility visibility = null!;
         private int savedVisibility;
-        private FirstVisit firstVisit = null!;
         private WorkOverview? overview;
         private (long Position, int Visibility) overviewOf = (-1, -1);
 
@@ -100,6 +97,14 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Pairing, Settings' Your computer, given by the pairing in a development build; none otherwise.</summary>
         public IPairingSettings? Pairing { get; set; }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        public static void EnsureWorkspace()
+        {
+            HalcyonicBootstrap.EnsureStage();
+            var root = FindAnyObjectByType<ControlPlaneConnection>();
+            if (root != null && root.GetComponent<WorkspaceDirector>() == null) root.gameObject.AddComponent<WorkspaceDirector>();
+        }
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
@@ -109,8 +114,7 @@ namespace Halcyonic.XR.Workspace
             // The stage takes the choice of projects before it places anyone.
             visibility = StageVisibility.Load(PlayerPrefs.GetString(VisibilityPreference, ""));
             savedVisibility = visibility.Version;
-            stage.Visibility = visibility;
-            firstVisit = new FirstVisit(PlayerPrefs.GetString(StartedPreference, ""));
+            if (stage != null) { stage.BindPresentation(Presentation); stage.Visibility = visibility; }
             // The same client the session introduces itself as (ControlPlaneConnection).
             commands = new CommandFactory(new ClientInfo
             {
@@ -130,20 +134,21 @@ namespace Halcyonic.XR.Workspace
         private void OnEnable()
         {
             connection.Changed += OnChanged;
-            stage.CharacterCreated += Attach;
-            stage.Refreshed += OnStageRefreshed;
+            if (stage != null) { stage.CharacterCreated += Attach; stage.Refreshed += OnStageRefreshed; }
+            Presentation.Changed += OnPresentationChanged;
         }
 
         private void OnDisable()
         {
             connection.Changed -= OnChanged;
-            stage.CharacterCreated -= Attach;
-            stage.Refreshed -= OnStageRefreshed;
+            if (stage != null) { stage.CharacterCreated -= Attach; stage.Refreshed -= OnStageRefreshed; }
+            Presentation.Changed -= OnPresentationChanged;
         }
 
         /// <summary>The characters came up to date: the menu ends a drag judged against others.</summary>
         private void OnStageRefreshed()
         {
+            overview = null;
             if (menu != null) menu.StageRefreshed();
         }
 
@@ -153,6 +158,8 @@ namespace Halcyonic.XR.Workspace
             var appearance = GetComponent<AppearanceControls>() ?? gameObject.AddComponent<AppearanceControls>();
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
+                Presentation = Presentation,
+                ConnectionTarget = () => ControlPlaneSettings.Target(),
                 State = () => connection.Session?.State,
                 Connected = () => connection.Session?.Status.IsLive == true,
                 Session = () => connection.Session,
@@ -163,7 +170,7 @@ namespace Halcyonic.XR.Workspace
                 KeyboardOffered = () => TouchScreenKeyboard.isSupported,
                 Voice = voice,
                 StageNow = StageNow,
-                CharacterOf = task => targets.TryGetValue(task, out var target) && target != null ? target : null,
+                CharacterOf = task => targets.TryGetValue(task, out var target) && AgentVisible(target) ? target : null,
                 Bar = place => TasksColumn.Bar(place, connection.Session?.State),
                 SomethingWaits = SomethingWaits,
                 Comfort = comfort.Settings,
@@ -182,6 +189,7 @@ namespace Halcyonic.XR.Workspace
                 MakeNewProject = host => NewProjectColumn.Create(host, commands),
                 File = FileFor,
             });
+            menu.Open(); // Full workspace is the normal entry in live, recorded and disconnected sessions.
             gaze = GazeHover.Create(transform, () => (peekChoice.PinchTarget, peekChoice.PinchBlock));
             if (gaze == null)
             {
@@ -196,7 +204,7 @@ namespace Halcyonic.XR.Workspace
             if (session == null) return;
             foreach (var workstreamId in session.State.Workstreams.Keys)
             {
-                if (stage.TryGetCharacter(workstreamId, out var view)) Attach(workstreamId, view);
+                if (stage != null && stage.TryGetCharacter(workstreamId, out var view)) Attach(workstreamId, view);
             }
         }
 
@@ -210,32 +218,42 @@ namespace Halcyonic.XR.Workspace
             target.Ray.GazeSelected += () => OnLookAndPinch(target);
         }
 
-        /// <summary>
-        /// Opens a workstream's file whether or not it has a character now, as More work and Open now
-        /// ask: the stage gives it one first (<see cref="CharacterStage.Request"/>), and the file opens
-        /// beside the menu once it stands in its slot. Nothing is sent.
-        /// </summary>
+        /// <summary>Opens the task directly from current work, independently of optional spatial agents.</summary>
         public void OpenWork(string workstreamId)
         {
-            if (FocusGuard.InputSuspended) return;
-            if (OpenWorkstream == workstreamId) return;
-            pendingOpen = workstreamId;
-            stage.Request(workstreamId);
+            if (FocusGuard.InputSuspended || Presentation.Minimized || menu == null || Present(workstreamId) == null) return;
+            if (OpenWorkstream != workstreamId) menu.OpenFile(workstreamId);
         }
 
-        /// <summary>Opens the work <see cref="OpenWork"/> asked for once its character stands on the stage, or forgets it once it is gone.</summary>
-        private void OpenPending()
+        /// <summary>Creates an optional stage only for an explicit shelf placement action.</summary>
+        public CharacterStage EnsureAgentStage()
         {
-            var id = pendingOpen;
-            if (id == null) return;
-            if (connection.Session?.State.Workstreams.ContainsKey(id) != true)
+            if (stage != null) return stage;
+            stage = gameObject.AddComponent<CharacterStage>();
+            stage.BindPresentation(Presentation);
+            stage.Visibility = visibility;
+            stage.CharacterCreated += Attach;
+            stage.Refreshed += OnStageRefreshed;
+            return stage;
+        }
+
+        public bool OpenLocal(IMenuColumn column) => menu != null && !Presentation.Minimized && menu.OpenLocal(column);
+        public IMenuHost? MenuHost => menu;
+        private bool AgentVisible([NotNullWhen(true)] CharacterTarget? target) => Presentation.AgentsVisible && stage != null && stage.Visible
+            && target != null && target.gameObject.activeInHierarchy;
+        private void OnPresentationChanged()
+        {
+            overview = null;
+            if (Presentation.Minimized || !Presentation.AgentsVisible)
             {
-                pendingOpen = null;
-                return;
+                pointed = null;
+                facing = null;
+                peekChoice.Update(new PeekInput { Suspended = true }, Time.unscaledTime);
+                peek.Hide();
+                hint.Hide();
+                reticle.gameObject.SetActive(false);
             }
-            if (!targets.TryGetValue(id, out var target) || target == null) return;
-            pendingOpen = null;
-            Open(target);
+            if (menu != null) menu.StageRefreshed();
         }
 
         /// <summary>Collapses the open file, if one is open, as the entry panel does before it opens in the same place.</summary>
@@ -243,7 +261,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (OpenWorkstream is not string open) return;
             Acted?.Invoke(open, WorkspaceAct.Collapse);
-            menu.Navigator.CloseBeside();
+            menu.CloseFile(open);
         }
 
         private void OnChanged(StateChanges changes)
@@ -270,9 +288,7 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
-            OpenOnFirstVisit();
             PollKeyboard();
-            OpenPending();
             FollowBeside();
             if (submissions.Version != shownSubmissions || Time.unscaledTime >= nextRefresh) Refresh();
             UpdatePeek();
@@ -296,14 +312,14 @@ namespace Halcyonic.XR.Workspace
                 shownBeside = beside;
                 if (beside != null)
                 {
-                    if (targets.TryGetValue(beside, out var now) && now != null)
+                    if (targets.TryGetValue(beside, out var now) && AgentVisible(now))
                     {
                         FacePerson(now, true);
                         besidePlacedAt = now.BodyPosition;
                     }
                 }
             }
-            if (beside != null && targets.TryGetValue(beside, out var character) && character != null
+            if (beside != null && targets.TryGetValue(beside, out var character) && AgentVisible(character)
                 && Vector3.Distance(besidePlacedAt, character.BodyPosition) > MovedFar * character.Scale)
             {
                 besidePlacedAt = character.BodyPosition;
@@ -337,8 +353,6 @@ namespace Halcyonic.XR.Workspace
             if (Present(workstreamId) == null) return null;
             OnboardingHint.Learned();
             hint.Hide();
-            // Work the person just opened keeps its character a while after closing (CharacterLineup.KeepFor).
-            stage.Keep(workstreamId);
             Acted?.Invoke(workstreamId, WorkspaceAct.Open);
             ReadHistory(workstreamId);
             return new FileColumn(host, () => Present(workstreamId), commands, IntelligenceReader,
@@ -381,10 +395,10 @@ namespace Halcyonic.XR.Workspace
             standing.Clear();
             foreach (var target in targets.Values)
             {
-                if (target != null) standing.Add(target);
+                if (AgentVisible(target)) standing.Add(target);
             }
             return new MenuDirector.Stage(WorkspaceVisuals.HeadPosition, head != null ? head.forward : Vector3.forward, standing.ToList(),
-                stage.SurfaceHeight, stage.BesideAWindow);
+                stage != null && stage.Visible ? stage.SurfaceHeight : null, false);
         }
 
         private bool SomethingWaits() =>
@@ -394,7 +408,7 @@ namespace Halcyonic.XR.Workspace
         private SpaceNow SpaceNow()
         {
             var room = Room;
-            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, room?.Arrangement, Pairing?.Now, menu.MovedByHand);
+            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, room?.Arrangement, Pairing?.Now, menu.MovedByHand, Presentation.AgentsEnabled, Room?.ShelfPlaced == true);
         }
 
         /// <summary>Does what a row of Your space or Your computer raised, through what owns it.</summary>
@@ -408,8 +422,11 @@ namespace Halcyonic.XR.Workspace
                 case SpaceSettings.TakeOffer:
                     Room?.TakeOffer();
                     break;
-                case SpaceSettings.NextArrangement:
-                    Room?.NextArrangement();
+                case SpaceSettings.ToggleAgents:
+                    Room?.ToggleAgents();
+                    break;
+                case SpaceSettings.PlaceAgents:
+                    Room?.PlaceAgents();
                     break;
                 case SpaceSettings.ResetPosition:
                     menu.ResetPosition();
@@ -420,28 +437,6 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
-        /// <summary>
-        /// The first visit (ADR 0026): until the computer's first task, the menu asks the first question in
-        /// place of its places, decided only once its live state is known, and opens on it by itself once
-        /// each app start, never over work already open. The demonstration never asks and opens nothing.
-        /// </summary>
-        private void OpenOnFirstVisit()
-        {
-            if (menu == null) return;
-            var demonstration = connection.DemonstrationLine != null;
-            var session = connection.Session;
-            var state = session?.State;
-            var kept = firstVisit.Version;
-            var asks = firstVisit.Asks(session?.Status.IsLive == true, demonstration, state?.Journal?.JournalId, (state?.Workstreams.Count ?? 0) > 0);
-            if (firstVisit.Version != kept)
-            {
-                PlayerPrefs.SetString(StartedPreference, firstVisit.Started);
-                PlayerPrefs.Save();
-            }
-            if (asks is bool known) menu.BeforeFirstTask = known;
-            if (firstVisit.Due(demonstration, OpenWorkstream != null || menu.BesideOpen, asks)) menu.Open();
-        }
-
         /// <summary>Every project and its work as the stage counts it, the same object until the state or what the stage shows changes.</summary>
         private WorkOverview? Overview()
         {
@@ -450,7 +445,7 @@ namespace Halcyonic.XR.Workspace
             var key = (state.Position, visibility.Version);
             if (overview == null || key != overviewOf)
             {
-                overview = WorkOverview.Of(state, visibility, id => stage.SlotOf(id) >= 0);
+                overview = WorkOverview.Of(state, visibility, id => stage != null && stage.Visible && stage.SlotOf(id) >= 0);
                 overviewOf = key;
             }
             return overview;
@@ -465,10 +460,10 @@ namespace Halcyonic.XR.Workspace
         {
             var state = connection.Session?.State;
             if (state == null) return;
-            var change = ProjectShowing.Apply(visibility, projectId, shown, state, stage.Requested);
+            var change = ProjectShowing.Apply(visibility, projectId, shown, state, stage?.Requested);
             if (!change.Changed) return;
-            if (change.WithdrawRequest) stage.Request(null);
-            stage.Refresh();
+            if (change.WithdrawRequest) stage?.Request(null);
+            stage?.Refresh();
             if (visibility.Version == savedVisibility) return;
             savedVisibility = visibility.Version;
             PlayerPrefs.SetString(VisibilityPreference, visibility.Save());
@@ -513,6 +508,12 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void UpdatePeek()
         {
+            if (!Presentation.AgentsVisible || stage == null || !stage.Visible)
+            {
+                pointed = null; peek.Hide(); hint.Hide(); reticle.gameObject.SetActive(false);
+                peekChoice.Update(new PeekInput { Suspended = true }, Time.unscaledTime);
+                return;
+            }
             var head = WorkspaceVisuals.Head;
             var headForward = head != null ? head.forward : Vector3.forward;
             var open = OpenWorkstream;
@@ -522,7 +523,7 @@ namespace Halcyonic.XR.Workspace
             standing.Clear();
             foreach (var target in targets.Values)
             {
-                if (target == null) continue;
+                if (!AgentVisible(target)) continue;
                 standing.Add(target);
                 if (pointed == null && target.HandHovered) pointed = target;
                 if (gazed == null && target.GazeHovered) gazed = target;
@@ -613,7 +614,7 @@ namespace Halcyonic.XR.Workspace
         private void RefreshHint()
         {
             var session = connection.Session;
-            if (!OnboardingHint.Needed || OpenWorkstream != null || FocusGuard.InputSuspended || session == null)
+            if (!Presentation.AgentsVisible || stage == null || !stage.Visible || !OnboardingHint.Needed || OpenWorkstream != null || FocusGuard.InputSuspended || session == null)
             {
                 hint.Hide();
                 return;
@@ -622,7 +623,7 @@ namespace Halcyonic.XR.Workspace
                 .Where(workstream => workstream.Attention.Level == AttentionLevel.ActionRequired)
                 .OrderBy(workstream => workstream.CreatedAt, StringComparer.Ordinal)
                 .Select(workstream => targets.TryGetValue(workstream.WorkstreamId, out var target) ? target : null)
-                .FirstOrDefault(target => target != null);
+                .FirstOrDefault(AgentVisible);
             if (needing == null) hint.Hide();
             else hint.Show(needing);
         }
@@ -630,7 +631,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A character chosen: its file opens beside the menu, or, already open, closes.</summary>
         private void OnSelected(CharacterTarget target)
         {
-            if (FocusGuard.InputSuspended) return;
+            if (FocusGuard.InputSuspended || !AgentVisible(target)) return;
             if (OpenWorkstream == target.WorkstreamId && menu.IsCompact)
             {
                 menu.OpenFile(target.WorkstreamId);
@@ -647,7 +648,7 @@ namespace Halcyonic.XR.Workspace
 
         private bool Open(CharacterTarget target)
         {
-            if (Present(target.WorkstreamId) == null) return false;
+            if (FocusGuard.InputSuspended || !AgentVisible(target) || Present(target.WorkstreamId) == null) return false;
             menu.OpenFile(target.WorkstreamId);
             return OpenWorkstream == target.WorkstreamId;
         }

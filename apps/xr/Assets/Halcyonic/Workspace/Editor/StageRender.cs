@@ -59,6 +59,74 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>Checks body contact through all existing character states on the optional shelf, at both text sizes.</summary>
+        public static void AgentShelfCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(AgentShelf);
+            foreach (var failure in failures) Debug.LogError("Halcyonic: agent shelf: " + failure);
+            if (failures.Count == 0) Debug.Log("Halcyonic: agent shelf: every check passed.");
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+        private static List<string> AgentShelf(string variant)
+        {
+            var failures = new List<string>();
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "AgentShelfRenders", variant));
+            Directory.CreateDirectory(folder);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Grounded shelf witness");
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            try
+            {
+                var pose = new Vector3(0f, 1.15f, 1.2f);
+                var camera = WorkspaceRender.MakeCamera(root.transform, new Vector3(0f, 1.6f, 0f), texture);
+                camera.transform.rotation = Quaternion.LookRotation(pose - camera.transform.position);
+                var shelf = Surface.Create(root.transform, "Placed agent shelf", 0);
+                shelf.transform.position = pose;
+                shelf.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                shelf.Draw(new Vector2(AgentShelfDraft.Width(6), AgentShelfDraft.Depth), 0.025f, new Color(0.12f, 0.19f, 0.22f, 1f));
+                foreach (var (name, presentations) in new[] { ("states-a", StatesA()), ("states-b", StatesB()) })
+                {
+                    var views = new List<CharacterView>();
+                    for (var slot = 0; slot < presentations.Count; slot++)
+                    {
+                        var view = CharacterView.Create(root.transform, presentations[slot].WorkstreamId);
+                        view.Grounded = true;
+                        view.transform.position = pose + Vector3.right * ((slot - 2.5f) * AgentShelfDraft.Spacing * AgentShelfDraft.Scale);
+                        view.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                        view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+                        view.Show(presentations[slot]);
+                        views.Add(view);
+                    }
+                    for (var frame = 0; frame <= 300; frame++)
+                    {
+                        foreach (var view in views)
+                        {
+                            view.AdvanceForRender(1f / 60f);
+                            var shell = view.Body.Find("Shell");
+                            var bottom = shell.GetComponent<MeshFilter>().sharedMesh.vertices.Min(vertex => shell.TransformPoint(vertex).y);
+                            if (Mathf.Abs(bottom - pose.y) > 0.0001f)
+                            { failures.Add(name + " " + view.WorkstreamId + " body loses shelf contact at frame " + frame + ": " + (bottom - pose.y)); break; }
+                        }
+                        if (frame == 0 || frame == 180)
+                        {
+                            var image = WorkspaceRender.Render(camera, texture);
+                            File.WriteAllBytes(Path.Combine(folder, name + "-" + frame + ".png"), image.EncodeToPNG());
+                            UnityEngine.Object.DestroyImmediate(image);
+                        }
+                    }
+                    foreach (var view in views) UnityEngine.Object.DestroyImmediate(view.gameObject);
+                }
+            }
+            catch (Exception error) { failures.Add(error.ToString()); }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                texture.Release(); UnityEngine.Object.DestroyImmediate(texture);
+                WorkspaceRender.KeepFontAssetsAsCommitted();
+            }
+            return failures;
+        }
+
         /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
         private static List<string> Run(string variant)
         {
@@ -111,12 +179,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 var made = HalcyonicBootstrap.EnsureStage();
                 // Started again, as a second scene load would: nothing is added twice.
                 HalcyonicBootstrap.EnsureStage();
+                WorkspaceDirector.EnsureWorkspace();
                 void One<T>(string name) where T : UnityEngine.Object
                 {
                     var count = UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
                     if (count != 1) failures.Add("in " + what + ", the bootstrap leaves " + count + " " + name + ", not one.");
                 }
-                One<CharacterStage>("character stages");
+                var stages = UnityEngine.Object.FindObjectsByType<CharacterStage>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                var expected = what == "the stage scene" ? 1 : 0;
+                if (stages.Length != expected) failures.Add("in " + what + ", bootstrap created a mandatory character stage.");
+                foreach (var stage in stages) if (stage.Visible) failures.Add("bootstrap exposed agents before placement and enabling.");
+                One<WorkspaceDirector>("workspaces");
                 One<ControlPlaneConnection>("control plane connections");
                 One<FocusGuard>("focus guards");
                 One<DeviceMeasures>("device measures");

@@ -8,42 +8,9 @@ using UnityEngine;
 
 namespace Halcyonic.XR
 {
-    /// <summary>
-    /// The characters, on an arc in front of the person, kept current from the session. The lineup
-    /// in the client core decides which workstreams have a character and which slot each stands in;
-    /// this component places the arc relative to the person and says on a banner under the
-    /// characters' labels whether the state is live, so a disconnected stage never looks live. It
-    /// keeps animating and updating while the app lacks input focus: losing focus is not a pause.
-    /// </summary>
-    /// <remarks>
-    /// The arc keeps every character and its labels within about 36 degrees of where the person
-    /// faced, a comfortable field of view on narrower headsets too, and the lineup puts characters
-    /// that need attention in its middle. Everything is looked at and pointed at from the seat;
-    /// nothing needs the person to stand or reach.
-    /// <para>
-    /// An <see cref="IStagePlacementSource"/> on the same object, such as a room placement that found
-    /// the person's desk, can give the stage a surface instead. Its pose's position is where the
-    /// middle of the lineup stands; the arc curves around the person's side of it, at the distance
-    /// they were from it when the pose arrived, and every character's label plate rests on the
-    /// surface. While the pose is set, only the source moves the stage: recenters leave it where it
-    /// is. Without a source, or when it clears its pose, the stage stands in front of the person.
-    /// </para>
-    /// <para>
-    /// In front of the person, the characters stand as the person chose (<see cref="StageArrangement"/>):
-    /// on the arc, the arc turned to their right, or at most four either side of a window lane
-    /// straight ahead, two on each side, one just above eye level and one below it, each with only
-    /// its badge and marks, what waits in the upper places, nearest the window's middle. Halcyonic
-    /// cannot see a window, so the lane is where one most often opens; the banner stands under it in
-    /// every arrangement.
-    /// </para>
-    /// <para>
-    /// In front of the person, it is placed again only when <see cref="InFrontPlacement"/> says so:
-    /// at the start, after a pause, when the person recenters, or after a jump no head can make. The
-    /// reference space changes that come in bursts while system windows take and give back focus
-    /// move nothing, so they never move it; one that does move the tracking space moves the stage
-    /// with it, so it stays where it was around the person. The log says which.
-    /// </para>
-    /// </remarks>
+    /// <summary>Optional workstream characters on a shelf the person explicitly placed.
+    /// No characters or targets are created before agents are enabled and a confirmed pose exists.
+    /// Losing that pose tucks the shelf away; it never creates an eye-relative fallback.</summary>
     [RequireComponent(typeof(ControlPlaneConnection))]
     public sealed class CharacterStage : MonoBehaviour
     {
@@ -136,6 +103,30 @@ namespace Halcyonic.XR
         private bool preferredChanged;
         private bool placedOnce;
         private bool onSurface;
+        private WorkspacePresentationState presentation = new WorkspacePresentationState();
+        private Surface shelf = null!;
+        private Transform preview = null!;
+        public float ShelfWidth => AgentShelfDraft.Width(maxCharacters);
+        public bool Visible => presentation.AgentsVisible && onSurface && arc != null && arc.gameObject.activeInHierarchy;
+        public void BindPresentation(WorkspacePresentationState state)
+        {
+            presentation.Changed -= PresentationChanged;
+            presentation = state;
+            presentation.Changed += PresentationChanged;
+            PresentationChanged();
+        }
+        private void PresentationChanged()
+        {
+            if (!presentation.AgentsVisible && arc != null) arc.gameObject.SetActive(false);
+            preferredChanged = true;
+            Refresh();
+        }
+        public void PreviewShelf(Pose? pose)
+        {
+            if (preview == null) return;
+            preview.gameObject.SetActive(pose.HasValue && !presentation.Minimized);
+            if (pose is Pose candidate) preview.SetPositionAndRotation(candidate.position, candidate.rotation);
+        }
 
         /// <summary>The arc's radius now: the distance setting in front of the person, or the reach to a surface.</summary>
         private float radius;
@@ -216,28 +207,14 @@ namespace Halcyonic.XR
         public StageArrangement Arrangement => arrangement;
 
         /// <summary>The characters stand beside a window now: chosen, and the stage stands in front of the person.</summary>
-        public bool BesideAWindow => arrangement == StageArrangement.BesideAWindow && !onSurface;
+        public bool BesideAWindow => false;
 
         /// <summary>
         /// Stands the characters as <paramref name="value"/> says and keeps the choice on the device.
         /// On a surface the room placement decides where they stand, so this waits until the stage
         /// stands in front of the person again.
         /// </summary>
-        public void SetArrangement(StageArrangement value)
-        {
-            if (value == arrangement) return;
-            arrangement = value;
-            PlayerPrefs.SetInt(ArrangementPreference, (int)value);
-            PlayerPrefs.Save();
-            if (!placedOnce || onSurface) return;
-            Fit();
-            Place(null, value switch
-            {
-                StageArrangement.TurnedAside => "the person made room for a window",
-                StageArrangement.BesideAWindow => "the person stood the characters beside a window",
-                _ => "the person brought the characters back in front",
-            });
-        }
+        public void SetArrangement(StageArrangement value) { } // Legacy API; only an explicit shelf pose can place agents.
 
         /// <summary>Raised after the characters were brought up to date, so the rail can count what has none.</summary>
         public event System.Action? Refreshed;
@@ -262,10 +239,17 @@ namespace Halcyonic.XR
             bannerRoot = new GameObject("Banner").transform;
             bannerRoot.SetParent(arc, false);
             banner = StageBanner.Create(bannerRoot);
+            shelf = MakeShelf(arc, "Agent shelf", new Color(0.12f, 0.19f, 0.22f, 1f));
+            preview = new GameObject("Shelf preview").transform;
+            preview.SetParent(transform, false);
+            MakeShelf(preview, "Shelf preview surface", new Color(0.16f, 0.4f, 0.48f, 0.7f));
+            preview.gameObject.SetActive(false);
         }
 
         private void OnEnable()
         {
+            presentation.Changed -= PresentationChanged;
+            presentation.Changed += PresentationChanged;
             connection.Changed += OnChanged;
             FocusGuard.FoldChanged += Refresh;
             AmbientCover.Changed += ShowBannerUncovered;
@@ -274,6 +258,7 @@ namespace Halcyonic.XR
 
         private void OnDisable()
         {
+            presentation.Changed -= PresentationChanged;
             connection.Changed -= OnChanged;
             FocusGuard.FoldChanged -= Refresh;
             AmbientCover.Changed -= ShowBannerUncovered;
@@ -308,29 +293,17 @@ namespace Halcyonic.XR
                 ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen, shownRaised, shownAlone);
             }
             var preferred = source?.Preferred;
-            var decision = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
-            var placed = false;
-            if (preferredChanged && placedOnce)
+            if (!presentation.AgentsVisible || !preferred.HasValue)
             {
-                preferredChanged = false;
-                placed = preferred.HasValue || onSurface;
-                if (preferred.HasValue) Place(preferred, "the room placement gave it a surface");
-                else if (onSurface) Place(null, "the room placement has no surface any more");
+                arc.gameObject.SetActive(false);
+                onSurface = false;
+                placedOnce = false;
+                return;
             }
-            switch (decision.Action)
+            if (!placedOnce || preferredChanged)
             {
-                case PlacementAction.PlaceInFront when !placed:
-                    // Once the stage stands on a surface, only the room placement moves it.
-                    if (!placedOnce || !preferred.HasValue) Place(preferred, decision.Reason);
-                    else Debug.Log("Halcyonic: kept the stage on its surface although " + decision.Reason + ".");
-                    break;
-                case PlacementAction.Follow when placedOnce && !placed:
-                    if (onSurface) Debug.Log("Halcyonic: kept the stage on its surface although " + decision.Reason + ".");
-                    else Follow(decision);
-                    break;
-                case PlacementAction.Kept:
-                    Debug.Log("Halcyonic: kept the stage where it stands: " + decision.Reason + ".");
-                    break;
+                Place(preferred, "the person confirmed the shelf position");
+                Refresh();
             }
             Glide();
             // Raised, the banner follows the panel in its place as it is laid anew, as a page that grows.
@@ -372,13 +345,19 @@ namespace Halcyonic.XR
             preferredChanged = true;
         }
 
-        private void OnPreferredChanged() => preferredChanged = true;
+        private void OnPreferredChanged() { preferredChanged = true; Refresh(); }
 
         private void OnChanged(StateChanges changes) => Refresh();
 
         /// <summary>Brings the characters up to date with the session, the visibility and the request.</summary>
         public void Refresh()
         {
+            if (!presentation.AgentsVisible || source?.Preferred == null)
+            {
+                if (arc != null) arc.gameObject.SetActive(false);
+                Refreshed?.Invoke();
+                return;
+            }
             var session = connection.Session;
             if (session == null)
             {
@@ -417,6 +396,7 @@ namespace Halcyonic.XR
                 {
                     view = CharacterView.Create(arc, id);
                     view.Person = head;
+                    view.Grounded = true;
                     views[id] = view;
                     CharacterCreated?.Invoke(id, view);
                 }
@@ -473,8 +453,8 @@ namespace Halcyonic.XR
             preferredChanged = false;
             placedOnce = true;
             var wasBeside = BesideAWindow;
-            if (preferred.HasValue) StandOnSurface(preferred.Value);
-            else StandBeforePerson();
+            if (!preferred.HasValue || !presentation.AgentsVisible) { arc.gameObject.SetActive(false); return; }
+            StandOnSurface(preferred.Value);
             // Onto a surface or off it, the characters beside a window may become six again, or four.
             if (BesideAWindow != wasBeside || (BesideAWindow ? WindowCapacity : Mathf.Max(1, maxCharacters)) != lineup.Capacity) Fit();
             foreach (var view in views.Values) view.BadgeOnly = BesideAWindow;
@@ -522,17 +502,17 @@ namespace Halcyonic.XR
         private void StandOnSurface(Pose pose)
         {
             onSurface = true;
-            var toward = head != null ? pose.position - head.position : pose.forward;
-            toward.y = 0f;
-            if (toward.sqrMagnitude < 1e-4f)
-            {
-                toward = pose.forward;
-                toward.y = 0f;
-            }
-            if (toward.sqrMagnitude < 1e-6f) toward = Vector3.forward;
-            radius = head != null ? Mathf.Clamp(toward.magnitude, NearestSurface, distance) : DefaultSurface;
-            var facing = Quaternion.LookRotation(toward.normalized, Vector3.up);
-            arc.SetPositionAndRotation(pose.position - facing * Vector3.forward * radius, facing);
+            radius = AgentShelfDraft.Scale;
+            arc.SetPositionAndRotation(pose.position, pose.rotation);
+        }
+
+        private Surface MakeShelf(Transform parent, string name, Color color)
+        {
+            var surface = Surface.Create(parent, name, 0);
+            surface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            surface.Draw(new Vector2(ShelfWidth, AgentShelfDraft.Depth), 0.025f,
+                color, new Color(0.45f, 0.65f, 0.7f, 1f), 0.002f);
+            return surface;
         }
 
         /// <summary>
@@ -594,7 +574,7 @@ namespace Halcyonic.XR
             if (BesideAWindow) return WindowSlotDegrees[Mathf.Clamp(slot, 0, WindowSlotDegrees.Length - 1)];
             var count = lineup.Capacity;
             var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
-            var span = spanDegrees * Spread(radius, onSurface ? -eyesAbove : heightFromEyes);
+            var span = spanDegrees;
             return count > 1 ? -span / 2f + span * slot / (count - 1) : 0f;
         }
 
@@ -613,15 +593,12 @@ namespace Halcyonic.XR
         /// </summary>
         private void Stand(CharacterView view, float angle, float lift, float reach)
         {
-            var radians = angle * Mathf.Deg2Rad;
-            var level = new Vector3(Mathf.Sin(radians), 0f, Mathf.Cos(radians));
-            // The eyes are the arc's origin in front of the person, and above it on a surface.
-            var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
-            var (height, scale) = Stance(view, radius, eyesAbove, onSurface ? (float?)null : radius * Mathf.Tan(lift * Mathf.Deg2Rad));
-            var character = view.transform;
-            character.localPosition = level * (radius * reach) + Vector3.up * height;
-            character.localRotation = Quaternion.LookRotation(-level, Vector3.up);
-            character.localScale = Vector3.one * scale;
+            // The row uses the lineup's continuous slot coordinate during a glide.
+            var slot = lineup.Capacity > 1 ? (angle / spanDegrees + 0.5f) * (lineup.Capacity - 1) : 0f;
+            view.ViewedFrom(0f, faceEyes: false);
+            view.transform.localPosition = new Vector3((slot - (lineup.Capacity - 1) * 0.5f) * AgentShelfDraft.Spacing * radius, 0f, 0f);
+            view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            view.transform.localScale = Vector3.one * radius;
         }
 
         /// <summary>
@@ -703,6 +680,13 @@ namespace Halcyonic.XR
             // or the closed bar alone, which a risen character there lifts as high.
             shownPanelTop = shownRaised ? AmbientCover.RaisedOver : null;
             if (shownRaised) top = RaisedBannerBottom(radius, top - eyesAbove, shownPanelTop) + eyesAbove;
+            if (onSurface)
+            {
+                bannerRoot.localPosition = new Vector3(0f, 0.22f, 0.06f);
+                bannerRoot.localScale = Vector3.one * radius;
+                banner.transform.localPosition = Vector3.zero;
+                return;
+            }
             bannerRoot.localPosition = new Vector3(0f, top, radius);
             bannerRoot.localScale = Vector3.one * radius;
             // The banner hangs from its top edge; on a surface or raised it stands on its bottom edge instead.
