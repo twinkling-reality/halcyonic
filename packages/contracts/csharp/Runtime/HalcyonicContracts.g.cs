@@ -4159,4 +4159,16 @@ namespace Halcyonic.Contracts
         [JsonProperty("instruction", Required = Required.AllowNull)]
         public WorkspaceInstructionDraft? Instruction { get; set; }
     }
+
+    public sealed class WorkspaceViewStore
+    {
+        [JsonProperty("version", Required = Required.Always)]
+        public long Version { get; set; } = 1;
+
+        [JsonProperty("selected", Required = Required.AllowNull)]
+        public string? Selected { get; set; }
+
+        [JsonProperty("views", Required = Required.Always)]
+        public List<WorkspaceContinuation> Views { get; set; } = new List<WorkspaceContinuation>();
+    }
 }

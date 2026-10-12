@@ -46,3 +46,21 @@ export const WorkspaceContinuation = Type.Object(
   strict,
 );
 export type WorkspaceContinuation = Static<typeof WorkspaceContinuation>;
+
+/** Aggregate UTF-8 storage bound; filling it must preserve the previous saved views. */
+export const WORKSPACE_VIEW_STORE_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Local Unity view storage, separate from the selected native-panel handoff. Consumers must reject
+ * duplicate handoff IDs and a selected ID absent from views, and enforce the aggregate byte bound.
+ * Old-run drafts may be read for recovery but can only be imported against their exact binding.
+ */
+export const WorkspaceViewStore = Type.Object(
+  {
+    version: Type.Literal(1),
+    selected: Nullable(Uuid),
+    views: Type.Array(WorkspaceContinuation),
+  },
+  strict,
+);
+export type WorkspaceViewStore = Static<typeof WorkspaceViewStore>;

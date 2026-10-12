@@ -94,6 +94,16 @@ contains only the digest, never the credential. Native storage must remain bound
 the app's internal files directory. Its UTF-8 size limit is 256 KiB; ordinary instruction text has
 the same 32,000-character bound as the command contract.
 
+`WorkspaceViewStore` defines the separate local Unity recovery envelope: version 1, nullable
+selected handoff ID and an array of `WorkspaceContinuation` records. Its consumer must enforce
+a 4 MiB UTF-8 aggregate bound, unique handoff IDs and membership of the selected ID. There is no
+arbitrary task-count limit. A failed read, write or overflow preserves the previous saved file;
+it cannot report the new drafts as saved. Current state must be verified before importing each
+record. Old-run text remains recovery data and never becomes an instruction to a new run without
+explicit review. A returned native draft must be persisted before acknowledging its return marker.
+The envelope is a storage contract; it does not establish process-death recovery until its consumer
+and platform lifecycle are verified.
+
 Restored text and page position confer no read proof or action authority. Approval choices,
 question answers, secret answers, armed confirmations, pending input callbacks and automatic-send
 flags are excluded. All runtime actions still require current capability and input checks. A
