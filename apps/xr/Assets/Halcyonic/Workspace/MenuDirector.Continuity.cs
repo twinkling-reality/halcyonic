@@ -52,7 +52,9 @@ namespace Halcyonic.XR.Workspace
 
         private void BindView(IMenuColumn column, WorkspaceContinuation? origin = null)
         {
-            if (column is not FileColumn file || viewBindings.ContainsKey(file)) return;
+            if (column is not FileColumn file) return;
+            file.OfferWorkspaceRequests(() => OpenWorkspaceRequest(file));
+            if (viewBindings.ContainsKey(file)) return;
             var record = origin ?? RecordFor(file);
             if (record == null) return;
             viewBindings.Bind(file, record);
@@ -70,7 +72,8 @@ namespace Halcyonic.XR.Workspace
                 ProjectId = task == null ? null : State.Workstreams[task].ProjectId, WorkstreamId = task,
                 ExecutionId = file?.Now?.Execution?.ExecutionId,
                 Section = file == null ? WorkspaceSection.Activity : (WorkspaceSection)file.Screen.Section,
-                Page = file?.Screen.Page ?? 0, Instruction = file?.ContinuationDraft(),
+                Surface = file?.Surface ?? WorkspaceSurface.Task, Page = file?.Screen.Page ?? 0,
+                Instruction = file?.ContinuationDraft(), Request = file?.ContinuationRequest(),
             };
             if (!WorkspaceContinuity.TryParse(HalcyonicJson.Serialize(record), out _)) { storageFailed = true; return null; }
             return record;
@@ -95,7 +98,7 @@ namespace Halcyonic.XR.Workspace
             {
                 foreach (var column in memory.Files.Values.ToList()) BindView(column);
                 var records = viewBindings.Capture();
-                var selected = navigator.Beside is FileColumn file && viewBindings.TryGetValue(file, out var origin) ? origin.HandoffId : recoveredScope == null ? recovery.Selected : null;
+                var selected = SelectedFile() is FileColumn file && viewBindings.TryGetValue(file, out var origin) ? origin.HandoffId : recoveredScope == null ? recovery.Selected : null;
                 if (!recovery.Keep(records, selected)) { storageFailed = true; return; }
                 storageFailed = false;
                 viewsDirty = false;
@@ -128,7 +131,9 @@ namespace Halcyonic.XR.Workspace
             if (viewBindings.ContainsKey(file)) viewBindings.Set(file, Copy(record)); else BindView(file, Copy(record));
             if (select)
             {
-                navigator.RecoverBeside(file, record.WorkstreamId, setup.Presentation, reopen);
+                if (record.Surface == WorkspaceSurface.Request)
+                    navigator.RecoverBeside(RequestViewFor(file, record), record.WorkstreamId, setup.Presentation, reopen);
+                else navigator.RecoverBeside(file, record.WorkstreamId, setup.Presentation, reopen);
             }
             return true;
         }
@@ -179,6 +184,29 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
+        private FileColumn? SelectedFile() => navigator.Beside as FileColumn
+            ?? (navigator.Beside is WorkspaceRequestColumn request && navigator.BesideTask != null
+                && memory.Files.TryGetValue(navigator.BesideTask, out var column) && column is FileColumn file && file.RequestView == request ? file : null);
+
+        private WorkspaceRequestColumn RequestViewFor(FileColumn file, WorkspaceContinuation record)
+        {
+            var view = file.RequestFor(record, () => IsCurrent(record) && State?.Executions.TryGetValue(record.ExecutionId!, out var execution) == true
+                && !execution.PendingQuestions.Any(question => question.Prompts.Any(prompt => prompt.Secret)));
+            view.BackToTask = () => { file.Surface = WorkspaceSurface.Task; navigator.ShowBeside(file, record.WorkstreamId); ViewsChanged(); };
+            return view;
+        }
+
+        private void OpenWorkspaceRequest(FileColumn file)
+        {
+            var record = viewBindings.Captured(file) ?? RecordFor(file);
+            if (record == null || record.WorkstreamId == null || record.ExecutionId == null)
+            { ReportLocal("Reconnect to this task before opening its workspace request."); return; }
+            file.Surface = WorkspaceSurface.Request;
+            record.Surface = WorkspaceSurface.Request;
+            navigator.ShowBeside(RequestViewFor(file, record), record.WorkstreamId);
+            ViewsChanged();
+        }
+
         private bool CanOpenOtherApps
         {
             get
@@ -196,7 +224,7 @@ namespace Halcyonic.XR.Workspace
             if (!OrganizationStanding(MenuColumn.Menu, null, null) || !CanOpenOtherApps) return;
             KeepViews();
             if (storageFailed) { ReportLocal("Save your workspace drafts before switching apps."); return; }
-            var record = navigator.Beside is FileColumn file && viewBindings.TryGetValue(file, out var origin) ? Captured(file, origin) : RecordFor(null);
+            var record = SelectedFile() is FileColumn file && viewBindings.TryGetValue(file, out var origin) ? Captured(file, origin) : RecordFor(null);
             if (record == null || !IsCurrent(record)) { ReportLocal("Wait for the current workspace to reconnect before switching apps."); return; }
             // This UUID is persisted in Unity only after return application, making it a durable idempotency receipt.
             record.HandoffId = Guid.NewGuid().ToString("D");

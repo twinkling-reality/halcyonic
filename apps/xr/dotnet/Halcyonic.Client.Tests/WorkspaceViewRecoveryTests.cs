@@ -41,6 +41,20 @@ public class WorkspaceViewRecoveryTests
     }
 
     [Test]
+    public void SavedComparisonIncludesRequestReferenceWordsOriginPartAndSelectedSurface()
+    {
+        var record = Record(); record.Request = new WorkspaceRequestContinuation { Text = "Keep the request", Spoken = true, Part = 1 };
+        var recovery = Recovery(); Assert.That(recovery.Keep(new[] { record }, record.HandoffId), Is.True);
+        Assert.That(recovery.IsSaved(record), Is.True);
+        record.Surface = WorkspaceSurface.Request; Assert.That(recovery.IsSaved(record), Is.False); record.Surface = WorkspaceSurface.Task;
+        record.Request.Text = "New request"; Assert.That(recovery.IsSaved(record), Is.False); record.Request.Text = "Keep the request";
+        record.Request.Spoken = false; Assert.That(recovery.IsSaved(record), Is.False); record.Request.Spoken = true;
+        record.Request.Part = 0; Assert.That(recovery.IsSaved(record), Is.False); record.Request.Part = 1;
+        record.Request.RequestId = "0192f1a0-0000-7000-8000-000000000104"; Assert.That(recovery.IsSaved(record), Is.False);
+        record.Request.RequestId = null; Assert.That(recovery.IsSaved(record), Is.True);
+    }
+
+    [Test]
     public void AtomicOrdinaryStoreRoundTripsAllViewsAndPreservesPreviousBytesOnFailure()
     {
         var recovery = Recovery();

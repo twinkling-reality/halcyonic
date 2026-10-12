@@ -2852,3 +2852,32 @@ reference, never a saved command envelope or permission to resend. Production su
 persist the original command ID with its complete connection/journal/project/task/execution tuple
 before POST, then use the exact command read to recover a lost acknowledgement. Failure to save
 must prevent POST. The schema/API alone does not establish that each UI consumer enforces this.
+The task Activity page offers Ask workspace through its real current FileColumn. It opens an
+engine-free WorkspaceRequestColumn for the existing journal/project/task/execution tuple rather
+than interpreting a phrase or inventing an executor capability. The column reads the local
+workspace-agent availability endpoint without inference; unavailable or old-host reads preserve
+the draft and expose no submit action. Typed completion and held transcription only change local
+words. The full paged request must draw before explicit Start or Continue; spoken words require
+an independently drawn Yes. Focus, size, task/run changes and Minimize revoke keyboard, voice,
+read and review authority.
+
+Request replies are model-reported text. Action receipts retain their recorded status and
+observation cursor; neither a delivered instruction nor a replied request marks its software task
+complete. Resume and planning Cancel use generated request commands. Cancel request does not
+interrupt the executor. An exact request GET must match the retained request ID plus the complete
+fresh journal/project/task/execution tuple before actions are offered; another owned request is
+not silently retargeted.
+
+Each retained task record now carries both independent ordinary instruction and request drafts,
+including inactive drafts, and the explicit Task or Request surface. FileColumn preserves request
+words before an execution change, WorkspaceViewBindings retires the old binding independently of
+IO success and creates a fresh binding for the new execution, and IsSaved compares request ID,
+words, spoken origin, part and surface. Explicit native return and durable recovery select the
+recorded surface; background recovery still respects the latest global Minimize. All imported
+request commands, reads, keyboards and reviews start with fresh proof. Actual restore shares the
+canonical codepoint bound, retaining valid astral text without UTF16 truncation.
+
+At this UI checkpoint an unknown request submission keeps its command ID in memory and cannot
+mint a replacement from snapshot absence. Durable pending-command capture before POST and exact
+original-owner command read after process recreation remain a required follow-up. Native JNI,
+process death, actual request rendering and wearer acceptance remain separate from source checks.

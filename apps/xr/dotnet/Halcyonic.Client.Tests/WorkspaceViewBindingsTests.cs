@@ -14,8 +14,47 @@ public class WorkspaceViewBindingsTests
     {
         HandoffId = Guid.NewGuid().ToString("D"), ConnectionKey = new string('a', 64), JournalId = Samples.JournalId,
         ProjectId = Samples.ProjectId, WorkstreamId = TaskId, ExecutionId = file.Now?.Execution?.ExecutionId,
-        Section = (WorkspaceSection)file.Screen.Section, Page = file.Screen.Page, Instruction = file.ContinuationDraft(),
+        Surface = file.Surface, Section = (WorkspaceSection)file.Screen.Section, Page = file.Screen.Page,
+        Instruction = file.ContinuationDraft(), Request = file.ContinuationRequest(),
     };
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void RequestRetirementPreservesLatestUnsavedAAndCreatesIndependentB(TextSize size)
+    {
+        var host = new FileMenuHost { TextSize = size };
+        var work = Samples.Workstream(TaskId, WorkstreamStatus.Completed, RunA);
+        var execution = Samples.Execution(RunA, TaskId, ExecutionStatus.Completed);
+        var state = new ClientProjection();
+        state.ApplySnapshot(Samples.Snapshot(1, new[] { work }, new[] { execution }), new StateChanges());
+        var file = new FileColumn(host, () => WorkspacePresenter.Present(work, state, new ActivityLog(), live: true),
+            new CommandFactory(Samples.Client), () => null, _ => null, () => "");
+        var record = Record(file); record.Request = new WorkspaceRequestContinuation { Text = "Earlier A request" }; record.Surface = WorkspaceSurface.Request;
+        file.RestoreContinuation(record);
+        var request = file.RequestFor(record, () => true);
+        var write = true;
+        var recovery = new WorkspaceViewRecovery(() => (true, null), _ => write);
+        WorkspaceViewBindings bindings = null!;
+        bindings = new WorkspaceViewBindings(Record, () => recovery.Keep(bindings.Capture(), null));
+        bindings.Bind(file, record); recovery.Keep(bindings.Capture(), null);
+        write = false;
+        request.Restore(new WorkspaceRequestContinuation { Text = "Latest A request after private write failed", Spoken = true });
+        Assert.That(recovery.Views.Single().Request!.Text, Is.EqualTo("Earlier A request"));
+        work.CurrentExecutionId = RunB;
+        execution = Samples.Execution(RunB, TaskId, ExecutionStatus.Completed);
+        state.ApplySnapshot(Samples.Snapshot(2, new[] { work }, new[] { execution }), new StateChanges());
+        host.Wait(2); file.Tick();
+        var records = bindings.Capture();
+        var old = records.Single(view => view.ExecutionId == RunA);
+        Assert.That((old.Request!.Text, old.Request.Spoken, old.Surface), Is.EqualTo(("Latest A request after private write failed", true, WorkspaceSurface.Request)));
+        Assert.That(recovery.IsSaved(old), Is.False);
+        var fresh = records.Single(view => view.ExecutionId == RunB);
+        Assert.That((fresh.Request, fresh.Surface), Is.EqualTo(((WorkspaceRequestContinuation?)null, WorkspaceSurface.Task)));
+        Assert.That(fresh.HandoffId, Is.Not.EqualTo(old.HandoffId));
+        old.Request.Text = "Mutate the returned copy";
+        Assert.That(bindings.Capture().Single(view => view.ExecutionId == RunA).Request!.Text, Is.EqualTo("Latest A request after private write failed"));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     [TestCase(TextSize.Standard)]
     [TestCase(TextSize.Larger)]
     public void FailedPersistencePreservesLatestAAndCapturesANewBWithoutRetargeting(TextSize size)

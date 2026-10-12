@@ -35,6 +35,13 @@ namespace Halcyonic.Client
                 binding.Record.Instruction = Copy(draft);
                 changed();
             };
+            binding.RequestLeaving = (execution, draft) =>
+            {
+                if (!files.TryGetValue(file, out var current) || current != binding || binding.Record.ExecutionId != execution) return;
+                binding.Record.Request = Copy(draft);
+                changed();
+            };
+            file.RequestDraftLeaving += binding.RequestLeaving;
             file.Changed += binding.Changed;
             file.OrdinaryDraftLeaving += binding.Leaving;
         }
@@ -51,6 +58,7 @@ namespace Halcyonic.Client
             if (preserve) retired[binding.Record.HandoffId] = Copy(binding.Record);
             file.Changed -= binding.Changed;
             file.OrdinaryDraftLeaving -= binding.Leaving;
+            file.RequestDraftLeaving -= binding.RequestLeaving;
         }
         public IReadOnlyList<WorkspaceContinuation> Capture()
         {
@@ -65,9 +73,11 @@ namespace Halcyonic.Client
                     if (next == null) continue;
                     binding.Record = Copy(next);
                 }
+                binding.Record.Surface = file.Surface;
                 binding.Record.Section = (WorkspaceSection)file.Screen.Section;
                 binding.Record.Page = file.Screen.Page;
                 binding.Record.Instruction = file.ContinuationDraft();
+                binding.Record.Request = file.ContinuationRequest();
             }
             return retired.Values.Concat(files.Values.Select(binding => binding.Record)).GroupBy(record => record.HandoffId)
                 .Select(group => Copy(group.Last())).ToList();
@@ -82,15 +92,19 @@ namespace Halcyonic.Client
             public WorkspaceContinuation Record;
             public Action Changed = null!;
             public Action<string, WorkspaceInstructionDraft> Leaving = null!;
+            public Action<string, WorkspaceRequestContinuation> RequestLeaving = null!;
             public Binding(WorkspaceContinuation record) => Record = record;
         }
         private static WorkspaceInstructionDraft Copy(WorkspaceInstructionDraft draft) => new WorkspaceInstructionDraft
         { Text = draft.Text, Spoken = draft.Spoken, Part = draft.Part };
+        private static WorkspaceRequestContinuation Copy(WorkspaceRequestContinuation draft) => new WorkspaceRequestContinuation
+        { RequestId = draft.RequestId, Text = draft.Text, Spoken = draft.Spoken, Part = draft.Part };
         private static WorkspaceContinuation Copy(WorkspaceContinuation record) => new WorkspaceContinuation
         {
             Version = record.Version, HandoffId = record.HandoffId, ConnectionKey = record.ConnectionKey, JournalId = record.JournalId,
             ProjectId = record.ProjectId, WorkstreamId = record.WorkstreamId, ExecutionId = record.ExecutionId, Section = record.Section,
-            Page = record.Page, Instruction = record.Instruction == null ? null : Copy(record.Instruction),
+            Surface = record.Surface, Page = record.Page, Instruction = record.Instruction == null ? null : Copy(record.Instruction),
+            Request = record.Request == null ? null : Copy(record.Request),
         };
     }
 }

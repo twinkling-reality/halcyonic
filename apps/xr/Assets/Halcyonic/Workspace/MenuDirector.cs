@@ -969,6 +969,7 @@ namespace Halcyonic.XR.Workspace
             if (navigator.TryExpandTask(workstreamId)) return;
             if (memory.FileFor(State?.Journal?.JournalId, workstreamId, () => setup.File(Bound(), workstreamId)) is IMenuColumn file)
             {
+                if (file is FileColumn taskFile) taskFile.Surface = WorkspaceSurface.Task;
                 BindView(file);
                 navigator.ShowBeside(file, workstreamId);
                 KeepViews();
