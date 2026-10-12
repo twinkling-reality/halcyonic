@@ -89,7 +89,7 @@ namespace Halcyonic.XR
         private Vector3 shelfViewer;
         private WorkspacePresentationState presentation = new WorkspacePresentationState();
         private Transform preview = null!;
-        /// <summary>Conservative occupied shelf, label and banner envelope shared by placement and actual scene checks.</summary>
+        /// <summary>Conservative occupied shelf, rendered label and animated body envelope shared by placement and actual scene checks.</summary>
         private static CharacterView? shelfMeasure;
         private static int shelfMeasureAt = -1;
         public static void WriteShelfCorners(Pose pose, float width, Vector3 viewer, Vector3[] corners)

@@ -2198,7 +2198,8 @@ exists. Passthrough remains independent of whether optional characters are prese
 - **Readable shelf labels.** Grounded bodies keep their physical scale and animated mesh contact.
   Rendered state/source labels and their two-line task title independently face the placement-time eyes and scale by the real transformed em,
   preserving the state, pending badge and source marks above the canonical 14 dp minimum. The
-  character title can ellipsize after two lines; this is not a complete task-identity claim. Full
+  label's actual badge mesh top attaches to the shelf front lip while its body keeps contact;
+  resizing the label remeasures this attachment. The character title can ellipsize after two lines; this is not a complete task-identity claim. Full
   identity is retained in current shelf details and the task presentation.
   Placement measures an actual label model with full title and source marks, and combines its bounds
   with the shelf and conservative animated body extent before field/console clearance. The model
