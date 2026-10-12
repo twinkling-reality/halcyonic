@@ -82,9 +82,12 @@ Halcyonic's 3D scene; a small 2D companion there is a later, separately validate
 An optional **Usage left** glance can show provider-reported limits through Seorak with the
 window, reset and observation time. It is neither a Workstream status nor a required creation
 step. A selected account's limit cannot be claimed until Seorak can identify that account.
-Project architecture exploration is a later Salidium capability: its current consumer contract
-covers an execution, not a codebase graph. Its existing Why and How explanation may support a
-navigable execution flow when one was generated, clearly labeled as an explanation.
+Project architecture exploration is not yet connected in Halcyonic. Salidium's consumer contract
+covers an execution; its separate experimental project-map v0 covers committed files, declared
+modules and imports, with C# at assembly/project membership level. It does not describe component
+purpose or data flow ([source validation](../validation/salidium-project-map.md)). Its existing
+Why and How explanation may support a navigable execution flow when one was generated, clearly
+labeled as an explanation.
 
 These paragraphs are target behavior. The detailed screen states, current implementation gaps,
 and acceptance checks are in the owner's private experience blueprint. The headset now has a
@@ -113,13 +116,15 @@ facts and checks are in the validation records.
 - **Salidium** provides per-execution evidence, changed files, verification state and optional
   model-written Why and How explanation. It observes Claude Code and Codex; it does not control
   them. Halcyonic reads its versioned consumer contract v1 through the control plane
-  ([validation](../validation/salidium-consumer-contract.md)). It does not yet provide a
-  project-wide architecture graph.
+  ([validation](../validation/salidium-consumer-contract.md)). Its separate experimental map and
+  execution links describe committed repository structure and exact-path change relationships;
+  Halcyonic does not consume them, and they do not establish application behavior or security.
 - **Seorak** tracks the performance of agentic development: usage, cost estimates, reliability
   and outcomes. It deliberately does not grade quality. Halcyonic reads per-execution cost,
   outcome and verification through Seorak's versioned integration API, joined to sessions
-  Halcyonic launched. Its provider usage limits read is built against Seorak's unreleased format
-  and not yet observed live.
+  Halcyonic launched. Its provider usage limits read was observed live once on 2026-09-30 from an
+  unreleased build; that historical check does not establish current service availability or
+  headset rendering ([validation](../validation/seorak-integration-api.md#provider-usage-limits-2026-09-30)).
 - **Halcyonic** owns spatial representation, workstream navigation, runtime control, the
   compressed and expanded interaction, permissions and connectivity.
 
