@@ -327,6 +327,14 @@ namespace Halcyonic.Client
             return question.QuestionPart != null ? question.QuestionPartRead ? null : "Read this part first." : WhyNextWaits(question);
         }
 
+        internal static bool? QuestionForwardAvailable(WorkspacePresentation workspace, FileScreen screen)
+        {
+            if (workspace.AnswerInFlight) return false;
+            if (!(screen.Question.Draft is QuestionDraft draft) || !WorkspaceText.Answerable(draft.Question)) return null;
+            return WhyForwardWaits(screen, StopsHere(workspace, draft.Question)) == null
+                && (!screen.Question.Reviewing || workspace.Actions.Contains(WorkspaceAction.Answer));
+        }
+
         public const string BackQuestion = "back-question";
         public const string CancelInput = "cancel-answer-input";
         public const string UseInput = "use-answer-input";
@@ -349,13 +357,14 @@ namespace Halcyonic.Client
             if (workspace.AnswerInFlight) return new Footer(CloseFile,
                 farRight: new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting, waits: true));
             if (!WorkspaceText.Answerable(draft.Question)) return new Footer(CloseFile, rare: StopWhereUnanswerable(workspace, draft.Question));
+            var available = QuestionForwardAvailable(workspace, screen) == true;
             if (question.Writing)
             {
                 var reason = question.WhyUseWaits(StopsHere(workspace, draft.Question));
                 var reading = question.InputReading;
                 var next = reading && question.InputPart < question.InputParts - 1
-                    ? new Prompt(NextInputPart, NextPartWords(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: question.InputPageRead, reason: question.InputPageRead ? null : "Read this part first.")
-                    : new Prompt(UseInput, "Use this answer", GlazeIcon.Approve, main: true, available: reason == null, reason: reason);
+                    ? new Prompt(NextInputPart, NextPartWords(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: available, reason: question.InputPageRead ? null : "Read this part first.")
+                    : new Prompt(UseInput, "Use this answer", GlazeIcon.Approve, main: true, available: available, reason: reason);
                 return new Footer(new Prompt(CancelInput, "Cancel", GlazeIcon.Close, PromptKind.Close),
                     rare: reading && question.InputPart > 0 ? new Prompt(PreviousInputPart, "Previous part", GlazeIcon.Back) : null,
                     secondary: !reading && screen.Speak && draft.Prompts[question.Prompt].FreeText && workspace.Actions.Contains(WorkspaceAction.Answer)
@@ -369,22 +378,22 @@ namespace Halcyonic.Client
             {
                 if (question.Page < question.Pages - 1)
                     forward = new Prompt(MoreAnswers, NextPartWords(question.Page, question.Pages), GlazeIcon.Next, main: true,
-                        available: question.ReviewPageRead, reason: question.ReviewPageRead ? null : "Read this part first.");
+                        available: available, reason: question.ReviewPageRead ? null : "Read this part first.");
                 else
                 {
                     var reason = WhySendWaits(screen);
                     forward = new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), GlazeIcon.SendAnswer, main: true,
-                        available: reason == null && workspace.Actions.Contains(WorkspaceAction.Answer), reason: reason ?? (!workspace.Actions.Contains(WorkspaceAction.Answer) ? QuestionNotReady : null));
+                        available: available, reason: reason ?? (!workspace.Actions.Contains(WorkspaceAction.Answer) ? QuestionNotReady : null));
                 }
             }
             else if (question.QuestionPart is int part)
                 forward = new Prompt(NextPart, part + 1 < question.QuestionParts(question.Prompt) ? NextPartWords(part, question.QuestionParts(question.Prompt)) : "See answers",
-                    GlazeIcon.Next, main: true, available: question.QuestionPartRead, reason: question.QuestionPartRead ? null : "Read this part first.");
+                    GlazeIcon.Next, main: true, available: available, reason: question.QuestionPartRead ? null : "Read this part first.");
             else
             {
                 var reason = WhyNextWaits(question);
                 var words = question.ReturningToReview || question.Prompt == draft.Prompts.Count - 1 ? ReviewAnswers : "Next question";
-                forward = new Prompt(NextQuestion, words, GlazeIcon.Next, main: true, available: reason == null, reason: reason);
+                forward = new Prompt(NextQuestion, words, GlazeIcon.Next, main: true, available: available, reason: reason);
             }
             return new Footer(CloseFile, rare: back, farRight: forward);
         }
@@ -466,7 +475,6 @@ namespace Halcyonic.Client
                 if (asked.FreeText && (screen.KeyboardOffered || screen.Speak || draft.Typed(prompt) != null))
                 {
                     var typed = draft.Typed(prompt);
-                    if (typed != null) lines.Add(SelectedTypedLine(typed, Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
                     lines.Add(InputNavigation(screen.KeyboardOffered, typed != null, question.Pages > 1 && question.PairInputPager));
                 }
                 if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), icon: GlazeIcon.Next, action: MoreAnswers,
@@ -548,8 +556,8 @@ namespace Halcyonic.Client
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
 
         public static PageLine InputNavigation(bool keyboard, bool edit = false, bool besideNext = false) =>
-            new PageLine(edit ? EditAnswer : WriteAnswer, icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,
-                action: TypeAnswer, control: LineControl.Action, besideNext: besideNext);
+            new PageLine(edit ? EditAnswer : WriteAnswer, fact: edit ? "Selected" : null, icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,
+                action: TypeAnswer, chosen: edit, control: LineControl.Action, besideNext: besideNext);
 
         public static PageLine ChoicePager(bool first = false) =>
             new PageLine(first ? "First choices" : "More choices", icon: GlazeIcon.Next, action: MoreAnswers, control: LineControl.Action);

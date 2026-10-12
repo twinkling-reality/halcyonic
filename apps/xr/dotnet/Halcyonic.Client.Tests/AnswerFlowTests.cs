@@ -292,4 +292,128 @@ public class AnswerFlowTests
         Assert.That(host.Keyboard, Is.Null);
     }
 
+    [Test]
+    public void MultipleChoicesAcrossPagesAreRetainedReviewedAndSentButHiddenChoiceCannotBeInjected()
+    {
+        var asked = AskingWork.Scripted();
+        asked.Prompts.RemoveAt(1);
+        asked.Prompts[0].Multiple = true;
+        asked.Prompts[0].FreeText = false;
+        asked.Prompts[0].Options = Enumerable.Range(0, 14).Select(index => new QuestionOption { Label = "Option " + index }).ToList();
+        var (host, column, _) = Open(asked);
+        ReadQuestion(host, column);
+        Assert.That(column.Screen.Question.Pages, Is.GreaterThan(1));
+        Assert.That(column.Screen.Question.Answers, Does.Not.Contain(13));
+        column.Act(FileScreens.Choose, "13");
+        Assert.That(column.Screen.Question.Draft!.IsChosen(0, "Option 13"), Is.False);
+        Choose(host, column, "Option 0");
+        Choose(host, column, "Option 13");
+        Assert.That(column.Screen.Question.Draft.AnswersNow[0].Chosen, Is.EquivalentTo(new[] { "Option 0", "Option 13" }));
+        Review(host, column);
+        Assert.That(string.Join(" ", column.Frame!.Lines.Select(line => line.Words)), Does.Contain("Option 0").And.Contain("Option 13"));
+        Primary(host, column, "Send answer");
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Single().Payload.Answers[0].Selected, Is.EquivalentTo(new[] { "Option 0", "Option 13" }));
+    }
+
+    [Test]
+    public void ResizingAfterUseBeforeMeasuringCannotTransferOldReadEvidenceToNewLayout()
+    {
+        var (host, column, _) = Open();
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done(LongInput);
+        ReadInput(host, column);
+        Primary(host, column, "Use this answer");
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo(LongInput), "size change retains the saved draft");
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "read-through at the old size cannot certify the resized text");
+        column.Act(FileScreens.NextQuestion, null);
+        Assert.That(column.Screen.Question.Prompt, Is.EqualTo(0));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void EditorReadEvidenceCannotBeConsumedByAnotherPromptWithIdenticalSavedWords()
+    {
+        var asked = AskingWork.Scripted();
+        asked.Prompts[1].FreeText = true;
+        var (host, column, _) = Open(asked);
+        ReadQuestion(host, column);
+        // Model an existing unread saved answer on prompt 2, then read the same exact text in prompt 1.
+        Assert.That(column.Screen.Question.Draft!.Type(1, LongInput), Is.Null);
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done(LongInput);
+        ReadInput(host, column);
+        Primary(host, column, "Use this answer");
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
+        Assert.That(column.Screen.Question.AnswersRead(1), Is.False, "same words do not grant another prompt's reading");
+    }
+
+    [Test]
+    public void LongInputAndReviewPrimaryRemainPressableThroughActualNavigatorDrawHandles()
+    {
+        var (host, column, _) = Open();
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, _ => (Func<IMenuColumn>)(() => column)));
+        navigator.ShowBeside(column, "w1");
+        var bar = new MenuBar(MenuPlace.Tasks, "A question is waiting");
+        bool Forward()
+        {
+            MenuFrame? frame = null;
+            for (var draw = 0; draw < 3; draw++)
+            {
+                frame = navigator.Frames(bar).Beside;
+                navigator.Drawn(MenuColumn.File, frame, null);
+                host.Wait(1); column.Tick();
+            }
+            frame = navigator.Frames(bar).Beside;
+            navigator.Drawn(MenuColumn.File, frame, null);
+            var prompt = frame!.Footer[PromptSlot.FarRight]!;
+            Assert.That(prompt.Available, Is.True);
+            return navigator.Act(MenuColumn.File, prompt.Id, null, frame, null);
+        }
+        ReadQuestion(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done(LongInput);
+        Assert.That(column.Screen.Question.InputParts, Is.GreaterThan(1));
+        Assert.That(Forward(), Is.True, "drawing an intermediate input page must not perpetually clear its own press handles");
+        Assert.That(column.Screen.Question.InputPart, Is.EqualTo(1));
+        ReadInput(host, column);
+        Primary(host, column, "Use this answer");
+        Primary(host, column, "Next question");
+        Choose(host, column, "Orders");
+        Primary(host, column, FileScreens.ReviewAnswers);
+        Assert.That(column.Screen.Question.Pages, Is.GreaterThan(1));
+        Assert.That(Forward(), Is.True, "an intermediate review draw must enable its visible primary and preserve the current handle");
+        Assert.That(column.Screen.Question.Page, Is.EqualTo(1));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [TestCase(false)] [TestCase(true)]
+    public void RepeatedUnanswerableDrawsPreserveNavigatorStopAndCloseHandles(bool secret)
+    {
+        var question = AskingWork.Scripted();
+        if (secret) question.Prompts[0].Secret = true; else question.Answerable = false;
+        foreach (var action in new[] { FileScreens.Stop, Footer.Close })
+        {
+            var (host, column, _) = Open(question);
+            var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, _ => (Func<IMenuColumn>)(() => column)));
+            navigator.ShowBeside(column, "w1");
+            var bar = new MenuBar(MenuPlace.Tasks, "A question is waiting");
+            MenuFrame? frame = null;
+            for (var draw = 0; draw < 4; draw++)
+            {
+                frame = navigator.Frames(bar).Beside;
+                navigator.Drawn(MenuColumn.File, frame, null);
+                host.Wait(1); column.Tick();
+            }
+            frame = navigator.Frames(bar).Beside;
+            navigator.Drawn(MenuColumn.File, frame, null);
+            Assert.That(frame!.Footer.All.Any(each => each.Prompt.Id == action), Is.True);
+            Assert.That(navigator.Act(MenuColumn.File, action, null, frame, null), Is.True, "repeated draws without a primary must leave actual Stop/Close handles usable");
+            if (action == Footer.Close) Assert.That(navigator.Beside, Is.Null);
+            else Assert.That(column.Steering.Armed == WorkspaceAction.Interrupt || host.Sent.OfType<ExecutionInterruptCommand>().Any(), Is.True);
+        }
+    }
+
 }

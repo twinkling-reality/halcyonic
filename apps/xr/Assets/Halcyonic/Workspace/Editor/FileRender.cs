@@ -180,6 +180,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 prompt.Options.Select(option => MenuFrameView.RowsOf(FileScreens.SideAnswerLine(option, null), Glaze.Menu.SideColumnDegrees)).ToList(),
                 MenuFrameView.FitsHalf(FileScreens.InputNavigation(true), Glaze.Menu.FileColumnDegrees)
                     && MenuFrameView.FitsHalf(FileScreens.ChoicePager(), Glaze.Menu.FileColumnDegrees)
+                    && MenuFrameView.FitsHalf(FileScreens.ChoicePager(first: true), Glaze.Menu.FileColumnDegrees),
+                MenuFrameView.FitsHalf(FileScreens.InputNavigation(true, edit: true), Glaze.Menu.FileColumnDegrees)
+                    && MenuFrameView.FitsHalf(FileScreens.ChoicePager(), Glaze.Menu.FileColumnDegrees)
                     && MenuFrameView.FitsHalf(FileScreens.ChoicePager(first: true), Glaze.Menu.FileColumnDegrees));
         }).ToList();
 
