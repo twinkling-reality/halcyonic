@@ -40,7 +40,9 @@ export function checkReverse(text: string): Verdict {
     const from = fields?.[2];
     const to = fields?.[3];
     if (from === undefined || to === undefined || !from.includes(':') || !to.includes(':')) {
-      return fail('adb reverse: mapping list contains an unparsed line; inspect it before checking Halcyonic. Preserve unrelated routes.');
+      return fail(
+        'adb reverse: mapping list contains an unparsed line; inspect it before checking Halcyonic. Preserve unrelated routes.',
+      );
     }
     if (usesHalcyonicPort(from) || usesHalcyonicPort(to)) mappings.push(`${from} to ${to}`);
   }
