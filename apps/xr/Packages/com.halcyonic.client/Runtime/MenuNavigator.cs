@@ -129,7 +129,7 @@ namespace Halcyonic.Client
         /// (<see cref="Frames"/>), so it holds between a change and the next draw, as what stands on the
         /// plane does; whether the menu is open and a column beside it, as now.
         /// </summary>
-        public bool BesideAside => besideAside && IsOpen && Beside != null;
+        public bool BesideAside => besideAside && IsOpen && Beside != null && hiddenMenu != Shown;
 
         /// <summary>The task whose file stands beside the menu, for its character's light line and the chosen row on Tasks; null for New project.</summary>
         public string? BesideTask { get; private set; }
@@ -417,7 +417,7 @@ namespace Halcyonic.Client
         {
             MenuColumn.Menu => IsOpen && hiddenMenu != Shown && frame != null && frame == drawnMenu ? Shown : null,
             MenuColumn.File => Beside != null && !BesideAside && frame != null && frame == drawnBeside ? Beside : null,
-            _ => side != null && side == drawnSide ? drawnSideOf : null,
+            _ => side != null && side == drawnSide && !(drawnSideOf == Shown && hiddenMenu == Shown) ? drawnSideOf : null,
         };
 
         /// <summary>
@@ -480,7 +480,7 @@ namespace Halcyonic.Client
         {
             MenuColumn.Menu => hiddenMenu == Shown ? null : Shown,
             MenuColumn.File => Beside,
-            _ => BesideAside ? Shown : Beside ?? Shown,
+            _ => BesideAside ? Shown : Beside ?? (hiddenMenu == Shown ? null : Shown),
         };
 
         /// <summary>Once a frame: every open column looks at what it awaits.</summary>

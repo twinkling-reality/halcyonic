@@ -1940,7 +1940,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   `FocusLeft` once, rolling back any invisible preview without losing drafts or closing its category.
   Menu-owned details still count as visible; an ordinary visible file beside Settings retains preview.
   A bounded second composition draw reflects rollback immediately. Hidden frames cannot acquire draw
-  authority, and a return needs the views' normal fresh settled draw. Compact does not release twice.
+  authority, and a return needs the views' normal fresh settled draw. Retained hidden menu details
+  do not own the front or block a visible focused file's draw/action proof. Side ownership follows
+  actual visibility and returns to menu-owned details after fresh drawing. Compact does not release twice.
   A palette change revokes old target proof until redraw through `MenuNavigator.Moved`,
   without changing geometry or gratuitously expiring unchanged text-reading evidence. Button paint
   caches include `Glaze.PaletteVersion`; other cached consumer refresh is tracked by validation.
