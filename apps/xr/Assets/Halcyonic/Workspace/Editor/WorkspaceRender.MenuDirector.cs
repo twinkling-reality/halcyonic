@@ -559,7 +559,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (frame != null)
                     {
                         var budget = new HeightBudget(director.PageHeight(MenuFrameView.TitleRows(frame.Subject, Glaze.Menu.FileColumnDegrees), false, frame.Focused));
-                        Debug.Log("Halcyonic: answer flow budget " + stage + ": room=" + budget.Room.ToString("0.00000", CultureInfo.InvariantCulture)
+                        Debug.Log("Halcyonic: answer flow budget " + stage + ": room=" + budget.Room.ToString("0.00000", System.Globalization.CultureInfo.InvariantCulture)
                             + ", parts=" + string.Join(",", plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.File).View?.Heights ?? Array.Empty<float>())
                             + ", rows=" + string.Join("/", frame.Lines.Select(line => line.Rows)) + ", choices=" + string.Join(",", file!.Screen.Question.Answers));
                         if (!file.Screen.Question.Writing && !file.Screen.Question.Reviewing && file.Screen.Question.QuestionPart == null
