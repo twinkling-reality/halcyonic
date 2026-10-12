@@ -55,6 +55,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [voice-transcription.md](validation/voice-transcription.md) | Apple's SpeechTranscriber against whisper.cpp large-v3-turbo on the Mac, on synthetic clips: accuracy, latency, memory, network, and what each returns when nothing is said |
 | [salidium-integration-audit.md](validation/salidium-integration-audit.md) | Salidium repository audit |
 | [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
+| [salidium-project-map.md](validation/salidium-project-map.md) | Salidium experimental committed-repository map and execution links v0, source-verified; consumer access and evidence limits |
 | [seorak-integration-api.md](validation/seorak-integration-api.md) | Seorak integration API v1, checked against the running plane |
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
 | [quest-3-device.md](validation/quest-3-device.md) | The XR client on a Meta Quest 3: build, install, WebSocket under IL2CPP, milestone 2 checks |
