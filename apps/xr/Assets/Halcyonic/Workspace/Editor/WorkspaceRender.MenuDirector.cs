@@ -165,6 +165,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     SomethingWaits = () => true,
                 });
 
+                // Placement opened from an initially closed bar returns to a bar without a phantom resume.
+                director.DrawNow();
+                PressMoveForOrganizationRender(director, 710);
+                director.DrawNow();
+                if (director.Plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject)
+                    failures.Add(name + ": the initially closed bar's Move did not open placement details.");
+                director.Compact();
+                director.DrawNow();
+                if (director.Navigator.IsCompact || director.Navigator.ShowsAnything || director.Plane.Bar == null || director.Plane.Shown.Count != 0)
+                    failures.Add(name + ": Move then Compact from an initially closed bar kept a phantom composition or placement view.");
+
                 // Opened as the closed bar's Open does when something waits: on Tasks.
                 director.Open();
                 director.DrawNow();
@@ -717,12 +728,36 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                     Capture("editor-" + length + "-part1");
                     var retained = file!;
+                    var retainedBadge = retained.Frame!.Pill;
                     var retainedPart = retained.Screen.Question.InputPart;
                     var lateKeyboard = keyboardDone;
                     var sendsBeforeCompact = sent.Count;
                     director.Compact();
                     director.DrawNow();
                     failures.AddRange(PlaneState(name + " compact-editor-" + length, folder, camera, texture, plane, characters, eyes, null));
+                    var compactBar = plane.Bar;
+                    if (compactBar?.Badge.Shown == null || compactBar.Badge.Shown.Tone != retainedBadge?.Tone || compactBar.Badge.Shown.Icon != retainedBadge?.Icon || compactBar.Badge.Shown.Word != retainedBadge?.Word)
+                        failures.Add(name + ": the compact task changed its shared state badge semantics.");
+                    if (compactBar != null)
+                    {
+                        var move = compactBar.Controls.Move;
+                        typeof(GlazeButton).GetField("shownAt", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(move, float.NegativeInfinity);
+                        move.Target.PointerForRender(711, Oculus.Interaction.PointerEventType.Select, move.transform.position);
+                        director.DrawNow();
+                        director.MatureCompactMoveForRender(move.transform.position);
+                        if (!director.Dragging) failures.Add(name + ": an unchanged compact redraw canceled the Move hold.");
+                        move.Target.PointerForRender(711, Oculus.Interaction.PointerEventType.Unselect, move.transform.position);
+                        director.DrawNow();
+                        PressMoveForOrganizationRender(director, 712);
+                        director.DrawNow();
+                        if (plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject || !director.Navigator.IsCompact)
+                            failures.Add(name + ": compact Move did not retain its underlying compact file.");
+                        director.Compact();
+                        director.DrawNow();
+                        if (!director.Navigator.IsCompact || plane.Bar == null || plane.Shown.Count != 0)
+                            failures.Add(name + ": Compact did not remove placement details from its already-compact composition.");
+                    }
+
                     SelectCharacterThroughWorkspace(director, opened.Target);
                     if (director.Navigator.IsCompact || director.Navigator.Beside != retained || file != retained)
                         failures.Add(name + ": actual same-task character selection replaced or closed its retained editor.");

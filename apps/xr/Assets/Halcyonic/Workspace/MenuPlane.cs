@@ -352,7 +352,7 @@ namespace Halcyonic.XR.Workspace
         /// </param>
         public void Show(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, CharacterTarget? fileCharacter, IReadOnlyList<CharacterTarget> all,
             Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default,
-            object? fileColumn = null, LineWords? compactIdentity = null, string? compactState = null)
+            object? fileColumn = null, LineWords? compactIdentity = null, StateBadge? compactState = null, int waitingCount = 0, object? compactBinding = null)
         {
             var wasCompact = compactShown;
             var previousDirection = Direction;
@@ -510,7 +510,7 @@ namespace Halcyonic.XR.Workspace
                 // Where something closes, the bar shows only once it has left, then fades in, so the bar's words
                 // never stand over the file's; newly laid otherwise, as the plane starts, it stands whole at once.
                 var barWas = bar.gameObject.activeSelf;
-                bar.Show(menuBar, Glaze.Menu.FileColumnDegrees, compactIdentity, compactState);
+                bar.Show(menuBar, Glaze.Menu.FileColumnDegrees, compactIdentity, compactState, waitingCount, compactBinding);
                 if (!barWas)
                 {
                     var closing = false;

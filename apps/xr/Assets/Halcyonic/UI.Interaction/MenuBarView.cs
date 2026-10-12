@@ -21,6 +21,9 @@ namespace Halcyonic.XR.UI
         private TextMeshPro line = null!;
         private OrganizationControlsView controls = null!;
         private TextMeshPro state = null!;
+        private StateBadgeView badge = null!;
+        public StateBadgeView Badge => badge;
+        public TextMeshPro WaitingCount => state;
         private readonly List<Surface> identityGrounds = new List<Surface>();
         private Vector2 size;
         private float shown = 1f;
@@ -48,9 +51,10 @@ namespace Halcyonic.XR.UI
             {
                 shown = Mathf.Clamp01(value);
                 GetComponentsInChildren(true, shapes);
-                for (var index = 0; index < shapes.Count; index++) shapes[index].Shown = shown;
+                for (var index = 0; index < shapes.Count; index++) if (!shapes[index].transform.IsChildOf(badge.transform)) shapes[index].Shown = shown;
                 GetComponentsInChildren(true, words);
-                for (var index = 0; index < words.Count; index++) GlazeText.Show(words[index], shown);
+                for (var index = 0; index < words.Count; index++) if (!words[index].transform.IsChildOf(badge.transform)) GlazeText.Show(words[index], shown);
+                badge.Fade(shown);
             }
         }
 
@@ -68,15 +72,16 @@ namespace Halcyonic.XR.UI
             view.controls.Toggled += () => view.Acted?.Invoke(MenuBar.Open);
             view.line = GlazeText.Create(go.transform, "Retained identity", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, Order + 3);
             view.line.rectTransform.pivot = new Vector2(0f, 0.5f);
+            view.badge = StateBadgeView.Create(go.transform, "Retained state", Order + 2, pill: true);
             view.state = GlazeText.Create(go.transform, "Retained state", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, Order + 3);
             view.state.rectTransform.pivot = new Vector2(0f, 0.5f);
             return view;
         }
 
         /// <summary>Shows <paramref name="bar"/> closed, <paramref name="columnDegrees"/> wide.</summary>
-        public void Show(MenuBar bar, float columnDegrees, LineWords? identity = null, string? status = null)
+        public void Show(MenuBar bar, float columnDegrees, LineWords? identity = null, StateBadge? status = null, int waitingCount = 0, object? compactBinding = null)
         {
-            controls.Bind(identity ?? (object)bar);
+            controls.Bind(compactBinding ?? (object)bar);
             gameObject.SetActive(true);
             size = new Vector2(PlaneComposition.Units(columnDegrees), Height);
             shape.DrawGlass(size);
@@ -88,14 +93,24 @@ namespace Halcyonic.XR.UI
             var words = identity ?? LineWords.Ours(bar.ClosedLine);
             var theirs = GlazeRuns.Of(line).Set(words, _ => true);
             GlazeText.Lay(line, room, 1);
-            line.transform.localPosition = new Vector3(left, status == null ? 0f : -GlazeText.LineHeight(line) / 2f, -GlazeTokens.Units(0.05f));
+            line.transform.localPosition = new Vector3(left, status == null && waitingCount == 0 ? 0f : -GlazeText.LineHeight(line) / 2f, -GlazeTokens.Units(0.05f));
             GlazeRuns.TokenGrounds(line, theirs, identityGrounds, transform, Order + 1);
-            state.gameObject.SetActive(status != null);
+            badge.gameObject.SetActive(status != null);
+            var statusY = GlazeText.LineHeight(line) / 2f;
+            var countLeft = left;
             if (status != null)
             {
-                GlazeText.SetLiteral(state, status);
-                GlazeText.Lay(state, room, 1);
-                state.transform.localPosition = new Vector3(left, GlazeText.LineHeight(line) / 2f, -GlazeTokens.Units(0.05f));
+                badge.Show(status);
+                badge.transform.localPosition = new Vector3(left + badge.Width / 2f, statusY, -GlazeTokens.Units(0.05f));
+                countLeft += badge.Width + GlazeTokens.Units(Glaze.Menu.GridDegrees);
+            }
+            state.gameObject.SetActive(waitingCount > 0);
+            if (waitingCount > 0)
+            {
+                state.color = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground);
+                GlazeText.SetLiteral(state, waitingCount + " waiting");
+                GlazeText.Lay(state, left + room - countLeft, 1);
+                state.transform.localPosition = new Vector3(countLeft, statusY, -GlazeTokens.Units(0.05f));
             }
         }
 
