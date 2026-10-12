@@ -2186,7 +2186,12 @@ exists. Passthrough remains independent of whether optional characters are prese
   to 0.4–2 m horizontally from the placement-time eyes and 0.15–0.9 m below them, rejects non-finite
   values, and invalidates its generation before Apply or Cancel. The Unity owner also checks the
   entire shelf/label/banner envelope against the current head-relative measured field, with the
-  existing lens-edge margin, before preview movement and again before Apply. Late room suggestions cannot
+  existing lens-edge margin, before preview movement and again before Apply. The actual visible
+  console frame or global dock must also clear the whole candidate envelope by a degree; a rejected
+  shelf never moves the console. The explicit placement action searches a bounded comfortable
+  preview range; if none clears the current workspace and field, it offers a visible explanation
+  to move the workspace and place agents again. A preview still requires Apply. Manual shelf height is not asserted as a real desk floor and does
+  not constrain the independent console page budget. Late room suggestions cannot
   replace a cancelled, superseded or committed preview. New tracking sessions do not regain
   placement authority from device preferences; they begin Off and unplaced.
 - **Room suggestion.** Find a room surface is an explicit action inside the placement preview.

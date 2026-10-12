@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Halcyonic.Client;
+using Halcyonic.XR.Workspace;
 using Meta.XR.MRUtilityKit;
 using UnityEngine;
 using UnityEngine.XR;
@@ -67,6 +68,7 @@ namespace Halcyonic.XR.Room
         private int run;
         private bool accessDeclined;
         private bool askedAgain;
+        private readonly Vector3[] shelfCorners = new Vector3[8];
         public AgentShelfDraft Draft { get; } = new AgentShelfDraft();
         public Pose? Preview => Draft.Candidate is AgentShelfPose candidate ? ToPose(candidate) : (Pose?)null;
         public bool BeginPreview()
@@ -77,13 +79,26 @@ namespace Halcyonic.XR.Room
             if (forward.sqrMagnitude < 1e-4f) forward = Vector3.forward;
             forward.Normalize();
             Draft.Allows = AllowsShelf;
-            var pose = Preferred ?? new Pose(head.transform.position + forward * 1.2f - Vector3.up * 0.45f,
-                Quaternion.LookRotation(forward, Vector3.up));
             run++;
-            Draft.Begin(ToDraft(pose), ToVector(head.transform.position));
-            if (Draft.Candidate == null)
-                Draft.Begin(ToDraft(new Pose(head.transform.position + forward * 1.2f - Vector3.up * 0.45f, Quaternion.LookRotation(forward, Vector3.up))), ToVector(head.transform.position));
-            return Draft.Candidate != null;
+            var eyes = ToVector(head.transform.position);
+            if (Preferred is Pose existing)
+            {
+                Draft.Begin(ToDraft(existing), eyes);
+                if (Draft.Candidate != null) return true;
+            }
+            // Only this explicit placement action offers a preview. It never publishes a pose or
+            // requests scene access; the first candidate that clears the current workspace is shown.
+            foreach (var drop in new[] { 0.45f, 0.6f, 0.75f, 0.9f })
+            foreach (var distance in new[] { 1.2f, 1.5f, 1.8f, 2f })
+            foreach (var turn in new[] { 0f, -20f, 20f, -35f, 35f })
+            {
+                var direction = Quaternion.Euler(0f, turn, 0f) * forward;
+                var candidate = new Pose(head.transform.position + direction * distance - Vector3.up * drop,
+                    Quaternion.LookRotation(direction, Vector3.up));
+                Draft.Begin(ToDraft(candidate), eyes);
+                if (Draft.Candidate != null) return true;
+            }
+            return false;
         }
         public void MovePreview(string direction)
         {
@@ -110,17 +125,16 @@ namespace Halcyonic.XR.Room
             var measured = ViewField.Current ?? new ViewField(48, 48, 45, 45);
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
-            var half = (GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(6)) / 2f;
+            CharacterStage.WriteShelfCorners(pose, GetComponent<CharacterStage>()?.ShelfWidth ?? AgentShelfDraft.Width(6), shelfCorners);
             for (var corner = 0; corner < 8; corner++)
             {
-                var local = new Vector3(corner % 2 == 0 ? -half : half, corner < 4 ? UI.CharacterLabelView.DeepestBottom * AgentShelfDraft.Scale : 0.5f,
-                    corner % 4 < 2 ? -AgentShelfDraft.Depth / 2f : AgentShelfDraft.Depth / 2f);
-                var direction = Quaternion.Inverse(head.transform.rotation) * (pose.position + pose.rotation * local - head.transform.position);
+                var direction = Quaternion.Inverse(head.transform.rotation) * (shelfCorners[corner] - head.transform.position);
                 var yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
                 var elevation = Mathf.Atan2(direction.y, new Vector2(direction.x, direction.z).magnitude) * Mathf.Rad2Deg;
                 if (!field.Shows(yaw, elevation)) return false;
             }
-            return true;
+            var workspace = GetComponent<WorkspaceDirector>();
+            return workspace != null && workspace.ClearsShelf(shelfCorners, head.transform.position);
         }
         public void CancelPreview() { run++; Draft.Cancel(); }
         public bool ApplyPreview()

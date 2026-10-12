@@ -237,6 +237,8 @@ namespace Halcyonic.XR.Workspace
             return stage;
         }
 
+        public bool ClearsShelf(IReadOnlyList<Vector3> corners, Vector3 viewer) => menu != null && menu.ClearsShelf(corners, viewer);
+        public bool ReportLocal(string reason) => menu != null && !Presentation.Minimized && menu.ReportLocal(reason);
         public bool OpenLocal(IMenuColumn column) => menu != null && !Presentation.Minimized && menu.OpenLocal(column);
         public IMenuHost? MenuHost => menu;
         private bool AgentVisible([NotNullWhen(true)] CharacterTarget? target) => Presentation.AgentsVisible && stage != null && stage.Visible
@@ -398,7 +400,7 @@ namespace Halcyonic.XR.Workspace
                 if (AgentVisible(target)) standing.Add(target);
             }
             return new MenuDirector.Stage(WorkspaceVisuals.HeadPosition, head != null ? head.forward : Vector3.forward, standing.ToList(),
-                stage != null && stage.Visible ? stage.SurfaceHeight : null, false);
+                stage != null && stage.Visible && Room?.Status.OnSurface == true ? stage.SurfaceHeight : null, false);
         }
 
         private bool SomethingWaits() =>

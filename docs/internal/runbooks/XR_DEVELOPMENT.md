@@ -662,15 +662,14 @@ tcp:47800` is in place.
   `adb reverse --list` and restore Halcyonic's known `tcp:47800` route. Do not remove unrelated
   routes. Until its route is back, an app that has not yet been live plays the recorded
   demonstration; it keeps trying and switches to the control plane once it connects.
-- **Stage placement:** in the real room the stage stands on the surface the room placement found
-  (`Halcyonic: room placed the stage on the surface, because ...`) and stays there through
-  recenters. Otherwise it places itself in front of the person when the session starts, after a
-  recenter, after a pause, and after a jump of the tracking space no head makes, and the app's log
-  says why (`placed the stage in front of the person because ...`). Reference space changes that
-  move nothing, which come in bursts while system windows take and give back focus, leave it where
-  it is (`kept the stage where it stands: ...`), and a tracking space that moves takes the stage
-  with it (`moved the stage with the tracking space ...`). If it is still out of view, recenter:
-  look at a palm, then pinch and hold the Meta icon.
+- **Optional shelf placement:** the normal workspace starts without characters or scene access.
+  Settings → Your space → Spatial agents opens a preview when no shelf is placed. Hold the visible
+  Move shelf handle, or use its measured movement controls, then Apply or Cancel. Apply alone
+  publishes the position for this tracking session; head motion, app focus changes and recenter
+  never create an automatic arc fallback. Missing placement hides agents and their targets while
+  work remains available. A confirmed shelf keeps its pose as content grows; page the console
+  against its occupied geometry. Place the shelf again explicitly to recover missing placement;
+  there is no current claim that a manual placement restores on the next app launch.
 - **Logs:** `adb logcat -s Unity` is the app's log: its `Halcyonic:` lines say whether the control
   plane or the demonstration is shown, and each change of connection status, and its
   `Halcyonic: room` lines what the room placement did and why. `adb logcat -s VrApi` reports the
@@ -1140,58 +1139,33 @@ adb shell pm clear com.halcyonic.xr
 adb shell pm revoke com.halcyonic.xr com.oculus.permission.USE_SCENE
 ```
 
-In a room set up with its desk (the headset's Space Setup, with the desk captured as a table):
+Current optional-shelf checks (previous automatic arc/anchor checks do not prove this flow):
 
-- **First launch.** The room shows through passthrough and the characters appear in front of you.
-  Within a few seconds a line comes up ahead of you, "To stand your agents on your desk, allow
-  access to this room's layout.", then the headset explains its spatial data permission and asks.
-  Allow it: the characters move onto the near half of the desk, facing you, within reach and
-  without turning your head, with their label plates on the desktop, and the line reads "Your
-  agents are on your desk." The log says `asking for access`, `room access allowed`,
-  `read the room: Read, ...`, `chose a desk ... m away, ...`, and `kept the placement with a
-  spatial anchor saved for this room`.
-- **Second launch.** Stop the app and start it again from the same seat: no prompt, the
-  characters return to the same place on the desk, "Your agents are back on your desk.", and the
-  log says `restored the placement saved for this room`.
-- **Another seat.** Start it from a chair a meter back or across the room: the log says the saved
-  placement `no longer suits where the person sits`, and a new place is chosen, or the characters
-  stand in front of you with the reason.
-- **Recenter.** Recenter (look at a palm, pinch and hold the Meta icon): the characters stay on the
-  desk. At most one line, `its anchor moved ... m with the room, as after a recenter`.
-- **System windows.** Open the universal menu, then Virtual Display with the Mac, move its windows
-  and close them, several times: the characters stay on the desk, and no room line appears while
-  the windows come and go, in particular no `stands in front of the person`, so the anchor stayed
-  localized through the focus changes. Note whether the windows cover the characters on the desk.
-- **Virtual space.** Point at and pinch, or poke, "Show a virtual space" on the small controls low
-  to your right: passthrough goes, the characters stand in front of you in the virtual space, and
-  the switch reads "Show my room". Restart the app: still virtual. Switch back: the room and the
-  characters on the desk return, with no prompt.
-- **Demonstration.** The demonstration judges see (above) plays and follows your answers the same
-  way on the desk and in the virtual space, with its line on the banner.
-- **Focus.** With the system menu open, Settings' room controls do not respond to a poke or a pinch.
-- **Frame rate.** `adb logcat -s VrApi` reports 72 fps with passthrough on, the characters on the
-  desk and hands tracked.
-
-Where things are missing:
-
-- **Declined.** Clear the app's data and start it; decline the permission: the characters stand
-  in front of you, "Without room access, your agents stand in front of you.", with "Allow room
-  access". Start the app again: it does not ask by itself. Press "Allow room access": the headset
-  asks again; declined twice, the line says the headset's settings can allow it.
-- **A room that is not set up.** In a room with no Space Setup, the characters stand in front of
-  you and, once the anchor saved elsewhere has failed to localize (up to six seconds), the line
-  reads "You are outside your set-up rooms, so your agents stand in front of you." (or "This room
-  is not set up, ..." on a headset with no rooms at all), with the offer "Set up this room".
-  Nothing starts by itself. Press it: the headset's space setup opens; cancel it, or capture the
-  room with a table. Back in the app, the room is read again, and with a table in reach the
-  characters move onto it.
-- **No desk in reach.** Sit where no table is within about a meter, for example on a couch facing
-  away from the desk: "No free desk or table in reach, so your agents stand in front of you.",
-  with "Set up this room".
-- **Losing the desk.** If the headset stops tracking the desk's anchor for five seconds while the
-  app has focus (covering its cameras may do it; how to cause it reliably is not known), "Lost
-  track of your desk, so your agents stand in front of you."; once the anchor is tracked again,
-  the characters return to the desk.
+- **First launch:** the full workspace is immediately usable with agents Off. Starting passthrough
+  must not request scene access. Selecting work opens its file without requesting a character.
+- **Preview and direct movement:** explicitly choose Place agents. The shelf and Move shelf handle
+  are visible; holding it changes only the preview. Arrows move 5 cm and turn controls 5 degrees.
+  Its occupied envelope must stay in the measured field and a degree clear of the actual workspace.
+  Try dragging into the console and toward the lens edge: movement is rejected; the console stays put.
+- **Apply and Cancel:** Cancel, external focus loss and global Minimize revoke the preview. Apply
+  enables only the pose currently shown and still clear. Bodies contact the shelf through working,
+  checking, waiting, failure and finished animation; labels remain legible at both text sizes.
+- **Work alongside optional agents:** open another task and a taller details page. The independently
+  placed console retains its position; enabled agents retain their confirmed pose and occupied
+  geometry while the console pages around them. If minimum controls cannot fit, record the exact
+  conflict for explicit placement recovery; never silently hide or move agents. Global Minimize
+  removes every panel and optional agent, leaving one Open workspace control and retaining drafts.
+- **Recenter and system windows:** head motion and repeated focus changes do not automatically move
+  a manual shelf or console. Verify the actual tracking-session behavior on the headset; no
+  durable furniture anchoring or cross-launch recovery is asserted by the manual pose.
+- **Explicit room suggestion:** Find a room surface, inside placement, is the only route to fresh
+  scene permission. A suggested surface must fit the whole shelf and clear the console; it still
+  needs Apply. Consent dialogs cancel the old preview on focus loss; after returning, request a
+  new placement. Declining access or finding no suitable surface leaves manual placement available,
+  with no floating arc. Space setup remains an explicit system action.
+- **Surroundings and performance:** switching real/virtual surroundings affects the full workspace,
+  independently of agents. Record native/XR focus behavior and frame rate with the optional shelf
+  enabled; editor geometry and older arc renders do not establish headset comfort or performance.
 
 ### Sound checks on a Quest
 
