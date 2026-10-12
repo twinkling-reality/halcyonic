@@ -25,6 +25,7 @@ final class PanelFiles {
     static final String RETURN = "halcyonic-workspace-return.json";
     static final String MODE = "halcyonic-panel-mode.json";
     static final String DRAFTS = "halcyonic-workspace-drafts.json";
+    static final String UNITY_VIEWS = "halcyonic-unity-workspace-views.json";
     private static final Object LOCK = new Object();
     private final File directory;
     final boolean developmentAllowed;
@@ -54,7 +55,10 @@ final class PanelFiles {
         FileDescriptor descriptor;
         try {
             descriptor = Os.open(new File(directory, name).getPath(), OsConstants.O_RDONLY | OsConstants.O_NOFOLLOW | OsConstants.O_NONBLOCK | OsConstants.O_CLOEXEC, 0);
-        } catch (ErrnoException error) { throw new IOException("Private record unavailable."); }
+        } catch (ErrnoException error) {
+            if (error.errno == OsConstants.ENOENT) throw new RecordAbsent();
+            throw new IOException("Private record unavailable.");
+        }
         try (FileInputStream input = new FileInputStream(descriptor)) {
             StructStat stat = Os.fstat(descriptor);
             if (!OsConstants.S_ISREG(stat.st_mode) || stat.st_uid != Os.getuid() || (stat.st_mode & 0077) != 0
@@ -72,6 +76,7 @@ final class PanelFiles {
     private void writeLocked(String name, String json) throws IOException {
         if (name.equals(MODE)) { Map<String, Object> v = PanelJson.object(PanelJson.parse(json)); PanelJson.keys(v, "version", "development_usb"); PanelJson.integer(v.get("version"), 1, 1); PanelJson.bool(v.get("development_usb")); }
         else if (name.equals(DRAFTS)) PanelDrafts.parse(json);
+        else if (name.equals(UNITY_VIEWS)) PanelViewStore.validate(json);
         else PanelContinuation.parse(json);
         String temporary = new File(directory, name + "." + UUID.randomUUID() + ".new").getPath();
         try {
@@ -83,6 +88,14 @@ final class PanelFiles {
         } catch (ErrnoException error) { throw new IOException("Private record unavailable."); }
         finally { new File(temporary).delete(); }
     }
+    /** Only an actual ENOENT from opening the fixed record means absent. */
+    String readWorkspaceViews() throws IOException {
+        synchronized (LOCK) {
+            try { return readLocked(UNITY_VIEWS, PanelViewStore.MAXIMUM_BYTES); }
+            catch (RecordAbsent missing) { return null; }
+        }
+    }
+    private static final class RecordAbsent extends IOException { }
     void remove(String name) { synchronized (LOCK) { new File(directory, name).delete(); } }
     String peekReturn() {
         synchronized (LOCK) {

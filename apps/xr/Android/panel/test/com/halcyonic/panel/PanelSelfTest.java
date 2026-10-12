@@ -41,6 +41,21 @@ public final class PanelSelfTest {
         switch (command) {
             case "continuation":
                 try { PanelContinuation.parse(args[0]); result = "true"; } catch (Exception error) { result = "false"; } break;
+            case "viewstore":
+                try { PanelViewStore.validate(args[0]); result = "true"; } catch (Exception error) { result = "false"; } break;
+            case "viewstore_bound": {
+                Map<String, Object> value = PanelJson.object(PanelJson.parse(args[0]));
+                List<Object> views = new java.util.ArrayList<>();
+                for (int i = 0; i < 150; i++) {
+                    Map<String, Object> view = new java.util.LinkedHashMap<>(value);
+                    view.put("handoff_id", String.format(java.util.Locale.ROOT, "0192f1a0-0000-4000-8000-%012x", i));
+                    view.put("instruction", PanelJson.map("text", String.join("", java.util.Collections.nCopies(32000, "x")), "spoken", false, "part", 0L));
+                    views.add(view);
+                }
+                try { PanelViewStore.validate(PanelJson.encode(PanelJson.map("version", 1L, "selected", null, "views", views))); result = "false"; }
+                catch (IllegalArgumentException error) { result = "true"; }
+                break;
+            }
             case "identity": {
                 Map<String, Object> v = PanelJson.object(PanelJson.parse(args[0]));
                 try { result = PanelIdentity.key(PanelJson.text(v.get("scheme")), PanelJson.text(v.get("host")), (int) PanelJson.integer(v.get("port"), 1, 65535), PanelJson.nullableText(v.get("device_id")), PanelJson.nullableText(v.get("certificate_sha256")), PanelJson.text(v.get("credential"))); }

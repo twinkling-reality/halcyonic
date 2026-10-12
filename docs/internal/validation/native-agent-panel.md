@@ -115,6 +115,17 @@ through polling until persistence succeeds. The selected private record remains 
 recovery path when the aggregate editor store is full. If storage refuses every write, process
 death before successful persistence cannot guarantee recovery; the panel does not claim otherwise.
 
+Unity's retained views use a separate fixed `halcyonic-unity-workspace-views.json` record through
+`AndroidPanelBridge.ReadWorkspaceViews`/`WriteWorkspaceViews`. The native read applies the same
+no-follow/nonblocking descriptor, app ownership, private mode, regular-file, strict UTF-8 and
+maximum-plus-one read boundary, with a 4 MiB aggregate limit. Only `ENOENT` at open means absent;
+unreadable, symlink, special-file, over-limit and decoding failures are failed IO. An available
+but malformed record remains available for the C# codec to reject, rather than becoming empty
+storage. Both C# and native consumers validate the ordinary `WorkspaceViewStore` envelope before
+atomic mode-600 replacement: unique continuation ids, exact selected membership, no extra fields,
+no coercions and no record-count cap. The API accepts no caller filename and consumes no pending
+native return. Engine-free recovery and fresh projection validation remain the Unity consumer's.
+
 ## Privacy and capture boundary
 
 The native panel and its review dialogs use `FLAG_SECURE`. This is an explicit product privacy
@@ -171,6 +182,13 @@ cases passed: both production-only and development Android source compilation, n
 the real window's secure flag with an internal development-only preview declaration, and the
 fixed asset's Snapshot/synthetic execution validation. These checks establish source boundaries,
 not compositor pixels or final APK manifest merging.
+
+The fixed Unity storage bridge adds four cases (51 native cases total). Five focused cases pass:
+production/development Android API compilation; shared continuation parity inside the aggregate
+envelope with more than sixteen records; malformed/duplicate/selection negatives; the aggregate
+byte refusal; and source checks for the fixed filename and absent-versus-failed descriptor path.
+These establish format behavior and source/API boundaries. Actual Android syscall faults, JNI
+dispatch, process-death recovery and headset disk/render performance still require device evidence.
 
 Still required: independent source review; integration gates; actual development/release APK
 packaging and JNI inspection; synthetic native visual proof; headset launch/Home/return and

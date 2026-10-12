@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Looper;
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,5 +53,17 @@ public final class PanelBridge {
     }
     public static boolean acknowledgePendingReturn(Activity activity, String id) {
         return activity != null && id != null && id.matches(PanelIdentity.UUID) && new PanelFiles(activity).acknowledgeReturn(id);
+    }
+
+    /** Null is genuinely absent; a failed bounded/no-follow read propagates through JNI. */
+    public static String readWorkspaceViews(Activity activity) throws IOException {
+        if (activity == null) throw new IOException("Workspace is not available.");
+        return new PanelFiles(activity).readWorkspaceViews();
+    }
+    /** Fixed private filename, strict ordinary-data envelope, bounded atomic replacement. */
+    public static boolean writeWorkspaceViews(Activity activity, String json) throws IOException {
+        if (activity == null) throw new IOException("Workspace is not available.");
+        new PanelFiles(activity).write(PanelFiles.UNITY_VIEWS, json);
+        return true;
     }
 }
