@@ -59,7 +59,12 @@ namespace Halcyonic.Client
                     return new MenuFrame(UsageText.Subject, new Footer(close, rare: refresh), lines: new[] { new PageLine(words, tone: tone, rows: 2) });
                 }
 
-                var rows = host.PageRows(sourceLine: true);
+                // Named organization controls narrow the heading; count its actual rows before packing.
+                // The source remains on every page and takes its own measured space.
+                var subjectRows = host.TitleRows(UsageText.Subject, Glaze.Menu.MenuColumnDegrees);
+                var room = new HeightBudget(host.PageHeight(subjectRows, besideMenu: true)).Room;
+                var most = host.PageRows(sourceLine: true);
+                var rows = Math.Max(1, Enumerable.Range(1, most).LastOrDefault(count => MenuPage.Rows(count) <= room + 1e-6f));
                 var pages = Math.Max(1, (presentation.Rows.Count + rows - 1) / rows);
                 if (chosen is int index && index < presentation.Rows.Count) page = index / rows;
                 else chosen = null;

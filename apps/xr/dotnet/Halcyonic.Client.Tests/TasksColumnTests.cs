@@ -56,11 +56,15 @@ internal sealed class FakeMenuHost : IMenuHost
 
     public bool FitsHalf(PageLine answer, float columnDegrees) => true;
 
-    public int TitleRows(string subject, float columnDegrees) => 1;
+    public Func<string, float, int>? MeasureTitle { get; set; }
+
+    public int TitleRows(string subject, float columnDegrees) => MeasureTitle?.Invoke(subject, columnDegrees) ?? 1;
 
     public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
-    public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => Height;
+    public Func<int, bool, float>? MeasurePage { get; set; }
+
+    public float PageHeight(int subjectRows, bool besideMenu, bool focused = false) => MeasurePage?.Invoke(subjectRows, besideMenu) ?? Height;
 
     public void OpenFile(string workstreamId) => Opened.Add("file " + workstreamId);
 
