@@ -17,6 +17,7 @@ namespace Halcyonic.Client
         public int Parts { get; private set; } = 1;
         public int PartRows { get; private set; } = 1;
         private int readThrough = -1;
+        private int? restoredPart;
         private DateTimeOffset? partDrawnAt;
         private DateTimeOffset? noticeDrawnAt;
         public string? Notice { get; private set; }
@@ -35,6 +36,14 @@ namespace Halcyonic.Client
             ExecutionId = execution;
             Open = true;
             Suspend();
+        }
+        /// <summary>Restores ordinary local words only. No keyboard, read prefix or confirmation authority crosses a panel handoff.</summary>
+        public void Restore(string execution, string words, bool spoken, int part)
+        {
+            Close();
+            Begin(execution);
+            Changed(words, spoken);
+            restoredPart = part;
         }
         public void Edit()
         {
@@ -91,7 +100,8 @@ namespace Halcyonic.Client
             }
             Parts = Math.Max(1, (Math.Max(1, rows) + PartRows - 1) / PartRows);
             // New wrapping invalidates the ordered read prefix, so start where that proof can be rebuilt.
-            Part = 0;
+            Part = Math.Min(restoredPart ?? 0, Parts - 1);
+            restoredPart = null;
             readThrough = -1;
             partDrawnAt = null;
         }
@@ -126,6 +136,7 @@ namespace Halcyonic.Client
             Part = 0;
             Parts = 1;
             measured = null;
+            restoredPart = null;
             readThrough = -1;
             partDrawnAt = null;
         }

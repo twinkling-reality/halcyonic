@@ -94,7 +94,13 @@ namespace Halcyonic.Client
             this.createTransport = createTransport ?? (() => new LoopbackWebSocketTransport());
         }
 
+        private string? welcomedJournal;
+        private long welcomedHead = -1;
+
         public ClientProjection State { get; } = new ClientProjection();
+
+        /// <summary>Applied state has reached the current connection's welcome watermark; cached state alone cannot authorize a return.</summary>
+        public bool SnapshotCurrent => Status.IsLive && welcomedJournal != null && State.Journal?.JournalId == welcomedJournal && State.Position >= welcomedHead;
 
         /// <summary>The connection status as of the last <see cref="Pump"/>.</summary>
         public ConnectionStatus Status { get; private set; } = ConnectionStatus.Stopped;
@@ -226,9 +232,13 @@ namespace Halcyonic.Client
                 {
                     case ConnectionStatus status:
                         Status = status;
+                        if (!status.IsLive && status.Phase != ConnectionPhase.Synchronizing)
+                        { welcomedJournal = null; welcomedHead = -1; }
                         changes.ConnectionChanged = true;
                         break;
                     case WelcomeMessage welcome:
+                        welcomedJournal = welcome.Journal.JournalId;
+                        welcomedHead = welcome.Head;
                         State.ApplyWelcome(welcome);
                         break;
                     case SnapshotMessage snapshot:

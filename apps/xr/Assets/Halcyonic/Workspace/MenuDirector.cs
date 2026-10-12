@@ -669,8 +669,7 @@ namespace Halcyonic.XR.Workspace
             EndDrag();
             voice?.FocusLeft();
             navigator.FocusLeft();
-            placementDrawn = null;
-            placement?.FocusLeft();
+            if (placement != null) LocalClosed();
         }
 
         /// <summary>What stands on the plane changed under a drag: it lets go, and the plane is placed afresh.</summary>
