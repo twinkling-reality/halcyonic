@@ -381,6 +381,75 @@ describe('production native agent panel', () => {
         /accepted|confirmed/,
       );
   });
+  test('legacy native continuation omission migrates only request to null and preserves ordinary words', () => {
+    const first = fixtures.cases[0]?.value as Record<string, unknown>;
+    const legacy = { ...first };
+    delete legacy.request;
+    const saved = JSON.parse(
+      run('drafts', JSON.stringify({ version: 1, drafts: [] }), JSON.stringify([legacy])),
+    );
+    assert.deepEqual(saved.drafts[0], { ...legacy, request: null });
+    assert.equal(run('continuation', JSON.stringify({ ...legacy, unexpected: true })), 'false');
+    const missing = { ...legacy };
+    delete missing.instruction;
+    assert.equal(run('continuation', JSON.stringify(missing)), 'false');
+  });
+  test('native request-only drafts preserve exact host reference, spoken origin and part independently of instruction', () => {
+    const first = fixtures.cases[0]?.value as Record<string, unknown>;
+    const value = {
+      ...first,
+      instruction: null,
+      request: {
+        request_id: '0192f1a0-0000-7000-8000-000000000008',
+        text: 'Investigate this synthetic task.',
+        spoken: true,
+        part: 2,
+      },
+    };
+    const saved = JSON.parse(
+      run('drafts', JSON.stringify({ version: 1, drafts: [] }), JSON.stringify([value])),
+    );
+    assert.deepEqual(saved.drafts, [value]);
+    assert.equal(
+      run(
+        'continuation',
+        JSON.stringify({ ...value, request: { ...value.request, request_id: 'not-a-request' } }),
+      ),
+      'false',
+    );
+    assert.equal(
+      run('continuation', JSON.stringify({ ...value, request: { ...value.request, armed: true } })),
+      'false',
+    );
+  });
+  test('native request reference copies only across the original complete identity tuple', () => {
+    const first = fixtures.cases[0]?.value as Record<string, unknown>;
+    const value = {
+      ...first,
+      request: {
+        request_id: '0192f1a0-0000-7000-8000-000000000008',
+        text: 'Synthetic direction',
+        spoken: false,
+        part: 0,
+      },
+    };
+    const tuple = [
+      'connection_key',
+      'journal_id',
+      'project_id',
+      'workstream_id',
+      'execution_id',
+    ].map((key) => String(value[key as keyof typeof value]));
+    assert.deepEqual(
+      JSON.parse(run('request_copy', JSON.stringify(value), ...tuple)),
+      value.request,
+    );
+    for (let i = 0; i < tuple.length; i++) {
+      const changed = [...tuple];
+      changed[i] = 'different';
+      assert.equal(run('request_copy', JSON.stringify(value), ...changed), 'null');
+    }
+  });
   test('native draft navigation retains separate tasks and earlier runs without implicit retargeting', () => {
     const first = fixtures.cases[0]?.value as Record<string, unknown>;
     const second = {

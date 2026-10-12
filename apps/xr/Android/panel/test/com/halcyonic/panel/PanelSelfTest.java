@@ -73,6 +73,10 @@ public final class PanelSelfTest {
                         : model.answer(run, PanelJson.object(PanelJson.parse(args[3])), PanelJson.array(PanelJson.parse(args[4]))));
                 } catch (Exception error) { result = "false"; } break;
             }
+            case "request_copy": {
+                PanelContinuation saved = PanelContinuation.parse(args[0]);
+                result = PanelJson.encode(saved.requestFor(args[1], args[2], args[3], args[4], args[5])); break;
+            }
             case "drafts": {
                 PanelDrafts drafts = PanelDrafts.parse(args[0]);
                 try { for (Object item : PanelJson.array(PanelJson.parse(args[1]))) drafts.put(PanelContinuation.parse(PanelJson.encode(item))); result = drafts.json(); }

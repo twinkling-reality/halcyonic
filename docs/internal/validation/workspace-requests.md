@@ -62,3 +62,16 @@ requires its explicit presence. A request with no bound execution cannot pass cu
 validation. Durable view storage retains both drafts within the existing aggregate byte bound.
 These schema/codec facts are separate from production capture, request-owner/tuple checks after
 host reads, native return, process recreation and actual headset acceptance.
+
+### Native continuation retention
+
+The production Java reader now consumes the nullable request draft/reference separately from
+instruction words, including spoken origin and ordinary page. Only the missing legacy v1
+`request` key migrates to null before strict validation. Request-only records remain in the bounded
+private draft store, and capture/selection copies the request only across the original complete
+connection/journal/project/task/execution tuple. This is retention plumbing; the native general
+request controls and their authenticated exact-tuple response check are not yet implemented.
+
+Four focused checks passed: actual production/development Android API compilation, legacy omission
+and strict missing/extra rejection, request-only durable retention, and every tuple component's
+copy refusal. Device handoff and actual request UI remain unverified.
