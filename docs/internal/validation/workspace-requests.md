@@ -298,3 +298,18 @@ The actual Unity RequestCheck at the same checkpoint passed Standard and Larger 
 producing twenty captures of the actual request column and director flow. Visual inspection
 identified that the request form did not visibly name its bound task. That presentation follow-up
 requires a new render; geometric passage alone is not usability acceptance.
+
+After the task-identity and dropped-view follow-up, the actual RequestCheck at `9cbc4b90` passed
+both text sizes with twenty new captures. Each visible request frame asserts the bound task's
+actual outside-text title. Visual inspection of the Larger spoken review and Actions pages
+confirmed that identity remains visible and the duplicate Actions body heading is gone. The
+complete `pnpm check` passed 1,154 tests with zero skipped, plus typecheck and lint, at this source.
+
+The broader legacy WorkspaceRender.Check at `c2c64d92` failed at both sizes. It still creates old
+multi-character lineups and a fabricated video window, uses character-attached menu budgets, and
+expects obsolete navigation and banner behavior. The Organization witness also stopped at a
+missing visible Move target; later journeys were not reached. These results do not establish a
+current product defect for every failed assumption, nor may they all be dismissed as fixture
+failures: shape-fade pixel checks and current composition coverage still need investigation and
+updated actual navigation. Full visual acceptance, final native consumers and device work remain
+open despite the passing focused request and code checks.
