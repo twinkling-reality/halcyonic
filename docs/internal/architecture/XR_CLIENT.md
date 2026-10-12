@@ -2201,9 +2201,11 @@ exists. Passthrough remains independent of whether optional characters are prese
   Placement measures an actual label model with full title and source marks, and combines its bounds
   with the shelf and conservative animated body extent before field/console clearance. Later head
   motion does not re-place the shelf. Capacity feasibility remains a measured acceptance check;
-  the console continues to expose all work when a group shelf cannot fit. Production uses one
+  the console continues to expose all work when a group shelf cannot fit. The current measured shelf capacity is one
   grounded agent with explicit Previous agent/Next agent rows under Your space; the shelf row says
-  Showing N of total. Ordinary selected workstream identity survives reorder and rank changes. If
+  Showing N of total. The count is Halcyonic-authored; complete task identity uses independent
+  outside-text runs in current details, including when a numeric title matches the count suffix.
+  Ordinary selected workstream identity survives reorder and rank changes. If
   that work is removed or the journal changes, another agent requires an explicit page selection;
   no hidden retarget occurs. Old project stage-visibility preferences do not filter this page list.
   Paging changes the represented work, never the shelf pose or console position. Production does
