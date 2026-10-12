@@ -327,6 +327,116 @@ public class AppearanceSettingsTests
         Assert.That(appearance.Applied, Is.SameAs(GlazePalette.Default));
     }
 
+    private sealed class CompositionFile : IMenuColumn
+    {
+        private MenuFrame frame;
+        public CompositionFile(bool focused) => frame = Make(focused);
+        private static MenuFrame Make(bool focused) => focused ? new MenuFrame("Your answer", new Footer(), lines: new[] { new PageLine("Draft retained") }).Focus()
+            : new MenuFrame("Task file", new Footer(), lines: new[] { new PageLine("Draft retained") });
+        public MenuFrame? Frame => frame;
+        public event Action? Changed;
+        public event Action? Closed;
+        public void Focus() { frame = Make(true); Changed?.Invoke(); }
+        public void Act(string id, string? key) { if (id == Footer.Close) Closed?.Invoke(); }
+        public void Drawn(MenuFrame drawn, Footer? sidePanel) { }
+        public void HoldStarted(string id) { }
+        public void HoldEnded(string id, bool letGo) { }
+        public void Heard(string text) { }
+        public void Said(string words) { }
+        public void Tick() { }
+        public void FocusLeft() { }
+    }
+
+    [TestCase("focused")]
+    [TestCase("field")]
+    [TestCase("existing-file-focuses")]
+    public void ActualCompositionHidingTheRetainedMenuRollsBackOnceAndRequiresFreshDraw(string composition)
+    {
+        var host = new FakeMenuHost();
+        var appearance = new AppearanceSettings();
+        var saved = 0;
+        var hub = new SettingsHubColumn(host, Array.Empty<MenuSetting>(), appearance, () => saved++);
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, place => (Func<IMenuColumn>)(() => place == MenuPlace.Settings
+            ? hub : new SettingsColumn(host, Array.Empty<MenuSetting>()))));
+        var bar = new MenuBar(MenuPlace.Settings, "Nothing waits");
+        navigator.OpenMenu(MenuPlace.Settings);
+        MenuFrame Draw()
+        {
+            var frame = navigator.Frames(bar).Menu!;
+            navigator.MenuVisibility(true);
+            navigator.Drawn(MenuColumn.Menu, frame, null);
+            return frame;
+        }
+        void Press(string id, string? key = null) => Assert.That(navigator.Act(MenuColumn.Menu, id, key, Draw(), null), Is.True);
+        Press(SettingsHubColumn.OpenCategory, SettingsHubColumn.Appearance);
+        Press(AppearanceColumn.Choose, "graphite");
+        Press(AppearanceColumn.Preview);
+        var originalPreview = Draw();
+        var file = new CompositionFile(composition == "focused");
+        navigator.ShowBeside(file, "pending-task");
+        if (composition == "existing-file-focuses")
+        {
+            var sideBySide = Draw();
+            Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite), "a visible ordinary file must retain preview");
+            Assert.That(sideBySide.Footer.All.Any(each => each.Prompt.Id == AppearanceColumn.Cancel), Is.True);
+            file.Focus();
+        }
+        var proposed = navigator.Frames(bar);
+        Assert.That(proposed.Beside!.Focused, Is.EqualTo(composition != "field"));
+        var menuLeaves = 0;
+        navigator.Left += column => { if (column == hub) menuLeaves++; };
+        var reentrant = true;
+        navigator.Changed += () => { if (reentrant) Assert.That(navigator.MenuVisibility(false), Is.False, "identity is set before rollback raises Changed"); };
+        // This is the actual composition notification supplied by MenuDirector after focused or MenuAside layout.
+        Assert.That(navigator.MenuVisibility(false), Is.True);
+        reentrant = false;
+        Assert.That(navigator.MenuVisibility(false), Is.False);
+        Assert.That((Glaze.Palette, menuLeaves, saved), Is.EqualTo((GlazePalette.Default, 1, 0)));
+        Assert.That(navigator.IsOpen, Is.True);
+        Assert.That(navigator.Beside, Is.SameAs(file));
+        var retained = navigator.Frames(bar).Menu!;
+        Assert.That(retained.Subject, Is.EqualTo("How should it look?"));
+        navigator.Drawn(MenuColumn.Menu, retained, null);
+        Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Preview, null, retained, null), Is.False, "a hidden retained frame cannot acquire drawn proof");
+        Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Apply, null, originalPreview, null), Is.False);
+        navigator.CloseBeside();
+        var returning = navigator.Frames(bar).Menu!;
+        Assert.That(navigator.MenuVisibility(true), Is.True);
+        Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Preview, null, returning, null), Is.False, "returning does not prove a physical draw");
+        navigator.Drawn(MenuColumn.Menu, returning, null);
+        Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Apply, null, originalPreview, null), Is.False);
+        Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Preview, null, returning, null), Is.True);
+        Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default), "preview selection was rolled back to the applied preset");
+        hub.FocusLeft();
+    }
+
+    [Test]
+    public void VisibleMenuAndItsDetailsRetainPreviewWhileCompactDoesNotSuspendTwice()
+    {
+        var host = new FakeMenuHost();
+        var hub = new SettingsHubColumn(host, Array.Empty<MenuSetting>(), new AppearanceSettings(), () => { });
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, place => (Func<IMenuColumn>)(() => hub)));
+        var bar = new MenuBar(MenuPlace.Settings, "Nothing waits");
+        navigator.OpenMenu(MenuPlace.Settings);
+        hub.Act(SettingsHubColumn.OpenCategory, SettingsHubColumn.Appearance);
+        hub.Act(AppearanceColumn.Choose, "graphite");
+        hub.Act(AppearanceColumn.Preview, null);
+        navigator.ShowBeside(new CompositionFile(false), "task");
+        navigator.Frames(bar);
+        Assert.That(navigator.MenuVisibility(true), Is.False, "actual menu parts or menu-owned details remain visible");
+        Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite));
+        var leaves = 0;
+        navigator.Left += column => { if (column == hub) leaves++; };
+        navigator.Compact();
+        Assert.That((Glaze.Palette, leaves), Is.EqualTo((GlazePalette.Default, 1)));
+        Assert.That(navigator.MenuVisibility(false), Is.False);
+        Assert.That(leaves, Is.EqualTo(1), "the actual compact composition does not suspend a retained column twice");
+        navigator.Expand();
+        navigator.Frames(bar);
+        Assert.That(navigator.MenuVisibility(true), Is.True);
+        Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default));
+    }
+
     [Test]
     public void ColourOnlyRedrawRevokesTargetProofWhileRetainingTheUnchangedFrame()
     {

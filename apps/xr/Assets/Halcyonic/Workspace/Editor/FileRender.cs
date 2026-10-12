@@ -49,9 +49,13 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static TextSize TextSizeNow => GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
 
-        private static List<string> Run(string variant)
+        public static List<string> PalettePass(GlazePalette palette) => GlazeChecks.AtEachTextSize(variant => Run(variant, palette.Key));
+
+        private static List<string> Run(string variant) => Run(variant, "");
+
+        private static List<string> Run(string variant, string paletteFolder)
         {
-            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "FileRenders", variant));
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "FileRenders", paletteFolder, variant));
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
             try

@@ -375,6 +375,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.Navigator.Beside != file) failures.Add(name + ": choosing a place took the file away.");
                 failures.AddRange(PlaneState(name + " director settings", folder, camera, texture, director.Plane, characters, eyes, null));
 
+                // Enter the visible Comfort category before choosing its supported setting.
+                var index = director.Plane.Showing(MenuColumn.Menu);
+                if (index == null || !index.Lines.Any(line => line.Action == SettingsHubColumn.OpenCategory && line.Key == Comfort.Heading)
+                    || !director.Navigator.Act(MenuColumn.Menu, SettingsHubColumn.OpenCategory, Comfort.Heading, index, null))
+                    failures.Add(name + ": Settings offered no visible Comfort category.");
+                director.DrawNow();
+                failures.AddRange(PlaneState(name + " director comfort category", folder, camera, texture, director.Plane, characters, eyes, null));
+
                 // A setting chosen with the file beside the menu: the details take the front, the file steps
                 // aside and takes nothing meanwhile; another setting chosen, then Close details, and it is back.
                 var fileDrawn = director.Plane.Showing(MenuColumn.File);

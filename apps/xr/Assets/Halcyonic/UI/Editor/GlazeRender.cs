@@ -61,10 +61,14 @@ namespace Halcyonic.XR.UI.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
-        private static List<string> Run(string variant)
+        /// <summary>The current palette's ordinary compositions at both text sizes, in a folder named for that palette.</summary>
+        public static List<string> PalettePass(GlazePalette palette) => GlazeChecks.AtEachTextSize(variant => Run(variant, palette.Key));
+
+        private static List<string> Run(string variant) => Run(variant, "");
+
+        private static List<string> Run(string variant, string paletteFolder)
         {
-            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "GlazeRenders", variant));
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "GlazeRenders", paletteFolder, variant));
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
             var root = (GameObject?)null;
