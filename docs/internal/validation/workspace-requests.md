@@ -313,3 +313,25 @@ current product defect for every failed assumption, nor may they all be dismisse
 failures: shape-fade pixel checks and current composition coverage still need investigation and
 updated actual navigation. Full visual acceptance, final native consumers and device work remain
 open despite the passing focused request and code checks.
+
+## Shared client sender and checkpoint limits
+
+The complete C# suite exposed a missing consumer integration: CommandSubmissions did not recognize
+the three generated request command classes before calling the transport. The tracker now handles
+them, and a consumed Submit regression verifies each reaches the send delegate once, keeps an
+acknowledgement separate from a journaled outcome, and preserves unknown delivery. Request-not-found
+and command feedback have ordinary request-specific words. Unknown delivery directs Refresh rather
+than another send; completed request commands do not claim software-task completion.
+
+The initial full C# run had 1,662 passes and three failures: the sender mapping, missing refusal
+copy and an obsolete Projects subject expectation. After those fixes, a second run had 1,665
+passes and one failure out of 1,666: new unknown-delivery copy violated the established “Not sure”
+wording pattern. The copy was corrected, retaining saved-result recovery, and all 28 focused
+sender/presenter checks passed with zero skipped. The full suite was not repeated after that final
+wording correction; a final complete gate remains required.
+
+The focused actual DirectorCheck at `42588dfb` also failed both sizes. Its first visible-Minimize
+transition did not produce the expected dock, preventing the intended Tasks route and cascading
+into later checks; the old six-agent setup still produces overlap failures. The fixture migration
+is therefore not a passing visual witness. Its results require investigation through the actual
+current input and composition before claiming complete navigation, input lifetime or layout coverage.
