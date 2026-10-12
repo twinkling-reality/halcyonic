@@ -748,7 +748,7 @@ namespace Halcyonic.XR.UI
 
         public PointerTarget? SubjectHoldForRender => controls.Move.Target;
 
-        public void PaintSubjectForRender(bool pointed, bool pressed) => controls.Move.On = pressed;
+        public void PaintSubjectForRender(bool pointed, bool pressed) => controls.Move.PaintForRender(pointed, pressed);
 
         private void LaySubject(LineWords words, StateBadge? badge)
         {

@@ -2669,3 +2669,16 @@ The editor-only WorkspaceRender.InstructionCheck witness covers real production 
 voice delivery and preset review through explicit Send at both text sizes, plus full notice and
 compact resume layouts. It never starts a session or uses the microphone; execution is a separate
 Unity validation gate.
+
+Preset instruction choices use the existing focused file composition while they are offered, then
+Cancel returns to the ordinary file. Their measured page reserves the actual choice rows, source,
+reason, body pager and target gaps. Next choices keeps the exact selected candidate across pages
+without a fourth footer action; paging requires the current drawn frame and the existing 0.4 second
+TurnGuard. Long notices that cannot share the minimum choice page have separate measured What
+happened pages and Back to choices acknowledgement, preserving the candidate. Notice text and
+wrapped rows participate in the packing fingerprint; a repeated identical error is a new visible
+occurrence. Armed confirmation uses its own existing composition and notice handling.
+The organization render witnesses use the visible Move pointer and production hold maturity, stable
+column frame identity, and matching task/session/state/character identities. A compact task absent
+from the current projection retains its verified last title if available, otherwise Task unavailable;
+New project is reserved for an actual NewProjectFlow. No field/type/target/gap limit changes.

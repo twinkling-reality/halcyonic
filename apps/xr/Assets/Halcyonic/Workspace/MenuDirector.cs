@@ -329,18 +329,36 @@ namespace Halcyonic.XR.Workspace
             dirty = true;
         }
 
-        /// <summary>For the editor's renders: the file's subject held at <paramref name="point"/>, past the hold's time, as a hand would.</summary>
+        private GlazeButton? renderMove;
+        private const int RenderMovePointer = 734;
+
+        /// <summary>For renders: press and mature the visible Move target through its real pointer and hold events.</summary>
         public void HoldSubjectForRender(Vector3 point)
         {
-            OnSubjectPressed(MenuColumn.File, plane.Showing(MenuColumn.File));
-            OnSubjectHeld(MenuColumn.File, plane.Showing(MenuColumn.File), point);
+            PressSubjectForRender();
+            MatureHoldForRender(point);
         }
 
-        /// <summary>For the editor's renders: the subject pressed, its hold to mature only by <see cref="MatureHoldForRender"/>.</summary>
-        public void PressSubjectForRender() => OnSubjectPressed(MenuColumn.File, plane.Showing(MenuColumn.File));
+        /// <summary>For renders: begin a press on the currently visible named Move target.</summary>
+        public void PressSubjectForRender()
+        {
+            renderMove?.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Cancel, renderMove.transform.position);
+            renderMove?.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Unhover, renderMove.transform.position);
+            var view = plane.Shown.FirstOrDefault(item => item.Kind == MenuColumn.File).View;
+            view?.SettleSubjectForRender();
+            renderMove = view?.Targets.FirstOrDefault(button => button.Label.text == "Move") ?? plane.Bar?.Controls.Move;
+            if (renderMove == null) return;
+            renderMove.SettleForRender();
+            renderMove.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Hover, renderMove.transform.position);
+            renderMove.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Select, renderMove.transform.position);
+        }
 
-        /// <summary>For the editor's renders: the subject's hold matures at <paramref name="point"/>, after a press made earlier.</summary>
-        public void MatureHoldForRender(Vector3 point) => OnSubjectHeld(MenuColumn.File, plane.Showing(MenuColumn.File), point);
+        /// <summary>For renders: advance only the originating Move button's hold clock; rebinding or dropping it remains revoked.</summary>
+        public void MatureHoldForRender(Vector3 point)
+        {
+            renderMove?.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Move, point);
+            renderMove?.MatureHoldForRender();
+        }
 
         /// <summary>For renders: a Move hold originating on the compact bar matures.</summary>
         public void MatureCompactMoveForRender(Vector3 point) => OnSubjectHeld(MenuColumn.Menu, null, point);
@@ -367,7 +385,13 @@ namespace Halcyonic.XR.Workspace
         public void DragSubjectForRender(Vector3 point) => OnSubjectDragged(point);
 
         /// <summary>For the editor's renders: the subject let go of.</summary>
-        public void LetGoForRender() => OnSubjectLetGo();
+        public void LetGoForRender()
+        {
+            renderMove?.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Cancel, renderMove.transform.position);
+            renderMove?.Target.PointerForRender(RenderMovePointer, Oculus.Interaction.PointerEventType.Unhover, renderMove.transform.position);
+            renderMove = null;
+            OnSubjectLetGo();
+        }
 
         /// <summary>Draws what shows now, its parts at their places at once, for the renders.</summary>
         public void DrawNow()
@@ -566,7 +590,8 @@ namespace Halcyonic.XR.Workspace
         {
             if (navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true)
                 return LineWords.TheirName(work.Title);
-            return LineWords.Ours(navigator.Beside != null ? ProjectsText.NewProject : MenuBar.Word(navigator.Place));
+            if (navigator.BesideTask != null) return navigator.Beside?.Frame?.SubjectRuns ?? LineWords.Ours("Task unavailable");
+            return LineWords.Ours(navigator.Beside is NewProjectFlow ? ProjectsText.NewProject : MenuBar.Word(navigator.Place));
         }
 
         private StateBadge? CompactState()

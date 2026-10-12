@@ -35,13 +35,13 @@ namespace Halcyonic.XR.Workspace.Editor
 
             public List<(MenuFrame Frame, Footer? Side)> DrawnFrames { get; } = new List<(MenuFrame, Footer?)>();
 
-            public MenuFrame? Frame => Last = build();
+            public MenuFrame? Frame => Last ??= build();
 
             public event Action? Changed;
 
             public event Action? Closed;
 
-            public void Change() => Changed?.Invoke();
+            public void Change() { Last = null; Changed?.Invoke(); }
 
             public void Close() => Closed?.Invoke();
 
@@ -286,7 +286,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The characters hop and rise, as they do while they work or wait: the plane, placed against them
                 // at rest, stays where it is, its prompts take presses, and a press under way goes on.
                 if (director.Plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View is MenuFrameView bobbing
-                    && bobbing.Targets.FirstOrDefault(button => button.Available) is GlazeButton pressing)
+                    && bobbing.Targets.FirstOrDefault(button => button.Available && button.Label.text == "Hold to talk") is GlazeButton pressing)
                 {
                     var still = director.Plane.Direction;
                     var waited = bobbing.Unsettles;
@@ -513,9 +513,32 @@ namespace Halcyonic.XR.Workspace.Editor
                         },
                     },
                 });
+                var previous = opened;
+                var replacedTask = previous.View.WorkstreamId;
+                var taskView = CharacterView.Create(root.transform, work.Workstream.WorkstreamId);
+                taskView.Show(work.Present().Character);
+                taskView.transform.SetPositionAndRotation(previous.View.transform.position, previous.View.transform.rotation);
+                taskView.transform.localScale = previous.View.transform.localScale;
+                opened = (taskView, CharacterTarget.Attach(taskView, work.Workstream.WorkstreamId));
+                characters[3] = opened;
+                targets[3] = opened.Target;
+                UnityEngine.Object.DestroyImmediate(previous.View.gameObject);
+                state.ApplySnapshot(new Snapshot
+                {
+                    Journal = work.State.Journal!, Position = work.State.Position,
+                    Projects = state.Projects.Values.Concat(work.State.Projects.Values).GroupBy(project => project.ProjectId).Select(group => group.Last()).ToList(),
+                    Workstreams = state.Workstreams.Values.Where(task => task.WorkstreamId != replacedTask).Concat(work.State.Workstreams.Values).ToList(),
+                    Executions = work.State.Executions.Values.ToList(), Commands = work.State.Commands.Values.ToList(), Runtimes = work.State.Runtimes.ToList(),
+                }, new StateChanges());
                 var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
                 var commands = new CommandFactory(client);
                 var session = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
+                session.State.ApplySnapshot(new Snapshot
+                {
+                    Journal = state.Journal!, Position = state.Position,
+                    Projects = state.Projects.Values.ToList(), Workstreams = state.Workstreams.Values.ToList(),
+                    Executions = state.Executions.Values.ToList(), Commands = state.Commands.Values.ToList(), Runtimes = state.Runtimes.ToList(),
+                }, new StateChanges());
                 var sent = new List<CommandEnvelope>();
                 FileColumn? file = null;
                 Action<string>? keyboardDone = null;
@@ -736,6 +759,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                     failures.AddRange(PlaneState(name + " compact-editor-" + length, folder, camera, texture, plane, characters, eyes, null));
                     var compactBar = plane.Bar;
+                    if (compactBar != null && !compactBar.GetComponentsInChildren<TMPro.TMP_Text>(false).Any(label => label.text.Contains(work.Workstream.Title)))
+                        failures.Add(name + ": compact identity did not name its actual retained task.");
                     if (compactBar?.Badge.Shown == null || compactBar.Badge.Shown.Tone != retainedBadge?.Tone || compactBar.Badge.Shown.Icon != retainedBadge?.Icon || compactBar.Badge.Shown.Word != retainedBadge?.Word)
                         failures.Add(name + ": the compact task changed its shared state badge semantics.");
                     if (compactBar != null)
@@ -758,7 +783,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add(name + ": Compact did not remove placement details from its already-compact composition.");
                     }
 
-                    SelectCharacterThroughWorkspace(director, opened.Target);
+                    SelectCharacterThroughWorkspace(director, opened.Target, session);
                     if (director.Navigator.IsCompact || director.Navigator.Beside != retained || file != retained)
                         failures.Add(name + ": actual same-task character selection replaced or closed its retained editor.");
                     if (director.Navigator.Act(MenuColumn.File, FileScreens.UseInput, null, retained.Frame, null))
@@ -1089,7 +1114,7 @@ namespace Halcyonic.XR.Workspace.Editor
             director.DrawNow();
 
             // Hold to talk pressed under the moving plane: let go, its hold ends with the drag, so no voice starts after.
-            var talking = subject.Targets.FirstOrDefault(button => button.Holds);
+            var talking = subject.Targets.FirstOrDefault(button => button.Holds && button.Label.text == "Hold to talk");
             if (talking == null) failures.Add(name + ": the file offers no held prompt to press under a drag.");
             else
             {

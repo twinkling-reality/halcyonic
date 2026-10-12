@@ -319,3 +319,7 @@ that draft locally. A spoken draft retains its additional reviewed Yes after Sen
 including after a keyboard edit. Read the whole instruction first explains an unread draft; The
 agent needs your approval first explains approval preemption. A changed execution says Nothing was
 sent: the instruction's task changed.
+
+Next choices names the preset chooser's body pager. Back to choices acknowledges the full notice
+and returns to the preserved selection. Task unavailable is the compact fallback only when the
+retained task is missing and no verified last title is available.
