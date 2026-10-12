@@ -29,13 +29,21 @@ const MAX_LIST_BYTES = 1024 * 1024;
  * carrying neither `remote_host` nor `remote_model`, which Ollama gives a model that runs on
  * another host. A name without a tag matches its `:latest`, as Ollama resolves it.
  */
-export async function checkModel(base: URL, model: string, timeoutMs: number): Promise<ModelCheck> {
+export async function checkModel(
+  base: URL,
+  model: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<ModelCheck> {
   if (isCloudName(model)) return { kind: 'remote' };
   let response: Response;
   try {
     response = await fetch(new URL('/api/tags', base), {
       redirect: 'error',
-      signal: AbortSignal.timeout(timeoutMs),
+      signal:
+        signal === undefined
+          ? AbortSignal.timeout(timeoutMs)
+          : AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
     });
   } catch (error) {
     return unreachable(error);

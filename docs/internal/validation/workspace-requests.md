@@ -25,3 +25,28 @@ Focused source tests: four domain replay/schema/retention/immutable-binding case
 control-plane raw-digest/rotation/restart/foreign-principal/rate-limit case, and 20 existing
 control-plane cases passed (25/25). TypeScript typecheck and contract generation passed.
 Live model, native runtime, Unity, device and visual acceptance are separate and unrun here.
+
+## 2026-10-12: Native local tool transport
+
+`workspace-agent/ollama.ts` implements the native structured tool protocol described in Ollama's
+[chat API](https://docs.ollama.com/api/chat) and [tool-calling guide](https://docs.ollama.com/capabilities/tool-calling),
+rechecked on this date. It verifies the configured loopback model's tags and declared tool support
+before each inference. Metadata status reads do not invoke the model. There is no remote fallback,
+model download, text-to-command parser or tool execution inside this transport.
+
+The whole request, metadata/body reads included, has a 45-second bound and cancellation. Input is
+snapshotted before awaiting metadata and bounded to 12 KiB; replies to 128 KiB with strict UTF-8.
+Context/output are 8192/1024 tokens. Incomplete responses, exhausted generation/context, foreign
+model names, unoffered calls, malformed argument objects and duplicate calls fail the whole turn.
+Only a complete assistant response reaches the coordinator, which must validate each tool's full
+schema and current authority before dispatch. Error text never relays the model's input or output.
+
+Seventeen focused transport and existing companion checks passed, along with typecheck and scoped
+lint. A real local Ollama 0.34.4 probe through this transport used the configured `qwen3.5:9b`:
+two model turns, one schema-valid synthetic read-only call, then a reply identifying the pending
+human review, in 1.557 seconds. The actual API adds an opaque `id` beside a tool call's `function`;
+the initial strict parser refused it, then the implementation and regression test were corrected
+to preserve this bounded reference only within transient model conversation. It never becomes a
+domain command identity. The probe exposed no action tool, read no real project, and logged only
+shape/count/timing metadata. It establishes protocol compatibility, not coordinator, runtime or
+headset task completion. Those consumers and their end-to-end verification remain pending.
