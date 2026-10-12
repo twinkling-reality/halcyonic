@@ -43,7 +43,7 @@ public class JudgeWordsTests
         Assert.That(words, Is.SupersetOf(new[]
         {
             "1 task is waiting for you", TasksText.Waiting(0), UsageText.Subject, "Part of the recording", UsageLeftPresenter.Recorded,
-            SettingsText.Subject, "A step larger", SettingsText.YourSpace, "Around you", "Your room's layout", "The characters", "The menu",
+            SettingsText.Subject, "A step larger", SettingsText.YourSpace, "Around you", "Your room's layout", "Spatial agents", "Agent shelf", "The menu",
         }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
         Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");
     }
