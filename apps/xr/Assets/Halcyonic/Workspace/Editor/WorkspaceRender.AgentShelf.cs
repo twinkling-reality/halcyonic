@@ -22,7 +22,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Explicit feasibility diagnostics for rejected group capacities; not supported production modes.</summary>
         public static void ShelfCapacityCheck() => CheckShelfCapacity(supportedOnly: false);
 
-        private static void CheckShelfCapacity(bool supportedOnly)
+        /// <summary>Narrow additive diagnosis; the full all-state acceptance entry point remains unchanged.</summary>
+        public static void ShelfEnvelopeCheck() => CheckShelfCapacity(supportedOnly: true, envelopeDiagnostic: true);
+
+        private static void CheckShelfCapacity(bool supportedOnly, bool envelopeDiagnostic = false)
         {
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
@@ -32,7 +35,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 ViewField.Current = FieldChecks.Quest3S;
                 var result = new List<string>();
                 foreach (var count in supportedOnly ? new[] { 1 } : new[] { 1, 3, 6 })
-                    result.AddRange(RenderShelfWorkspace(Path.Combine(folder, count + "-slots"), count).Select(failure => count + " slots: " + failure));
+                    result.AddRange(RenderShelfWorkspace(Path.Combine(folder, count + "-slots"), count, envelopeDiagnostic).Select(failure => count + " slots: " + failure));
                 ViewField.Current = null;
                 KeepFontAssetsAsCommitted();
                 foreach (var failure in result) Debug.LogError("Halcyonic: shelf workspace: " + failure);
@@ -42,7 +45,7 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> RenderShelfWorkspace(string folder, int count)
+        private static List<string> RenderShelfWorkspace(string folder, int count, bool envelopeDiagnostic)
         {
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
@@ -155,6 +158,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (CharacterActivity activity in Enum.GetValues(typeof(CharacterActivity)))
                     foreach (var source in new[] { "live", "practice", "demo", "recorded" })
                     {
+                        if (envelopeDiagnostic && (activity != CharacterActivity.Idle || source != "practice")) continue;
                         var view = characters[0].View;
                         view.Show(new CharacterPresentation(view.WorkstreamId, "Review complete source and pending-state label geometry",
                             activity, activity.ToString(), activity == CharacterActivity.WaitingForHuman ? AttentionLevel.ActionRequired : AttentionLevel.None,
@@ -171,7 +175,9 @@ namespace Halcyonic.XR.Workspace.Editor
                             {
                                 var point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(corner % 2 == 0 ? -1f : 1f, corner < 4 ? -1f : 1f, corner % 4 < 2 ? -1f : 1f));
                                 if (!envelope.Contains(Quaternion.Inverse(pose.rotation) * (point - pose.position)))
-                                    failures.Add(activity + " " + source + ": actual complete label escapes the placement envelope");
+                                    failures.Add(activity + " " + source + ": actual complete label escapes the placement envelope; local "
+                                        + (Quaternion.Inverse(pose.rotation) * (point - pose.position)).ToString("F6")
+                                        + ", min " + envelope.min.ToString("F6") + ", max " + envelope.max.ToString("F6"));
                             }
                         }
                         Shot("label " + activity + " " + source);

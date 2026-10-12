@@ -2196,8 +2196,10 @@ exists. Passthrough remains independent of whether optional characters are prese
   replace a cancelled, superseded or committed preview. New tracking sessions do not regain
   placement authority from device preferences; they begin Off and unplaced.
 - **Readable shelf labels.** Grounded bodies keep their physical scale and animated mesh contact.
-  Complete labels independently face the placement-time eyes and scale by the real transformed em,
-  preserving the title, state, pending badge and source marks above the canonical 14 dp minimum.
+  Rendered state/source labels and their two-line task title independently face the placement-time eyes and scale by the real transformed em,
+  preserving the state, pending badge and source marks above the canonical 14 dp minimum. The
+  character title can ellipsize after two lines; this is not a complete task-identity claim. Full
+  identity is retained in current shelf details and the task presentation.
   Placement measures an actual label model with full title and source marks, and combines its bounds
   with the shelf and conservative animated body extent before field/console clearance. Later head
   motion does not re-place the shelf. Capacity feasibility remains a measured acceptance check;
