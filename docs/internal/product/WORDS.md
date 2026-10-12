@@ -130,7 +130,7 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 | The question's progress and selection rule | Question 1 of 2; Choose one; Choose one or more | A disabled Send answer throughout selection |
 | Choice-page position and navigation | Choices 1 of 2; More choices; First choices | Paging without a visible current position |
 | Clipped long-question context | Read question | A hidden target or no way to reread the question |
-| A partial ambiguous-label escape | Stop task; detail: Alike answers cannot be chosen | Saying Press Stop without an offered Stop control |
+| An unavailable choice with a duplicated displayed name | Unavailable · Read why; explanation title Unavailable choice; These choices have the same name, so they cannot be selected here: {full conflicting words}; Back; Stop task when offered | A selectable radio/checkbox on an ambiguous label or a Stop cue where no Stop control is offered |
 | Empty custom-answer field | Type your answer with a keyboard; Hold to talk below with voice only | Promising an unavailable keyboard |
 | Send answer's reason while a long question isn't read to its end | Read the whole question first. | Open the question to read the rest. |
 | Send answer's reason while a chosen cut answer or a long typed one isn't read whole | Read the whole answer you chose first. | |

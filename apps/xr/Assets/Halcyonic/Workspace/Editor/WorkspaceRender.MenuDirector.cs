@@ -562,7 +562,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         Debug.Log("Halcyonic: answer flow budget " + stage + ": room=" + budget.Room.ToString("0.00000", System.Globalization.CultureInfo.InvariantCulture)
                             + ", parts=" + string.Join(",", plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.File).View?.Heights ?? Array.Empty<float>())
                             + ", rows=" + string.Join("/", frame.Lines.Select(line => line.Rows)) + ", choices=" + string.Join(",", file!.Screen.Question.Answers));
-                        if (!file.Screen.Question.Writing && !file.Screen.Question.Reviewing && file.Screen.Question.QuestionPart == null
+                        if (!file.Screen.Question.Writing && !file.Screen.Question.Reviewing && !file.Screen.Question.ExplainingAmbiguity && file.Screen.Question.QuestionPart == null
                             && !frame.Lines.Any(line => line.Runs.AllTheirs && line.Action != FileScreens.Choose)) failures.Add(name + ": " + stage + " omitted its question context.");
                     }
                     failures.AddRange(PlaneState(name + " answer-flow " + stage, folder, camera, texture, plane, characters, eyes, null));
@@ -742,7 +742,21 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 ReadQuestion();
                 Capture("alike-stop-escape");
-                if (!file!.Frame!.Lines.Any(line => line.Action == FileScreens.Stop && line.Control == LineControl.Action)) failures.Add(name + ": alike answers have no visible bounded Stop escape.");
+                var why = file!.Frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.ReadWhy);
+                if (why == null || why.Choice || why.AnswerMark != AnswerMark.None || why.Fact != "Unavailable · Read why")
+                    failures.Add(name + ": unavailable choice has no explicit Read why navigation.");
+                else if (!Press(why.Action!, why.Key)) failures.Add(name + ": unavailable choice Read why took no press.");
+                else
+                {
+                    Capture("unavailable-choice-explanation-part1");
+                    for (var part = 0; part < 60 && file.Screen.Question.AmbiguityPart + 1 < file.Screen.Question.AmbiguityParts; part++)
+                        PressWords("Next part");
+                    Capture("unavailable-choice-explanation-stop");
+                    if (file.Frame!.Footer[PromptSlot.FarRight]?.Words != "Stop task" || file.Frame.Footer[PromptSlot.FarRight]?.Available != true)
+                        failures.Add(name + ": explanation has no available explicit Stop task after its words were read.");
+                    if (!PressWords("Back")) failures.Add(name + ": explanation Back did not return to choices.");
+                    Capture("unavailable-choice-return");
+                }
 
                 work.Execution.PendingQuestions[0].Prompts[0].Text = "Which colour scheme should the dashboard use?";
                 work.Execution.PendingQuestions[0].Prompts[0].Options = new List<QuestionOption>

@@ -478,7 +478,7 @@ public class AnswerFlowTests
     }
 
     [Test]
-    public void BodyStopConfirmationUsesOrdinaryBudgetAndEditorDoesNotPromiseAbsentStop()
+    public void UnavailableChoiceStopConfirmationUsesOrdinaryBudgetAndEditorDoesNotPromiseAbsentStop()
     {
         var question = AskingWork.Scripted();
         question.Prompts[0].Options = new List<QuestionOption>
@@ -487,8 +487,8 @@ public class AnswerFlowTests
         };
         var (host, column, _) = Open(question);
         ReadQuestion(host, column);
-        var stop = column.Frame!.Lines.Single(line => line.Action == FileScreens.Stop);
-        Assert.That((stop.Words, stop.Fact, stop.Control), Is.EqualTo(("Stop task", "Alike answers cannot be chosen", LineControl.Action)));
+        var why = column.Frame!.Lines.Single(line => line.Action == FileScreens.ReadWhy);
+        Assert.That((why.Fact, why.Control, why.Choice, why.AnswerMark), Is.EqualTo(("Unavailable · Read why", LineControl.Action, false, AnswerMark.None)));
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done("Yes.");
         Draw(host, column);
@@ -496,7 +496,10 @@ public class AnswerFlowTests
         Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Available, Is.False);
         column.Act(FileScreens.CancelInput, null);
         ReadQuestion(host, column);
-        column.Act(stop.Action!, stop.Key);
+        column.Act(why.Action!, why.Key);
+        for (var part = 0; part < 30 && column.Screen.Question.AmbiguityPart + 1 < column.Screen.Question.AmbiguityParts; part++)
+            Primary(host, column, FileScreens.NextPartWords(column.Screen.Question.AmbiguityPart, column.Screen.Question.AmbiguityParts));
+        Primary(host, column, "Stop task");
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Interrupt));
         Assert.That(column.Frame!.Focused, Is.False);
         var ordinary = HeightBudget.Of(host.TextSize, 1);
@@ -542,11 +545,97 @@ public class AnswerFlowTests
         Assert.That(flow.AnswersRead(0), Is.True);
         flow.Show(draft, measured, new RowBudget(6), new RowBudget(3));
         Assert.That(flow.AnswersRead(0), Is.False);
-        var screen = new FileScreen();
-        screen.ReadQuestion(draft, measured, new RowBudget(6), new RowBudget(3));
         var first = flow.Answers.Sum(index => flow.AnswerShows(0, index));
         var actual = first + flow.CaptionRows(0, flow.Pages > 1) + flow.HeadRows(0) + (flow.Pages > 1 ? 1 : 0) + 1;
         Assert.That(actual, Is.LessThanOrEqualTo(6), "expired selected-option proof must reserve its required reason before cached pages are laid");
+    }
+
+    [TestCase(0)] [TestCase(1)]
+    public void UnavailableChoiceExplanationPreservesPromptPageAndSavedSelectionsButCannotSelectAlikeWords(int prompt)
+    {
+        var asked = AskingWork.Scripted();
+        asked.Prompts[prompt].FreeText = true;
+        asked.Prompts[prompt].Options = new List<QuestionOption>
+        {
+            new() { Label = "Yes", Description = LongInput }, new() { Label = " Yes ", Description = "A different offered description" }, new() { Label = "No" },
+        };
+        var (host, column, _) = Open(asked);
+        if (prompt == 1) { Choose(host, column, "Dark"); Primary(host, column, "Next question"); }
+        Choose(host, column, "No");
+        for (var page = 0; page < 30 && !column.Frame!.Lines.Any(line => line.Action == FileScreens.ReadWhy); page++)
+        {
+            column.Act(FileScreens.MoreAnswers, null); Draw(host, column);
+        }
+        Draw(host, column);
+        var why = column.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
+        var originalPage = column.Screen.Question.Page;
+        column.Act(FileScreens.Choose, why.Key);
+        Assert.That(column.Screen.Question.Draft!.IsChosen(prompt, "Yes"), Is.False);
+        column.Act(why.Action!, why.Key);
+        Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.True);
+        Assert.That(column.Frame!.Lines[0].Words, Is.EqualTo("Unavailable choice"));
+        Assert.That(column.Frame.Lines[1].Words, Does.Contain("word89").And.Contain("A different offered description"));
+        Assert.That(column.Frame.Footer.All.Any(each => each.Prompt.Id == FileScreens.SendAnswer), Is.False);
+        column.Act(FileScreens.Choose, "0");
+        Assert.That(column.Screen.Question.Draft.IsChosen(prompt, "Yes"), Is.False);
+        column.Act(FileScreens.BackAmbiguity, null);
+        Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.False);
+        Assert.That((column.Screen.Question.Prompt, column.Screen.Question.Page), Is.EqualTo((prompt, originalPage)));
+        Assert.That(column.Screen.Question.Draft.IsChosen(prompt, "No"), Is.True);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void HiddenOrNonalikeReadWhyAndStaleReplacedExplanationCannotChangeCurrentFlow()
+    {
+        var (host, column, work) = Open();
+        ReadQuestion(host, column);
+        column.Act(FileScreens.ReadWhy, "0");
+        Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.False, "a normal selectable choice has no ambiguity explanation");
+        work.Change(execution => execution.PendingQuestions[0].Prompts[0].Options = new List<QuestionOption>
+        {
+            new() { Label = "Yes" }, new() { Label = " Yes " }, new() { Label = "No" },
+        });
+        host.Wait(1); column.Tick();
+        ReadQuestion(host, column);
+        var why = column.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
+        column.Act(why.Action!, why.Key);
+        var oldFrame = column.Frame!;
+        work.Change(execution => execution.PendingQuestions[0].Prompts[0].Options[0].Description = "Changed content");
+        host.Wait(1); column.Tick();
+        column.Drawn(oldFrame, null);
+        column.Act(FileScreens.NextAmbiguityPart, null);
+        Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.False);
+        Assert.That(column.Screen.Question.Draft!.IsAnswered(0), Is.False);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void ExplanationWithoutInterruptKeepsBackAndCloseHandlesUsableAfterRepeatedDraws()
+    {
+        var asked = AskingWork.Scripted();
+        asked.Prompts[0].Options = new List<QuestionOption> { new() { Label = "Yes" }, new() { Label = " Yes " }, new() { Label = "No" } };
+        var (host, column, _) = Open(asked);
+        ReadQuestion(host, column);
+        var why = column.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
+        column.Act(why.Action!, why.Key);
+        host.Live = false;
+        host.Wait(1); column.Tick();
+        var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place, _ => (Func<IMenuColumn>)(() => column)));
+        navigator.ShowBeside(column, "w1");
+        var bar = new MenuBar(MenuPlace.Tasks, "A question is waiting");
+        MenuFrame? frame = null;
+        for (var draw = 0; draw < 4; draw++)
+        {
+            frame = navigator.Frames(bar).Beside;
+            navigator.Drawn(MenuColumn.File, frame, null);
+            host.Wait(1); column.Tick();
+        }
+        frame = navigator.Frames(bar).Beside;
+        navigator.Drawn(MenuColumn.File, frame, null);
+        Assert.That(frame!.Footer[PromptSlot.FarRight], Is.Null, "no unsupported Stop is implied");
+        Assert.That(navigator.Act(MenuColumn.File, FileScreens.BackAmbiguity, null, frame, null), Is.True);
+        Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.False);
     }
 
 }

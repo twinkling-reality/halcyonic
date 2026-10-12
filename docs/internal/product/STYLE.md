@@ -168,8 +168,7 @@ One treatment for places, sections, rows, answers and prompts:
   Nothing is drawn under a row: a meter there reads as an underline, so the small fact carries a
   share in words.
 - **Rows only take you somewhere**: to a side panel, a page or a place. Ordinary rows never act and carry
-  no side action. Focused answer controls are explicit bounded exceptions, including the truthful
-  Stop escape inside the ambiguous-answer explanation. Choosing one may set the footer's main action or the prompt beside it, as a
+  no side action. Focused answer controls are explicit bounded exceptions, including the explicit unavailable-choice Read why route. Choosing one may set the footer's main action or the prompt beside it, as a
   project's Add a task and Hide from stage. A line that reports a problem is a row that opens its
   side panel, and what fixes it is the footer's main action while it is chosen.
 - **An offered answer** has a hairline shape at rest and the existing lit fill/frame when selected.
@@ -177,7 +176,7 @@ One treatment for places, sections, rows, answers and prompts:
   multiple choices stands in a separately reserved area at right. Hover adds only the frame and never
   changes that mark. The selected centre/check uses existing surface and check-glyph primitives.
 - **Focused answer controls** are visibly bounded at rest: More choices, Write an answer, selected
-  Edit answer, review Edit and clipped Read question. They keep the 48 dp targets and 12 mm spacing.
+  Edit answer, review Edit, unavailable-choice Read why and clipped Read question. They keep the 48 dp targets and 12 mm spacing.
   Write/pager pairing uses actual half-width measurement. A saved custom answer has one lit Edit
   answer control with Selected fact, and its words stay fully accessible in editor and review.
 - **The answer field** is bounded and labeled Your answer. Keyboard focus uses the lit treatment;
@@ -260,3 +259,9 @@ An icon stands before words, never in their place.
 | The glass lights from its top | The component render (`GlazeRender`) |
 | A footer's width | The component render's footer measure |
 | The light line, and no row in a page's glow | `DirectionsRender` |
+
+Unavailable choices keep their original list slot as bounded Read why navigation, with no radio or
+checkbox mark. The dedicated explanation preserves provenance for every full conflicting word and
+pages within the same field. Back returns to the same question/page and saved draft. Close and the
+current Stop task occupy the explanation's footer; Stop still requires policy confirmation. No
+unconditional warning/Stop target adds density to ordinary choices.

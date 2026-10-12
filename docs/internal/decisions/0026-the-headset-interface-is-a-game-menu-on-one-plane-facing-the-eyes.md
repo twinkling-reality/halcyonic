@@ -526,6 +526,6 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
 The current [XR client contract](../architecture/XR_CLIENT.md) and [style contract](../product/STYLE.md)
 supersede this decision's original question-page rules only for the pending answer flow. Option
 paging retains selections with per-option whole-read evidence; mandatory review includes a single
-prompt; explicit bounded answer navigation/input controls and the ambiguous-answer Stop escape are
-local row exceptions. Drafts remain scoped to one open file. The field, font, hit-area, provenance,
+prompt; explicit bounded answer navigation/input controls and unavailable-choice Read why navigation are local row exceptions. Stop remains a
+confirmed footer action on the dedicated explanation. Drafts remain scoped to one open file. The field, font, hit-area, provenance,
 policy confirmation and runtime-confirmation limits still apply. Historical rationale above remains.
