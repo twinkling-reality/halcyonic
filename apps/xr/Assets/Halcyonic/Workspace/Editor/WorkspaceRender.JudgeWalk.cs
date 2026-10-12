@@ -224,11 +224,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Its row opens its file on Waiting, at the agent's question; an answer chosen.
                 if (!Press(MenuColumn.Menu, TasksColumn.OpenTask, directed) || file == null) failures.Add(name + ": the waiting task's row opened no file.");
                 Shot("3 question");
-                for (var turn = 0; turn < file!.Screen.Question.QuestionParts(0) && Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight]?.Id == FileScreens.NextPart; turn++)
+                // QuestionParts can shrink after the last part is drawn and its missing-read
+                // reason gives way, while that actual footer still awaits See answers.
+                var questionPageLimit = Math.Max(1, (int)Math.Ceiling(file!.Screen.Question.QuestionMeasured(0) / (double)file.Screen.Question.QuestionPartRows)) + 1;
+                for (var turn = 0; turn < questionPageLimit && Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight]?.Id == FileScreens.NextPart; turn++)
                 {
                     Settle();
-                    Press(MenuColumn.File, FileScreens.NextPart, FileScreens.QuestionKey);
+                    if (!Press(MenuColumn.File, FileScreens.NextPart))
+                    {
+                        failures.Add(name + ": the visible question-part footer took no press.");
+                        break;
+                    }
                 }
+                if (file.Screen.Question.QuestionPart != null) failures.Add(name + ": the question-only page never reached its visible answers.");
                 for (var turn = 0; turn < file.Screen.Question.Pages && Shown(MenuColumn.File)?.Lines.Any(line => line.Action == FileScreens.Choose && line.Key == "0") != true; turn++)
                 {
                     Settle();
