@@ -81,14 +81,22 @@ final class PanelFiles {
         else if (name.equals(REQUEST_SENDS)) PanelRequestSends.parse(json);
         else PanelContinuation.parse(json);
         String temporary = new File(directory, name + "." + UUID.randomUUID() + ".new").getPath();
+        FileDescriptor parent;
         try {
-            FileDescriptor descriptor = Os.open(temporary, OsConstants.O_WRONLY | OsConstants.O_CREAT | OsConstants.O_EXCL | OsConstants.O_NOFOLLOW | OsConstants.O_CLOEXEC, 0600);
-            try (FileOutputStream output = new FileOutputStream(descriptor)) {
-                output.write(json.getBytes(StandardCharsets.UTF_8)); output.flush(); output.getFD().sync();
-            }
-            Os.rename(temporary, new File(directory, name).getPath());
+            parent=Os.open(directory.getPath(),OsConstants.O_RDONLY|OsConstants.O_NOFOLLOW|OsConstants.O_NONBLOCK|OsConstants.O_CLOEXEC,0);
         } catch (ErrnoException error) { throw new IOException("Private record unavailable."); }
-        finally { new File(temporary).delete(); }
+        try {
+            StructStat held=Os.fstat(parent);
+            if(!OsConstants.S_ISDIR(held.st_mode)||held.st_uid!=Os.getuid())throw new IOException("Private record unavailable.");
+            PanelAtomicWrite.commit(new PanelAtomicWrite.Operations(){
+                private void currentDirectory()throws IOException{try{StructStat now=Os.lstat(directory.getPath());if(!OsConstants.S_ISDIR(now.st_mode)||now.st_uid!=held.st_uid||now.st_dev!=held.st_dev||now.st_ino!=held.st_ino)throw new IOException("Private record unavailable.");}catch(ErrnoException error){throw new IOException("Private record unavailable.");}}
+                public void writeTemporary()throws IOException{currentDirectory();try{FileDescriptor descriptor=Os.open(temporary,OsConstants.O_WRONLY|OsConstants.O_CREAT|OsConstants.O_EXCL|OsConstants.O_NOFOLLOW|OsConstants.O_CLOEXEC,0600);try(FileOutputStream output=new FileOutputStream(descriptor)){output.write(json.getBytes(StandardCharsets.UTF_8));output.flush();output.getFD().sync();}}catch(ErrnoException error){throw new IOException("Private record unavailable.");}}
+                public void rename()throws IOException{currentDirectory();try{Os.rename(temporary,new File(directory,name).getPath());}catch(ErrnoException error){throw new IOException("Private record unavailable.");}currentDirectory();}
+                public void syncDirectory()throws IOException{currentDirectory();try{Os.fsync(parent);}catch(ErrnoException error){throw new IOException("Private record unavailable.");}currentDirectory();}
+                public void cleanup(){new File(temporary).delete();}
+            });
+        } catch (ErrnoException error) { throw new IOException("Private record unavailable."); }
+        finally {try{Os.close(parent);}catch(ErrnoException ignored){}}
     }
     /** Only an actual ENOENT from opening the fixed record means absent. */
     String readWorkspaceViews() throws IOException {

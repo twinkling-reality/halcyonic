@@ -252,3 +252,18 @@ File fsync/atomic replacement establish the source ordering; sudden device power
 is unverified. Native input is EditText/system keyboard only. It preserves speech-origin words
 from the shared handoff but has no native microphone capture/transcription consumer. Capture/share
 still requires a separate deliberate consent and real attachment path; none was invented here.
+
+Independent review found that fsyncing the temporary record without syncing its renamed directory
+entry could restore an older unsent phase after a crash. The actual private writer now requires
+file sync, rename and held-directory sync in that order. Directory open uses public Android
+O_RDONLY/O_NOFOLLOW/O_NONBLOCK/O_CLOEXEC flags, then verifies directory type, owner, device and
+inode; public API-36 compilation rejected O_DIRECTORY rather than permitting an invented flag.
+The held parent identity is checked around rename/sync. Any open/write/rename/sync error blocks
+the phase transition and therefore POST, without rolling an unknown phase back to unsent.
+
+Eight focused checks passed, including ordered temporary-write/rename/directory-sync faults,
+with zero skipped. Production/development Android API+harness compile, typecheck and scoped lint
+passed. The public syscall signatures were checked against the
+[Android Os API reference](https://developer.android.com/reference/android/system/Os).
+Actual Android directory-sync support and crash/power-loss recovery remain device evidence,
+not a claim made by the JVM ordering regressions.
