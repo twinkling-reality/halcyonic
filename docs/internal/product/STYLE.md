@@ -434,3 +434,15 @@ The focused title/lifetime regressions pass 54/54 with zero skips; core, Editor 
 compilation pass. RequestCheck now also checks the actual outside-text task subject on each
 visible request frame. The title-adjusted exact render remains pending. No live send or wearer
 acceptance is implied.
+
+The legacy director render route now starts from visible Projects and selects its offered Tasks
+section before opening the waiting task. Global Minimize and Restore use the actual console and
+dock pointer controls; Move is exercised after Restore on the visible console utility. Question
+editor retention, review, stale callbacks, two-hand ownership and drag bounds remain checks. The
+director's budget is the independently centered console with its measured header and occupied
+geometry. Passive stage flags and Larger repacking must retain the exact hand offset while the
+whole composition still fits and old input is revoked; automatic offset clamping is no longer an
+expected outcome. Task identity is checked in the actual file and project context rather than a
+removed character banner. Editor source compilation passes; the migrated exact render is pending.
+Its six-agent legacy setup and raw plane/fade fixtures still require separate migration or defect
+analysis, and their clearance, field, readability and visibility thresholds remain unchanged.

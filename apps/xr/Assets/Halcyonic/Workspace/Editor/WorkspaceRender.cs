@@ -123,11 +123,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderMenuPlane("desk-3s-plane", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 failures.AddRange(RenderMenuPlane("window-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
                 // The menu's director driving the plane, as WorkspaceDirector will host it.
-                keptLessAtLarger = 0;
+                keptOffsetAtLarger = 0;
                 failures.AddRange(RenderMenuDirector("far-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 failures.AddRange(RenderMenuDirector("desk-3s-director", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 failures.AddRange(RenderMenuDirector("window-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
-                if (keptLessAtLarger == 0) failures.Add("no director render laid a dragged plane anew where the whole drag broke a rule, so keeping only what holds goes unchecked.");
+                if (keptOffsetAtLarger == 0) failures.Add("no director render exercised a nonzero retained hand offset at Larger; passive position retention goes unchecked.");
                 // A question of two prompts answered in a task's file and sent from Your answers.
                 failures.AddRange(RenderYourAnswers("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // A judge's walk through the menu on the recorded demonstration, from the eyes.
