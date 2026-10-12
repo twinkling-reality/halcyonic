@@ -40,6 +40,8 @@ const PLAIN = [
   'PanelRestore.java',
 ];
 const ANDROID_ONLY = ['PanelFiles.java', 'PanelBridge.java', 'AgentPanelActivity.java'];
+const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
+const DEVELOPMENT_ONLY = ['PanelPreviewActivity.java'];
 const classes = mkdtempSync(join(tmpdir(), 'halcyonic-panel-'));
 const fixtures = JSON.parse(
   readFileSync(join(ROOT, 'fixtures/workspace/continuation.json'), 'utf8'),
@@ -181,19 +183,22 @@ describe('production native agent panel', () => {
   test('all production sources compile against Android API and are explicitly covered', () => {
     const output = mkdtempSync(join(tmpdir(), 'halcyonic-panel-api-'));
     try {
-      execFileSync(join(BIN, 'javac'), [
-        '--release',
-        '11',
-        '-cp',
-        JAR,
-        '-d',
-        output,
-        ...[...PLAIN, ...ANDROID_ONLY].map((p) => join(SOURCES, p)),
-      ]);
+      for (const development of [false, true])
+        execFileSync(join(BIN, 'javac'), [
+          '--release',
+          '11',
+          '-cp',
+          JAR,
+          '-d',
+          output,
+          ...[...PLAIN, ...ANDROID_ONLY].map((p) => join(SOURCES, p)),
+          ...(development ? DEVELOPMENT_ONLY.map((p) => join(DEVELOPMENT, p)) : []),
+        ]);
     } finally {
       rmSync(output, { recursive: true, force: true });
     }
     assert.deepEqual(readdirSync(SOURCES).sort(), [...PLAIN, ...ANDROID_ONLY].sort());
+    assert.deepEqual(readdirSync(DEVELOPMENT).sort(), DEVELOPMENT_ONLY);
   });
   for (const fixture of fixtures.cases)
     test(`shared continuation: ${fixture.name}`, () =>
@@ -250,6 +255,36 @@ describe('production native agent panel', () => {
     assert.equal(
       run('restore_state', JSON.stringify(record), target, JSON.stringify(model())),
       'true',
+    );
+  });
+  test('real panel never clears secure window flags and preview is a separate internal development Activity', () => {
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    assert.doesNotMatch(activity, /clearFlags/);
+    const fixedInitialization = activity.slice(
+      activity.indexOf('if (syntheticSurface()) {'),
+      activity.indexOf('// The real panel'),
+    );
+    assert.match(fixedInitialization, /if \(!developmentAllowed\)/);
+    assert.match(
+      fixedInitialization,
+      /getAssets\(\).open\("halcyonic-native-panel-preview.json"\)/,
+    );
+    assert.doesNotMatch(
+      fixedInitialization,
+      /new PanelFiles|files\.|loadSaved|PanelTransport|PanelIdentity/,
+    );
+    const preview = readFileSync(join(DEVELOPMENT, 'PanelPreviewActivity.java'), 'utf8');
+    assert.match(preview, /extends AgentPanelActivity/);
+    assert.doesNotMatch(preview, /PanelFiles|PanelTransport|loadSaved|connection\(/);
+    const packaging = readFileSync(
+      join(ROOT, 'apps/xr/Assets/Halcyonic/Editor/PanelInBuilds.cs'),
+      'utf8',
+    );
+    assert.match(packaging, /PreviewManifest[\s\S]*GlanceInDevelopmentBuilds.Include/);
+    assert.match(packaging, /SetAttribute\("exported", android, "false"\)/);
+    assert.doesNotMatch(
+      readFileSync(join(ROOT, 'apps/xr/Assets/Plugins/Android/AndroidManifest.xml'), 'utf8'),
+      /PanelPreviewActivity/,
     );
   });
   test('offline visual fixture conforms to Snapshot and contains only synthetic executions', () => {

@@ -25,7 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** Production 2D hybrid client. It remains usable when Unity pauses; the Mac owns agent execution. */
-public final class AgentPanelActivity extends Activity {
+public class AgentPanelActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final PanelUiState authority = new PanelUiState();
@@ -47,21 +47,36 @@ public final class AgentPanelActivity extends Activity {
     private EditText instruction;
     private Dialog review;
     private String projectId, workId, executionId, draft = "", commandId;
-    private boolean spoken, visible, busy, preview;
+    private boolean spoken, visible, busy, preview, developmentAllowed;
     private int generation;
     private final Runnable refresh = () -> poll(false);
 
+    /** Only the internal development subclass has a never-private preview window. */
+    protected boolean syntheticSurface() { return false; }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        // Prevent task/agent text in screenshots and recent thumbnails. Capture is a separate,
-        // deliberate consent flow, not an implicit permission granted by opening this panel.
+        developmentAllowed = (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        if (syntheticSurface()) {
+            preview = true;
+            if (!developmentAllowed) { finish(); return; }
+            // This branch initializes no app-private store, connection or saved editor context.
+            try (java.io.InputStream source = getAssets().open("halcyonic-native-panel-preview.json")) {
+                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream(); byte[] buffer = new byte[4096]; int count;
+                while ((count = source.read(buffer)) >= 0) { if (bytes.size() + count > 256 * 1024) throw new IOException(); bytes.write(buffer, 0, count); }
+                snapshot = new PanelModel(new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+                for (Map<String, Object> run : snapshot.executions.values()) if (!PanelJson.bool(PanelJson.object(run.get("runtime")).get("synthetic"))) throw new IOException();
+                shell(); connection.setText("Synthetic preview · no live work loaded, no requests sent."); show();
+            } catch (Exception error) { finish(); }
+            return;
+        }
+        // The real panel's window remains secure for its entire lifetime, including while the
+        // separate preview is in front. No formerly private compositor buffer becomes capturable.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        files = new PanelFiles(this);
-        shell();
+        files = new PanelFiles(this); shell();
     }
     @Override public void onResume() {
         super.onResume(); visible = true; authority.resumed(true); authority.top(false); generation++; busy = false;
-        if (preview) { show(); return; }
+        if (preview) { if (snapshot != null && content != null) show(); return; }
         loadSaved(); poll(true);
     }
     @Override public void onPause() {
@@ -74,6 +89,7 @@ public final class AgentPanelActivity extends Activity {
     }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (syntheticSurface()) { setIntent(new Intent()); closeReview(); return; }
         // Exported OS launcher entry never accepts selection, credential or command extras.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (!preview && !saveState()) { restore.paused(editorRecord(), false); connection.setText("Your unsaved draft must be preserved before changing this view."); return; }
@@ -154,7 +170,7 @@ public final class AgentPanelActivity extends Activity {
                 else { if (!saveState() && !saveSelectedContext()) return; cancelNetwork(); try { startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception error) { connection.setText("Other apps could not open."); } }
             });
         }
-        if (files.developmentAllowed) {
+        if (developmentAllowed && !preview) {
             Button mode = new Button(this); mode.setText("Connection (development)"); mode.setAllCaps(false); styleButton(mode, "Connection (development)"); root.addView(mode);
             mode.setOnClickListener(v -> { if (busy || !authority.interact(0) || !saveState()) return; LinearLayout choices = dialog("Development connection");
                 text(choices, "Use the paired computer, or the existing USB development connection. Changing connection never changes its saved credential.", 18);
@@ -172,20 +188,10 @@ public final class AgentPanelActivity extends Activity {
         catch (Exception error) { connection.setText("That connection could not be selected."); }
     }
     private void previewSynthetic() {
-        if (!files.developmentAllowed || !saveState()) return;
-        try (java.io.InputStream source = getAssets().open("halcyonic-native-panel-preview.json")) {
-            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream(); byte[] buffer = new byte[4096]; int count;
-            while ((count = source.read(buffer)) >= 0) { if (bytes.size() + count > 256 * 1024) throw new IOException(); bytes.write(buffer, 0, count); }
-            PanelModel fixture = new PanelModel(new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
-            for (Map<String, Object> run : fixture.executions.values()) if (!PanelJson.bool(PanelJson.object(run.get("runtime")).get("synthetic"))) throw new IOException();
-            generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); closeReview();
-            // Clear all live views and keyboard before allowing capture of the fixed public fixture.
-            android.view.inputmethod.InputMethodManager keyboard = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-            if (keyboard != null && getCurrentFocus() != null) keyboard.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
-            instruction = null; draft = ""; spoken = false; projectId = workId = executionId = commandId = null; continuation = null;
-            preview = true; identity = null; snapshot = fixture; shell(); connection.setText("Synthetic preview · no network, private data or commands."); show();
-            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        } catch (Exception error) { connection.setText("The synthetic preview could not open."); }
+        if (!developmentAllowed || !saveState()) return;
+        cancelNetwork(); closeReview();
+        try { startActivity(new Intent().setClassName(getPackageName(), "com.halcyonic.panel.PanelPreviewActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+        catch (Exception error) { connection.setText("The synthetic preview could not open."); }
     }
     private void loadSaved() {
         instruction = null; closeReview();
@@ -469,7 +475,7 @@ public final class AgentPanelActivity extends Activity {
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34)); text(root, title, 25);
         button(root, "Back", this::closeReview, true);
         ScrollView scroll = new ScrollView(this); LinearLayout body = column(); scroll.addView(body); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        next.setContentView(root); next.show(); next.getWindow().setLayout(-1, -1); if (!preview) next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        next.setContentView(root); if (!preview) next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); next.show(); next.getWindow().setLayout(-1, -1);
         return body;
     }
     /** Entire body, exact scope, current modal and focus lifetime precede deliberate confirmation. */
@@ -558,6 +564,11 @@ public final class AgentPanelActivity extends Activity {
         });
     }
     private void returnToWorkspace() {
+        if (preview) {
+            try { startActivity(new Intent().setClassName(getPackageName(), "com.unity3d.player.UnityPlayerGameActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); finishAndRemoveTask(); }
+            catch (Exception error) { connection.setText("Workspace could not open."); }
+            return;
+        }
         rememberDraft();
         // The selected record is an additional durable recovery path when the aggregate editor
         // store is full. It carries ordinary context only; Unity must validate fresh state.
