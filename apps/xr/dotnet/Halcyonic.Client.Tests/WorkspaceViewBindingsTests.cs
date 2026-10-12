@@ -19,6 +19,49 @@ public class WorkspaceViewBindingsTests
     };
     [TestCase(TextSize.Standard)]
     [TestCase(TextSize.Larger)]
+    public void AnOldDrawnRequestEntryAfterANewSnapshotCannotRetargetBeforeTick(TextSize size)
+    {
+        var host = new FileMenuHost { TextSize = size };
+        var work = Samples.Workstream(TaskId, WorkstreamStatus.Completed, RunA);
+        var execution = Samples.Execution(RunA, TaskId, ExecutionStatus.Completed);
+        var state = new ClientProjection();
+        state.ApplySnapshot(Samples.Snapshot(1, new[] { work }, new[] { execution }), new StateChanges());
+        var file = new FileColumn(host, () => WorkspacePresenter.Present(work, state, new ActivityLog(), live: true),
+            new CommandFactory(Samples.Client), () => null, _ => null, () => "");
+        WorkspaceViewBindings bindings = null!;
+        bindings = new WorkspaceViewBindings(Record, () => bindings.Capture());
+        bindings.Bind(file, Record(file));
+        var opened = 0; WorkspaceRequestColumn? request = null;
+        file.OfferWorkspaceRequests(() =>
+        {
+            opened++;
+            var context = bindings.Captured(file)!;
+            file.Surface = WorkspaceSurface.Request;
+            request = file.RequestFor(context, () => file.Now?.Execution?.ExecutionId == context.ExecutionId);
+        });
+        file.Drawn(file.Frame!, null); file.Act(FileScreens.OpenWorkspaceRequest, null);
+        Assert.That(opened, Is.EqualTo(1));
+        request!.Drawn(request.Frame!, null); request.Act(WorkspaceRequestColumn.Edit, null);
+        host.Keyboard!.Value.Done("Latest A request must stay on A");
+        file.Drawn(file.Frame!, null);
+        work.CurrentExecutionId = RunB;
+        execution = Samples.Execution(RunB, TaskId, ExecutionStatus.Completed);
+        state.ApplySnapshot(Samples.Snapshot(2, new[] { work }, new[] { execution }), new StateChanges());
+        // Deliberately invoke the old drawn entry before the normal periodic Tick.
+        file.Act(FileScreens.OpenWorkspaceRequest, null);
+        Assert.That(opened, Is.EqualTo(1), "the old physical draw grants no opening on the new execution");
+        Assert.That(file.RequestView, Is.Null);
+        Assert.That(file.ContinuationRequest(), Is.Null);
+        var records = bindings.Capture();
+        Assert.That(records.Single(record => record.ExecutionId == RunA).Request!.Text, Is.EqualTo("Latest A request must stay on A"));
+        Assert.That(records.Single(record => record.ExecutionId == RunB).Request, Is.Null);
+        file.Drawn(file.Frame!, null); file.Act(FileScreens.OpenWorkspaceRequest, null);
+        Assert.That((opened, request!.ExecutionId, request.Draft.Text, request.RequestId), Is.EqualTo((2, RunB, "", (string?)null)));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
     public void RequestRetirementPreservesLatestUnsavedAAndCreatesIndependentB(TextSize size)
     {
         var host = new FileMenuHost { TextSize = size };

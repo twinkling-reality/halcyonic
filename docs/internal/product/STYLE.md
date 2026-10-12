@@ -417,3 +417,9 @@ spoken Yes remain visible controls. Model reply and recorded receipts have separ
 full measured paging, with source names treated as outside text. Request and recovery-focused
 checks pass 46/46 with zero skips, and Editor/Android source compilation passes. Actual request
 screenshots and full integrated gates remain pending.
+
+RequestCheck is the request-specific real-font composition gate. It uses the actual production
+column and director control routes with synthetic capability/result seams, and retains all field,
+readability, target and coplanarity checks. Its source compiles with Editor and Android symbols;
+actual Unity rendering and wearer judgement remain pending. The existing Judge walkthrough now
+checks Tasks as the stable view subject and the actual waiting state on its row.

@@ -98,7 +98,7 @@ namespace Halcyonic.Client
         private static WorkspaceInstructionDraft Copy(WorkspaceInstructionDraft draft) => new WorkspaceInstructionDraft
         { Text = draft.Text, Spoken = draft.Spoken, Part = draft.Part };
         private static WorkspaceRequestContinuation Copy(WorkspaceRequestContinuation draft) => new WorkspaceRequestContinuation
-        { RequestId = draft.RequestId, Text = draft.Text, Spoken = draft.Spoken, Part = draft.Part };
+        { RequestId = draft.RequestId, PendingCommandId = draft.PendingCommandId, Text = draft.Text, Spoken = draft.Spoken, Part = draft.Part };
         private static WorkspaceContinuation Copy(WorkspaceContinuation record) => new WorkspaceContinuation
         {
             Version = record.Version, HandoffId = record.HandoffId, ConnectionKey = record.ConnectionKey, JournalId = record.JournalId,

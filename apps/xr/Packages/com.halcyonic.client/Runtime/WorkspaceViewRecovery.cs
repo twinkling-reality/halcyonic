@@ -22,7 +22,7 @@ namespace Halcyonic.Client
             && (view.Instruction == null && record.Instruction == null || view.Instruction != null && record.Instruction != null
                 && view.Instruction.Text == record.Instruction.Text && view.Instruction.Spoken == record.Instruction.Spoken && view.Instruction.Part == record.Instruction.Part)
             && (view.Request == null && record.Request == null || view.Request != null && record.Request != null
-                && view.Request.RequestId == record.Request.RequestId && view.Request.Text == record.Request.Text
+                && view.Request.RequestId == record.Request.RequestId && view.Request.PendingCommandId == record.Request.PendingCommandId && view.Request.Text == record.Request.Text
                 && view.Request.Spoken == record.Request.Spoken && view.Request.Part == record.Request.Part));
         public WorkspaceViewRecovery(Func<(bool Succeeded, string? Json)> read, Func<string, bool> write)
         {

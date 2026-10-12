@@ -2877,7 +2877,21 @@ recorded surface; background recovery still respects the latest global Minimize.
 request commands, reads, keyboards and reviews start with fresh proof. Actual restore shares the
 canonical codepoint bound, retaining valid astral text without UTF16 truncation.
 
-At this UI checkpoint an unknown request submission keeps its command ID in memory and cannot
-mint a replacement from snapshot absence. Durable pending-command capture before POST and exact
-original-owner command read after process recreation remain a required follow-up. Native JNI,
-process death, actual request rendering and wearer acceptance remain separate from source checks.
+The request's generic command UUID (including the actual client factory's UUIDv4) is now part of
+the ordinary continuation. The production BeforeSubmit hook requires exact IsSaved success for the
+captured task record before invoking Submit. Failed persistence blocks POST and retains the local
+words. Duplicate, rejected, conflict, partial or unknown acknowledgements do not discard that
+identity; a snapshot's missing recent command is never treated as absence. Exact original-owner
+command GET validates journal, ID, task/run tuple and allowed command type before adopting a host
+request reference or a known result. Unreadable, not-found, foreign and unknown-effect results keep
+the pending identity and never auto-replay or mint another submission after recreation. Imported
+request drafts retain the pending reference but no command authority. Native JNI, actual process
+death, request rendering and wearer acceptance remain separate from source checks.
+
+
+An execution change discovered by FileColumn.Act is handled before assigning its fresh presentation:
+the old request draft leaves under its original execution, then old editor/input authority is
+revoked, and the old drawn action is discarded. ContinuationRequest and RequestFor additionally
+require the retained request's exact execution; new B cannot inherit unsubmitted A words. Changing
+request sections suspends the editor and calls the consumed MenuVoice departure callback before
+new content is shown, so old keyboard or transcription callbacks cannot replace a hidden draft.

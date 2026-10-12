@@ -296,12 +296,14 @@ public class JudgeMenuWalkTests
         navigator.OpenMenu(somethingWaits: true);
         var (tasks, _) = host.Draw();
         Assert.That(navigator.Place, Is.EqualTo(MenuPlace.Tasks));
-        Assert.That(tasks!.Subject, Is.EqualTo(TasksText.Waiting(1)));
-        Assert.That(tasks.SubjectWaits, Is.True);
+        Assert.That(tasks!.Subject, Is.EqualTo("Tasks"));
+        Assert.That(tasks.SubjectWaits, Is.False, "the view name stays stable; waiting belongs to the actual row");
         Assert.That(tasks.Sections.Select(section => section.Words), Is.EqualTo(new[] { "Tasks", "Projects", "Usage", "Settings" }));
         var directed = Directed(player.Session);
         Assert.That(tasks.Lines[0].Key, Is.EqualTo(directed), "the waiting task is the first row");
         Assert.That(tasks.Lines[0].Tone, Is.EqualTo(LineTone.Waiting));
+        Assert.That(tasks.Lines[0].Fact, Does.Contain(StateLanguage.BadgeOf(CharacterPresenter.Present(
+            host.State!.Workstreams[directed], host.State, true)).Text), "the waiting state remains inspectable on the current task row");
 
         // Its row opens its file beside the menu, on Waiting under its pill.
         Assert.That(host.Press(MenuColumn.Menu, TasksColumn.OpenTask, directed), Is.True);

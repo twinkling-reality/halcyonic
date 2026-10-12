@@ -373,6 +373,6 @@ Ask workspace opens a general request for the selected task and run. Request, Re
 are views of the same request, not a catalogue of accepted phrases. Start request and Continue
 request are explicit actions; heard words first offer Yes, send request with Cancel. The visible
 scope says Read this task and send instructions to this run. Assistant reply is marked reported;
-recorded action receipts show observed outcomes separately. Cancel request stops the planner;
+recorded action receipts show recorded outcomes separately. Cancel request stops the planner;
 the task may keep running. Back to task retains both local drafts. Unavailable assistant or
 connection state keeps the words and gives a concrete Refresh or reconnect route.
