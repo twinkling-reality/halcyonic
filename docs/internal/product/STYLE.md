@@ -399,3 +399,8 @@ not duplicated. The navigation-focused core checks pass 54/54 with no skips, and
 Android player-symbol source compilation passes (2026-10-12). Actual render validation of this
 new header/navigation checkpoint remains pending; earlier dedicated-frame passes cover the prior
 geometry and retention implementation, not this revised composition.
+
+The Larger project-detail fixture closes the actually visible detail panel before selecting its
+project again: details replace the project list at that size. The first navigation render passed
+Standard but correctly refused the hidden Larger project row. This fixture correction preserves
+that visibility guard and awaits the repeated exact render.
