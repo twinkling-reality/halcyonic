@@ -1627,7 +1627,7 @@ public class FileColumnTests
         Assert.That((column.Screen.RequestParts, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((1, (Prompt?)null)), "one part, not drawn yet");
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Read to part 1 first" }));
         Draw(host, column);
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Your computer heard the words above. Send them?" }));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Review the transcribed instruction above. Send it?" }));
         column.Act(FileScreens.Yes, null);
         column.Act(FileScreens.Yes, null);
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"), "the same confirmation sends exactly once");
