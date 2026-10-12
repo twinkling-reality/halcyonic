@@ -24,8 +24,8 @@ public final class PanelBridge {
             try {
                 if (expired.get()) return;
                 PanelFiles files = new PanelFiles(activity);
-                files.remove(PanelFiles.RETURN);
-                files.write(PanelFiles.STATE, json);
+                if (files.exists(PanelFiles.RETURN)) { result.set("Restore the previous panel return in Workspace before opening the panel again."); return; }
+                files.write(PanelFiles.INCOMING, json);
                 if (expired.get()) return;
                 Intent panel = new Intent(activity, AgentPanelActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 if (inHome) {
@@ -47,9 +47,6 @@ public final class PanelBridge {
         return result.get();
     }
 
-    public static String takePendingReturn(Activity activity) {
-        return activity == null ? null : new PanelFiles(activity).takeReturn();
-    }
     public static String peekPendingReturn(Activity activity) {
         return activity == null ? null : new PanelFiles(activity).peekReturn();
     }

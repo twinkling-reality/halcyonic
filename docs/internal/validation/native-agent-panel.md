@@ -44,8 +44,10 @@ before writing any HTTP header, and rechecks connection identity immediately bef
 after the response. It neither follows redirects nor silently retries a command. It rejects
 ambiguous headers, unsupported compression/chunking, invalid UTF-8, bodies over 8 MiB and command
 bodies over 256 KiB. Address lookup has a bounded wait and a single bounded resolver worker;
-connect/read limits and a 15-second network deadline constrain each request. Cancellation closes
-the active socket. A lost response after a POST begins has an unknown effect, not a fabricated
+connect/read limits and a 15-second watchdog constrain the whole network request, including a
+blocked write. It closes the raw socket before the TLS wrapper, so TLS shutdown cannot wait for
+the blocked writer. Each request owns its deadline/socket lease. Cancellation closes that lease.
+A lost response after a POST begins has an unknown effect, not a fabricated
 failure or success. A 401/403 clears the usable projection and review. The existing host checks
 paired-device revocation on each request and before acting; the Java client does not invent its
 own revocation state. See [network-pairing.md](network-pairing.md).
@@ -74,14 +76,31 @@ text are checked together for every prompt. No question draft, read proof, appro
 confirmation is persisted. Immediately before every command, a fresh snapshot must match the
 journal, project, workstream and current execution; approvals/questions must also match the exact
 reviewed request and capabilities. Host acceptance remains acceptance until the runtime confirms.
+Failed, malformed and unknown-status acknowledgements have no acceptance fallback.
+
+Confirmation captures immutable connection/journal/project/workstream/execution context and a
+review epoch. Dismissed or replaced dialogs cannot authorize stale callbacks, including Stop.
+The Activity uses resumed, top-resumed, activity-window and dialog-window focus together;
+onPause alone is insufficient on Android 10+ multi-resume. Focus loss expires read/confirmation
+authority. An active keyboard serving this panel's own EditText may retain ordinary editing, but
+never revives a confirmation. Final question review repeats every header, question, offered
+option/description and answer after editing. Back remains usable during reads, and Workspace/
+Other apps can cancel pending network work without waiting for a poll.
+[Android multi-window lifecycle](https://developer.android.com/develop/adaptive-apps/guides/support-multi-window-mode),
+[InputMethodManager](https://developer.android.com/reference/android/view/inputmethod/InputMethodManager).
 
 `WorkspaceContinuation` is generated from the one TypeBox contract. Native parsing consumes the
 shared valid/invalid fixtures, rejects duplicate keys, extra properties, coercions and excess
 bytes, and uses the same private connection digest as C#. The digest includes credential rotation
 and is never displayed, logged or sent. `halcyonic-workspace-panel.json` stores ordinary selected
-context; `halcyonic-workspace-return.json` is a separate explicit-return marker. Peek preserves
+context; `halcyonic-workspace-to-panel.json` stages inbound context separately, so a native autosave
+cannot overwrite a new Unity handoff before `onNewIntent`. Inbound context is installed only
+against a fresh matching projection. `halcyonic-workspace-return.json` is a separate explicit-return
+marker. Peek preserves
 the return during reconnect/process death; acknowledgement deletes only the matching handoff id.
-The Unity caller must wait for a fresh authoritative projection before applying it. Android may
+A new outbound launch refuses while an earlier return waits; save and launch failures never erase
+that return. The Unity caller must wait for a fresh authoritative projection before applying or
+dispositioning it, then acknowledge its exact handoff id. Android may
 kill a stopped process, so memory alone is insufficient.
 [Android activity lifecycle](https://developer.android.com/guide/components/activities/activity-lifecycle).
 
@@ -90,6 +109,11 @@ execution within 4 MiB, without a draft-count cap or eviction. Navigation saves 
 leave the editor; a new execution cannot receive an old draft automatically. Earlier-run drafts
 remain readable and require explicit reviewed copy to the new run. A full or unreadable store
 leaves the existing saved records intact. Only the selected context crosses back to Unity.
+Failed pause saves keep the bound ordinary draft in volatile recovery across same-process
+resume; disk reload cannot replace it with an older draft. The storage warning stays visible
+through polling until persistence succeeds. The selected private record remains an additional
+recovery path when the aggregate editor store is full. If storage refuses every write, process
+death before successful persistence cannot guarantee recovery; the panel does not claim otherwise.
 
 ## Privacy and capture boundary
 
@@ -97,8 +121,16 @@ The native panel and its review dialogs use `FLAG_SECURE`. This is an explicit p
 decision: the entire panel can contain private project titles, task objectives, unsent instructions
 and agent requests, and there is no reliable field-level rule saying only a password is private.
 It also stays out of recent-app thumbnails. This blocks ordinary OS screenshot/screen-share
-capture of the panel, and needs a separate, deliberate synthetic development-render path for
-visual verification. It is not a claim that every system or physical-camera capture is prevented.
+capture of the panel, and the development-only offline synthetic preview provides a deliberate
+capture path for visual verification. The preview consumes a fixed public mock Snapshot through
+the actual native renderer, cancels transport and clears live views/keyboard before capture is
+allowed. It neither reads live work nor sends commands while active, and never saves fixture
+selection or drafts. New intents and return to a live connection re-secure the window first.
+The preview asset is removed before a release reuses the Gradle project, and release APKs refuse
+the preview. The native secure panel itself still needs an actual Quest display check:
+Android documents blanking on non-secure displays, and Meta has not verified this flag for
+Horizon virtual displays in the sources reviewed. It is not a claim that every system or
+physical-camera capture is prevented.
 [Android FLAG_SECURE](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE).
 
 No capture, microphone, accessibility, overlay, app-enumeration or notification permission is
@@ -115,10 +147,18 @@ resolved before a real attachment flow. Opening this panel grants no capture per
 ## Evidence and remaining acceptance
 
 `tooling/panel/panel.test.ts` compiles every native source against Android's API and runs the
-actual plain-Java consumer. Its 40 cases pass: shared continuation/identity parity; native
+actual plain-Java consumer. Its 46 cases pass: shared continuation/identity parity; native
 capability, stale request, secret and full-answer rules; retained drafts and aggregate byte bound;
 real ephemeral paired and loopback snapshot/events/command framing; revocation; wrong pin,
 replacement connection, redirects, ambiguous headers, partial command reply and proof impostors.
+The actual Activity-used authority/recovery controllers have ordered regressions for retargeting,
+dismissed callbacks, focus/multi-resume revival, failed pause save and a new singleTask selection
+waiting for its fresh projection. A blocked socket-write fault is injected after real TLS pin
+authentication: the production watchdog closes it at about 15 seconds, reports unknown effect
+and sends no retry. A direct stalled-peer attempt on this JVM filled its buffers and reached the
+read timeout instead; the deterministic fault checks the write phase rather than claiming that
+the kernel stall was reproduced. All four native actions are accepted and runtime-confirmed
+through the real ephemeral paired producer with its explicitly synthetic mock runtime.
 TypeScript type checking and scoped Biome checks pass. These are source/API and host-protocol
 checks, not Android view, JNI, packaging, IL2CPP or headset-runtime certification.
 
@@ -126,5 +166,7 @@ Still required: independent source review; integration gates; actual development
 packaging and JNI inspection; synthetic native visual proof; headset launch/Home/return and
 process-death recovery; explicit USB installed journey; real Wi-Fi pairing, pin failure and
 revocation; native keyboard and complete review with hands/controllers; focus over another
-immersive app. Foreground visible polling stops on pause. Background notifications and arbitrary
+immersive app, including `FLAG_SECURE` on the actual Horizon virtual display and native keyboard
+focus callbacks. Foreground visible polling stops on pause or loss of top-resumed ownership.
+Background notifications and arbitrary
 app control are not implemented capabilities.

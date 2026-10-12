@@ -1,0 +1,356 @@
+{
+  "journal": {
+    "journal_id": "01a0dd28-4900-770d-b76b-270dbecbbb1a",
+    "origin": "fixture"
+  },
+  "position": 42,
+  "projects": [
+    {
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "name": "Synthetic panel preview",
+      "location": null,
+      "created_at": "2026-09-26T10:00:00.000Z",
+      "updated_at": "2026-09-26T10:00:10.200Z"
+    }
+  ],
+  "workstreams": [
+    {
+      "workstream_id": "01a0dd28-4900-7713-99c7-625b523d5a01",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "title": "Add password reset",
+      "objective": "Users can reset a forgotten password through an emailed, single-use link.",
+      "status": "completed",
+      "attention": {
+        "level": "none",
+        "reasons": []
+      },
+      "current_execution_id": "01a0dd28-4900-7717-a7bc-07d91198f6c1",
+      "execution_ids": ["01a0dd28-4900-7717-a7bc-07d91198f6c1"],
+      "created_at": "2026-09-26T10:00:00.000Z",
+      "updated_at": "2026-09-26T10:00:07.400Z"
+    },
+    {
+      "workstream_id": "01a0dd28-65e8-762a-8bf8-9005e8a92ea7",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "title": "Move sessions to their own table",
+      "objective": "Sessions live in a dedicated table indexed by user id.",
+      "status": "waiting_for_human",
+      "attention": {
+        "level": "action_required",
+        "reasons": [
+          {
+            "kind": "approval_pending",
+            "execution_id": "01a0dd28-65e8-762e-b90f-cb3cddee38a6",
+            "approval_id": "approval-1"
+          }
+        ]
+      },
+      "current_execution_id": "01a0dd28-65e8-762e-b90f-cb3cddee38a6",
+      "execution_ids": ["01a0dd28-65e8-762e-b90f-cb3cddee38a6"],
+      "created_at": "2026-09-26T10:00:07.400Z",
+      "updated_at": "2026-09-26T10:00:10.200Z"
+    },
+    {
+      "workstream_id": "01a0dd28-70d8-750e-a680-bc6afbbfb324",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "title": "Choose the dashboard style",
+      "objective": "Users can reset a forgotten password through an emailed, single-use link.",
+      "status": "waiting_for_human",
+      "attention": {
+        "level": "action_required",
+        "reasons": [
+          {
+            "kind": "question_pending",
+            "execution_id": "01a0dd28-70d8-7512-97ae-8964a989e2ca",
+            "question_id": "question-1"
+          }
+        ]
+      },
+      "current_execution_id": "01a0dd28-70d8-7512-97ae-8964a989e2ca",
+      "execution_ids": ["01a0dd28-70d8-7512-97ae-8964a989e2ca"],
+      "created_at": "2026-09-26T10:00:10.200Z",
+      "updated_at": "2026-09-26T10:00:11.300Z"
+    }
+  ],
+  "executions": [
+    {
+      "execution_id": "01a0dd28-4900-7717-a7bc-07d91198f6c1",
+      "workstream_id": "01a0dd28-4900-7713-99c7-625b523d5a01",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "runtime": {
+        "runtime_id": "mock",
+        "kind": "mock",
+        "display_name": "Mock runtime (development fixture)",
+        "synthetic": true
+      },
+      "native_id": "mock-session-01a0dd28-4900-7717-a7bc-07d91198f6c1",
+      "model_ref": null,
+      "instruction": "Implement the password reset flow with single-use email tokens, and add tests.",
+      "directory": null,
+      "status": "completed",
+      "status_reason": null,
+      "pending_approvals": [],
+      "pending_questions": [],
+      "active_tools": [],
+      "tool_activity": "none",
+      "active_test_run": null,
+      "last_test_run": {
+        "test_run_id": "tests-1",
+        "label": "pnpm test",
+        "outcome": "passed",
+        "summary": "42 passed",
+        "completed_at": "2026-09-26T10:00:06.800Z"
+      },
+      "turn_count": 1,
+      "created_at": "2026-09-26T10:00:00.000Z",
+      "started_at": "2026-09-26T10:00:00.000Z",
+      "updated_at": "2026-09-26T10:00:07.400Z"
+    },
+    {
+      "execution_id": "01a0dd28-65e8-762e-b90f-cb3cddee38a6",
+      "workstream_id": "01a0dd28-65e8-762a-8bf8-9005e8a92ea7",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "runtime": {
+        "runtime_id": "mock",
+        "kind": "mock",
+        "display_name": "Mock runtime (development fixture)",
+        "synthetic": true
+      },
+      "native_id": "mock-session-01a0dd28-65e8-762e-b90f-cb3cddee38a6",
+      "model_ref": null,
+      "instruction": "Write and apply a migration that moves sessions into their own table.",
+      "directory": null,
+      "status": "waiting_for_human",
+      "status_reason": null,
+      "pending_approvals": [
+        {
+          "approval_id": "approval-1",
+          "subject": {
+            "kind": "tool_use",
+            "tool_name": "bash",
+            "summary": "Run `pnpm db:migrate` against the local development database"
+          },
+          "approvable": true,
+          "requested_at": "2026-09-26T10:00:10.200Z"
+        }
+      ],
+      "pending_questions": [],
+      "active_tools": [],
+      "tool_activity": "none",
+      "active_test_run": null,
+      "last_test_run": null,
+      "turn_count": 1,
+      "created_at": "2026-09-26T10:00:07.400Z",
+      "started_at": "2026-09-26T10:00:07.400Z",
+      "updated_at": "2026-09-26T10:00:10.200Z"
+    },
+    {
+      "execution_id": "01a0dd28-70d8-7512-97ae-8964a989e2ca",
+      "workstream_id": "01a0dd28-70d8-750e-a680-bc6afbbfb324",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "runtime": {
+        "runtime_id": "mock",
+        "kind": "mock",
+        "display_name": "Mock runtime (development fixture)",
+        "synthetic": true
+      },
+      "native_id": "mock-session-01a0dd28-70d8-7512-97ae-8964a989e2ca",
+      "model_ref": null,
+      "instruction": "Implement the password reset flow with single-use email tokens, and add tests.",
+      "directory": null,
+      "status": "waiting_for_human",
+      "status_reason": null,
+      "pending_approvals": [],
+      "pending_questions": [
+        {
+          "question_id": "question-1",
+          "prompts": [
+            {
+              "key": "q0",
+              "header": "Colour scheme",
+              "text": "Which colour scheme should the dashboard use?",
+              "options": [
+                {
+                  "label": "Light",
+                  "description": "Dark text on a light background"
+                },
+                {
+                  "label": "Dark",
+                  "description": "Light text on a dark background"
+                }
+              ],
+              "multiple": false,
+              "free_text": true,
+              "secret": false
+            },
+            {
+              "key": "q1",
+              "header": "Pages",
+              "text": "Which pages should I restyle first?",
+              "options": [
+                {
+                  "label": "Sign in",
+                  "description": null
+                },
+                {
+                  "label": "Orders",
+                  "description": null
+                },
+                {
+                  "label": "Settings",
+                  "description": null
+                }
+              ],
+              "multiple": true,
+              "free_text": false,
+              "secret": false
+            }
+          ],
+          "answerable": true,
+          "asked_at": "2026-09-26T10:00:11.300Z"
+        }
+      ],
+      "active_tools": [],
+      "tool_activity": "none",
+      "active_test_run": null,
+      "last_test_run": null,
+      "turn_count": 1,
+      "created_at": "2026-09-26T10:00:10.200Z",
+      "started_at": "2026-09-26T10:00:10.200Z",
+      "updated_at": "2026-09-26T10:00:11.300Z"
+    }
+  ],
+  "commands": [
+    {
+      "command_id": "01a0dd28-4900-70c0-bd06-a445d8aa7575",
+      "command_type": "project.create",
+      "status": "completed",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "workstream_id": null,
+      "execution_id": null,
+      "issued_at": "2026-09-26T10:00:00.000Z",
+      "updated_at": "2026-09-26T10:00:00.000Z",
+      "rejection": null,
+      "failure": null,
+      "result": {
+        "kind": "project_created",
+        "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7"
+      }
+    },
+    {
+      "command_id": "01a0dd28-4900-70c1-91b4-a2ba1e135454",
+      "command_type": "workstream.create",
+      "status": "completed",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "workstream_id": "01a0dd28-4900-7713-99c7-625b523d5a01",
+      "execution_id": null,
+      "issued_at": "2026-09-26T10:00:00.000Z",
+      "updated_at": "2026-09-26T10:00:00.000Z",
+      "rejection": null,
+      "failure": null,
+      "result": {
+        "kind": "workstream_created",
+        "workstream_id": "01a0dd28-4900-7713-99c7-625b523d5a01"
+      }
+    },
+    {
+      "command_id": "01a0dd28-4900-70c2-8abd-6fbaa6507a2b",
+      "command_type": "execution.start",
+      "status": "completed",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "workstream_id": "01a0dd28-4900-7713-99c7-625b523d5a01",
+      "execution_id": "01a0dd28-4900-7717-a7bc-07d91198f6c1",
+      "issued_at": "2026-09-26T10:00:00.000Z",
+      "updated_at": "2026-09-26T10:00:00.000Z",
+      "rejection": null,
+      "failure": null,
+      "result": {
+        "kind": "execution_created",
+        "execution_id": "01a0dd28-4900-7717-a7bc-07d91198f6c1"
+      }
+    },
+    {
+      "command_id": "01a0dd28-65e8-71f1-8fea-c34f66de404e",
+      "command_type": "workstream.create",
+      "status": "completed",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "workstream_id": "01a0dd28-65e8-762a-8bf8-9005e8a92ea7",
+      "execution_id": null,
+      "issued_at": "2026-09-26T10:00:07.400Z",
+      "updated_at": "2026-09-26T10:00:07.400Z",
+      "rejection": null,
+      "failure": null,
+      "result": {
+        "kind": "workstream_created",
+        "workstream_id": "01a0dd28-65e8-762a-8bf8-9005e8a92ea7"
+      }
+    },
+    {
+      "command_id": "01a0dd28-65e8-71f2-9944-42fca961f1d4",
+      "command_type": "execution.start",
+      "status": "completed",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "workstream_id": "01a0dd28-65e8-762a-8bf8-9005e8a92ea7",
+      "execution_id": "01a0dd28-65e8-762e-b90f-cb3cddee38a6",
+      "issued_at": "2026-09-26T10:00:07.400Z",
+      "updated_at": "2026-09-26T10:00:07.400Z",
+      "rejection": null,
+      "failure": null,
+      "result": {
+        "kind": "execution_created",
+        "execution_id": "01a0dd28-65e8-762e-b90f-cb3cddee38a6"
+      }
+    },
+    {
+      "command_id": "01a0dd28-70d8-766f-b195-afb704239d4d",
+      "command_type": "workstream.create",
+      "status": "completed",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "workstream_id": "01a0dd28-70d8-750e-a680-bc6afbbfb324",
+      "execution_id": null,
+      "issued_at": "2026-09-26T10:00:10.200Z",
+      "updated_at": "2026-09-26T10:00:10.200Z",
+      "rejection": null,
+      "failure": null,
+      "result": {
+        "kind": "workstream_created",
+        "workstream_id": "01a0dd28-70d8-750e-a680-bc6afbbfb324"
+      }
+    },
+    {
+      "command_id": "01a0dd28-70d8-7670-8f74-ee037bf834fe",
+      "command_type": "execution.start",
+      "status": "completed",
+      "project_id": "01a0dd28-4900-770f-9d43-f18561ecbcf7",
+      "workstream_id": "01a0dd28-70d8-750e-a680-bc6afbbfb324",
+      "execution_id": "01a0dd28-70d8-7512-97ae-8964a989e2ca",
+      "issued_at": "2026-09-26T10:00:10.200Z",
+      "updated_at": "2026-09-26T10:00:10.200Z",
+      "rejection": null,
+      "failure": null,
+      "result": {
+        "kind": "execution_created",
+        "execution_id": "01a0dd28-70d8-7512-97ae-8964a989e2ca"
+      }
+    }
+  ],
+  "runtimes": [
+    {
+      "runtime_id": "mock",
+      "kind": "mock",
+      "display_name": "Mock runtime (development fixture)",
+      "synthetic": true,
+      "capabilities": {
+        "start_execution": true,
+        "instruct_at_rest": true,
+        "instruct_while_running": false,
+        "respond_to_approval": true,
+        "answer_question": true,
+        "interrupt": true
+      },
+      "model_choice": "none",
+      "uses_project_location": false,
+      "reports_tool_activity": true
+    }
+  ]
+}

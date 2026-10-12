@@ -22,9 +22,14 @@ the paired connection. Test a complete instruction review/send, stop, whole appr
 question prompt on synthetic work before attempting real tasks; host acceptance alone is not
 agent completion. Return selection restores only when Unity uses that same connection.
 
-Native agent text and drafts are protected from OS screenshots by `FLAG_SECURE`. Actual visual
-verification requires a deliberate synthetic development render; do not infer that a black
-screenshot means no window opened. Do not export a live panel's private text to obtain evidence.
+Native agent text and drafts are protected from OS screenshots by `FLAG_SECURE`. In a development
+APK, choose **Connection (development)** then **Preview synthetic panel (screenshots allowed)**.
+That offline preview uses the real native views with a fixed public mock Snapshot and sends no
+request. Capture the project/task header, instruction review, whole approval, every question
+prompt/answer review and Back/Workspace/Other apps controls there. Its fixture asset is excluded
+from release builds. Separately verify with the headset display that the real secure panel is
+visible and usable: a secure-off preview cannot establish that Horizon's production virtual
+display accepts `FLAG_SECURE`. Do not export a live panel's private text to obtain evidence.
 Native voice and capture/share attachments remain separate acceptance work; the panel grants no
 microphone or projection permission.
 

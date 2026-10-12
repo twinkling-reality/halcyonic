@@ -37,26 +37,6 @@ namespace Halcyonic.XR.Workspace
 #endif
         }
 
-        /// <summary>Consumes only an explicit native return, once. Outbound state is a different file.</summary>
-        public static bool TryTakePendingReturn(out string continuationJson)
-        {
-            continuationJson = "";
-#if UNITY_ANDROID && !UNITY_EDITOR
-            try
-            {
-                var activity = UnityEngine.Android.AndroidApplication.currentActivity;
-                using var bridge = new AndroidJavaClass("com.halcyonic.panel.PanelBridge");
-                var json = bridge.CallStatic<string>("takePendingReturn", activity);
-                if (!WorkspaceContinuity.TryParse(json, out _)) return false;
-                continuationJson = json;
-                return true;
-            }
-            catch (Exception) { return false; }
-#else
-            return false;
-#endif
-        }
-
         /// <summary>Preserves disk state through reconnect and process death until fresh validation.</summary>
         public static bool TryPeekPendingReturn(out string continuationJson)
         {

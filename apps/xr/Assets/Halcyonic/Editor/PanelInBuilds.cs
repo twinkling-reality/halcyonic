@@ -21,6 +21,16 @@ namespace Halcyonic.XR.Editor
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.Copy(source, target, overwrite: true);
             }
+            // Deliberate offline visual proof only. Remove a stale development asset before a
+            // release reuses this Gradle directory; the release activity also refuses preview.
+            var preview = Path.Combine(path, "src", "main", "assets", "halcyonic-native-panel-preview.json");
+            if (File.Exists(preview)) File.Delete(preview);
+            if (GlanceInDevelopmentBuilds.Include)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(preview)!);
+                var fixture = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "fixtures", "workspace", "native-panel.json"));
+                File.Copy(fixture, preview, overwrite: true);
+            }
         }
     }
 }

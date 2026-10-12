@@ -21,6 +21,7 @@ import java.util.UUID;
 final class PanelFiles {
     static final String PAIRING = "halcyonic-pairing.json";
     static final String STATE = "halcyonic-workspace-panel.json";
+    static final String INCOMING = "halcyonic-workspace-to-panel.json";
     static final String RETURN = "halcyonic-workspace-return.json";
     static final String MODE = "halcyonic-panel-mode.json";
     static final String DRAFTS = "halcyonic-workspace-drafts.json";
@@ -83,13 +84,6 @@ final class PanelFiles {
         finally { new File(temporary).delete(); }
     }
     void remove(String name) { synchronized (LOCK) { new File(directory, name).delete(); } }
-    String takeReturn() {
-        synchronized (LOCK) {
-            String json = peekReturn();
-            if (json == null) return null;
-            return acknowledgeReturn(PanelContinuation.parse(json).string("handoff_id")) ? json : null;
-        }
-    }
     String peekReturn() {
         synchronized (LOCK) {
             try { return PanelContinuation.parse(readLocked(RETURN, PanelContinuation.MAXIMUM_BYTES)).json(); }
@@ -97,9 +91,14 @@ final class PanelFiles {
         }
     }
     boolean acknowledgeReturn(String id) {
+        return acknowledge(RETURN, id);
+    }
+    boolean acknowledge(String name, String id) {
         synchronized (LOCK) {
-            String json = peekReturn();
-            return json != null && PanelContinuation.parse(json).string("handoff_id").equals(id) && new File(directory, RETURN).delete();
+            try {
+                String json = readLocked(name, PanelContinuation.MAXIMUM_BYTES);
+                return PanelContinuation.parse(json).string("handoff_id").equals(id) && new File(directory, name).delete();
+            } catch (Exception error) { return false; }
         }
     }
 }

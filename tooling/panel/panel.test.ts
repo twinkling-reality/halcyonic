@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { execFile, execFileSync, spawn } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createPlainServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,7 +13,11 @@ import { loopbackProof } from '../../apps/control-plane/src/http/security.ts';
 import { createNetworkIdentity } from '../../apps/control-plane/src/network/certificate.ts';
 import { credentialFromBytes } from '../../apps/control-plane/src/network/pairing-protocol.ts';
 import { startTestServer } from '../../apps/control-plane/src/testing/harness.ts';
-import { parseCommandEnvelope } from '../../packages/contracts/src/index.ts';
+import {
+  compileValidator,
+  parseCommandEnvelope,
+  Snapshot,
+} from '../../packages/contracts/src/index.ts';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const PANEL = join(ROOT, 'apps/xr/Android/panel');
@@ -32,6 +36,8 @@ const PLAIN = [
   'PanelText.java',
   'PanelDrafts.java',
   'PanelProof.java',
+  'PanelUiState.java',
+  'PanelRestore.java',
 ];
 const ANDROID_ONLY = ['PanelFiles.java', 'PanelBridge.java', 'AgentPanelActivity.java'];
 const classes = mkdtempSync(join(tmpdir(), 'halcyonic-panel-'));
@@ -223,6 +229,64 @@ describe('production native agent panel', () => {
   test('outside text renders invisibles literally without markup interpretation', () => {
     assert.equal(run('text', 'x\u202Ey <b>yes</b>'), 'x‹U+202E›y <b>yes</b>');
     assert.equal(run('text', 'lone \uD800'), 'lone ‹U+D800›');
+  });
+  test('actual Activity authority state refuses retarget, dismissed callbacks and multi-resume/focus revival', () => {
+    assert.equal(run('ui_state'), 'true');
+  });
+  test('failed pause saves retain volatile ordinary drafts and incoming context waits for its fresh projection', () => {
+    const paired = fixtures.identities[1];
+    assert.ok(paired);
+    const target = JSON.stringify({
+      host: paired.host,
+      port: paired.port,
+      certificate_sha256: paired.certificate_sha256,
+      device_id: paired.device_id,
+      credential: paired.credential,
+    });
+    const record = {
+      ...(fixtures.cases[0]?.value as Record<string, unknown>),
+      connection_key: paired.connection_key,
+    };
+    assert.equal(
+      run('restore_state', JSON.stringify(record), target, JSON.stringify(model())),
+      'true',
+    );
+  });
+  test('offline visual fixture conforms to Snapshot and contains only synthetic executions', () => {
+    const snapshot = compileValidator(Snapshot)(
+      JSON.parse(readFileSync(join(ROOT, 'fixtures/workspace/native-panel.json'), 'utf8')),
+    );
+    assert.equal(snapshot.ok, true);
+    if (!snapshot.ok) return;
+    assert.equal(snapshot.value.journal.origin, 'fixture');
+    assert.ok(snapshot.value.executions.length >= 3);
+    assert.ok(snapshot.value.executions.every((run) => run.runtime.synthetic));
+    assert.ok(snapshot.value.executions.some((run) => run.pending_approvals.length > 0));
+    assert.ok(snapshot.value.executions.some((run) => run.pending_questions.length > 0));
+  });
+  test('failed or malformed acknowledgements never fall through to acceptance', () => {
+    assert.match(run('status', JSON.stringify({ status: 'accepted', failure: null })), /accepted/);
+    assert.match(
+      run('status', JSON.stringify({ status: 'completed', failure: null })),
+      /confirmed/,
+    );
+    for (const command of [
+      { status: 'failed', failure: { effect: 'unknown' } },
+      { status: 'failed', failure: null },
+    ]) {
+      const text = run('status', JSON.stringify(command));
+      assert.match(text, /failed.*unknown/);
+      assert.doesNotMatch(text, /accepted|confirmed/);
+    }
+    assert.equal(
+      run('status', JSON.stringify({ status: 'failed', failure: { effect: 'none' } })),
+      'The request failed.',
+    );
+    for (const status of ['unexpected', null, 42])
+      assert.doesNotMatch(
+        run('status', JSON.stringify({ status, failure: null })),
+        /accepted|confirmed/,
+      );
   });
   test('native draft navigation retains separate tasks and earlier runs without implicit retargeting', () => {
     const first = fixtures.cases[0]?.value as Record<string, unknown>;
@@ -580,6 +644,59 @@ describe('production native agent panel', () => {
       }
     }
   });
+  test('total deadline interrupts a blocked write after real TLS authentication, reports unknown and never retries', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'halcyonic-panel-stalled-'));
+    const identity = createNetworkIdentity(new Date());
+    writeFileSync(join(directory, 'certificate.pem'), identity.certificate);
+    writeFileSync(join(directory, 'key.pem'), identity.key, { mode: 0o600 });
+    const script = `import socket,ssl,time,sys
+server=socket.socket()
+server.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,1024)
+server.bind(('127.0.0.1',0)); server.listen(1)
+print(server.getsockname()[1],flush=True)
+context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain(sys.argv[1],sys.argv[2])
+connection,_=server.accept()
+secure=context.wrap_socket(connection,server_side=True)
+head=b''
+while not head.endswith(b'\\r\\n\\r\\n'): head+=secure.recv(1)
+print('head',flush=True)
+time.sleep(25)
+`;
+    const peer = spawn(
+      'python3',
+      ['-u', '-c', script, join(directory, 'certificate.pem'), join(directory, 'key.pem')],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    let output = '';
+    peer.stdout.on('data', (bytes) => {
+      output += bytes.toString();
+    });
+    const port = await new Promise<number>((resolve, reject) => {
+      peer.stdout.once('data', (bytes) => resolve(Number(bytes.toString().trim())));
+      peer.once('error', reject);
+      peer.once('exit', (code) => reject(new Error(`stalled peer exited ${code}`)));
+    });
+    try {
+      assert.ok(Number.isInteger(port) && port > 0);
+      const start = Date.now();
+      const result = await runAsync(
+        'request_stall',
+        pairing(port, identity.certificateSha256),
+        'POST',
+        '/api/commands',
+        JSON.stringify({ text: 'x'.repeat(250000) }),
+      );
+      const elapsed = Date.now() - start;
+      assert.equal(result.code, 'request_timeout');
+      assert.equal(result.unknown, true);
+      assert.ok(elapsed >= 13000 && elapsed < 19000, `deadline ${elapsed}ms`);
+      assert.equal(output.split('head').length - 1, 1, 'one request, no retry');
+    } finally {
+      peer.kill('SIGTERM');
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
   test('snapshot, task events and commands work against the actual paired control plane; revocation applies', async () => {
     const server = await startTestServer({ network: {} });
     const feature = DEMO_WORKSTREAMS[0];
@@ -634,6 +751,96 @@ describe('production native agent panel', () => {
       assert.equal(server.devices.revoke(paired.deviceId, { kind: 'local' }), 'revoked');
       const revoked = await runAsync('request', target, 'GET', '/api/snapshot', 'null');
       assert.equal(revoked.status, 401);
+    } finally {
+      await server.stop();
+    }
+  });
+  test('all four native actions are accepted and runtime-confirmed through the actual paired producer', async () => {
+    const server = await startTestServer({ network: {} });
+    const feature = DEMO_WORKSTREAMS[0],
+      approving = DEMO_WORKSTREAMS[2];
+    assert.ok(feature && approving);
+    try {
+      assert.ok(server.network);
+      const paired = server.devices.pair(
+        'Synthetic native action test',
+        server.network.identity.certificateSha256,
+      );
+      const target = pairing(
+        server.network.target.port,
+        server.network.identity.certificateSha256,
+        credentialFromBytes(paired.credential),
+        paired.deviceId,
+      );
+      const project = server.controlPlane.commands.submit(
+        server.commands.createProject('Synthetic native actions'),
+        'internal',
+      );
+      assert.ok(project.command?.result?.kind === 'project_created');
+      const selectedProject = project.command.result.project_id;
+      const start = async (scenario: typeof feature) => {
+        const work = server.controlPlane.commands.submit(
+          server.commands.createWorkstream(selectedProject, scenario),
+          'internal',
+        );
+        assert.ok(work.command?.result?.kind === 'workstream_created');
+        server.controlPlane.commands.submit(
+          server.commands.startExecution(work.command.result.workstream_id, scenario),
+          'internal',
+        );
+        await server.time.runUntilIdle();
+        const execution = server.controlPlane.projection.workstream(
+          work.command.result.workstream_id,
+        )?.current_execution_id;
+        assert.ok(execution);
+        return execution;
+      };
+      const send = async (type: string, payload: unknown) => {
+        const envelope = JSON.parse(run('command', type, JSON.stringify(payload)));
+        const reply = await runAsync(
+          'request',
+          target,
+          'POST',
+          '/api/commands',
+          JSON.stringify(envelope),
+        );
+        assert.equal(reply.status, 202);
+        assert.equal(JSON.parse(reply.body as string).disposition, 'accepted');
+        await server.time.advance(0);
+        assert.equal(
+          server.controlPlane.projection.command(envelope.command_id)?.status,
+          'completed',
+          'runtime confirmed, not just HTTP accepted',
+        );
+      };
+      const execution = await start(feature);
+      await send('execution.send_instruction', {
+        execution_id: execution,
+        text: 'Synthetic explicit instruction',
+      });
+      await send('execution.interrupt', { execution_id: execution });
+      const permissionExecution = await start(approving);
+      const approval =
+        server.controlPlane.projection.execution(permissionExecution)?.pending_approvals[0];
+      assert.ok(approval);
+      await send('execution.respond_to_approval', {
+        execution_id: permissionExecution,
+        approval_id: approval.approval_id,
+        decision: 'deny',
+        message: null,
+      });
+      const questionExecution = await start({ ...feature, scenario: 'question_asked' });
+      const question =
+        server.controlPlane.projection.execution(questionExecution)?.pending_questions[0];
+      assert.ok(question);
+      await send('execution.answer_question', {
+        execution_id: questionExecution,
+        question_id: question.question_id,
+        answers: [
+          { key: 'q0', selected: ['Dark'], text: null },
+          { key: 'q1', selected: ['Orders', 'Settings'], text: null },
+        ],
+      });
     } finally {
       await server.stop();
     }
