@@ -237,3 +237,23 @@ projected and streamed exactly like live ones, and replaying twice changes nothi
 
 Traces are development fixtures. They must never contain credentials or private repository
 content.
+
+## General workspace request lifecycle
+
+`workspace.request.created`, `.changed` and `.step_recorded` are control-plane lifecycle facts
+recorded through `Recorder`. They retain the original principal and exact work tuple. Model replies
+remain explicitly `reported`; a `responded` request means the conversation settled, not that software
+work completed. Prepared mutation records admit only the supported send-instruction command and
+retain its immutable identity/payload before dispatch. Delivery status stays separate from the
+subsequent native turn outcome, which must be an observed lifecycle event the projection applied.
+Ignored stale-sequence or mismatched-turn journal rows are never outcome evidence.
+
+The original observation position/active turn remains immutable; a separate monotonic observation
+cursor makes bounded scans resumable. The latest 64 public receipts are bounded while prepared
+action identities remain discoverable through journal replay. A control-plane restart interrupts
+planning and requires explicit Resume with fresh original-principal/context checks; it never retries
+a pending or unknown mutation. Runtime work may continue independently.
+
+These event/command enum additions require regenerated consumers before updating the live host,
+as described in [REALTIME.md](REALTIME.md#workspace-request-upgrade-order). Existing journals with no
+request events replay unchanged; this does not make old clients accept new welcome catalogues.

@@ -22,6 +22,7 @@ import {
   UnderstandingResponse,
   type UnderstandingResult,
   UsageLimitsResponse,
+  WorkspaceRequestId,
   type WorkstreamsResponse,
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
@@ -32,12 +33,14 @@ import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import type { Transcriptions } from '../speech/transcriptions.ts';
+import type { WorkspaceRequests } from '../workspace-agent/requests.ts';
 import { errorBody } from './server.ts';
 
 const validateEventsQuery = compileValidator(EventsQuery);
 const validateProjectId = compileValidator(ProjectId);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
+const validateWorkspaceRequestId = compileValidator(WorkspaceRequestId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
 const validateEvaluationResponse = compileValidator(EvaluationResponse);
 const validateUsageLimitsResponse = compileValidator(UsageLimitsResponse);
@@ -59,6 +62,7 @@ export interface RouteSources {
   readonly transcriptions?: Transcriptions;
   /** Create's companion, shared by both listeners so its bounds hold across them; absent, it is off. */
   readonly companion?: Companion;
+  readonly workspaceRequests?: WorkspaceRequests;
 }
 
 /**
@@ -70,6 +74,36 @@ export function registerRoutes(
   controlPlane: ControlPlane,
   sources: RouteSources,
 ): void {
+  app.get(
+    '/api/workspace/agent',
+    async () =>
+      sources.workspaceRequests?.status() ?? {
+        availability: 'unavailable',
+        reason: {
+          code: 'coordinator_unavailable',
+          message: 'The workspace coordinator is not configured on this host.',
+        },
+      },
+  );
+  app.get('/api/workspace/requests/:request_id', async (request, reply) => {
+    const id = (request.params as Record<string, unknown>).request_id;
+    if (!validateWorkspaceRequestId(id).ok)
+      return reply
+        .code(400)
+        .send(errorBody('invalid_request', 'The request identifier is invalid.'));
+    const view = sources.workspaceRequests?.read(id as string, request.principal);
+    if (!view)
+      return reply
+        .code(404)
+        .send(
+          errorBody(
+            'request_not_found',
+            'This workspace request is unavailable for this principal.',
+          ),
+        );
+    return { request: view };
+  });
+
   app.get('/api/health', async (): Promise<HealthResponse> => ({ status: 'ok' }));
 
   app.get('/api/snapshot', async (): Promise<Snapshot> => controlPlane.snapshot());

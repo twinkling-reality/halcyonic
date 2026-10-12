@@ -38,6 +38,8 @@ import {
 import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
+import { OllamaWorkspaceModel } from './workspace-agent/ollama.ts';
+import { WorkspaceRequests } from './workspace-agent/requests.ts';
 
 async function main(): Promise<void> {
   // What `pnpm mac-setup` wrote fills in what the environment leaves unset (ADR 0024).
@@ -120,11 +122,21 @@ async function main(): Promise<void> {
   controlPlane.reconcile();
   const transcriptions = new Transcriptions({ engine: speech, clock: systemClock });
   const companion = new Companion({ config: config.companion, clock: systemClock });
+  const understanding = salidiumUnderstandingFor(config.dataDir),
+    evaluation = seorakEvaluationFor(config.dataDir);
+  const workspaceRequests = new WorkspaceRequests({
+    controlPlane,
+    ids,
+    model: new OllamaWorkspaceModel({ config: config.companion }),
+    understanding,
+    evaluation,
+  });
   const sources = {
-    understanding: salidiumUnderstandingFor(config.dataDir),
-    evaluation: seorakEvaluationFor(config.dataDir),
+    understanding,
+    evaluation,
     transcriptions,
     companion,
+    workspaceRequests,
   };
   const devices = new DeviceAccess({ controlPlane, ids, logger: app.log });
 
@@ -177,6 +189,7 @@ async function main(): Promise<void> {
   } catch (error) {
     await network?.server.close();
     await app.close();
+    workspaceRequests.close();
     await controlPlane.close();
     throw error;
   }
@@ -221,6 +234,7 @@ async function main(): Promise<void> {
     if (config.exitOnStdinEnd) process.stdin.destroy();
     await network?.server.close();
     await app.close();
+    workspaceRequests.close();
     await controlPlane.close();
   };
   const onSignal = (signal: NodeJS.Signals) => {

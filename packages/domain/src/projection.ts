@@ -132,6 +132,11 @@ export class Projection {
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
   readonly #devices = new DeviceRegistry();
+  readonly #turnStarts = new Map<string, number>();
+  readonly #turnObservations = new Map<
+    string,
+    { position: number; type: string; turnId: string | null; startPosition: number | null }[]
+  >();
   readonly #requests = new Map<
     string,
     {
@@ -143,7 +148,13 @@ export class Projection {
       >;
       bindings: Map<
         string,
-        { tool: string; command: CommandId | null; position: number; turn: string | null }
+        {
+          tool: string;
+          command: CommandId | null;
+          position: number;
+          turn: string | null;
+          active: boolean;
+        }
       >;
     }
   >();
@@ -169,7 +180,35 @@ export class Projection {
     this.#position = stored.position;
     const changes = new ChangeSet();
     const notes: ProjectionNote[] = [];
+    const hadActive = Boolean(
+      this.#executions.get(stored.event.execution_id as ExecutionId)?.activeTurn,
+    );
     this.#dispatch(stored.event, changes, notes);
+    const event = stored.event;
+    if (
+      notes.length === 0 &&
+      event.provenance.epistemic === 'observed' &&
+      (event.event_type === 'runtime.turn.started' ||
+        event.event_type === 'runtime.turn.completed' ||
+        event.event_type === 'runtime.turn.failed' ||
+        event.event_type === 'runtime.turn.interrupted')
+    ) {
+      if (event.event_type === 'runtime.turn.started')
+        this.#turnStarts.set(event.execution_id, stored.position);
+      const list = this.#turnObservations.get(event.execution_id) ?? [];
+      list.push({
+        position: stored.position,
+        type: event.event_type,
+        turnId: event.payload.turn_id,
+        startPosition:
+          event.event_type === 'runtime.turn.started'
+            ? stored.position
+            : hadActive
+              ? (this.#turnStarts.get(event.execution_id) ?? null)
+              : null,
+      });
+      this.#turnObservations.set(event.execution_id, list);
+    }
     return { changes: this.#materialize(changes), notes };
   }
 
@@ -215,6 +254,30 @@ export class Projection {
   ): { command: CommandOf<'execution.send_instruction'>; step: WorkspaceRequestStep }[] {
     return [...(this.#requests.get(id)?.prepared.values() ?? [])].map((value) =>
       structuredClone(value),
+    );
+  }
+
+  /** Only lifecycle observations the projection actually applied; ignored journal events are not outcome evidence. */
+  executionTurnObservations(
+    id: string,
+    after: number,
+    limit: number,
+  ): { position: number; type: string; turnId: string | null; startPosition: number | null }[] {
+    return (this.#turnObservations.get(id) ?? [])
+      .filter((value) => value.position > after)
+      .slice(0, limit)
+      .map((value) => ({ ...value }));
+  }
+
+  /** Completed Resume commands are durable human direction, not fabricated model replies. */
+  workspaceRequestDirections(id: string): string[] {
+    return [...this.#commands.values()].flatMap((value) =>
+      value.status === 'completed' &&
+      value.envelope.command_type === 'workspace.request.resume' &&
+      value.envelope.payload.request_id === id &&
+      value.envelope.payload.text !== null
+        ? [value.envelope.payload.text]
+        : [],
     );
   }
 
@@ -295,6 +358,10 @@ export class Projection {
         }
         const execution = this.#executions.get(view.execution_id);
         if (
+          view.steps.length !== 0 ||
+          view.earlier_steps !== 0 ||
+          view.status !== 'running' ||
+          view.reply !== null ||
           execution?.projectId !== view.project_id ||
           execution?.workstreamId !== view.workstream_id ||
           view.project_id !== event.project_id ||
@@ -346,7 +413,11 @@ export class Projection {
               (binding.tool !== step.tool_name ||
                 binding.command !== step.command_id ||
                 binding.position !== step.observation_position ||
-                binding.turn !== step.active_turn_id)) ||
+                binding.turn !== step.active_turn_id ||
+                binding.active !== step.had_active_turn)) ||
+            step.observation_after <
+              (retained?.step.observation_after ?? step.observation_position) ||
+            step.observation_after > this.#position ||
             (command && retained && JSON.stringify(retained.command) !== JSON.stringify(command)) ||
             (step.command_id !== null && !command && !retained) ||
             (command &&
@@ -363,6 +434,7 @@ export class Projection {
             command: step.command_id,
             position: step.observation_position,
             turn: step.active_turn_id,
+            active: step.had_active_turn,
           });
           const at = request.view.steps.findIndex((previous) => previous.step_id === step.step_id);
           if (at < 0 && request.view.steps.length >= 64) {

@@ -54,6 +54,9 @@ export const WorkspaceRequestStep = Type.Object(
     command_status: Nullable(CommandStatus),
     observation_position: Position,
     active_turn_id: Nullable(NativeId),
+    had_active_turn: Type.Boolean(),
+    observation_after: Position,
+    observed_turn_id: Nullable(NativeId),
     runtime_status: Nullable(ExecutionStatus),
     /** Host-authored receipt/availability only; model text belongs in reported reply. */
     summary: Text(2000),

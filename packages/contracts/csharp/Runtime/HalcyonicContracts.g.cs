@@ -1545,6 +1545,15 @@ namespace Halcyonic.Contracts
         [JsonProperty("active_turn_id", Required = Required.AllowNull)]
         public string? ActiveTurnId { get; set; }
 
+        [JsonProperty("had_active_turn", Required = Required.Always)]
+        public bool HadActiveTurn { get; set; }
+
+        [JsonProperty("observation_after", Required = Required.Always)]
+        public long ObservationAfter { get; set; }
+
+        [JsonProperty("observed_turn_id", Required = Required.AllowNull)]
+        public string? ObservedTurnId { get; set; }
+
         [JsonProperty("runtime_status", Required = Required.AllowNull)]
         public ExecutionStatus? RuntimeStatus { get; set; }
 
