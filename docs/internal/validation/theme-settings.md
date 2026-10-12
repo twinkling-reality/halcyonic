@@ -119,7 +119,11 @@ a fresh actual Unity pass and screenshot review; passing engine-free tests does 
 
 A source mutation check remains pending: temporarily make each cached component's
 `RefreshPalette` return without updating, run the exact same seeded fixture and require its
-cached-versus-fresh exact RGB guard to fail for changed neutral plates. Restore the mutation
+cached-versus-fresh exact RGB guard to fail for changed neutral plates. The bounded
+`WorkspaceRender.AppearanceCacheCheck` entrypoint invokes these same unchanged witnesses at both
+sizes and presets, with the same mutable-state restoration, without unrelated composition galleries.
+Neutral refresh mutations apply individually to label, peek and banner. The preserved state/practice
+colours have no neutral pixel-change claim; their seeded invariance is checked separately. Restore the mutation
 before any candidate run. No palette values or general render tolerances are loosened.
 
 The hidden-side regression uses real SettingsHub/SettingsColumn Forget details and confirmation,
