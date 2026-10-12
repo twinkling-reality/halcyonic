@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Halcyonic.Client.Tests;
 
-/// <summary>The first question's plate, until the computer's first task (ADR 0026).</summary>
+/// <summary>The retained legacy project-choice column; production entry uses normal Projects navigation.</summary>
 [TestFixture]
 public class FirstQuestionTests
 {
@@ -19,10 +19,10 @@ public class FirstQuestionTests
     private static FakeMenuHost Host(bool voice = true) => new() { VoiceOffered = voice };
 
     [Test]
-    public void ItAsksWhatYouWouldLikeToWorkOnWithSomethingNewChosenAndHoldToTalkBesideStartAProject()
+    public void ItNamesProjectsWithSomethingNewChosenAndHoldToTalkBesideStartAProject()
     {
         var frame = FirstQuestionScreens.Question(FirstAnswer.SomethingNew, voice: true, said: null);
-        Assert.That(frame.Subject, Is.EqualTo("What would you like to work on?"));
+        Assert.That(frame.Subject, Is.EqualTo("Projects"));
         Assert.That(frame.Sections, Is.Empty, "the navigator gives the row of places");
         Assert.That(frame.Lines.Select(line => (line.Words, line.Chosen, line.Opens, line.Choice)), Is.EqualTo(new[]
         {
@@ -40,6 +40,7 @@ public class FirstQuestionTests
     public void ChoosingAProjectOnYourComputerSetsShowMyProjectsAndTakesHoldToTalkAway()
     {
         var frame = FirstQuestionScreens.Question(FirstAnswer.OnYourComputer, voice: true, said: null);
+        Assert.That(frame.Subject, Is.EqualTo("Projects"), "choosing a row retains the concrete project context");
         Assert.That(frame.Lines.Single(line => line.Chosen).Words, Is.EqualTo("A project on your computer"));
         Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "gone, not drawn quiet");
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Show my projects"));
