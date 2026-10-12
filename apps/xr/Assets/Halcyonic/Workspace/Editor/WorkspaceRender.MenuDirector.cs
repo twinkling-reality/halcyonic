@@ -6,12 +6,45 @@ using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>Diagnostic director-only gate; the full workspace gate retains these same cases and guards.</summary>
+        public static void DirectorCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", "Builds", "DirectorRenders", variant));
+                System.IO.Directory.CreateDirectory(folder);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                ViewField.Current = FieldChecks.Quest3S;
+                var found = new List<string>();
+                keptOffsetAtLarger = 0;
+                try
+                {
+                    foreach (var entry in new[] { (Name: "far-3s-director", Radius: CharacterStage.DefaultDistance, Drop: (float?)null, Window: false),
+                        (Name: "desk-3s-director", Radius: 0.55f, Drop: (float?)0.46f, Window: false),
+                        (Name: "window-3s-director", Radius: CharacterStage.DefaultDistance, Drop: (float?)null, Window: true) })
+                    {
+                        try { found.AddRange(RenderMenuDirector(entry.Name, folder, entry.Radius, entry.Drop, entry.Window)); }
+                        catch (Exception error) { found.Add(entry.Name + ": " + error); }
+                    }
+                    if (keptOffsetAtLarger == 0)
+                        found.Add("no director render exercised a nonzero retained hand offset at Larger; passive position retention goes unchecked.");
+                }
+                finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                foreach (var failure in found) Debug.LogError("Halcyonic: director render: " + failure);
+                if (found.Count == 0) Debug.Log("Halcyonic: director render: every check passed; " + folder);
+                return found;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         /// <summary>
         /// How many real hand offsets survived measured Larger repacking without passive movement.
         /// At least one nonzero offset must be exercised; whole-footprint checks still apply.
