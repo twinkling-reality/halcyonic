@@ -2597,7 +2597,8 @@ paired ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
 The Unity menu director exposes the navigator's manual Compact and Expand lifecycle. The primary
 subject's Move and Compact targets are separate from task words and the decision footer. A compact
 bar has separate Move and Expand targets and retains task/place identity, truthful task state and
-waiting count. Its whole surface has no Open target. Opening the matching retained character calls
+waiting count. Its task state reuses StateBadgeView with the same badge word/icon/tone; the separate
+waiting count uses the waiting tone without changing that task's state. Its whole surface has no Open target. Opening the matching retained character calls
 TryExpandTask before the file factory, so unrelated waiting work cannot replace the kept file.
 
 OrganizationControlsView measures the actual production prompt font and geometry. The primary title
@@ -2610,7 +2611,8 @@ title available without shrinking or silently clipping Halcyonic's own words.
 Move's short press opens PlacementColumn as a local presentation overlay, preserving the underlying
 navigator. An expanded composition is suspended through Compact/Expand first to revoke callbacks,
 confirmation and old drawn authority; a compact composition stays compact underneath. Closing the
-placement overlay restores its previous presentation state. Choosing an arrangement only selects;
+placement overlay restores its previous presentation state. Compact always redraws after removing
+an overlay, including when the underlying composition was already compact or initially closed. Choosing an arrangement only selects;
 Apply calls the room's explicit ChooseArrangement route, and Reset position uses the existing reset.
 The window arrangement explains its drag constraint and offers actual placement choices. A session
 or journal change clears the overlay. No organization operation emits a runtime command.
@@ -2618,7 +2620,9 @@ or journal change clears the overlay. No organization operation emits a runtime 
 Expanded drag and organization targets require the current navigator Standing frame or side panel
 that was drawn, visible, settled, not sliding, with focus and no pending redraw. PlacementColumn
 requires its exact current frame to draw before any action. Focus revokes its selection/action proof; local changes revoke action proof.
-Placement paging preserves the named chosen-value summary until a different option is selected. Organization bindings revoke pending holds on frame, side or compact identity changes; a hold
+Placement paging preserves the named chosen-value summary until a different option is selected. Organization bindings use the retained composition's stable identity, so formatting fresh words or
+redrawing unchanged compact content does not cancel a hold. They revoke pending holds on frame,
+side or actual compact composition changes; a hold
 retains its originating frame/side/compact composition before maturity. Moving invalidates old
 geometry authorization; resumed task content obtains
 fresh exact-frame draw proof through the existing navigator and file lifecycle.

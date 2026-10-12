@@ -183,9 +183,11 @@ namespace Halcyonic.XR.Workspace
         {
             if (Away) return false;
             EndDrag();
+            var closedPlacement = placement != null;
             placement = null;
             placementFrame = null;
-            return navigator.Compact();
+            if (closedPlacement) { navigator.Moved(); dirty = true; }
+            return navigator.Compact() || closedPlacement;
         }
         public bool Expand() => !Away && navigator.Expand();
 
@@ -340,6 +342,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>For the editor's renders: the subject's hold matures at <paramref name="point"/>, after a press made earlier.</summary>
         public void MatureHoldForRender(Vector3 point) => OnSubjectHeld(MenuColumn.File, plane.Showing(MenuColumn.File), point);
 
+        /// <summary>For renders: a Move hold originating on the compact bar matures.</summary>
+        public void MatureCompactMoveForRender(Vector3 point) => OnSubjectHeld(MenuColumn.Menu, null, point);
+
         /// <summary>For the editor's renders: a press on the plane, through the director's own handler; true when a column took it.</summary>
         public bool PressForRender(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side) => OnActed(from, action, key, frame, side);
 
@@ -471,7 +476,9 @@ namespace Halcyonic.XR.Workspace
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             drawnVoice = Voiced();
             plane.Voice = drawnVoice;
-            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null);
+            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
+                navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,
+                navigator.IsCompact ? (object?)navigator.Beside ?? navigator.Shown ?? (object)navigator : null);
             // Only as much of a drag as still holds for what is laid now; none, and Settings says so.
             moved = plane.Moved;
         }
@@ -562,12 +569,10 @@ namespace Halcyonic.XR.Workspace
             return LineWords.Ours(navigator.Beside != null ? ProjectsText.NewProject : MenuBar.Word(navigator.Place));
         }
 
-        private string? CompactState()
+        private StateBadge? CompactState()
         {
             if (navigator.BesideTask is not string task || State?.Workstreams.TryGetValue(task, out var work) != true) return null;
-            var state = StateLanguage.BadgeOf(CharacterPresenter.Present(work, State, Connected)).Word;
-            var waiting = State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired);
-            return waiting > 0 ? state + " · " + waiting + " waiting" : state;
+            return StateLanguage.BadgeOf(CharacterPresenter.Present(work, State, Connected));
         }
 
         private bool OrganizationStanding(MenuColumn from, MenuFrame? frame, SidePanel? side)
