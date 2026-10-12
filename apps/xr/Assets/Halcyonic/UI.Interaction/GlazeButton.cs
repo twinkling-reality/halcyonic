@@ -523,7 +523,7 @@ namespace Halcyonic.XR.UI
         public void MatureHoldForRender()
         {
             if (pressedAt < 0f) return;
-            pressedAt = Time.unscaledTime - HoldSeconds;
+            pressedAt = Time.unscaledTime - HoldSeconds - 0.01f;
             Update();
         }
 

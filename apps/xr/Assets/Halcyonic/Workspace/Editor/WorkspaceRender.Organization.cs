@@ -114,6 +114,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     { failures.Add(name + ": preset witness has no offered control " + action); return false; }
                     var accepted = director.Navigator.Act(MenuColumn.File, action, key, frame, null);
                     director.DrawNow();
+                    if (!accepted) failures.Add(name + ": offered preset control refused its press " + action);
                     return accepted;
                 }
                 director.OpenFile(work.Workstream.WorkstreamId);
@@ -124,20 +125,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 var chosen = file.Frame.Lines.First(line => line.Action == FileScreens.Preset);
                 Press(FileScreens.Preset, chosen.Key);
                 var candidate = file.Screen.PresetToSend;
+                var seenChoices = new HashSet<string>();
+                var seenPages = new HashSet<int>();
                 for (var part = 0; part < file.Screen.PresetPages; part++)
                 {
+                    seenPages.Add(file.Screen.PresetPage);
+                    foreach (var line in file.Frame!.Lines.Where(line => line.Action == FileScreens.Preset)) seenChoices.Add(line.Key!);
                     Capture("choices " + (file.Screen.PresetPage + 1));
                     Press(FileScreens.NextPresetPage);
                     if (file.Screen.PresetToSend != candidate) failures.Add(name + ": browsing preset choices discarded the exact candidate");
                 }
+                if (seenChoices.Count != choices.Length || seenPages.Count != file.Screen.PresetPages)
+                    failures.Add(name + ": the offered preset pager did not visit every actual choice and page");
                 file.Said(string.Join(" ", Enumerable.Range(0, 30).Select(index => "Nothing was sent because condition " + index + " could not be accepted.")));
                 Capture("full notice");
                 if (!file.Screen.ShowingPresetNotice) failures.Add(name + ": long preset notice had no full explanation route");
+                var seenNoticeParts = new HashSet<int> { file.Screen.PresetNoticePart };
                 for (var part = 1; part < file.Screen.PresetNoticeParts; part++)
                 {
                     Press(FileScreens.NextPresetNotice);
+                    seenNoticeParts.Add(file.Screen.PresetNoticePart);
                     Capture("notice " + (file.Screen.PresetNoticePart + 1));
                 }
+                if (seenNoticeParts.Count != file.Screen.PresetNoticeParts) failures.Add(name + ": the notice pager did not visit every full explanation part");
                 Press(FileScreens.BackPresetNotice);
                 Capture("choices after notice");
                 if (file.Screen.PresetToSend != candidate || file.Screen.Notice != null) failures.Add(name + ": notice acknowledgement lost the preset candidate or notice truth");
