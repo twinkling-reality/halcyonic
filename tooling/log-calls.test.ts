@@ -147,11 +147,6 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/xr/Assets/Halcyonic/Room/RoomPlacement.cs',
-      args: '"" + read.Scan + "" + read.Detail',
-      why: "the room scan's state and its fixed detail words",
-    },
-    {
-      file: 'apps/xr/Assets/Halcyonic/Room/RoomPlacement.cs',
       args: '"" + detail',
       why: "fixed words about the room's anchor, from RoomPlacement itself",
     },
