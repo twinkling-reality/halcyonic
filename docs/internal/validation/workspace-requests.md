@@ -217,8 +217,8 @@ page cursor. After the structured-context correction, the second run dispatched 
 observed its real runtime completion, and produced exactly the expected file with no extra files.
 It nevertheless failed the full witness: after eight model turns and nine calls, the coordinator
 interrupted instead of returning a final reported reply, repeating unavailable optional provider
-reads. Elapsed time was 34.102 seconds. The file/action result is verified; dependable autonomous
-continuation and final response are not yet established. This remains a concrete open failure,
+reads. Elapsed time was 34.102 seconds. The file/action result is verified; that run did not
+establish autonomous continuation and a final response. It remains a recorded failure,
 not evidence for a completed end-to-end feature.
 
 After the request entry was integrated, the actual Unity DedicatedWorkspaceCheck passed its
@@ -227,11 +227,6 @@ visibility, field-of-view and coplanarity guards unchanged. Thirty-four current-
 were retained; visual inspection confirmed the Larger task view exposes Ask workspace without
 clipping its existing controls. This verifies the entry in its actual menu, not the request form,
 headset legibility or wearer acceptance, which require separate checks.
-The recovery delta passed 119 focused host/domain/contract/native checks, one real paired-device
-TLS ownership/revocation test and 19 C# codec/API checks, with zero skipped. Typecheck, contract
-generation and scoped lint passed. Independent source review found no remaining authority,
-replay or schema issue in this delta. Actual UI submission/return and headset acceptance remain
-pending.
 
 ## Context after a runtime wait
 
@@ -283,3 +278,23 @@ context before checking its refusal. Remaining calls now receive truthful `execu
 results without being dispatched or replayed. Resume clears transient context only after its
 busy/stopped checks pass. Twenty-nine focused request checks, typecheck and scoped lint passed;
 this follow-up does not claim a new actual model/runtime witness.
+
+## Repeated real model and runtime witness after context repair
+
+The same isolated witness passed against the reviewed coordinator at `c2c64d92`. Local
+`qwen3.5:9b` used three model turns and two tool calls, delivered one confirmed action, observed
+the real OpenCode execution complete, and returned a reported reply. Independent comparison
+verified the exact requested file bytes and that no extra files appeared. Elapsed time was
+20.807 seconds. The model was explicitly selected for this probe; this does not establish the
+owner's live model configuration. No hosted call, live workspace edit or host/settings change
+was made. The prior two failures above remain part of the evidence.
+
+This proves one actual model-to-runtime-to-result exchange using the general tool loop. It does
+not establish reliability across arbitrary tasks, native or XR input, process recreation,
+headset voice, or wearer acceptance. The integrated deterministic request/domain/identity checks
+also passed 35/35 with zero skipped, and TypeScript type checking passed.
+
+The actual Unity RequestCheck at the same checkpoint passed Standard and Larger text sizes,
+producing twenty captures of the actual request column and director flow. Visual inspection
+identified that the request form did not visibly name its bound task. That presentation follow-up
+requires a new render; geometric passage alone is not usability acceptance.
