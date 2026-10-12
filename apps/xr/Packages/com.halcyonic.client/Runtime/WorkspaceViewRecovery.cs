@@ -17,6 +17,10 @@ namespace Halcyonic.Client
         public bool Available { get; }
         public IReadOnlyList<WorkspaceContinuation> Views => store.Views;
         public string? Selected => store.Selected;
+        public bool IsSaved(WorkspaceContinuation record) => Available && store.Views.Any(view =>
+            view.HandoffId == record.HandoffId && SameContext(view, record) && view.Section == record.Section && view.Page == record.Page
+            && (view.Instruction == null && record.Instruction == null || view.Instruction != null && record.Instruction != null
+                && view.Instruction.Text == record.Instruction.Text && view.Instruction.Spoken == record.Instruction.Spoken && view.Instruction.Part == record.Instruction.Part));
         public WorkspaceViewRecovery(Func<(bool Succeeded, string? Json)> read, Func<string, bool> write)
         {
             this.write = write;

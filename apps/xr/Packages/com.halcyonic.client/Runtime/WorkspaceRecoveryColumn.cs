@@ -18,6 +18,7 @@ namespace Halcyonic.Client
         private readonly Func<WorkspaceContinuation, bool> restore;
         private readonly Func<WorkspaceContinuation, bool>? keepReturn;
         private readonly string? pendingReturnId;
+        private readonly Func<WorkspaceContinuation, bool>? saved;
         private int selected = -1;
         private int part;
         private MenuFrame? given;
@@ -25,8 +26,8 @@ namespace Halcyonic.Client
         private DateTimeOffset? drawnAt;
         public WorkspaceRecoveryColumn(IMenuHost host, IReadOnlyList<WorkspaceContinuation> records,
             Func<WorkspaceContinuation, bool> current, Func<WorkspaceContinuation, bool> restore,
-            Func<WorkspaceContinuation, bool>? keepReturn = null, string? pendingReturnId = null)
-        { this.host = host; this.records = records; this.current = current; this.restore = restore; this.keepReturn = keepReturn; this.pendingReturnId = pendingReturnId; }
+            Func<WorkspaceContinuation, bool>? keepReturn = null, string? pendingReturnId = null, Func<WorkspaceContinuation, bool>? saved = null)
+        { this.host = host; this.records = records; this.current = current; this.restore = restore; this.keepReturn = keepReturn; this.pendingReturnId = pendingReturnId; this.saved = saved; }
         public event Action? Changed;
         public event Action? Closed;
         public MenuFrame? Frame
@@ -45,14 +46,16 @@ namespace Halcyonic.Client
                         var title = record.WorkstreamId != null && host.State?.Workstreams.TryGetValue(record.WorkstreamId, out var task) == true
                             ? LineWords.TheirName(task.Title) : LineWords.Ours("Saved task view");
                         lines.Add(new PageLine(title, icon: GlazeIcon.Next, action: OpenDraft, key: part.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-                        lines.Add(new PageLine(record.Instruction == null ? "View only" : "Ordinary instruction draft", tone: LineTone.Secondary));
+                        lines.Add(new PageLine((record.Instruction == null ? "View only" : "Instruction draft")
+                            + (saved?.Invoke(record) == false ? " · Not saved" : ""), tone: LineTone.Secondary));
                     }
                     return given = new MenuFrame("Saved drafts", new Footer(close, farRight: records.Count > 1
                         ? new Prompt(Footer.NextPage, Footer.NextPageWords(part, records.Count), GlazeIcon.Next, PromptKind.NextPage) : null), lines: lines).Focus();
                 }
                 var chosen = records[selected];
                 var words = chosen.Instruction?.Text ?? "This saved view contains no instruction draft.";
-                var runs = LineWords.Ours(current(chosen) ? "Current task and run. " : "Earlier or unavailable task and run. ").Then(LineWords.Theirs(words));
+                var runs = LineWords.Ours((current(chosen) ? "Current task and run. " : "Earlier or unavailable task and run. ")
+                    + (saved?.Invoke(chosen) == false ? "Not saved. " : "")).Then(LineWords.Theirs(words));
                 var rows = Math.Max(1, host.RowsOf(new PageLine(runs, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
                 var room = Math.Max(1, (int)Math.Floor(host.PageHeight(host.TitleRows("Saved instruction", Glaze.Menu.FileColumnDegrees), false, focused: true) / MenuPage.Words(1)));
                 var parts = Math.Max(1, (rows + room - 1) / room);

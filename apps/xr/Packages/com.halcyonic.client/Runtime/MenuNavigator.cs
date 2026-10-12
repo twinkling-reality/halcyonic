@@ -306,6 +306,21 @@ namespace Halcyonic.Client
             Raise();
         }
 
+        /// <summary>Background recovery retains selection behind the person's latest Minimize; only an explicit restore reopens it.</summary>
+        public void RecoverBeside(IMenuColumn column, string? task, WorkspacePresentationState presentation, bool reopen = false)
+        {
+            ShowBeside(column, task);
+            if (!presentation.Minimized) return;
+            if (reopen) presentation.Restore(); else Compact();
+        }
+
+        public void RecoverMenu(MenuPlace place, WorkspacePresentationState presentation, bool reopen = false)
+        {
+            OpenMenu(place);
+            if (!presentation.Minimized) return;
+            if (reopen) presentation.Restore(); else Compact();
+        }
+
         /// <summary>Takes the column beside the menu off the plane, as its Close does.</summary>
         public void CloseBeside()
         {

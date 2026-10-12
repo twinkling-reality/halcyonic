@@ -2784,8 +2784,9 @@ The selected-view continuation exports only an ordinary instruction draft's text
 flag and editor part, together with selection, section and page. Import checks the exact current
 task/execution and restores no keyboard focus, ordered read prefix or armed action. Spoken origin
 continues to require the normal reviewed confirmation. A stale execution cannot receive the draft.
-Other retained task views are currently session memory only: v1 selected-view transport is not
-proof that every open draft survives OS process recreation. Approval/question answers are never
+Other retained task views use the separate strict durable view store below. The selected-view v1
+transport alone does not establish recovery of every open draft after OS process recreation; actual
+multi-view device recovery still requires its own verification. Approval/question answers are never
 exported. Focus loss closes terminal local shelf overlays through their normal cancellation route.
 
 
@@ -2816,3 +2817,13 @@ and Keep draft before it can be acknowledged, and creates no runtime action auth
 Engine-free private-file/recovery tests establish ordering, bounds and preservation in temporary
 storage. Actual Android JNI, OS reclamation/recreation, multi-view recovery on device and the full
 return experience require headset verification; source tests do not establish those outcomes.
+
+
+`WorkspaceViewBindings` is the menu's consumed ordinary-view capture path. It preserves the latest
+leaving execution's draft in memory before attempting storage, including a failed or full store.
+An execution change retires that snapshot under its original identity and creates a distinct binding
+for the new execution; new ordinary words never overwrite or retarget the earlier run's draft.
+Saved drafts merges these unsaved snapshots with durable records for explicit inspection. Successful
+storage later commits both. Background snapshot/native-return recovery retains selection behind the
+person's latest global Minimize; only Open workspace or an explicit Restore view reopens it. These
+transitions retain no keyboard, ordered reading, armed decision or command authority.

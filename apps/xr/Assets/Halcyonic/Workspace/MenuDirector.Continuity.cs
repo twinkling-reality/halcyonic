@@ -11,7 +11,7 @@ namespace Halcyonic.XR.Workspace
     public sealed partial class MenuDirector
     {
         private WorkspaceViewRecovery? recovery;
-        private readonly Dictionary<FileColumn, WorkspaceContinuation> viewBindings = new Dictionary<FileColumn, WorkspaceContinuation>();
+        private WorkspaceViewBindings viewBindings = null!;
         private string? recoveredScope;
         private WorkspaceContinuation? pendingReturn;
         private string? pendingReturnJson;
@@ -22,7 +22,7 @@ namespace Halcyonic.XR.Workspace
         private bool viewsDirty;
         private bool renewingViews;
         private bool storageFailed;
-        private int SavedViewCount => (recovery?.Views.Count ?? 0) + (pendingReturn == null ? 0 : 1);
+        private int SavedViewCount => (recovery?.Views.Count ?? 0) + viewBindings.Count + (pendingReturn == null ? 0 : 1);
         private bool CurrentSnapshot => !Demonstration && Connected && setup.Session() is RealtimeSession session
             && session.SnapshotCurrent && ReferenceEquals(State, session.State);
 
@@ -55,17 +55,8 @@ namespace Halcyonic.XR.Workspace
             if (column is not FileColumn file || viewBindings.ContainsKey(file)) return;
             var record = origin ?? RecordFor(file);
             if (record == null) return;
-            viewBindings.Add(file, record);
+            viewBindings.Bind(file, record);
             viewsDirty = true;
-            file.Changed += ViewsChanged;
-            file.OrdinaryDraftLeaving += (execution, draft) =>
-            {
-                if (!viewBindings.TryGetValue(file, out var bound) || bound.ExecutionId != execution || recovery == null) return;
-                var preserved = Copy(bound);
-                preserved.Instruction = draft;
-                if (recovery.Keep(new[] { preserved }, recovery.Selected)) viewBindings[file] = preserved;
-                else storageFailed = true;
-            };
         }
 
         private WorkspaceContinuation? RecordFor(FileColumn? file)
@@ -92,16 +83,7 @@ namespace Halcyonic.XR.Workspace
             return copy;
         }
 
-        private WorkspaceContinuation Captured(FileColumn file, WorkspaceContinuation origin)
-        {
-            var record = Copy(origin);
-            // An old ordinary draft stays bound to its original run, even after that run disappears.
-            if (file.Now?.Execution?.ExecutionId != origin.ExecutionId) return record;
-            record.Section = (WorkspaceSection)file.Screen.Section;
-            record.Page = file.Screen.Page;
-            record.Instruction = file.ContinuationDraft();
-            return record;
-        }
+        private WorkspaceContinuation Captured(FileColumn file, WorkspaceContinuation origin) => viewBindings.Captured(file) ?? origin;
 
         private void ViewsChanged() { viewsDirty = true; KeepViews(); }
 
@@ -112,10 +94,9 @@ namespace Halcyonic.XR.Workspace
             try
             {
                 foreach (var column in memory.Files.Values.ToList()) BindView(column);
-                var records = viewBindings.Select(pair => Captured(pair.Key, pair.Value)).ToList();
+                var records = viewBindings.Capture();
                 var selected = navigator.Beside is FileColumn file && viewBindings.TryGetValue(file, out var origin) ? origin.HandoffId : recoveredScope == null ? recovery.Selected : null;
                 if (!recovery.Keep(records, selected)) { storageFailed = true; return; }
-                foreach (var pair in viewBindings.ToList()) viewBindings[pair.Key] = records.First(record => record.HandoffId == pair.Value.HandoffId);
                 storageFailed = false;
                 viewsDirty = false;
             }
@@ -125,29 +106,29 @@ namespace Halcyonic.XR.Workspace
         private void ViewDropped(IMenuColumn column)
         {
             if (column is not FileColumn file || !viewBindings.TryGetValue(file, out var origin)) return;
-            file.Changed -= ViewsChanged;
-            viewBindings.Remove(file);
+            var discard = !renewingViews && CurrentSnapshot && TryKey(out var key) && State?.Journal != null
+                && origin.ConnectionKey == key && origin.JournalId == State.Journal.JournalId && origin.WorkstreamId != null
+                && State.Workstreams.TryGetValue(origin.WorkstreamId, out var work) && work.ProjectId == origin.ProjectId
+                && work.CurrentExecutionId == origin.ExecutionId;
+            viewBindings.Drop(file, preserve: !discard);
             viewsDirty = true;
             // A deliberate Close in the same current context discards its view. Renewal retains recovery data.
-            if (!renewingViews && recovery != null && CurrentSnapshot && TryKey(out var key) && State != null
-                && WorkspaceContinuity.MatchesCurrent(origin, key, State))
-                storageFailed = !recovery.Forget(origin.HandoffId);
+            if (discard && recovery != null) storageFailed = !recovery.Forget(origin.HandoffId);
         }
 
         private bool IsCurrent(WorkspaceContinuation record) => CurrentSnapshot && TryKey(out var key)
             && State != null && WorkspaceContinuity.MatchesCurrent(record, key, State);
 
-        private bool RestoreView(WorkspaceContinuation record, bool select)
+        private bool RestoreView(WorkspaceContinuation record, bool select, bool reopen = false)
         {
             if (!IsCurrent(record)) return false;
-            if (record.WorkstreamId == null) { if (select) Open(MenuPlace.Projects); return true; }
+            if (record.WorkstreamId == null) { if (select) navigator.RecoverMenu(MenuPlace.Projects, setup.Presentation, reopen); return true; }
             var column = memory.FileFor(record.JournalId, record.WorkstreamId, () => setup.File(Bound(), record.WorkstreamId));
             if (column is not FileColumn file || !file.RestoreContinuation(record)) return false;
-            if (viewBindings.ContainsKey(file)) viewBindings[file] = Copy(record); else BindView(file, Copy(record));
+            if (viewBindings.ContainsKey(file)) viewBindings.Set(file, Copy(record)); else BindView(file, Copy(record));
             if (select)
             {
-                if (setup.Presentation.Minimized) setup.Presentation.Restore();
-                navigator.ShowBeside(file, record.WorkstreamId);
+                navigator.RecoverBeside(file, record.WorkstreamId, setup.Presentation, reopen);
             }
             return true;
         }
@@ -192,7 +173,9 @@ namespace Halcyonic.XR.Workspace
             }
             if (storageFailed && !storageNoticeShown && placement == null && !Away)
             {
-                storageNoticeShown = ReportLocal("The workspace drafts could not be saved. Existing saved drafts remain untouched. Keep this workspace open before switching apps.");
+                storageNoticeShown = ReportLocal(recovery.Available
+                    ? "The latest draft could not be saved. Keep this workspace open before switching apps."
+                    : "Saved drafts could not be read. Keep this workspace open before switching apps.");
             }
         }
 
@@ -225,13 +208,14 @@ namespace Halcyonic.XR.Workspace
         public void OpenSavedViews()
         {
             if (recovery == null) return;
-            var records = recovery.Views.ToList();
+            var records = recovery.Views.Concat(viewBindings.Capture()).GroupBy(record => record.HandoffId)
+                .Select(group => group.Last()).ToList();
             if (pendingReturn != null)
             {
                 records.RemoveAll(record => record.HandoffId == pendingReturn.HandoffId);
                 records.Add(pendingReturn);
             }
-            OpenLocal(new WorkspaceRecoveryColumn(this, records, IsCurrent, record => RestoreView(record, select: true),
+            OpenLocal(new WorkspaceRecoveryColumn(this, records, IsCurrent, record => RestoreView(record, select: true, reopen: true),
                 pendingReturn == null ? null : record =>
                 {
                     if (record.HandoffId != pendingReturn?.HandoffId || !recovery.Keep(new[] { record }, recovery.Selected)) return false;
@@ -240,7 +224,7 @@ namespace Halcyonic.XR.Workspace
                     pendingReturnJson = null;
                     nativeReturnPending = false;
                     return true;
-                }, pendingReturn?.HandoffId));
+                }, pendingReturn?.HandoffId, recovery.IsSaved));
         }
 
         private void OnApplicationPause(bool paused) { if (paused) KeepViews(); }
