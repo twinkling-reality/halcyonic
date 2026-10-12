@@ -207,6 +207,7 @@ public class InstructionEditorTests
         column.Drawn(column.Frame!, null);
         column.Act(FileScreens.NextInstructionPart, null);
         Assert.That(column.Screen.Instruction.Part, Is.Zero, "a rapid same-label press cannot skip words");
+        column.Drawn(column.Frame!, null);
         host.Wait(0.41);
         column.Act(FileScreens.NextInstructionPart, null);
         Assert.That(column.Screen.Instruction.Part, Is.EqualTo(1));
@@ -214,6 +215,7 @@ public class InstructionEditorTests
         column.Drawn(column.Frame!, null);
         column.Act(FileScreens.PreviousInstructionPart, null);
         Assert.That(column.Screen.Instruction.Part, Is.EqualTo(1));
+        column.Drawn(column.Frame!, null);
         host.Wait(0.41);
         column.Act(FileScreens.PreviousInstructionPart, null);
         Assert.That(column.Screen.Instruction.Part, Is.Zero);
