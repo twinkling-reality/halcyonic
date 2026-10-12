@@ -34,7 +34,7 @@ namespace Halcyonic.XR.UI
         private const float FaintEdge = 0.35f;
 
         /// <summary>What a badge stands on, a label's plate or a panel, for choosing its word's colour mid-change.</summary>
-        private static readonly Color Under = GlazeTokens.ColorOf(Glaze.Panel);
+        private static Color Under => GlazeTokens.ColorOf(Glaze.Panel);
 
         private Surface pill = null!;
         private TextMeshPro word = null!;
@@ -148,6 +148,47 @@ namespace Halcyonic.XR.UI
             }
             else changing = 1f;
             shown = badge;
+            ColoursOf(badge);
+            GlazeText.SetLiteral(word, badge.Text);
+            var (_, width) = GlazeText.Lay(word, GlazeTokens.Units(30f), 1);
+            var padding = GlazeTokens.Units(PaddingDegrees);
+            var side = GlazeTokens.Units(IconSideDegrees);
+            var em = GlazeTokens.Units(GlazeIcons.BadgeDegrees);
+            var gap = GlazeTokens.Units(IconGapDegrees);
+            var withIcon = width + 2f * padding + IconWidth;
+            var iconShows = maxWidth == null || withIcon <= maxWidth.Value + 1e-5f;
+            icon.gameObject.SetActive(iconShows);
+            if (iconShows)
+            {
+                GlazeIcons.Show(icon, badge.Icon);
+                size = new Vector2(withIcon, Height);
+                icon.transform.localPosition = new Vector3(-size.x / 2f + side + em / 2f, 0f, -0.0005f);
+                word.transform.localPosition = new Vector3(-size.x / 2f + side + em + gap + width / 2f, 0f, -0.0005f);
+            }
+            else
+            {
+                size = new Vector2(width + 2f * padding, Height);
+                word.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
+            }
+            icon.transform.localRotation = Quaternion.identity;
+            turning = 0f;
+            breathing = 0f;
+            Draw(0f);
+        }
+
+        private void OnEnable() { Glaze.PaletteChanged += RefreshPalette; RefreshPalette(); }
+        private void OnDisable() => Glaze.PaletteChanged -= RefreshPalette;
+
+        private void RefreshPalette()
+        {
+            if (shown == null) return;
+            ColoursOf(shown);
+            changing = 1f;
+            Draw(breath);
+        }
+
+        private void ColoursOf(StateBadge badge)
+        {
             var tone = Glaze.Tone(badge.Tone);
             edge = Color.clear;
             edgeWidth = 0f;
@@ -199,31 +240,6 @@ namespace Halcyonic.XR.UI
                         break;
                 }
             }
-            GlazeText.SetLiteral(word, badge.Text);
-            var (_, width) = GlazeText.Lay(word, GlazeTokens.Units(30f), 1);
-            var padding = GlazeTokens.Units(PaddingDegrees);
-            var side = GlazeTokens.Units(IconSideDegrees);
-            var em = GlazeTokens.Units(GlazeIcons.BadgeDegrees);
-            var gap = GlazeTokens.Units(IconGapDegrees);
-            var withIcon = width + 2f * padding + IconWidth;
-            var iconShows = maxWidth == null || withIcon <= maxWidth.Value + 1e-5f;
-            icon.gameObject.SetActive(iconShows);
-            if (iconShows)
-            {
-                GlazeIcons.Show(icon, badge.Icon);
-                size = new Vector2(withIcon, Height);
-                icon.transform.localPosition = new Vector3(-size.x / 2f + side + em / 2f, 0f, -0.0005f);
-                word.transform.localPosition = new Vector3(-size.x / 2f + side + em + gap + width / 2f, 0f, -0.0005f);
-            }
-            else
-            {
-                size = new Vector2(width + 2f * padding, Height);
-                word.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
-            }
-            icon.transform.localRotation = Quaternion.identity;
-            turning = 0f;
-            breathing = 0f;
-            Draw(0f);
         }
 
         private void Update()
