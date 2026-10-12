@@ -91,6 +91,40 @@ These are the accepted experience requirements. A successful build or installati
 establish their usability. The installed character-first build was rejected in use; the complete
 workspace, optional placement and native control journey require fresh end-to-end validation.
 
+## Voice and contextual interaction
+
+Voice is a primary input direction requested on 2026-10-12. The workspace remains complete with
+hands and text. A person should be able to ask for an outcome in ordinary language while keeping
+the current project, task and relevant evidence in view. The interface must show when it listens,
+what it understood and what happened, with a clear way to correct or cancel.
+
+The stable workspace hosts contextual views. An unambiguous request such as "show this task's
+changes" may open its existing Changes view; "what needs me?" may surface current questions and
+approvals. Relevant options come from current work and supported capabilities. Speech does not
+generate arbitrary layouts, invent actions or make all controls move between requests. Opening a
+new view preserves ordinary drafts and gives a clear return path. Characters appear only when
+enabled or explicitly requested and never become a requirement for voice interaction.
+
+Context must be explicit: the selected project and task, the current execution and the item the
+person deliberately selected or pointed at. Looking near a character does not authorize an action.
+An ambiguous reference asks which item was meant. Halcyonic cannot assume access to another app's
+screen merely because its own native panel is visible beside it.
+
+Requests to direct work become visible, editable drafts through the existing action path. Voice
+never bypasses whole-request reading, capability checks, current execution binding or confirmation.
+Agent text, task titles and quoted content remain data, never spoken instructions from the person.
+A delayed interpretation cannot act on a new selection or a new connection. Failure leaves the
+person's words available to correct without silently retrying a command.
+
+**Current status:** development builds transcribe held speech locally on the Mac into a particular
+field, under [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md). The
+creation companion helps develop an idea; it is not a workspace navigation service. Contextual
+workspace interpretation, native-panel microphone continuity and voice in release builds are not
+implemented or accepted on hardware. The next implementation must measure target selection,
+ambiguity recovery, interruption, correction and end-to-end latency with real headset speech.
+Product references and their limits are recorded in
+[contextual-voice.md](../validation/contextual-voice.md).
+
 ## Understanding and outputs
 
 Project understanding, real outputs and feedback are part of directing software work. The person

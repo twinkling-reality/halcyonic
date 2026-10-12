@@ -53,6 +53,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [local-models.md](validation/local-models.md) | Open models served by Ollama on the Mac, through the real runtimes and the control plane: flows, network, speed and memory, and choosing a model from a runtime's list |
 | [agent-questions.md](validation/agent-questions.md) | How OpenCode, Codex and the Claude Agent SDK ask the person questions, how each is answered, dismissed and interrupted, on the pinned binaries and a local model |
 | [voice-transcription.md](validation/voice-transcription.md) | Apple's SpeechTranscriber against whisper.cpp large-v3-turbo on the Mac, on synthetic clips: accuracy, latency, memory, network, and what each returns when nothing is said |
+| [contextual-voice.md](validation/contextual-voice.md) | VoiceOS and Wispr Flow interaction references, Halcyonic's current dictation boundary, and the headset evidence required for contextual voice control |
 | [salidium-integration-audit.md](validation/salidium-integration-audit.md) | Salidium repository audit |
 | [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
 | [salidium-project-map.md](validation/salidium-project-map.md) | Salidium experimental committed-repository map and execution links v0, source-verified; consumer access and evidence limits |
