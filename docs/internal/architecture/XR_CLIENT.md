@@ -2682,3 +2682,6 @@ The organization render witnesses use the visible Move pointer and production ho
 column frame identity, and matching task/session/state/character identities. A compact task absent
 from the current projection retains its verified last title if available, otherwise Task unavailable;
 New project is reserved for an actual NewProjectFlow. No field/type/target/gap limit changes.
+
+A preset choice may replace the candidate only from the exact current drawn preset frame and an
+index actually offered on its current page. Stale draws and off-page keys preserve the candidate.

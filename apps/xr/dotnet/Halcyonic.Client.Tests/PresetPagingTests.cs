@@ -24,6 +24,7 @@ public class PresetPagingTests
         Assert.That(column.Frame.Sections, Is.Empty);
         Assert.That(column.Screen.PresetPages, Is.GreaterThan(1));
         var first = column.Frame.Lines.First(line => line.Action == FileScreens.Preset);
+        column.Drawn(column.Frame!, null);
         column.Act(FileScreens.Preset, first.Key);
         var candidate = column.Screen.PresetToSend;
         var seen = new HashSet<string>();
@@ -83,6 +84,7 @@ public class PresetPagingTests
         var column = new FileColumn(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct), new CommandFactory(Samples.Client),
             () => null, _ => choices, () => "");
         column.Act(FileScreens.TellIt, null);
+        column.Drawn(column.Frame!, null);
         column.Act(FileScreens.Preset, "0");
         var candidate = column.Screen.PresetToSend;
         var notice = string.Join(" ", Enumerable.Range(0, 80).Select(index => "Nothing was sent because condition " + index + " failed."));
@@ -102,6 +104,41 @@ public class PresetPagingTests
         Assert.That((column.Screen.ShowingPresetNotice, column.Screen.Notice, column.Screen.PresetToSend), Is.EqualTo((false, (string?)null, candidate)));
         column.Said(notice);
         Assert.That(column.Screen.ShowingPresetNotice, Is.True, "a new identical occurrence must not be silently acknowledged");
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void OnlyAChoiceOnTheCurrentDrawnPresetPageMayReplaceTheRetainedCandidate(TextSize size)
+    {
+        var host = new FileMenuHost { TextSize = size };
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var choices = Enumerable.Range(0, 12).Select(index => new PresetInstruction("Choice " + index, "Keep exact choice " + index)).ToArray();
+        var column = new FileColumn(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct), new CommandFactory(Samples.Client),
+            () => null, _ => choices, () => "");
+        column.Act(FileScreens.TellIt, null);
+        var oldFrame = column.Frame!;
+        var first = oldFrame.Lines.First(line => line.Action == FileScreens.Preset).Key!;
+        column.Act(FileScreens.Preset, first);
+        Assert.That(column.Screen.ChosenPreset, Is.Null, "a never-drawn page grants no choice authority");
+        column.Drawn(oldFrame, null);
+        column.Act(FileScreens.Preset, first);
+        var candidate = column.Screen.PresetToSend;
+        Assert.That(candidate, Is.EqualTo(choices[int.Parse(first)].Text));
+        column.Drawn(column.Frame!, null); host.Wait(0.41);
+        column.Act(FileScreens.NextPresetPage, null);
+        Assert.That(column.Screen.PresetToSend, Is.EqualTo(candidate));
+        var currentKey = column.Frame!.Lines.First(line => line.Action == FileScreens.Preset).Key!;
+        Assert.That(currentKey, Is.Not.EqualTo(first));
+        column.Drawn(oldFrame, null);
+        column.Act(FileScreens.Preset, currentKey);
+        Assert.That(column.Screen.PresetToSend, Is.EqualTo(candidate), "an old draw cannot authorize the replacement page");
+        column.Drawn(column.Frame, null);
+        column.Act(FileScreens.Preset, first);
+        Assert.That(column.Screen.PresetToSend, Is.EqualTo(candidate), "an off-page key must not replace the retained candidate");
+        column.Act(FileScreens.Preset, currentKey);
+        Assert.That(column.Screen.PresetToSend, Is.EqualTo(choices[int.Parse(currentKey)].Text));
         Assert.That(host.Sent, Is.Empty);
     }
 
