@@ -35,8 +35,11 @@ namespace Halcyonic.Client
             var host = paired?.Host ?? endpoint.Host;
             if (host.StartsWith("[", StringComparison.Ordinal) && host.EndsWith("]", StringComparison.Ordinal))
                 host = host.Substring(1, host.Length - 2);
-            if (host.Length == 0 || host.Any(c => c <= 32 || c >= 127 || "/\\?#@%[]".IndexOf(c) >= 0))
+            if (host.Length == 0 || host.Length > 253 || host.Any(c => c <= 32 || c >= 127 || "/\\?#@%[]".IndexOf(c) >= 0))
                 throw new ArgumentException("This host cannot share workspace continuity.", nameof(target));
+            if (paired != null && (!EntityId.IsMatch(paired.DeviceId)
+                || !Regex.IsMatch(paired.Credential, "^hlcd_[A-Za-z0-9_-]{1,4096}$", RegexOptions.CultureInvariant)))
+                throw new ArgumentException("This pairing cannot share workspace continuity.", nameof(target));
             var material = JsonConvert.SerializeObject(new object?[]
             {
                 "halcyonic-workspace-v1", scheme, host.ToLowerInvariant(), paired?.Port ?? endpoint.Port,
