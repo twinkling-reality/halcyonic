@@ -57,8 +57,8 @@ The TypeBox continuation defines a nullable request reference/editor separately 
 instructions. It retains the exact UUIDv7 host request reference, draft text, spoken origin and
 editor part, with no read/armed/send/approval fields. Shared current fixtures cover submitted and
 unsubmitted requests and invalid identities/coercions/authority. The C# reader migrates only a
-missing `request` field from earlier private version-1 records to null; the current schema still
-requires its explicit presence. A request with no bound execution cannot pass current-context
+missing `request` field from earlier private version-1 records to null and missing `surface` to
+`task`; the current schema still requires their explicit presence. A request with no bound execution cannot pass current-context
 validation. Durable view storage retains both drafts within the existing aggregate byte bound.
 These schema/codec facts are separate from production capture, request-owner/tuple checks after
 host reads, native return, process recreation and actual headset acceptance.
@@ -67,7 +67,7 @@ host reads, native return, process recreation and actual headset acceptance.
 
 The production Java reader now consumes the nullable request draft/reference separately from
 instruction words, including spoken origin and ordinary page. Only the missing legacy v1
-`request` key migrates to null before strict validation. Request-only records remain in the bounded
+`request` key migrates to null and `surface` to `task` before strict validation. Request-only records remain in the bounded
 private draft store, and capture/selection copies the request only across the original complete
 connection/journal/project/task/execution tuple. This is retention plumbing; the native general
 request controls and their authenticated exact-tuple response check are not yet implemented.
@@ -75,3 +75,27 @@ request controls and their authenticated exact-tuple response check are not yet 
 Four focused checks passed: actual production/development Android API compilation, legacy omission
 and strict missing/extra rejection, request-only durable retention, and every tuple component's
 copy refusal. Device handoff and actual request UI remain unverified.
+
+### Explicit selected surface
+
+The ordinary continuation stores `surface: task | request` independently of its instruction and
+request drafts. This prevents an inactive request from taking over a later Activity selection after
+recovery. Shared fixtures exercise both selections with both drafts, and reject null, numeric and
+unknown selectors. The C# and Java readers migrate only a missing legacy selector to `task` and
+retain both drafts. Current-context matching requires an execution for the request surface even
+when its editor is empty. Actual production capture/restore consumers remain a separate check.
+
+Independent source review found a C# UTF-16-length mismatch with TypeBox and Java codepoint
+limits. The C# reader now counts supplementary pairs as one codepoint. Compact shared Unicode
+boundary vectors exercise both instruction and request drafts through all three readers at and
+above 32,000 codepoints, without weakening the existing byte limits.
+Native encoding preserves valid supplementary pairs as UTF-8 rather than expanding each into two
+Unicode escapes; isolated surrogate code units remain escaped. Accepted maximum-size drafts are
+also written through the native draft store and read again, since parse-only acceptance does not
+prove their serialized form stays within the same continuation byte bound.
+
+Seventy-one contract/native checks and seventeen C# continuation/storage checks passed, with
+zero skipped, after both corrections. Typecheck, contract generation and scoped lint passed.
+Independent source review found no remaining selector/codec issue. The instruction restore and
+native input consumers have separate Unicode-limit follow-ups; these codec results do not claim
+the unfinished request controls or headset return path are accepted.

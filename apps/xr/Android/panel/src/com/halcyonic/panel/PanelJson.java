@@ -149,7 +149,9 @@ final class PanelJson {
         if (value == null) return "null";
         if (value instanceof String) {
             StringBuilder out = new StringBuilder("\"");
-            for (char c : ((String) value).toCharArray()) {
+            String text = (String) value;
+            for (int at = 0; at < text.length(); at++) {
+                char c = text.charAt(at);
                 switch (c) {
                     case '"': out.append("\\\""); break;
                     case '\\': out.append("\\\\"); break;
@@ -159,7 +161,9 @@ final class PanelJson {
                     case '\r': out.append("\\r"); break;
                     case '\t': out.append("\\t"); break;
                     default:
-                        if (c < 32 || Character.isSurrogate(c)) out.append(String.format(java.util.Locale.ROOT, "\\u%04x", (int) c));
+                        if (Character.isHighSurrogate(c) && at + 1 < text.length() && Character.isLowSurrogate(text.charAt(at + 1)))
+                            out.append(c).append(text.charAt(++at));
+                        else if (c < 32 || Character.isSurrogate(c)) out.append(String.format(java.util.Locale.ROOT, "\\u%04x", (int) c));
                         else out.append(c);
                 }
             }

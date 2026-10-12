@@ -10984,6 +10984,7 @@
         "project_id",
         "workstream_id",
         "execution_id",
+        "surface",
         "section",
         "page",
         "instruction",
@@ -11045,6 +11046,9 @@
               "type": "null"
             }
           ]
+        },
+        "surface": {
+          "$ref": "#/$defs/WorkspaceSurface"
         },
         "section": {
           "$ref": "#/$defs/WorkspaceSection"
@@ -11152,6 +11156,18 @@
         {
           "type": "string",
           "const": "checks"
+        }
+      ]
+    },
+    "WorkspaceSurface": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "task"
+        },
+        {
+          "type": "string",
+          "const": "request"
         }
       ]
     },

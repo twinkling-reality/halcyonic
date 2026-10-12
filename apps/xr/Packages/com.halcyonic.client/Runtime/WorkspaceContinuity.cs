@@ -61,20 +61,23 @@ namespace Halcyonic.Client
                 using var reader = new JsonTextReader(new StringReader(json)) { DateParseHandling = DateParseHandling.None, MaxDepth = 8 };
                 var token = JToken.ReadFrom(reader, new JsonLoadSettings { DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error });
                 if (reader.Read() || !(token is JObject value)) return false;
-                // Earlier v1 records omit request. Normalize only that known optional field.
+                // Earlier v1 records omit request/surface. Normalize only those known fields.
                 if (value.Property("request", StringComparison.Ordinal) == null) value["request"] = JValue.CreateNull();
-                if (!Keys(value, "version", "handoff_id", "connection_key", "journal_id", "project_id", "workstream_id", "execution_id", "section", "page", "instruction", "request")
+                if (value.Property("surface", StringComparison.Ordinal) == null) value["surface"] = "task";
+                if (!Keys(value, "version", "handoff_id", "connection_key", "journal_id", "project_id", "workstream_id", "execution_id", "surface", "section", "page", "instruction", "request")
                     || !Integer(value["version"], 1, 1) || !TextMatches(value["handoff_id"], Uuid)
                     || !TextMatches(value["connection_key"], Digest) || !Integer(value["page"], 0, 100000)) return false;
                 foreach (var key in new[] { "journal_id", "project_id", "workstream_id", "execution_id" })
                     if (value[key]!.Type != JTokenType.Null && !TextMatches(value[key], EntityId)) return false;
                 if (value["section"]!.Type != JTokenType.String
                     || !new[] { "waiting", "activity", "changes", "checks" }.Contains((string?)value["section"])) return false;
+                if (value["surface"]!.Type != JTokenType.String
+                    || !new[] { "task", "request" }.Contains((string?)value["surface"])) return false;
                 var instruction = value["instruction"]!;
                 if (instruction.Type != JTokenType.Null)
                 {
                     if (!(instruction is JObject draft) || !Keys(draft, "text", "spoken", "part")
-                        || draft["text"]!.Type != JTokenType.String || ((string)draft["text"]!).Length > 32000
+                        || draft["text"]!.Type != JTokenType.String || !IsDraftTextWithinLimit((string?)draft["text"])
                         || draft["spoken"]!.Type != JTokenType.Boolean || !Integer(draft["part"], 0, 100000)) return false;
                 }
                 var request = value["request"]!;
@@ -82,7 +85,7 @@ namespace Halcyonic.Client
                 {
                     if (!(request is JObject draft) || !Keys(draft, "request_id", "text", "spoken", "part")
                         || draft["request_id"]!.Type != JTokenType.Null && !TextMatches(draft["request_id"], EntityId)
-                        || draft["text"]!.Type != JTokenType.String || ((string)draft["text"]!).Length > 32000
+                        || draft["text"]!.Type != JTokenType.String || !IsDraftTextWithinLimit((string?)draft["text"])
                         || draft["spoken"]!.Type != JTokenType.Boolean || !Integer(draft["part"], 0, 100000)) return false;
                 }
                 continuation = value.ToObject<WorkspaceContinuation>(JsonSerializer.Create(HalcyonicJson.Strict));
@@ -103,6 +106,7 @@ namespace Halcyonic.Client
         {
             if (!TryParse(HalcyonicJson.Serialize(continuation), out _) || continuation.ConnectionKey != connectionKey
                 || state.Journal == null || continuation.JournalId != state.Journal.JournalId) return false;
+            if (continuation.Surface == WorkspaceSurface.Request && continuation.ExecutionId == null) return false;
             if (continuation.ProjectId == null)
                 return continuation.WorkstreamId == null && continuation.ExecutionId == null && continuation.Instruction == null && continuation.Request == null;
             if (!state.Projects.ContainsKey(continuation.ProjectId)) return false;
@@ -117,6 +121,15 @@ namespace Halcyonic.Client
 
         private static bool Keys(JObject value, params string[] expected) =>
             value.Count == expected.Length && expected.All(key => value.Property(key, StringComparison.Ordinal) != null);
+        /// <summary>The canonical draft bound counts codepoints, independently of serialized byte limits.</summary>
+        public static bool IsDraftTextWithinLimit(string? text)
+        {
+            if (text == null) return false;
+            var count = 0;
+            for (var at = 0; at < text.Length; at++, count++)
+                if (char.IsHighSurrogate(text[at]) && at + 1 < text.Length && char.IsLowSurrogate(text[at + 1])) at++;
+            return count <= 32000;
+        }
         private static bool TextMatches(JToken? token, Regex pattern) => token?.Type == JTokenType.String && token.Value<string>() is string text && pattern.IsMatch(text);
         private static bool Integer(JToken? token, long minimum, long maximum) =>
             token?.Type == JTokenType.Integer && (long)token >= minimum && (long)token <= maximum;

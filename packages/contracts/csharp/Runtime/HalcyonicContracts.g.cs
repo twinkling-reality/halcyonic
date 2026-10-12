@@ -4321,6 +4321,13 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
+    public enum WorkspaceSurface
+    {
+        [EnumMember(Value = "task")] Task,
+        [EnumMember(Value = "request")] Request,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum WorkspaceSection
     {
         [EnumMember(Value = "waiting")] Waiting,
@@ -4378,6 +4385,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("execution_id", Required = Required.AllowNull)]
         public string? ExecutionId { get; set; }
+
+        [JsonProperty("surface", Required = Required.Always)]
+        public WorkspaceSurface Surface { get; set; }
 
         [JsonProperty("section", Required = Required.Always)]
         public WorkspaceSection Section { get; set; }
