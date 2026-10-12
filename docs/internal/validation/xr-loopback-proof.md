@@ -127,3 +127,21 @@ On a Quest; the check is in XR_DEVELOPMENT.md, "Token storage on a Quest":
   the glance.
 - The proof can't tell a control plane holding another token from another program, so a stale
   token and an impostor read the same; the line says both.
+
+
+## ADB endpoint spelling review (2026-10-12)
+
+Verified source fact: current AOSP `parse_tcp_socket_spec` accepts numeric ports through libbase
+`ParseInt`, and host-qualified TCP destinations through `ParseNetAddress`. Libbase accepts leading
+zero decimal, a positive sign, and hexadecimal `0x` spelling. Listener formatting retains the
+`connect_to` destination string, so literal `tcp:47800` matching cannot identify every relay to the
+same port. Sources: [ADB socket parser](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/socket_spec.cpp),
+[listener formatting](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/adb_listeners.cpp),
+[libbase integer parser](https://android.googlesource.com/platform/system/libbase/+/refs/heads/main/include/android-base/parseint.h).
+
+The read-only session check therefore classifies either TCP endpoint by numeric port, conservatively
+including host-qualified port47800 destinations. Exact one canonical47800→47800 remains required;
+unrelated connections remain intact. Pure regressions cover leading zeros, positive signs, hex,
+localhost/IPv4/IPv6 destinations, localabstract sources, and unchanged unrelated routes. This source
+review and parser regression are not a device relay experiment and do not remove the documented
+same-socket proxy limitation. No mappings or ADB processes were changed during this review.

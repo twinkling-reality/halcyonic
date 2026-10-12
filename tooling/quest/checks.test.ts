@@ -76,6 +76,21 @@ describe('headset session checks', () => {
     assert.doesNotMatch(two.line, /UsbFfs/, 'the device serial is not repeated');
   });
 
+  test('alternate numeric and host spellings cannot hide a Halcyonic proof relay', () => {
+    const ordinary = 'UsbFfs tcp:47800 tcp:47800\n';
+    for (const endpoint of [
+      'tcp:047800', 'tcp:+47800', 'tcp:0xbab8', 'tcp:0XBAB8',
+      'tcp:localhost:47800', 'tcp:127.0.0.1:047800', 'tcp:[::1]:47800',
+    ]) {
+      assert.equal(checkReverse(`${ordinary}UsbFfs tcp:47900 ${endpoint}\n`).pass, false, endpoint);
+      assert.equal(checkReverse(`${ordinary}UsbFfs localabstract:relay ${endpoint}\n`).pass, false, endpoint);
+      assert.equal(checkReverse(`UsbFfs ${endpoint} tcp:47900\n`).pass, false, endpoint);
+    }
+    assert.equal(checkReverse(`${ordinary}UsbFfs tcp:047900 tcp:+47900\n`).pass, true);
+    assert.equal(checkReverse(`${ordinary}UsbFfs tcp:47900 tcp:localhost:47900\n`).pass, true);
+    assert.doesNotMatch(checkReverse(`${ordinary}UsbFfs tcp:47900 tcp:047800\n`).line, /remove-all/);
+  });
+
   test("a file's state is its mode, size and type, or why there is none", () => {
     assert.deepEqual(readFileState('600 44 regular file\n', FILE), {
       kind: 'file',

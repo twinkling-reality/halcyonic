@@ -19,6 +19,16 @@ const fail = (line: string): Verdict => ({ pass: false, line });
 /** The one mapping a session keeps: the headset's 47800 to the Mac's 47800 (SECURITY.md). */
 export const PORT_MAPPING = 'tcp:47800';
 
+/** ADB accepts decimal aliases, optional +, hexadecimal ports and TCP host:port destinations.
+ * Classify by numeric port so an alternate source cannot hide a proof relay behind its spelling. */
+function usesHalcyonicPort(spec: string): boolean {
+  if (!spec.startsWith('tcp:')) return false;
+  const address = spec.slice(4);
+  const port = address.slice(address.lastIndexOf(':') + 1);
+  if (!/^(?:[+]?[0-9]+|0[xX][0-9a-fA-F]+)$/.test(port)) return false;
+  return Number(port) === 47800;
+}
+
 /** `adb reverse --list`: one `<serial or (reverse)> <headset side> <Mac side>` line per mapping. */
 export function checkReverse(text: string): Verdict {
   const mappings = text
@@ -28,7 +38,7 @@ export function checkReverse(text: string): Verdict {
     .map((fields) => fields.slice(-2))
     // Only routes involving Halcyonic can replace or relay its proof. Other applications keep
     // their independent connections; a session check must not ask the owner to remove them.
-    .filter((ends) => ends.includes(PORT_MAPPING))
+    .filter((ends) => ends.some(usesHalcyonicPort))
     .map((ends) => `${ends[0]} to ${ends[1]}`);
   const only = `${PORT_MAPPING} to ${PORT_MAPPING}`;
   if (mappings.length === 1 && mappings[0] === only)
