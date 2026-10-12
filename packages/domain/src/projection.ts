@@ -211,7 +211,10 @@ export class Projection {
       list.push({
         position: stored.position,
         type: event.event_type,
-        turnId: event.payload.turn_id ?? beforeTurn?.turnId ?? null,
+        turnId:
+          event.event_type === 'runtime.turn.started'
+            ? event.payload.turn_id
+            : (event.payload.turn_id ?? beforeTurn?.turnId ?? null),
         startPosition:
           event.event_type === 'runtime.turn.started'
             ? stored.position
