@@ -43,6 +43,29 @@ agent loop exists at this review. Its prompt explicitly says it cannot read, run
 and its transport submits no tools. Renaming or widening that ask/propose reply would not supply
 the missing execution loop.
 
+## Local tool-call protocol proof
+
+On 2026-10-12, Ollama 0.34.4 listed the already-installed `qwen3.5:9b` and
+`qwen3.6:35b-a3b-nvfp4` as local models, with no `remote_host` or `remote_model` values.
+The actual `/api/show` responses declared `tools` capability for both. Only the already-loaded
+`qwen3.6:35b-a3b-nvfp4` was used for the following inference check; no model was downloaded or
+configured. [Ollama's tool-calling guide](https://docs.ollama.com/capabilities/tool-calling) and
+[chat API](https://docs.ollama.com/api/chat) were checked against the actual round trip.
+
+A standalone bounded probe exposed one read-only tool over synthetic task state. The model chose
+that tool with schema-valid arguments, then received its result in a `tool` message with
+`tool_name`, following the original assistant tool call. Its second turn identified the pending
+human decision. The probe passed in 2.539 seconds: two model turns, one tool call, no action tool,
+no real project data and no message text in the evidence log. Generation used `think: false`,
+an 8192-token context, a 256-token output limit and temperature zero. The probe imposed a 60-second
+whole-run deadline, at most 45 seconds per request, at most three model turns and a 128 KiB chat
+response limit. It did not submit a Halcyonic command or alter the running control plane.
+
+This verifies one local tool/result/continuation exchange. It does not establish prompt robustness,
+production request persistence, permission enforcement, mutation deduplication, runtime completion,
+multi-request scheduling, voice latency or headset usability. Those remain implementation and
+acceptance work; an advertised `tools` capability alone is not sufficient evidence for them.
+
 ## Design inference and validation required
 
 A stable workspace with contextual views can make the result of speech visible and correctable.
