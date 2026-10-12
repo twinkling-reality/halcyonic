@@ -132,6 +132,8 @@ creation companion helps develop an idea; its ask/propose exchange has no tools 
 general workspace agent. The open-ended workspace agent loop, native-panel microphone continuity and voice in release builds are not
 implemented or accepted on hardware. The next implementation must measure target selection,
 ambiguity recovery, interruption, correction and end-to-end latency with real headset speech.
+The implementation decision is [ADR 0030](../decisions/0030-workspace-requests-use-a-journaled-agent-tool-loop.md):
+a journaled request lifecycle, model-selected typed tools and observed results through existing runtime authority.
 Product references and their limits are recorded in
 [contextual-voice.md](../validation/contextual-voice.md).
 
