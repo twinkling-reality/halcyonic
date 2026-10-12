@@ -91,11 +91,13 @@ namespace Halcyonic.Client
         private readonly List<PlanePart> parts = new List<PlanePart>();
 
         /// <param name="zoom">How much larger than designed it is drawn, as <c>PanelFrame.Zoom</c>: 1, or the reading text's step.</param>
-        public PlaneComposition(IReadOnlyList<PlaneColumn> columns, float zoom = 1f)
+        public PlaneComposition(IReadOnlyList<PlaneColumn> columns, float zoom = 1f, float header = 0f)
         {
             if (columns.Count == 0) throw new ArgumentException("A composition holds at least one column.", nameof(columns));
             if (columns.Count > 2) throw new ArgumentException("A composition holds at most two columns: three would pass a Quest 3S's field (MenuColumns).", nameof(columns));
             if (!(zoom > 0f)) throw new ArgumentOutOfRangeException(nameof(zoom), zoom, "A zoom is above nothing.");
+            if (header < 0f || float.IsNaN(header) || float.IsInfinity(header)) throw new ArgumentOutOfRangeException(nameof(header));
+            Header = header;
             Columns = columns;
             Zoom = zoom;
             var columnGap = ColumnGapMeters / Distance * zoom;
@@ -108,7 +110,8 @@ namespace Halcyonic.Client
                 height = MathF.Max(height, Stacked(column, zoom, partGap));
             }
             Width = width;
-            Height = height;
+            var heading = header > 0f ? header * zoom + partGap : 0f;
+            Height = height + heading;
 
             var left = -width / 2f;
             for (var c = 0; c < columns.Count; c++)
@@ -116,7 +119,7 @@ namespace Halcyonic.Client
                 var column = columns[c];
                 var columnWidth = column.Width * zoom;
                 var stretch = height - Stacked(column, zoom, partGap);
-                var top = height / 2f;
+                var top = Height / 2f - heading;
                 for (var index = 0; index < column.Heights.Count; index++)
                 {
                     var partHeight = column.Heights[index] * zoom + (index == column.Heights.Count - 1 ? stretch : 0f);
@@ -130,6 +133,9 @@ namespace Halcyonic.Client
         public IReadOnlyList<PlaneColumn> Columns { get; }
 
         public float Zoom { get; }
+
+        /// <summary>One shared measured header above connected columns, included in field and drag geometry.</summary>
+        public float Header { get; }
 
         /// <summary>The whole composition's width and height, in units of the plane's distance, its gaps included.</summary>
         public float Width { get; }

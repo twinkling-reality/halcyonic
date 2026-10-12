@@ -1005,7 +1005,7 @@ namespace Halcyonic.Client
         /// where they don't fit (<see cref="MenuColumns"/>).
         /// </summary>
         /// <param name="besideMenu">The page stands beside the menu, as Tasks' beside a file: the plane is the two columns, each this page.</param>
-        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false, bool focused = false)
+        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false, bool focused = false, float header = 0f, bool centered = false)
         {
             if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows), subjectRows, "A subject takes a row or two.");
             var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
@@ -1013,9 +1013,13 @@ namespace Halcyonic.Client
             PlaneColumn Column(float degrees, float page) => focused
                 ? new PlaneColumn(PlaneComposition.Units(degrees), Subject(subjectRows, pill: true), Content(page))
                 : new PlaneColumn(PlaneComposition.Units(degrees), Subject(subjectRows, pill: true), Sections, Content(page));
-            bool Holds(float page) => Fits(new PlaneComposition(besideMenu
-                ? new[] { Column(Glaze.Menu.MenuColumnDegrees, page), Column(Glaze.Menu.FileColumnDegrees, page) }
-                : new[] { Column(Glaze.Menu.FileColumnDegrees, page) }, zoom), topDegrees, within);
+            bool Holds(float page)
+            {
+                var composition = new PlaneComposition(besideMenu
+                    ? new[] { Column(Glaze.Menu.MenuColumnDegrees, page), Column(Glaze.Menu.FileColumnDegrees, page) }
+                    : new[] { Column(Glaze.Menu.FileColumnDegrees, page) }, zoom, header);
+                return centered ? Inside(composition, new PanelDirection(0f, 0f, true, false), within) : Fits(composition, topDegrees, within);
+            }
             float low = 0f, high = 2f;
             if (!Holds(low)) return 0f;
             for (var step = 0; step < 40; step++)

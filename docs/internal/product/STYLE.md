@@ -321,3 +321,18 @@ agents into one dock; it retains work identity and valid local drafts, rather th
 or send. Input, voice and armed decision authority are suspended before the visibility change.
 Restoring requires current layout and fresh drawn authority. Showing agents remains a separate
 explicit display choice and does not create or change work.
+
+
+The dedicated workspace is a composed rectangular frame, with connected task navigation and
+content panes. Its attached header identifies Halcyonic, the current connection mode and selected
+project/task even with no spatial agents. Global Move, Other apps and Minimize controls live on
+that frame, separate from request decisions and local Close task actions. Minimize leaves one
+Open workspace target and suspends the complete workspace. Other apps is unavailable where the
+verified native panel bridge cannot run; it is never an arrangement preset.
+
+The shared header consumes measured composition height before pages pack their content. The
+character-free workspace centers in the available field rather than reserving an empty character
+label band above it. Header, perimeter and connected panes participate in field/drag geometry at
+both text sizes. Source, outside-text and decision-proof treatments remain on actual content.
+Move offers direct hand movement and Reset position, without guessed window arrangements.
+Actual Unity render and wearer acceptance of this redesign are still pending.

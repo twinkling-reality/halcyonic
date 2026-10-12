@@ -84,7 +84,7 @@ namespace Halcyonic.XR.UI
             controls.Bind(compactBinding ?? (object)bar);
             gameObject.SetActive(true);
             size = new Vector2(PlaneComposition.Units(columnDegrees), Height);
-            shape.DrawGlass(size);
+            shape.DrawGlass(size, radius: 0f);
             var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
             var left = -size.x / 2f + padding;
             var right = size.x / 2f - padding;

@@ -151,4 +151,19 @@ public class PlaneCompositionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaneColumn(1f, 0.1f, -0.1f));
         Assert.Throws<ArgumentException>(() => new PlaneComposition(Array.Empty<PlaneColumn>()));
     }
+    [TestCase(1f)]
+    [TestCase(1.15f)]
+    public void SharedHeaderIsMeasuredAboveAllConnectedColumnsAndInsideCenteredWorkspace(float scale)
+    {
+        var heading = MenuPage.Words(2) + MenuPage.Target() + 3f * MenuPage.TargetGap;
+        var body = new[] { new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), MenuPage.Subject(1, true), MenuPage.Content(MenuPage.Rows(2))) };
+        var plain = new PlaneComposition(body, scale);
+        var framed = new PlaneComposition(body, scale, heading);
+        Assert.That(framed.Height - plain.Height, Is.EqualTo((heading + Glaze.MetersAt(PlaneComposition.PartGapDegrees, 1f)) * scale).Within(1e-6f));
+        Assert.That(framed.Parts[0].Up + framed.Parts[0].Height / 2f, Is.EqualTo(framed.Height / 2f - (heading + Glaze.MetersAt(PlaneComposition.PartGapDegrees, 1f)) * scale).Within(1e-6f));
+        Assert.That(MenuPage.Inside(framed, new PanelDirection(0f, 0f, true, false), MenuPage.Quest3S), Is.True);
+        var text = scale > 1f ? TextSize.Larger : TextSize.Standard;
+        Assert.That(MenuPage.Height(text, 1, header: heading, centered: true), Is.GreaterThan(MenuPage.Rows(2)), "the full field stays usable without a character label band");
+    }
+
 }
