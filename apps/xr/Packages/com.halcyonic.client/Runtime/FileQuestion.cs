@@ -288,6 +288,25 @@ namespace Halcyonic.Client
             draft = answering;
             page = pageBudget;
             side = sideBudget;
+            if (relaid)
+            {
+                drawnAt = null;
+                reviewDrawn.Clear();
+                readingGeneration++;
+                inputUsed = null;
+                answersRead.Clear();
+                typedRead.Clear();
+                inputDrawn.Clear();
+                // A side panel's parts read so far no longer map to its new parts: what is unread is read again.
+                sidePartsDrawn.Clear();
+                SidePart = 0;
+                sideDrawnAt = null;
+                for (var prompt = 0; prompt < answering.Prompts.Count; prompt++)
+                {
+                    // A long question partly read no longer maps to its new parts: it is read again.
+                    if (!answering.WasShownWhole(prompt)) partsDrawn.Remove(prompt);
+                }
+            }
             pages = Enumerable.Range(0, answering.Prompts.Count).Select(prompt => Lay(answering, prompt, HeadRows(prompt))).ToList();
             LayReview();
             if (another)
@@ -300,22 +319,6 @@ namespace Halcyonic.Client
             {
                 Page = Math.Min(Page, Pages - 1);
                 return;
-            }
-            drawnAt = null;
-            reviewDrawn.Clear();
-            readingGeneration++;
-            inputUsed = null;
-            answersRead.Clear();
-            typedRead.Clear();
-            inputDrawn.Clear();
-            // A side panel's parts read so far no longer map to its new parts: what is unread is read again.
-            sidePartsDrawn.Clear();
-            SidePart = 0;
-            sideDrawnAt = null;
-            for (var prompt = 0; prompt < answering.Prompts.Count; prompt++)
-            {
-                // A long question partly read no longer maps to its new parts: it is read again.
-                if (!answering.WasShownWhole(prompt)) partsDrawn.Remove(prompt);
             }
             if (Reviewing)
             {
