@@ -37,7 +37,7 @@ const FILE = 'files/access-token';
 const source = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
 describe('headset session checks', () => {
-  test('adb reverse passes only with the one mapping, 47800 to 47800', () => {
+  test('adb reverse requires one Halcyonic mapping without removing other apps connections', () => {
     assert.equal(checkReverse('UsbFfs tcp:47800 tcp:47800\n').pass, true);
     assert.equal(checkReverse('(reverse) tcp:47800 tcp:47800\r\n').pass, true);
     const none = checkReverse('');
@@ -45,7 +45,24 @@ describe('headset session checks', () => {
     assert.match(none.line, /no mapping; run adb reverse tcp:47800 tcp:47800/);
     const two = checkReverse('UsbFfs tcp:47800 tcp:47800\nUsbFfs tcp:47900 tcp:47800\n');
     assert.equal(two.pass, false);
-    assert.match(two.line, /2 mappings, tcp:47800 to tcp:47800, tcp:47900 to tcp:47800; keep only/);
+    assert.match(two.line, /2 Halcyonic mappings, tcp:47800 to tcp:47800, tcp:47900 to tcp:47800/);
+    assert.doesNotMatch(two.line, /--remove-all/, 'never ask to remove unrelated device routes');
+    assert.equal(
+      checkReverse('UsbFfs tcp:47800 tcp:47800\nUsbFfs tcp:47900 tcp:47900\n').pass,
+      true,
+      'another app keeps its independent port',
+    );
+    assert.equal(checkReverse('UsbFfs tcp:47900 tcp:47900\n').pass, false);
+    assert.equal(
+      checkReverse('UsbFfs tcp:47800 tcp:47800\nUsbFfs tcp:47800 tcp:47800\n').pass,
+      false,
+      'duplicate Halcyonic routes are still refused',
+    );
+    assert.equal(
+      checkReverse('UsbFfs tcp:47800 tcp:47800\nUsbFfs localabstract:relay tcp:47800\n').pass,
+      false,
+      'a non-TCP headset endpoint can also relay the proof',
+    );
     assert.equal(
       checkReverse('UsbFfs tcp:47900 tcp:47800\n').pass,
       false,

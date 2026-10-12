@@ -379,8 +379,11 @@ glance's (`files/glance-access-token`) alike:
   address and port its own socket reached, which on the Mac is always its listener whatever port the
   headset dialled. So anything that routes to the Mac's 47800 lets whatever listens on the headset's
   127.0.0.1:47800 relay a challenge and receive the token: a second reverse mapping, and equally an
-  `ssh -L`, `socat` or a proxy on the Mac. Keep one mapping only (`adb reverse --list`), 47800 to
-  47800, and nothing else forwarding to 47800.
+  `ssh -L`, `socat` or a proxy on the Mac. Keep exactly one mapping involving Halcyonic's port
+  (`adb reverse --list`), 47800 to 47800, and nothing else forwarding to 47800. Independent routes
+  for other applications do not relay this proof and must remain intact. The session check rejects
+  duplicate Halcyonic mappings, alternate endpoints forwarding to 47800 and a 47800 endpoint
+  forwarding elsewhere; it never recommends removing every route.
 - **A stale token and an impostor read the same.** The proof can't tell a control plane holding
   another token from another program, so the app's line names both: the code doesn't match, or
   something else is answering in its place. Either way the token was not sent.
