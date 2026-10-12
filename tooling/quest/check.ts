@@ -1,6 +1,6 @@
 /**
  * The checks of a headset session that need no person (HEADSET_SESSION.md), each a plain pass or
- * fail: one `adb reverse` mapping, 47800 to 47800; the access token files in the app's private
+ * fail: one Halcyonic `adb reverse` mapping, 47800 to 47800, preserving unrelated routes; the access token files in the app's private
  * storage at mode 600 and 44 bytes, with no write's temporary file left over; nothing on shared
  * storage; and, from the running app's own log lines since it started, the token's move, the
  * connection's proof and the glance's polls, with no cleartext or StrictMode line. Whether the log

@@ -25,15 +25,19 @@ export function checkReverse(text: string): Verdict {
     .split(/\r?\n/)
     .map((line) => line.trim().split(/\s+/))
     .filter((fields) => fields.length >= 2 && fields.slice(-2).every((spec) => spec.includes(':')))
-    .map((fields) => `${fields[fields.length - 2]} to ${fields[fields.length - 1]}`);
+    .map((fields) => fields.slice(-2))
+    // Only routes involving Halcyonic can replace or relay its proof. Other applications keep
+    // their independent connections; a session check must not ask the owner to remove them.
+    .filter((ends) => ends.includes(PORT_MAPPING))
+    .map((ends) => `${ends[0]} to ${ends[1]}`);
   const only = `${PORT_MAPPING} to ${PORT_MAPPING}`;
   if (mappings.length === 1 && mappings[0] === only)
-    return pass(`adb reverse: one mapping, ${only}`);
+    return pass(`adb reverse: one Halcyonic mapping, ${only}`);
   if (mappings.length === 0) {
     return fail(`adb reverse: no mapping; run adb reverse ${PORT_MAPPING} ${PORT_MAPPING}`);
   }
   return fail(
-    `adb reverse: ${mappings.length === 1 ? 'the mapping is' : `${mappings.length} mappings,`} ${mappings.join(', ')}; keep only ${only} (adb reverse --remove-all, then adb reverse ${PORT_MAPPING} ${PORT_MAPPING})`,
+    `adb reverse: ${mappings.length === 1 ? 'the Halcyonic mapping is' : `${mappings.length} Halcyonic mappings,`} ${mappings.join(', ')}; Halcyonic needs only ${only}. Inspect and remove only conflicting Halcyonic mappings; preserve unrelated routes.`,
   );
 }
 

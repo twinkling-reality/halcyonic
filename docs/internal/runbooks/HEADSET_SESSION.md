@@ -1,8 +1,9 @@
 # A headset session
 
-One session on a Meta Quest, in one order, so the session refines what is already built and tested
-off the headset instead of discovering how to run it. Everything here has passed on the Mac; the
-session shows what only the headset can. It covers the access token, the demonstration's first
+One session on a Meta Quest, with build evidence and wearer acceptance recorded separately.
+Passing an editor render or installing an APK does not establish usability. The current workspace
+journey below replaces the character-first entry and fixed window arrangements from earlier sessions.
+The rest of this runbook covers the access token, the demonstration's first
 visit, the loopback proof, the glance, the menu plane's comfort, motion, the words Hold to talk
 writes for one word, labels that read alike, Codex on a local model, a paired request that times
 out, the judge's path and the experience from the eyes, and points to the other checks on a Quest to
@@ -19,7 +20,7 @@ pnpm quest:check
 ```
 
 It prints one line per check, each a plain pass or FAIL, and exits 1 when any fails:
-- one `adb reverse` mapping, 47800 to 47800;
+- one Halcyonic `adb reverse` mapping, 47800 to 47800, with unrelated routes preserved;
 - the access token files in the app's private storage at mode 600 and 44 bytes, read with `stat`
   through `run-as`, and no `.tmp` file a write left before its move;
 - nothing at the token's old place on shared storage;
@@ -42,15 +43,17 @@ reach the app's folder never reads as a file removed.
 
 Rules for the whole session:
 - Never print, paste or `cat` a token. Nothing here needs it.
-- One reverse mapping, 47800 to 47800, and nothing else on the Mac forwarding to 47800 (`ssh -L`,
+- One Halcyonic reverse mapping, 47800 to 47800, and nothing else on the Mac forwarding to 47800 (`ssh -L`,
   `socat`, a proxy): anything that routes there can relay the control plane's proof
-  ([SECURITY.md](../architecture/SECURITY.md)).
+  ([SECURITY.md](../architecture/SECURITY.md)). Other apps' independent routes stay in place.
 - One adb: `pnpm quest:check` uses Unity's, so put the same one first on the path, or two adb
   servers take turns and drop the mapping. In the session's terminals:
   ```bash
   export PATH="/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools:$PATH"
   ```
-  (`HALCYONIC_ADB` points the tools at another adb, if the owner uses another.)
+  (`HALCYONIC_ADB` points the tools at another adb, if the owner uses another.) Isolate Android
+  editor jobs on a private no-device server as [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md#build)
+  describes; do not stop the shared server.
 - Sit, or set a roomscale boundary. Leaning out of a stationary boundary made everything vanish in
   the sixth session, with no focus change logged; the boundary showing passthrough in the app's
   place is likely, not verified ([quest-3-device.md](../validation/quest-3-device.md)).
@@ -65,6 +68,44 @@ Rules for the whole session:
 - Record as you go, in the record each step names. At the end, move what was shown from "Not
   verified" to "Verified" with the date, the main commit and the headset's model and OS build, and
   resolve each answered row of [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md) as its own rule says.
+
+## Current workspace acceptance
+
+Use the exact candidate APK and record its commit, headset model and OS. These are acceptance
+requirements, not a claim that the current candidate passed them. A missing path or an unreadable
+control is a failure of this journey, even if a lower-level check passed.
+
+1. **Find work without characters.** Launch with Spatial agents off. Projects and Tasks are
+   available immediately. Find an existing project, open a task and identify its state and whether
+   its source is live or simulated. Repeat with an empty project list and a disconnected host.
+2. **Keep context.** Open activity, changes and tests from that task. Identify what is observed,
+   reported or unavailable. Open another task and return. Both ordinary instruction drafts remain
+   with their original tasks; changing execution does not move old text into the new run.
+3. **Clear the workspace.** Minimize with a draft open. All workspace panels, peeks and optional
+   agents leave one dock. Restore the selected task and draft. A previously read or armed approval
+   must require a fresh read and deliberate action.
+4. **Place agents deliberately.** Enable Spatial agents and preview a shelf. Apply and Cancel have
+   distinct visible results. Move the shelf by hand; its bodies visibly contact it. Try a pose
+   overlapping the console and the edge of the reading field. It must be refused with a reason.
+   Opening a task from a character must not move the console. Repeat with larger text.
+5. **Work beside another app.** Open Other apps. Verify the real protected native panel is visible
+   and readable, then a supported 2D app and an immersive app separately. Inspect a task and perform
+   one supported action on designated test work. Record acceptance and runtime confirmation
+   separately. A synthetic screenshot preview does not prove the protected panel is visible.
+6. **Return safely.** Edit an ordinary native-panel draft and return to Workspace. Verify selection
+   and text after fresh synchronization, then repeat across app pause and a controlled Halcyonic
+   process restart. Test a failed save without deleting the previous records: show the unsaved
+   state and retain the draft. No question answer, secret, read proof or armed confirmation returns.
+7. **Check focus.** Leave a review for another window, then return; the old confirmation cannot act.
+   Change the task's current execution while a review is open. A retained callback must not target
+   the replacement run. Ordinary text remains recoverable.
+8. **Judge the experience.** The wearer identifies the active task, the next available action and
+   how to leave and return without coaching. Record confusion, hand misses, clipping, reading
+   effort and lost context in their words. Those findings can reject a technically passing build.
+
+Voice currently writes into a selected field in development builds. Exercise correction and focus
+loss using check 6 below. Contextual workspace voice navigation and microphone continuity beside
+other apps remain unimplemented; do not demonstrate them as available controls.
 
 ## Prepare, before the headset
 
@@ -85,8 +126,8 @@ Rules for the whole session:
    ```
    Pass: `Halcyonic: built Builds/Halcyonic-release.apk …` in its log. Both APKs are signed with the
    same debug key, which is fine on the owner's headset and not for an upload
-   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Before an upload"). Each Unity run stops the adb server,
-   so build before connecting.
+   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Before an upload"). Use the editor ADB isolation
+   described there for both builds so other apps' connections survive.
 4. **The control plane from the same commit.** Stop the running one (Ctrl-C in its terminal), then
    `pnpm start`. Pass: its `control plane ready` line.
 5. **The Mac's side.** `pnpm mac-setup`: read what it says of the folders, the agent apps, the local
@@ -126,18 +167,19 @@ Rules for the whole session:
 2. Look at the token's old place before anything runs, names and sizes only:
    `adb shell ls -l /sdcard/Android/data/com.halcyonic.xr/files/`. Record whether an
    `access-token` is there: earlier sessions pushed one, and the next start deals with it.
-3. Install, with exactly one mapping:
+3. Install while preserving existing app data and unrelated device routes:
    ```bash
    adb install -r apps/xr/Builds/Halcyonic.apk
-   adb reverse --remove-all
+   adb reverse --list
    adb reverse tcp:47800 tcp:47800
    ```
-   If the install says `INSTALL_FAILED_VERSION_DOWNGRADE`, an upload's build with a higher code is
-   on the headset: `adb uninstall com.halcyonic.xr`, which removes its data, then install again.
-4. Write the token into the app's private storage with `run-as`, whole and private before it takes
+   If the install says `INSTALL_FAILED_VERSION_DOWNGRADE`, build with a suitable version code.
+   Uninstalling deletes saved pairings and drafts and is not part of a routine update.
+4. On a first setup, write the token into the app's private storage with `run-as`, whole and private before it takes
    the old one's place, then start the app. The write is three commands
    ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect", says why); the last prints
-   `written`, and only then start the app:
+   `written`, and only then start the app. An update retaining an already proven private token
+   does not need to replace it; verify its mode, size and successful connection instead:
    ```bash
    adb shell run-as com.halcyonic.xr rm -f files/access-token.tmp
    adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && rm -f files/access-token.tmp && cat > files/access-token.tmp'" < ~/.halcyonic/access-token
@@ -166,55 +208,24 @@ purpose; the token in use from then on never touched shared storage.
 
 ## The demonstration's first visit ([competition-judge-build.md](../validation/competition-judge-build.md))
 
-The demonstration opens closed (ADR 0026, 2026-10-08): the recorded characters, its two lines
-above the stage and the closed bar, with nothing open by itself and no first question, since the
-recording starts with its work. Later steps play the demonstration too (a token set aside, a
-connection that fails before it was live), so see it here first, as a judge does on the release
-build. Check the build has it: this lists `MenuStart.cs`, and no line means the build still opens
-Projects on the demonstration's first visit; record "not in this build" and go on to the checks.
+The current workspace opens Projects in the demonstration, with characters optional. The former
+closed-bar opening in ADR 0026 is superseded by ADR 0029. Use an existing demonstration setup.
+If preparing the development headset for recorded data, preserve its token in app-private backup
+storage first, as the token-storage procedure describes; never overwrite an existing backup.
 
-```bash
-git grep -nF "if (demonstration) return false;" -- apps/xr/Packages/com.halcyonic.client/Runtime/MenuStart.cs
-```
+1. **Launch.** Without opening a character, identify Projects, Tasks and the recorded-demo source.
+   The source remains readable next to the work and never becomes a claim that an agent is live.
+2. **Find the waiting task.** Open the recorded project and its tasks. When a task needs a decision,
+   read it through the normal task view. Opening it does not move the console.
+3. **Inspect evidence.** Open the recorded activity, changes and tests. Simulated evidence remains
+   labelled. A demonstration response cannot imply that a real runtime accepted the decision.
+4. **Minimize and restore.** Keep a draft, minimize the whole workspace and restore it from the
+   dock. Repeat with optional agents enabled and verify that no stray panel or character remains.
+5. **Return to the real connection.** Restore the development setup and verify the source changed
+   only after live state arrived. Demonstration selections and drafts must not target real work.
 
-1. **Play the demonstration.** Set the token aside and restart the app:
-   ```bash
-   adb shell run-as com.halcyonic.xr mv files/access-token files/access-token.off
-   adb shell am force-stop com.halcyonic.xr
-   adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
-   ```
-2. **The welcome.** Touch nothing. Pass: nothing opens by itself. Every character's label reads
-   "Not started" with the Demo mark, the closed bar stands under the stage, and the stage's lines,
-   "Demo: recorded work played on this headset. Nothing here is live." and "It follows your answers.
-   Nothing reaches an agent.", stand above the characters, clear of every body and of the bar, and
-   read without leaning back. Capture.
-3. **Work starts.** Within about a second two characters start working. Open the bar, then
-   Projects: its one row reads "Storefront API" and "2 tasks running", with New project at its
-   right, and the lines stay above the characters, clear of every body and of the menu. If present (this lists `ProjectsText.cs`), press the row while they work,
-   within about 5 seconds: its side panel's Its work reads "2 tasks running, 1 not started". Close
-   details.
-   ```bash
-   git grep -nF "var paused = project.Work - project.NeedsYou" -- apps/xr/Packages/com.halcyonic.client/Runtime/ProjectsText.cs
-   ```
-4. **A task comes to wait.** At about 7 seconds "Add rate limiting to the sign-in endpoint" waits.
-   Pass: its character rises and its badge changes from Working to Waiting for you as a quick
-   cross-fade, never a jump; Tasks, at the menu's top, takes its amber dot; the menu stays on
-   Projects; and the raised lines stay clear of the risen character. Capture. If present (step 3),
-   the row's side panel reads "1 task waiting for you, 2 paused".
-5. **The lines stay up.** Close the menu: the bar stands under the stage, and the lines stay above
-   the characters, clear of the bar. Look at a character until its peek shows: the lines step aside
-   for it, and come back above the stage when it goes.
-6. **Log.** `adb logcat -d -s Unity | grep "Halcyonic: demonstration plays from its beginning"`:
-   one line. Put the token back and restart the app:
-   ```bash
-   adb shell run-as com.halcyonic.xr mv files/access-token.off files/access-token
-   adb shell am force-stop com.halcyonic.xr
-   adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
-   ```
-   `pnpm quest:check`: live again.
-
-Record in competition-judge-build.md: the welcome as a judge first sees it, and whether the raised
-lines read as part of the stage.
+Record the opening and navigation in competition-judge-build.md with the candidate commit. Screenshots
+show composition; the wearer separately judges whether the task and next action are understandable.
 
 ## The checks
 
@@ -331,104 +342,30 @@ Open the glance (step 1), then `pnpm quest:check`. Pass: the glance token passes
 
 Record each in horizon-os-multitasking.md.
 
-### 4. The menu plane's comfort (ADR 0026, [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md))
+### 4. Workspace comfort ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md))
 
-The menu, a task's file and a side panel stand on one plane (ADR 0026), hosted by the workspace
-since main 0bf6820. Check the session's build has it: this lists `WorkspaceDirector.cs`, and no line
-means only the editor's renders make it, so record "not in this build" for each item and walk
-[XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The interface on a Quest", instead.
+Start without characters, then repeat with a deliberately placed optional shelf. Use the recorded
+demonstration for known evidence pages and designated live test work for real actions. Do not
+change connection credentials merely to enter a visual test.
 
-```bash
-git grep -nF "MenuDirector.Create(" -- apps/xr/Assets | grep -v /Editor/
-```
+- Open Projects, Tasks, Usage and Settings. The console's location remains stable as context
+  changes. Selection and connection/source information are readable independently of a long title.
+- Open a task from the list, then from an optional character. Both routes open the same task;
+  neither requires or automatically moves a character or the console.
+- Open complete question, approval, change and test details. Paging retains every word and choice.
+  A short display budget must not shrink text below the measured size or discard raw content.
+- Test every edge of a navigation target, row, section and review control with hands. Visible
+  controls and hit areas agree; hidden panels and docked views cannot receive input.
+- Move the workspace deliberately, release it, then reset its position. Try field edges and the
+  optional shelf. Record a refusal or collision instead of accepting an automatic position jump.
+- Minimize and restore while looking away and back. The dock remains findable and its scope is
+  clear. Record whether a separate summon interaction is needed; do not infer it from a render.
+- Repeat against a bright wall, with larger text and in the smallest supported headset field.
+  Read the first and last lines without leaning or a large head movement. Record clipping, tilt,
+  glare, hand misses and any overlap with optional agents.
 
-Walk it in the recorded demonstration, which has a waiting question and recorded Changes and Checks
-answers to open side panels from; live tasks on the mock runtime have no such answers. Set the token
-aside and restart the app, which then plays the demonstration:
-
-```bash
-adb shell run-as com.halcyonic.xr mv files/access-token files/access-token.off
-adb shell am force-stop com.halcyonic.xr
-adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
-```
-
-Where everything is, all with a pinch:
-- **The bar.** With no file open, the menu is its bar: what waits for you, or "Nothing is waiting
-  for you.", and Open. It stands where you looked as the menu closed, or straight ahead under a
-  window's lane beside a window, and stays there as you turn (Settings' Reset position brings the
-  plane to where you look). Press it to open the menu, on Tasks if something waits, else on the
-  place chosen last.
-- **The places,** across the menu's top: Tasks, Projects, Usage and Settings.
-- **Tasks:** every task, what waits first. A row opens its task's file.
-- **A file:** press a character, or its row in Tasks. The file opens beside the menu, and the plane
-  moves beside that character, with the light line from under its label to the file. Its sections
-  are Waiting, Activity, Changes and Checks. Press the character again to close the file.
-- **A side panel:** in a file's Changes or Checks, press an answer's line: its whole answer opens in
-  the side panel beside the page. In Waiting, a chosen answer cut short shows all its words there.
-  Where the side panel and its file don't both fit, the side panel takes the file's place, with
-  text a step larger.
-- **New project and Projects:** in Projects, New project is the main action while no row is chosen;
-  a project's row offers adding a task to it, which opens New project for it. The demonstration
-  can't start new work, so read the flow without building.
-- **Text size:** Settings, Comfort, Text size, Make text larger: text 15 percent larger, and 3 rows
-  a page. Put it back the same way after item 7.
-
-Seated, in this order, so nothing is set up twice: look, then record yes or no with a sentence of
-why, in the OPEN_QUESTIONS row and ADR 0026.
-1. **Reading at 0.46 m.** Open the menu on Tasks: its text reads without leaning in or squinting.
-2. **The light line.** Open the waiting task's file from its character: the line from its label to
-   the file reads calm, never drawing the eye on its own.
-3. **The 50 degree low edge.** The file's lowest rows and the menu's beside it, about 50 degrees
-   below eye level, read without strain.
-4. **Turning to a side panel.** In Changes or Checks, open an answer's side panel and turn between
-   the file and it, and back: easy, with no hunting.
-5. **Unseen hit areas.** Pinch at the edges of the bar, a place, a row, a file's section and a side
-   panel's controls: each lands where intended, and nowhere it shouldn't.
-6. **Glass in passthrough.** Face a bright wall, close the menu to its bar and open it again so it
-   stands against the wall: the glass keeps its contrast and the text stays readable.
-7. **The head tip, at the larger size.** Make text larger, then read Tasks and a file's lowest row
-   again: reaching it needs no more than a small tip of the head (a Quest 3S needs about 5 degrees,
-   inside the 8 its field allows). Record the `device view field` line's numbers for both eyes and
-   whether items 1 and 3 still hold. Put the text size back.
-8. **Turning back to the closed bar.** In a build where the closed bar stays where the menu closed
-   rather than following your head, this lists `ResetPosition`; no line means the bar still follows,
-   so record "not in this build":
-
-   ```bash
-   git grep -nF "public void ResetPosition()" -- apps/xr/Assets/Halcyonic/Workspace/MenuDirector.cs
-   ```
-
-   Restart the app so the demonstration plays from its beginning, close the menu to its bar, and
-   turn the chair until the bar is behind you. When a character comes to wait, find your way back
-   to the bar and open the menu. Judge whether turning back to it is acceptable, or whether the menu
-   needs a summon gesture that brings it to where you look, and whether the waiting character's glow
-   and its Waiting for you sound were enough to find your way back (if it was already waiting when
-   you turned, only its glow called). Record the answer in the closed bar's OPEN_QUESTIONS row.
-9. **Dragging the menu.** In a build where the menu's plane can be dragged, this lists
-   `MenuDrag`; no line means it can't, so record "not in this build":
-
-   ```bash
-   git grep -nF "public sealed class MenuDrag" -- apps/xr/Packages/com.halcyonic.client/Runtime/MenuDrag.cs
-   ```
-
-   Open a task's file beside the menu, then hold the file's subject plate, its title, for about a
-   third of a second and move your hand: the whole plane comes round you at the same distance,
-   still facing you. Drag it toward a character or its label, toward the edge of your view, and so
-   its light line would cross another character: it should stop there rather than go. Let go, then
-   put it back with Settings, Your space, Reset position, which brings it to where you look. Judge
-   whether the drag feels right: easy to start, following the hand, stopping sensibly where it
-   can't go. Then judge whether being able to drag the menu answers item 8's question, or turning
-   back to the closed bar is still a problem. Record both in the closed bar's OPEN_QUESTIONS row.
-
-A failure falls back as ADR 0026 says (a page shows 3 rows). Put the token back and restart the app:
-
-```bash
-adb shell run-as com.halcyonic.xr mv files/access-token.off files/access-token
-adb shell am force-stop com.halcyonic.xr
-adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
-```
-
-`pnpm quest:check`: live again.
+Record exact build/device evidence in quest-3-device.md and the wearer's comfort judgment in the
+relevant OPEN_QUESTIONS rows. A fit measurement does not establish that the composition is usable.
 
 ### 5. Motion ([quest-3-device.md](../validation/quest-3-device.md), ADR 0027)
 
@@ -547,7 +484,7 @@ Record in network-pairing.md, and in the pinned transports' row of OPEN_QUESTION
    headset-token-storage.md.
 2. **The walk.** Hands only, no token, no pairing: the walk in
    [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The demonstration judges see". Its welcome was seen in
-   "The demonstration's first visit", which opens closed, so the walk starts from the closed bar. Look at the timeline in
+   "The demonstration's first visit", which opens Projects without requiring characters. Look at the timeline in
    competition-judge-build.md. Pass: each beat when the timeline says. Record: whether a newcomer
    finds the satisfying moment, the field of view split as the headset shows it, and a clean resume
    after sleep, the system menu and another app.
@@ -591,33 +528,12 @@ spatializer, and the trials behind development settings). Keep OVR Metrics' fram
 throughout: it stays at 72 with six characters on the stage, or the part where it drops is recorded and
 the trials are skipped.
 
-**A. The first minute** (the first visit; needs a computer with no task). Stop the control plane and
-start it on a fresh data folder holding a copy of the Mac's settings, never printed:
+**A. The first minute.** Run Current workspace acceptance above. The old introductory question,
+closed entry and mandatory character stage no longer define this flow. Record whether the wearer
+can find real work, understand its source and take the next action without coaching.
 
-```bash
-mkdir -m 700 ~/halcyonic-fresh && cp -p ~/.halcyonic/settings.json ~/halcyonic-fresh/
-HALCYONIC_DATA_DIR=~/halcyonic-fresh pnpm start
-```
-
-It makes its own access token: put it on the headset as check 1's step 5 does, then restart the app.
-1. **Put it on.** Pass: one plate below eye level asks "What would you like to work on?", Something new
-   chosen, A project on your computer under it, and Close, Hold to talk and Start a project; nothing on
-   the stage; "Connected to your computer" above the stage for about 3 seconds, then gone. The plate's
-   parts arrive top to bottom in about a quarter of a second, nothing sliding.
-2. **Settings from the plate.** Settings stands alone at the right end of the row of places. Choose it,
-   make text larger and standard again, then Close. Pass: the bar reads "Nothing is running yet"; its
-   Open brings the plate back.
-3. **Your computer.** Choose A project on your computer. Pass: Hold to talk goes and the main action
-   reads Show my projects; pressed, Projects shows the computer's folders under the same question,
-   nothing in the row lit. Close, then Open: the plate again, Something new chosen.
-4. **Say the idea.** Hold Hold to talk, say a short idea, let go. Pass: New project opens alone on Your
-   idea, the words as yours. Close it there; the full start is check 10's ground.
-5. **The owner's judgement.** Is it clear what to do, calm, and does an empty desk read as broken?
-
-Stop the control plane, start it again on `~/.halcyonic` (`pnpm start`), put its token back as before,
-restart the app, and remove the fresh folder at the end ("Close").
-
-**B. The stage, by eye** (the owner's own tasks; the stage's new look, then looking back).
+**B. Optional agents, by eye.** Enable and deliberately place the shelf first. These appearance
+checks do not replace the complete workspace journey or authorize automatic placement.
 5. **At rest.** Look across the stage without stopping on a character. Pass: each stands on its ring on
    the desk with a soft shadow under it, no glow behind it; the ring's colour and the pill's word say
    its state; no title shows; working ones float slowly on a thread of light and blink now and then.
