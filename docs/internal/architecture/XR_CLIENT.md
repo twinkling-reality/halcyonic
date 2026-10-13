@@ -3041,9 +3041,9 @@ render witness for both text sizes, far/desk and zero/one confirmed shelf, using
 session messages and canned HTTP. Its source is prepared; actual Unity results and headset focus,
 readability, persistence/JNI and live edit/build/install correspondence remain separate gates.
 
-### Optional character identity and animation candidate, 2026-10-13
+### Optional character identity and animation, 2026-10-13
 
-The bounded character candidate retains the current independent console and explicitly placed,
+Character identity features retain the current independent console and explicitly placed,
 one-agent shelf. `CharacterIdentity` adds the six feature values already chosen in ADR 0013
 (None, Antenna, Ears, Sprout, Crest, Horns), using hash bits after the existing shape, hue and
 light/dark tone selection; those existing identity values do not change. This is deterministic
@@ -3068,7 +3068,7 @@ sphere's tangent rather than a fixed badge drop. Geometry witnesses measure actu
 shell/feature/Checking-ring triangles, including vertical extrema inside triangle edges,
 without phantom bounding-box corners.
 
-The candidate is not accepted by source checks alone. `StageRender.CharacterLifeCheck` exercises
+Source checks alone do not establish visual correctness. `StageRender.CharacterLifeCheck` exercises
 zero characters followed by one confirmed shelf beside the production Projects console, all
 48 shape/feature identities and every activity in moving/held poses, actual contact and
 placement-envelope containment, label readability/clearance, feature pixels and deterministic
@@ -3086,7 +3086,7 @@ depth-write-Off controls were stable in all ten failed-history/text-size series,
 other state/submission control failed somewhere. Motion residuals and generic batching causes
 were not established; no animation easing or project batching setting changes.
 
-The candidate gives the feature `shell.sortingOrder - 1` and one cached generated body-material
+The feature uses `shell.sortingOrder - 1` and one cached generated body-material
 copy with `_DepthWrite = 0`. The Resources-owned shell keeps the shader default depth writing
 (`_DepthWrite = 1`), needed for rear-ring and opaque foreground occlusion. The feature shader,
 render queue, depth test and blending remain the body's. Subsystem reset destroys only the owned
@@ -3094,6 +3094,6 @@ feature material and later views share one regenerated copy. Actual composition 
 this ownership, opaque foreground/background and the existing Checking ring relationship.
 Current ring poses have positive rear-shell/foreground samples but no rear-feature samples;
 this does not prove generic transparent depth support. Later transparent objects behind
-protruding features require deliberate ordering and separate visual validation. Candidate
-integration requires the current consumer gates and independent review; device behavior
-remains unverified.
+protruding features require deliberate ordering and separate visual validation. Independent
+review and the candidate consumer gates passed before integration; the validation record
+separates their coverage from integrated checks and unverified device behavior.

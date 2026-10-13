@@ -159,7 +159,7 @@ remain private evidence; stability alone does not establish correct appearance o
 | `AgentShelfCheck` | One confirmed supported agent, every activity's temporal held pixels, contact, source/readability and geometry | `f67307ab` passed Standard/Larger |
 | Historical `StageRender.Check` | Original independent stage, geometry, palette and held-motion negative regressions; this does not make the old six-agent arc a supported mode | `53241906` passed Standard/Larger |
 | `WorkspaceRender.Check` | Migrated raw panel plus current dedicated workspace, requests, shelf, MenuPlane/Director, answers, Judge and entry/project journeys | `a33f14c5` passed Standard/Larger |
-| Full `AppearanceCheck` / Workspace PalettePass | Current zero/one-agent journeys and raw component galleries in both palettes/sizes | `53241906` failed only the legacy six-arc raw gallery Clear assertion; final migrated palette gate is pending |
+| Full `AppearanceCheck` / Workspace PalettePass | Current zero/one-agent journeys and migrated raw component galleries in both palettes/sizes | `a33f14c5` passed both presets and text sizes; the preserved `53241906` failure was the legacy six-arc Clear assertion |
 
 The unchanged temporal stillness comparisons in CharacterLife, AgentShelf and historical Stage
 require zero changed pixels under the existing 2/255 RGB comparison. Their motion negatives
@@ -200,10 +200,14 @@ migration passed `WorkspaceRender.Check` on `a33f14c5` at both text sizes. Actua
 were 0.1/-0.4 degrees for Standard far/3S and 1.1/0.6 for Larger, each below the required 1.2;
 upper body gaps were -17/-18.8 degrees, below the required 1.5. This independently confirms
 the legacy clearance shortfall, while the positive one-agent/component assertions all pass.
-It is not permission to restore six-character placement authority.
+It is not permission to restore six-character placement authority. The raw gallery named
+"desk" now uses the same independent gaze-centered positive scene and no longer proves the old
+six-arc desk geometry. Separate current MenuPlane/Director desk journeys retain their current
+composition/routing/drag coverage; none of these editor scenes establishes device desk comfort.
 
-**Remaining validation.** The candidate stays separate from integration until independent review
-and the final migrated Appearance palette gate passes. Stereo appearance, headset/device behavior,
+**Remaining validation.** Independent source review and the final candidate gates passed before
+replay into integration `00572379`. That replay combines other changes; full integrated suite,
+build and device validation is separate from these candidate renders. Stereo appearance, headset/device behavior,
 feature recognizability, hand interaction, no-domain-reload player behavior, cost and wearer
 acceptance remain unverified. Device follow-up uses the current optional one-agent shelf;
 the six-character cost/recenter record above is historical evidence, not current supported
