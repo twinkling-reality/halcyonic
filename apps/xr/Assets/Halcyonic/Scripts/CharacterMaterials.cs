@@ -22,12 +22,25 @@ namespace Halcyonic.XR
         public static readonly int KeyLightId = Shader.PropertyToID("_HalcyonicKeyLight");
 
         private static Material? body;
+        private static Material? feature;
         private static Material? halo;
         private static Material? ring;
         private static Texture2D? noise;
 
         /// <summary>The glossy body with its eyes and surface effects (Halcyonic/Character Body).</summary>
         public static Material Body => Load(ref body, "Body");
+
+        /// <summary>The same body surface, cached once for features, without writing overlapping depth.</summary>
+        public static Material Feature
+        {
+            get
+            {
+                if (feature != null) return feature;
+                feature = new Material(Body) { name = "Halcyonic feature surface", hideFlags = HideFlags.DontSave };
+                feature.SetFloat("_DepthWrite", 0f);
+                return feature;
+            }
+        }
 
         /// <summary>The glow behind a character (Halcyonic/Soft Shape, disc profile).</summary>
         public static Material Halo => Load(ref halo, "Halo");
@@ -73,6 +86,17 @@ namespace Halcyonic.XR
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Reset()
         {
+            if (feature != null)
+            {
+                // Only this generated clone is owned here; Body remains a Resources asset.
+#if UNITY_EDITOR
+                if (!Application.isPlaying) Object.DestroyImmediate(feature);
+                else Object.Destroy(feature);
+#else
+                Object.Destroy(feature);
+#endif
+                feature = null;
+            }
             body = null;
             halo = null;
             ring = null;

@@ -247,8 +247,9 @@ namespace Halcyonic.XR.Workspace.Editor
                                     ShaderVariant("exact-source-copy", text => text);
                                     copy.renderQueue = originalMaterial.renderQueue - 1; feature.sharedMaterial = copy;
                                     Series("distinct-earlier-queue", freshDepth: null);
-                                    ShaderVariant("feature-zwrite-off", text => ReplacePairState(text, "ZWrite On", "ZWrite Off"));
-                                    ShaderVariant("feature-depth-bias", text => ReplacePairState(text, "ZWrite On", "ZWrite On\n            Offset 0, -1"));
+                                    ShaderVariant("legacy-feature-zwrite-on", text => ReplacePairState(text, "ZWrite [_DepthWrite]", "ZWrite On"));
+                                    ShaderVariant("feature-zwrite-off", text => ReplacePairState(text, "ZWrite [_DepthWrite]", "ZWrite Off"));
+                                    ShaderVariant("feature-depth-bias", text => ReplacePairState(text, "ZWrite [_DepthWrite]", "ZWrite On\n            Offset 0, -1"));
                                     ShaderVariant("disable-batching", text => ReplacePairState(text,
                                         "\"ForceNoShadowCasting\" = \"True\"", "\"ForceNoShadowCasting\" = \"True\" \"DisableBatching\" = \"True\""));
                                 }
@@ -331,6 +332,9 @@ namespace Halcyonic.XR.Workspace.Editor
                             else if (composite)
                             {
                                 var featureOrder = feature.sortingOrder; var shellOrder = shell.sortingOrder;
+                                var originalMaterial = feature.sharedMaterial;
+                                var legacyMaterial = new Material(originalMaterial) { hideFlags = HideFlags.HideAndDontSave };
+                                legacyMaterial.SetFloat("_DepthWrite", 1f);
                                 try
                                 {
                                     Composition("shell-feature-only", renderer => renderer == shell || renderer == feature);
@@ -339,8 +343,9 @@ namespace Halcyonic.XR.Workspace.Editor
                                     Composition("full-minus-shell", renderer => renderer != shell);
                                     Composition("shell-only", renderer => renderer == shell);
                                     for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
-                                    shell.sortingOrder = 0; feature.sortingOrder = 0;
-                                    Series("full-legacy-equal-order", freshDepth: null);
+                                    shell.sortingOrder = 0; feature.sortingOrder = 0; feature.sharedMaterial = legacyMaterial;
+                                    Series("full-legacy-depth-writing-equal-order", freshDepth: null);
+                                    feature.sharedMaterial = originalMaterial;
                                     shell.sortingOrder = 0; feature.sortingOrder = 1;
                                     Series("full-feature-after-shell", freshDepth: null);
                                     feature.sortingOrder = -1;
@@ -349,6 +354,7 @@ namespace Halcyonic.XR.Workspace.Editor
                                 finally
                                 {
                                     shell.sortingOrder = shellOrder; feature.sortingOrder = featureOrder;
+                                    feature.sharedMaterial = originalMaterial; UnityEngine.Object.DestroyImmediate(legacyMaterial);
                                     for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
                                 }
                                 Series("full-restored-original-order", freshDepth: null);
@@ -573,8 +579,10 @@ namespace Halcyonic.XR.Workspace.Editor
                                 view.Show(Shown(id, activity, stale)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
                                 WorkspaceRender.ForceMeshes(root);
                                 var feature = view.FeatureForRender.Renderer;
-                                if (feature != null && (feature.sortingOrder != shell.sortingOrder - 1 || feature.sharedMaterial != shell.sharedMaterial))
-                                    result.Add(name + ": actual feature does not use the declared earlier order and unchanged body material.");
+                                if (shell.sharedMaterial.GetFloat("_DepthWrite") != 1f) result.Add(name + ": shell stopped writing its required depth.");
+                                if (feature != null && (feature.sortingOrder != shell.sortingOrder - 1 || feature.sharedMaterial.shader != shell.sharedMaterial.shader
+                                    || feature.sharedMaterial.GetFloat("_DepthWrite") != 0f || feature.sharedMaterial == shell.sharedMaterial))
+                                    result.Add(name + ": actual feature does not use the cached non-depth-writing body surface and earlier order.");
                                 var beforeValues = CharacterFrameValues(new[] { view });
                                 Texture2D? first = null;
                                 try
@@ -612,14 +620,22 @@ namespace Halcyonic.XR.Workspace.Editor
                                         }
                                         finally { shell.enabled = true; if (withoutShell != null) UnityEngine.Object.DestroyImmediate(withoutShell); }
                                         var originalOrder = feature.sortingOrder;
+                                        var originalMaterial = feature.sharedMaterial;
+                                        var legacyMaterial = new Material(originalMaterial) { hideFlags = HideFlags.HideAndDontSave };
+                                        legacyMaterial.SetFloat("_DepthWrite", 1f);
                                         Texture2D? legacy = null;
                                         try
                                         {
-                                            feature.sortingOrder = shell.sortingOrder;
+                                            feature.sortingOrder = shell.sortingOrder; feature.sharedMaterial = legacyMaterial;
                                             legacy = WorkspaceRender.Render(camera, texture);
-                                            File.WriteAllBytes(Path.Combine(folder, name + "-legacy-equal-order.png"), legacy.EncodeToPNG());
+                                            File.WriteAllBytes(Path.Combine(folder, name + "-legacy-depth-writing-equal-order.png"), legacy.EncodeToPNG());
                                         }
-                                        finally { feature.sortingOrder = originalOrder; if (legacy != null) UnityEngine.Object.DestroyImmediate(legacy); }
+                                        finally
+                                        {
+                                            feature.sortingOrder = originalOrder; feature.sharedMaterial = originalMaterial;
+                                            UnityEngine.Object.DestroyImmediate(legacyMaterial);
+                                            if (legacy != null) UnityEngine.Object.DestroyImmediate(legacy);
+                                        }
                                     }
                                     if ((kind == CharacterFeature.Ears || kind == CharacterFeature.Antenna || kind == CharacterFeature.Sprout || kind == CharacterFeature.Horns)
                                         && activity == CharacterActivity.Idle)
@@ -805,6 +821,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     values[key + "scale"] = part.localScale.ToString("R");
                     if (!part.TryGetComponent<Renderer>(out var renderer)) continue;
                     values[key + "enabled"] = renderer.enabled.ToString();
+                    if (renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty("_DepthWrite"))
+                        values[key + "material depth"] = renderer.sharedMaterial.GetFloat("_DepthWrite").ToString("R", CultureInfo.InvariantCulture);
                     renderer.GetPropertyBlock(block);
                     foreach (var property in new[] { "_Clock", "_Flow", "_FlowSpeed", "_Crack", "_Fog", "_Ghost", "_Saturation", "_EyeKind", "_EyeOpen", "_EyeUneven", "_EyeInk" })
                         values[key + property] = block.GetFloat(property).ToString("R", CultureInfo.InvariantCulture);
@@ -917,8 +935,10 @@ namespace Halcyonic.XR.Workspace.Editor
                                 if (label.Apart(body) < OwnLabelGapDegrees) failures.Add(what + ": shell/feature touches its label.");
                                 if (view.FeatureForRender.Renderer is MeshRenderer feature)
                                 {
-                                    if (feature.sortingOrder != shell.GetComponent<Renderer>().sortingOrder - 1)
-                                        failures.Add(what + ": feature does not retain the earlier shell-relative render order.");
+                                    if (feature.sortingOrder != shell.GetComponent<Renderer>().sortingOrder - 1
+                                        || feature.sharedMaterial.GetFloat("_DepthWrite") != 0f
+                                        || shell.GetComponent<Renderer>().sharedMaterial.GetFloat("_DepthWrite") != 1f)
+                                        failures.Add(what + ": shell/feature order or depth ownership changed.");
                                     feature.GetPropertyBlock(block);
                                     if (block.GetFloat("_EyeInk") != 0f) failures.Add(what + ": a feature inherited eyes.");
                                     foreach (var key in new[] { "_Flow", "_Crack", "_Fog", "_Ghost", "_Saturation" })

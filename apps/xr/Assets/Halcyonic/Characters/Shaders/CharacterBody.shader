@@ -15,6 +15,7 @@ Shader "Halcyonic/Character Body"
     Properties
     {
         _BodyColor ("Body color, sRGB", Vector) = (0.36, 0.61, 0.96, 1)
+        _DepthWrite ("Write body depth", Float) = 1
         _Clock ("Character clock in seconds", Float) = 0
         _Flow ("Satin flow", Range(0, 1)) = 0
         _FlowSpeed ("Flow speed", Float) = 0.55
@@ -39,7 +40,7 @@ Shader "Halcyonic/Character Body"
         Pass
         {
             Blend SrcAlpha OneMinusSrcAlpha
-            ZWrite On
+            ZWrite [_DepthWrite]
             Cull Back
 
             CGPROGRAM
