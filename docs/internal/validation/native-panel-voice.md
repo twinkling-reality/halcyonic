@@ -105,3 +105,24 @@ The full integrated repository check passes 1,172 tests with no failures or skip
 and lint included. These packages were archived, not installed; they precede the separate installed
 app-link and optional character-feature candidates. Hardware audio/focus/IME and wearer acceptance
 remain outstanding.
+
+
+## Integrated Results and character package follow-up (2026-10-13)
+
+Both Android builds succeeded at `61646671`, after the Results, character and focused-page fixes.
+The development APK is 114,691,807 bytes, SHA-256
+`ba430286db18e5ce09544659c55c3bea4aaf3358796f52397c7a08b5e400e785`.
+The release APK is 74,532,745 bytes, SHA-256
+`dab14de1773490f44d4dfd6e6fccb0d0a236b6e07ef62ac87dfb8edaa803627f`.
+Manifest and DEX descriptor inspection retained the native panel, voice and state code. Development
+retained its preview Activity, preview asset and microphone permission. Release excluded all three,
+the preview DEX descriptor and the media-projection service permission. Neither requested
+`QUERY_ALL_PACKAGES`; the release DEX also retained the Results consumer descriptor. Descriptor
+presence is packaging evidence, not an Android behavior test.
+
+The development package was installed with replacement while preserving app data. The installed
+base APK's independently read SHA-256 matched the built artifact exactly; the previous installed
+APK was preserved before replacement. Explicit Unity and native Activity launch requests were
+accepted. Unity then lost focus and paused before a live connection was observed. This does not
+establish a crash, readable rendering, voice, private-state recovery or wearer acceptance. Those
+remain open device gates. No release package was installed.
