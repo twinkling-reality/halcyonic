@@ -211,6 +211,54 @@ public final class PanelSelfTest {
                 try { result = String.valueOf(PanelContinuation.parse(args[0]).matches(PanelIdentity.pairing(args[1]), new PanelModel(args[2]))); }
                 catch (Exception error) { result = "false"; } break;
             }
+            case "monitor": {
+                try { result = PanelJson.encode(new PanelModel(args[0]).monitor(args[1], args[2])); }
+                catch (Exception error) { result = "refused"; } break;
+            }
+            case "navigation_refresh": {
+                PanelUiState state = new PanelUiState(); state.resumed(true); state.top(true); state.activityFocus(true);
+                final int[] polls = {0}; Runnable actualContinuation = () -> polls[0]++;
+                if (!state.navigated(actualContinuation) || polls[0] != 1 || state.controlsReady() || state.commandsAllowed()) throw new AssertionError("Selected navigation did not restart its bounded fresh read before actions.");
+                state.projected();
+                if (!state.commandsAllowed()) throw new AssertionError("Fresh selected projection did not offer controls.");
+                state.changePresentation(true, true); state.top(false); state.activityFocus(false);
+                if (!state.navigated(actualContinuation) || polls[0] != 2 || state.commandsAllowed()) throw new AssertionError("Compact non-top navigation lost read-only refresh or granted actions.");
+                state.resumed(false);
+                if (state.navigated(actualContinuation) || polls[0] != 2) throw new AssertionError("Paused navigation restarted a read.");
+                result = "true"; break;
+            }
+            case "preview_resume": {
+                PanelUiState state = new PanelUiState(); state.resumed(true); state.top(true); state.activityFocus(true);
+                state.awaitingProjection();
+                if (state.interact(0)) throw new AssertionError("Preview resumed before its immutable projection was offered.");
+                state.projected();
+                if (!state.interact(0)) throw new AssertionError("Selected expanded preview remained inert after immutable projection restore.");
+                state.resumed(false); state.resumed(true); state.awaitingProjection(); state.projected();
+                if (!state.interact(0)) throw new AssertionError("Same selected preview could not resume again.");
+                result = "true"; break;
+            }
+            case "compact_ui": {
+                PanelUiState state = new PanelUiState(); state.resumed(true); state.top(true); state.activityFocus(true);
+                PanelUiState.Context scope = new PanelUiState.Context("key", "journal", "project", "work", "run");
+                long owner = state.open(); state.dialogFocus(owner, true); PanelUiState.Review old = state.review(owner, scope); state.read(old);
+                if (state.changePresentation(true, false) || !state.authorize(old, scope)) throw new AssertionError("Failed save changed the current mode or review.");
+                state.close(owner);
+                if (!state.changePresentation(true, true) || !state.compact() || state.commandsAllowed() || state.interact(0)) throw new AssertionError("Compact mode kept action authority.");
+                if (state.read(old) || state.authorize(old, scope)) throw new AssertionError("Collapse preserved old review authority.");
+                state.top(false); state.activityFocus(false);
+                if (!state.monitor() || !state.readProjection() || state.navigate() || state.commandsAllowed()) throw new AssertionError("Non-top monitor gained input or lost its read-only eligibility.");
+                state.resumed(false);
+                if (state.monitor() || state.readProjection() || state.commandsAllowed()) throw new AssertionError("Paused monitor retained a read/command lease.");
+                state.resumed(true); state.top(true); state.activityFocus(true);
+                if (!state.navigate() || state.commandsAllowed()) throw new AssertionError("Compact resume granted controls.");
+                if (state.changePresentation(false, false) || !state.compact()) throw new AssertionError("Failed expand save changed mode.");
+                if (!state.changePresentation(false, true) || state.controlsReady() || state.commandsAllowed() || state.interact(0)) throw new AssertionError("Expand did not wait for a fresh projection.");
+                state.projected();
+                if (!state.controlsReady() || !state.commandsAllowed() || !state.interact(0) || state.authorize(old, scope)) throw new AssertionError("Fresh expand lacked new controls or revived the old review.");
+                state.top(false);
+                if (state.readProjection() || state.commandsAllowed()) throw new AssertionError("Expanded non-top state gained monitoring or command authority.");
+                result = "true"; break;
+            }
             case "ui_state": {
                 PanelUiState state = new PanelUiState(); state.resumed(true); state.top(true); state.activityFocus(true);
                 PanelUiState.Context original = new PanelUiState.Context("key", "journal", "project", "work", "old-execution");

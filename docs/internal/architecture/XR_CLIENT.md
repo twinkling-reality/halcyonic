@@ -2965,3 +2965,18 @@ flow already measures. Paging preserves that focus, and the global Projects cont
 available. Small inline facts keep the 15 dp role only if their actual laid text bounds and
 finite em meet the existing apparent 14 dp minimum; otherwise they use the already reserved
 18 dp body role. Neither change reduces the content or reading/confirmation requirements.
+
+### Compact native task monitor
+
+The native panel's explicit Compact panel action keeps the selected task in a read-only content
+view; Expand task controls restores actions only after a fresh authenticated snapshot. Local mode
+choice survives Activity recreation separately from the shared continuation contract. Existing
+private stores retain both ordinary instruction/request drafts and the original pending UUID
+before either transition; save failure blocks the transition. Compaction revokes modal/input,
+voice and network generations. The current tuple, fresh projection, expanded mode and top/window
+focus are required for actions. A resumed compact window may read bounded snapshots without input
+focus, but pause/stop cancels reads and marks the last checked state paused. It shows current
+project/task identity, truthful run state, Live/Recorded/simulated provenance and exact permission
+and question counts. It grants no new runtime capability, background service or OS resize API.
+See [native-agent-panel.md](../validation/native-agent-panel.md#compact-selected-task-monitor) for
+the implementation and the remaining source/layout/device evidence.

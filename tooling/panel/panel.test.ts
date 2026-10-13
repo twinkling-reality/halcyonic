@@ -758,6 +758,146 @@ describe('production native agent panel', () => {
   test('actual Activity authority state refuses retarget, dismissed callbacks and multi-resume/focus revival', () => {
     assert.equal(run('ui_state'), 'true');
   });
+  test('consumed compact authority preserves failed transitions and expires hidden action tickets', () => {
+    assert.equal(run('compact_ui'), 'true');
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    assert.match(activity, /authority\.changePresentation\(compact, saveState\(\)\)/);
+    assert.match(activity, /authority\.commandsAllowed\(\)/);
+    assert.match(activity, /authority\.readProjection\(\)/);
+    assert.match(activity, /generation == offeredGeneration/);
+    assert.match(activity, /putBoolean\("halcyonic\.panel\.compact", compactPanel\)/);
+  });
+  test('Activity-used navigation continuation restarts fresh reads and pauses them without granting actions', () => {
+    assert.equal(run('navigation_refresh'), 'true');
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    assert.match(activity, /authority\.navigated\(\(\) -> poll\(true\)\)/);
+    assert.match(activity, /continuation = null; selectionChanged\(\);/);
+    assert.match(activity, /restoreDraft\(\); selectionChanged\(\);/);
+  });
+  test('the same selected expanded synthetic preview resumes with its immutable projection ready', () => {
+    assert.equal(run('preview_resume'), 'true');
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    assert.match(
+      activity,
+      /if \(preview\) \{ if \(snapshot != null && content != null\) \{ authority\.projected\(\); show\(\); \} return; \}/,
+    );
+  });
+  test('compact task projection uses the selected tuple and separates live, recorded and simulated provenance', () => {
+    const base = model();
+    const selected = {
+      ...base,
+      workstreams: base.workstreams.map((work) => ({
+        ...work,
+        title: 'Review complete task identity',
+        status: 'running',
+      })),
+      executions: base.executions.map((run) => ({
+        ...run,
+        runtime: { ...run.runtime, synthetic: true },
+      })),
+    };
+    const read = (snapshot: unknown, project = projectId, work = workId) =>
+      run('monitor', JSON.stringify(snapshot), project, work);
+    assert.deepEqual(JSON.parse(read(selected)), {
+      project: 'Fixture',
+      task: 'Review complete task identity',
+      state: 'Working',
+      source: 'Live host state · simulated agent',
+      permissions: 0,
+      questions: 0,
+      has_agent: true,
+    });
+    const recorded = { ...selected, journal: { ...selected.journal, origin: 'fixture' } };
+    assert.equal(JSON.parse(read(recorded)).source, 'Recorded state · simulated agent');
+    const pending = {
+      ...selected,
+      executions: selected.executions.map((execution) => ({
+        ...execution,
+        status: 'waiting_for_human',
+        runtime: { ...execution.runtime, synthetic: false },
+        pending_approvals: [{ approval_id: 'permission1' }, { approval_id: 'permission2' }],
+        pending_questions: [{ question_id: 'question1', prompts: [{ key: 'a' }, { key: 'b' }] }],
+      })),
+    };
+    assert.deepEqual(JSON.parse(read(pending)), {
+      project: 'Fixture',
+      task: 'Review complete task identity',
+      state: 'Needs your decision',
+      source: 'Live host state',
+      permissions: 2,
+      questions: 1,
+      has_agent: true,
+    });
+    const unknown = {
+      ...selected,
+      executions: selected.executions.map((execution) => ({ ...execution, status: 'unknown' })),
+    };
+    assert.equal(JSON.parse(read(unknown)).state, "Can't tell yet");
+    const finished = {
+      ...selected,
+      executions: selected.executions.map((execution) => ({ ...execution, status: 'completed' })),
+    };
+    assert.equal(JSON.parse(read(finished)).state, 'Completed');
+    const noAgent = {
+      ...selected,
+      workstreams: selected.workstreams.map((work) => ({
+        ...work,
+        status: 'created',
+        current_execution_id: null,
+      })),
+      executions: [],
+    };
+    assert.equal(JSON.parse(read(noAgent)).has_agent, false);
+    assert.equal(JSON.parse(read(noAgent)).state, 'Not started');
+    assert.equal(read(selected, '0192f1a0-0000-7000-8000-000000000099'), 'refused');
+    assert.equal(read(selected, projectId, '0192f1a0-0000-7000-8000-000000000099'), 'refused');
+    assert.equal(read({ ...selected, projects: [] }), 'refused');
+    assert.equal(
+      read({
+        ...selected,
+        workstreams: selected.workstreams.map((work) => ({
+          ...work,
+          project_id: '0192f1a0-0000-7000-8000-000000000099',
+        })),
+      }),
+      'refused',
+    );
+  });
+  test('compact transitions preserve both independent drafts and the exact pending command reference', () => {
+    const first = fixtures.cases[0]?.value as Record<string, unknown>;
+    const value = {
+      ...first,
+      instruction: { text: 'Keep this ordinary instruction.', spoken: true, part: 2 },
+      surface: 'request',
+      request: {
+        request_id: '0192f1a0-0000-7000-8000-000000000008',
+        pending_command_id: '550e8400-e29b-41d4-a716-446655440000',
+        text: 'Keep this independent workspace direction.',
+        spoken: false,
+        part: 3,
+      },
+    };
+    const saved = JSON.parse(
+      run('drafts', JSON.stringify({ version: 1, drafts: [] }), JSON.stringify([value])),
+    );
+    assert.equal(run('compact_ui'), 'true');
+    const after = JSON.parse(run('drafts', JSON.stringify(saved), JSON.stringify(saved.drafts)));
+    assert.deepEqual(after.drafts, [value]);
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    const compact = activity.slice(
+      activity.indexOf('private void changePresentation'),
+      activity.indexOf('private String monitorFreshness'),
+    );
+    assert.doesNotMatch(
+      compact,
+      /requestPending\s*=|requestId\s*=|requestText\s*=|draft\s*=|sendWorkspace\(|POST/,
+    );
+    const monitor = activity.slice(
+      activity.indexOf('private void monitorTask'),
+      activity.indexOf('private void cancelNetwork'),
+    );
+    assert.doesNotMatch(monitor, /EditText|voiceEditor|gatedButton|sendWorkspace|\bsend\(/);
+  });
   test('failed pause saves retain volatile ordinary drafts and incoming context waits for its fresh projection', () => {
     const paired = fixtures.identities[1];
     assert.ok(paired);
