@@ -382,7 +382,9 @@ callbacks and the same-task character resume witness, using one grounded shelf a
 lifecycle samples retain the original full reported question and options, using the production
 focused-question budget and hidden sections while answering. The production multi-prompt answer
 journey exercises full context, an 80-word option detail, paging and mandatory review. Global Move holds start on the currently visible Move utility. Settings is entered after
-opening Projects through its visible global control, preserving the ordinary file beside it.
+opening Projects through its visible global control and reopening the retained ordinary file
+through the visible Tasks row. Projects intentionally leaves task focus; Settings keeps that
+reopened file beside it.
 
 These changes preserve whole-plane field, geometry, target separation, occlusion, exact retained
 hand-offset, stale-input, confirmation, folding and session-authority checks. A temporary occupied
