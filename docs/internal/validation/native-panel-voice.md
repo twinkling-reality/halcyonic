@@ -124,5 +124,6 @@ The development package was installed with replacement while preserving app data
 base APK's independently read SHA-256 matched the built artifact exactly; the previous installed
 APK was preserved before replacement. Explicit Unity and native Activity launch requests were
 accepted. Unity then lost focus and paused before a live connection was observed. This does not
-establish a crash, readable rendering, voice, private-state recovery or wearer acceptance. Those
-remain open device gates. No release package was installed.
+establish a crash, readable rendering, voice, private-state recovery or wearer acceptance. Android
+window inspection found the native panel window with its secure flag set; that does not establish
+secure virtual-display readability. Those remain open device gates. No release package was installed.
