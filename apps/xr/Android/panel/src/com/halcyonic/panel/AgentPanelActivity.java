@@ -59,6 +59,7 @@ public class AgentPanelActivity extends Activity {
     private long requestPart;
     private Map<String,Object> agentOffer, requestView;
     private Dialog review;
+    private PanelProjectOutput.Lease outputLease;
     private String projectId, workId, executionId, draft = "", commandId;
     private boolean spoken, busy, preview, developmentAllowed;
     private volatile boolean visible;
@@ -372,7 +373,160 @@ public class AgentPanelActivity extends Activity {
         PanelContinuation saved = drafts.find(identity.key, snapshot.journal, workId, executionId);
         if (saved != null && saved.matches(identity, snapshot)) { draft = saved.draft(); spoken = saved.spoken(); continuation = saved;loadRequest(saved); }
     }
-    private void closeReview() { cancelVoice(); if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
+    private void closeReview() { cancelVoice(); if (outputLease != null) { outputLease.revoke(); outputLease = null; } if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
+
+    private PanelUiState.Context outputContext() {
+        PanelUiState.Context scope = identity == null || snapshot == null || projectId == null ? null
+            : new PanelUiState.Context(identity.key, snapshot.journal, projectId, workId, executionId);
+        return PanelProjectOutput.selected(scope, identity, snapshot) ? scope : null;
+    }
+    private PanelProjectOutput.Scope outputScope(PanelUiState.Context scope) {
+        return new PanelProjectOutput.Scope(scope.connection, scope.journal, scope.project);
+    }
+    private Object outputEditor() { return instruction != null ? instruction : requestEditor != null ? requestEditor : content; }
+    private String outputWords() {
+        rememberDraft();
+        long part = continuation != null && java.util.Objects.equals(executionId, continuation.string("execution_id"))
+            && draft.equals(continuation.draft()) && continuation.value.get("instruction") != null
+            ? PanelJson.integer(PanelJson.object(continuation.value.get("instruction")).get("part"), 0, 100000) : 0;
+        return PanelJson.encode(PanelJson.map("surface", surface, "instruction", draft, "spoken", spoken,
+            "instruction_part", part,
+            "request", requestText, "request_spoken", requestSpoken, "request_id", requestId,
+            "pending", requestPending, "request_part", requestPart));
+    }
+    private boolean outputCurrent(PanelProjectOutput.Lease lease) {
+        try {
+            PanelUiState.Context current = outputContext();
+            PanelProjectOutput.Link link = files.readProjectOutputs().find(lease.scope);
+            return outputLease == lease && lease.current(authority, current, current == null ? null : outputScope(current),
+                link == null ? null : link.component, generation, outputEditor(), outputWords(),
+                !preview && visible && authority.commandsAllowed() && identity.same(files.connection()));
+        } catch (Exception error) { lease.revoke(); return false; }
+    }
+    private void projectOutputControls() {
+        if (preview || outputContext() == null || !authority.controlsReady()) return;
+        button(content, "Linked app", this::projectOutput);
+    }
+    private LinearLayout outputDialog(String title, PanelUiState.Context selection, PanelProjectOutput.Component previous) {
+        LinearLayout body = dialog(title);
+        outputLease = new PanelProjectOutput.Lease(authority, reviewOwner, selection, outputScope(selection), previous,
+            generation, outputEditor(), outputWords());
+        return body;
+    }
+    private void outputRefused(String message) {
+        closeReview(); connection.setText(message); show(); ui.postDelayed(refresh, 1000);
+    }
+    /** Each decisive callback checks the original tuple with a fresh authenticated host read. */
+    private void freshOutput(PanelProjectOutput.Lease lease, PanelUiState.Context selection, Runnable next) {
+        busy = true; ui.removeCallbacks(refresh);
+        final int requestGeneration = generation;
+        final PanelIdentity original = identity;
+        PanelTransport check = new PanelTransport(files::connection); transport = check;
+        worker.execute(() -> {
+            boolean confirmed = false;
+            try {
+                PanelIdentity target = files.connection();
+                if (original.same(target)) {
+                    PanelTransport.Result result = check.request(target, "GET", "/api/snapshot", null);
+                    confirmed = result.status == 200 && PanelProjectOutput.selected(selection, target, new PanelModel(result.body));
+                }
+            } catch (Exception error) { /* Refusal grants no local mutation or launch authority. */ }
+            final boolean fresh = confirmed;
+            ui.post(() -> {
+                if (!visible || generation != requestGeneration) return;
+                busy = false;
+                if (outputLease != lease) { ui.postDelayed(refresh, 1000); return; }
+                if (!fresh || !outputCurrent(lease)) { outputRefused("This link action expired or the computer could not confirm the same selection. Choose it again after reconnecting."); return; }
+                next.run();
+            });
+        });
+    }
+    private void projectOutput() {
+        if (preview || busy || !authority.commandsAllowed()) return;
+        final PanelUiState.Context selection = outputContext(); if (selection == null) return;
+        try {
+            PanelProjectOutput.Link link = files.readProjectOutputs().find(outputScope(selection));
+            final PanelProjectOutput.Component previous = link == null ? null : link.component;
+            LinearLayout body = outputDialog("Linked app", selection, previous);
+            text(body, "Project · " + outputProjectName(selection), 20);
+            text(body, "Installed build may differ from current source.", 18);
+            if (previous == null) text(body, "No app linked on this headset.", 18);
+            else {
+                PanelProjectOutput.App installed = PanelAppLauncher.current(this, previous);
+                text(body, installed == null ? "Linked app unavailable\n" + PanelText.plain(previous.packageName) + "\n" + PanelText.plain(previous.activity) : installed.label, 20);
+                button(body, "Open linked app", () -> outputAction(outputLease, selection, previous, previous, true));
+                button(body, "Remove link", () -> outputAction(outputLease, selection, previous, null, false));
+            }
+            button(body, previous == null ? "Choose installed app" : "Change linked app", () -> outputChooser(selection, previous));
+            text(body, "Other apps opens Home if an app cannot be found or opened here.", 18);
+        } catch (Exception error) { outputRefused("Saved links could not be read. Use Other apps to open Home."); }
+    }
+    private void outputChooser(PanelUiState.Context selection, PanelProjectOutput.Component previous) {
+        final PanelProjectOutput.Lease old = outputLease;
+        if (old == null || !outputCurrent(old)) { outputRefused("This app choice expired. Choose it again."); return; }
+        LinearLayout body = outputDialog("Choose installed app", selection, previous);
+        final PanelProjectOutput.Lease lease = outputLease;
+        text(body, "Checking this project…", 18);
+        freshOutput(lease, selection, () -> {
+            try {
+                // Enumeration happens only in this explicit chooser; labels are never saved.
+                PanelAppLauncher.Catalog catalog = PanelAppLauncher.list(this);
+                if (!outputCurrent(lease)) { outputRefused("This app choice expired. Choose it again."); return; }
+                body.removeAllViews();
+                text(body, "Choose an app for " + outputProjectName(selection) + ". It will not open yet.", 20);
+                if (catalog.apps.isEmpty()) text(body, "No apps were found. Close this view and use Other apps to open Home.", 18);
+                if (catalog.truncated) text(body, "Only the first 256 apps are shown. Use Other apps for more.", 18);
+                for (PanelProjectOutput.App app : catalog.apps) button(body, outputAppName(catalog, app), () -> {
+                    if (!outputCurrent(lease) || catalog.find(app.component) != app) { outputRefused("This app choice expired. Choose it again."); return; }
+                    outputConfirmation(selection, previous, app);
+                });
+            } catch (Exception error) { outputRefused("Apps could not be listed. Use Other apps to open Home."); }
+        });
+    }
+    private String outputProjectName(PanelUiState.Context selection) {
+        Map<String,Object> project = snapshot.projects.get(selection.project);
+        return project == null ? "this project" : PanelText.plain(PanelJson.text(project.get("name")));
+    }
+    private String outputAppName(PanelAppLauncher.Catalog catalog, PanelProjectOutput.App app) {
+        long sameName = catalog.apps.stream().filter(other -> other.label.equals(app.label)).count();
+        if (sameName <= 1) return app.label;
+        String identity = app.label + "\n" + PanelText.plain(app.component.packageName);
+        return catalog.apps.stream().filter(other -> other.label.equals(app.label) && other.component.packageName.equals(app.component.packageName)).count() <= 1
+            ? identity : identity + "\n" + PanelText.plain(app.component.activity);
+    }
+    private void outputConfirmation(PanelUiState.Context selection, PanelProjectOutput.Component previous, PanelProjectOutput.App chosen) {
+        if (outputLease == null || !outputCurrent(outputLease)) { outputRefused("This app choice expired. Choose it again."); return; }
+        LinearLayout body = outputDialog("Link app?", selection, previous);
+        final PanelProjectOutput.Lease lease = outputLease;
+        text(body, outputProjectName(selection) + "\n" + chosen.label, 22);
+        text(body, "Installed build may differ from current source. Saving this link does not open the app.", 18);
+        button(body, "Save link", () -> outputAction(lease, selection, previous, chosen.component, false));
+    }
+    private void outputAction(PanelProjectOutput.Lease lease, PanelUiState.Context selection, PanelProjectOutput.Component previous,
+                              PanelProjectOutput.Component chosen, boolean open) {
+        if (lease == null || !outputCurrent(lease)) { outputRefused("This app action expired. Choose it again."); return; }
+        freshOutput(lease, selection, () -> {
+            if (open) {
+                PanelProjectOutput.OpenResult result = PanelProjectOutput.open(new PanelProjectOutput.OpenOperations() {
+                    public boolean current() { return outputCurrent(lease); }
+                    public boolean available() { return chosen != null && PanelAppLauncher.current(AgentPanelActivity.this, chosen) != null; }
+                    public boolean preserveDrafts() { return saveState(); }
+                    public void start() { PanelAppLauncher.open(AgentPanelActivity.this, chosen); }
+                });
+                outputRefused(result == PanelProjectOutput.OpenResult.REQUESTED ? "App open requested."
+                    : result == PanelProjectOutput.OpenResult.UNSAVED ? "Your drafts could not be saved, so the app was not opened."
+                    : result == PanelProjectOutput.OpenResult.UNAVAILABLE ? "Linked app unavailable. Change the link or use Other apps to open Home."
+                    : "The app could not open. Choose it again or use Other apps to open Home.");
+            } else {
+                try {
+                    if (chosen != null && PanelAppLauncher.current(this, chosen) == null) { outputRefused("This app is unavailable. Choose an installed app again."); return; }
+                    if (!saveState() || !outputCurrent(lease)) { outputRefused("Your drafts or selection could not be preserved. The link was kept."); return; }
+                    files.changeProjectOutput(lease.scope, previous, chosen);
+                    outputRefused(chosen == null ? "Link removed." : "Link saved. The app was not opened.");
+                } catch (Exception error) { outputRefused("The link save could not be confirmed. Reopen Linked app to check. No app was opened."); }
+            }
+        });
+    }
 
     private void cancelVoice() {
         voiceGesture.cancel();
@@ -597,6 +751,7 @@ public class AgentPanelActivity extends Activity {
             if (project == null) { projectId = null; show(); return; }
             text(content, "Project · " + PanelText.plain(PanelJson.text(project.get("name"))), 23);
             if (workId == null) {
+                projectOutputControls();
                 text(content, "Tasks", 26);
                 for (Map<String, Object> work : snapshot.workstreams.values()) if (projectId.equals(work.get("project_id"))) {
                     Map<String, Object> taskRun = snapshot.execution(PanelJson.text(work.get("workstream_id")));
@@ -616,8 +771,9 @@ public class AgentPanelActivity extends Activity {
             text(content, "Task · " + PanelText.plain(PanelJson.text(work.get("title"))), 25);
             if (work.get("objective") != null) text(content, "Objective\n" + PanelText.plain(PanelJson.text(work.get("objective"))), 18);
             Map<String, Object> run = snapshot.execution(workId);
-            if (run == null) { text(content, "This task has no current agent. Start work in Workspace.", 20); return; }
+            if (run == null) { executionId = null; projectOutputControls(); text(content, "This task has no current agent. Start work in Workspace.", 20); return; }
             executionId = PanelJson.text(run.get("execution_id"));
+            projectOutputControls();
             Map<String, Object> runtime = PanelJson.object(run.get("runtime"));
             text(content, "Agent · " + PanelText.plain(PanelJson.text(runtime.get("display_name"))) + (PanelJson.bool(runtime.get("synthetic")) ? " · simulated" : "") + "\nAgent status · " + stateName(PanelJson.text(run.get("status"))), 19);
             final PanelUiState.Context displayed = actionContext();

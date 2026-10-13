@@ -49,12 +49,14 @@ const PLAIN = [
   'PanelVoice.java',
   'PanelRestore.java',
   'PanelViewStore.java',
+  'PanelProjectOutput.java',
 ];
 const ANDROID_ONLY = [
   'PanelFiles.java',
   'PanelBridge.java',
   'AgentPanelActivity.java',
   'PanelVoiceCapture.java',
+  'PanelAppLauncher.java',
 ];
 const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
 const DEVELOPMENT_ONLY = ['PanelPreviewActivity.java'];

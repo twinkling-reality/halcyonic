@@ -27,6 +27,7 @@ final class PanelFiles {
     static final String DRAFTS = "halcyonic-workspace-drafts.json";
     static final String UNITY_VIEWS = "halcyonic-unity-workspace-views.json";
     static final String REQUEST_SENDS = "halcyonic-native-request-sends.json";
+    static final String LINKS = "halcyonic-project-app-links.json";
     private static final Object LOCK = new Object();
     private final File directory;
     final boolean developmentAllowed;
@@ -79,6 +80,7 @@ final class PanelFiles {
         else if (name.equals(DRAFTS)) PanelDrafts.parse(json);
         else if (name.equals(UNITY_VIEWS)) PanelViewStore.validate(json);
         else if (name.equals(REQUEST_SENDS)) PanelRequestSends.parse(json);
+        else if (name.equals(LINKS)) PanelProjectOutput.parse(json);
         else PanelContinuation.parse(json);
         String temporary = new File(directory, name + "." + UUID.randomUUID() + ".new").getPath();
         FileDescriptor parent;
@@ -107,6 +109,19 @@ final class PanelFiles {
     }
     PanelRequestSends readRequestSends() throws IOException {
         synchronized(LOCK){try{return PanelRequestSends.parse(readLocked(REQUEST_SENDS,PanelRequestSends.MAXIMUM_BYTES));}catch(RecordAbsent missing){return new PanelRequestSends();}}
+    }
+    PanelProjectOutput readProjectOutputs() throws IOException {
+        synchronized (LOCK) {
+            try { return PanelProjectOutput.parse(readLocked(LINKS, PanelProjectOutput.MAXIMUM_BYTES)); }
+            catch (RecordAbsent missing) { return new PanelProjectOutput(); }
+        }
+    }
+    void changeProjectOutput(PanelProjectOutput.Scope scope, PanelProjectOutput.Component previous, PanelProjectOutput.Component next) throws IOException {
+        synchronized (LOCK) {
+            // Read and replace under the same private-store lock; never write an old whole-store copy.
+            PanelProjectOutput latest = readProjectOutputs();
+            writeLocked(LINKS, latest.change(scope, previous, next).json());
+        }
     }
     private static final class RecordAbsent extends IOException { }
     void remove(String name) { synchronized (LOCK) { new File(directory, name).delete(); } }

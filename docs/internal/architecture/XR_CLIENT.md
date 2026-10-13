@@ -2980,3 +2980,22 @@ project/task identity, truthful run state, Live/Recorded/simulated provenance an
 and question counts. It grants no new runtime capability, background service or OS resize API.
 See [native-agent-panel.md](../validation/native-agent-panel.md#compact-selected-task-monitor) for
 the implementation and the remaining source/layout/device evidence.
+
+### Native project links to installed apps
+
+Expanded native project/task controls offer an explicit Linked app view. A person chooses an
+installed MAIN/LAUNCHER component, reviews it and saves a local project link. Choosing, changing
+and removing a link never launch an app or modify domain state. Open linked app requires a fresh
+authenticated read of the original full selection, unchanged input/dialog/editor authority and
+successful persistence of both instruction/request drafts and the original pending send identity.
+The exact component is rechecked and receives one normal MAIN/LAUNCHER NEW_TASK request with no
+extras, data, grants or task-clearing flags; refusal never retries. Compact monitoring grants no
+link or launch authority.
+
+The bounded app-private links file binds each component to connection/journal/project; labels,
+app inventory, repository paths and words are not saved in it. The established secure atomic writer
+reads the latest store and changes only the expected previous link under its private-store lock.
+An unavailable component is never replaced by a new default. The explicit chooser uses a narrow
+launcher visibility query and no QUERY_ALL_PACKAGES permission. Other apps retains the Home
+fallback. Installed/source/build correspondence and continued panel visibility across launch are
+unknown until device acceptance. See [native-project-output.md](../validation/native-project-output.md).
