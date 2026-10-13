@@ -1,5 +1,37 @@
 # Workspace request verification
 
+## 2026-10-13: Combined synthetic edit and check through the real Codex runtime
+
+`codex-live-edit.e2e.test.ts` connects the production request coordinator, Recorder, CommandService,
+approved-folder policy and real pinned Codex 0.157.0 adapter in one witness. The existing isolated
+Codex test harness supplies temporary HOME/CODEX_HOME/XDG/TMPDIR, a scripted Responses provider
+on loopback, an egress-refusing proxy and process socket monitoring. The coordinator's tool choices
+are scripted too: this is an actual runtime/file/command witness, not model reasoning or inference.
+No real repository, hosted provider, downloaded model, Unity player, build, install or device is used.
+
+The test binds a disposable synthetic Git folder as a project, creates a task and selects a model
+actually listed by the runtime as served on this Mac. Normal workspace-write/on-request policy is
+unchanged. It waits for an observed setup turn completion on the exact execution, then submits one
+authorized local request through CommandService. Actual HTTP authentication is not exercised here. Two `continue_task` actions pass through the original command path: an actual
+`apply_patch` adds the synthetic file, and one actual Node command asserts its exact bytes and writes
+an offline-check receipt. Filesystem assertions prove the edit/check occurred once; prepared command
+IDs and observed native item/turn events prove the coordinator reconciled each outcome before the
+next continuation. No command or result is synthesized into the runtime adapter.
+
+The final coordinator answer remains `reported`. Native instruction delivery and relevant turn
+completion remain separate receipts, and `last_test_run` stays null: observing a successful command
+does not fabricate a structured passing-test event, whole-suite coverage or installed application
+correspondence. The test also verifies that instruction/model-message text never enters operational
+logs, runtime processes attempted no proxy egress and no sampled socket reached beyond loopback.
+The harness's periodic socket monitor does not claim to prevent every possible short-lived socket.
+
+Focused execution passed 1/1 with zero failures, cancellations, skips or todos, in 0.51 seconds
+(0.76 seconds including the test process). TypeScript type checking and scoped Biome checks passed.
+The native binary's independently checked SHA-256 matched the repository's Codex pin before this
+run. Whole-repository validation belongs to the integration gate. Existing authority/restart tests,
+natural model-to-runtime planning, secret-bearing result persistence, visible result consumers,
+real build/install and headset editing/return remain separate acceptance work.
+
 ## 2026-10-12: Journal contract and authority boundary
 
 The first implementation stage defines the general request commands, lifecycle events and
