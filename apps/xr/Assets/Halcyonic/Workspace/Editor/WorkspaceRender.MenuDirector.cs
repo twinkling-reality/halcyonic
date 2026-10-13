@@ -1594,9 +1594,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var directions = corners.Select(corner => corner - eyes).Select(point => new Vector2(
                     Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
                     Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg)).ToArray();
-                var shelf = new GlazeChecks.Extent("candidate shelf", directions.Min(point => point.x), directions.Max(point => point.x),
+                var candidateExtent = new GlazeChecks.Extent("candidate shelf", directions.Min(point => point.x), directions.Max(point => point.x),
                     directions.Min(point => point.y), directions.Max(point => point.y));
-                var additionalClear = !additionalFrame.HasValue || shelf.Apart(additionalFrame.Value) >= WorkspacePlacement.ClearanceDegrees;
+                var additionalClear = !additionalFrame.HasValue || candidateExtent.Apart(additionalFrame.Value) >= WorkspacePlacement.ClearanceDegrees;
                 if (!accepted.HasValue && fits && plane.ClearsShelf(corners, eyes) && additionalClear) accepted = candidate;
             }
             if (!accepted.HasValue) failures.Add(name + ": no supported one-agent shelf cleared the actual console and field.");
