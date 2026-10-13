@@ -420,3 +420,20 @@ proves detection of a missing rendered fade, not device comfort or both-eye rend
 combined workspace gate records each journey's exception and continues to the remaining
 journeys, including current dedicated-workspace, request and optional-shelf cases. A failing
 earlier fixture can no longer silently prevent later creation and review validation.
+
+
+### Independent console geometry gallery (2026-10-13)
+
+The raw plane gallery now creates work independently from optional representation: zero agents
+or one deliberately placed shelf, never the rejected six-agent arc or a fabricated video window.
+It uses the centered production page budget. All existing transition easing, allocation, field,
+body/label clearance, text, target, side-panel replacement, opening authority and rendered fade
+checks remain. `PlaneCheck` passes all three scenarios at both real-font text sizes.
+
+The director's real Settings journey exposed a separate production fit defect: a legacy
+17.5-degree top-line check hid the menu before testing the actual centered composition. Removing
+that obsolete placement test and retaining actual corner/occupied-geometry checks makes the
+character-free director cases pass. The shelf case still needs navigation appropriate to its
+genuinely obstructed two-column layout; source and geometry checks do not establish wearer
+acceptance. The integrated native-voice tree passes the full repository check: 1,167 tests, no
+failures or skips, with type checking and lint passing. Native device acceptance remains open.

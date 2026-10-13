@@ -2945,3 +2945,12 @@ journaled outcomes; a completed submit/resume records the request direction, and
 cancel stops only planning. Unknown delivery directs the person to refresh the saved request,
 never to retry it automatically. Request-not-found refusals use ordinary recovery wording from
 the rejection code, without displaying the host's internal error text.
+
+
+### Independent console column fit (2026-10-13)
+
+Menu/task pairs are measured at the console's actual centered placement plus the exact retained
+hand offset. Their complete header and columns must fit the measured field and clear occupied
+agent bodies and labels. Before field measurement is available, the Quest 3S fallback applies.
+The former stage-relative top-line precheck no longer hides a pair that fits the independent
+console. A genuinely obstructed or oversized pair still shows the task alone.

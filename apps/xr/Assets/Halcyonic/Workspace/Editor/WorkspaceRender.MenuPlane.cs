@@ -24,9 +24,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
                 ViewField.Current = FieldChecks.Quest3S;
                 var found = new List<string>();
-                try { found.AddRange(RenderMenuPlane("far-3s-plane", folder, CharacterStage.DefaultDistance, null)); }
+                try
+                {
+                    found.AddRange(RenderMenuPlane("far-3s-plane", folder, CharacterStage.DefaultDistance, null));
+                    found.AddRange(RenderMenuPlane("desk-3s-plane", folder, 0.55f, 0.46f));
+                    found.AddRange(RenderMenuPlane("shelf-3s-plane", folder, CharacterStage.DefaultDistance, null, withShelf: true));
+                }
                 finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
                 foreach (var failure in found) Debug.LogError("Halcyonic: plane render: " + failure);
+                if (found.Count == 0) Debug.Log("Halcyonic: plane render: every check passed; " + folder);
                 return found;
             });
             UnityEditor.EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
@@ -91,8 +97,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// every label and body, the measured field where there is one, and the light line crossing no
         /// label or character.
         /// </summary>
-        /// <param name="besideWindow">The four characters either side of a video window straight ahead, the plane opening centred under it.</param>
-        private static IEnumerable<string> RenderMenuPlane(string name, string folder, float radius, float? surfaceDrop, bool besideWindow = false)
+        /// <param name="withShelf">One deliberately placed grounded agent, independent of the console.</param>
+        private static IEnumerable<string> RenderMenuPlane(string name, string folder, float radius, float? surfaceDrop, bool withShelf = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Menu plane render " + name);
@@ -101,38 +107,39 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
-                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation, besideWindow: besideWindow);
-                var window = besideWindow ? Window(root.transform, eyes) : null;
-                var targets = characters.ConvertAll(character => character.Target);
-                var opened = characters[3];
-                var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
-                var looking = besideWindow ? Vector3.forward : opened.Target.BodyPosition - eyes;
+                var characters = new List<(CharacterView View, CharacterTarget Target)>();
+                var targets = new List<CharacterTarget>();
+                var shown = Presentation("render-3", 3);
+                CharacterTarget? opened = null;
+                var looking = Vector3.forward;
+                float? surface = null;
+                const bool besideWindow = false; // This fixture owns no system application window.
                 var plane = MenuPlane.Create(root.transform);
                 var text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
                 var bar = new MenuBar(MenuPlace.Tasks, "1 task is waiting for you", MenuPlace.Tasks);
-                // Tasks beside a file packs its rows by the stage's real height there, when the menu opens.
-                var besideTop = MenuPlane.TopLine(opened.Target, targets, eyes, looking, surface, besideWindow, besideMenu: true);
-                var besideBudget = MenuPage.Height(text, 1, besideTop, ViewField.Current, besideMenu: true, header: WorkspaceChromeView.Height);
+                var direction = new PanelDirection(0f, 0f, true, false);
+                var besideBudget = MenuPage.Height(text, 1, 0f, ViewField.Current, besideMenu: true,
+                    header: WorkspaceChromeView.Height, centered: true, placement: direction);
                 var rows = Enumerable.Range(1, MenuFrame.RowsAPage(text, sourceLine: false)).LastOrDefault(count => MenuPage.Rows(count) <= besideBudget);
-                Debug.Log("Halcyonic: workspace render " + name + ": beside a file the plane's top line is " + GlazeChecks.Degrees(besideTop) + " degrees below eye level, so Tasks holds "
-                    + rows + " rows.");
-                var menu = Tasks(text, opened.View.Presentation!.Title, Mathf.Max(1, rows));
-                var badge = StateLanguage.BadgeOf(opened.View.Presentation!);
-                // The file's page packed for this stage, as the screens pack it: as much as its top line and the field leave.
-                var top = MenuPlane.TopLine(opened.Target, targets, eyes, looking, surface, besideWindow);
-                var budget = MenuPage.Height(text, MenuFrameView.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), top, ViewField.Current, header: WorkspaceChromeView.Height);
-                Debug.Log("Halcyonic: workspace render " + name + ": the plane's top line here is " + GlazeChecks.Degrees(top) + " degrees below eye level; a file's page holds "
-                    + GlazeChecks.Degrees(2f * Mathf.Atan(budget / 2f) * Mathf.Rad2Deg) + " degrees of lines.");
-
-                // Where the menu and a file side by side would stand under these labels: Tasks' rows and the
-                // file's subject level with them, each label cleared where it stands, and as it was, at the corners.
-                if (!besideWindow) MeasureBeside(name, opened.Target, targets, eyes, looking, surface, text);
+                var menu = Tasks(text, shown.Title, Mathf.Max(1, rows));
+                var badge = StateLanguage.BadgeOf(shown);
+                plane.Show(bar, menu, null, null, targets, eyes, looking, null, immediately: true);
+                if (withShelf)
+                {
+                    var agent = ConfirmedPlaneAgent(root.transform, plane, eyes, shown, failures, name);
+                    characters.Add(agent);
+                    targets.Add(agent.Target);
+                    opened = agent.Target;
+                }
+                var occupied = targets.Select(target => WorkspaceLayout.InView(target, eyes)).ToList();
+                var budget = MenuPage.Height(text, MenuFrameView.TitleRows(shown.Title, Glaze.Menu.FileColumnDegrees), 0f,
+                    ViewField.Current, header: WorkspaceChromeView.Height, centered: true, placement: direction, occupied: occupied);
 
                 // The menu alone, then the waiting task's file opening beside it: the menu moves over to make
                 // room, easing in and out, seen a quarter of a slide's time in.
                 plane.Show(bar, menu, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
                 var alone = plane.Shown.Where(column => column.Kind == MenuColumn.Menu).Select(column => column.View.Parts[0].position).ToList();
-                plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                plane.Show(bar, menu, WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes, looking, surface, besideWindow: besideWindow);
                 var moves = plane.Shown.Where(column => column.Kind == MenuColumn.Menu).Select(column => column.View).FirstOrDefault();
                 plane.Advance(Glaze.SlideSeconds / 4f);
                 var moveQuarter = moves != null ? moves.Parts[0].position : Vector3.zero;
@@ -141,19 +148,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 else Debug.Log("Halcyonic: workspace render " + name + ": the menu and a file do not stand together here, so the menu moving over goes unseen.");
 
                 // The menu on Tasks beside the waiting task's file.
-                plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
-                failures.AddRange(PlaneState(name + " menu and file", folder, camera, texture, plane, characters, eyes, window));
+                plane.Show(bar, menu, WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
+                failures.AddRange(PlaneState(name + " menu and file", folder, camera, texture, plane, characters, eyes, null, lightLine: opened != null));
                 // Where the file is too tall beside Tasks here, the menu stands aside from the start.
                 var menuPlaced = plane.Shown.Where(column => column.Kind == MenuColumn.Menu).SelectMany(column => column.View.Parts).Select(part => part.position).ToList();
                 if (menuPlaced.Count == 0) Debug.Log("Halcyonic: workspace render " + name + ": the file is too tall to stand beside Tasks here, so the menu stands aside.");
                 var fileBefore = plane.Shown.First(column => column.Kind == MenuColumn.File).View.Subject.position;
-                if (besideWindow && plane.Shown.Count != 1) failures.Add(name + ": beside a window the menu and a file stand together; they stand one at a time.");
 
                 // A cut answer chosen: its side panel slides out, and the menu steps aside to the left. Each move
                 // is seen a quarter of its own time in: the menu leaving eases in, the file moving eases in and out.
                 var shifting = FindView(plane, "File");
                 if (shifting != null) SettleLongAgo(shifting);
-                plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: true, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                plane.Show(bar, menu, WaitingFile(shown.Title, badge, chosen: true, budget), opened, targets, eyes, looking, surface, besideWindow: besideWindow);
                 // The file moving over for its side panel takes no press as it slides: its buttons wait to settle again.
                 if (shifting != null && plane.Shown.Any(column => column.View == shifting)) failures.AddRange(WaitsToSettle(name + " file moving over for its side panel", shifting));
                 plane.Advance(Glaze.LeaveSeconds / 4f);
@@ -187,12 +193,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (plane.Shown.All(column => column.Kind != MenuColumn.Side)) failures.Add(name + ": the chosen answer's side panel does not show.");
                 if (GlazeText.Scale > 1f && plane.Shown.Count != 1) failures.Add(name + ": with larger text the side panel stands beside its file; it takes the file's place.");
                 if (fileHalf.Count == 0) Debug.Log("Halcyonic: workspace render " + name + ": the side panel stands in the file's place.");
-                failures.AddRange(PlaneState(name + " file and side panel", folder, camera, texture, plane, characters, eyes, window));
+                failures.AddRange(PlaneState(name + " file and side panel", folder, camera, texture, plane, characters, eyes, null, lightLine: opened != null));
 
                 // Close details: the menu comes back where it was, taking no press until it settles.
                 var menuAside = plane.MenuAside && menuView != null;
                 if (menuAside) SettleLongAgo(menuView!);
-                plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                plane.Show(bar, menu, WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes, looking, surface, besideWindow: besideWindow);
                 if (menuAside && !plane.MenuAside) failures.AddRange(WaitsToSettle(name + " menu back", menuView!));
                 // The menu coming back arrives, easing out: seen a quarter of its own time in.
                 var menuFrom = menuAside && !plane.MenuAside && menuView!.Parts.Count > 0 ? menuView.Parts[0].position : (Vector3?)null;
@@ -209,12 +215,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     var off = Vector3.Distance(back[index], menuPlaced[index]);
                     if (off > 0.001f) failures.Add(name + ": the menu came back " + (off * 1000f).ToString("0.0", CultureInfo.InvariantCulture) + " mm from where it was.");
                 }
-                failures.AddRange(PlaneState(name + " menu back", folder, camera, texture, plane, characters, eyes, window));
+                failures.AddRange(PlaneState(name + " menu back", folder, camera, texture, plane, characters, eyes, null, lightLine: opened != null));
 
                 // A setting chosen with the file beside the menu: the menu's details take the front, and the
                 // file steps aside to the right, off the plane, until they close.
                 var fileShown = plane.Shown.Where(column => column.Kind == MenuColumn.File).Select(column => column.View.Subject.position).ToList();
-                plane.Show(bar, SettingChosen(), WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
+                plane.Show(bar, SettingChosen(), WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes, looking, surface,
                     besideWindow: besideWindow);
                 plane.Advance(Glaze.SlideSeconds / 2f);
                 var fileView = FindView(plane, "File");
@@ -226,27 +232,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!plane.FileAside || plane.Shown.Any(column => column.Kind == MenuColumn.File)) failures.Add(name + ": a setting chosen beside a file, and the file still stands on the plane.");
                 if (fileView != null && fileView.gameObject.activeSelf) failures.Add(name + ": the file still shows after stepping aside.");
                 if (plane.Shown.All(column => column.Kind != MenuColumn.Side)) failures.Add(name + ": a setting chosen beside a file, and its details don't show.");
-                failures.AddRange(PlaneState(name + " details over a file", folder, camera, texture, plane, characters, eyes, window));
+                failures.AddRange(PlaneState(name + " details over a file", folder, camera, texture, plane, characters, eyes, null, lightLine: opened != null));
 
                 // Close details: the file comes back, taking no press until it settles.
                 var fileAside = plane.FileAside && fileView != null;
                 if (fileAside) SettleLongAgo(fileView!);
-                plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                plane.Show(bar, menu, WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes, looking, surface, besideWindow: besideWindow);
                 if (fileAside && !plane.FileAside) failures.AddRange(WaitsToSettle(name + " file back", fileView!));
                 plane.Advance(Glaze.SlideSeconds);
                 if (plane.FileAside || plane.Shown.All(column => column.Kind != MenuColumn.File)) failures.Add(name + ": the menu's details closed, and the file did not come back.");
-                failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, window));
+                failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, null, lightLine: opened != null));
 
                 failures.AddRange(OpeningAllocatesNothing(name, plane,
                     () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow),
-                    () => plane.Show(bar, null, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
+                    () => plane.Show(bar, null, WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes, looking, surface,
                         besideWindow: besideWindow)));
 
                 // Another task's file taking the file's place opens anew, taking nothing until it shows whole; the same
                 // task's file laid again stands as it was.
                 var oneTask = new object();
                 var anotherTask = new object();
-                void ShowOf(object task) => plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes,
+                void ShowOf(object task) => plane.Show(bar, menu, WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes,
                     looking, surface, besideWindow: besideWindow, fileColumn: task);
                 ShowOf(oneTask);
                 plane.Advance(Mathf.Max(Glaze.SlideSeconds, MenuPlane.OpeningSeconds));
@@ -273,20 +279,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The waiting task's file assembling from its character, then closing to the bar.
                 failures.AddRange(OpeningStrip(name + " opening", folder, camera, texture, plane,
                     () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow),
-                    () => plane.Show(bar, null, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
+                    () => plane.Show(bar, null, WaitingFile(shown.Title, badge, chosen: false, budget), opened, targets, eyes, looking, surface,
                         besideWindow: besideWindow),
                     () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, besideWindow: besideWindow)));
 
                 // A column opened takes nothing until it has opened, though it counts as drawn when laid.
-                failures.AddRange(OpeningTakesNothing(name, plane, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget),
-                    WaitingFile(opened.View.Presentation!.Title, badge, chosen: true, budget),
-                    (frame, now) => plane.Show(bar, menu, frame, frame != null ? opened.Target : null, targets, eyes, looking, surface, immediately: now, besideWindow: besideWindow),
+                failures.AddRange(OpeningTakesNothing(name, plane, WaitingFile(shown.Title, badge, chosen: false, budget),
+                    WaitingFile(shown.Title, badge, chosen: true, budget),
+                    (frame, now) => plane.Show(bar, menu, frame, frame != null ? opened : null, targets, eyes, looking, surface, immediately: now, besideWindow: besideWindow),
                     () => plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow)));
 
                 // Closed, with no file open: the bar alone.
                 plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
                 if (plane.Bar == null) failures.Add(name + ": the menu closed with no file open shows no bar.");
-                failures.AddRange(PlaneState(name + " closed", folder, camera, texture, plane, characters, eyes, window));
+                failures.AddRange(PlaneState(name + " closed", folder, camera, texture, plane, characters, eyes, null, lightLine: opened != null));
             }
             finally
             {

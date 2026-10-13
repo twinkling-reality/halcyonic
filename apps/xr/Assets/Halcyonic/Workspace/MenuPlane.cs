@@ -429,15 +429,12 @@ namespace Halcyonic.XR.Workspace
                     menu.Show(menuFrame, Glaze.Menu.MenuColumnDegrees, level, pill);
                     file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, level, pill, stateInHeader: SelectedState != null);
                     var beside = new PlaneComposition(new[] { ColumnOf(menu), ColumnOf(file) }, zoom, WorkspaceChromeView.Height);
-                    fits = MenuPage.Fits(beside);
-                    // Where the stage would place the two under its labels, moved as far as the drag holds,
-                    // inside the headset's measured field and clear of every character.
-                    if (fits && ViewField.Current is ViewField field)
-                    {
-                        var placed = PlaceWorkspace(all, looking, surfaceHeight, beside.Size);
-                        var dragged = MenuDrag.Turned(placed, offset);
-                        fits = placed.Clear && MenuPage.Inside(beside, dragged, field) && WorkspacePlacement.Clears(dragged, bodies, beside.Size);
-                    }
+                    // Judge the actual independent console, including its retained hand offset.
+                    // The former stage-relative top-line precheck could hide a menu that fits here.
+                    var placed = PlaceWorkspace(all, looking, surfaceHeight, beside.Size);
+                    var dragged = MenuDrag.Turned(placed, offset);
+                    fits = placed.Clear && MenuPage.Inside(beside, dragged, DragField)
+                        && WorkspacePlacement.Clears(dragged, bodies, beside.Size);
                 }
                 var kinds = MenuColumns.Arrange(menuFrame != null, fileFrame != null, panel != null, fits, inPlace);
                 MenuAside = MenuColumns.MenuAside(menuFrame != null, fileFrame != null, panel != null, fits);
