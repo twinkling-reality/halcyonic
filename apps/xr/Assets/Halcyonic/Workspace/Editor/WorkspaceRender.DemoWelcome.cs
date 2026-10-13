@@ -1,221 +1,180 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
+using System.Threading;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
-using Halcyonic.XR.UI.Editor;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
-        /// <summary>The highest the raised banner may reach above eye level before the coordinator decides again where it stands.</summary>
-        private const float RaisedBannerMostDegrees = 20f;
-
         /// <summary>
-        /// The demonstration's first visit (ADR 0026), from the eyes, drawn by the menu's own director: it
-        /// opens closed, the recorded characters and the closed bar, as the recording begins and again once
-        /// its directed task waits; then Projects, from the bar's Open; the stage's banner raised above the
-        /// stage throughout, with the demonstration's lines alone. It fails if the first visit opens
-        /// anything or asks the first question, if the closed bar doesn't say what waits, if the
-        /// demonstration's lines would be missing or hang where the bar or the menu stands, if a live
-        /// session's banner would show or rise with the menu open, if the lines come within a degree of a
-        /// character's highest reach, a label, the bar or the plane, if they leave the field while the menu
-        /// is read, or if they reach above <see cref="RaisedBannerMostDegrees"/>.
+        /// ADR 0029's recorded entry opens the complete Projects workspace without a character arc
+        /// or a separately fabricated banner. Recorded provenance, waiting navigation, task selection
+        /// and whole-workspace Minimize/restore use the production director and normal geometry checks.
         /// </summary>
         private static IEnumerable<string> RenderDemoWelcome(string name, string folder, float radius, float? surfaceDrop)
         {
             var failures = new List<string>();
             var root = new GameObject("Demo welcome render " + name);
             var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            RealtimeSession? session = null;
             try
             {
                 var asset = Resources.Load<TextAsset>("HalcyonicDemonstration");
                 var recording = DemonstrationRecording.Parse(asset.text);
                 Resources.UnloadAsset(asset);
-                // As the recording begins: its welcome and its beginning's snapshot, nothing played yet.
-                var (state, _) = RecordedAt(recording, new int[0]);
-
+                var (state, activity) = RecordedAt(recording, Array.Empty<int>());
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
-                // The recording's tasks on the stage, in its order, as the judge walk places them.
-                var tasks = state.Workstreams.Values.OrderBy(task => task.CreatedAt).ToList();
                 var characters = new List<(CharacterView View, CharacterTarget Target)>();
-                var spread = CharacterStage.Spread(radius, surfaceDrop.HasValue ? -surfaceDrop.Value : CharacterStage.DefaultHeightFromEyes);
-                var origin = eyes + Vector3.down * (surfaceDrop ?? 0f);
-                var slots = new[] { -12f, 0f, 12f };
-                for (var slot = 0; slot < tasks.Count && slot < slots.Length; slot++)
-                {
-                    var view = CharacterView.Create(root.transform, tasks[slot].WorkstreamId);
-                    view.Show(CharacterPresenter.Present(tasks[slot], state, true));
-                    var (height, scale) = CharacterStage.Stance(view, radius, surfaceDrop ?? 0f, surfaceDrop.HasValue ? (float?)null : CharacterStage.DefaultHeightFromEyes);
-                    var level = Quaternion.Euler(0f, slots[slot] * spread, 0f) * Vector3.forward;
-                    view.transform.SetPositionAndRotation(origin + level * radius + Vector3.up * height, Quaternion.LookRotation(-level, Vector3.up));
-                    view.transform.localScale = Vector3.one * scale;
-                    characters.Add((view, CharacterTarget.Attach(view, tasks[slot].WorkstreamId)));
-                }
-                var targets = characters.ConvertAll(character => character.Target);
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
-                var commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
+                var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
+                var commands = new CommandFactory(client);
+                session = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
+                var presentation = new WorkspacePresentationState();
+                var sends = 0;
+                FileColumn? selected = null;
+                NewProjectFlow? flow = null;
+                WorkspacePresentation? Present(string task) => state.Workstreams.TryGetValue(task, out var work)
+                    ? WorkspacePresenter.Present(work, state, activity, true) : null;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     Commands = commands,
+                    Presentation = presentation,
                     Overview = () => WorkOverview.Of(state, new StageVisibility(), _ => true),
                     Comfort = comfort,
                     RecordedUsage = at => recording.UsageLimitsAt(at),
                     Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null), _ => { }, _ => { }),
+                    File = (host, task) => selected = new FileColumn(host, () => Present(task), commands, () => null, _ => null, () => ""),
+                    Session = () => session,
+                    MakeNewProject = host => flow = new NewProjectFlow(host, commands, new KeptInMemory()),
+                    Submit = (_, _) => { sends++; return null; },
                     Connected = () => true,
                     Demonstration = () => true,
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, surface, false),
-                    CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), surface, false),
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => state.Workstreams.Values.Any(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou),
                 });
                 var navigator = director.Navigator;
-
-                // The banner, where the stage stands it while the menu is open, reading away from the person as the arc does.
-                var bannerRoot = new GameObject("Banner root").transform;
-                bannerRoot.SetParent(root.transform, false);
-                bannerRoot.localScale = Vector3.one * radius;
-                var banner = StageBanner.Create(bannerRoot);
-                var line = DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null);
-
-                // The first visit, as the workspace's director takes it once the recording plays with nothing open:
-                // the demonstration never asks the first question, and opens nothing.
-                var visit = new FirstVisit();
-                var asks = visit.Asks(live: true, demonstration: true, state.Journal?.JournalId, state.Workstreams.Count > 0);
-                if (asks != false) failures.Add(name + ": the demonstration's first visit asks the first question.");
-                director.BeforeFirstTask = asks == true;
-                if (visit.Due(demonstration: true, somethingOpen: false, asks)) failures.Add(name + ": the demonstration's first visit opens the menu, not ambient.");
-                director.DrawNow();
-
-                void Shot(string step, bool open)
+                var plane = director.Plane;
+                MenuFrame? Menu() => plane.Showing(MenuColumn.Menu);
+                void Press(string action, string? key = null)
                 {
+                    director.DrawNow();
+                    Thread.Sleep(TimeSpan.FromSeconds(0.45));
+                    var shown = plane.Shown.LastOrDefault(each => each.View.Frame is MenuFrame frame &&
+                        (frame.Footer.All.Any(prompt => prompt.Prompt.Id == action && prompt.Prompt.Available)
+                            || frame.Lines.Any(line => line.Action == action && line.Key == key && line.Pressable)
+                            || action == MenuFrame.ChooseSection && frame.Sections.Any(section => section.Key == key)));
+                    if (shown.View == null || !director.PressForRender(shown.Kind, action, key, shown.View.Frame, null))
+                        failures.Add(name + ": no current recorded target accepted " + action + ".");
+                    director.UpdateForRender();
+                    director.DrawNow();
+                }
+                void PointerPress(GlazeButton target, int pointer)
+                {
+                    target.SettleForRender();
+                    target.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Select, target.transform.position);
+                    target.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, target.transform.position);
+                }
+                void Shot(string step, MenuPlace? place = null)
+                {
+                    director.UpdateForRender();
+                    director.DrawNow();
                     var what = name + " demo welcome " + step;
-                    if (open)
+                    if (place.HasValue)
                     {
-                        if (navigator.Place != MenuPlace.Projects || !navigator.IsOpen) failures.Add(what + ": the menu stands on " + navigator.Place + (navigator.IsOpen ? "" : ", closed") + ", not open on Projects.");
-                        if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Subject != ProjectsText.Subject) failures.Add(what + ": Projects does not ask what to work on.");
+                        var shown = Menu();
+                        if (!navigator.IsOpen || navigator.IsCompact || navigator.Asking || navigator.Place != place || shown == null
+                            || !shown.Sections.Select(section => section.Key).SequenceEqual(MenuBar.Places.Select(item => item.ToString()))
+                            || shown.Sections.Count(section => section.Chosen) != 1 || shown.Sections.SingleOrDefault(section => section.Chosen)?.Key != place.ToString())
+                            failures.Add(what + ": recorded entry lost its complete current navigation.");
+                        if (place == MenuPlace.Projects && shown?.Subject != ProjectsText.Subject)
+                            failures.Add(what + ": recorded entry did not show Projects.");
                     }
-                    else
-                    {
-                        if (navigator.IsOpen || navigator.Beside != null || director.Plane.Bar == null) failures.Add(what + ": the demonstration does not open ambient, the closed bar alone on the plane.");
-                        var waits = state.Workstreams.Values.Any(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou);
-                        var said = TasksColumn.Bar(navigator.Place, state).ClosedLine;
-                        if (said != (waits ? "1 task is waiting for you" : "Nothing is waiting for you.")) failures.Add(what + ": the closed bar says \"" + said + "\", not what waits.");
-                    }
-
-                    // Where the stage would stand its banner now, from what covers its place as the director drew it.
-                    var stand = BannerPlace.Of(demonstration: true, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
-                    if (stand != BannerStand.AboveTheStage)
-                    {
-                        failures.Add(what + ": in the demonstration, its lines would be "
-                            + (stand == BannerStand.Hidden ? "missing" : "under the labels, where the " + (open ? "menu" : "closed bar") + " stands") + ".");
-                    }
-                    var live = BannerPlace.Of(demonstration: false, AmbientCover.PanelShowing, AmbientCover.PeekShowing);
-                    if (open && live != BannerStand.Hidden)
-                    {
-                        failures.Add(what + ": with the menu open in a live session, the banner would " + (live == BannerStand.AboveTheStage ? "rise above the stage" : "show under the labels") + ".");
-                    }
-                    banner.Show(line, BannerKind.Practice, null);
-                    if (banner.Line.text != LabelText.ForTextMeshPro(line) || banner.Waiting.gameObject.activeSelf || banner.NotShown != null || banner.StillOpen != null)
-                    {
-                        failures.Add(what + ": the raised banner does not say the demonstration's lines alone.");
-                    }
-                    // As the stage places it: raised, clear of the characters, then of the panel in its place, or of the
-                    // closed bar alone, by the top the plane gives.
-                    var panelTop = AmbientCover.RaisedOver;
-                    if (open && AmbientCover.PanelTop == null) failures.Add(what + ": the open menu gives no top edge for the raised banner to clear.");
-                    if (!open && AmbientCover.BarTop == null) failures.Add(what + ": the closed bar gives no top edge for the raised banner to clear.");
-                    var overCharacters = surface.HasValue
-                        ? CharacterStage.BannerBottomOnSurface(radius, surfaceDrop!.Value) - surfaceDrop.Value
-                        : CharacterStage.BannerBottomAbove(radius, CharacterStage.DefaultHeightFromEyes);
-                    bannerRoot.position = eyes + new Vector3(0f, CharacterStage.RaisedBannerBottom(radius, overCharacters, panelTop), radius);
-                    banner.transform.localPosition = new Vector3(0f, banner.Height, 0f);
-                    banner.gameObject.SetActive(stand != BannerStand.Hidden);
-                    ForceMeshes(root);
-
-                    // A degree over every character's highest reach, risen and moving, and clear of its label and of the plane.
-                    var plate = new GlazeChecks.PlaneShape("the demonstration's lines", banner.Plate.transform, new Vector2(banner.Width, banner.Height) * radius);
-                    var others = new List<GlazeChecks.Extent>();
-                    foreach (var (view, _) in characters)
-                    {
-                        others.Add(GlazeChecks.Of(view.WorkstreamId + "'s label", eyes, view.Label.gameObject));
-                        others.Add(Reach(view, eyes));
-                    }
-                    others.Add(GlazeChecks.Of(open ? "the menu's plane" : "the closed bar", eyes, director.Plane.gameObject));
-                    foreach (var other in others)
-                    {
-                        var apart = GlazeChecks.OutlineApart(plate, eyes, other);
-                        if (apart < GlazeChecks.GapDegrees - 0.01f) failures.Add(what + ": the demonstration's lines are " + GlazeChecks.Degrees(apart) + " degrees from " + other + "; a degree at least.");
-                    }
-                    var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }
-                        .Select(y => plate.Root.position + plate.Root.right * (x * plate.Size.x) + plate.Root.up * (y * plate.Size.y))).ToList();
-                    var elevations = corners.Select(corner => FieldChecks.ElevationOf(eyes, corner)).ToList();
-                    var top = elevations.Max();
-                    if (top > RaisedBannerMostDegrees) failures.Add(what + ": the demonstration's lines reach " + GlazeChecks.Degrees(top) + " degrees above eye level, over " + RaisedBannerMostDegrees.ToString(CultureInfo.InvariantCulture) + ".");
-                    Debug.Log("Halcyonic: workspace render " + what + ": the demonstration's lines stand from " + GlazeChecks.Degrees(elevations.Min()) + " to "
-                        + GlazeChecks.Degrees(top) + " degrees above eye level; the plane's top edge stands at " + (panelTop == null ? "none" : GlazeChecks.Degrees(panelTop.Value)) + ".");
-                    // In the field while the person reads the menu, the head pitched as the plane's checks take it.
-                    if (ViewField.Current is ViewField field && director.Plane.Composition is PlaneComposition composition)
-                    {
-                        var shapes = new List<GlazeChecks.PlaneShape>();
-                        for (var c = 0; c < director.Plane.Shown.Count; c++)
-                        {
-                            var shown = director.Plane.Shown[c].View;
-                            var placed = composition.Parts.Where(part => part.Column == c).ToList();
-                            shapes.AddRange(shown.Parts.Select((part, index) => new GlazeChecks.PlaneShape(shown.name + " " + part.name, part,
-                                new Vector2(placed[index].Width, placed[index].Height) * PlaneComposition.Distance)));
-                        }
-                        failures.AddRange(GlazeChecks.InsideField(what + ", the demonstration's lines", corners, eyes, GlazeChecks.CompositionCenter(shapes),
-                            WorkspacePlacement.ReadingPitch(composition.Size, director.Plane.Direction.Elevation, field), field));
-                    }
-                    failures.AddRange(PlaneState(name + " demo welcome " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: false));
+                    if (presentation.AgentsVisible || root.GetComponentsInChildren<CharacterTarget>(true).Length != 0
+                        || root.GetComponentsInChildren<StageBanner>(true).Length != 0)
+                        failures.Add(what + ": recorded entry requires optional characters or a stage banner.");
+                    if (state.Journal?.Origin != JournalOrigin.Fixture || plane.ConnectionState != WorkspaceText.Demo)
+                        failures.Add(what + ": recorded work was relabeled as a live session.");
+                    if (!presentation.Minimized && (!plane.Chrome.Visible || !plane.Chrome.GetComponentsInChildren<TMPro.TextMeshPro>(false)
+                        .Any(words => words.gameObject.name == "Connection state" && words.text == WorkspaceText.Demo)))
+                        failures.Add(what + ": the actual visible workspace header lost its recorded provenance.");
+                    failures.AddRange(PlaneState(what, folder, camera, texture, plane, characters, eyes, null, lightLine: false));
                 }
-
-                Shot("1 ambient", open: false);
-                if (AmbientCover.PanelShowing) failures.Add(name + ": the closed bar covers the banner's place.");
-
-                // The directed task comes to wait: nothing opens by itself, and the closed bar says so.
-                var asked = RecordedAt(recording, new[] { 0 });
-                state = asked.State;
-                foreach (var (view, _) in characters) view.Show(CharacterPresenter.Present(state.Workstreams[view.WorkstreamId], state, true));
-                navigator.Tick();
-                director.DrawNow();
-                Shot("2 a task waits", open: false);
-
-                // Projects, a press from the bar: the menu open beside the stage, its lines raised over it, Tasks with the amber dot.
-                director.Open(MenuPlace.Projects);
-                director.DrawNow();
-                if (!AmbientCover.PanelShowing) failures.Add(name + ": the open menu leaves the banner's place to it, so nothing raises the demonstration's lines.");
-                if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Sections.SingleOrDefault(section => section.Waits)?.Words != "Tasks")
+                void MinimizeAndRestore(string step, int pointer)
                 {
-                    failures.Add(name + ": with a task waiting, Tasks does not carry the amber dot beside Projects.");
+                    var retainedMenu = navigator.Shown;
+                    var retainedFile = navigator.Beside;
+                    var retainedTask = navigator.BesideTask;
+                    var prior = plane.Shown.LastOrDefault().View?.Frame;
+                    var priorKind = plane.Shown.LastOrDefault().Kind;
+                    PointerPress(plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.Minimize), pointer);
+                    Shot(step + " minimized");
+                    if (!presentation.Minimized || plane.Shown.Count != 0 || plane.Chrome.Visible || plane.Bar is not MenuBarView dock
+                        || !dock.Target.gameObject.activeInHierarchy || dock.Target.Label.text != WorkspaceText.OpenWorkspace
+                        || dock.Controls.Move.gameObject.activeSelf)
+                        failures.Add(name + ": recorded Minimize did not leave only the visible global restore dock.");
+                    if (prior != null && director.PressForRender(priorKind, Footer.Close, null, prior, null))
+                        failures.Add(name + ": minimized recorded content retained old input authority.");
+                    if (plane.Bar is MenuBarView restore) PointerPress(restore.Target, pointer + 1);
+                    Shot(step + " restored");
+                    if (presentation.Minimized || navigator.Shown != retainedMenu || navigator.Beside != retainedFile || navigator.BesideTask != retainedTask)
+                        failures.Add(name + ": recorded restore changed the retained menu/task composition.");
                 }
-                Shot("3 projects", open: true);
+
+                Shot("1 projects", MenuPlace.Projects);
+                if (director.BeforeFirstTask || navigator.Asking)
+                    failures.Add(name + ": recorded startup opened the obsolete first question.");
+                if (Menu()?.Footer.All.Any(prompt => prompt.Prompt.Id == ProjectsScreens.NewProject && prompt.Prompt.Available) != true)
+                    failures.Add(name + ": recorded Projects lost its explicit New project entry.");
+                MinimizeAndRestore("2 initial projects", 920);
+                Shot("3 returned projects", MenuPlace.Projects);
+
+                // Recorded attention updates navigation without opening a task or enabling agents.
+                (state, activity) = RecordedAt(recording, new[] { 0 });
+                Shot("4 a task waits", MenuPlace.Projects);
+                if (Menu()?.Sections.SingleOrDefault(section => section.Waits)?.Key != nameof(MenuPlace.Tasks))
+                    failures.Add(name + ": recorded waiting work lost its Tasks attention marker beside Projects.");
+                if (navigator.Beside != null || presentation.Minimized)
+                    failures.Add(name + ": recorded attention changed the user's current composition by itself.");
+                var waiting = state.Workstreams.Values.Single(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou);
+                Press(ProjectsScreens.ChooseProject, waiting.ProjectId);
+                Shot("5 project tasks", MenuPlace.Tasks);
+                Press(TasksColumn.OpenTask, waiting.WorkstreamId);
+                Shot("6 selected recorded task");
+                if (selected == null || navigator.Beside != selected || navigator.BesideTask != waiting.WorkstreamId
+                    || plane.SelectedMarks.All(mark => mark.Word != StateLanguage.Demo))
+                    failures.Add(name + ": character-free task navigation lost its selected recorded identity or provenance.");
+                MinimizeAndRestore("7 recorded task", 922);
+                if (plane.SelectedMarks.All(mark => mark.Word != StateLanguage.Demo))
+                    failures.Add(name + ": restored recorded task lost its provenance.");
+                PointerPress(plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 924);
+                Shot("8 projects", MenuPlace.Projects);
+                Press(ProjectsScreens.NewProject);
+                Shot("9 explicit recorded creation");
+                if (flow == null || navigator.Beside != flow || flow.Step != NewProjectStep.YourIdea
+                    || plane.Showing(MenuColumn.File)?.Subject != EntryText.CreateProject)
+                    failures.Add(name + ": recorded Projects New project did not open its explicit creation wizard.");
+                if (plane.Showing(MenuColumn.File)?.Footer.All.Any(prompt => prompt.Prompt.Id == NewProjectScreens.HoldToTalk) == true)
+                    failures.Add(name + ": recorded creation offered microphone input.");
+                if (sends != 0) failures.Add(name + ": recorded navigation, minimize, restore or opening creation submitted a command.");
             }
             finally
             {
-                Object.DestroyImmediate(root);
+                session?.Dispose();
+                UnityEngine.Object.DestroyImmediate(root);
                 texture.Release();
-                Object.DestroyImmediate(texture);
+                UnityEngine.Object.DestroyImmediate(texture);
             }
             return failures;
-        }
-
-        /// <summary>The most a character's body takes as the eyes see it, risen and moving: from a body's radius under its place up to its highest reach.</summary>
-        private static GlazeChecks.Extent Reach(CharacterView view, Vector3 eyes)
-        {
-            var scale = view.transform.lossyScale.y;
-            var bottom = -CharacterView.BodyRadius * scale;
-            var top = CharacterView.HighestReach * scale;
-            return GlazeChecks.Facing(view.WorkstreamId + "'s body, risen", eyes, view.transform.position + Vector3.up * ((top + bottom) / 2f),
-                CharacterView.BodyRadius * scale, (top - bottom) / 2f);
         }
     }
 }
