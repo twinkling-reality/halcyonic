@@ -205,3 +205,20 @@ The composition diagnostic keeps the old equal-order condition explicit as its n
 restoring the now-correct production order afterward. CharacterLife, AgentShelf, historical
 Stage and current ShelfWorkspace/Director/Appearance gates remain required; no tolerance is
 relaxed and no current candidate render pass is claimed before execution.
+
+**Order repair remains unaccepted.** The actual `e3d13d8c` feature composition gate exposed
+one/two exact RGBA pixel changes in last-known Ears/Crest Idle/Starting, although live-state
+captures had no reported failures. CharacterLife passed Larger, but Standard Clover/Horns
+changed one pixel by at most 4/255. The earlier three Ear failures were absent. This means
+sorting alone is insufficient for acceptance; no aggregate gate is weakened or skipped.
+The broad composition gate now saves failing repeated frames and exact channel/coordinate
+records. `CharacterProblemCompositionCheck` recreates those four paused ghost histories and
+the original Clover/Horns 216-frame held Idle state, isolating unchanged full, shell+feature,
+shell-only, feature-only, feature/non-character and existing Unlit paths. Clover also captures
+216→288 separately and then repeats that new frozen pose. It retains exact MPBs/matrices and
+reads the editor's configured batching getter if available, plus actual material/static-batch
+flags; configuration is not proof that any draw was batched. No batching, shader, depth,
+easing or comparison change is made. Unity's [SubShader tag reference](https://docs.unity3d.com/6000.0/Documentation/Manual/SL-SubShaderTags.html)
+warns that object-space shaders need DisableBatching when dynamic batching transforms their
+vertices; its [current C# reference](https://github.com/Unity-Technologies/UnityCsReference/blob/master/Editor/Mono/PlayerSettings.bindings.cs)
+shows the read-only batching getter is internal. Actual participation and causality remain open.

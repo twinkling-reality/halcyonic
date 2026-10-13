@@ -165,11 +165,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Actual composed-layer visibility and explicit sorting controls, after isolated feature rendering proved stable.</summary>
         public static void CharacterCompositeDeterminismCheck() => CheckCharacterRenderDeterminism(composite: true);
 
-        private static void CheckCharacterRenderDeterminism(bool composite)
+        /// <summary>The newly failing fixed ghost poses and original Clover/Horns held pose, without changing their parameters.</summary>
+        public static void CharacterProblemCompositionCheck() => CheckCharacterRenderDeterminism(composite: true, problematic: true);
+
+        private static void CheckCharacterRenderDeterminism(bool composite, bool problematic = false)
         {
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
-                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", composite ? "CharacterCompositeDeterminism" : "CharacterRenderDeterminism", variant));
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", problematic ? "CharacterProblemComposition" : composite ? "CharacterCompositeDeterminism" : "CharacterRenderDeterminism", variant));
                 Directory.CreateDirectory(folder);
                 var result = new List<string>();
                 var previousField = ViewField.Current; var wasStill = GlazeMotion.Still;
@@ -177,10 +180,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     ViewField.Current = FieldChecks.Quest3S;
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                    foreach (var id in new[] { "feature-Round-Ears-39", "feature-Blossom-Ears-9", "feature-Squircle-Ears-78" })
+                    var crest = Enumerable.Range(0, 10000).Select(n => "feature-Round-Crest-" + n.ToString(CultureInfo.InvariantCulture))
+                        .First(id => CharacterIdentity.Of(id).Shape == BodyShape.Round && CharacterIdentity.Of(id).Feature == CharacterFeature.Crest);
+                    var cases = problematic
+                        ? new[] { (Id: "feature-Round-Ears-39", Activity: CharacterActivity.Idle, Stale: true),
+                            (Id: "feature-Round-Ears-39", Activity: CharacterActivity.Starting, Stale: true),
+                            (Id: crest, Activity: CharacterActivity.Idle, Stale: true), (Id: crest, Activity: CharacterActivity.Starting, Stale: true),
+                            (Id: "feature-Clover-Horns-39", Activity: CharacterActivity.Idle, Stale: false) }
+                        : new[] { (Id: "feature-Round-Ears-39", Activity: CharacterActivity.Idle, Stale: false),
+                            (Id: "feature-Blossom-Ears-9", Activity: CharacterActivity.Idle, Stale: false),
+                            (Id: "feature-Squircle-Ears-78", Activity: CharacterActivity.Idle, Stale: false) };
+                    foreach (var sample in cases)
                     {
+                        var id = sample.Id;
                         GlazeMotion.Still = false;
-                        var name = CharacterIdentity.Of(id).Shape + "-Ears";
+                        var identity = CharacterIdentity.Of(id);
+                        var name = identity.Shape + "-" + identity.Feature + (problematic ? "-" + sample.Activity + (sample.Stale ? "-last-known" : "-live") : "");
                         var root = new GameObject("Unchanged render witness " + name);
                         var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
                         Material? unlit = null;
@@ -191,15 +206,84 @@ namespace Halcyonic.XR.Workspace.Editor
                             var plane = CharacterConsole(root.transform, eyes);
                             var character = WorkspaceRender.ConfirmedPlaneAgent(root.transform, plane, eyes, Shown(id, CharacterActivity.Idle), result, name);
                             var view = character.View;
-                            result.AddRange(CharacterEnvelopes(name, eyes, new List<(CharacterView View, CharacterTarget Target)> { character }));
-                            view.Show(Shown(id, CharacterActivity.Idle)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
-                            WorkspaceRender.ForceMeshes(root); GlazeMotion.Still = true;
-                            for (var frame = 0; frame < 216; frame++) view.AdvanceForRender(1f / 72f);
+                            if (!problematic || !sample.Stale)
+                            {
+                                result.AddRange(CharacterEnvelopes(name, eyes, new List<(CharacterView View, CharacterTarget Target)> { character }));
+                                view.Show(Shown(id, CharacterActivity.Idle)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
+                                WorkspaceRender.ForceMeshes(root); GlazeMotion.Still = true;
+                                for (var frame = 0; frame < 216; frame++) view.AdvanceForRender(1f / 72f);
+                            }
+                            else
+                            {
+                                // Reproduce the actual composition gate's ordered live/paused state history.
+                                foreach (CharacterActivity activity in Enum.GetValues(typeof(CharacterActivity)))
+                                {
+                                    foreach (var stale in new[] { false, true })
+                                    {
+                                        view.Show(Shown(id, activity, stale)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
+                                        WorkspaceRender.ForceMeshes(root);
+                                    }
+                                    if (activity == sample.Activity) break;
+                                }
+                            }
                             var feature = view.FeatureForRender.Renderer!;
                             var shell = view.Body.Find("Shell").GetComponent<Renderer>();
                             var renderers = root.GetComponentsInChildren<Renderer>(true);
                             var visibility = renderers.Select(renderer => renderer.enabled).ToArray();
-                            if (composite)
+                            if (problematic)
+                            {
+                                var originalMaterial = feature.sharedMaterial;
+                                Texture2D? beforeMoment = null;
+                                try
+                                {
+                                    beforeMoment = WorkspaceRender.Render(camera, texture);
+                                    Series("full-current", freshDepth: null);
+                                    ProblemComposition("shell-feature-only", renderer => renderer == shell || renderer == feature);
+                                    ProblemComposition("shell-only", renderer => renderer == shell);
+                                    ProblemComposition("feature-only-body-shader", renderer => renderer == feature);
+                                    ProblemComposition("feature-noncharacter", renderer => renderer == feature || !renderer.transform.IsChildOf(view.transform));
+                                    ProblemComposition("feature-only-before-unlit", renderer => renderer == feature);
+                                    var shader = Shader.Find("Unlit/Color");
+                                    if (shader == null) result.Add(name + ": built-in Unlit/Color diagnostic shader is unavailable.");
+                                    else
+                                    {
+                                        unlit = new Material(shader) { color = view.FeatureForRender.Colour, renderQueue = originalMaterial.renderQueue };
+                                        feature.sharedMaterial = unlit;
+                                        Series("feature-only-unlit", freshDepth: null);
+                                    }
+                                }
+                                finally
+                                {
+                                    feature.sharedMaterial = originalMaterial;
+                                    for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
+                                }
+                                try
+                                {
+                                    if (!sample.Stale)
+                                    {
+                                        for (var frame = 0; frame < 72; frame++) view.AdvanceForRender(1f / 72f);
+                                        var afterMoment = WorkspaceRender.Render(camera, texture);
+                                        try
+                                        {
+                                            File.WriteAllBytes(Path.Combine(folder, name + "-216-frames.png"), beforeMoment!.EncodeToPNG());
+                                            File.WriteAllBytes(Path.Combine(folder, name + "-288-frames.png"), afterMoment.EncodeToPNG());
+                                            Debug.Log("Halcyonic: unchanged character render: " + name + ": captured 216→288 difference "
+                                                + ExactCharacterPixels(beforeMoment!, afterMoment) + " exact RGBA pixels.");
+                                            SaveCharacterPixelDifferences(Path.Combine(folder, name + "-216-to-288-pixels.txt"), beforeMoment!, afterMoment);
+                                        }
+                                        finally { UnityEngine.Object.DestroyImmediate(afterMoment); }
+                                        Series("full-current-after-288", freshDepth: null);
+                                    }
+                                    else Series("full-restored-current", freshDepth: null);
+                                }
+                                finally { if (beforeMoment != null) UnityEngine.Object.DestroyImmediate(beforeMoment); }
+                                void ProblemComposition(string path, Func<Renderer, bool> include)
+                                {
+                                    for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index] && include(renderers[index]);
+                                    Series(path, freshDepth: null);
+                                }
+                            }
+                            else if (composite)
                             {
                                 var featureOrder = feature.sortingOrder; var shellOrder = shell.sortingOrder;
                                 try
@@ -263,7 +347,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             void Series(string path, int? freshDepth)
                             {
                                 var prefix = name + "-" + path;
-                                var records = new List<string>();
+                                var records = new List<string> { CharacterBatchingSetting() };
                                 Texture2D? previous = null;
                                 var changes = 0;
                                 try
@@ -292,7 +376,9 @@ namespace Halcyonic.XR.Workspace.Editor
                                                 records.Add(renderer.name + " localToWorld=" + renderer.localToWorldMatrix.ToString("R")
                                                     + " worldToLocal=" + renderer.worldToLocalMatrix.ToString("R") + " bounds=" + renderer.bounds.ToString("R")
                                                     + " sortingLayer=" + renderer.sortingLayerID + " sortingOrder=" + renderer.sortingOrder
-                                                    + " queue=" + renderer.sharedMaterial?.renderQueue + " shader=" + renderer.sharedMaterial?.shader?.name);
+                                                    + " queue=" + renderer.sharedMaterial?.renderQueue + " shader=" + renderer.sharedMaterial?.shader?.name
+                                                    + " staticBatch=" + renderer.isPartOfStaticBatch + " instancing=" + renderer.sharedMaterial?.enableInstancing
+                                                    + " DisableBatching=" + renderer.sharedMaterial?.GetTag("DisableBatching", false, "not declared"));
                                             image = WorkspaceRender.Render(camera, currentTarget);
                                             File.WriteAllBytes(Path.Combine(folder, prefix + "-" + frame + ".png"), image.EncodeToPNG());
                                             var after = CharacterFrameValues(new[] { view });
@@ -347,6 +433,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 return result;
             });
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        private static string CharacterBatchingSetting()
+        {
+            // Unity's own current C# reference declares this getter internal. Read only; never change project settings.
+            var method = typeof(PlayerSettings).GetMethod("GetBatchingForPlatform", System.Reflection.BindingFlags.Static
+                | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic, null,
+                new[] { typeof(BuildTarget), typeof(int).MakeByRefType(), typeof(int).MakeByRefType() }, null);
+            if (method == null) return "Configured batching getter unavailable; actual submitted batching is not established.";
+            try
+            {
+                var arguments = new object[] { EditorUserBuildSettings.activeBuildTarget, 0, 0 };
+                method.Invoke(null, arguments);
+                return "configured target=" + arguments[0] + " staticBatching=" + arguments[1] + " dynamicBatching=" + arguments[2]
+                    + "; this configuration does not establish that these MPB/mesh draws were batched.";
+            }
+            catch (Exception) { return "Configured batching getter could not be read; actual submitted batching is not established."; }
+        }
+
+        private static void SaveCharacterPixelDifferences(string path, Texture2D a, Texture2D b)
+        {
+            var first = a.GetPixels32(); var second = b.GetPixels32();
+            var pixels = new List<string>(); var changed = 0;
+            for (var pixel = 0; pixel < first.Length; pixel++)
+            {
+                if (SameCharacterPixel(first[pixel], second[pixel])) continue;
+                changed++;
+                if (pixels.Count < 128) pixels.Add((pixel % a.width) + "," + (pixel / a.width) + ": " + first[pixel] + " -> " + second[pixel]);
+            }
+            pixels.Insert(0, "Exact RGBA differences: " + changed + "; first 128 listed, coordinates start at bottom left.");
+            File.WriteAllLines(path, pixels);
         }
 
         // The causal diagnostic is stricter than the historical 2/255 RGB comparison.
@@ -410,7 +527,12 @@ namespace Halcyonic.XR.Workspace.Editor
                                         try
                                         {
                                             var changed = ExactCharacterPixels(first, repeated);
-                                            if (changed != 0) result.Add(name + ": unchanged composed frame " + frame + " changes " + changed + " exact RGBA pixels.");
+                                            if (changed != 0)
+                                            {
+                                                result.Add(name + ": unchanged composed frame " + frame + " changes " + changed + " exact RGBA pixels.");
+                                                File.WriteAllBytes(Path.Combine(folder, name + "-changed-" + frame + ".png"), repeated.EncodeToPNG());
+                                                SaveCharacterPixelDifferences(Path.Combine(folder, name + "-changed-" + frame + "-pixels.txt"), first, repeated);
+                                            }
                                         }
                                         finally { UnityEngine.Object.DestroyImmediate(repeated); }
                                     }
