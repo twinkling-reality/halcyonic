@@ -94,194 +94,112 @@ headset comfort, hand interaction, performance or wearer acceptance.
 3. After a recenter and after a boundary change, the stage stands in front of the person again, and
    `adb logcat -s Unity` shows `placed the stage in front of the person because ...`.
 
-### Held character candidate adapted to the optional shelf, 2026-10-13
+### Character features on the optional shelf, 2026-10-13
 
-**Scope and method.** The preserved feature/blink work is selectively adapted to the current
-one-agent shelf; the original held branch is unchanged. Existing grounding, independent label
-lip attachment, full source marks, palette refresh, optionality and console placement remain.
-The candidate adds only the six ADR 0013 identity features, declared identity blink intervals,
-the ADR 0027 0.14-second blink token, paused-state freeze, shared geometry constants and the
-held triangle-projection witness. Deterministic identity variety does not provide user
-customization. No ring/rim, travel or inferred reference feature is introduced.
+**Supported design.** [ADR 0029](../decisions/0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md)
+supersedes mandatory character entry and automatic stage placement. The feature/blink work is
+adapted to the current zero/one-agent shelf, with existing grounded shell contact, independent
+label attachment to the shelf lip, source marks, palette refresh and independent console
+placement preserved. The original held branch remains unchanged. The six ADR 0013 feature
+kinds are None, Antenna, Ears, Sprout, Crest and Horns, selected deterministically from task
+identity. This provides identity variety; it does not provide user customization. No ring/rim,
+travel, automatic placement or inferred reference feature is added.
 
-The shared hand/gaze target radius stays 0.1. Feature vertices are bounded to 1.32 shell units;
-0.07 body scale times a conservative 1.08 squash/stretch reaches 0.099792, inside that target.
-The most complex feature has at most 300 vertices/588 triangles, one material and one pass.
-The current supported one-agent shelf therefore adds at most one feature pass, rather than
-asserting that a six-agent group is a supported mode. This is a source bound, not device cost
-measurement or a recognizability result.
+The hand/gaze target radius remains 0.1. Feature vertices stay within 1.32 shell units;
+0.07 body scale times a conservative 1.08 stretch reaches 0.099792, inside that target.
+The largest feature has 300 vertices/588 triangles, one material and one pass. The supported
+one-agent shelf adds at most one feature pass. These are source bounds, not device performance
+or recognizability measurements. Blink intervals are declared by identity in the existing
+3–7-second range; the blink duration uses ADR 0027's 0.14-second token. Last-known and
+Interrupted presentations snap to their paused appearance and freeze pose, material values
+and clock; confirmed live state resumes the existing motion path. Keep things still retains
+the existing easing and clock semantics.
 
-**Regression entry points.** `StageRender.CharacterLifeCheck` runs at Standard and Larger text.
-It creates the actual character-free Projects console and reuses the existing confirmed-shelf
-search, whose whole envelope must clear that console and the measured field with existing
-margins. It then exercises each of the 48 shape/feature combinations as exactly one grounded
-agent. All existing activities in moving and held poses check shell/feature target containment,
-actual shell contact, actual mesh/label containment in the placement envelope, label readability
-and own-body clearance. Disabling only a feature must change pixels. Two fixed identities use
-the actual production clock at 72 Hz; changing only `_EyeOpen` in the same blink frame must
-change rendered eyes. Closed/crossed/flat eyes, immediate last-known freeze, Interrupted freeze
-and live resumption retain separate assertions. `StageRender.AgentShelfCheck` now uses this
-supported one-agent state consumer, retaining contact and adding state/readability/geometry
-coverage. The historical `StageRender.Check` retains its old independent regressions.
+**Rendering decision.** The shell keeps depth writing through the body shader's default
+`_DepthWrite = 1`. A single generated cached feature material uses the same shader with depth
+writing disabled and draws before its shell (`sortingOrder = shell.sortingOrder - 1`). No
+per-character material is generated. Subsystem reset disposes only this owned clone, preserving
+the Resources-owned body material. Shader math, depth testing, blending, render queues,
+animation and project settings are unchanged. Unity's
+[ZWrite reference](https://docs.unity3d.com/6000.0/Documentation/Manual/SL-ZWrite.html) documents
+depth-buffer writes and warns that disabling them can require CPU geometry sorting. The
+installed pinned Meta Interaction RoundedPanelUI shader uses the same numeric material-property
+syntax. Actual Unity compilation and rendering verify the candidate syntax on this stack.
 
-**Stillness evidence remains unresolved.** The original held candidate's actual render passed
-Larger but failed Standard: two pixels changed under Keep things still, by at most 13/255.
-This candidate keeps the exact-zero assertion. Before any production stillness fix, both
-current and historical fixtures now save before/after PNGs, exact transform/material snapshots
-and parameter differences; a changing animation clock can be harmless when no rendered value
-uses it. Asymptotic easing is a source hypothesis, not an established cause. Neither a tolerance
-change nor a longer settling wait is proposed.
+**Causal evidence.** Unity 6000.3.25f1 ran the candidate on Metal with the Android target at
+Standard and Larger text. Original candidate `bc75c72d` reproduced tiny Ear stillness failures
+and the historical Standard stage failure. Captured motion tails alone were not causal:
+`20dc32ee` changed pixels in repeated unchanged and restored frames, and residual correction
+still drifted. No finite settling change or tolerance relaxation was made.
 
-**Validation status.** The current candidate's filtered CharacterIdentityTests and GlazeTokenTests
-passed 24/24 on .NET 10.0.401, with zero skipped. Actual Unity results and the unresolved
-composition defect are recorded below; these earlier source checks are not acceptance. Required root renders are CharacterLifeCheck,
-AgentShelfCheck and the historical StageRender.Check diagnostic, followed by the current
-ShelfWorkspace/Director/Appearance gates. Isolated shader-ignores-EyeOpen and old-blink-period
-mutations should each fail their specific witness and then be reverted. Stereo appearance,
-feature recognizability, native/device behavior, hand interaction, cost and wearer acceptance
-remain unverified.
+Controlled captures on `b84e2be0`, `1294b209` and `9aeb4531` kept shell-only, feature-only with
+the original shader, feature/non-character and Unlit captures identical, while shell/feature
+pairs and full scenes drifted at fixed poses. Camera/renderer matrices, MPBs and globals stayed
+fixed. Requested target depths 24/32 both resolved to D32_SFloat_S8_UInt with one sample, so
+this was not a depth-format comparison. Explicit earlier feature order removed the first
+failures but `e3d13d8c` still failed ghost Ears/Crest and Standard Clover/Horns. Configured Android
+static/dynamic batching were both 1; actual draw participation remains unknown. No batching or
+GPU-internal cause is claimed.
 
-**First actual candidate render.** `CharacterLifeCheck` on `bc75c72d` compiled and ran in Unity
-6000.3.25f1. Standard passed; Larger failed exact stillness on Round/Ears, Blossom/Ears and
-Squircle/Ears, each at two pixels with maximum differences of 18, 20 and 16/255. Other geometry,
-feature, blink and paused assertions reported no failures. The historical `StageRender.Check`
-also reproduced its Standard states-b failure, two pixels at at most 21/255; Larger passed.
-This is not acceptance. Actual ear-edge pixels and saved parameter differences show residual
-body rotation, Fog/EyeUneven and subnormal Look values; a causal explanation still needs isolation.
-`CharacterStillConvergenceCheck` replays those three cases, saves the original frame, replaces
-only those captured idle residuals with their exact rest targets in that same frame, renders,
-then restores every changed value and requires identical restored pixels. Unchanged repeated
-renders and corrected before/after moments must have exactly zero Color32/RGBA differences;
-this diagnostic uses its own exact comparison, while the historical 2/255 RGB comparison is
-unchanged. Larger
-must reproduce the original drift, and the correction must account for every originally
-changing pixel. It does not change production or relax the original stillness checks.
+The private pair-state run on `a5d32bb3` tested the same five failed histories at both text
+sizes. All ten feature-ZWrite-Off series had zero exact RGBA differences. Material-copy,
+name-only shader-copy, distinct queue, depth-bias and no-batching controls each failed in at
+least one case; negative baselines were intermittent. This isolates a useful depth-write
+repair, without claiming a particular GPU implementation fault. Same-camera junction
+inspection found localized changes and no gross feature loss. Detailed captures and logs
+remain private evidence; stability alone does not establish correct appearance or occlusion.
 
-**Residual-only hypothesis rejected.** The first same-frame diagnostic on `20dc32ee` failed:
-unchanged repeated and restored frames changed pixels, corrected moments still drifted, and
-the original larger-text cross-moment drift did not reproduce in that capture sequence. This
-contradicts a residual-only explanation; no production settling change is justified. The
-follow-up exact Color32 comparison strengthens this diagnostic without changing historical
-thresholds. `CharacterRenderDeterminismCheck` now captures at most eight unchanged frames per
-controlled path: reused current target, disabled camera, disabled camera MSAA, freshly created
-depth24/depth32 targets, isolated feature with the actual body shader and isolated feature with
-built-in Unlit/Color. Every path retains identical animation values, logs exact RGBA coordinates,
-camera/renderer matrices, shader globals and actual target format/sample/depth descriptors,
-and restores camera targets, visibility and materials. These paths diagnose rendering; a zero
-exit is only diagnostic execution success and is not stillness acceptance or a production fix.
+**Consumed regressions and current result.**
 
-**Unchanged rendering result and next composition isolation.** The actual `b84e2be0` run found
-zero exact RGBA differences in isolated features with either the original body shader or
-Unlit/Color, for all three identities at both text sizes. Composed scenes still changed a few
-pixels across the camera/target paths. Both requested depth24 and depth32 were actually
-D32_SFloat_S8_UInt with one sample on Metal; this did not test different depth formats.
-Camera/renderer matrices, material values and shader globals stayed identical within each
-sequence. This supports investigating composition rather than assuming standalone shader or
-motion drift. `CharacterCompositeDeterminismCheck` therefore isolates shell+feature,
-character parts, feature+non-character parts, the full scene minus its shell, and shell alone;
-it also compares the unchanged full scene with explicit feature-before/after-shell sorting
-orders, restoring all orders and visibility afterward. It logs actual queue/order/bounds and
-exact pixels. No sorting tie, depth conflict or production fix is claimed before those results.
+| Entry point | Coverage | Actual result |
+| --- | --- | --- |
+| `CharacterFeatureCompositionCheck` | All six Round features × all nine activities × live/last-known; eight unchanged renders compared byte-for-byte in Color32 RGBA, shader/depth/order ownership, feature/shell visibility and representative actual-camera junction images | `f67307ab` and augmented `53241906` passed Standard/Larger |
+| Same composition entry point | Destroy/recreate views around the actual cache reset; one regenerated shared feature surface, original Resources body identity/depth; live/last-known opaque foreground/background; real Checking ring relationship | `53241906` passed Standard/Larger |
+| `CharacterLifeCheck` | All 48 shape/feature identities: idle temporal stillness, all-state moving/held contact, target/envelope/field/console/label geometry; feature-visible differential; actual-clock blink and paused/live resumption | `f67307ab` passed Standard/Larger |
+| `AgentShelfCheck` | One confirmed supported agent, every activity's temporal held pixels, contact, source/readability and geometry | `f67307ab` passed Standard/Larger |
+| Historical `StageRender.Check` | Original independent stage, geometry, palette and held-motion negative regressions; this does not make the old six-agent arc a supported mode | `53241906` passed Standard/Larger |
+| Full `AppearanceCheck` / Workspace PalettePass | Current zero/one-agent journeys and raw component galleries in both palettes/sizes | `53241906` failed only the legacy six-arc raw gallery Clear assertion; current optional-shelf journeys reported no corresponding error |
 
-**Composition isolation and bounded candidate fix.** The actual `1294b209` run found exact
-unchanged shell-only, full-minus-shell and feature/non-character renders. The shell/feature
-pair drifted. Drawing the feature before the shell produced zero exact RGBA differences in
-all six identity/text-size cases; feature-after-shell still drifted and restoring equal order
-reproduced drift in five of six cases. This justifies validating one explicit shell-relative
-sorting order, not a settling change. The production candidate sets only
-`featureRenderer.sortingOrder = shellRenderer.sortingOrder - 1`; shader/depth/blending/queues
-and all current motion paths stay unchanged. It does not claim a particular GPU batching or
-internal sorting cause beyond this observed composition dependency.
+The unchanged temporal stillness comparisons in CharacterLife, AgentShelf and historical Stage
+require zero changed pixels under the existing 2/255 RGB comparison. Their motion negatives
+remain in place. They are distinct from the stricter composition repeat check, which compares
+exact RGBA bytes. All 48 identities get temporal idle and all-state geometry coverage; this
+is not a claim of all 48 × all states exact RGBA pixels. The filtered CharacterIdentity and
+GlazeToken tests passed 24/24 on .NET 10.0.401 with zero skipped. Actual root-isolated shader-ignores-EyeOpen and fixed-4-second-period mutations each
+exited 1 on the original `53241906` fixture: the shader produced four specific eye-pixel errors
+and the period produced four declared-interval errors (two identities × both text sizes), with
+additional blink/duration errors for the period. Both original files were restored exactly. No existing threshold, text margin, envelope or stale-state assertion is weakened.
 
-`CharacterFeatureCompositionCheck` consumes all six feature kinds in every existing activity,
-live and last-known (including Interrupted's paused state), beside a real confirmed one-agent
-shelf and independent console. Eight unchanged captures must agree byte-for-byte in RGBA;
-the actual consumed earlier sorting order and shared material are asserted. Disabling only
-the feature must still change its pixels, and disabling the shell must change the composed
-picture, preserving visible front/body content. Full current, without-shell and legacy-equal
-order images retain inspection evidence; Ears, Antenna, Sprout and Horns also save actual-camera
-junction close-ups in live and ghosted Idle. Stability alone is not appearance acceptance.
-The composition diagnostic keeps the old equal-order condition explicit as its negative,
-restoring the now-correct production order afterward. CharacterLife, AgentShelf, historical
-Stage and current ShelfWorkspace/Director/Appearance gates remain required; no tolerance is
-relaxed and no current candidate render pass is claimed before execution.
+**Occlusion limits.** The augmented composition check exercises the cache-reset editor branch;
+it does not claim a no-domain-reload player lifecycle test. Opaque foreground cubes hide the
+isolated features exactly, and opaque backgrounds leave them visible. Actual shell/feature/
+ring-only frames plus triangle-ray depths check the existing Checking ring, respecting body
+Cull Back and ring Cull Off. Front/back, missed-ray and behind-ray negatives exercise the
+classifier. Rear-shell samples match ring-hidden pixels and each case retains visible foreground ring
+samples; all current cases have positive counts. Rear-feature overlaps would be compared against
+an actual later-feature painter-order reference, but every current case had zero such samples.
+This proves no generic transparent occlusion support. A future transparent object behind a
+protruding non-depth-writing feature can paint over it unless deliberately ordered; that
+composition needs its own geometry and appearance validation. Temporary materials, visibility
+and images are restored and destroyed.
 
-**Order repair remains unaccepted.** The actual `e3d13d8c` feature composition gate exposed
-one/two exact RGBA pixel changes in last-known Ears/Crest Idle/Starting, although live-state
-captures had no reported failures. CharacterLife passed Larger, but Standard Clover/Horns
-changed one pixel by at most 4/255. The earlier three Ear failures were absent. This means
-sorting alone is insufficient for acceptance; no aggregate gate is weakened or skipped.
-The broad composition gate now saves failing repeated frames and exact channel/coordinate
-records. `CharacterProblemCompositionCheck` recreates those four paused ghost histories and
-the original Clover/Horns 216-frame held Idle state, isolating unchanged full, shell+feature,
-shell-only, feature-only, feature/non-character and existing Unlit paths. Clover also captures
-216→288 separately and then repeats that new frozen pose. It retains exact MPBs/matrices and
-reads the editor's configured batching getter if available, plus actual material/static-batch
-flags; configuration is not proof that any draw was batched. No batching, shader, depth,
-easing or comparison change is made. Unity's [SubShader tag reference](https://docs.unity3d.com/6000.0/Documentation/Manual/SL-SubShaderTags.html)
-warns that object-space shaders need DisableBatching when dynamic batching transforms their
-vertices; its [current C# reference](https://github.com/Unity-Technologies/UnityCsReference/blob/master/Editor/Mono/PlayerSettings.bindings.cs)
-shows the read-only batching getter is internal. Actual participation and causality remain open.
+**Raw component fixture migration.** Full Appearance exposed eight repeated Clear failures in
+the legacy six-agent far gallery across sizes/palettes. Actual pixel body/label and opacity
+assertions passed; the conservative legacy label/body bounds needed more clearance than the
+unchanged comfort floor allowed. Those bounds are preserved. The raw panel's positive component
+journeys now start from the actual character-free Projects MenuPlane direction, then confirm
+one optional grounded shelf whose complete envelope clears both the production console and
+the measured raw frame by the unchanged 1.5 degrees. Only this caller considers the additional
+1.05/1.2 m drops; all existing shelf consumers retain their original candidates. Actual agent/
+label points still pass the complete measured field margin, and all raw opacity/paging/target/
+hostile-text assertions remain. The original six-arc default remains as a no-fit negative:
+its direction must be false and separately measured actual frame/label and frame/body gaps at
+the allowed lower/upper alternatives must both fall short of their published clearances. This
+migration has not run yet and is not permission to restore six-character placement authority.
 
-**Remaining pair dependency, not motion.** The actual `9aeb4531` run retained unchanged
-shell-only, feature-only original shader, feature/non-character and Unlit captures in the
-remaining ghost and Clover histories. Pair/full captures still drifted, including Clover
-at fixed 216 and fixed 288-frame poses. This rejects a residual-only repair for that case too.
-Configured Android static/dynamic batching were both 1, but actual participation is unknown.
-
-`CharacterPairStateCheck` is the approved bounded discriminator: the exact same five histories
-and at most eight unchanged captures per variant use original production, original shader in
-a copied material, name-only exact shader copy, distinct earlier feature queue, private
-feature ZWrite Off, private feature Offset 0,-1, private DisableBatching tag and restored
-original production. Private shader text differs only in the name and the named state;
-copies and exact material/shader identities are logged so a state effect is not confused
-with changed submission identity. The production shader, project settings, MPBs, geometry
-and comparison stay unchanged. In-memory private shader compilation uses Unity's documented
-[current C# ShaderUtil surface](https://github.com/Unity-Technologies/UnityCsReference/blob/master/Editor/Mono/ShaderUtil.bindings.cs/),
-with objects destroyed and original materials restored in finally. Pixel coordinates, full
-frames and exact source copies are retained for review; no production shader repair is
-endorsed before actual results and appearance/occlusion inspection.
-
-**Feature depth candidate, 2026-10-13.** The actual `a5d32bb3` private pair-state run produced
-zero exact RGBA differences in every feature-ZWrite-Off series across all five failed histories
-and both text sizes. Every other named variant failed in at least one case; baseline failures
-were intermittent. This supports a narrow feature-depth candidate, without identifying a GPU
-internal cause. Same-camera junction inspection found localized differences and no gross feature
-loss, which does not establish occlusion correctness.
-
-The body shader now exposes `_DepthWrite` with default 1; the Resources-owned shell keeps depth
-writing. Features use one generated cached copy with that property set to 0 and retain their
-existing earlier shell-relative order. The cache owns and disposes only its generated material
-at subsystem reset; the body resource remains owned by Resources. Shader math, depth testing,
-blending, queues, animation, project settings and pixel comparisons remain unchanged. Unity's
-[ZWrite reference](https://docs.unity3d.com/6000.0/Documentation/Manual/SL-ZWrite.html) confirms
-that this controls depth-buffer writes and warns that Off can require CPU geometry sorting.
-The pinned Meta Interaction RoundedPanelUI shader independently uses a numeric material
-property in the same command; actual candidate compilation and rendering remain the gate.
-
-Existing composition and all-feature geometry guards consume shell depth 1, feature depth 0,
-the original shader and the earlier order. Retained legacy captures explicitly restore feature
-depth 1 as well as equal order; equal order alone no longer recreates the old state. Private
-pair shader probes use the explicit property anchor and keep a fixed-ZWrite-On negative. The
-new production candidate has not run yet. Generated-cache lifecycle, actual foreground and
-background opaque occlusion, and the real Checking ring relationship require consumed follow-up
-checks before acceptance, alongside CharacterLife, AgentShelf and historical/current workspace
-gates. A non-depth-writing protrusion can be painted over by a later transparent object behind
-it; stability does not prove generic transparent-layer occlusion. No headset stereo, device
-performance or wearer acceptance result is claimed.
-
-**Consumed occlusion and ownership follow-up.** The feature composition entry point now destroys
-and recreates views around the actual subsystem cache-reset method, requiring one shared
-regenerated feature surface while the original body Resources identity and depth 1 survive.
-This exercises the editor branch; it does not claim a no-domain-reload player lifecycle test.
-Every featured Idle case, live and last-known, renders an opaque cube completely in front of
-and behind the isolated feature. The foreground must hide it exactly; the background must
-leave feature pixels visible. Every featured Checking case uses the existing production ring
-and actual camera. Rendered shell/feature/ring-only images and triangle ray depths classify
-rear-shell, rear-feature and foreground samples, respecting the body shader's Cull Back and
-ring shader's Cull Off. Rear-shell samples must match the ring-hidden image, foreground samples
-must remain visible, and rear-feature samples must match an explicit later-feature reference.
-A consumed front/back/missed/behind-ray negative validates the depth classifier. All material,
-visibility and temporary-object changes are restored; full and layer images are retained.
-No actual follow-up pass is claimed yet. Zero rear-feature samples establish no generic
-transparent occlusion result, and future transparent objects still require deliberate ordering.
+**Remaining validation.** The candidate stays separate from integration until independent review
+and the migrated full consumer gate passes. Stereo appearance, headset/device behavior,
+feature recognizability, hand interaction, no-domain-reload player behavior, cost and wearer
+acceptance remain unverified. Device follow-up uses the current optional one-agent shelf;
+the six-character cost/recenter record above is historical evidence, not current supported
+placement authority.

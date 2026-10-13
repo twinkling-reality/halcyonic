@@ -1571,7 +1571,7 @@ namespace Halcyonic.XR.Workspace.Editor
             => ConfirmedPlaneAgent(root, director.Plane, eyes, shown, failures, name);
 
         internal static (CharacterView View, CharacterTarget Target) ConfirmedPlaneAgent(Transform root, MenuPlane plane,
-            Vector3 eyes, CharacterPresentation shown, List<string> failures, string name)
+            Vector3 eyes, CharacterPresentation shown, List<string> failures, string name, GlazeChecks.Extent? additionalFrame = null)
         {
             var corners = new Vector3[8];
             Pose? accepted = null;
@@ -1580,7 +1580,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
             foreach (var turn in new[] { -35f, 35f, -20f, 20f, 0f })
             foreach (var distance in new[] { 2f, 1.8f, 1.5f, 1.2f })
-            foreach (var drop in new[] { 0.45f, 0.6f, 0.75f, 0.9f })
+            foreach (var drop in additionalFrame.HasValue ? new[] { 0.45f, 0.6f, 0.75f, 0.9f, 1.05f, 1.2f } : new[] { 0.45f, 0.6f, 0.75f, 0.9f })
             {
                 var rotation = Quaternion.Euler(0f, turn, 0f);
                 var candidate = new Pose(eyes + rotation * Vector3.forward * distance - Vector3.up * drop, rotation);
@@ -1591,7 +1591,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     return field.Shows(Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
                         Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg);
                 });
-                if (!accepted.HasValue && fits && plane.ClearsShelf(corners, eyes)) accepted = candidate;
+                var directions = corners.Select(corner => corner - eyes).Select(point => new Vector2(
+                    Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
+                    Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg)).ToArray();
+                var shelf = new GlazeChecks.Extent("candidate shelf", directions.Min(point => point.x), directions.Max(point => point.x),
+                    directions.Min(point => point.y), directions.Max(point => point.y));
+                var additionalClear = !additionalFrame.HasValue || shelf.Apart(additionalFrame.Value) >= WorkspacePlacement.ClearanceDegrees;
+                if (!accepted.HasValue && fits && plane.ClearsShelf(corners, eyes) && additionalClear) accepted = candidate;
             }
             if (!accepted.HasValue) failures.Add(name + ": no supported one-agent shelf cleared the actual console and field.");
             var pose = accepted ?? new Pose(eyes + Vector3.forward * 2f - Vector3.up * 0.45f, Quaternion.identity);
