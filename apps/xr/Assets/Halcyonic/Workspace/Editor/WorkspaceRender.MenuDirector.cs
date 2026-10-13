@@ -621,8 +621,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 FileColumn? file = null;
                 Action<string>? keyboardDone = null;
                 Action? keyboardDismissed = null;
+                var presentation = new WorkspacePresentationState();
+                presentation.SetAgentsEnabled(true);
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
+                    Presentation = presentation,
                     Commands = commands,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     File = (host, task) => file = new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
@@ -636,8 +639,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         return null;
                     },
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, null, false),
-                    CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, presentation.AgentsVisible ? targets : new List<CharacterTarget>(), null, false),
+                    CharacterOf = task => presentation.AgentsVisible ? targets.FirstOrDefault(target => target.View.WorkstreamId == task) : null,
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
                     // Voice is offered in the editor, so the question's pages carry Hold to talk.
@@ -647,6 +650,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var opened = ConfirmedDirectorAgent(root.transform, director, eyes, work.Present().Character, failures, name);
                 characters.Add(opened);
                 targets.Add(opened.Target);
+                var shelf = opened.View.transform.parent.gameObject;
+                presentation.Changed += () => shelf.SetActive(presentation.AgentsVisible);
                 director.StageRefreshedForRender();
                 var plane = director.Plane;
                 bool Press(string action, string? key = null)
@@ -711,6 +716,40 @@ namespace Halcyonic.XR.Workspace.Editor
                 void ReadQuestion()
                 {
                     for (var step = 0; step < 8 && file?.Screen.Question.QuestionPart != null; step++) Press(FileScreens.NextPart, FileScreens.QuestionKey);
+                }
+                void FreshQuestionCase(string scenario)
+                {
+                    // OpenFile resumes retained files. An independent case must visibly close the
+                    // old file, then receive a new synthetic runtime question with its own identity.
+                    var previous = file;
+                    if (director.Navigator.Beside != null && !Press(Footer.Close))
+                        failures.Add(name + ": " + scenario + " could not close the previous file through its visible Close control.");
+                    if (director.Memory.Files.ContainsKey(work.Workstream.WorkstreamId))
+                        failures.Add(name + ": " + scenario + " retained a closed file instead of beginning an independent case.");
+                    var prior = work.Execution.PendingQuestions[0];
+                    var question = new QuestionView
+                    {
+                        QuestionId = "render-" + scenario, Answerable = true, AskedAt = Time,
+                        Prompts = prior.Prompts.Select(prompt => new QuestionPrompt
+                        {
+                            Key = prompt.Key, Header = prompt.Header, Text = prompt.Text, Multiple = prompt.Multiple,
+                            FreeText = prompt.FreeText, Secret = prompt.Secret,
+                            Options = prompt.Options.Select(option => new QuestionOption { Label = option.Label, Description = option.Description }).ToList(),
+                        }).ToList(),
+                    };
+                    work = Work.Asking(question);
+                    state = work.State;
+                    session.State.ApplySnapshot(new Snapshot
+                    {
+                        Journal = state.Journal!, Position = state.Position,
+                        Projects = state.Projects.Values.ToList(), Workstreams = state.Workstreams.Values.ToList(),
+                        Executions = state.Executions.Values.ToList(), Commands = state.Commands.Values.ToList(), Runtimes = state.Runtimes.ToList(),
+                    }, new StateChanges());
+                    opened.View.Show(work.Present().Character);
+                    opened.View.PlaceShelfLabel(eyes);
+                    director.OpenFile(work.Workstream.WorkstreamId);
+                    director.DrawNow();
+                    if (file == previous) failures.Add(name + ": " + scenario + " reused the previous closed question file.");
                 }
                 director.Open(MenuPlace.Tasks);
                 director.DrawNow();
@@ -785,16 +824,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     voice.Ended(file, FileScreens.SpeakAnswer, letGo: false);
                     Shows("held, then dropped", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, listens: false, waits: false);
 
-                    // Held and let go, then the same task's file opened afresh while the words are written down: the
-                    // voice is the file's that held, not its kind's or its prompt's, so the new file's Hold to talk shows
-                    // nothing of it. This voice is never told the old file left, so only the director's own key holds.
+                    // Held and let go, then visibly close the old file before an independent question
+                    // opens. Its voice owner is revoked; the new file's Hold to talk cannot inherit it.
                     director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
                     voice.Ended(file, FileScreens.SpeakAnswer, letGo: true);
                     director.DrawNow();
                     if (voice.Stage != VoiceStage.WritingDown) failures.Add(name + ": held and let go again, the voice is " + voice.Stage + ", so opening another file checks nothing.");
                     var heldOn = file;
-                    director.OpenFile(work.Workstream.WorkstreamId);
-                    director.DrawNow();
+                    FreshQuestionCase("voice-owner-replaced");
                     if (file == heldOn) failures.Add(name + ": opening the file again made no new file, so where the voice shows is not checked.");
                     else if (plane.Voice != null || page.Footer[PromptSlot.Secondary] is GlazeButton fresh && (fresh.Label.text != VoiceText.HoldToTalk || fresh.Waits || fresh.Listens))
                     {
@@ -822,11 +859,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!PressWords("Send answer")) failures.Add(name + ": visible Send answer took no press.");
                 if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add(name + ": review sent " + sent.OfType<ExecutionAnswerQuestionCommand>().Count() + " answers, not one.");
 
-                // Fresh production columns exercise saved custom answers without a duplicate preview row.
+                // Independent production question columns exercise saved custom answers without a duplicate preview row.
                 foreach (var length in new[] { "short", "long" })
                 {
-                    director.OpenFile(work.Workstream.WorkstreamId);
-                    director.DrawNow();
+                    FreshQuestionCase("custom-" + length);
                     ReadQuestion();
                     if (!PressWords(FileScreens.WriteAnswer)) failures.Add(name + ": custom editor did not open through Write an answer.");
                     var words = length == "short" ? "Teal" : string.Join(" ", Enumerable.Range(0, 70).Select(index => "detail" + index));
@@ -871,15 +907,20 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                     }
 
+                    // Global Minimize hides optional agents and their authority. A hidden character
+                    // cannot restore or retarget work; the visible dock restores this exact editor.
                     SelectCharacterThroughWorkspace(director, opened.Target, session);
+                    if (!director.Navigator.IsCompact || director.Navigator.Beside != retained || file != retained || shelf.activeInHierarchy)
+                        failures.Add(name + ": hidden character selection restored or replaced the minimized editor.");
+                    RestoreDockForDirectorRender(director, 713, failures, name, draw: false);
                     if (director.Navigator.IsCompact || director.Navigator.Beside != retained || file != retained)
-                        failures.Add(name + ": actual same-task character selection replaced or closed its retained editor.");
+                        failures.Add(name + ": the visible dock replaced or closed the retained same-task editor.");
                     if (director.Navigator.Act(MenuColumn.File, FileScreens.UseInput, null, retained.Frame, null))
-                        failures.Add(name + ": character resume acted before its exact resumed frame drew.");
+                        failures.Add(name + ": dock resume acted before its exact resumed frame drew.");
                     lateKeyboard?.Invoke("late words after compaction");
                     director.DrawNow();
                     if (retained.Screen.Question.Input != words || retained.Screen.Question.InputPart != retainedPart || sent.Count != sendsBeforeCompact)
-                        failures.Add(name + ": character resume lost editor position/buffer or accepted a late keyboard callback.");
+                        failures.Add(name + ": dock resume lost editor position/buffer or accepted a late keyboard callback.");
                     Capture("expanded-editor-" + length);
 
                     for (var part = 0; part < 60 && file!.Screen.Question.InputPart + 1 < file.Screen.Question.InputParts; part++)
@@ -907,8 +948,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 // Long questions keep clipped but explicit context and reread through the same visible control.
                 work.Execution.PendingQuestions[0].Prompts[0].Text = string.Join(" ", Enumerable.Repeat("Which colour scheme best supports the decision described in this part?", 10));
-                director.OpenFile(work.Workstream.WorkstreamId);
-                director.DrawNow();
+                FreshQuestionCase("long-question");
                 ReadQuestion();
                 ChooseWords("Dark");
                 Capture("long-question-context");
@@ -928,8 +968,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     new QuestionOption { Label = "Yes" }, new QuestionOption { Label = " Yes " }, new QuestionOption { Label = "No" },
                 };
-                director.OpenFile(work.Workstream.WorkstreamId);
-                director.DrawNow();
+                FreshQuestionCase("ambiguous-labels");
                 ReadQuestion();
                 Capture("alike-stop-escape");
                 var why = file!.Frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.ReadWhy);
@@ -954,8 +993,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     new QuestionOption { Label = "Light", Description = string.Join(" ", Enumerable.Range(0, 80).Select(index => "condition" + index)) },
                     new QuestionOption { Label = "Dark" },
                 };
-                director.OpenFile(work.Workstream.WorkstreamId);
-                director.DrawNow();
+                FreshQuestionCase("long-option");
                 ReadQuestion();
                 if (!PressWords("Light")) failures.Add(name + ": long option could not be selected from its current drawn row.");
                 director.DrawNow();
@@ -1594,14 +1632,14 @@ namespace Halcyonic.XR.Workspace.Editor
             if (!director.Navigator.IsCompact) failures.Add(name + ": the visible Minimize control did not minimize the workspace.");
         }
 
-        private static void RestoreDockForDirectorRender(MenuDirector director, int pointer, List<string> failures, string name)
+        private static void RestoreDockForDirectorRender(MenuDirector director, int pointer, List<string> failures, string name, bool draw = true)
         {
             if (director.Plane.Bar is not MenuBarView dock || !dock.Target.gameObject.activeInHierarchy)
             { failures.Add(name + ": no visible workspace Restore dock."); return; }
             dock.Target.SettleForRender();
             dock.Target.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Select, dock.Target.transform.position);
             dock.Target.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, dock.Target.transform.position);
-            director.DrawNow();
+            if (draw) director.DrawNow();
             if (director.Navigator.IsCompact) failures.Add(name + ": the visible workspace Restore dock did not expand its composition.");
         }
 

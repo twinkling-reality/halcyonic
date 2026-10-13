@@ -378,7 +378,7 @@ is still checked. Manual shelf height is not passed as an asserted room floor. T
 supplies changed legacy surface metadata to the director and requires exact console retention.
 
 The question-answer journey retains the real `FileColumn`, command sender, keyboard and voice
-callbacks and the same-task character resume witness, using one grounded shelf agent. Director
+callbacks and the same-task visible-dock resume witness, using one grounded shelf agent. Director
 lifecycle samples retain the original full reported question and options, using the production
 focused-question budget and hidden sections while answering. The production multi-prompt answer
 journey exercises full context, an 80-word option detail, paging and mandatory review. Global Move holds start on the currently visible Move utility. Settings is entered after
@@ -437,3 +437,15 @@ character-free director cases pass. The shelf case still needs navigation approp
 genuinely obstructed two-column layout; source and geometry checks do not establish wearer
 acceptance. The integrated native-voice tree passes the full repository check: 1,167 tests, no
 failures or skips, with type checking and lint passing. Native device acceptance remains open.
+
+The answer cases explicitly close the preceding file through its visible Close control and receive
+a separately identified synthetic question snapshot before opening the next file. `OpenFile`
+resumes a cached task file; it does not promise a fresh editor. The voice-owner replacement case
+therefore checks revocation on actual Close, while short/long custom answer, long-question,
+ambiguous-label and long-option cases retain their production controls and read-before-send guards.
+
+Global Minimize hides the shelf and agent targets as well as the console. The journey rejects a
+hidden character selection and restores through the current visible dock. It requires the exact
+same editor instance, input buffer and read position, rejects input before its resumed frame is
+drawn, and rejects the late keyboard callback. This establishes dock continuity and hidden-input
+refusal; it does not establish a positive character-selection witness after global Minimize.
