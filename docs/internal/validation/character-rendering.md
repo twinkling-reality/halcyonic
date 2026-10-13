@@ -140,3 +140,17 @@ ShelfWorkspace/Director/Appearance gates. Isolated shader-ignores-EyeOpen and ol
 mutations should each fail their specific witness and then be reverted. Stereo appearance,
 feature recognizability, native/device behavior, hand interaction, cost and wearer acceptance
 remain unverified.
+
+**First actual candidate render.** `CharacterLifeCheck` on `bc75c72d` compiled and ran in Unity
+6000.3.25f1. Standard passed; Larger failed exact stillness on Round/Ears, Blossom/Ears and
+Squircle/Ears, each at two pixels with maximum differences of 18, 20 and 16/255. Other geometry,
+feature, blink and paused assertions reported no failures. The historical `StageRender.Check`
+also reproduced its Standard states-b failure, two pixels at at most 21/255; Larger passed.
+This is not acceptance. Actual ear-edge pixels and saved parameter differences show residual
+body rotation, Fog/EyeUneven and subnormal Look values; a causal explanation still needs isolation.
+`CharacterStillConvergenceCheck` replays those three cases, saves the original frame, replaces
+only those captured idle residuals with their exact rest targets in that same frame, renders,
+then restores every changed value and requires identical restored pixels. Unchanged repeated
+renders and corrected before/after moments must have exactly zero pixel differences. Larger
+must reproduce the original drift, and the correction must account for every originally
+changing pixel. It does not change production or relax the original stillness checks.

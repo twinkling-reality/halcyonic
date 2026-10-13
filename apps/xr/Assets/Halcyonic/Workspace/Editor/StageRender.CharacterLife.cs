@@ -42,6 +42,119 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>Same-frame isolation of the captured idle residuals, before any production stillness repair.</summary>
+        public static void CharacterStillConvergenceCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "CharacterStillConvergenceRenders", variant));
+                Directory.CreateDirectory(folder);
+                var result = new List<string>();
+                var previousField = ViewField.Current;
+                var wasStill = GlazeMotion.Still;
+                try
+                {
+                    ViewField.Current = FieldChecks.Quest3S;
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    foreach (var id in new[] { "feature-Round-Ears-39", "feature-Blossom-Ears-9", "feature-Squircle-Ears-78" })
+                    {
+                        GlazeMotion.Still = false;
+                        var name = CharacterIdentity.Of(id).Shape + "-Ears";
+                        var root = new GameObject("Captured idle residual witness " + name);
+                        var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+                        try
+                        {
+                            var eyes = new Vector3(0f, EyeHeight, 0f);
+                            var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
+                            var plane = CharacterConsole(root.transform, eyes);
+                            var character = WorkspaceRender.ConfirmedPlaneAgent(root.transform, plane, eyes, Shown(id, CharacterActivity.Idle), result, name);
+                            var view = character.View;
+                            result.AddRange(CharacterEnvelopes(name, eyes, new List<(CharacterView View, CharacterTarget Target)> { character }));
+                            view.Show(Shown(id, CharacterActivity.Idle)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
+                            WorkspaceRender.ForceMeshes(root);
+                            GlazeMotion.Still = true;
+                            // Match the original production fixture's exact frame count and step.
+                            for (var frame = 0; frame < 216; frame++) view.AdvanceForRender(1f / 72f);
+                            var first = ResidualMoment("before");
+                            for (var frame = 0; frame < 72; frame++) view.AdvanceForRender(1f / 72f);
+                            var later = ResidualMoment("after");
+                            try
+                            {
+                                var area = new RectInt(0, 0, Size, Size);
+                                var original = WorkspaceRender.Compare(first.Original, later.Original, area);
+                                var corrected = WorkspaceRender.Compare(first.Corrected, later.Corrected, area);
+                                if (corrected.Changed != 0) result.Add(name + ": exact idle residual correction leaves " + corrected.Changed + " drifting pixels.");
+                                if (variant == "Larger" && original.Changed == 0)
+                                    result.Add(name + ": original captured idle residuals no longer reproduce the larger-text pixel drift; causal witness is inconclusive.");
+                                var accounted = 0;
+                                for (var y = 0; y < Size; y++)
+                                for (var x = 0; x < Size; x++)
+                                {
+                                    var pixel = new RectInt(x, y, 1, 1);
+                                    if (WorkspaceRender.Compare(first.Original, later.Original, pixel).Changed == 0) continue;
+                                    if (WorkspaceRender.Compare(first.Corrected, first.Original, pixel).Changed != 0
+                                        || WorkspaceRender.Compare(later.Corrected, later.Original, pixel).Changed != 0) accounted++;
+                                }
+                                if (accounted != original.Changed) result.Add(name + ": the isolated correction does not account for every original drifting pixel.");
+                                Debug.Log("Halcyonic: " + name + ": residual isolation original " + original.Changed + ", corrected "
+                                    + corrected.Changed + ", accounted " + accounted + " pixels.");
+                            }
+                            finally
+                            {
+                                UnityEngine.Object.DestroyImmediate(first.Original); UnityEngine.Object.DestroyImmediate(first.Corrected);
+                                UnityEngine.Object.DestroyImmediate(later.Original); UnityEngine.Object.DestroyImmediate(later.Corrected);
+                            }
+
+                            (Texture2D Original, Texture2D Corrected) ResidualMoment(string moment)
+                            {
+                                var originalRotation = view.Body.localRotation;
+                                var renderers = new[] { view.Body.Find("Shell").GetComponent<Renderer>(), view.FeatureForRender.Renderer! };
+                                var originals = renderers.Select(renderer =>
+                                {
+                                    var block = new MaterialPropertyBlock(); renderer.GetPropertyBlock(block); return block;
+                                }).ToArray();
+                                var original = WorkspaceRender.Render(camera, texture);
+                                var repeated = WorkspaceRender.Render(camera, texture);
+                                if (WorkspaceRender.Compare(original, repeated, new RectInt(0, 0, Size, Size)).Changed != 0)
+                                    result.Add(name + ": repeated unchanged " + moment + " frame changes pixels, so residual isolation is inconclusive.");
+                                UnityEngine.Object.DestroyImmediate(repeated);
+                                Texture2D? corrected = null;
+                                try
+                                {
+                                    view.Body.localRotation = Quaternion.identity;
+                                    foreach (var renderer in renderers)
+                                    {
+                                        var block = new MaterialPropertyBlock(); renderer.GetPropertyBlock(block);
+                                        block.SetFloat("_Fog", 0f); block.SetFloat("_EyeUneven", 0f); block.SetVector("_Look", Vector4.zero);
+                                        renderer.SetPropertyBlock(block);
+                                    }
+                                    corrected = WorkspaceRender.Render(camera, texture);
+                                    File.WriteAllBytes(Path.Combine(folder, name + "-" + moment + "-original.png"), original.EncodeToPNG());
+                                    File.WriteAllBytes(Path.Combine(folder, name + "-" + moment + "-corrected.png"), corrected.EncodeToPNG());
+                                }
+                                finally
+                                {
+                                    view.Body.localRotation = originalRotation;
+                                    for (var index = 0; index < renderers.Length; index++) renderers[index].SetPropertyBlock(originals[index]);
+                                    var restored = WorkspaceRender.Render(camera, texture);
+                                    if (WorkspaceRender.Compare(original, restored, new RectInt(0, 0, Size, Size)).Changed != 0)
+                                        result.Add(name + ": restoring the captured " + moment + " parameters fails to restore exact pixels.");
+                                    UnityEngine.Object.DestroyImmediate(restored);
+                                }
+                                return (original, corrected!);
+                            }
+                        }
+                        finally { UnityEngine.Object.DestroyImmediate(root); texture.Release(); UnityEngine.Object.DestroyImmediate(texture); }
+                    }
+                }
+                catch (Exception error) { result.Add(error.ToString()); }
+                finally { ViewField.Current = previousField; GlazeMotion.Still = wasStill; WorkspaceRender.KeepFontAssetsAsCommitted(); }
+                foreach (var failure in result) Debug.LogError("Halcyonic: character residuals: " + failure);
+                return result;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         private static MenuPlane CharacterConsole(Transform root, Vector3 eyes)
         {
             var plane = MenuPlane.Create(root);
