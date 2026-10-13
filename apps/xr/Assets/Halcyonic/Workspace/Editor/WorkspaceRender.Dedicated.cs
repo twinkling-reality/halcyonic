@@ -176,6 +176,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     || director.Plane.Moved != retainedOffset) failures.Add(name + ": overlay return changed the hand-placed console position");
 
                 var kept = file;
+                var hiddenFile = director.Plane.Showing(MenuColumn.File);
+                ChromePress(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace), 733);
+                Shot("move before minimize");
+                if (director.Plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject)
+                    failures.Add(name + ": visible Move did not open placement details before Minimize");
+                if (hiddenFile != null && director.PressForRender(MenuColumn.File, Footer.Close, null, hiddenFile, null))
+                    failures.Add(name + ": the hidden task retained input authority under placement details");
                 ChromePress(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.Minimize), 731);
                 Shot("minimized dock");
                 if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible || director.Plane.Bar?.Controls.Move.gameObject.activeSelf == true)
@@ -187,6 +194,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     || director.Plane.Moved != retainedOffset) failures.Add(name + ": global Minimize/restore changed the hand-placed console position");
                 if (presentation.Minimized || file != kept || file?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                     failures.Add(name + ": global restore lost selected task or local draft");
+                if (director.Plane.Showing(MenuColumn.File)?.Subject == PlacementColumn.Subject)
+                    failures.Add(name + ": restoring after Minimize reopened the discarded placement overlay");
+                ChromePress(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace), 734);
+                Shot("move before projects");
+                ChromePress(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 735);
+                Shot("projects after placement");
+                if (director.Navigator.Place != MenuPlace.Projects || director.Plane.Showing(MenuColumn.File)?.Subject == PlacementColumn.Subject)
+                    failures.Add(name + ": global Projects left the placement overlay in front of navigation");
+                Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                Shot("tasks after placement");
+                Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
+                Shot("instruction after placement");
+                if (director.Navigator.Beside != kept || file?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
+                    failures.Add(name + ": Projects from placement discarded the retained task draft");
                 connected = false;
                 Shot("disconnected draft");
                 if (sends != 0) failures.Add(name + ": navigation, keyboard completion or restore sent a command");
