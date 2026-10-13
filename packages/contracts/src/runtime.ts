@@ -59,6 +59,8 @@ export const RuntimeDescriptor = Type.Object(
      * `tool_activity`). Declared, never inferred.
      */
     reports_tool_activity: Type.Boolean(),
+    /** Supported final command/file-change evidence, not complete all-tool/subagent coverage. Absent in legacy descriptors. */
+    reports_tool_results: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
