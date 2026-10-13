@@ -13,6 +13,33 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>The recorded judge journey in the current independent console, with zero or one optional agent.</summary>
+        public static void JudgeWalkCheck()
+        {
+            var failures = Halcyonic.XR.UI.Editor.GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", "Builds", "JudgeWalkRenders", variant));
+                System.IO.Directory.CreateDirectory(folder);
+                UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+                var found = new List<string>();
+                try
+                {
+                    ViewField.Current = FieldChecks.Quest3S;
+                    foreach (var withShelf in new[] { false, true })
+                    {
+                        var name = withShelf ? "shelf-3s" : "workspace-3s";
+                        try { found.AddRange(RenderJudgeWalk(name, folder, CharacterStage.DefaultDistance, null, withShelf: withShelf)); }
+                        catch (Exception error) { found.Add(name + ": " + error); }
+                    }
+                }
+                finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                foreach (var failure in found) Debug.LogError("Halcyonic: judge walk: " + failure);
+                if (found.Count == 0) Debug.Log("Halcyonic: judge walk: every check passed; " + folder);
+                return found;
+            });
+            UnityEditor.EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         /// <summary>The recording's answers where its playback stands at the end of one node, as the demonstration's reads give them.</summary>
         private sealed class RecordedReads : IIntelligenceReader
         {
@@ -62,13 +89,14 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// A judge's walk through the menu (ADR 0026) on the recorded demonstration, from the eyes, drawn
-        /// by the menu's own director: the closed bar, Tasks with the waiting task first, its file at the
+        /// by the menu's own director: Projects at launch, its retained Minimize/Restore dock,
+        /// Tasks with the waiting task first, its file at the
         /// agent's question, an answer chosen, the approval's request part by part and its Yes, Checks,
-        /// Tell it's recorded instructions, Usage's recorded limits and Settings, then the bar again. The
+        /// Tell it's recorded instructions, Usage's recorded limits and Settings, then the dock again. The
         /// recording stands where each step is reached; each state is held to the plane's checks and saved.
         /// Nothing is sent: in a render the file's host has no session, so a press only arms or chooses.
         /// </summary>
-        private static IEnumerable<string> RenderJudgeWalk(string name, string folder, float radius, float? surfaceDrop, bool usageOnly = false)
+        private static IEnumerable<string> RenderJudgeWalk(string name, string folder, float radius, float? surfaceDrop, bool usageOnly = false, bool withShelf = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Judge walk render " + name);
@@ -86,26 +114,13 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
-                // The recording's tasks on the stage, in its order, as the stage places three.
+                // Work remains in the recorded project; the console needs no character or stage slot.
                 var tasks = state.Workstreams.Values.OrderBy(task => task.CreatedAt).ToList();
                 var characters = new List<(CharacterView View, CharacterTarget Target)>();
-                var spread = CharacterStage.Spread(radius, surfaceDrop.HasValue ? -surfaceDrop.Value : CharacterStage.DefaultHeightFromEyes);
-                var origin = eyes + Vector3.down * (surfaceDrop ?? 0f);
-                var slots = new[] { -12f, 0f, 12f };
-                for (var slot = 0; slot < tasks.Count && slot < slots.Length; slot++)
-                {
-                    var view = CharacterView.Create(root.transform, tasks[slot].WorkstreamId);
-                    view.Show(CharacterPresenter.Present(tasks[slot], state, true));
-                    var (height, scale) = CharacterStage.Stance(view, radius, surfaceDrop ?? 0f, surfaceDrop.HasValue ? (float?)null : CharacterStage.DefaultHeightFromEyes);
-                    var level = Quaternion.Euler(0f, slots[slot] * spread, 0f) * Vector3.forward;
-                    view.transform.SetPositionAndRotation(origin + level * radius + Vector3.up * height, Quaternion.LookRotation(-level, Vector3.up));
-                    view.transform.localScale = Vector3.one * scale;
-                    characters.Add((view, CharacterTarget.Attach(view, tasks[slot].WorkstreamId)));
-                }
-                var targets = characters.ConvertAll(character => character.Target);
+                var targets = new List<CharacterTarget>();
                 var directed = tasks.Single(task => task.Title == "Add rate limiting to the sign-in endpoint").WorkstreamId;
-                var waiting = targets.Single(target => target.View.WorkstreamId == directed);
-                var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
+                var presentation = new WorkspacePresentationState();
+                Transform? shelf = null;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
                 var commands = new CommandFactory(client);
@@ -118,6 +133,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     state.Workstreams.TryGetValue(task, out var workstream) ? WorkspacePresenter.Present(workstream, state, activity, true) : null;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
+                    Presentation = presentation,
                     Commands = commands,
                     Overview = () => WorkOverview.Of(state, new StageVisibility(), _ => true),
                     Comfort = comfort,
@@ -130,12 +146,25 @@ namespace Halcyonic.XR.Workspace.Editor
                     Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null), _ => { }, _ => { }),
                     Demonstration = () => true,
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, waiting.BodyPosition - eyes, targets, surface, false),
-                    CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward,
+                        presentation.AgentsVisible ? targets : new List<CharacterTarget>(), null, false),
+                    CharacterOf = task => presentation.AgentsVisible ? targets.FirstOrDefault(target => target.View.WorkstreamId == task) : null,
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => state.Workstreams.Values.Any(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou),
                 });
                 var navigator = director.Navigator;
+                presentation.Changed += () => { if (shelf != null) shelf.gameObject.SetActive(presentation.AgentsVisible); };
+                director.DrawNow();
+                if (withShelf)
+                {
+                    var agent = ConfirmedPlaneAgent(root.transform, director.Plane, eyes,
+                        CharacterPresenter.Present(state.Workstreams[directed], state, true), failures, name);
+                    characters.Add(agent);
+                    targets.Add(agent.Target);
+                    shelf = agent.View.transform.parent;
+                    presentation.SetAgentsEnabled(true);
+                    director.DrawNow();
+                }
                 bool Press(MenuColumn from, string action, string? key = null)
                 {
                     director.DrawNow();
@@ -150,7 +179,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var (view, _) in characters) view.Show(CharacterPresenter.Present(state.Workstreams[view.WorkstreamId], state, true));
                 }
                 void Shot(string step, bool lightLine = true) =>
-                    failures.AddRange(PlaneState(name + " judge " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine));
+                    failures.AddRange(PlaneState(name + " judge " + step, folder, camera, texture, director.Plane,
+                        characters.Where(each => each.View.gameObject.activeInHierarchy).ToList(), eyes, null, lightLine && presentation.AgentsVisible));
                 // A side panel's Close details, through its own column: with text a step larger it stands in its frame's place.
                 void CloseSide()
                 {
@@ -294,14 +324,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     return failures;
                 }
 
-                // The closed bar: one line saying what waits.
+                // The production workspace opens on Projects, independent of optional characters.
                 director.DrawNow();
-                if (director.Plane.Bar == null) failures.Add(name + ": the judge walk starts with no closed bar.");
-                if (TasksColumn.Bar(MenuPlace.Tasks, state).ClosedLine != TasksText.Waiting(1)) failures.Add(name + ": the closed bar does not say a task waits.");
-                Shot("1 bar");
+                if (navigator.Place != MenuPlace.Projects || navigator.IsCompact || !director.Plane.Chrome.Visible)
+                    failures.Add(name + ": the judge walk did not launch into the complete Projects workspace.");
+                if (TasksColumn.Bar(MenuPlace.Tasks, state).ClosedLine != TasksText.Waiting(1)) failures.Add(name + ": the workspace attention does not say a task waits.");
+                Shot("1 projects", lightLine: false);
+                MinimizeForDirectorRender(director, failures, name);
+                if (characters.Any(each => each.View.gameObject.activeInHierarchy)) failures.Add(name + ": Minimize left an optional agent visible.");
+                Shot("1 minimized", lightLine: false);
+                RestoreDockForDirectorRender(director, 730, failures, name);
+                if (navigator.Place != MenuPlace.Projects) failures.Add(name + ": Restore changed the judge's retained Projects selection.");
+                if (withShelf && characters.Any(each => !each.View.gameObject.activeInHierarchy)) failures.Add(name + ": Restore did not restore the optional agent shelf.");
+                Shot("1 restored projects", lightLine: false);
 
                 // Opened while something waits: Tasks, the waiting task first.
-                director.Open();
+                if (!Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks)))
+                    failures.Add(name + ": the visible Tasks section took no press from Projects.");
                 director.DrawNow();
                 if (navigator.Place != MenuPlace.Tasks) failures.Add(name + ": the menu opened on " + navigator.Place + " while a task waits.");
                 if (Shown(MenuColumn.Menu)?.Lines.FirstOrDefault()?.Key != directed) failures.Add(name + ": the waiting task is not Tasks' first row.");
@@ -478,10 +517,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 Press(MenuColumn.File, Footer.Close);
 
-                // Closed again: the bar alone.
-                director.CloseMenu();
+                // The whole workspace minimizes to its single retained Restore dock.
+                MinimizeForDirectorRender(director, failures, name);
                 director.DrawNow();
-                Shot("14 closed");
+                Shot("14 minimized", lightLine: false);
             }
             finally
             {
