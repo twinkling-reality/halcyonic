@@ -3035,7 +3035,7 @@ The expanded native task's Read results consumes the same scoped API, retains bo
 pending identity, and shows one selected file patch. Host/runtime bounds and native evidence are in
 [recorded-tool-results.md](../validation/recorded-tool-results.md) and
 [native-agent-panel.md](../validation/native-agent-panel.md); the journal decision is ADR 0031.
-Focused C# Results/API/File/continuity checks passed 175/175 with zero skips on 2026-10-13, compiling
+Focused C# Results/API/File/continuity and readable-page checks passed 188/188 with zero skips on 2026-10-13, compiling
 the core under .NET Standard 2.1/C# 9. `WorkspaceRender.ResultsCheck` is the actual director/TMP
 render witness for both text sizes, far/desk and zero/one confirmed shelf, using explicit synthetic
 session messages and canned HTTP. Focused console page budgets also enforce the unchanged 14 dp
@@ -3044,8 +3044,13 @@ occupied-agent clearance. The witness compares every displayed output/patch page
 literal renderer text, including blank/trailing LF, indentation, CRLF and visible control marks.
 The rendered Unicode fixture uses supported é; it does not establish emoji font coverage. Existing
 supplementary-codepoint core checks remain separate.
-Its first actual run exposed over-tall pages and fixture navigation/shelf setup errors; the bounded
-repairs await an actual rerun. Headset focus,
+Its first actual run exposed over-tall pages and fixture navigation/shelf setup errors. After the
+bounded repairs, the actual Unity witness passed both text sizes across far/desk placement and
+zero/one confirmed shelf on 2026-10-13. All displayed output and patch pages matched their complete
+literal display text, and return retained both drafts and the original pending command identity.
+The full workspace and Appearance regression run then passed both Glaze and Graphite at both text
+sizes. The combined repository check passed 1,188 tests with one optional runtime witness skipped;
+all 1,723 C# tests passed. Headset focus,
 readability, persistence/JNI and live edit/build/install correspondence remain separate gates.
 
 ### Optional character identity and animation, 2026-10-13
