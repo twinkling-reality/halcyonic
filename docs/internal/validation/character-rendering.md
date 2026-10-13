@@ -269,3 +269,19 @@ checks before acceptance, alongside CharacterLife, AgentShelf and historical/cur
 gates. A non-depth-writing protrusion can be painted over by a later transparent object behind
 it; stability does not prove generic transparent-layer occlusion. No headset stereo, device
 performance or wearer acceptance result is claimed.
+
+**Consumed occlusion and ownership follow-up.** The feature composition entry point now destroys
+and recreates views around the actual subsystem cache-reset method, requiring one shared
+regenerated feature surface while the original body Resources identity and depth 1 survive.
+This exercises the editor branch; it does not claim a no-domain-reload player lifecycle test.
+Every featured Idle case, live and last-known, renders an opaque cube completely in front of
+and behind the isolated feature. The foreground must hide it exactly; the background must
+leave feature pixels visible. Every featured Checking case uses the existing production ring
+and actual camera. Rendered shell/feature/ring-only images and triangle ray depths classify
+rear-shell, rear-feature and foreground samples, respecting the body shader's Cull Back and
+ring shader's Cull Off. Rear-shell samples must match the ring-hidden image, foreground samples
+must remain visible, and rear-feature samples must match an explicit later-feature reference.
+A consumed front/back/missed/behind-ray negative validates the depth classifier. All material,
+visibility and temporary-object changes are restored; full and layer images are retained.
+No actual follow-up pass is claimed yet. Zero rear-feature samples establish no generic
+transparent occlusion result, and future transparent objects still require deliberate ordering.
