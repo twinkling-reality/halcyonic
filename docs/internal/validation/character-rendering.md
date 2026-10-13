@@ -101,7 +101,7 @@ supersedes mandatory character entry and automatic stage placement. The feature/
 adapted to the current zero/one-agent shelf, with existing grounded shell contact, independent
 label attachment to the shelf lip, source marks, palette refresh and independent console
 placement preserved. The original held branch remains unchanged. The six ADR 0013 feature
-kinds are None, Antenna, Ears, Sprout, Crest and Horns, selected deterministically from task
+kinds are None, Antenna, Ears, Sprout, Crest and Horns, selected deterministically from workstream
 identity. This provides identity variety; it does not provide user customization. No ring/rim,
 travel, automatic placement or inferred reference feature is added.
 
@@ -158,7 +158,8 @@ remain private evidence; stability alone does not establish correct appearance o
 | `CharacterLifeCheck` | All 48 shape/feature identities: idle temporal stillness, all-state moving/held contact, target/envelope/field/console/label geometry; feature-visible differential; actual-clock blink and paused/live resumption | `f67307ab` passed Standard/Larger |
 | `AgentShelfCheck` | One confirmed supported agent, every activity's temporal held pixels, contact, source/readability and geometry | `f67307ab` passed Standard/Larger |
 | Historical `StageRender.Check` | Original independent stage, geometry, palette and held-motion negative regressions; this does not make the old six-agent arc a supported mode | `53241906` passed Standard/Larger |
-| Full `AppearanceCheck` / Workspace PalettePass | Current zero/one-agent journeys and raw component galleries in both palettes/sizes | `53241906` failed only the legacy six-arc raw gallery Clear assertion; current optional-shelf journeys reported no corresponding error |
+| `WorkspaceRender.Check` | Migrated raw panel plus current dedicated workspace, requests, shelf, MenuPlane/Director, answers, Judge and entry/project journeys | `a33f14c5` passed Standard/Larger |
+| Full `AppearanceCheck` / Workspace PalettePass | Current zero/one-agent journeys and raw component galleries in both palettes/sizes | `53241906` failed only the legacy six-arc raw gallery Clear assertion; final migrated palette gate is pending |
 
 The unchanged temporal stillness comparisons in CharacterLife, AgentShelf and historical Stage
 require zero changed pixels under the existing 2/255 RGB comparison. Their motion negatives
@@ -195,10 +196,14 @@ label points still pass the complete measured field margin, and all raw opacity/
 hostile-text assertions remain. The original six-arc default remains as a no-fit negative:
 its direction must be false and separately measured actual frame/label and frame/body gaps at
 the allowed lower/upper alternatives must both fall short of their published clearances. This
-migration has not run yet and is not permission to restore six-character placement authority.
+migration passed `WorkspaceRender.Check` on `a33f14c5` at both text sizes. Actual lower label gaps
+were 0.1/-0.4 degrees for Standard far/3S and 1.1/0.6 for Larger, each below the required 1.2;
+upper body gaps were -17/-18.8 degrees, below the required 1.5. This independently confirms
+the legacy clearance shortfall, while the positive one-agent/component assertions all pass.
+It is not permission to restore six-character placement authority.
 
 **Remaining validation.** The candidate stays separate from integration until independent review
-and the migrated full consumer gate passes. Stereo appearance, headset/device behavior,
+and the final migrated Appearance palette gate passes. Stereo appearance, headset/device behavior,
 feature recognizability, hand interaction, no-domain-reload player behavior, cost and wearer
 acceptance remain unverified. Device follow-up uses the current optional one-agent shelf;
 the six-character cost/recenter record above is historical evidence, not current supported
