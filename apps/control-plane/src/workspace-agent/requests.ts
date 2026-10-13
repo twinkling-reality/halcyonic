@@ -17,6 +17,7 @@ import type { WorkspaceRequestCommand, WorkspaceRequestHandler } from '../core/c
 import type { ControlPlane } from '../core/control-plane.ts';
 import { causedBy, controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { fitted } from '../core/redaction.ts';
+import { ToolResults } from '../core/tool-results.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
@@ -27,6 +28,7 @@ import {
   type ToolMessage,
   type ToolTurnResult,
 } from './ollama.ts';
+import { boundedResultData, resultBodyData, resultListData } from './tool-results.ts';
 
 interface Model {
   status(): Promise<WorkspaceAgentStatus>;
@@ -64,6 +66,10 @@ const descriptions: Record<keyof typeof WORKSPACE_TOOL_ARGUMENTS, string> = {
     'Deliver an instruction within the original authorized task and current execution. Delivery is not runtime completion. Required runtime approvals and questions remain human decisions.',
   observe_task:
     'Read all retained action identities, actual delivery status, and relevant subsequent native turn outcomes.',
+  read_results:
+    'Read bounded recent native result summaries for this execution only. No bodies or correctness claim.',
+  read_result:
+    'Read one immutable native result field excerpt from this execution, preserving availability and bounds.',
   ask_person:
     'Pause for an explicit person response to the reported question. Never answer a runtime approval or question.',
 };
@@ -657,6 +663,39 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         pause: 'interrupted',
       };
     switch (name) {
+      case 'read_results':
+      case 'read_result': {
+        const reader = new ToolResults(plane);
+        const scope = {
+          journal_id: request.journal_id,
+          project_id: request.project_id,
+          workstream_id: request.workstream_id,
+        };
+        const owner = plane.projection.workspaceRequestOwner(request.request_id) ?? null;
+        const source =
+          name === 'read_results'
+            ? reader.list(request.execution_id, scope, owner)
+            : reader.read(request.execution_id, args.event_id as string, scope, owner);
+        const data = source
+          ? 'results' in source
+            ? resultListData(source, args.before as number | undefined)
+            : resultBodyData(
+                source,
+                args.file_index as number | undefined,
+                args.part as number | undefined,
+              )
+          : { availability: 'unavailable', reason: 'result_unavailable', complete: false };
+        const rejected = !source || Object.hasOwn(data as object, 'reason');
+        this.#step(
+          request,
+          name,
+          rejected ? 'rejected' : 'confirmed',
+          !rejected
+            ? 'Recorded native evidence was read; it does not certify correctness or current file contents.'
+            : 'Recorded native evidence is unavailable for this bound selection.',
+        );
+        return { data };
+      }
       case 'read_workspace': {
         const project = plane.projection.project(request.project_id),
           work = plane.projection.workstream(request.workstream_id),
@@ -1059,6 +1098,9 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     return { text: clipped, complete: clipped === redacted };
   }
   #toolData(data: unknown, name: string): string {
+    // These values are already recorded after held-value replacement and deliberately chunked.
+    // Replacing/shortening their serialized wrapper would invalidate immutable part boundaries.
+    if (name === 'read_results' || name === 'read_result') return boundedResultData(data);
     if (name === 'read_workspace' || name === 'read_events')
       return this.#o.controlPlane.redaction.held(JSON.stringify(data));
     if (Array.isArray(data) && (name === 'observe_task' || name === 'continue_task')) {

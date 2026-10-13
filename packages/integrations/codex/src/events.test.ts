@@ -162,7 +162,7 @@ describe('Codex 0.157.0 event mapping', () => {
           item.type === 'runtime.approval.requested' &&
           item.payload.approval_id === approval.approvalId,
       );
-    assert.deepEqual(summary(observations.slice(at(accepted) - 1, at(accepted) + 5)), [
+    assert.deepEqual(summary(observations.slice(at(accepted) - 1, at(accepted) + 6)), [
       {
         type: 'runtime.tool.started',
         payload: {
@@ -189,8 +189,29 @@ describe('Codex 0.157.0 event mapping', () => {
         payload: { approval_id: '01a0e0b1-5f29-75d1-9709-3e7a68e1cc4f:0', decision: 'approved' },
       },
       {
+        type: 'runtime.tool.result',
+        payload: {
+          kind: 'command',
+          tool_call_id: 'call_fake_10',
+          turn_id: '01a0e0b1-5f29-75d1-9709-3e7a68e1cc4f',
+          completion: 'completed',
+          exit_code: 0,
+          redaction: { policy: 'known_held_values', replacements: 0 },
+          output: {
+            text: 'created-approved\n',
+            availability: 'available',
+            complete: true,
+            truncation: 'none',
+          },
+        },
+      },
+      {
         type: 'runtime.tool.completed',
-        payload: { tool_call_id: 'call_fake_10', outcome: 'succeeded' },
+        payload: {
+          tool_call_id: 'call_fake_10',
+          turn_id: '01a0e0b1-5f29-75d1-9709-3e7a68e1cc4f',
+          outcome: 'succeeded',
+        },
       },
       {
         type: 'runtime.agent_message',
@@ -204,8 +225,9 @@ describe('Codex 0.157.0 event mapping', () => {
       },
     ]);
     // Declined: the command never ran, and Codex told the model so.
-    assert.deepEqual(types(observations.slice(at(declined) + 1, at(declined) + 5)), [
+    assert.deepEqual(types(observations.slice(at(declined) + 1, at(declined) + 6)), [
       'runtime.approval.resolved',
+      'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
       'runtime.turn.completed',
@@ -215,11 +237,12 @@ describe('Codex 0.157.0 event mapping', () => {
       deniedAt?.type === 'runtime.approval.resolved' && deniedAt.payload.decision,
       'denied',
     );
-    const failed = observations[at(declined) + 2];
+    const failed = observations[at(declined) + 3];
     assert.equal(failed?.type === 'runtime.tool.completed' && failed.payload.outcome, 'failed');
     // Cancelled by Codex's own decision, not a person's: no resolution is reported, the turn is
     // interrupted and the approval is gone.
-    assert.deepEqual(types(observations.slice(at(cancelled) + 1, at(cancelled) + 3)), [
+    assert.deepEqual(types(observations.slice(at(cancelled) + 1, at(cancelled) + 4)), [
+      'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.turn.interrupted',
     ]);
@@ -246,6 +269,7 @@ describe('Codex 0.157.0 event mapping', () => {
       'runtime.tool.started',
       'runtime.approval.requested',
       'runtime.approval.resolved',
+      'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
       'runtime.turn.completed',
@@ -266,6 +290,7 @@ describe('Codex 0.157.0 event mapping', () => {
       // A file change applied without approval.
       'runtime.turn.started',
       'runtime.tool.started',
+      'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
       'runtime.turn.completed',
@@ -613,7 +638,7 @@ describe('Codex event mapping edge cases', () => {
     const done = { ...item, status: 'completed' };
     assert.equal(
       notify(state, 'item/completed', { turnId: 'turn-1', item: done }).observations.length,
-      1,
+      2,
     );
     assert.equal(
       notify(state, 'item/completed', { turnId: 'turn-1', item: done }).observations.length,

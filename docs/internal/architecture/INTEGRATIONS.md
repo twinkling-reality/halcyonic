@@ -1,5 +1,28 @@
 # Integrations
 
+## Final recorded tool results
+
+An adapter's optional `reports_tool_results` declaration describes verified final structured result
+support, independent of `reports_tool_activity`, model choice and connection health. True supports
+an empty history; false means unsupported, and absent legacy declarations are unknown. A missing
+registered adapter is unavailable; accepted journal evidence remains readable. Codex 0.157.0
+declares true for final command/file-change notifications; OpenCode, Claude Code and the mock
+declare false and receive no emulated results.
+
+The live adapter correlates an exact observed started item and turn before emitting
+`runtime.tool.result` and then tool completion with monotonic sequences and distinct native event
+IDs. Duplicate, foreign-turn or malformed overbound item/turn identifiers cannot fabricate a
+correlation by clipping. Reconnect reconstruction or a completed turn does not invent missing
+output. Command completion/exit and file-change completion are native fields; neither names nor
+agent prose upgrade them into test/build evidence. File patches are native item fields, not a
+current-tree diff or a complete source snapshot. Lexical path and storage bounds, held-value
+replacement and owner-journal privacy are defined in [EVENTS.md](EVENTS.md) and
+[ADR 0031](../decisions/0031-record-bounded-native-tool-results-in-the-owner-journal.md).
+
+The pinned app-server's existing transport still receives unbounded raw frames before result
+field admission. The 64 KiB field/payload limits are storage and read-contract limits, not a
+claim that the RPC process or source capture is bounded.
+
 ## The runtime adapter contract
 
 A runtime integration implements `RuntimeAdapter` (`packages/runtime-core/src/adapter.ts`):

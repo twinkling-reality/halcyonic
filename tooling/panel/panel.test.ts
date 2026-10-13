@@ -50,6 +50,7 @@ const PLAIN = [
   'PanelRestore.java',
   'PanelViewStore.java',
   'PanelProjectOutput.java',
+  'PanelToolResults.java',
 ];
 const ANDROID_ONLY = [
   'PanelFiles.java',

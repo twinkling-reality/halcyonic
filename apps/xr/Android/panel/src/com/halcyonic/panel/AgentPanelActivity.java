@@ -60,6 +60,7 @@ public class AgentPanelActivity extends Activity {
     private Map<String,Object> agentOffer, requestView;
     private Dialog review;
     private PanelProjectOutput.Lease outputLease;
+    private PanelToolResults.Lease resultLease;
     private String projectId, workId, executionId, draft = "", commandId;
     private boolean spoken, busy, preview, developmentAllowed;
     private volatile boolean visible;
@@ -373,7 +374,7 @@ public class AgentPanelActivity extends Activity {
         PanelContinuation saved = drafts.find(identity.key, snapshot.journal, workId, executionId);
         if (saved != null && saved.matches(identity, snapshot)) { draft = saved.draft(); spoken = saved.spoken(); continuation = saved;loadRequest(saved); }
     }
-    private void closeReview() { cancelVoice(); if (outputLease != null) { outputLease.revoke(); outputLease = null; } if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
+    private void closeReview() { cancelVoice(); if (resultLease != null) { resultLease.revoke(); resultLease = null; } if (outputLease != null) { outputLease.revoke(); outputLease = null; } if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
 
     private PanelUiState.Context outputContext() {
         PanelUiState.Context scope = identity == null || snapshot == null || projectId == null ? null
@@ -779,6 +780,7 @@ public class AgentPanelActivity extends Activity {
             final PanelUiState.Context displayed = actionContext();
             button(content,surface.equals("request")?"Task controls":"Ask workspace",()->{if(!saveState())return;surface=surface.equals("request")?"task":"request";agentOffer=requestView=null;show();saveSelectedContext();if(!preview)poll(true);});
             button(content, "Read recorded activity", this::activity);
+            if (!preview) button(content, "Read results", this::results);
             for (Object item : PanelJson.array(run.get("pending_approvals"))) {
                 Map<String, Object> request = PanelJson.object(item);
                 button(content, "Review agent permission request", () -> approval(request, displayed));
@@ -808,6 +810,99 @@ public class AgentPanelActivity extends Activity {
             } else text(content, "Instructions are unavailable while this agent needs a decision or cannot receive one.", 18);
             if (snapshot.interrupt(run)) button(content, "Stop this agent", () -> reviewed("Stop this agent?", "This asks the agent to stop its current turn. The agent must confirm before this task is stopped.", "Send stop request", displayed, () -> send("execution.interrupt", PanelJson.map("execution_id", preview ? executionId : displayed.execution), null, null, displayed)));
         } catch (Exception error) { content.removeAllViews(); text(content, "This task could not be read safely. Open Workspace.", 20); }
+    }
+
+    private boolean resultCurrent(PanelToolResults.Lease lease) {
+        try { return resultLease == lease && lease.current(authority, actionContext(), files.connection(), generation,
+            outputEditor(), outputWords(), !preview && visible && review != null && authority.commandsAllowed()); }
+        catch (Exception error) { lease.revoke(); return false; }
+    }
+    private void results() {
+        if (preview || busy || !authority.commandsAllowed() || actionContext() == null || executionId == null || !saveState()) return;
+        final PanelUiState.Context selection = actionContext();
+        LinearLayout body = dialog("Recorded results");
+        resultLease = new PanelToolResults.Lease(authority, reviewOwner, selection, identity, generation, outputEditor(), outputWords());
+        readResults(resultLease, body, null);
+    }
+    private void readResults(PanelToolResults.Lease lease, LinearLayout body, Map<String,Object> selected) {
+        if (resultLease != lease) return;
+        busy = true; ui.removeCallbacks(refresh); body.removeAllViews(); text(body, "Reading recorded results…", 20);
+        final int requestedGeneration = generation;
+        final String resultRuntime = PanelJson.text(PanelJson.object(snapshot.execution(lease.context.work).get("runtime")).get("runtime_id"));
+        PanelTransport next = new PanelTransport(files::connection); transport = next;
+        worker.execute(() -> {
+            Object answer = null; String failure = "Recorded results could not be read. Try again after checking the connection.";
+            try {
+                PanelIdentity target = files.connection();
+                if (lease.identity.same(target)) {
+                    PanelTransport.Result fresh = next.request(target, "GET", "/api/snapshot", null);
+                    if (fresh.status == 200 && PanelProjectOutput.selected(lease.context, target, new PanelModel(fresh.body))) {
+                        PanelTransport.Result response = next.request(target, "GET", PanelToolResults.path(lease.context, selected == null ? null : PanelJson.text(selected.get("event_id"))), null);
+                        if (response.status == 200) answer = selected == null ? PanelToolResults.list(response.body, lease.context, resultRuntime) : PanelToolResults.detail(response.body, lease.context, selected);
+                        else if (response.status == 404) failure = "These recorded results are unavailable for this task or this computer version.";
+                    } else failure = "This task changed. Close Results and select it again.";
+                }
+            } catch (Exception error) { /* Outside text and transport errors are never logged. */ }
+            final Object received = answer; final String message = failure;
+            ui.post(() -> {
+                if (!visible || generation != requestedGeneration) return;
+                busy = false;
+                if (!resultCurrent(lease)) { if (resultLease == lease) closeReview(); ui.postDelayed(refresh, 1000); return; }
+                body.removeAllViews();
+                text(body, PanelText.plain(PanelJson.text(snapshot.projects.get(lease.context.project).get("name"))) + "\n" + PanelText.plain(PanelJson.text(snapshot.workstreams.get(lease.context.work).get("title"))), 20);
+                text(body, "Recorded by " + PanelText.plain(PanelJson.text(PanelJson.object(snapshot.execution(lease.context.work).get("runtime")).get("display_name"))), 17);
+                if (received == null) text(body, message, 20);
+                else if (selected == null) {
+                    PanelToolResults.ListView list = (PanelToolResults.ListView) received;
+                    List<Map<String,Object>> summaries = list.summaries;
+                    text(body, "Current files and software correctness are not verified.", 18);
+                    text(body, "Showing " + summaries.size() + " of " + list.total + " recorded results" + (list.earlier > 0 ? " · earlier results omitted from this list" : "") + ".", 17);
+                    if (!list.availability.equals("available")) text(body, list.availability.equals("unsupported") ? "This agent app does not support new result records. Earlier records remain readable." : list.availability.equals("unknown") ? "Support for new result records is unknown. Earlier records remain readable." : "Result recording is unavailable here. Earlier records remain readable.", 18);
+                    if (summaries.isEmpty()) text(body, "No results have been recorded for this task.", 20);
+                    for (Object item : summaries) {
+                        Map<String,Object> summary = PanelJson.object(item);
+                        button(body, PanelToolResults.label(summary), () -> { if (resultCurrent(lease)) readResults(lease, body, summary); });
+                    }
+                } else {
+                    Map<String,Object> result = PanelJson.object(received);
+                    text(body, PanelToolResults.label(selected), 20);
+                    if (selected.get("title") != null) text(body, PanelText.plain(PanelJson.text(selected.get("title"))), 18);
+                    if (PanelJson.integer(PanelJson.object(result.get("redaction")).get("replacements"),0,9007199254740991L)>0) text(body,"Some private text was removed.",16);
+                    if ("command".equals(result.get("kind"))) resultBody(body, PanelToolResults.body(result.get("output")), lease);
+                    else {
+                        List<Object> files = PanelJson.array(result.get("files"));
+                        text(body, files.size() + " of " + result.get("files_total") + " changed-file entries recorded.", 18);
+                        LinearLayout selectedFile=column();
+                        for (Object item : files) {
+                            Map<String,Object> file = PanelJson.object(item);
+                            button(body,file.get("path")==null?"File path unavailable":PanelText.plain(PanelJson.text(file.get("path")))+(PanelJson.bool(file.get("path_complete"))?"":" · shortened"),()->{if(resultCurrent(lease))resultFile(selectedFile,file,lease);});
+                        }
+                        body.addView(selectedFile);
+                        if(!files.isEmpty())text(selectedFile,"Choose a file to read its recorded patch.",18);
+                    }
+                    button(body, "Recent results", () -> { if (resultCurrent(lease)) readResults(lease, body, null); });
+                }
+                ui.postDelayed(refresh, 3000);
+            });
+        });
+    }
+    private void resultBody(LinearLayout parent, Map<String,Object> body, PanelToolResults.Lease lease) {
+        text(parent, PanelToolResults.note(body), 17);
+        if (body.get("text") == null) return;
+        List<String> pages = PanelToolResults.pages(PanelJson.text(body.get("text")));
+        LinearLayout page = column(); parent.addView(page);
+        resultPage(page, pages, 0, lease);
+    }
+    private void resultFile(LinearLayout parent,Map<String,Object> file,PanelToolResults.Lease lease){
+        parent.removeAllViews();text(parent,PanelJson.text(file.get("kind"))+" · "+(file.get("path")==null?"File path unavailable":PanelText.plain(PanelJson.text(file.get("path")))),20);
+        if(file.get("move_path_scope")!=null)text(parent,file.get("move_path")==null?"Destination path unavailable":"Destination · "+PanelText.plain(PanelJson.text(file.get("move_path")))+(PanelJson.bool(file.get("move_path_complete"))?"":" · shortened"),18);
+        resultBody(parent,PanelToolResults.body(file.get("patch")),lease);
+    }
+    private void resultPage(LinearLayout page, List<String> pages, int index, PanelToolResults.Lease lease) {
+        page.removeAllViews(); text(page, "Content " + (index + 1) + " of " + pages.size(), 16);
+        TextView outside=text(page,pages.get(index),19);outside.setTypeface(android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.ITALIC));outside.setTextIsSelectable(true);
+        if (index > 0) button(page, "Previous content", () -> { if (resultCurrent(lease)) resultPage(page, pages, index - 1, lease); });
+        if (index + 1 < pages.size()) button(page, "Next content", () -> { if (resultCurrent(lease)) resultPage(page, pages, index + 1, lease); });
     }
 
     private void reviewInstruction(PanelUiState.Context scope) {

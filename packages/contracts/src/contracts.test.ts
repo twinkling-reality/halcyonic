@@ -401,15 +401,19 @@ describe('the C# bindings', () => {
     assert.equal(committed, generated, 'run pnpm contracts:emit and commit the result');
   });
 
-  test('an optional string reads as null when missing and is left out when null; nothing else may be optional', () => {
+  test('optional strings and declaration booleans read as null when missing and are omitted when null', () => {
     assert.match(
       generated,
       /\[JsonProperty\("label", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public string\? Label \{ get; set; \}/,
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      1,
-      'LocationRoot.label is the one optional property',
+      3,
+      'only location label, completed tool turn and results support declaration are optional',
+    );
+    assert.match(
+      generated,
+      /\[JsonProperty\("reports_tool_results", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public bool\? ReportsToolResults \{ get; set; \}/,
     );
   });
 

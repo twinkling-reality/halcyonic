@@ -1,5 +1,25 @@
 # Workspace request verification
 
+## 2026-10-13: Typed recorded result reads
+
+The same approved synthetic edit/check witness now consumes observed final command and file-change
+results through the production scoped reader and the coordinator's `read_results`/`read_result`
+tools. The deterministic offline command emits an explicit synthetic output line, checked byte for
+byte; it runs exactly once. A final reply stays reported and `last_test_run` stays unknown/null.
+The pinned witness passed 1/1, zero skipped. Full bounds and source limitations are in
+[recorded-tool-results.md](recorded-tool-results.md).
+
+`read_results` returns typed metadata within 1,024 serialized bytes, with total/recent/earlier,
+omitted count and `next_before`. `coverage: retained_latest` and `exhausted` explicitly limit paging
+to the latest sixteen; no omitted earlier history is presented as scanned. `read_result` requires
+one original event ID, `file_index` for file changes and an optional `part`. It returns one stable
+retained native field part at most 256 serialized bytes inside the same 1,024-byte wrapper, with
+native completion/exit/path excerpts, availability, stored completeness, truncation and held-value
+replacement metadata. Inappropriate, required-but-absent or out-of-range selectors and metadata
+that cannot fit are explicit unavailable/rejected reads, never a JSON-prefix excerpt or another
+field. Existing total model context/input limits remain unchanged. Every tool result is data,
+never new human authority, and command names do not identify tests or builds.
+
 ## 2026-10-13: Combined synthetic edit and check through the real Codex runtime
 
 `codex-live-edit.e2e.test.ts` connects the production request coordinator, Recorder, CommandService,

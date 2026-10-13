@@ -236,6 +236,29 @@ device                                            control plane
   implementations reproduce.
 
 
+## Scoped recorded tool results
+
+`GET /api/executions/:execution_id/results` takes exactly `journal_id`, `project_id` and
+`workstream_id`. Its `ToolResultsResponse` contains that full execution tuple, support availability,
+total accepted count, earlier count and at most sixteen body-free summaries, newest journal position
+first. `total - earlier` equals the returned count. `available` means the registered descriptor
+declares result reporting, not that its connection is live; `unsupported` is a false declaration,
+`unknown` is an absent legacy declaration, and `unavailable` means no registered adapter. Execution
+connection/status is separate. Accepted historical evidence remains readable in every case.
+
+`GET /api/executions/:execution_id/results/:event_id` takes the same exact query and returns one
+`ToolResultResponse` with full scope, original summary and bounded recorded result. It requires
+the projection's accepted observed event, then cross-checks exact journal identity, position,
+scope, runtime and provenance. It neither scans source files nor calls a runtime. Recent-list
+eviction does not make an exact accepted event disappear. Both routes require the authenticated
+owner-journal principal (local owner or still-active paired device), current journal and the task's
+current execution; malformed/extra query fields are 400, unavailable/foreign scope or event is
+the same 404. Existing network response revocation applies. Missing routes on older hosts are
+unavailable; clients must not guess another execution, event or newest result after an await.
+
+These reads grant no command authority. See [ADR 0031](../decisions/0031-record-bounded-native-tool-results-in-the-owner-journal.md)
+for privacy, capture and source-memory limits and the coordinator's separate bounded selectors.
+
 ## Workspace request upgrade order
 
 The journaled general request coordinator adds `workspace.request.submit`, `.resume` and `.cancel`

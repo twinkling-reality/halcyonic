@@ -9,6 +9,7 @@ import type { CommandId, CommandOf, ExecutionId } from '@halcyonic/contracts';
 import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { PATCH_CONTENT } from '../../../../packages/integrations/codex/src/testing/fake-provider.ts';
 import { createSandbox } from '../../../../packages/integrations/codex/src/testing/sandbox.ts';
+import { ToolResults } from '../core/tool-results.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { createHostLocations } from '../locations.ts';
@@ -71,6 +72,7 @@ test('workspace request edits an approved synthetic repository and observes a re
       `assert.equal(readFileSync('changed.txt', 'utf8'), ${JSON.stringify(`${PATCH_CONTENT}\n`)});`,
       "appendFileSync('check-runs.txt', 'checked\\n');",
       "writeFileSync('check-passed.txt', 'synthetic offline check passed\\n');",
+      "console.log('synthetic offline command finished');",
     ].join('\n'),
   );
   execFileSync('git', ['init', '--quiet', sandbox.project], { stdio: 'ignore' });
@@ -149,6 +151,7 @@ test('workspace request edits an approved synthetic repository and observes a re
   const node = `'${process.execPath.replaceAll("'", "'\\''")}'`;
   const directions = ['PATCH_ADD:changed.txt', `CMD:${node} check.mjs`];
   let turns = 0;
+  let readError: unknown;
   const observed: unknown[] = [];
   coordinator = new WorkspaceRequests({
     controlPlane: h.controlPlane,
@@ -163,13 +166,36 @@ test('workspace request edits an approved synthetic repository and observes a re
       }),
       turn: async (messages: readonly ToolMessage[]): Promise<ToolTurnResult> => {
         const continuation = directions[turns++];
+        if (turns === 4) {
+          try {
+            const read = messages.findLast(
+              (message) => message.role === 'tool' && message.tool_name === 'read_result',
+            );
+            assert.ok(read);
+            const data = JSON.parse(read.content);
+            assert.equal(data.kind, 'command');
+            assert.equal(data.completion, 'completed');
+            assert.equal(data.exit_code, 0);
+            assert.equal(data.availability, 'available');
+            assert.equal(data.text, 'synthetic offline command finished\n');
+            assert.ok(Buffer.byteLength(read.content) <= 1024);
+            assert.equal(
+              Object.hasOwn(data, 'excerpt'),
+              false,
+              'Typed fields, never a JSON-prefix excerpt.',
+            );
+          } catch (error) {
+            readError = error;
+            throw error;
+          }
+        }
         if (turns > 1) {
           const receipts = h.controlPlane.projection
             .workspaceRequests()
             .flatMap((request) =>
               h.controlPlane.projection.workspacePreparedActions(request.request_id),
             );
-          assert.equal(receipts.length, turns - 1);
+          assert.equal(receipts.length, Math.min(turns - 1, 2));
           assert.ok(
             receipts.every(
               (action) =>
@@ -188,13 +214,27 @@ test('workspace request edits an approved synthetic repository and observes a re
         return {
           kind: 'answered',
           content:
-            continuation === undefined
+            continuation === undefined && turns !== 3
               ? 'Synthetic reported answer; installed build remains unknown.'
               : '',
           toolCalls:
-            continuation === undefined
-              ? []
-              : [{ function: { name: 'continue_task', arguments: { text: continuation } } }],
+            turns === 3
+              ? [
+                  { function: { name: 'read_results', arguments: {} } },
+                  {
+                    function: {
+                      name: 'read_result',
+                      arguments: {
+                        event_id: h.controlPlane.projection
+                          .executionResultSummaries(executionId)
+                          .summaries.find((item) => item.kind === 'command')?.event_id,
+                      },
+                    },
+                  },
+                ]
+              : continuation === undefined
+                ? []
+                : [{ function: { name: 'continue_task', arguments: { text: continuation } } }],
           model: 'synthetic-coordinator',
           served: 'this_mac',
         };
@@ -214,11 +254,17 @@ test('workspace request edits an approved synthetic repository and observes a re
   const submitted = h.controlPlane.commands.submit(requestCommand, 'http', { kind: 'local' });
   assert.ok(submitted.command?.result?.kind === 'workspace_request_created');
   const requestId = submitted.command.result.request_id;
-  await until(
-    () => h.controlPlane.projection.workspaceRequest(requestId)?.status === 'responded',
-    'coordinator reported answer',
-  );
-  assert.equal(turns, 3);
+  await until(() => {
+    if (readError) throw readError;
+    const status = h.controlPlane.projection.workspaceRequest(requestId)?.status;
+    assert.notEqual(
+      status,
+      'failed',
+      'The scoped synthetic coordinator failed before its final report.',
+    );
+    return status === 'responded';
+  }, 'coordinator reported answer');
+  assert.equal(turns, 4);
   const prepared = h.controlPlane.projection.workspacePreparedActions(requestId);
   assert.equal(prepared.length, 2);
   assert.ok(
@@ -267,6 +313,37 @@ test('workspace request edits an approved synthetic repository and observes a re
   assert.equal(
     journal.filter((stored) => stored.event.event_type === 'runtime.tool.completed').length,
     2,
+  );
+  const reader = new ToolResults(h.controlPlane);
+  const scope = {
+    journal_id: h.journal.info.journal_id,
+    project_id: projectId,
+    workstream_id: workId,
+  };
+  const results = reader.list(executionId, scope, { kind: 'local' });
+  assert.equal(results?.availability, 'available');
+  assert.equal(results?.total, 2);
+  for (const summary of results?.results ?? []) {
+    const detail = reader.read(executionId, summary.event_id, scope, { kind: 'local' });
+    assert.ok(detail);
+    assert.equal(detail.result.completion, 'completed');
+    if (detail?.result.kind === 'command') {
+      assert.equal(detail.result.exit_code, 0);
+      assert.equal(detail.result.output.availability, 'available');
+    } else {
+      assert.equal(detail?.result.kind, 'file_changes');
+      assert.equal(detail.result.files[0]?.path, 'changed.txt');
+      assert.equal(detail.result.files[0]?.patch.availability, 'available');
+      assert.equal(detail.result.files[0]?.patch.text?.includes(PATCH_CONTENT), true);
+    }
+  }
+  const readSteps = h.controlPlane.projection
+    .workspaceRequest(requestId)
+    ?.steps.filter((step) => step.tool_name === 'read_result' || step.tool_name === 'read_results');
+  assert.equal(readSteps?.length, 2);
+  assert.equal(
+    readSteps?.every((step) => step.status === 'confirmed'),
+    true,
   );
   assert.ok(
     journal

@@ -11,6 +11,7 @@ export * from './realtime.ts';
 export * from './requests.ts';
 export * from './runtime.ts';
 export * from './schema-document.ts';
+export * from './tool-results.ts';
 export * from './transcription.ts';
 export * from './understanding.ts';
 export * from './usage-limits.ts';
@@ -18,6 +19,4 @@ export * from './validation.ts';
 export * from './versions.ts';
 export * from './views.ts';
 export * from './workspace.ts';
-
 export * from './workspace-tools.ts';
-export * from './tool-results.ts';

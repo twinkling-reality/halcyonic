@@ -40,6 +40,8 @@ export interface EventJournal {
   head(): number;
   append(event: EventEnvelope): AppendResult;
   read(options: ReadOptions): StoredEvent[];
+  /** One indexed immutable event, not a history scan. Authorization belongs to the caller. */
+  event(eventId: string): StoredEvent | undefined;
   /** Every event in position order, for rebuilding the projection. */
   readAll(): Iterable<StoredEvent>;
   close(): void;

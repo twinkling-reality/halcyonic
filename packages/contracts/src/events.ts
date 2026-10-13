@@ -35,8 +35,8 @@ import {
   WorkspaceRequestView,
 } from './requests.ts';
 import { ModelRef, RuntimeRef } from './runtime.ts';
-import { EVENT_SCHEMA_VERSION } from './versions.ts';
 import { ToolResult } from './tool-results.ts';
+import { EVENT_SCHEMA_VERSION } from './versions.ts';
 
 const strict = { additionalProperties: false } as const;
 

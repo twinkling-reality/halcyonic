@@ -9,6 +9,7 @@ import type {
 } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import { APPROVAL_METHODS, QUESTION_METHOD, type RequestId } from './protocol.ts';
+import { nativeToolResult } from './tool-results.ts';
 
 export type ApprovalOutcome = 'approved' | 'denied';
 
@@ -36,6 +37,8 @@ export interface PendingQuestion {
 
 /** What the adapter knows about one hosted Codex thread, updated as its messages arrive. */
 export interface ThreadState {
+  readonly directory: string | null;
+  readonly toolTurns: Map<string, string>;
   /** The running turn, from `turn/start`'s answer or `turn/started` until `turn/completed`. */
   activeTurnId: string | null;
   /** Turns whose start was reported. */
@@ -61,8 +64,10 @@ export interface ThreadState {
   sequence: number;
 }
 
-export function createThreadState(answerable = true): ThreadState {
+export function createThreadState(answerable = true, directory: string | null = null): ThreadState {
   return {
+    directory,
+    toolTurns: new Map(),
     questions: new Map(),
     answerable,
     activeTurnId: null,
@@ -105,6 +110,12 @@ export interface Observed {
 }
 
 const ENDED_TURNS_KEPT = 16;
+function usableToolIdentity(id: string | null, turn: string | null): boolean {
+  // The composed source identity must fit too; truncation or hashing would change its identity.
+  return (
+    id !== null && turn !== null && Array.from(`${turn}:${id}:item/completed:result`).length <= 512
+  );
+}
 
 /**
  * Maps one server message about a thread to observations and updates the thread's state. Only
@@ -190,12 +201,14 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
       const item = isRecord(params.item) ? params.item : {};
       const id = nonBlank(item.id);
       const turnId = nonBlank(params.turnId);
-      if (id === null || turnId === null) return none;
+      // Malformed native identities are omitted whole: clipping could correlate distinct tools.
+      if (id === null || turnId === null || !usableToolIdentity(id, turnId)) return none;
       if (item.type === 'fileChange') state.fileChanges.set(id, describeChanges(item.changes));
       if (typeof item.type !== 'string' || !TOOL_ITEMS.has(item.type) || state.tools.has(id)) {
         return none;
       }
       state.tools.add(id);
+      state.toolTurns.set(id, turnId);
       const title =
         item.type === 'commandExecution'
           ? nonBlank(item.command)
@@ -222,7 +235,8 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
       const item = isRecord(params.item) ? params.item : {};
       const id = nonBlank(item.id);
       const turnId = nonBlank(params.turnId);
-      if (id === null || turnId === null) return none;
+      // Malformed native identities are omitted whole: clipping could correlate distinct tools.
+      if (id === null || turnId === null || !usableToolIdentity(id, turnId)) return none;
       const nativeId = `${turnId}:${id}:item/completed`;
       if (item.type === 'agentMessage') {
         const text = typeof item.text === 'string' ? item.text : '';
@@ -248,11 +262,26 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
                 ? 'succeeded'
                 : 'failed'
               : null;
-      if (outcome === null || !state.tools.delete(id)) return none;
+      if (
+        outcome === null ||
+        (state.toolTurns.has(id) && state.toolTurns.get(id) !== turnId) ||
+        !state.tools.delete(id)
+      )
+        return none;
+      const result =
+        state.toolTurns.get(id) === turnId
+          ? nativeToolResult(item, id, turnId, state.directory)
+          : null;
+      state.toolTurns.delete(id);
       state.fileChanges.delete(id);
       return {
         observations: [
-          make('runtime.tool.completed', { tool_call_id: clip(id, 512), outcome }, nativeId),
+          ...(result ? [make('runtime.tool.result', result, `${nativeId}:result`)] : []),
+          make(
+            'runtime.tool.completed',
+            { tool_call_id: clip(id, 512), turn_id: turnId, outcome },
+            nativeId,
+          ),
         ],
         settled: [],
       };
@@ -482,6 +511,7 @@ export function settleResumed(
   state.approvals.clear();
   state.questions.clear();
   state.tools.clear();
+  state.toolTurns.clear();
   state.fileChanges.clear();
   const running = state.activeTurnId;
   const turn = isRecord(latest) ? latest : null;

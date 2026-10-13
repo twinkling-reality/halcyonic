@@ -64,7 +64,7 @@ final class PanelTransport {
     void cancel() { cancelled = true; Lease lease = active; if (lease != null) lease.close(); }
 
     Result request(PanelIdentity expected, String method, String path, String body) throws IOException {
-        if (!(method.equals("GET") && (path.equals("/api/snapshot") || path.equals("/api/workspace/agent") || path.matches("/api/workspace/requests/" + PanelIdentity.ENTITY) || path.matches("/api/workspace/commands/" + PanelIdentity.UUID) || path.matches("/api/events\\?after=[0-9]{1,16}&limit=50&workstream_id=" + PanelIdentity.ENTITY)))
+        if (!(method.equals("GET") && (path.equals("/api/snapshot") || path.equals("/api/workspace/agent") || path.matches("/api/workspace/requests/" + PanelIdentity.ENTITY) || path.matches("/api/workspace/commands/" + PanelIdentity.UUID) || path.matches("/api/events\\?after=[0-9]{1,16}&limit=50&workstream_id=" + PanelIdentity.ENTITY) || path.matches("/api/executions/" + PanelIdentity.ENTITY + "/results(?:/" + PanelIdentity.ENTITY + ")?\\?journal_id=" + PanelIdentity.ENTITY + "&project_id=" + PanelIdentity.ENTITY + "&workstream_id=" + PanelIdentity.ENTITY)))
             && !(method.equals("POST") && path.equals("/api/commands") && body != null)) throw new Refused("unsupported_request", false);
         byte[] bytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
         if (bytes.length > 256 * 1024) throw new Refused("request_too_large", false);

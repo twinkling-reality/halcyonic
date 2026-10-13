@@ -1,5 +1,17 @@
 # Native agent panel
 
+2026-10-13 addition: an expanded selected task offers **Read results**, a read-only native view of
+accepted final command/file-change records. The list and exact event reads use the existing pinned
+or development proof transport with the original connection/journal/project/task/execution.
+Each fresh host read and callback must retain that selection, runtime, modal/editor/draft/pending
+identity, generation and focused expanded lifetime. Opening the view first saves both ordinary
+drafts; no reading-proof confirmation or command is introduced. A file-change record offers a
+short file list and one selected patch; recorded bodies preserve LF/indentation/blank lines and
+literal backslashes, with other control/ignorable characters shown literally. Content pages retain
+the immutable event. Support availability is distinct from connection health and earlier recorded
+facts remain readable. Native source, API and JVM/HTTP evidence and hardware limits are in
+[recorded-tool-results.md](recorded-tool-results.md); device interaction is unverified.
+
 Verified 2026-10-12 against the local producer and consumer source, Unity 6000.3.25f1's Android
 API 36 jar and OpenJDK, and Meta's current hybrid-app documentation. The focused JVM checks use
 fresh, ephemeral control planes and synthetic credentials. No device launch, Wi-Fi pairing,
@@ -66,7 +78,8 @@ The panel reads `GET /api/snapshot`, reads the first 50 recorded task events thr
 `GET /api/events`, and sends existing `POST /api/commands` envelopes. Project/task selection is
 local context; it does not create work. Execution badges use the runtime's own `synthetic` flag,
 including simulated executions in a live journal. Activity says its bounded range and leaves
-full changes/checks/output exploration in Workspace.
+provider Changes/Checks exploration in Workspace. Both views now expose bounded recorded native
+command/file-change results; those are separate from provider assessment and current-file proof.
 
 Instruction, stop, approval and complete question answers require deliberate user actions and
 declared runtime capabilities. Instruction and agent request reviews offer the entire safe plain
@@ -209,7 +222,9 @@ actual JNI dispatch; synthetic native visual proof; headset launch/Home/return a
 process-death recovery; explicit USB installed journey; real Wi-Fi pairing, pin failure and
 revocation; native keyboard and complete review with hands/controllers; focus over another
 immersive app, including `FLAG_SECURE` on the actual Horizon virtual display and native keyboard
-focus callbacks. Foreground visible polling stops on pause or loss of top-resumed ownership.
+focus callbacks. Expanded polling stops on pause or loss of top-resumed ownership. Visible Compact
+may continue bounded read-only snapshot polling without top/input focus; pause stops it, and no
+hidden input, command or result-review authority survives.
 Background notifications and arbitrary
 app control are not implemented capabilities.
 
