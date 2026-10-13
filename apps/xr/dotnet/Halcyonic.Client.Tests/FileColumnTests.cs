@@ -22,7 +22,8 @@ internal sealed class FileMenuHost : IMenuHost
 
     public Action? KeyboardDismissed { get; private set; }
 
-    public ClientProjection? State => null;
+    public ClientProjection? Projection { get; set; }
+    public ClientProjection? State => Projection;
 
     public bool Connected => Live;
 
@@ -38,7 +39,7 @@ internal sealed class FileMenuHost : IMenuHost
 
     public bool VoiceOffered => true;
 
-    public ControlPlaneApi? Api => null;
+    public ControlPlaneApi? Api { get; set; }
 
     public Task<CommandAckMessage>? Submit(CommandEnvelope command)
     {

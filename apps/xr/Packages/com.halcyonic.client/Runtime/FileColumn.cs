@@ -63,6 +63,7 @@ namespace Halcyonic.Client
         private FileSection instructionVoiceSection;
         private MenuFrame? drawnInstructionFrame;
         private MenuFrame? drawnInstructionNoticeFrame;
+        private MenuFrame? drawnResultsFrame;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -101,10 +102,13 @@ namespace Halcyonic.Client
         private WorkspaceRequestContinuation? retainedRequest;
         private string? requestExecution;
         private Action? openWorkspaceRequest;
+        private Action? openResults;
         public WorkspaceRequestColumn? RequestView { get; private set; }
         public WorkspaceSurface Surface { get; set; } = WorkspaceSurface.Task;
         public void OfferWorkspaceRequests(Action open)
         { if (openWorkspaceRequest != null) return; openWorkspaceRequest = open; Screen.WorkspaceRequestOffered = true; Rebuild(); }
+        public void OfferResults(Action open)
+        { if (openResults != null) return; openResults = open; Screen.ResultsOffered = true; Rebuild(); }
         public WorkspaceRequestContinuation? ContinuationRequest() => RequestView?.ExecutionId == Now?.Execution?.ExecutionId
             ? RequestView?.Draft : requestExecution == Now?.Execution?.ExecutionId && retainedRequest != null ? new WorkspaceRequestContinuation
             { RequestId = retainedRequest.RequestId, PendingCommandId = retainedRequest.PendingCommandId, Text = retainedRequest.Text, Spoken = retainedRequest.Spoken, Part = retainedRequest.Part } : null;
@@ -215,6 +219,9 @@ namespace Halcyonic.Client
             var clock = host.Clock;
             switch (id)
             {
+                case FileScreens.OpenResults:
+                    if (drawnResultsFrame == Frame && Frame?.Lines.Any(line => line.Action == id && line.Available) == true) openResults?.Invoke();
+                    return;
                 case FileScreens.OpenWorkspaceRequest:
                     if (Frame?.Lines.Any(line => line.Action == id && line.Available) == true
                         && Now.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true) openWorkspaceRequest?.Invoke();
@@ -555,6 +562,7 @@ namespace Halcyonic.Client
                 if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.SideOption != null) Screen.Question.SideDrawn(clock);
                 return;
             }
+            if (drawn.Lines.Any(line => line.Action == FileScreens.OpenResults && line.Available)) drawnResultsFrame = drawn;
             if (Steering.ToRead(Now) is string request)
             {
                 var from = Screen.RequestPart * Screen.RequestPartRows;
@@ -682,6 +690,7 @@ namespace Halcyonic.Client
         /// <summary>Retains the exact local page and buffer while dropping every interaction authorization.</summary>
         public void Compact()
         {
+            drawnResultsFrame = null;
             RequestView?.Compact();
             drawnPresetFrame = null;
             Screen.SuspendPresets();
@@ -700,6 +709,7 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
+            drawnResultsFrame = null;
             RequestView?.FocusLeft();
             drawnPresetFrame = null;
             Screen.SuspendPresets();
@@ -733,6 +743,7 @@ namespace Halcyonic.Client
         {
             drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;
+            drawnResultsFrame = null;
             var presentation = present();
             if (presentation == null)
             {
@@ -800,10 +811,16 @@ namespace Halcyonic.Client
                     notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             }
             if (draft != null) ReadQuestion(draft, budget);
+            if (Screen.WorkspaceRequestOffered) Screen.WorkspaceRequestRows = Math.Max(1, host.RowsOf(new PageLine("Ask workspace", icon: GlazeIcon.Next,
+                action: FileScreens.OpenWorkspaceRequest, opens: true, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+            if (Screen.ResultsOffered) Screen.ResultsRows = Math.Max(1, host.RowsOf(FileScreens.ReadResultsLine(rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+            Screen.InstructionResultsOffered = Screen.ResultsOffered && presentation.Execution != null && Steering.Armed == null
+                && WorkspaceText.NeedFromYou(presentation) == null && asked == null && presentation.ApprovalToAnswer == null && notice == null;
             if (Screen.Instruction.Open)
                 Screen.Instruction.Measure(host.RowsOf(FileScreens.InstructionLine(Screen.Instruction, host.KeyboardOffered, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees), budget, host.TextSize,
                     host.FitsHalf(FileScreens.InstructionPager(previous: true), Glaze.Menu.FileColumnDegrees) && host.FitsHalf(FileScreens.InstructionPager(), Glaze.Menu.FileColumnDegrees),
-                    notice, notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+                    notice, notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees),
+                    navigationHeight: Screen.InstructionResultsOffered ? budget.Target(Screen.ResultsRows) + budget.TargetGap : 0);
             // Answers armed to send that changed since, by a choice, a page turned or a new layout, cancel
             // its Yes at the change, as words heard or typed do.
             if (Steering.AnswersMoved() is string moved)
@@ -840,7 +857,7 @@ namespace Halcyonic.Client
                 if (Screen.Question.Writing) Screen.Question.CancelInput();
                 answering = false;
             }
-            Frame = FileScreens.Screen(presentation, Steering, Screen, room);
+            Frame = FileScreens.Screen(presentation, Steering, Screen, room, budget);
             Changed?.Invoke();
         }
 

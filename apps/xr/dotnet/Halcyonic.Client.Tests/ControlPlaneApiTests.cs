@@ -124,6 +124,22 @@ public class ControlPlaneApiTests
         new(new Uri("http://127.0.0.1:47800/"), "test-token", handler);
 
     [Test]
+    public async Task ResultsReadsEscapeEveryOriginalPathAndQueryValueAndNeverPost()
+    {
+        var query = new ToolResultsQuery { JournalId = "j /?&", ProjectId = "p /?&", WorkstreamId = "w /?&" };
+        var list = new CannedHandler(HttpStatusCode.OK, HalcyonicJson.Serialize(TaskResultsColumnTests.Listing()));
+        using (var api = Api(list)) await api.GetToolResultsAsync("run /?&", query);
+        var body = new CannedHandler(HttpStatusCode.OK, HalcyonicJson.Serialize(TaskResultsColumnTests.Output()));
+        using (var api = Api(body)) await api.GetToolResultAsync("run /?&", "event /?&", query);
+        Assert.That(list.Requests.Single().Method, Is.EqualTo(HttpMethod.Get));
+        Assert.That(body.Requests.Single().Method, Is.EqualTo(HttpMethod.Get));
+        Assert.That(list.Requests.Single().RequestUri!.AbsoluteUri,
+            Is.EqualTo("http://127.0.0.1:47800/api/executions/run%20%2F%3F%26/results?journal_id=j%20%2F%3F%26&project_id=p%20%2F%3F%26&workstream_id=w%20%2F%3F%26"));
+        Assert.That(body.Requests.Single().RequestUri!.AbsoluteUri,
+            Is.EqualTo("http://127.0.0.1:47800/api/executions/run%20%2F%3F%26/results/event%20%2F%3F%26?journal_id=j%20%2F%3F%26&project_id=p%20%2F%3F%26&workstream_id=w%20%2F%3F%26"));
+    }
+
+    [Test]
     public async Task RecoversAnExactWorkspaceCommandWithItsJournalWithoutPosting()
     {
         const string id = "550e8400-e29b-41d4-a716-446655440000";

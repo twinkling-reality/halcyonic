@@ -2999,3 +2999,44 @@ An unavailable component is never replaced by a new default. The explicit choose
 launcher visibility query and no QUERY_ALL_PACKAGES permission. Other apps retains the Home
 fallback. Installed/source/build correspondence and continued panel visibility across launch are
 unknown until device acceptance. See [native-project-output.md](../validation/native-project-output.md).
+
+### Recorded task results
+
+The task's Activity and ordinary instruction editor offer Read results. This opens an engine-free
+`TaskResultsColumn` with generated scoped result bindings and the existing authenticated API. It
+adds no tab, editor, command or continuation schema. The instruction page reserves the measured
+navigation target before packing its input and pager; armed decisions, questions and notice pages
+offer no such route. The exact drawn file frame must offer the navigation.
+
+The view names the agent app as its source, shows recorded time/completion/exit or file count, and
+keeps current recording support separate from durable history. Latest-sixteen list coverage,
+shortened fields, missing output and unknown/outside path scope remain explicit. Command exit zero
+does not certify tests or correctness. A file list opens one chosen recorded patch, with the
+concrete reminder that files may have changed since. Both output and patches use measured local
+paging and the existing outside-text treatment. `RecordedResultText` preserves LF, blank lines and
+ASCII indentation/trailing spaces while visibly spelling other controls through `LabelText.Exact`;
+`LineWords` escapes backslashes once at the TextMeshPro boundary. Ordinary label rules are unchanged.
+
+The retained original `FileColumn` remains the selection/recovery/native-handoff owner. Back
+returns patch → files → results → that same file, preserving instruction words, spoken origin and
+part, independent question/request buffers and the pending command identity. Navigation revokes
+keyboard, voice, prepared send and old-frame authority. Results state itself is transient: no new
+private persistence surface is introduced.
+
+Every read binds the original copied connection/journal/project/task/execution, session and API,
+and requires the exact selected visible view, focus, no overlay/drag and no global Minimize or hidden
+aside. Completed reads recheck those conditions plus ordered list coverage and exact summary/body
+metadata. Hidden/focus departure cancels pending reads and discards publishable bodies. The event,
+chosen-file metadata and page remain navigation only; explicit visible return freshly reads that
+exact event even after recent-list eviction, rejects changed file metadata and restores a bounded
+page. No background completion retargets a new selection or submits anything.
+
+The expanded native task's Read results consumes the same scoped API, retains both drafts and the
+pending identity, and shows one selected file patch. Host/runtime bounds and native evidence are in
+[recorded-tool-results.md](../validation/recorded-tool-results.md) and
+[native-agent-panel.md](../validation/native-agent-panel.md); the journal decision is ADR 0031.
+Focused C# Results/API/File/continuity checks passed 175/175 with zero skips on 2026-10-13, compiling
+the core under .NET Standard 2.1/C# 9. `WorkspaceRender.ResultsCheck` is the actual director/TMP
+render witness for both text sizes, far/desk and zero/one confirmed shelf, using explicit synthetic
+session messages and canned HTTP. Its source is prepared; actual Unity results and headset focus,
+readability, persistence/JNI and live edit/build/install correspondence remain separate gates.
