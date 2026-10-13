@@ -2771,7 +2771,10 @@ still require an explicit draft-discard decision.
 
 Local placement details open as stable menu overlays with named lifecycle callbacks. Only their
 exact offered frame after a physical draw accepts input; opening or closing them revokes retained
-menu input. Closing an overlay restores the retained composition for a fresh draw.
+menu input. Closing an overlay restores the retained composition for a fresh draw. The current
+global header remains usable over an overlay: Minimize dismisses it and retains the underlying
+work behind the dock; Projects dismisses it before navigating. This grants no input authority to
+hidden task frames, and focus, settling and drag guards still apply.
 
 
 Workspace return waits for the current realtime connection's welcome journal/head watermark to be

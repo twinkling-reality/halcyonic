@@ -348,3 +348,20 @@ session, not findings already verified on the headset.
 - **Diagnostics:** interaction logs record a peek when it appears, ray target entry and exit, and
   accepted or refused look pinches with a reason. They identify characters by workstream id and
   controls by Unity instance number. They do not print the peek's text, agent messages or commands.
+
+## Global controls over placement details (2026-10-13)
+
+A rendered continuation exposed a real input-owner defect: opening Move left the visible global
+Minimize control behind the local overlay's content-frame guard. The director now checks global
+header eligibility independently while preserving focus, dirty-frame, drag and slide guards.
+Projects dismisses the local overlay through its normal lifecycle before navigating. Hidden task
+content still cannot act through that overlay.
+
+`DedicatedWorkspaceCheck` passes at both real-font text sizes with actual pointer select/release
+through Move, Minimize, the restore dock and Projects. It verifies retained task/draft identity,
+dismissed placement details, unchanged hand placement, a rejected hidden task action and no command
+send. Settling is advanced by the render helper; elapsed physical input and headset usability are
+not established. Independent source review found no actionable defect in this bounded change.
+The integrated full host check passed 1,162 tests and the C# suite passed 1,666, both with zero skips.
+The wider legacy director render still fails on stage/layout/input assumptions and remains an open
+migration and production-validation gate; this narrow result is not complete experience acceptance.

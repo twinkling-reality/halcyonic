@@ -245,6 +245,7 @@ namespace Halcyonic.XR.Workspace
             director.plane.ProjectsPressed += () =>
             {
                 if (!director.OrganizationStanding(MenuColumn.Menu, null, null)) return;
+                if (director.placement != null) director.LocalClosed();
                 director.navigator.CloseBeside();
                 director.Open(MenuPlace.Projects);
             };
@@ -733,8 +734,10 @@ namespace Halcyonic.XR.Workspace
         private bool OrganizationStanding(MenuColumn from, MenuFrame? frame, SidePanel? side)
         {
             if (Away || dirty || drag != null || plane.Sliding) return false;
-            if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
+            // Global frame controls remain usable over a local overlay. Its task/content input
+            // still belongs exclusively to the exact overlay frame that was physically drawn.
             if (frame == null && side == null) return plane.Chrome.Visible || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
+            if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
         }
 
