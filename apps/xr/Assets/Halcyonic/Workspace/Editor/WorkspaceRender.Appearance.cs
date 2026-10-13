@@ -54,7 +54,12 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>Real production pages at both text sizes and presets, plus same-pose cache witnesses. No preferences are read or saved.</summary>
-        public static void AppearanceCheck()
+        public static void AppearanceCheck() => RunAppearance(true);
+
+        /// <summary>The current preview, apply, cancel, hidden-view and cache journeys alone, in both presets and sizes.</summary>
+        public static void AppearanceFlowCheck() => RunAppearance(false);
+
+        private static void RunAppearance(bool includeGalleries)
         {
             var previousPalette = Glaze.Palette;
             var previousField = ViewField.Current;
@@ -66,9 +71,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     Glaze.SetPalette(palette);
                     GlazeText.SetScale(1f);
-                    failures.AddRange(GlazeRender.PalettePass(palette));
-                    failures.AddRange(PalettePass(palette));
-                    failures.AddRange(FileRender.PalettePass(palette));
+                    if (includeGalleries)
+                    {
+                        failures.AddRange(GlazeRender.PalettePass(palette));
+                        failures.AddRange(PalettePass(palette));
+                        failures.AddRange(FileRender.PalettePass(palette));
+                    }
                     failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
                     {
                         var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "AppearanceRenders", palette.Key, variant));
@@ -76,8 +84,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                         ViewField.Current = FieldChecks.Quest3S;
                         var result = AppearancePages(folder, palette);
-                        result.AddRange(AppearanceVisibility(folder, palette, besideWindow: false));
-                        result.AddRange(AppearanceVisibility(folder, palette, besideWindow: true));
+                        result.AddRange(AppearanceVisibility(folder, palette, withShelf: false));
+                        result.AddRange(AppearanceVisibility(folder, palette, withShelf: true));
                         result.AddRange(AppearanceCaches(folder, palette));
                         return result;
                     }));
@@ -109,9 +117,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
                 camera.backgroundColor = Color.white;
-                var characters = Lineup(root.transform, eyes, CharacterStage.DefaultDistance, null, Presentation);
-                var targets = characters.ConvertAll(character => character.Target);
-                var state = Projection(characters);
+                var characters = new List<(CharacterView View, CharacterTarget Target)>();
+                var targets = new List<CharacterTarget>();
+                var state = DirectorWorkProjection();
                 var saves = 0;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
@@ -126,7 +134,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 void Shot(string name)
                 {
                     director.DrawNow();
-                    failures.AddRange(PlaneState("appearance " + name, folder, camera, texture, director.Plane, characters, eyes, null));
+                    failures.AddRange(PlaneState("appearance " + name, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 }
                 void Press(string id, string? key = null)
                 {
@@ -178,35 +186,35 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        private static List<string> AppearanceVisibility(string folder, GlazePalette palette, bool besideWindow)
+        private static List<string> AppearanceVisibility(string folder, GlazePalette palette, bool withShelf)
         {
             var failures = new List<string>();
             var root = new GameObject("Appearance visibility");
             var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
             var settings = new AppearanceSettings();
             settings.Apply(palette);
-            var name = besideWindow ? "window" : "normal";
+            var name = withShelf ? "shelf" : "normal";
             try
             {
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
                 camera.backgroundColor = Color.white;
-                var characters = Lineup(root.transform, eyes, CharacterStage.DefaultDistance, null, Presentation, besideWindow: besideWindow);
-                var targets = characters.ConvertAll(character => character.Target);
-                var window = besideWindow ? Window(root.transform, eyes) : null;
-                var state = Projection(characters);
+                var characters = new List<(CharacterView View, CharacterTarget Target)>();
+                var targets = new List<CharacterTarget>();
+                var state = DirectorWorkProjection();
+                const string taskId = "render-3";
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     State = () => state,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     Appearance = settings,
                     CharacterOf = id => targets.FirstOrDefault(target => target.View.WorkstreamId == id),
-                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, null, besideWindow),
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, null, false),
                 });
                 void Shot(string step)
                 {
                     director.DrawNow();
-                    failures.AddRange(PlaneState("appearance visibility " + name + " " + step, folder, camera, texture, director.Plane, characters, eyes, window));
+                    failures.AddRange(PlaneState("appearance visibility " + name + " " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 }
                 void Press(string id, string? key = null)
                 {
@@ -218,6 +226,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 director.Open(MenuPlace.Settings);
                 Shot("index");
+                if (withShelf)
+                {
+                    var agent = ConfirmedDirectorAgent(root.transform, director, eyes, Presentation(taskId, 3), failures, "appearance shelf");
+                    characters.Add(agent); targets.Add(agent.Target);
+                    Shot("confirmed shelf");
+                }
                 Press(SettingsHubColumn.OpenCategory, SettingsHubColumn.Appearance);
                 Shot("choices");
                 var other = palette == GlazePalette.Default ? GlazePalette.Graphite : GlazePalette.Default;
@@ -239,10 +253,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var beforeOrdinary = Preview();
                 // Stable ordinary file frame, through the production navigator and actual measured composition.
                 var ordinary = new MenuFrame("Task file", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)), lines: new[] { new PageLine("Example task") });
-                director.Navigator.ShowBeside(new StubColumn(() => ordinary), targets[3].View.WorkstreamId);
+                director.Navigator.ShowBeside(new StubColumn(() => ordinary), taskId);
                 Shot("ordinary file");
                 var hidden = director.Plane.MenuAside;
-                if (besideWindow && !hidden) failures.Add(name + ": the supported beside-window composition never exercised MenuAside.");
+                if (withShelf && !hidden) failures.Add(name + ": this confirmed shelf pose and measured file pair never exercised MenuAside.");
                 if (Glaze.Palette != (hidden ? palette : other)) failures.Add(name + ": ordinary file visibility and preview rollback disagree.");
                 if (hidden && director.Plane.Showing(MenuColumn.Menu) != null) failures.Add(name + ": MenuAside retained a drawn menu frame.");
                 Return(beforeOrdinary);
@@ -251,7 +265,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var beforeFocused = Preview();
                 var focused = new MenuFrame("Your answer", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
                     lines: new[] { new PageLine("Draft retained", action: "render-input", control: LineControl.Input, inputFocused: true) }).Focus();
-                director.Navigator.ShowBeside(new StubColumn(() => focused), targets[3].View.WorkstreamId);
+                director.Navigator.ShowBeside(new StubColumn(() => focused), taskId);
                 Shot("focused file");
                 if (director.Plane.Showing(MenuColumn.Menu) != null || Glaze.Palette != palette)
                     failures.Add(name + ": the focused file hid Settings without rolling its preview back.");
