@@ -333,6 +333,8 @@ namespace Halcyonic.XR
             if (CharacterMeshes.Feature(identity.Shape, identity.Feature) is Mesh featureMesh)
             {
                 featureRenderer = CreateRenderer(shell, "Feature", featureMesh, CharacterMaterials.Body);
+                // Both write soft-edge depth. Draw the feature first so their overlap has one stable order.
+                featureRenderer.sortingOrder = shellRenderer.sortingOrder - 1;
                 var lighter = Color.Lerp(new Color(bodyColor.x, bodyColor.y, bodyColor.z), Color.white, FeatureLighten);
                 featureColor = new Vector4(lighter.r, lighter.g, lighter.b, 1f);
             }

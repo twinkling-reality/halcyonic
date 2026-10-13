@@ -3077,3 +3077,12 @@ blinks. `StageRender.AgentShelfCheck` uses the same supported one-agent consumer
 six-character arrangement. Both stillness paths save before/after pixels and exact transforms
 and material blocks to diagnose the held Standard two-pixel failure before a production repair.
 Unity renders, mutation checks, stereo/device cost and wearer acceptance remain separate gates.
+
+The actual unchanged-render probes isolated a shell/feature composition problem: isolated
+features and shells were stable, while the overlapping pair changed a few edge pixels.
+Explicit feature-before-shell sorting produced zero exact RGBA differences for all three
+failing identities at both text sizes; restoring equal order reproduced drift in five of six
+cases. The candidate therefore gives the feature `shell.sortingOrder - 1`, retaining the
+body's original material, transparent queue, blending and depth writes. It makes their
+composition order explicit; it does not change animation easing. Acceptance still requires
+the full identity/state/source renders and inspection of front, junction and ghost pixels.

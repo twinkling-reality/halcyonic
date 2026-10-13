@@ -182,3 +182,26 @@ character parts, feature+non-character parts, the full scene minus its shell, an
 it also compares the unchanged full scene with explicit feature-before/after-shell sorting
 orders, restoring all orders and visibility afterward. It logs actual queue/order/bounds and
 exact pixels. No sorting tie, depth conflict or production fix is claimed before those results.
+
+**Composition isolation and bounded candidate fix.** The actual `1294b209` run found exact
+unchanged shell-only, full-minus-shell and feature/non-character renders. The shell/feature
+pair drifted. Drawing the feature before the shell produced zero exact RGBA differences in
+all six identity/text-size cases; feature-after-shell still drifted and restoring equal order
+reproduced drift in five of six cases. This justifies validating one explicit shell-relative
+sorting order, not a settling change. The production candidate sets only
+`featureRenderer.sortingOrder = shellRenderer.sortingOrder - 1`; shader/depth/blending/queues
+and all current motion paths stay unchanged. It does not claim a particular GPU batching or
+internal sorting cause beyond this observed composition dependency.
+
+`CharacterFeatureCompositionCheck` consumes all six feature kinds in every existing activity,
+live and last-known (including Interrupted's paused state), beside a real confirmed one-agent
+shelf and independent console. Eight unchanged captures must agree byte-for-byte in RGBA;
+the actual consumed earlier sorting order and shared material are asserted. Disabling only
+the feature must still change its pixels, and disabling the shell must change the composed
+picture, preserving visible front/body content. Full current, without-shell and legacy-equal
+order images retain inspection evidence; Ears, Antenna, Sprout and Horns also save actual-camera
+junction close-ups in live and ghosted Idle. Stability alone is not appearance acceptance.
+The composition diagnostic keeps the old equal-order condition explicit as its negative,
+restoring the now-correct production order afterward. CharacterLife, AgentShelf, historical
+Stage and current ShelfWorkspace/Director/Appearance gates remain required; no tolerance is
+relaxed and no current candidate render pass is claimed before execution.
