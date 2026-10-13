@@ -422,8 +422,21 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": the ordinary-file subject is not the measured one-row setup.");
                 file?.Change();
                 ProjectsForDirectorRender(director, failures, name);
+                // Projects deliberately leaves task focus. Reopen the retained ordinary file by its
+                // visible Tasks row before exercising Settings alongside it.
+                var projectNavigation = director.Plane.Showing(MenuColumn.Menu);
+                if (projectNavigation == null || !projectNavigation.Sections.Any(section => section.Key == nameof(MenuPlace.Tasks))
+                    || !director.PressForRender(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks), projectNavigation, null))
+                    failures.Add(name + ": Projects offered no visible Tasks route for the ordinary-file witness.");
                 director.DrawNow();
                 director.DrawNow();
+                var ordinaryTasks = director.Plane.Showing(MenuColumn.Menu);
+                if (ordinaryTasks == null || !ordinaryTasks.Lines.Any(line => line.Action == TasksColumn.OpenTask && line.Key == opened.WorkstreamId)
+                    || !director.PressForRender(MenuColumn.Menu, TasksColumn.OpenTask, opened.WorkstreamId, ordinaryTasks, null))
+                    failures.Add(name + ": the ordinary-file witness could not reopen its task through the visible row.");
+                director.DrawNow();
+                director.DrawNow();
+                if (director.Navigator.Beside != file) failures.Add(name + ": reopening the task did not retain the ordinary file instance.");
                 var offeredMenu = director.Plane.Showing(MenuColumn.Menu);
                 if (offeredMenu == null || !offeredMenu.Sections.Any(section => section.Key == nameof(MenuPlace.Settings)))
                     failures.Add(name + ": the ordinary-file setup offered no visible Settings section.");
