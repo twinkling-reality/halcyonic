@@ -18,8 +18,19 @@ namespace Halcyonic.Client
         Trefoil,
     }
 
+    /// <summary>What stands on top of a character's body (ADR 0013): nothing, or one small feature. None looks like a state.</summary>
+    public enum CharacterFeature
+    {
+        None,
+        Antenna,
+        Ears,
+        Sprout,
+        Crest,
+        Horns,
+    }
+
     /// <summary>
-    /// Who a character is: its body shape and color, derived only from the workstream id, so a
+    /// Who a character is: its body shape, the feature on top and its color, derived only from the workstream id, so a
     /// workstream looks the same in every session and on every device. Identity never shows state,
     /// and its hues keep away from the colors state cues use: amber for needs you, red for failed
     /// and green for a finished turn.
@@ -43,10 +54,19 @@ namespace Halcyonic.Client
 
         private const uint ShapeCount = 8;
         private const uint HueCount = 8;
+        private const uint ToneCount = 2;
+        private const uint FeatureCount = 6;
 
-        private CharacterIdentity(BodyShape shape, double hue, double saturation, double value, double phase)
+        /// <summary>The shortest and longest a character's eyes stay open between blinks, in seconds (ADR 0027's Blink).</summary>
+        public const double FewestBlinkSeconds = 3.0;
+
+        public const double MostBlinkSeconds = 7.0;
+
+        private CharacterIdentity(BodyShape shape, CharacterFeature feature, double hue, double saturation, double value, double phase, double blinkEvery)
         {
             Shape = shape;
+            Feature = feature;
+            BlinkEverySeconds = blinkEvery;
             Hue = hue;
             Saturation = saturation;
             Value = value;
@@ -54,6 +74,12 @@ namespace Halcyonic.Client
         }
 
         public BodyShape Shape { get; }
+
+        /// <summary>What stands on top of its body, one of six, none among them.</summary>
+        public CharacterFeature Feature { get; }
+
+        /// <summary>How long its eyes stay open between blinks, from 3 to 7 seconds, its own so characters never blink together and renders repeat.</summary>
+        public double BlinkEverySeconds { get; }
 
         /// <summary>The body's hue in degrees, one of <see cref="Hues"/>.</summary>
         public double Hue { get; }
@@ -78,10 +104,12 @@ namespace Halcyonic.Client
             var shape = (BodyShape)(hash % ShapeCount);
             var hue = Hues[(int)(hash / ShapeCount % HueCount)];
             var light = hash / (ShapeCount * HueCount) % 2 == 1;
+            var feature = (CharacterFeature)(hash / (ShapeCount * HueCount * ToneCount) % FeatureCount);
             var phase = (hash >> 16) / 65536.0;
+            var blinkEvery = FewestBlinkSeconds + (MostBlinkSeconds - FewestBlinkSeconds) * ((hash >> 8) & 0xFF) / 255.0;
             return light
-                ? new CharacterIdentity(shape, hue, 0.42, 0.98, phase)
-                : new CharacterIdentity(shape, hue, 0.62, 0.92, phase);
+                ? new CharacterIdentity(shape, feature, hue, 0.42, 0.98, phase, blinkEvery)
+                : new CharacterIdentity(shape, feature, hue, 0.62, 0.92, phase, blinkEvery);
         }
 
         /// <summary>

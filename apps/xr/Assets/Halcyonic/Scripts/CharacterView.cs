@@ -24,15 +24,15 @@ namespace Halcyonic.XR
     {
         /// <summary>
         /// The radius of a sphere around <see cref="Body"/>'s origin that holds the body in every
-        /// state, in Body's local units.
+        /// state, its feature included, in Body's local units.
         /// </summary>
-        public const float BodyRadius = 0.1f;
+        public const float BodyRadius = GlazeTokens.CharacterBodyRadius;
 
         /// <summary>
-        /// How far the body reaches around its center at any moment, in Body's local units: its
-        /// radius, squashed or stretched. <see cref="BodyRadius"/> adds room for the body moving.
+        /// How far the visible body and feature reach around their center at any moment, in Body's
+        /// local units, squashed or stretched. Placement clears this whole envelope.
         /// </summary>
-        public const float BodyExtent = 0.075f;
+        public const float BodyExtent = BodyRadius;
 
         /// <summary>
         /// The body mesh is about one unit in radius; this makes it 7 cm at the one-meter scale, about
@@ -48,7 +48,7 @@ namespace Halcyonic.XR
 
         // The lifts the settled, slumped and frozen motions hold, in the character's units.
         private const float SettledLift = -0.0032f;
-        private const float SlumpedLift = -0.0095f;
+        private const float SlumpedLift = GlazeTokens.CharacterSlumpedLift;
         private const float FrozenLift = 0.0056f;
 
         private const float EyeSwitchSeconds = 0.18f;
@@ -85,6 +85,15 @@ namespace Halcyonic.XR
         private Transform body = null!;
         private Transform shell = null!;
         private MeshRenderer shellRenderer = null!;
+
+        /// <summary>The feature on top of its body, moving and squashing with it; null for none (ADR 0013).</summary>
+        private MeshRenderer? featureRenderer;
+
+        /// <summary>The feature's colour: the body's, lightened, never a state's.</summary>
+        private Vector4 featureColor;
+
+        /// <summary>How far toward white a feature's colour is from its body's.</summary>
+        private const float FeatureLighten = 0.35f;
         private MeshRenderer haloRenderer = null!;
         private Transform ring = null!;
         private MeshRenderer ringRenderer = null!;
@@ -130,7 +139,7 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// The character's visual root: it hops, rises, slumps and turns with the character's state.
-        /// Its scale stays one, the body is centered on its origin within <see cref="BodyRadius"/>,
+        /// Its scale stays one, the body and feature stay within <see cref="BodyRadius"/> of its origin,
         /// and its forward axis is the direction the character faces.
         /// </summary>
         public Transform Body => body;
@@ -271,15 +280,26 @@ namespace Halcyonic.XR
             label.Show(CharacterLabel.Of(next));
             shelfWords = null;
             shelfBadgeMeshes = null;
-            if (first) Advance(0f, true);
+            if (first || cues.Paused)
+            {
+                // A paused state takes its appearance once, then holds every rendered value.
+                eyeSwitch = 0f;
+                Advance(0f, true);
+            }
         }
 
 #if UNITY_EDITOR
         /// <summary>For the editor's renders, which run no frames: one frame of <paramref name="seconds"/>, as the headset steps it.</summary>
         public void AdvanceForRender(float seconds) => Advance(seconds, false);
 
+        /// <summary>The production animation clock for deterministic blink witnesses.</summary>
+        public float ClockForRender => clock;
+
         /// <summary>For the editor's renders: how its eyes stand and how strong its light is now.</summary>
         public (float Open, float LookX, float LookY, float Ink, float Halo, float Uneven) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, haloStrength, eyeUneven);
+
+        /// <summary>The feature's actual renderer and authored colour, for editor witnesses.</summary>
+        public (MeshRenderer? Renderer, Color Colour) FeatureForRender => (featureRenderer, new Color(featureColor.x, featureColor.y, featureColor.z));
 #endif
 
         /// <summary>
@@ -309,6 +329,13 @@ namespace Halcyonic.XR
             shell = shellRenderer.transform;
             shellVertices = shellRenderer.GetComponent<MeshFilter>().sharedMesh.vertices;
             shell.localScale = Vector3.one * BodyScale;
+
+            if (CharacterMeshes.Feature(identity.Shape, identity.Feature) is Mesh featureMesh)
+            {
+                featureRenderer = CreateRenderer(shell, "Feature", featureMesh, CharacterMaterials.Body);
+                var lighter = Color.Lerp(new Color(bodyColor.x, bodyColor.y, bodyColor.z), Color.white, FeatureLighten);
+                featureColor = new Vector4(lighter.r, lighter.g, lighter.b, 1f);
+            }
 
             haloRenderer = CreateRenderer(body, "Halo", CharacterMeshes.Quad(), CharacterMaterials.Halo);
             haloRenderer.transform.localPosition = new Vector3(0f, 0f, -0.3f * BodyScale);
@@ -351,6 +378,7 @@ namespace Halcyonic.XR
         private void Advance(float deltaTime, bool snap)
         {
             if (cues == null) return;
+            if (cues.Paused && !snap) return;
             var still = GlazeMotion.Still;
             if (!cues.Paused) clock += deltaTime;
             // Kept still (ADR 0027), the surface's clock stands, so its flow, its fog and its sweep ring stand where they are.
@@ -492,8 +520,8 @@ namespace Halcyonic.XR
             }
             if (openEyes && !still)
             {
-                var blinkPeriod = 3.4f + (float)identity.Phase * 1.9f;
-                if (t % blinkPeriod < 0.13f) targetOpen *= 0.1f;
+                var blinkPeriod = (float)identity.BlinkEverySeconds;
+                if (t % blinkPeriod < Glaze.BlinkSeconds) targetOpen *= 0.1f;
             }
             if (eyeSwitch > 0f)
             {
@@ -643,6 +671,14 @@ namespace Halcyonic.XR
             bodyBlock.SetVector(LookId, new Vector4(lookX, lookY, 0f, 0f));
             bodyBlock.SetVector(EyeLayoutId, eyeLayout);
             shellRenderer.SetPropertyBlock(bodyBlock);
+
+            if (featureRenderer != null)
+            {
+                // Its feature, in the same surface and light, lightened, with no eyes of its own.
+                bodyBlock.SetVector(BodyColorId, featureColor);
+                bodyBlock.SetFloat(EyeInkId, 0f);
+                featureRenderer.SetPropertyBlock(bodyBlock);
+            }
 
             haloRenderer.enabled = haloStrength > 0.004f;
             if (haloRenderer.enabled)

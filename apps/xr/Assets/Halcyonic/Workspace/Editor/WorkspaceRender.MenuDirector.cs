@@ -1570,7 +1570,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Vector3 eyes, CharacterPresentation shown, List<string> failures, string name)
             => ConfirmedPlaneAgent(root, director.Plane, eyes, shown, failures, name);
 
-        private static (CharacterView View, CharacterTarget Target) ConfirmedPlaneAgent(Transform root, MenuPlane plane,
+        internal static (CharacterView View, CharacterTarget Target) ConfirmedPlaneAgent(Transform root, MenuPlane plane,
             Vector3 eyes, CharacterPresentation shown, List<string> failures, string name)
         {
             var corners = new Vector3[8];

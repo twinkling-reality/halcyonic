@@ -18,6 +18,8 @@ public class CharacterIdentityTests
             var first = CharacterIdentity.Of(id);
             var second = CharacterIdentity.Of(new string(id.ToCharArray()));
             Assert.That(second.Shape, Is.EqualTo(first.Shape));
+            Assert.That(second.Feature, Is.EqualTo(first.Feature));
+            Assert.That(second.BlinkEverySeconds, Is.EqualTo(first.BlinkEverySeconds));
             Assert.That(second.Hue, Is.EqualTo(first.Hue));
             Assert.That(second.Saturation, Is.EqualTo(first.Saturation));
             Assert.That(second.Value, Is.EqualTo(first.Value));
@@ -72,6 +74,53 @@ public class CharacterIdentityTests
         // A fair share is 128 of each shape and hue; none may be far off.
         Assert.That(shapes.Values, Is.All.InRange(80, 176));
         Assert.That(hues.Values, Is.All.InRange(80, 176));
+    }
+
+    [TestCase("01a0dcf1-5a80-7000-8000-000000000001", CharacterFeature.None, 6.262745098039216)]
+    [TestCase("01a0dcf1-5a80-7000-8000-000000000002", CharacterFeature.Antenna, 5.007843137254902)]
+    [TestCase("workstream-demo-approval", CharacterFeature.Crest, 6.137254901960784)]
+    public void FeaturesAndBlinksDoNotChangeBetweenVersions(string id, CharacterFeature feature, double blinkEvery)
+    {
+        // Computed independently from the same hash; the shape, hue and tone above do not change with them.
+        var identity = CharacterIdentity.Of(id);
+        Assert.That(identity.Feature, Is.EqualTo(feature));
+        Assert.That(identity.BlinkEverySeconds, Is.EqualTo(blinkEvery).Within(1e-9));
+    }
+
+    [Test]
+    public void TimeOrderedIdsSpreadOverEveryFeatureAndBlinkAtTheirOwnPace()
+    {
+        var identities = SequentialIds(1200).Select(CharacterIdentity.Of).ToList();
+        var features = identities.GroupBy(identity => identity.Feature).ToDictionary(group => group.Key, group => group.Count());
+        Assert.That(features.Keys, Is.EquivalentTo(Enum.GetValues(typeof(CharacterFeature))));
+        // A fair share is 200 of each; none may be far off.
+        Assert.That(features.Values, Is.All.InRange(130, 270));
+        Assert.That(identities.Select(identity => identity.BlinkEverySeconds), Is.All.InRange(CharacterIdentity.FewestBlinkSeconds, CharacterIdentity.MostBlinkSeconds));
+        Assert.That(identities.Select(identity => Math.Round(identity.BlinkEverySeconds, 1)).Distinct().Count(), Is.GreaterThan(30), "characters blink at many paces, not a few");
+    }
+
+    [Test]
+    public void SixRealIdsRarelyShareAShapeAFeatureAndAHue()
+    {
+        // Ids as the control plane makes them: time ordered (UUIDv7), the same millisecond prefix for a burst of
+        // tasks, random after. ADR 0013 expects two of six to share a shape, a feature and a hue in about 1 stage in
+        // 25, and the whole identity, tone too, in about 1 in 50.
+        var random = new Random(20261008);
+        string Hex(int digits) => string.Concat(Enumerable.Range(0, digits).Select(_ => "0123456789abcdef"[random.Next(16)]));
+        var stages = 4000;
+        var looksAlike = 0;
+        var same = 0;
+        for (var stage = 0; stage < stages; stage++)
+        {
+            var prefix = "01a0dcf1-" + Hex(4);
+            var six = Enumerable.Range(0, 6).Select(_ => CharacterIdentity.Of(prefix + "-7" + Hex(3) + "-" + "89ab"[random.Next(4)] + Hex(3) + "-" + Hex(12))).ToList();
+            var pairs = six.SelectMany((one, i) => six.Skip(i + 1).Select(other => (one, other))).ToList();
+            if (pairs.Any(pair => pair.one.Shape == pair.other.Shape && pair.one.Feature == pair.other.Feature && pair.one.Hue == pair.other.Hue)) looksAlike++;
+            if (pairs.Any(pair => pair.one.Shape == pair.other.Shape && pair.one.Feature == pair.other.Feature && pair.one.Hue == pair.other.Hue
+                && pair.one.Saturation == pair.other.Saturation)) same++;
+        }
+        Assert.That(looksAlike / (double)stages, Is.InRange(0.02, 0.06), "about 1 stage in 25");
+        Assert.That(same / (double)stages, Is.InRange(0.008, 0.035), "about 1 stage in 50");
     }
 
     [Test]

@@ -93,6 +93,61 @@ namespace Halcyonic.XR.UI.Editor
         public static Extent Of(string name, Vector3 eyes, GameObject root) => Of(name, eyes, root.GetComponentsInChildren<Renderer>(false));
 
         /// <summary>
+        /// Actual triangle projection for character meshes entirely in front of the eyes. Unlike
+        /// a mesh's bounding box this includes no phantom corners. Vertical extrema can lie inside
+        /// an edge, so vertices alone do not suffice. With positive z, a triangle's angular extrema
+        /// are on its edges; yaw is monotonic on each edge.
+        /// </summary>
+        public static Extent MeshOutline(string name, Vector3 eyes, IEnumerable<Renderer> renderers)
+        {
+            float left = float.MaxValue, right = float.MinValue, bottom = float.MaxValue, top = float.MinValue;
+            foreach (var renderer in renderers)
+            {
+                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
+                if (!renderer.TryGetComponent<MeshFilter>(out var filter) || filter.sharedMesh == null) continue;
+                var vertices = filter.sharedMesh.vertices;
+                for (var index = 0; index < vertices.Length; index++)
+                {
+                    vertices[index] = renderer.transform.TransformPoint(vertices[index]) - eyes;
+                    if (vertices[index].z <= 0f) throw new System.InvalidOperationException(name + " is not entirely in front of the projection witness.");
+                }
+                var triangles = filter.sharedMesh.triangles;
+                for (var index = 0; index < triangles.Length; index += 3)
+                {
+                    Include(vertices[triangles[index]]);
+                    Include(vertices[triangles[index + 1]]);
+                    Include(vertices[triangles[index + 2]]);
+                    Edge(vertices[triangles[index]], vertices[triangles[index + 1]]);
+                    Edge(vertices[triangles[index + 1]], vertices[triangles[index + 2]]);
+                    Edge(vertices[triangles[index + 2]], vertices[triangles[index]]);
+                }
+            }
+            return new Extent(name, left, right, bottom, top);
+
+            void Include(Vector3 point)
+            {
+                var yaw = Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg;
+                var elevation = Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg;
+                left = Mathf.Min(left, yaw);
+                right = Mathf.Max(right, yaw);
+                bottom = Mathf.Min(bottom, elevation);
+                top = Mathf.Max(top, elevation);
+            }
+
+            void Edge(Vector3 start, Vector3 end)
+            {
+                var delta = end - start;
+                var q0 = start.x * start.x + start.z * start.z;
+                var q1 = start.x * delta.x + start.z * delta.z;
+                var q2 = delta.x * delta.x + delta.z * delta.z;
+                var denominator = delta.y * q1 - start.y * q2;
+                if (Mathf.Abs(denominator) < 1e-12f) return;
+                var along = (start.y * q1 - delta.y * q0) / denominator;
+                if (along > 0f && along < 1f) Include(start + delta * along);
+            }
+        }
+
+        /// <summary>
         /// What something round covers, seen from <paramref name="eyes"/>: as far as its half width
         /// to each side and its half height up and down, across the line of sight, as a body is seen.
         /// </summary>

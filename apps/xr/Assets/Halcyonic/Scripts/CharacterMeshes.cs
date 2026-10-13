@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Halcyonic.XR
 {
     /// <summary>
-    /// The meshes characters are built from, generated in code and shared: a body per shape, a quad
+    /// The meshes characters are built from, generated in code and shared: a body per shape, a feature per shape and kind, a quad
     /// for halos and label plates, and the band of the testing ring. Body meshes are in body units,
     /// about one unit in radius, with the face toward +z.
     /// </summary>
@@ -95,6 +95,152 @@ namespace Halcyonic.XR
             mesh.RecalculateBounds();
             bodies[shape] = mesh;
             return mesh;
+        }
+
+        private static readonly Dictionary<(BodyShape, CharacterFeature), Mesh> features = new Dictionary<(BodyShape, CharacterFeature), Mesh>();
+
+        /// <summary>Rings and segments of a feature's parts: small, so a feature costs few vertices.</summary>
+        private const int FeatureRings = 8;
+        private const int FeatureSegments = 14;
+
+        /// <summary>
+        /// The feature's radial envelope in shell units. At the largest 8 percent squash/stretch and
+        /// 0.07 body scale it stays inside the existing 0.1 target radius. A render must still show every kind.
+        /// </summary>
+        private const float FeatureRadius = 1.32f;
+
+        /// <summary>
+        /// The feature on top of a body of <paramref name="shape"/> (ADR 0013), in body units, one mesh for all its
+        /// parts, rooted a little inside the body's top so it grows from it: an antenna, two ears, a sprout, a
+        /// crest or two horns; null for none.
+        /// </summary>
+        public static Mesh? Feature(BodyShape shape, CharacterFeature feature)
+        {
+            if (feature == CharacterFeature.None) return null;
+            if (features.TryGetValue((shape, feature), out var cached) && cached != null) return cached;
+            var top = Body(shape).bounds.max.y;
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+            Vector3 Up(float x, float y) => new Vector3(x, top * y, 0f);
+            Quaternion Lean(float degrees) => Quaternion.Euler(0f, 0f, -degrees) * Quaternion.FromToRotation(Vector3.forward, Vector3.up);
+            switch (feature)
+            {
+                case CharacterFeature.Antenna:
+                    Lathe(vertices, triangles, Up(0f, 0.93f), Lean(0f), Stem(0.045f, 0.46f));
+                    Lathe(vertices, triangles, Up(0f, 0.93f) + Vector3.up * 0.5f, Lean(0f), Ball(0.12f, 0.12f));
+                    break;
+                case CharacterFeature.Ears:
+                    foreach (var side in new[] { -1f, 1f })
+                    {
+                        Lathe(vertices, triangles, Up(0.5f * side, 0.8f), Lean(22f * side), Ball(0.19f, 0.28f));
+                    }
+                    break;
+                case CharacterFeature.Sprout:
+                    Lathe(vertices, triangles, Up(0f, 0.93f), Lean(0f), Stem(0.035f, 0.3f));
+                    foreach (var side in new[] { -1f, 1f })
+                    {
+                        Lathe(vertices, triangles, Up(0.13f * side, 0.93f) + Vector3.up * 0.32f, Lean(62f * side), Ball(0.08f, 0.17f));
+                    }
+                    break;
+                case CharacterFeature.Crest:
+                    for (var bump = -1; bump <= 1; bump++)
+                    {
+                        var tall = bump == 0 ? 0.24f : 0.17f;
+                        Lathe(vertices, triangles, Up(0.21f * bump, bump == 0 ? 0.97f : 0.92f), Lean(18f * bump), Ball(0.12f, tall));
+                    }
+                    break;
+                case CharacterFeature.Horns:
+                    foreach (var side in new[] { -1f, 1f })
+                    {
+                        Lathe(vertices, triangles, Up(0.38f * side, 0.82f), Lean(26f * side), Cone(0.11f, 0.36f));
+                    }
+                    break;
+            }
+            // Preserve the attachment and compress only the feature when its original geometry would
+            // escape the existing hand/gaze target. No target or stage spacing grows to hide that escape.
+            var attachment = Up(0f, 0.8f);
+            var low = 0f;
+            var high = 1f;
+            for (var step = 0; step < 24; step++)
+            {
+                var share = (low + high) / 2f;
+                var fits = true;
+                foreach (var vertex in vertices)
+                {
+                    if ((attachment + (vertex - attachment) * share).sqrMagnitude > FeatureRadius * FeatureRadius)
+                    {
+                        fits = false;
+                        break;
+                    }
+                }
+                if (fits) low = share;
+                else high = share;
+            }
+            for (var index = 0; index < vertices.Count; index++) vertices[index] = attachment + (vertices[index] - attachment) * low;
+            var mesh = new Mesh { name = "Halcyonic feature " + shape + " " + feature };
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            features[(shape, feature)] = mesh;
+            return mesh;
+        }
+
+        /// <summary>A thin stem <paramref name="length"/> long from its root up its axis, capped at both ends.</summary>
+        private static System.Func<float, (float Radius, float Along)> Stem(float radius, float length) =>
+            t => (t <= 0f || t >= 1f ? 0f : radius, length * (1f - t));
+
+        /// <summary>A ball, <paramref name="radius"/> round and <paramref name="tall"/> along its axis, centred on its root.</summary>
+        private static System.Func<float, (float Radius, float Along)> Ball(float radius, float tall) =>
+            t => (radius * Mathf.Sin(Mathf.PI * t), tall * Mathf.Cos(Mathf.PI * t));
+
+        /// <summary>A cone, its base <paramref name="radius"/> round at its root, its tip <paramref name="length"/> up its axis.</summary>
+        private static System.Func<float, (float Radius, float Along)> Cone(float radius, float length) =>
+            t => (radius * t, length * (1f - t));
+
+        /// <summary>
+        /// Turns <paramref name="profile"/> round its axis into vertices and triangles, as the body is built: from
+        /// its front pole (t 0) to its back pole (t 1), clockwise as seen from outside; its axis, local +z, laid
+        /// along <paramref name="rotation"/> at <paramref name="root"/>.
+        /// </summary>
+        private static void Lathe(List<Vector3> vertices, List<int> triangles, Vector3 root, Quaternion rotation, System.Func<float, (float Radius, float Along)> profile)
+        {
+            var start = vertices.Count;
+            var (_, frontAlong) = profile(0f);
+            var (_, backAlong) = profile(1f);
+            vertices.Add(root + rotation * new Vector3(0f, 0f, frontAlong));
+            for (var ring = 1; ring < FeatureRings; ring++)
+            {
+                var (radius, along) = profile((float)ring / FeatureRings);
+                for (var segment = 0; segment < FeatureSegments; segment++)
+                {
+                    var around = 2f * Mathf.PI * segment / FeatureSegments;
+                    vertices.Add(root + rotation * new Vector3(radius * Mathf.Cos(around), radius * Mathf.Sin(around), along));
+                }
+            }
+            vertices.Add(root + rotation * new Vector3(0f, 0f, backAlong));
+            var front = start;
+            var back = vertices.Count - 1;
+            int At(int ring, int segment) => start + 1 + (ring - 1) * FeatureSegments + segment;
+            for (var segment = 0; segment < FeatureSegments; segment++)
+            {
+                var next = (segment + 1) % FeatureSegments;
+                triangles.Add(front);
+                triangles.Add(At(1, segment));
+                triangles.Add(At(1, next));
+                for (var ring = 1; ring < FeatureRings - 1; ring++)
+                {
+                    triangles.Add(At(ring, segment));
+                    triangles.Add(At(ring + 1, segment));
+                    triangles.Add(At(ring + 1, next));
+                    triangles.Add(At(ring, segment));
+                    triangles.Add(At(ring + 1, next));
+                    triangles.Add(At(ring, next));
+                }
+                triangles.Add(At(FeatureRings - 1, segment));
+                triangles.Add(back);
+                triangles.Add(At(FeatureRings - 1, next));
+            }
         }
 
         /// <summary>A unit quad in the XY plane, centered, with UVs from 0 to 1.</summary>

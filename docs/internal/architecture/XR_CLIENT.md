@@ -3040,3 +3040,40 @@ the core under .NET Standard 2.1/C# 9. `WorkspaceRender.ResultsCheck` is the act
 render witness for both text sizes, far/desk and zero/one confirmed shelf, using explicit synthetic
 session messages and canned HTTP. Its source is prepared; actual Unity results and headset focus,
 readability, persistence/JNI and live edit/build/install correspondence remain separate gates.
+
+### Optional character identity and animation candidate, 2026-10-13
+
+The bounded character candidate retains the current independent console and explicitly placed,
+one-agent shelf. `CharacterIdentity` adds the six feature values already chosen in ADR 0013
+(None, Antenna, Ears, Sprout, Crest, Horns), using hash bits after the existing shape, hue and
+light/dark tone selection; those existing identity values do not change. This is deterministic
+identity variation, not a user customization control. Features use the body's material and
+state surface cues, retain its lightened hue, and have no eyes or separate state semantics.
+No ring/rim replacement, automatic placement, character-mediated navigation or travel is added.
+
+The actual blink path consumes each identity's declared 3–7 second interval and the shared
+0.14 second `Glaze.BlinkSeconds` duration. Closed, crossed and flat eye kinds remain distinct.
+A paused presentation (including last-known and Interrupted) snaps to its state once in `Show`,
+then holds its animation clock, transform and material values until live state returns. Keep
+things still continues to suppress blinks and motion; the candidate does not relax its exact
+pixel invariance check or claim that the old held render failure is fixed.
+
+`CharacterView` shares the existing 0.1 body/hand-target radius and -0.0095 slumped lift through
+UI tokens, preserving assembly direction. A feature is bounded to 1.32 shell units, so the
+largest declared squash/stretch at 0.07 body scale stays inside the unchanged 0.1 target.
+Current grounded contact still measures the transformed shell vertices after each pose;
+labels still independently scale, face the placement-time eyes, attach to the shelf lip and
+refresh their palette and geometry caches. Legacy label placement uses the continuous body
+sphere's tangent rather than a fixed badge drop. Geometry witnesses measure actual rendered
+shell/feature/Checking-ring triangles, including vertical extrema inside triangle edges,
+without phantom bounding-box corners.
+
+The candidate is not accepted by source checks alone. `StageRender.CharacterLifeCheck` exercises
+zero characters followed by one confirmed shelf beside the production Projects console, all
+48 shape/feature identities and every activity in moving/held poses, actual contact and
+placement-envelope containment, label readability/clearance, feature pixels and deterministic
+blinks. `StageRender.AgentShelfCheck` uses the same supported one-agent consumer. The historical
+`StageRender.Check` remains a separate regression diagnostic; it does not enable its old
+six-character arrangement. Both stillness paths save before/after pixels and exact transforms
+and material blocks to diagnose the held Standard two-pixel failure before a production repair.
+Unity renders, mutation checks, stereo/device cost and wearer acceptance remain separate gates.
