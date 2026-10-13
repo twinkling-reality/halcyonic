@@ -10,6 +10,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.InputFilter;
 import android.view.View;
+import android.view.MotionEvent;
+import android.os.SystemClock;
+import android.text.TextWatcher;
+import android.text.Editable;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -55,6 +59,17 @@ public class AgentPanelActivity extends Activity {
     private boolean spoken, busy, preview, developmentAllowed;
     private volatile boolean visible;
     private volatile int generation;
+    private final ExecutorService speechWorker = Executors.newSingleThreadExecutor();
+    private final PanelVoice.Gesture voiceGesture = new PanelVoice.Gesture();
+    private PanelVoice.Lease voiceLease;
+    private PanelVoiceCapture voiceCapture;
+    private PanelTransport voiceTransport;
+    private PanelVoice.Audio voiceAudio;
+    private EditText voiceEditor;
+    private String voiceRoute, voiceFingerprint;
+    private TextView voiceStatus;
+    private Button voiceButton;
+    private boolean voicePermissionAtPress;
     private final Runnable refresh = () -> poll(false);
 
     /** Only the internal development subclass has a never-private preview window. */
@@ -81,12 +96,12 @@ public class AgentPanelActivity extends Activity {
         files = new PanelFiles(this); shell();
     }
     @Override public void onResume() {
-        super.onResume(); visible = true; authority.resumed(true); authority.top(false); generation++; busy = false;
+        cancelVoice(); super.onResume(); visible = true; authority.resumed(true); authority.top(false); generation++; busy = false;
         if (preview) { if (snapshot != null && content != null) show(); return; }
         loadSaved(); poll(true);
     }
     @Override public void onPause() {
-        PanelContinuation current = editorRecord(); boolean persisted = saveState(); restore.paused(current, persisted);
+        cancelVoice(); PanelContinuation current = editorRecord(); boolean persisted = saveState(); restore.paused(current, persisted);
         authority.resumed(false); visible = false; generation++; busy = false;
         ui.removeCallbacks(refresh);
         if (transport != null) transport.cancel();
@@ -94,7 +109,7 @@ public class AgentPanelActivity extends Activity {
         super.onPause();
     }
     @Override protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
+        cancelVoice(); super.onNewIntent(intent);
         if (syntheticSurface()) { setIntent(new Intent()); closeReview(); return; }
         // Exported OS launcher entry never accepts selection, credential or command extras.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
@@ -105,11 +120,11 @@ public class AgentPanelActivity extends Activity {
     }
     @Override public void onTopResumedActivityChanged(boolean top) {
         super.onTopResumedActivityChanged(top); authority.top(top);
-        if (!top) { rememberDraft(); closeReview(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
+        if (!top) { cancelVoice(); rememberDraft(); closeReview(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
         else if (visible && !preview) poll(true);
     }
     @Override public void onWindowFocusChanged(boolean focused) {
-        super.onWindowFocusChanged(focused); authority.activityFocus(focused);
+        super.onWindowFocusChanged(focused); if (!focused) cancelVoice(); authority.activityFocus(focused);
         if (!focused && review == null) { rememberDraft(); generation++; busy = false; if (transport != null) transport.cancel(); ui.removeCallbacks(refresh); }
         else if (focused && visible && review == null && !preview && !busy) poll(false);
     }
@@ -128,8 +143,8 @@ public class AgentPanelActivity extends Activity {
             hadFocus |= focused;
         }
     }
-    @Override public void onDestroy() { worker.shutdownNow(); super.onDestroy(); }
-    @Override public void onBackPressed() { if (review != null) closeReview(); else if (workId != null) { if (!saveState()) return;cancelNetwork(); workId = null; executionId = null; draft = "";loadRequest(null); show(); } else if (projectId != null) { if (!saveState()) return;cancelNetwork(); projectId = null;loadRequest(null); show(); } else super.onBackPressed(); }
+    @Override public void onDestroy() { cancelVoice(); speechWorker.shutdownNow(); worker.shutdownNow(); super.onDestroy(); }
+    @Override public void onBackPressed() { cancelVoice(); if (review != null) closeReview(); else if (workId != null) { if (!saveState()) return;cancelNetwork(); workId = null; executionId = null; draft = "";loadRequest(null); show(); } else if (projectId != null) { if (!saveState()) return;cancelNetwork(); projectId = null;loadRequest(null); show(); } else super.onBackPressed(); }
 
     private static InputFilter ordinaryTextLimit() {
         return (source, start, end, destination, replaceStart, replaceEnd) -> {
@@ -146,7 +161,7 @@ public class AgentPanelActivity extends Activity {
     private Button button(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false); }
     private Button button(LinearLayout parent, String label, Runnable action, boolean escape) {
         Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(18); button.setMinHeight(dp(52));
-        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; button.setOnClickListener(view -> { if (visible && review == owner && authority.interact(id, busy, escape)) action.run(); }); return button;
+        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; button.setOnClickListener(view -> { if (visible && review == owner && authority.interact(id, busy, escape)) { cancelVoice(); action.run(); } }); return button;
     }
     private void styleButton(Button button, String label) {
         GradientDrawable surface = new GradientDrawable();
@@ -177,6 +192,7 @@ public class AgentPanelActivity extends Activity {
             Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
                 if (!authority.interact(0) || (busy && name.equals("Projects"))) return;
+                cancelVoice();
                 if (name.equals("Projects")) { if (!saveState()) return; projectId = workId = executionId = null; draft = "";loadRequest(null); closeReview(); show(); }
                 else if (name.equals("Workspace")) { cancelNetwork(); returnToWorkspace(); }
                 else { if (!saveState() && !saveSelectedContext()) return; cancelNetwork(); try { startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception error) { connection.setText("Other apps could not open."); } }
@@ -194,7 +210,7 @@ public class AgentPanelActivity extends Activity {
         ScrollView scroll = new ScrollView(this); content = column(); scroll.addView(content); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
-    private void cancelNetwork() { generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
+    private void cancelNetwork() { cancelVoice(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
     private void switchConnection(boolean usb) {
         try { getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); preview = false; files.useDevelopmentUsb(usb); closeReview(); identity = null; snapshot = null; projectId = workId = executionId = null; instruction = null; draft = ""; continuation = null; generation++; busy = false; if (transport != null) transport.cancel(); loadSaved(); poll(true); }
         catch (Exception error) { connection.setText("That connection could not be selected."); }
@@ -308,7 +324,155 @@ public class AgentPanelActivity extends Activity {
         PanelContinuation saved = drafts.find(identity.key, snapshot.journal, workId, executionId);
         if (saved != null && saved.matches(identity, snapshot)) { draft = saved.draft(); spoken = saved.spoken(); continuation = saved;loadRequest(saved); }
     }
-    private void closeReview() { if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
+    private void closeReview() { cancelVoice(); if (review != null) { Dialog old = review; review = null; reviewReads.clear(); authority.close(reviewOwner); old.dismiss(); } }
+
+    private void cancelVoice() {
+        voiceGesture.cancel();
+        if (voiceLease != null) voiceLease.revoke();
+        voiceLease = null;
+        if (voiceCapture != null) voiceCapture.stop(false);
+        voiceCapture = null;
+        if (voiceTransport != null) voiceTransport.cancel();
+        voiceTransport = null;
+        if (voiceAudio != null) voiceAudio.discard();
+        voiceAudio = null;
+        if (voiceStatus != null) voiceStatus.setText("Hold to talk adds words locally. Review before sending.");
+    }
+    private boolean voiceEligible(PanelModel model, String route) {
+        if (!developmentAllowed || preview || !visible || review != null || !authority.interact(0) || model == null || identity == null) return false;
+        Map<String,Object> run = model.execution(workId);
+        if (run == null || !java.util.Objects.equals(executionId, run.get("execution_id")) || !java.util.Objects.equals(projectId, run.get("project_id"))) return false;
+        if (route.equals("instruction")) return surface.equals("task") && model.instruct(run) && instruction != null;
+        return surface.equals("request") && requestEditor != null && requestPending == null && agentOffer != null
+            && "available".equals(agentOffer.get("availability")) && PanelJson.array(run.get("pending_approvals")).isEmpty()
+            && PanelJson.array(run.get("pending_questions")).isEmpty();
+    }
+    private boolean voiceCurrent(PanelModel model, PanelIdentity target) {
+        PanelVoice.Lease lease = voiceLease;
+        if (lease == null) return false;
+        if (voicePermissionAtPress && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) { lease.revoke(); return false; }
+        try { if (files == null || target == null || !target.same(files.connection())) { lease.revoke(); return false; } }
+        catch (Exception error) { lease.revoke(); return false; }
+        if (model == null || !java.util.Objects.equals(voiceFingerprint, model.context(workId))) { lease.revoke(); return false; }
+        EditText editor = "instruction".equals(voiceRoute) ? instruction : requestEditor;
+        PanelUiState.Context context = model == null || target == null ? null : new PanelUiState.Context(target.key, model.journal, projectId, workId, executionId);
+        return lease.current(authority, context, target, voiceRoute, editor, editor == null ? "" : editor.getText().toString(),
+            requestId, requestPending, generation, voiceEligible(model, voiceRoute));
+    }
+    private void voiceEditor(LinearLayout parent, EditText editor, String route) {
+        if (!developmentAllowed || preview) return;
+        voiceEditor = editor; voiceRoute = route;
+        voiceStatus = text(parent, "Hold to talk adds words locally. Review before sending.", 16);
+        Button held = new Button(this); voiceButton = held; held.setAllCaps(false); held.setMinHeight(dp(52)); styleButton(held, "Hold to talk");
+        Runnable label = () -> { String words = editor.getText().toString(); String value = words.isEmpty() ? "Hold to talk" : "Hold to add words"; held.setText(value); held.setContentDescription(value); };
+        label.run(); parent.addView(held);
+        editor.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) { cancelVoice(); }
+            public void onTextChanged(CharSequence text, int start, int before, int count) { label.run(); }
+            public void afterTextChanged(Editable value) {}
+        });
+        held.setOnTouchListener((view, event) -> {
+            int action = event.getActionMasked(), pointer = event.getPointerId(event.getActionIndex());
+            if (action == MotionEvent.ACTION_DOWN) {
+                if (voiceLease != null || voiceCapture != null) { cancelVoice(); return true; }
+                if (busy || editor != voiceEditor || held != voiceButton || !voiceEligible(snapshot, route)) return true;
+                if (!voiceGesture.down(pointer, SystemClock.elapsedRealtime())) return true;
+                voicePermissionAtPress = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                voiceFingerprint = snapshot.context(workId);
+                voiceLease = new PanelVoice.Lease(authority, actionContext(), identity, route, editor, editor.getText().toString(), requestId, requestPending, generation);
+                final PanelVoice.Lease lease = voiceLease;
+                ui.postDelayed(() -> { if (voiceLease == lease && voiceCurrent(snapshot, identity) && voiceGesture.mature(pointer, SystemClock.elapsedRealtime())) beginVoice(lease); }, PanelVoice.HOLD_MS);
+            } else if (action == MotionEvent.ACTION_MOVE) {
+                if (event.getPointerCount() != 1 || !voiceGesture.owns(pointer) || event.getX() < 0 || event.getY() < 0 || event.getX() >= held.getWidth() || event.getY() >= held.getHeight()) cancelVoice();
+            } else if (action == MotionEvent.ACTION_UP) {
+                if (event.getX() >= 0 && event.getY() >= 0 && event.getX() < held.getWidth() && event.getY() < held.getHeight() && voiceCurrent(snapshot, identity) && voiceGesture.release(pointer)) { if (voiceCapture != null) voiceCapture.stop(true); }
+                else { cancelVoice(); if (voiceStatus != null) voiceStatus.setText("Hold while speaking; releasing adds a draft for review."); }
+            } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_POINTER_DOWN || action == MotionEvent.ACTION_POINTER_UP) cancelVoice();
+            return true;
+        });
+        button(parent, "Cancel recording", this::cancelVoice, true);
+    }
+    private void beginVoice(PanelVoice.Lease lease) {
+        if (!voicePermissionAtPress || checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            cancelVoice(); voiceStatus.setText("Allow the microphone to add spoken words. Nothing records until you hold again.");
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 7301); return;
+        }
+        try {
+            voiceCapture = new PanelVoiceCapture(); voiceStatus.setText("Listening · release to add words, or cancel.");
+            final PanelVoiceCapture capture = voiceCapture;
+            ui.postDelayed(() -> { if (voiceLease == lease && voiceCapture == capture) capture.stop(true); }, PanelVoice.MAX_MS);
+            capture.read(speechWorker, (wav, cancelled, failed) -> ui.post(() -> {
+                if (voiceLease != lease || voiceCapture != capture) { PanelVoice.discard(wav); return; }
+                voiceCapture = null;
+                if (!PanelVoice.usableClip(wav, voiceCurrent(snapshot, identity), cancelled)) {
+                    cancelVoice(); voiceStatus.setText(failed ? "Microphone unavailable. Your words are unchanged." : cancelled ? "Recording cancelled. Your words are unchanged." : "Speak for at least half a second. Your words are unchanged."); return;
+                }
+                voiceStatus.setText("Writing down · your words stay local until you review and send.");
+                voiceAudio = new PanelVoice.Audio(wav);
+                transcribeVoice(lease, voiceAudio);
+            }));
+        } catch (RuntimeException error) { cancelVoice(); voiceStatus.setText("16 kHz microphone capture is unavailable. You can still type."); }
+    }
+    @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] grants) {
+        super.onRequestPermissionsResult(code, permissions, grants);
+        if (code != 7301) return;
+        cancelVoice();
+        if (voiceStatus != null && visible) voiceStatus.setText(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            ? "Microphone allowed. Hold again to speak." : "Microphone denied. You can still type.");
+    }
+    private PanelModel voiceSnapshot(PanelTransport next, PanelVoice.Lease lease) throws IOException {
+        PanelTransport.Result response = next.request(lease.identity, "GET", "/api/snapshot", null);
+        if (response.status != 200) throw new IOException();
+        PanelModel fresh = new PanelModel(response.body); Map<String,Object> run = fresh.execution(lease.ticket.context.work);
+        if (!lease.ticket.context.journal.equals(fresh.journal) || run == null || !lease.ticket.context.project.equals(run.get("project_id"))
+            || !lease.ticket.context.execution.equals(run.get("execution_id"))) throw new IOException();
+        if (lease.route.equals("instruction")) { if (!fresh.instruct(run)) throw new IOException(); }
+        else {
+            if (!PanelJson.array(run.get("pending_approvals")).isEmpty() || !PanelJson.array(run.get("pending_questions")).isEmpty()) throw new IOException();
+            response = next.request(lease.identity, "GET", "/api/workspace/agent", null);
+            if (response.status != 200 || !"available".equals(PanelWorkspaceRequest.offer(response.body).get("availability"))) throw new IOException();
+        }
+        return fresh;
+    }
+    private void transcribeVoice(PanelVoice.Lease lease, PanelVoice.Audio audio) {
+        byte[] wav = audio.bytes;
+        PanelTransport next = new PanelTransport(files::connection); voiceTransport = next;
+        speechWorker.execute(() -> {
+            try {
+                PanelModel fresh = voiceSnapshot(next, lease);
+                ui.post(() -> {
+                    if (voiceLease != lease) { PanelVoice.discard(wav); return; }
+                    if (!voiceCurrent(fresh, lease.identity)) { cancelVoice(); PanelVoice.discard(wav); return; }
+                    speechWorker.execute(() -> {
+                        String words = null; PanelModel latest = null; boolean failed = false;
+                        try {
+                            PanelTransport.Result response = next.transcribe(lease.identity, wav);
+                            if (response.status != 200) throw new IOException();
+                            words = PanelVoice.transcript(response.body); latest = voiceSnapshot(next, lease);
+                        } catch (Exception error) { failed = true; }
+                        finally { PanelVoice.discard(wav); }
+                        final String heard = words; final PanelModel received = latest; final boolean refused = failed;
+                        ui.post(() -> {
+                            if (voiceLease != lease) return;
+                            if (refused || !voiceCurrent(received, lease.identity)) { cancelVoice(); voiceStatus.setText("Voice could not be added to this current field. Your words are unchanged."); return; }
+                            try {
+                                String added = PanelVoice.append(lease.words, heard);
+                                EditText editor = voiceEditor; cancelVoice();
+                                if (!added.equals(lease.words)) {
+                                    if (lease.route.equals("instruction")) { draft = added; spoken = true; } else { requestText = added; requestSpoken = true; }
+                                    editor.setText(added); editor.setSelection(added.length()); rememberDraft(); saveState();
+                                    voiceStatus.setText("Words added from speech. Review every word before sending.");
+                                } else voiceStatus.setText("Nothing heard. Your words are unchanged.");
+                            } catch (Exception error) { cancelVoice(); voiceStatus.setText("The words do not fit this draft. Your words are unchanged."); }
+                        });
+                    });
+                });
+            } catch (Exception error) {
+                PanelVoice.discard(wav);
+                ui.post(() -> { if (voiceLease == lease) { cancelVoice(); voiceStatus.setText("This task or connection changed. Your words are unchanged."); } });
+            }
+        });
+    }
 
     private void poll(boolean rebuild) {
         ui.removeCallbacks(refresh);
@@ -329,6 +493,7 @@ public class AgentPanelActivity extends Activity {
             ui.post(() -> {
                 if (!visible || generation != requestGeneration) return;
                 busy = false;
+                if (voiceLease != null && !voiceCurrent(received, receivedTarget)) cancelVoice();
                 if (identity != null && snapshot != null && !saveState()) { ui.postDelayed(refresh, 3000); return; }
                 if (received == null) {
                     snapshot = null; identity = null; closeReview(); instruction = null;requestEditor=null;agentOffer=requestView=null;
@@ -364,7 +529,7 @@ public class AgentPanelActivity extends Activity {
     }
 
     private void show() {
-        rememberDraft();instruction = null;requestEditor=null;requestAvailability=null;requestActions=null; content.removeAllViews();
+        cancelVoice(); rememberDraft();instruction = null;requestEditor=null;requestAvailability=null;requestActions=null; content.removeAllViews();
         if (snapshot == null) return;
         try {
             if (projectId == null) {
@@ -422,6 +587,7 @@ public class AgentPanelActivity extends Activity {
                 instruction = new EditText(this); instruction.setText(draft); instruction.setTextColor(Color.WHITE); instruction.setContentDescription("Your instruction"); instruction.setTextSize(20); instruction.setMinLines(3); instruction.setMaxLines(8);
                 instruction.setFilters(new InputFilter[] {ordinaryTextLimit()}); instruction.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
                 content.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
+                voiceEditor(content, instruction, "instruction");
                 button(content, "Review instruction", () -> { rememberDraft(); if (!draft.trim().isEmpty()) reviewInstruction(displayed); });
             } else text(content, "Instructions are unavailable while this agent needs a decision or cannot receive one.", 18);
             if (snapshot.interrupt(run)) button(content, "Stop this agent", () -> reviewed("Stop this agent?", "This asks the agent to stop its current turn. The agent must confirm before this task is stopped.", "Send stop request", displayed, () -> send("execution.interrupt", PanelJson.map("execution_id", preview ? executionId : displayed.execution), null, null, displayed)));
@@ -440,6 +606,7 @@ public class AgentPanelActivity extends Activity {
         requestAvailability=text(content,"Checking workspace availability…",17);
         text(content,requestSpoken?"Your request · from speech, review every word":"Your request",20);
         requestEditor=new EditText(this);requestEditor.setText(requestText);requestEditor.setTextColor(Color.WHITE);requestEditor.setTextSize(20);requestEditor.setMinLines(3);requestEditor.setMaxLines(8);requestEditor.setContentDescription("Your workspace request");requestEditor.setFilters(new InputFilter[]{ordinaryTextLimit()});requestEditor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);content.addView(requestEditor,new LinearLayout.LayoutParams(-1,-2));
+        voiceEditor(content, requestEditor, "request");
         requestActions=new LinearLayout(this);requestActions.setOrientation(LinearLayout.VERTICAL);content.addView(requestActions,new LinearLayout.LayoutParams(-1,-2));showRequestActions(scope);
     }
     private void showRequestActions(PanelUiState.Context scope){
@@ -485,6 +652,7 @@ public class AgentPanelActivity extends Activity {
                 if(!visible||generation!=epoch)return;
                 if(!scope.same(actionContext())||!java.util.Objects.equals(savedId,requestId)||!java.util.Objects.equals(pending,requestPending)){busy=false;ui.postDelayed(refresh,1000);return;}
                 busy=false;agentOffer=receivedOffer;requestView=null;
+                if (voiceLease != null && !voiceCurrent(snapshot, identity)) cancelVoice();
                 boolean stored=resolved==null||!resolved.settled||resolvePending(resolved,scope,pending);
                 if(stored&&requestPending==null)requestView=receivedView;
                 if(status!=null)connection.setText(withStorageWarning(status));
@@ -495,7 +663,7 @@ public class AgentPanelActivity extends Activity {
     }
     private boolean resolvePending(PanelWorkspaceRequest.Recovery result,PanelUiState.Context scope,String pending){
         if(!scope.same(actionContext())||!java.util.Objects.equals(pending,requestPending))return false;
-        String oldId=requestId;requestId=result.requestId;requestPending=null;
+        cancelVoice(); String oldId=requestId;requestId=result.requestId;requestPending=null;
         if(saveState()){try{synchronized(this){PanelRequestSends ledger=readSends();ledger.forgetSettled(pending,scope,oldId);files.write(PanelFiles.REQUEST_SENDS,ledger.json());}}catch(Exception error){/* A stale phase record grants no send or cleanup authority. */}return true;}
         requestId=oldId;requestPending=pending;rememberDraft();return false;
     }

@@ -2626,6 +2626,33 @@ instruction; typing always stays:
   `RECORD_AUDIO`; `QuestBuild.BuildReleaseApk` also deletes and fails a release APK whose manifest
   asks for it.
 
+The production native panel also offers held dictation in development APKs only, beside its
+ordinary instruction and workspace-request editors. Its existing debuggable-build gate excludes
+synthetic previews and release use; the release manifest still must omit `RECORD_AUDIO`. The first
+eligible 0.3-second hold requests runtime permission and records nothing. Permission grant never
+resumes that gesture. A fresh hold uses initialized 16 kHz mono PCM16 capture; unsupported capture
+shows an explanation and leaves typing available. Release inside the same target, or the 30-second
+sample/wall limit, stops capture. Leaving, another pointer, Cancel, editing, navigation, modal or
+focus/top-resumed/lifecycle loss discards it. Listening remains visible throughout microphone access.
+
+`PanelVoice` binds delivery to the complete connection/journal/project/task/execution tuple, current
+Activity authority epoch, editor identity, route, exact starting words, request references and input
+generation. Observed capability/preemption or connection loss permanently revokes the lease, even
+if the old conditions return. Capture and transcription use a separate worker so normal snapshot
+and request polling continues. Pairing and fresh task eligibility are checked before uploading and
+before delivering. The dedicated transport operation sends only canonical bounded WAV to the
+existing `/api/transcriptions`, through the same pin/development USB proof and cancellation boundary.
+It permits a 30-second request deadline and 64 KiB JSON response; ordinary JSON command limits and
+deadlines stay the same. No retry follows cancellation or failure.
+
+Heard words append to the exact unchanged starting draft, with Hold to add words for a nonempty
+field. Concurrent edits permanently cancel delivery; no speech, invalid/overlong output or failure
+preserves the existing words. Added text remains ordinary untrusted text, marked as spoken, saved
+through existing draft retention and sent only through existing explicit review and send. Voice
+never submits a command or presses a decision. Source/API/JVM evidence and remaining headset
+checks are recorded in [native-panel-voice.md](../validation/native-panel-voice.md); release voice
+remains excluded under ADR 0021 until a separate decision and real headset proof.
+
 The editor's renders show the workspace's action row with it beside running work's actions and left out where approve, deny, stop
 and instruct fill the row. Not checked on a headset: the Quest microphone's rate and level, the
 permission prompt, and whether a ray that leaves the button while pinching ends the hold.
