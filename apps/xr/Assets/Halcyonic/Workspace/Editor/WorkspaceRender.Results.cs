@@ -65,7 +65,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Result = new CommandToolResult { ToolCallId = "simulated-command", TurnId = "simulated-turn", Completion = ToolResultCompletion.Completed,
                     ExitCode = 0, Redaction = new ToolResultRedaction(), Output = new ToolResultBody
                     { Availability = ToolResultBodyAvailability.Available, Complete = true, Truncation = ToolResultBodyTruncation.None,
-                        Text = "\n  first\r\n\n    <b>literal</b>\\n\n  \u001B[31m\u202E\t😀\n" + string.Concat(Enumerable.Repeat("    preserved indentation\n", 60)) + "\n" } },
+                        Text = "\n  first\r\n\n    <b>literal</b>\\n\n  \u001B[31m\u202E\té\n" + string.Concat(Enumerable.Repeat("    preserved indentation\n", 60)) + "\n" } },
             };
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
             {
@@ -168,9 +168,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 void Chrome(GlazeButton button, int pointer)
                 { button.SettleForRender(); button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Select, button.transform.position); button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, button.transform.position); }
-                director.OpenFile(ResultsTask); Shot("activity");
+                Shot("projects before optional shelf");
                 if (withShelf)
-                { var agent = ConfirmedDirectorAgent(root.transform, director, eyes, Present().Character, failures, name); targets.Add(agent.Target); characters.Add(agent); Shot("confirmed shelf activity"); }
+                { var agent = ConfirmedDirectorAgent(root.transform, director, eyes, Present().Character, failures, name); targets.Add(agent.Target); characters.Add(agent); Shot("confirmed shelf projects"); }
+                director.OpenFile(ResultsTask); Shot("activity");
                 var retained = file;
                 var context = new WorkspaceContinuation { HandoffId = Guid.NewGuid().ToString("D"), ConnectionKey = WorkspaceContinuity.ConnectionKey(target),
                     JournalId = ResultsJournal, ProjectId = ResultsProject, WorkstreamId = ResultsTask, ExecutionId = ResultsRun, Section = WorkspaceSection.Activity,
@@ -184,13 +185,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(FileScreens.OpenResults); Shot("list");
                 if (director.Navigator.Beside is not TaskResultsColumn) failures.Add(name + ": Activity did not open the production Results column");
                 Press(TaskResultsColumn.Read, ResultsEvent); Shot("output first part");
-                var texts = director.Plane.GetComponentsInChildren<TMP_Text>(false).Select(label => { label.ForceMeshUpdate(); return label.GetParsedText(); }).ToList();
-                if (!texts.Any(text => text.Contains("<b>literal</b>\\n"))) failures.Add(name + ": actual TMP did not show markup and backslash-n literally");
-                if (!texts.Any(text => text.Contains("‹U+000D›"))) failures.Add(name + ": actual TMP lost CR from recorded CRLF");
+                string DrawnBody()
+                {
+                    var labels = director.Plane.GetComponentsInChildren<TMP_Text>(false).Where(label => label.name == "Line 0 words").ToList();
+                    if (labels.Count != 1) { failures.Add(name + ": expected one actual recorded body label"); return ""; }
+                    labels[0].ForceMeshUpdate(); return labels[0].GetParsedText();
+                }
+                var expectedOutput = director.Plane.Showing(MenuColumn.File)?.Lines.Single().Runs.ForTextMeshPro().Text.Replace("\\\\", "\\");
+                var drawnOutput = DrawnBody();
                 var parts = 0;
                 while (director.Plane.Showing(MenuColumn.File)?.Footer.All.Any(slot => slot.Prompt.Id == TaskResultsColumn.Next) == true && parts++ < 100)
-                { Press(TaskResultsColumn.Next); Shot("output part " + parts); }
+                { Press(TaskResultsColumn.Next); Shot("output part " + parts); drawnOutput += DrawnBody(); }
                 if (parts == 0 || parts >= 100) failures.Add(name + ": structured output never exercised a bounded full pager");
+                if (drawnOutput != expectedOutput) failures.Add(name + ": actual output pages omitted, duplicated or changed recorded display text");
+                if (!drawnOutput.Contains("<b>literal</b>\\n") || !drawnOutput.Contains("‹U+000D›")) failures.Add(name + ": actual TMP lost literal markup, backslash-n or CR from recorded CRLF");
                 var finalFrame = director.Plane.Showing(MenuColumn.File); var finalRow = finalFrame?.Lines.Single().FromRow;
                 if (finalFrame?.Lines.Single().Words.EndsWith("\n\n") != true) failures.Add(name + ": body construction lost blank/trailing LF");
                 Chrome(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.Minimize), 881); Shot("minimized");
@@ -213,15 +221,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": selected file patch was not reachable through actual file choices"); return false;
                 }
                 ChooseFile("0"); Shot("recorded patch first part");
-                var patchParts = 0; var literalPatch = false;
+                var patchParts = 0; var drawnPatch = "";
+                var expectedPatch = director.Plane.Showing(MenuColumn.File)?.Lines.Single().Runs.ForTextMeshPro().Text.Replace("\\\\", "\\");
                 do
                 {
-                    foreach (var label in director.Plane.GetComponentsInChildren<TMP_Text>(false))
-                    { label.ForceMeshUpdate(); literalPatch |= label.GetParsedText().Contains("<b>literal patch</b>\\n"); }
+                    drawnPatch += DrawnBody();
                     if (director.Plane.Showing(MenuColumn.File)?.Footer.All.Any(slot => slot.Prompt.Id == TaskResultsColumn.Next) != true) break;
                     Press(TaskResultsColumn.Next); Shot("recorded patch part " + ++patchParts);
                 } while (patchParts < 100);
-                if (!literalPatch || patchParts == 0 || patchParts >= 100) failures.Add(name + ": actual TMP patch text did not exercise literal bounded paging");
+                if (drawnPatch != expectedPatch) failures.Add(name + ": actual patch pages omitted, duplicated or changed recorded display text");
+                if (!drawnPatch.Contains("<b>literal patch</b>\\n") || patchParts == 0 || patchParts >= 100) failures.Add(name + ": actual TMP patch text did not exercise literal bounded paging");
                 Press(Footer.Close);
                 ChooseFile("3"); Shot("recorded rename");
                 if (director.Plane.Showing(MenuColumn.File)?.Lines.Single().Words.Contains("Moved to: src/after.cs") != true) failures.Add(name + ": selected rename lost its destination");
@@ -229,7 +238,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.Plane.Showing(MenuColumn.File)?.Lines.Single().Words.Contains("project scope is unknown") != true) failures.Add(name + ": unknown path was treated as verified outside");
                 Press(Footer.Close); ChooseFile("5"); Shot("outside project patch omitted");
                 Press(Footer.Close);
+                Press(Footer.Close);
                 Press(Footer.Close); Shot("returned original task");
+                Debug.Log("Halcyonic: Results retained draft " + name + ": same file=" + (director.Navigator.Beside == retained)
+                    + ", instruction equality=" + (retained?.ContinuationDraft()?.Text == instructionBefore?.Text)
+                    + ", instruction parts=" + instructionBefore?.Part + "/" + retained?.ContinuationDraft()?.Part
+                    + ", request equality=" + (retained?.ContinuationRequest()?.Text == context.Request.Text)
+                    + ", pending identity equality=" + (retained?.ContinuationRequest()?.PendingCommandId == context.Request.PendingCommandId));
                 if (director.Navigator.Beside != retained || retained?.ContinuationRequest()?.Text != context.Request.Text
                     || retained.ContinuationRequest()?.PendingCommandId != context.Request.PendingCommandId
                     || retained.ContinuationDraft()?.Text != instructionBefore?.Text || retained.ContinuationDraft()?.Spoken != instructionBefore?.Spoken

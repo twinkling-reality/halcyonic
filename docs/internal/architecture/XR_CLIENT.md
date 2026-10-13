@@ -3038,7 +3038,14 @@ pending identity, and shows one selected file patch. Host/runtime bounds and nat
 Focused C# Results/API/File/continuity checks passed 175/175 with zero skips on 2026-10-13, compiling
 the core under .NET Standard 2.1/C# 9. `WorkspaceRender.ResultsCheck` is the actual director/TMP
 render witness for both text sizes, far/desk and zero/one confirmed shelf, using explicit synthetic
-session messages and canned HTTP. Its source is prepared; actual Unity results and headset focus,
+session messages and canned HTTP. Focused console page budgets also enforce the unchanged 14 dp
+minimum over the existing body-sized header/footer and promoted facts, in addition to field and
+occupied-agent clearance. The witness compares every displayed output/patch page against the
+literal renderer text, including blank/trailing LF, indentation, CRLF and visible control marks.
+The rendered Unicode fixture uses supported é; it does not establish emoji font coverage. Existing
+supplementary-codepoint core checks remain separate.
+Its first actual run exposed over-tall pages and fixture navigation/shelf setup errors; the bounded
+repairs await an actual rerun. Headset focus,
 readability, persistence/JNI and live edit/build/install correspondence remain separate gates.
 
 ### Optional character identity and animation, 2026-10-13
