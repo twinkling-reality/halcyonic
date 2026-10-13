@@ -25,6 +25,7 @@ namespace Halcyonic.Client
         public const string Deny = WorkspaceScreens.Deny;
         public const string Stop = WorkspaceScreens.Stop;
         public const string OpenWorkspaceRequest = "file-workspace-request";
+        public const string OpenResults = "file-results";
         public const string TellIt = WorkspaceScreens.TellIt;
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
         internal static bool FocusesAnswer(WorkspacePresentation workspace, bool questionPage, WorkspaceSteering steering) =>
@@ -93,7 +94,7 @@ namespace Halcyonic.Client
         /// <paramref name="room"/>'s rows a page, and the side panel its chosen line opened. Waiting
         /// reads only the work's own state, never an answer still being read.
         /// </summary>
-        public static MenuFrame Screen(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
+        public static MenuFrame Screen(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget? activityBudget = null)
         {
             // A confirmation that no longer holds is dropped before anything is drawn: too late, no
             // longer offered, already answered, or a request that now reads differently.
@@ -104,7 +105,7 @@ namespace Halcyonic.Client
             var page = steering.Armed is WorkspaceAction armed ? Confirmation(workspace, steering, screen, armed) : screen.Instruction.Open ? InstructionPage(workspace, screen) : screen.Section switch
             {
                 FileSection.Waiting => Waiting(workspace, steering, screen, room),
-                FileSection.Activity => Activity(workspace, steering, screen, room),
+                FileSection.Activity => Activity(workspace, steering, screen, room, activityBudget),
                 FileSection.Changes => Changes(screen, room),
                 _ => Checks(screen, room),
             };
@@ -204,7 +205,7 @@ namespace Halcyonic.Client
             new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
                 key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: chosen, rows: rows, answerMark: AnswerMark.Single);
 
-        private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
+        private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget? budget)
         {
             const string? source = null;
             var normal = ActivityFooter(workspace, screen);
@@ -237,6 +238,10 @@ namespace Halcyonic.Client
             }
 
             var lines = new List<PageLine>();
+            if (screen.WorkspaceRequestOffered && workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true)
+                lines.Add(new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true, rows: screen.WorkspaceRequestRows));
+            if (screen.ResultsOffered && workspace.Execution != null)
+                lines.Add(ReadResultsLine(screen.ResultsRows));
             var waiting = WorkspaceText.SomethingWaits(workspace);
             var tone = waiting ? LineTone.Waiting : workspace.Character.AttentionNotes.Count > 0 ? LineTone.Problem : LineTone.Primary;
             lines.AddRange(Doing(workspace, tone));
@@ -248,6 +253,20 @@ namespace Halcyonic.Client
             var used = lines.Sum(line => line.Rows);
             var activity = workspace.Activity;
             var fits = Math.Max(0, room.Rows - used);
+            if (budget != null)
+            {
+                var occupied = 0f;
+                for (var index = 0; index < lines.Count; index++)
+                {
+                    var line = lines[index];
+                    occupied += line.Action == null ? budget.Words(line.Rows) : budget.Target(line.Rows);
+                    if (index > 0) occupied += line.Action != null && lines[index - 1].Action != null ? budget.TargetGap : budget.LineGap;
+                }
+                var remaining = budget.Room - occupied - (lines.Count > 0 ? budget.LineGap : 0);
+                var measured = 0;
+                while (budget.Words(measured + 1) + measured * budget.LineGap <= remaining) measured++;
+                fits = Math.Min(fits, measured);
+            }
             if (activity.Count == 0 && screen.ActivityNote.Length > 0 && fits > 0)
             {
                 lines.Add(new PageLine(screen.ActivityNote.TrimStart(' ', '·'), wordsAreData: true, tone: LineTone.Secondary));
@@ -263,8 +282,6 @@ namespace Halcyonic.Client
                     // A line of Halcyonic's own words alone, as it always was: one row of the log, which may end in an ellipsis.
                     : new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary));
             }
-            if (screen.WorkspaceRequestOffered && workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true)
-                lines.Insert(0, new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true));
             if (lines.Count == 0) lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
             return new Page(lines, source, normal);
         }

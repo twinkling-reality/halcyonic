@@ -99,6 +99,10 @@ namespace Halcyonic.Client
         /// <summary>Hold to talk is offered: in a development build, never in the demonstration (ADR 0021).</summary>
         public bool Speak { get; set; }
         public bool WorkspaceRequestOffered { get; set; }
+        public int WorkspaceRequestRows { get; set; } = 1;
+        public bool ResultsOffered { get; set; }
+        public bool InstructionResultsOffered { get; set; }
+        public int ResultsRows { get; set; } = 1;
 
         /// <summary>The instructions offered where there is no keyboard, while they show in Activity's page; null otherwise.</summary>
         public IReadOnlyList<PresetInstruction>? Presets

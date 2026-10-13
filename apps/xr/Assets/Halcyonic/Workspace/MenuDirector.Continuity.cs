@@ -22,6 +22,7 @@ namespace Halcyonic.XR.Workspace
         private bool viewsDirty;
         private bool renewingViews;
         private bool storageFailed;
+        private readonly Dictionary<FileColumn, TaskResultsColumn> resultViews = new Dictionary<FileColumn, TaskResultsColumn>();
         private int SavedViewCount => (recovery?.Views.Count ?? 0) + viewBindings.Count + (pendingReturn == null ? 0 : 1);
         private bool CurrentSnapshot => !Demonstration && Connected && setup.Session() is RealtimeSession session
             && session.SnapshotCurrent && ReferenceEquals(State, session.State);
@@ -54,6 +55,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (column is not FileColumn file) return;
             file.OfferWorkspaceRequests(() => OpenWorkspaceRequest(file));
+            if (!Demonstration) file.OfferResults(() => OpenResults(file));
             if (viewBindings.ContainsKey(file)) return;
             var record = origin ?? RecordFor(file);
             if (record == null) return;
@@ -108,6 +110,8 @@ namespace Halcyonic.XR.Workspace
 
         private void ViewDropped(IMenuColumn column)
         {
+            if (column is FileColumn dropped && resultViews.TryGetValue(dropped, out var results))
+            { results.FocusLeft(); resultViews.Remove(dropped); }
             if (column is not FileColumn file || !viewBindings.TryGetValue(file, out var origin)) return;
             var discard = !renewingViews && CurrentSnapshot && TryKey(out var key) && State?.Journal != null
                 && origin.ConnectionKey == key && origin.JournalId == State.Journal.JournalId && origin.WorkstreamId != null
@@ -186,7 +190,28 @@ namespace Halcyonic.XR.Workspace
 
         private FileColumn? SelectedFile() => navigator.Beside as FileColumn
             ?? (navigator.Beside is WorkspaceRequestColumn request && navigator.BesideTask != null
-                && memory.Files.TryGetValue(navigator.BesideTask, out var column) && column is FileColumn file && file.RequestView == request ? file : null);
+                && memory.Files.TryGetValue(navigator.BesideTask, out var column) && column is FileColumn file && file.RequestView == request ? file : null)
+            ?? resultViews.FirstOrDefault(pair => ReferenceEquals(pair.Value, navigator.Beside) && pair.Key.Now?.Character.WorkstreamId == navigator.BesideTask).Key;
+
+        private void OpenResults(FileColumn file)
+        {
+            var record = viewBindings.Captured(file) ?? RecordFor(file);
+            if (record?.WorkstreamId == null || record.ExecutionId == null || !IsCurrent(record) || file.Now?.Execution == null || placement != null || Away)
+            { ReportLocal("Reconnect to this task before reading its results."); return; }
+            if (resultViews.TryGetValue(file, out var previous)) previous.FocusLeft();
+            var original = Copy(record);
+            var session = setup.Session(); var api = setup.Api();
+            TaskResultsColumn? view = null;
+            view = new TaskResultsColumn(Bound(), original, file.Now.Execution.Runtime.RuntimeId,
+                file.Now.Runtime?.DisplayName ?? file.Now.Execution.Runtime.DisplayName, () => ReferenceEquals(navigator.Beside, view)
+                    && navigator.BesideTask == original.WorkstreamId && navigator.ShowsAnything && !navigator.IsCompact && !navigator.BesideAside
+                    && !setup.Presentation.Minimized && placement == null && !Away && drag == null
+                    && ReferenceEquals(setup.Session(), session) && ReferenceEquals(setup.Api(), api) && IsCurrent(original));
+            view.BackToTask = () => { navigator.ShowBeside(file, original.WorkstreamId); ViewsChanged(); };
+            resultViews[file] = view;
+            navigator.ShowBeside(view, original.WorkstreamId);
+            ViewsChanged();
+        }
 
         private WorkspaceRequestColumn RequestViewFor(FileColumn file, WorkspaceContinuation record)
         {

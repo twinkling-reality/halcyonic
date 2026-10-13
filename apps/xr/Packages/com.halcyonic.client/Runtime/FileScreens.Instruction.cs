@@ -27,6 +27,8 @@ namespace Halcyonic.Client
             new PageLine(previous ? "Previous part" : "Next part", icon: previous ? GlazeIcon.Back : GlazeIcon.Next,
                 action: previous ? PreviousInstructionPart : NextInstructionPart, control: LineControl.Action, besideNext: besideNext);
 
+        public static PageLine ReadResultsLine(int rows = 1) => new PageLine("Read results", icon: GlazeIcon.Next, action: OpenResults, opens: true, rows: rows);
+
         private static Page InstructionPage(WorkspacePresentation workspace, FileScreen screen)
         {
             var instruction = screen.Instruction;
@@ -48,6 +50,7 @@ namespace Halcyonic.Client
             if (instruction.Part > 0)
                 lines.Add(InstructionPager(previous: true, besideNext: instruction.PairedPager && instruction.Part + 1 < instruction.Parts));
             if (instruction.Part + 1 < instruction.Parts) lines.Add(InstructionPager());
+            if (screen.InstructionResultsOffered) lines.Add(ReadResultsLine(screen.ResultsRows));
             var reason = InstructionSendReason(workspace, screen);
             return new Page(lines, null, new Footer(new Prompt(CancelInstruction, "Cancel", GlazeIcon.Close, PromptKind.Close),
                 secondary: screen.Speak ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true,

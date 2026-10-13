@@ -97,6 +97,25 @@ namespace Halcyonic.Client
             return HalcyonicJson.Deserialize<UnderstandingResponse>(body);
         }
 
+        public async Task<ToolResultsResponse> GetToolResultsAsync(string executionId, ToolResultsQuery query, CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync(ToolResultsPath(executionId, query), cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<ToolResultsResponse>(body);
+        }
+
+        public async Task<ToolResultResponse> GetToolResultAsync(string executionId, string eventId, ToolResultsQuery query, CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync(ToolResultsPath(executionId, query, eventId), cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<ToolResultResponse>(body);
+        }
+
+        private static string ToolResultsPath(string executionId, ToolResultsQuery query, string? eventId = null) =>
+            "api/executions/" + Uri.EscapeDataString(executionId) + "/results"
+            + (eventId == null ? "" : "/" + Uri.EscapeDataString(eventId))
+            + "?journal_id=" + Uri.EscapeDataString(query.JournalId)
+            + "&project_id=" + Uri.EscapeDataString(query.ProjectId)
+            + "&workstream_id=" + Uri.EscapeDataString(query.WorkstreamId);
+
         /// <summary>Local workspace coordinator availability, checked without inference.</summary>
         public async Task<WorkspaceAgentStatus> GetWorkspaceAgentAsync(CancellationToken cancellationToken = default)
         {

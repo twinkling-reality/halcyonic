@@ -185,3 +185,15 @@ with the trailing word absent and Yes already offered. Restoring the fix passed 
 workspace render. The file-render comparison passed all eight combinations at both text sizes. The
 complete TypeScript suite passed 1,033 tests and the C# suite 1,435. These checks establish layout
 and reading behavior off the headset; the owner's headset reading remains the comfort check.
+
+**Recorded output and patches (2026-10-13):** The Unity Results consumer uses the generated bounded
+result contract, names the agent app, and treats recorded output/patches as outside words. This
+narrow structured-body path retains actual LF, blank/trailing lines and ASCII space indentation.
+Each LF-separated line passes through `LabelText.Exact` between removed visible bookends, so CR
+(including CRLF's CR), tabs, bidi/default-ignorable characters, private-use icons, ANSI controls and
+unpaired surrogates remain visible codepoint marks. Literal markup is not interpreted; backslashes
+are doubled only by `LineWords.ForTextMeshPro`. Existing one-line label/name policies do not change.
+The actual consumed pager retains the whole structured block and uses measured `FromRow` parts.
+Core tests cover these characters, exact chosen-file/part retention, stale callbacks and no sends.
+The prepared ResultsCheck renderer additionally checks literal TMP text through the actual director;
+its actual Unity and headset evidence is not yet claimed by this source checkpoint.

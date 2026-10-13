@@ -27,7 +27,7 @@ namespace Halcyonic.Client
         public int NoticePart { get; private set; }
         public int NoticeParts { get; private set; } = 1;
         public int NoticePartRows { get; private set; } = 1;
-        private (string Words, int Rows, float Room, TextSize Size, bool Paired, string? Notice, int NoticeRows)? measured;
+        private (string Words, int Rows, float Room, TextSize Size, bool Paired, string? Notice, int NoticeRows, float Navigation)? measured;
         public bool Read => Words.Length > 0 && readThrough >= Parts - 1 && !InputFocused;
 
         public void Begin(string execution)
@@ -65,15 +65,15 @@ namespace Halcyonic.Client
             readThrough = -1;
             partDrawnAt = null;
         }
-        public void Measure(int rows, PageBudget page, TextSize size, bool pairedPager, string? notice = null, int noticeRows = 0)
+        public void Measure(int rows, PageBudget page, TextSize size, bool pairedPager, string? notice = null, int noticeRows = 0, float navigationHeight = 0)
         {
             if (ExplainingNotice && notice == null) { notice = Notice; noticeRows = NoticeRows; }
-            var key = (Words, rows, page.Room, size, pairedPager, notice, noticeRows);
+            var key = (Words, rows, page.Room, size, pairedPager, notice, noticeRows, navigationHeight);
             if (measured == key) return;
             var noticeReflowed = measured == null || measured.Value.Notice != notice || measured.Value.NoticeRows != noticeRows || measured.Value.Room != page.Room || measured.Value.Size != size;
             measured = key;
             PairedPager = pairedPager;
-            var fullRoom = page.Room - page.Words(1) - page.LineGap - page.Reason;
+            var fullRoom = page.Room - page.Words(1) - page.LineGap - page.Reason - navigationHeight;
             var pager = pairedPager ? page.Target() : page.Targets(1, 1);
             var noticeHeight = notice == null ? 0f : page.LineGap + page.Words(Math.Max(1, noticeRows));
             var fieldRoom = fullRoom - noticeHeight;
