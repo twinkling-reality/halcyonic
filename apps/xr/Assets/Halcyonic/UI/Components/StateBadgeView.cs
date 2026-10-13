@@ -287,7 +287,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Forgets the setting when play mode starts without a domain reload.</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset() => Still = false;
+        private static void ResetStatics() => Still = false;
 
         /// <summary>
         /// Draws the pill, brighter by <paramref name="breath"/>, from 0 to 1, of the breath's depth, and its

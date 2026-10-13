@@ -492,3 +492,21 @@ C# suite passes 1,666 tests, zero skipped; its existing recap paging test now al
 focus survives page composition while stale-page input is still rejected. Independent source
 review found no blocker. Current DirectorCheck and EntryJourneysCheck also pass both text sizes.
 The combined visual gate and device/wearer acceptance remain separate requirements.
+
+
+### Combined visual gate and component lifecycle (2026-10-13)
+
+The integrated `WorkspaceRender.Check` passes at both real-font text sizes after the entry,
+retained-view and readability corrections above. This includes the current dedicated workspace,
+request and optional-shelf journeys as well as the legacy component galleries. The full repository
+check passes 1,167 tests with no failures or skips, including type checking and lint. The full C#
+suite passes 1,666 tests with no failures or skips. These are local implementation witnesses;
+headset input, native activity continuity and wearer acceptance are still outstanding.
+
+The passing visual report nevertheless contained Unity errors while adding UI components. Four
+`MonoBehaviour` subsystem initializers were named `Reset`, which Unity also dispatches as an
+instance Editor callback. Their names are now `ResetStatics`; their subsystem-registration
+attributes and reset bodies are unchanged. `ComponentLifecycleCheck` creates and destroys the
+actual four components and collects Unity error, exception and assertion messages. It failed on
+all four original names, then passed with the renamed initializers. The same check is included in
+the combined gate so this lifecycle failure cannot be hidden by successful geometry checks.
