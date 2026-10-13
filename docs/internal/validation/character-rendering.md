@@ -133,8 +133,8 @@ uses it. Asymptotic easing is a source hypothesis, not an established cause. Nei
 change nor a longer settling wait is proposed.
 
 **Validation status.** The current candidate's filtered CharacterIdentityTests and GlazeTokenTests
-passed 24/24 on .NET 10.0.401, with zero skipped. Actual Unity compilation and renders have not
-run for this candidate. Required root renders are CharacterLifeCheck,
+passed 24/24 on .NET 10.0.401, with zero skipped. Actual Unity results and the unresolved
+composition defect are recorded below; these earlier source checks are not acceptance. Required root renders are CharacterLifeCheck,
 AgentShelfCheck and the historical StageRender.Check diagnostic, followed by the current
 ShelfWorkspace/Director/Appearance gates. Isolated shader-ignores-EyeOpen and old-blink-period
 mutations should each fail their specific witness and then be reverted. Stereo appearance,
@@ -241,3 +241,31 @@ and comparison stay unchanged. In-memory private shader compilation uses Unity's
 with objects destroyed and original materials restored in finally. Pixel coordinates, full
 frames and exact source copies are retained for review; no production shader repair is
 endorsed before actual results and appearance/occlusion inspection.
+
+**Feature depth candidate, 2026-10-13.** The actual `a5d32bb3` private pair-state run produced
+zero exact RGBA differences in every feature-ZWrite-Off series across all five failed histories
+and both text sizes. Every other named variant failed in at least one case; baseline failures
+were intermittent. This supports a narrow feature-depth candidate, without identifying a GPU
+internal cause. Same-camera junction inspection found localized differences and no gross feature
+loss, which does not establish occlusion correctness.
+
+The body shader now exposes `_DepthWrite` with default 1; the Resources-owned shell keeps depth
+writing. Features use one generated cached copy with that property set to 0 and retain their
+existing earlier shell-relative order. The cache owns and disposes only its generated material
+at subsystem reset; the body resource remains owned by Resources. Shader math, depth testing,
+blending, queues, animation, project settings and pixel comparisons remain unchanged. Unity's
+[ZWrite reference](https://docs.unity3d.com/6000.0/Documentation/Manual/SL-ZWrite.html) confirms
+that this controls depth-buffer writes and warns that Off can require CPU geometry sorting.
+The pinned Meta Interaction RoundedPanelUI shader independently uses a numeric material
+property in the same command; actual candidate compilation and rendering remain the gate.
+
+Existing composition and all-feature geometry guards consume shell depth 1, feature depth 0,
+the original shader and the earlier order. Retained legacy captures explicitly restore feature
+depth 1 as well as equal order; equal order alone no longer recreates the old state. Private
+pair shader probes use the explicit property anchor and keep a fixed-ZWrite-On negative. The
+new production candidate has not run yet. Generated-cache lifecycle, actual foreground and
+background opaque occlusion, and the real Checking ring relationship require consumed follow-up
+checks before acceptance, alongside CharacterLife, AgentShelf and historical/current workspace
+gates. A non-depth-writing protrusion can be painted over by a later transparent object behind
+it; stability does not prove generic transparent-layer occlusion. No headset stereo, device
+performance or wearer acceptance result is claimed.
