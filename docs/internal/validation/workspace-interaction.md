@@ -461,3 +461,18 @@ The partial-detail negative now requires an unread first part and at least two m
 before Close. The independent console's larger page can show the previous 80-word detail wholly;
 that is legitimate read evidence. A 200-word detail preserves the intended partial-read condition
 without reducing the measured budget, truncating content or changing the read-before-send guard.
+
+
+### Stable Move hold and complete answer journey (2026-10-13)
+
+The global header previously canceled every button press on every redraw, including an unchanged
+Move hold. The plane now permits only that hold to continue when the front frame and file owner
+are identical and the rendered header dimensions, world pose and connection label are unchanged.
+All other header controls still require a fresh press. Hidden headers and text-size changes
+continue to terminate the hold. Independent source review found no blocker.
+
+`AnswerFlowCheck` now passes at both real-font text sizes, including the production FileColumn,
+keyboard and voice callbacks, long question/option paging, whole-read review, same-instance dock
+restoration and late-callback refusal. A successful Move ends by reflowing the file; the next
+action is tested only after its resulting renewed frame has actually been drawn. This is an
+Editor interaction witness, not microphone or wearer acceptance.
