@@ -213,3 +213,27 @@ Both text sizes exercise exact drawn Send, retained draft/read proof through Com
 rejection, spoken reviewed Yes, hidden old Apply/Forget refusal, fresh Settings return and Compact
 from returned Settings. One exact instruction payload is acknowledged locally; no runtime completion
 is claimed. It verifies the core lifecycle combination, not physical visibility or wearer fit.
+
+
+## Independent workspace appearance validation (2026-10-13)
+
+At the current independent-console implementation, the component, full workspace and task-file
+passes succeed in both presets at both real-font sizes. The same whole run exposed 1,560 failures
+in the appearance-specific fixtures, which still placed the rejected six-agent arc and an invented
+video window across the console. Those fixtures now retain their six journal task identities
+independently from zero characters or one explicitly confirmed shelf. They no longer assert an
+external window or use a character target as the task identity.
+
+The normal ordinary-file pair keeps a visible preview. The specifically measured shelf pose and
+file pair exercise `MenuAside`, preview rollback and refusal of hidden Apply; shelf presence alone
+is not a visibility rule. Both cases retain the focused-input rollback and stale-frame refusal
+on return, full field/type/target/occupied-body checks, and actual light-line checks wherever a
+character exists. The character-free console does not invent a line to a nonexistent character.
+All five preview specimens, local choice without saving, Cancel without saving, Apply once and
+appearance-only Restore once remain exercised. Cache refresh, pixel and fade witnesses are unchanged.
+
+`AppearanceFlowCheck` reuses these exact production flows and cache checks in both presets and
+sizes; it passes after migration. Independent source review found no lost behavioral guard.
+`AppearanceCheck` retains those same flows plus the complete galleries. The earlier failed whole
+run and the focused passing run are distinct evidence, not a claim of a new whole-run pass.
+Headset preset legibility, live activation and wearer comfort remain unverified for this correction.
