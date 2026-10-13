@@ -234,6 +234,8 @@ appearance-only Restore once remain exercised. Cache refresh, pixel and fade wit
 
 `AppearanceFlowCheck` reuses these exact production flows and cache checks in both presets and
 sizes; it passes after migration. Independent source review found no lost behavioral guard.
-`AppearanceCheck` retains those same flows plus the complete galleries. The earlier failed whole
-run and the focused passing run are distinct evidence, not a claim of a new whole-run pass.
-Headset preset legibility, live activation and wearer comfort remain unverified for this correction.
+The subsequent complete `AppearanceCheck` also passes at `32169294`, including all component,
+workspace and task-file galleries, the appearance flows and the cache witnesses in both presets
+and sizes. The integrated repository check passes 1,172 tests, no failures or skips, plus type
+checking and lint. Headset preset legibility, live activation and wearer comfort remain unverified
+for this correction.
