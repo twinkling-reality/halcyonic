@@ -7,6 +7,7 @@ import {
   DEVICE_EVENT_TYPES,
   EvaluationResponse,
   type EvaluationResult,
+  EventId,
   EventsQuery,
   type EventsResponse,
   ExecutionId,
@@ -19,6 +20,7 @@ import {
   type RuntimeModelsResponse,
   type RuntimesResponse,
   type Snapshot,
+  ToolResultsQuery,
   TRANSCRIPTION_MAX_BYTES,
   UnderstandingResponse,
   type UnderstandingResult,
@@ -31,6 +33,7 @@ import type { Companion } from '../companion/companion.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { type Redaction, withinLimit } from '../core/redaction.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
+import { ToolResults } from '../core/tool-results.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import type { Transcriptions } from '../speech/transcriptions.ts';
@@ -48,6 +51,8 @@ const validateEvaluationResponse = compileValidator(EvaluationResponse);
 const validateUsageLimitsResponse = compileValidator(UsageLimitsResponse);
 const validateCompanionStatus = compileValidator(CompanionStatus);
 const validateCompanionReply = compileValidator(CompanionReplyResponse);
+const validateToolResultsQuery = compileValidator(ToolResultsQuery);
+const validateResultEventId = compileValidator(EventId);
 
 /**
  * The largest request for a companion reply: 24,000 characters of exchange (ADR 0025), each of
@@ -76,6 +81,37 @@ export function registerRoutes(
   controlPlane: ControlPlane,
   sources: RouteSources,
 ): void {
+  const results = new ToolResults(controlPlane);
+  for (const detail of [false, true]) {
+    const path = '/api/executions/:execution_id/results' + (detail ? '/:event_id' : '');
+    app.get(path, async (request, reply) => {
+      const params = request.params as Record<string, unknown>;
+      const parsed = validateToolResultsQuery(request.query);
+      if (
+        !parsed.ok ||
+        !validateExecutionId(params.execution_id).ok ||
+        (detail && !validateResultEventId(params.event_id).ok)
+      )
+        return reply
+          .code(400)
+          .send(errorBody('invalid_request', 'The result scope or identifier is invalid.'));
+      const body = detail
+        ? results.read(
+            params.execution_id as string,
+            params.event_id as string,
+            parsed.value,
+            request.principal,
+          )
+        : results.list(params.execution_id as string, parsed.value, request.principal);
+      if (!body)
+        return reply
+          .code(404)
+          .send(
+            errorBody('result_unavailable', 'Recorded results are unavailable for this selection.'),
+          );
+      return body;
+    });
+  }
   app.get('/api/workspace/commands/:command_id', async (request, reply) => {
     const id = (request.params as Record<string, unknown>).command_id;
     if (!validateWorkspaceCommandId(id).ok)

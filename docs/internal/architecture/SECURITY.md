@@ -1,5 +1,25 @@
 # Security
 
+## Recorded tool-result work content
+
+Observed final command output and per-file patch fields follow the established tool-title owner
+work-content policy ([ADR 0031](../decisions/0031-record-bounded-native-tool-results-in-the-owner-journal.md)).
+An over-64-KiB source field is omitted whole; an admitted field loses exact known held values
+before bounded storage. Actual replacements, omission and truncation are explicit. Unknown
+credentials can remain, including in patches: neither regex shapes nor field completeness promise
+secret-free content. These fields enter only the durable owner-only journal, never operational
+logs, raw-field hashes or a source spool. They are not collected by parsing instruction, model,
+agent-message or terminal text.
+
+Authenticated result reads bind the current journal/project/task/execution and an accepted
+observed result index, then cross-check the immutable journal event. A still-active paired device
+shares the existing owner's journal visibility; this adds no per-project multi-user tenancy. The
+coordinator is constrained to its original principal/request scope, and native/main views retain
+their original selection and recheck it after awaits. Read-only evidence grants no approval,
+instruction, filesystem, launch or new runtime authority. Lexical path classification deliberately
+does not resolve symlinks. The RPC transport's earlier unbounded native frame and overall journal/
+index memory are not bounded by the stored-field limits.
+
 ## Scope today
 
 The control plane runs on the developer's own machine and serves loopback by default. When the

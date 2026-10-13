@@ -1,3 +1,4 @@
+import type { ToolResult } from '@halcyonic/contracts';
 import {
   type CommandId,
   type ControlPlaneEvent,
@@ -11,6 +12,7 @@ import type { ExecutionContext, ObservationSink } from '@halcyonic/runtime-core'
 import type { Logger } from '../logger.ts';
 import type { EventDraft, Recorder } from './recorder.ts';
 import { fitted, type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
+import { normalizedToolResult } from './tool-result-redaction.ts';
 
 type ControlPlaneEventType = ControlPlaneEvent['event_type'];
 type ScopeOf<T extends ControlPlaneEventType> = Pick<
@@ -152,6 +154,8 @@ function withoutCredentials(
       return fittedQuestion(payload, redaction);
     case 'runtime.tool.started':
       return held('title', 500);
+    case 'runtime.tool.result':
+      return normalizedToolResult(observation.payload as ToolResult, redaction);
     case 'runtime.test_run.started':
       return held('label', 500);
     case 'runtime.test_run.completed':

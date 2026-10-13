@@ -386,6 +386,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       model_choice: 'listed',
       uses_project_location: true,
       reports_tool_activity: true,
+      reports_tool_results: false,
     };
   }
 

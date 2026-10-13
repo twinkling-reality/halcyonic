@@ -1,5 +1,15 @@
 # What leaves the process: logs, errors and the journal
 
+2026-10-13 addition: `runtime.tool.result` records final structured command/file-change work content
+under the existing owner-journal policy, after exact known-held replacement and explicit bounds.
+It never becomes an operational log field. Replacement counts do not claim that unknown secrets
+were removed. The parser/read paths have fixed refusals, do not spool/hash raw fields, and never
+parse instruction/model/agent-message text as evidence. Source-over-limit omission happens whole
+before replacement; admitted fields are replaced before truncation. The focused logging guards
+and pinned offline witness are recorded in [recorded-tool-results.md](recorded-tool-results.md).
+The transport still receives unbounded native frames before field admission; no process-memory
+bound is claimed here.
+
 - **Question:** Does anything private leave Halcyonic's processes through a log, an error message,
   an HTTP error response, the journal's stored error text, a printed line or a file written?
   Private means tokens, credentials and loopback proofs; instruction text, agent messages,

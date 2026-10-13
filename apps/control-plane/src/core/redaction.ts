@@ -118,16 +118,25 @@ function looksRandom(run: string): boolean {
  * nothing else. A value held under two names reads as the first.
  */
 export function redactHeld(text: string, secrets: Iterable<HeldSecret>): string {
+  return redactHeldDetailed(text, secrets).text;
+}
+export function redactHeldDetailed(
+  text: string,
+  secrets: Iterable<HeldSecret>,
+): { text: string; replacements: number } {
   const exact = new Map<string, string>();
   for (const { what, value } of secrets) {
     const trimmed = value.trim();
     if (trimmed.length >= SHORTEST_SECRET && !exact.has(trimmed)) exact.set(trimmed, what);
   }
   let out = text;
+  let replacements = 0;
   for (const [value, what] of [...exact].sort(([a], [b]) => b.length - a.length)) {
-    out = out.split(value).join(redactedHeld(what));
+    const parts = out.split(value);
+    replacements += parts.length - 1;
+    out = parts.join(redactedHeld(what));
   }
-  return out;
+  return { text: out, replacements };
 }
 
 /**
@@ -221,11 +230,13 @@ export interface Redaction {
    * away. Whole, however long; `fitted` cuts it after.
    */
   held(text: string): string;
+  heldDetailed(text: string): { text: string; replacements: number };
 }
 
 export function redaction(secrets: () => Iterable<HeldSecret> = () => []): Redaction {
   return {
     errorText: (text) => redactSecrets(text, secrets()),
     held: (text) => redactHeld(text, secrets()),
+    heldDetailed: (text) => redactHeldDetailed(text, secrets()),
   };
 }

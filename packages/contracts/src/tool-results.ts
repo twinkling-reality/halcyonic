@@ -7,10 +7,10 @@ import {
   Nullable,
   Position,
   ProjectId,
+  RuntimeId,
   Text,
   Timestamp,
   WorkstreamId,
-  RuntimeId,
 } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;

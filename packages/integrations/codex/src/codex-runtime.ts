@@ -268,6 +268,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // A spawned agent runs on a thread of its own, which the adapter does not follow, so no open call
       // does not mean none runs (OPEN_QUESTIONS.md).
       reports_tool_activity: false,
+      reports_tool_results: true,
     };
   }
 
@@ -364,7 +365,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       execution: request.execution,
       emit: request.emit,
       options: local,
-      state: createThreadState(this.#answerQuestions),
+      state: createThreadState(this.#answerQuestions, local.cwd),
       connection,
       confirmations: new Map(),
       queue: Promise.resolve(),

@@ -23,12 +23,13 @@ import type {
   RuntimeEvent,
   StoredEvent,
   Timestamp,
+  ToolResultSummary,
   WorkspaceRequestStep,
   WorkspaceRequestView,
   WorkstreamId,
   WorkstreamView,
 } from '@halcyonic/contracts';
-import { fitQuestion } from '@halcyonic/contracts';
+import { fitQuestion, TOOL_RESULT_RECENT } from '@halcyonic/contracts';
 import { deriveAttention } from './attention.ts';
 import { DeviceRegistry } from './devices.ts';
 import {
@@ -133,6 +134,14 @@ export class Projection {
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
   readonly #devices = new DeviceRegistry();
+  readonly #resultStarts = new Map<
+    string,
+    Map<string, { turn: string | null; title: string | null }>
+  >();
+  readonly #results = new Map<
+    string,
+    { total: number; recent: ToolResultSummary[]; history: Map<string, ToolResultSummary> }
+  >();
   readonly #inferredTurnOutcomes = new Map<
     string,
     { position: number; turnId: string | null; startPosition: number | null; rule: string }[]
@@ -191,6 +200,75 @@ export class Projection {
     );
     this.#dispatch(stored.event, changes, notes);
     const event = stored.event;
+    if (
+      notes.length === 0 &&
+      event.event_type === 'runtime.tool.started' &&
+      event.provenance.epistemic === 'observed'
+    ) {
+      const starts =
+        this.#resultStarts.get(event.execution_id) ??
+        new Map<string, { turn: string | null; title: string | null }>();
+      starts.set(event.payload.tool_call_id, {
+        turn: beforeTurn?.turnId ?? null,
+        title: event.payload.title,
+      });
+      // Missing native completions grant no evidence; retain a bounded set of possible correlations.
+      const oldest = starts.keys().next().value;
+      if (starts.size > 128 && oldest !== undefined) starts.delete(oldest);
+      this.#resultStarts.set(event.execution_id, starts);
+    }
+    if (notes.length === 0 && event.event_type === 'runtime.tool.result') {
+      const result = event.payload;
+      const started = this.#resultStarts.get(event.execution_id)?.get(result.tool_call_id);
+      const bodies =
+        result.kind === 'command' ? [result.output] : result.files.map((file) => file.patch);
+      const state = this.#results.get(event.execution_id) ?? {
+        total: 0,
+        recent: [] as ToolResultSummary[],
+        history: new Map<string, ToolResultSummary>(),
+      };
+      state.total++;
+      const summary: ToolResultSummary = {
+        event_id: event.event_id,
+        position: stored.position,
+        occurred_at: event.occurred_at,
+        runtime_id: event.source.runtime_id,
+        epistemic: 'observed',
+        native_type: event.provenance.native_type,
+        title:
+          started?.title == null
+            ? null
+            : Array.from(started.title).length <= 180
+              ? started.title
+              : Array.from(started.title).slice(0, 179).join('') + '…',
+        kind: result.kind,
+        completion: result.completion,
+        exit_code: result.kind === 'command' ? result.exit_code : null,
+        files_total: result.kind === 'file_changes' ? result.files_total : null,
+        body_available: bodies.some((body) => body.availability === 'available'),
+        retained_complete:
+          bodies.every((body) => body.complete) &&
+          (result.kind === 'command' ||
+            (result.list_complete &&
+              result.files.every(
+                (file) =>
+                  file.path_complete &&
+                  (file.move_path_complete === null || file.move_path_complete),
+              ))),
+      };
+      state.recent.unshift(summary);
+      state.history.set(event.event_id, summary);
+      state.recent.length = Math.min(state.recent.length, TOOL_RESULT_RECENT);
+      this.#results.set(event.execution_id, state);
+    }
+    if (
+      notes.length === 0 &&
+      event.event_type === 'runtime.tool.completed' &&
+      event.payload.turn_id != null &&
+      this.#resultStarts.get(event.execution_id)?.get(event.payload.tool_call_id)?.turn ===
+        event.payload.turn_id
+    )
+      this.#resultStarts.get(event.execution_id)?.delete(event.payload.tool_call_id);
     if (
       notes.length === 0 &&
       event.event_type === 'runtime.turn.started' &&
@@ -258,6 +336,14 @@ export class Projection {
   execution(executionId: string): ExecutionView | undefined {
     const state = this.#executions.get(executionId as ExecutionId);
     return state === undefined ? undefined : this.#view(state);
+  }
+  executionResultSummaries(executionId: string): { total: number; summaries: ToolResultSummary[] } {
+    const state = this.#results.get(executionId);
+    return { total: state?.total ?? 0, summaries: structuredClone(state?.recent ?? []) };
+  }
+  executionResultSummary(executionId: string, eventId: string): ToolResultSummary | undefined {
+    const summary = this.#results.get(executionId)?.history.get(eventId);
+    return summary ? structuredClone(summary) : undefined;
   }
 
   workspaceRequest(id: string): WorkspaceRequestView | undefined {
@@ -663,6 +749,7 @@ export class Projection {
       case 'runtime.question.resolved':
       case 'runtime.tool.started':
       case 'runtime.tool.completed':
+      case 'runtime.tool.result':
       case 'runtime.agent_message':
       case 'runtime.test_run.started':
       case 'runtime.test_run.completed':
@@ -685,6 +772,46 @@ export class Projection {
     if (execution === undefined) {
       notes.push(note('unknown_entity', event, `execution ${event.execution_id} does not exist`));
       return;
+    }
+    if (
+      (event.event_type === 'runtime.tool.started' ||
+        event.event_type === 'runtime.tool.completed') &&
+      (event.project_id !== execution.projectId ||
+        event.workstream_id !== execution.workstreamId ||
+        event.source.runtime_id !== execution.runtime.runtime_id)
+    ) {
+      notes.push(note('turn_mismatch', event, 'Tool activity does not match its execution scope.'));
+      return;
+    }
+    if (event.event_type === 'runtime.tool.completed' && event.payload.turn_id != null) {
+      const start = this.#resultStarts.get(event.execution_id)?.get(event.payload.tool_call_id);
+      if (start && start.turn !== event.payload.turn_id) {
+        notes.push(
+          note('turn_mismatch', event, 'Tool completion does not match its observed start.'),
+        );
+        return;
+      }
+    }
+    if (event.event_type === 'runtime.tool.result') {
+      const start = this.#resultStarts.get(event.execution_id)?.get(event.payload.tool_call_id);
+      if (
+        event.provenance.epistemic !== 'observed' ||
+        !start ||
+        start.turn === null ||
+        start.turn !== event.payload.turn_id ||
+        event.source.runtime_id !== execution.runtime.runtime_id ||
+        event.project_id !== execution.projectId ||
+        event.workstream_id !== execution.workstreamId
+      ) {
+        notes.push(
+          note(
+            'turn_mismatch',
+            event,
+            'Native result does not match its observed tool start and execution scope.',
+          ),
+        );
+        return;
+      }
     }
     if (event.sequence !== null) {
       if (execution.lastSequence !== null && event.sequence <= execution.lastSequence) {
@@ -775,6 +902,9 @@ export class Projection {
         break;
       case 'runtime.tool.completed':
         execution.activeTools.delete(event.payload.tool_call_id);
+        break;
+      case 'runtime.tool.result':
+        // Read-only recorded evidence; never a test event or semantic task outcome.
         break;
       case 'runtime.agent_message':
         // Agent text is history and a claim, not state. It changes nothing but `updated_at`.

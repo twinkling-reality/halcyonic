@@ -8,8 +8,8 @@ import {
   type PairingServerMessage,
 } from './devices.ts';
 import { EVENT_VARIANTS, type EventEnvelope } from './events.ts';
-import { toolResultProblem } from './tool-results.ts';
 import { type ClientMessage, HelloMessage, PingMessage } from './realtime.ts';
+import { toolResultProblem } from './tool-results.ts';
 
 export interface ValidationIssue {
   /** JSON Pointer to the offending value, `/` for the root. */

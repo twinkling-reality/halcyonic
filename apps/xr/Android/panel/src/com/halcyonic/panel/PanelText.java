@@ -110,6 +110,19 @@ public final class PanelText {
         return result.toString();
     }
 
+    /** Recorded bodies preserve LF and spaces; all other controls/ignorable characters are visible. */
+    static String recorded(String text) {
+        StringBuilder result = new StringBuilder();
+        for (int index = 0; index < text.length();) {
+            int code = text.codePointAt(index); index += Character.charCount(code);
+            if (code == '\n' || code == ' ') result.appendCodePoint(code);
+            else if (code < 32 || in(SHOWN_BY_CODE, code) || in(PRIVATE_USE, code) || code <= 0xFFFF && Character.isSurrogate((char)code)
+                || in(WHITE_SPACE, code)) result.append("‹U+").append(String.format(java.util.Locale.ROOT, "%04X", code)).append('›');
+            else result.appendCodePoint(code);
+        }
+        return result.toString();
+    }
+
     /**
      * <code>plain</code> text of at most <code>most</code> characters as shown, ending in an
      * ellipsis when cut. It is built a code point at a time, so a character shown by its code is

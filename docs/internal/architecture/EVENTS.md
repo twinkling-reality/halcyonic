@@ -79,6 +79,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.question.asked` | execution | runtime | The agent waits for the person to answer a question; carries the runtime's question id, its prompts (the agent's words) and whether Halcyonic can answer it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)) |
 | `runtime.question.resolved` | execution | runtime | The runtime took an answer (`answered`) or withdrew the question (`dismissed`); a turn's end withdraws it too |
 | `runtime.tool.started` / `.completed` | execution | runtime | Tool activity; a start carries the tool's name and a `title` from its input, or null (below); the execution view's `tool_activity` follows them (below) |
+| `runtime.tool.result` | execution | runtime | Observed final command or file-change fields from a supported adapter, correlated to the exact observed tool start and turn; bounded owner work content, not a current-tree or correctness claim |
 | `runtime.agent_message` | execution | runtime | Agent text (`reported`) |
 | `runtime.test_run.started` / `.completed` | execution | runtime | A test run and its outcome, with the runtime's label and summary; only the mock reports test runs today |
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
@@ -147,6 +148,31 @@ and admission answers an approve of a request that is not approvable with `appro
 ("This request was never shown whole, so it can only be denied."); a deny is admitted.
 
 ## Contracts: one source of truth
+
+Native tool results ([ADR 0031](../decisions/0031-record-bounded-native-tool-results-in-the-owner-journal.md))
+retain final completion and optional command exit code separately from output or per-file patches.
+Only the observed started tool's execution/turn/runtime and full project/workstream scope admit
+the result. Foreign or stale tool completion cannot clear that correlation. New completion events
+carry an optional `turn_id`; absent legacy values do not fabricate a result correlation. Replay
+rebuilds accepted result summaries; a matching raw journal event that the projection rejected is
+never served as evidence. Sixteen recent summaries retain no bodies; a lightweight accepted-event
+index and indexed exact journal read keep older selected evidence readable.
+
+Each native source text field above 64 KiB UTF-8 is omitted whole. Exact held values are replaced
+before the admitted field is cut to 4,096 codepoints/16 KiB UTF-8. The serialized result payload is
+at most 64 KiB, with at most 32 file entries; aggregate omission and file coverage remain explicit.
+Paths retain at most 1,024 codepoints, with shortened-path flags. Unknown/outside original or rename
+destination paths omit the patch; lexical inclusion does not resolve symlinks. `complete` describes
+only retention of the admitted native field after replacement, not complete stdout, a complete
+source patch, applied file bytes or current working-tree freshness. Native completion says whether
+the runtime completed/failed/declined the item; patch text alone proves no application. No result
+creates a test run, build status, installed-app association or semantic understanding.
+
+Results use the established owner-journal work-content policy: held-value replacement is explicit,
+actual replacement counts are recorded, unknown secrets may remain, and result bodies are never
+operational log content. No raw field hash, source spool or terminal/message parsing is introduced.
+The adapter still receives an unbounded RPC frame before admission; field and journal payload
+bounds do not bound that transport frame or overall process memory.
 
 The schemas are TypeBox definitions in `packages/contracts`. TypeBox schemas are JSON Schema, so
 the TypeScript types are inferred from them and `pnpm contracts:emit` serializes them, with shared

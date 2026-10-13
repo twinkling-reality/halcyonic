@@ -9,6 +9,17 @@ namespace Halcyonic.Client.Tests;
 
 public class ContractTests
 {
+    [TestCase(true)]
+    [TestCase(false)]
+    public void OptionalResultDeclarationRoundTripsWithoutInventingLegacySupport(bool supported)
+    {
+        const string legacy = "{\"runtime_id\":\"runtime\",\"kind\":\"mock\",\"display_name\":\"Runtime\",\"synthetic\":true,\"capabilities\":{\"interrupt\":true,\"instruct_while_running\":true,\"instruct_at_rest\":true,\"start_execution\":true,\"respond_to_approval\":true,\"answer_question\":true},\"model_choice\":\"none\",\"uses_project_location\":false,\"reports_tool_activity\":false}";
+        var absent = Json.AssertRoundTrips<RuntimeDescriptor>(legacy);
+        Assert.That(absent.ReportsToolResults, Is.Null);
+        var supplied = Edit(legacy, document => document["reports_tool_results"] = supported);
+        Assert.That(Json.AssertRoundTrips<RuntimeDescriptor>(supplied).ReportsToolResults, Is.EqualTo(supported));
+    }
+
     private static readonly string[] Trace = Repository.Trace();
 
     private static string Edit(string json, Action<JObject> edit)

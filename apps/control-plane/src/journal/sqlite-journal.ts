@@ -204,6 +204,7 @@ class SqliteJournal implements EventJournal {
   readonly #findByNativeId: StatementSync;
   readonly #head: StatementSync;
   readonly #readAfter: StatementSync;
+  readonly #readEvent: StatementSync;
   readonly #readWorkstreamAfter: StatementSync;
   readonly #readAfterExcluding: StatementSync;
   readonly #readWorkstreamAfterExcluding: StatementSync;
@@ -227,6 +228,7 @@ class SqliteJournal implements EventJournal {
     this.#readAfter = db.prepare(
       'SELECT position, envelope FROM events WHERE position > ? ORDER BY position LIMIT ?',
     );
+    this.#readEvent = db.prepare('SELECT position, envelope FROM events WHERE event_id = ?');
     this.#readWorkstreamAfter = db.prepare(
       'SELECT position, envelope FROM events WHERE workstream_id = ? AND position > ? ORDER BY position LIMIT ?',
     );
@@ -293,6 +295,10 @@ class SqliteJournal implements EventJournal {
             );
     }
     return rows.map((row) => toStoredEvent(row as { position: number; envelope: string }));
+  }
+  event(eventId: string): StoredEvent | undefined {
+    const row = this.#readEvent.get(eventId) as { position: number; envelope: string } | undefined;
+    return row ? toStoredEvent(row) : undefined;
   }
 
   *readAll(): Iterable<StoredEvent> {
