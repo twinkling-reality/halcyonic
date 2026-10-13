@@ -220,6 +220,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (comfort.Text != pass) failures.Add(name + ": the visible Comfort restore did not restore the pass's size.");
                     CloseSide();
+                    // Settings retains its category across minimize and navigation. Return through
+                    // the leaf's actual Back control so the later Your space route starts at the index.
+                    if (!Press(MenuColumn.Menu, SettingsHubColumn.Back))
+                        failures.Add(name + ": Comfort offered no visible Back to the Settings index.");
                     director.CloseMenu();
                     director.Open(MenuPlace.Tasks);
                     director.DrawNow();
@@ -231,6 +235,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 void ChangeTextSize(string step, Action atNewSize, Action backAtPass)
                 {
                     var pass = GlazeText.Scale;
+                    var retained = navigator.Beside;
                     try
                     {
                         Debug.Log("Halcyonic: judge render: direct Comfort-model transition checks retained request reflow before drawing.");
@@ -254,8 +259,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     navigator.Tick();
                     backAtPass();
-                    director.CloseMenu();
-                    director.Open(MenuPlace.Tasks);
+                    // This checks reflow of the same active confirmation. Global minimize is a
+                    // separate lifecycle boundary that correctly withdraws its armed approval.
+                    if (!ReferenceEquals(navigator.Beside, retained) || file?.Steering.Armed != WorkspaceAction.Approve)
+                        failures.Add(name + ": text-size reflow did not retain the same active approval review.");
                     director.DrawNow();
                 }
 
@@ -430,10 +437,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     if (file!.Screen.RequestPart != 0 || file.Steering.CanConfirm) failures.Add(name + ": back at the walk's text size, the request is not read again from its first part.");
                 });
-                for (var part = 1; part < 12 && Shown(MenuColumn.File)?.Footer[PromptSlot.Free] == null; part++)
+                var approvalPartLimit = Math.Max(1, file!.Screen.RequestParts) + 1;
+                for (var part = 0; part < approvalPartLimit && Shown(MenuColumn.File)?.Footer[PromptSlot.Free] == null; part++)
                 {
                     Settle();
+                    var beforePart = file.Screen.RequestPart;
                     if (!Press(MenuColumn.File, FileScreens.NextPart, FileScreens.RequestKey)) failures.Add(name + ": the request's next part took no press.");
+                    if (file.Screen.RequestParts > 1 && file.Screen.RequestPart == beforePart && !file.Steering.CanConfirm)
+                    { failures.Add(name + ": the rendered approval request refused to advance from its current read part."); break; }
                 }
                 if (Shown(MenuColumn.File)?.Footer[PromptSlot.Free]?.Words != "Yes, approve") failures.Add(name + ": the whole request read, there is no Yes, approve.");
                 Shot("7 yes");
