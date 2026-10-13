@@ -168,11 +168,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The newly failing fixed ghost poses and original Clover/Horns held pose, without changing their parameters.</summary>
         public static void CharacterProblemCompositionCheck() => CheckCharacterRenderDeterminism(composite: true, problematic: true);
 
-        private static void CheckCharacterRenderDeterminism(bool composite, bool problematic = false)
+        /// <summary>Private exact-source material/shader controls for the now-isolated pair interaction.</summary>
+        public static void CharacterPairStateCheck() => CheckCharacterRenderDeterminism(composite: true, problematic: true, privatePairStates: true);
+
+        private static void CheckCharacterRenderDeterminism(bool composite, bool problematic = false, bool privatePairStates = false)
         {
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
-                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", problematic ? "CharacterProblemComposition" : composite ? "CharacterCompositeDeterminism" : "CharacterRenderDeterminism", variant));
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", privatePairStates ? "CharacterPairStateRenders" : problematic ? "CharacterProblemComposition" : composite ? "CharacterCompositeDeterminism" : "CharacterRenderDeterminism", variant));
                 Directory.CreateDirectory(folder);
                 var result = new List<string>();
                 var previousField = ViewField.Current; var wasStill = GlazeMotion.Still;
@@ -230,7 +233,49 @@ namespace Halcyonic.XR.Workspace.Editor
                             var shell = view.Body.Find("Shell").GetComponent<Renderer>();
                             var renderers = root.GetComponentsInChildren<Renderer>(true);
                             var visibility = renderers.Select(renderer => renderer.enabled).ToArray();
-                            if (problematic)
+                            if (privatePairStates)
+                            {
+                                var originalMaterial = feature.sharedMaterial;
+                                var privateMaterials = new List<Material>(); var privateShaders = new List<Shader>();
+                                var source = File.ReadAllText(Path.Combine(Application.dataPath, "Halcyonic", "Characters", "Shaders", "CharacterBody.shader"));
+                                try
+                                {
+                                    Series("baseline-production", freshDepth: null);
+                                    var copy = new Material(originalMaterial) { hideFlags = HideFlags.HideAndDontSave };
+                                    privateMaterials.Add(copy); feature.sharedMaterial = copy;
+                                    Series("original-shader-material-copy", freshDepth: null);
+                                    ShaderVariant("exact-source-copy", text => text);
+                                    copy.renderQueue = originalMaterial.renderQueue - 1; feature.sharedMaterial = copy;
+                                    Series("distinct-earlier-queue", freshDepth: null);
+                                    ShaderVariant("feature-zwrite-off", text => ReplacePairState(text, "ZWrite On", "ZWrite Off"));
+                                    ShaderVariant("feature-depth-bias", text => ReplacePairState(text, "ZWrite On", "ZWrite On\n            Offset 0, -1"));
+                                    ShaderVariant("disable-batching", text => ReplacePairState(text,
+                                        "\"ForceNoShadowCasting\" = \"True\"", "\"ForceNoShadowCasting\" = \"True\" \"DisableBatching\" = \"True\""));
+                                }
+                                finally
+                                {
+                                    feature.sharedMaterial = originalMaterial;
+                                    foreach (var material in privateMaterials) UnityEngine.Object.DestroyImmediate(material);
+                                    foreach (var shader in privateShaders) UnityEngine.Object.DestroyImmediate(shader);
+                                }
+                                Series("restored-baseline-production", freshDepth: null);
+
+                                void ShaderVariant(string path, Func<string, string> state)
+                                {
+                                    // Name-only copy is an explicit compiler/identity control for every named-state variant.
+                                    var shaderName = "Hidden/Halcyonic/Pair " + path + " " + name + " " + variant;
+                                    var exact = ReplacePairState(source, "Shader \"Halcyonic/Character Body\"", "Shader \"" + shaderName + "\"");
+                                    var modified = state(exact);
+                                    File.WriteAllText(Path.Combine(folder, name + "-" + path + "-shader.txt"), modified);
+                                    var shader = ShaderUtil.CreateShaderAsset(modified);
+                                    shader.hideFlags = HideFlags.HideAndDontSave; privateShaders.Add(shader);
+                                    if (ShaderUtil.ShaderHasError(shader)) throw new InvalidOperationException("Private character shader " + path + " failed compilation.");
+                                    var material = new Material(originalMaterial) { shader = shader, hideFlags = HideFlags.HideAndDontSave };
+                                    privateMaterials.Add(material); feature.sharedMaterial = material;
+                                    Series(path, freshDepth: null);
+                                }
+                            }
+                            else if (problematic)
                             {
                                 var originalMaterial = feature.sharedMaterial;
                                 Texture2D? beforeMoment = null;
@@ -376,7 +421,8 @@ namespace Halcyonic.XR.Workspace.Editor
                                                 records.Add(renderer.name + " localToWorld=" + renderer.localToWorldMatrix.ToString("R")
                                                     + " worldToLocal=" + renderer.worldToLocalMatrix.ToString("R") + " bounds=" + renderer.bounds.ToString("R")
                                                     + " sortingLayer=" + renderer.sortingLayerID + " sortingOrder=" + renderer.sortingOrder
-                                                    + " queue=" + renderer.sharedMaterial?.renderQueue + " shader=" + renderer.sharedMaterial?.shader?.name
+                                                    + " queue=" + renderer.sharedMaterial?.renderQueue + " materialId=" + renderer.sharedMaterial?.GetInstanceID()
+                                                    + " shaderId=" + renderer.sharedMaterial?.shader?.GetInstanceID() + " shader=" + renderer.sharedMaterial?.shader?.name
                                                     + " staticBatch=" + renderer.isPartOfStaticBatch + " instancing=" + renderer.sharedMaterial?.enableInstancing
                                                     + " DisableBatching=" + renderer.sharedMaterial?.GetTag("DisableBatching", false, "not declared"));
                                             image = WorkspaceRender.Render(camera, currentTarget);
@@ -416,6 +462,12 @@ namespace Halcyonic.XR.Workspace.Editor
                                 }
                                 finally { if (previous != null) UnityEngine.Object.DestroyImmediate(previous); }
                                 File.WriteAllLines(Path.Combine(folder, prefix + "-parameters.txt"), records);
+                                if (privatePairStates)
+                                {
+                                    var junction = CloseUp(camera, texture, view.Body.position, out _);
+                                    try { File.WriteAllBytes(Path.Combine(folder, prefix + "-junction.png"), junction.EncodeToPNG()); }
+                                    finally { UnityEngine.Object.DestroyImmediate(junction); }
+                                }
                                 Debug.Log("Halcyonic: unchanged character render: " + prefix + ": " + changes + " exactRGBA differences across seven unchanged pairs.");
                                 // This is a diagnostic, not an acceptance threshold or a replacement for KeepStill.
                             }
@@ -433,6 +485,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 return result;
             });
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        private static string ReplacePairState(string source, string before, string after)
+        {
+            var first = source.IndexOf(before, StringComparison.Ordinal);
+            if (first < 0 || first != source.LastIndexOf(before, StringComparison.Ordinal))
+                throw new InvalidOperationException("Private shader diagnostic requires exactly one named state anchor.");
+            return source.Substring(0, first) + after + source.Substring(first + before.Length);
         }
 
         private static string CharacterBatchingSetting()

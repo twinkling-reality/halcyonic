@@ -222,3 +222,22 @@ easing or comparison change is made. Unity's [SubShader tag reference](https://d
 warns that object-space shaders need DisableBatching when dynamic batching transforms their
 vertices; its [current C# reference](https://github.com/Unity-Technologies/UnityCsReference/blob/master/Editor/Mono/PlayerSettings.bindings.cs)
 shows the read-only batching getter is internal. Actual participation and causality remain open.
+
+**Remaining pair dependency, not motion.** The actual `9aeb4531` run retained unchanged
+shell-only, feature-only original shader, feature/non-character and Unlit captures in the
+remaining ghost and Clover histories. Pair/full captures still drifted, including Clover
+at fixed 216 and fixed 288-frame poses. This rejects a residual-only repair for that case too.
+Configured Android static/dynamic batching were both 1, but actual participation is unknown.
+
+`CharacterPairStateCheck` is the approved bounded discriminator: the exact same five histories
+and at most eight unchanged captures per variant use original production, original shader in
+a copied material, name-only exact shader copy, distinct earlier feature queue, private
+feature ZWrite Off, private feature Offset 0,-1, private DisableBatching tag and restored
+original production. Private shader text differs only in the name and the named state;
+copies and exact material/shader identities are logged so a state effect is not confused
+with changed submission identity. The production shader, project settings, MPBs, geometry
+and comparison stay unchanged. In-memory private shader compilation uses Unity's documented
+[current C# ShaderUtil surface](https://github.com/Unity-Technologies/UnityCsReference/blob/master/Editor/Mono/ShaderUtil.bindings.cs/),
+with objects destroyed and original materials restored in finally. Pixel coordinates, full
+frames and exact source copies are retained for review; no production shader repair is
+endorsed before actual results and appearance/occlusion inspection.
