@@ -210,6 +210,8 @@ namespace Halcyonic.XR.Workspace.Editor
                                     Composition("full-minus-shell", renderer => renderer != shell);
                                     Composition("shell-only", renderer => renderer == shell);
                                     for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
+                                    shell.sortingOrder = 0; feature.sortingOrder = 0;
+                                    Series("full-legacy-equal-order", freshDepth: null);
                                     shell.sortingOrder = 0; feature.sortingOrder = 1;
                                     Series("full-feature-after-shell", freshDepth: null);
                                     feature.sortingOrder = -1;
@@ -357,6 +359,110 @@ namespace Halcyonic.XR.Workspace.Editor
             var changed = 0;
             for (var pixel = 0; pixel < first.Length; pixel++) if (!SameCharacterPixel(first[pixel], second[pixel])) changed++;
             return changed;
+        }
+
+        /// <summary>All six features in existing live/paused/ghosted states: unchanged composed pixels and visible layer evidence.</summary>
+        public static void CharacterFeatureCompositionCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "CharacterFeatureComposition", variant));
+                Directory.CreateDirectory(folder);
+                var result = new List<string>();
+                var previousField = ViewField.Current; var wasStill = GlazeMotion.Still;
+                try
+                {
+                    ViewField.Current = FieldChecks.Quest3S;
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    foreach (CharacterFeature kind in Enum.GetValues(typeof(CharacterFeature)))
+                    {
+                        GlazeMotion.Still = false;
+                        var id = Enumerable.Range(0, 10000).Select(n => "feature-Round-" + kind + "-" + n.ToString(CultureInfo.InvariantCulture))
+                            .First(candidate => CharacterIdentity.Of(candidate).Shape == BodyShape.Round && CharacterIdentity.Of(candidate).Feature == kind);
+                        var root = new GameObject("Actual feature composition " + kind);
+                        var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+                        try
+                        {
+                            var eyes = new Vector3(0f, EyeHeight, 0f);
+                            var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
+                            var plane = CharacterConsole(root.transform, eyes);
+                            var character = WorkspaceRender.ConfirmedPlaneAgent(root.transform, plane, eyes, Shown(id, CharacterActivity.Idle), result, kind.ToString());
+                            var view = character.View;
+                            var shell = view.Body.Find("Shell").GetComponent<Renderer>();
+                            foreach (CharacterActivity activity in Enum.GetValues(typeof(CharacterActivity)))
+                            foreach (var stale in new[] { false, true })
+                            {
+                                var name = kind + "-" + activity + (stale ? "-last-known" : "-live");
+                                view.Show(Shown(id, activity, stale)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
+                                WorkspaceRender.ForceMeshes(root);
+                                var feature = view.FeatureForRender.Renderer;
+                                if (feature != null && (feature.sortingOrder != shell.sortingOrder - 1 || feature.sharedMaterial != shell.sharedMaterial))
+                                    result.Add(name + ": actual feature does not use the declared earlier order and unchanged body material.");
+                                var beforeValues = CharacterFrameValues(new[] { view });
+                                Texture2D? first = null;
+                                try
+                                {
+                                    first = WorkspaceRender.Render(camera, texture);
+                                    File.WriteAllBytes(Path.Combine(folder, name + ".png"), first.EncodeToPNG());
+                                    for (var frame = 1; frame < 8; frame++)
+                                    {
+                                        var repeated = WorkspaceRender.Render(camera, texture);
+                                        try
+                                        {
+                                            var changed = ExactCharacterPixels(first, repeated);
+                                            if (changed != 0) result.Add(name + ": unchanged composed frame " + frame + " changes " + changed + " exact RGBA pixels.");
+                                        }
+                                        finally { UnityEngine.Object.DestroyImmediate(repeated); }
+                                    }
+                                    var afterValues = CharacterFrameValues(new[] { view });
+                                    if (beforeValues.Any(pair => afterValues[pair.Key] != pair.Value)) result.Add(name + ": repeated captures changed actual character values.");
+                                    result.AddRange(CharacterFeatureShows(name, camera, texture, view));
+                                    if (feature != null)
+                                    {
+                                        // The same posed camera retains the shell's front, not merely a stable feature silhouette.
+                                        shell.enabled = false;
+                                        Texture2D? withoutShell = null;
+                                        try
+                                        {
+                                            withoutShell = WorkspaceRender.Render(camera, texture);
+                                            File.WriteAllBytes(Path.Combine(folder, name + "-without-shell.png"), withoutShell.EncodeToPNG());
+                                            if (ExactCharacterPixels(first, withoutShell) == 0) result.Add(name + ": the visible feature completely obscures its shell.");
+                                        }
+                                        finally { shell.enabled = true; if (withoutShell != null) UnityEngine.Object.DestroyImmediate(withoutShell); }
+                                        var originalOrder = feature.sortingOrder;
+                                        Texture2D? legacy = null;
+                                        try
+                                        {
+                                            feature.sortingOrder = shell.sortingOrder;
+                                            legacy = WorkspaceRender.Render(camera, texture);
+                                            File.WriteAllBytes(Path.Combine(folder, name + "-legacy-equal-order.png"), legacy.EncodeToPNG());
+                                        }
+                                        finally { feature.sortingOrder = originalOrder; if (legacy != null) UnityEngine.Object.DestroyImmediate(legacy); }
+                                    }
+                                    if ((kind == CharacterFeature.Ears || kind == CharacterFeature.Antenna || kind == CharacterFeature.Sprout || kind == CharacterFeature.Horns)
+                                        && activity == CharacterActivity.Idle)
+                                    {
+                                        var close = CloseUp(camera, texture, view.Body.position, out _);
+                                        File.WriteAllBytes(Path.Combine(folder, name + "-junction.png"), close.EncodeToPNG());
+                                        UnityEngine.Object.DestroyImmediate(close);
+                                    }
+                                    var restored = WorkspaceRender.Render(camera, texture);
+                                    try { if (ExactCharacterPixels(first, restored) != 0) result.Add(name + ": restoring visibility/order does not restore exact composed pixels."); }
+                                    finally { UnityEngine.Object.DestroyImmediate(restored); }
+                                }
+                                finally { if (first != null) UnityEngine.Object.DestroyImmediate(first); }
+                            }
+                        }
+                        finally { UnityEngine.Object.DestroyImmediate(root); texture.Release(); UnityEngine.Object.DestroyImmediate(texture); }
+                    }
+                }
+                catch (Exception error) { result.Add(error.ToString()); }
+                finally { ViewField.Current = previousField; GlazeMotion.Still = wasStill; WorkspaceRender.KeepFontAssetsAsCommitted(); }
+                foreach (var failure in result) Debug.LogError("Halcyonic: feature composition: " + failure);
+                if (result.Count == 0) Debug.Log("Halcyonic: feature composition: every check passed; " + folder);
+                return result;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
         private static MenuPlane CharacterConsole(Transform root, Vector3 eyes)
@@ -629,6 +735,8 @@ namespace Halcyonic.XR.Workspace.Editor
                                 if (label.Apart(body) < OwnLabelGapDegrees) failures.Add(what + ": shell/feature touches its label.");
                                 if (view.FeatureForRender.Renderer is MeshRenderer feature)
                                 {
+                                    if (feature.sortingOrder != shell.GetComponent<Renderer>().sortingOrder - 1)
+                                        failures.Add(what + ": feature does not retain the earlier shell-relative render order.");
                                     feature.GetPropertyBlock(block);
                                     if (block.GetFloat("_EyeInk") != 0f) failures.Add(what + ": a feature inherited eyes.");
                                     foreach (var key in new[] { "_Flow", "_Crack", "_Fog", "_Ghost", "_Saturation" })

@@ -78,7 +78,7 @@ namespace Halcyonic.Client
         /// <summary>What stands on top of its body, one of six, none among them.</summary>
         public CharacterFeature Feature { get; }
 
-        /// <summary>How long its eyes stay open between blinks, from 3 to 7 seconds, its own so characters never blink together and renders repeat.</summary>
+        /// <summary>Its repeatable interval between blinks, from 3 to 7 seconds, derived from its identity.</summary>
         public double BlinkEverySeconds { get; }
 
         /// <summary>The body's hue in degrees, one of <see cref="Hues"/>.</summary>
