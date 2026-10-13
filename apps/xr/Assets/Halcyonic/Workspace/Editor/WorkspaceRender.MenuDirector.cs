@@ -428,21 +428,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": the ordinary-file subject is not the measured one-row setup.");
                 file?.Change();
                 ProjectsForDirectorRender(director, failures, name);
-                // Projects deliberately leaves task focus. Reopen the retained ordinary file by its
-                // visible Tasks row before exercising Settings alongside it.
-                var projectNavigation = director.Plane.Showing(MenuColumn.Menu);
-                if (projectNavigation == null || !projectNavigation.Sections.Any(section => section.Key == nameof(MenuPlace.Tasks))
-                    || !director.PressForRender(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks), projectNavigation, null))
-                    failures.Add(name + ": Projects offered no visible Tasks route for the ordinary-file witness.");
-                director.DrawNow();
-                director.DrawNow();
-                var ordinaryTasks = director.Plane.Showing(MenuColumn.Menu);
-                if (ordinaryTasks == null || !ordinaryTasks.Lines.Any(line => line.Action == TasksColumn.OpenTask && line.Key == opened.WorkstreamId)
-                    || !director.PressForRender(MenuColumn.Menu, TasksColumn.OpenTask, opened.WorkstreamId, ordinaryTasks, null))
-                    failures.Add(name + ": the ordinary-file witness could not reopen its task through the visible row.");
-                director.DrawNow();
-                director.DrawNow();
-                if (director.Navigator.Beside != file) failures.Add(name + ": reopening the task did not retain the ordinary file instance.");
+                // Projects deliberately leaves task focus. Character-free cases reopen the
+                // ordinary file for actual side-file coverage. The supported shelf may leave no
+                // room for the wider pair: Settings remains visibly reachable with its file cached.
+                if (!besideWindow)
+                {
+                    var projectNavigation = director.Plane.Showing(MenuColumn.Menu);
+                    if (projectNavigation == null || !projectNavigation.Sections.Any(section => section.Key == nameof(MenuPlace.Tasks))
+                        || !director.PressForRender(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks), projectNavigation, null))
+                        failures.Add(name + ": Projects offered no visible Tasks route for the ordinary-file witness.");
+                    director.DrawNow();
+                    director.DrawNow();
+                    var ordinaryTasks = director.Plane.Showing(MenuColumn.Menu);
+                    if (ordinaryTasks == null || !ordinaryTasks.Lines.Any(line => line.Action == TasksColumn.OpenTask && line.Key == opened.WorkstreamId)
+                        || !director.PressForRender(MenuColumn.Menu, TasksColumn.OpenTask, opened.WorkstreamId, ordinaryTasks, null))
+                        failures.Add(name + ": the ordinary-file witness could not reopen its task through the visible row.");
+                    director.DrawNow();
+                    director.DrawNow();
+                    if (director.Navigator.Beside != file) failures.Add(name + ": reopening the task did not retain the ordinary file instance.");
+                }
+                var fileBesideSettings = director.Navigator.Beside == file;
+                if (!director.Memory.Files.TryGetValue(opened.WorkstreamId, out var keptFile) || keptFile != file)
+                    failures.Add(name + ": Settings navigation discarded the retained task file.");
                 var offeredMenu = director.Plane.Showing(MenuColumn.Menu);
                 if (offeredMenu == null || !offeredMenu.Sections.Any(section => section.Key == nameof(MenuPlace.Settings)))
                     failures.Add(name + ": the ordinary-file setup offered no visible Settings section.");
@@ -456,7 +463,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 var settings = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Settings, state)).Menu;
                 if (settings?.Subject != SettingsText.Subject) failures.Add(name + ": choosing Settings did not show Settings.");
-                if (director.Navigator.Beside != file) failures.Add(name + ": choosing a place took the file away.");
+                if (fileBesideSettings && director.Navigator.Beside != file) failures.Add(name + ": choosing a place took the file away.");
+                if (!director.Memory.Files.TryGetValue(opened.WorkstreamId, out keptFile) || keptFile != file)
+                    failures.Add(name + ": choosing Settings lost its hidden retained task file.");
                 failures.AddRange(PlaneState(name + " director settings", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
 
                 // Enter the visible Comfort category before choosing its supported setting.
@@ -470,7 +479,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var fileDrawn = director.Plane.Showing(MenuColumn.File);
                 director.Navigator.Act(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size", director.Plane.Showing(MenuColumn.Menu), null);
                 director.DrawNow();
-                if (!director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) != null) failures.Add(name + ": a setting chosen beside the file, and the file still stands on the plane.");
+                if (fileBesideSettings && (!director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) != null))
+                    failures.Add(name + ": a setting chosen beside the file, and the file still stands on the plane.");
+                if (!fileBesideSettings && (director.Plane.Showing(MenuColumn.File) != null || director.Plane.Front?.Side == null))
+                    failures.Add(name + ": a visible setting did not own details while the shelf's task file stayed cached.");
                 if (director.Navigator.Act(MenuColumn.File, "render-press", null, fileDrawn, null)) failures.Add(name + ": the file took a press while it stood aside.");
                 failures.AddRange(PlaneState(name + " director setting over a file", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 director.Navigator.Act(MenuColumn.Menu, SettingsColumn.OpenSetting, "sounds", director.Plane.Showing(MenuColumn.Menu), null);
@@ -479,7 +491,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var details = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View;
                 if (details == null || !director.Navigator.Act(MenuColumn.Side, SidePanel.Close, null, null, details.Side)) failures.Add(name + ": the setting's details took no Close.");
                 director.DrawNow();
-                if (director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) == null) failures.Add(name + ": the details closed, and the file did not come back.");
+                if (fileBesideSettings && (director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) == null))
+                    failures.Add(name + ": the details closed, and the file did not come back.");
+                if (!fileBesideSettings && (director.Navigator.Place != MenuPlace.Settings || director.Plane.Showing(MenuColumn.Menu) == null))
+                    failures.Add(name + ": closing shelf-case setting details lost visible Settings navigation.");
                 failures.AddRange(PlaneState(name + " director file back from a setting", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
 
                 // The file's Close, then the menu's: the closed bar alone.

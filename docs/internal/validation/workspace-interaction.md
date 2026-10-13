@@ -449,3 +449,10 @@ hidden character selection and restores through the current visible dock. It req
 same editor instance, input buffer and read position, rejects input before its resumed frame is
 drawn, and rejects the late keyboard callback. This establishes dock continuity and hidden-input
 refusal; it does not establish a positive character-selection witness after global Minimize.
+
+The supported shelf can legitimately veto the wider menu/file pair even when it clears the
+ordinary single console. The shelf director case therefore opens Settings through visible global
+Projects while its task file stays cached, checks that exact retained file identity, and verifies
+current setting/details/Close navigation. Character-free director cases retain the full ordinary
+file-beside-Settings, file-aside refusal and file-return witness. No shelf collision or field check
+is bypassed to force a pair into occupied space.
