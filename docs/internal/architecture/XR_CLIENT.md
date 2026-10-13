@@ -3047,7 +3047,7 @@ The bounded character candidate retains the current independent console and expl
 one-agent shelf. `CharacterIdentity` adds the six feature values already chosen in ADR 0013
 (None, Antenna, Ears, Sprout, Crest, Horns), using hash bits after the existing shape, hue and
 light/dark tone selection; those existing identity values do not change. This is deterministic
-identity variation, not a user customization control. Features use the body's material and
+identity variation, not a user customization control. Features use the body shader and
 state surface cues, retain its lightened hue, and have no eyes or separate state semantics.
 No ring/rim replacement, automatic placement, character-mediated navigation or travel is added.
 
@@ -3055,8 +3055,8 @@ The actual blink path consumes each identity's declared 3–7 second interval an
 0.14 second `Glaze.BlinkSeconds` duration. Closed, crossed and flat eye kinds remain distinct.
 A paused presentation (including last-known and Interrupted) snaps to its state once in `Show`,
 then holds its animation clock, transform and material values until live state returns. Keep
-things still continues to suppress blinks and motion; the candidate does not relax its exact
-pixel invariance check or claim that the old held render failure is fixed.
+things still continues to suppress blinks and motion. Existing temporal pixel thresholds and
+geometry assertions remain unchanged; exact RGBA repeat captures additionally check composition.
 
 `CharacterView` shares the existing 0.1 body/hand-target radius and -0.0095 slumped lift through
 UI tokens, preserving assembly direction. A feature is bounded to 1.32 shell units, so the
@@ -3075,14 +3075,25 @@ placement-envelope containment, label readability/clearance, feature pixels and 
 blinks. `StageRender.AgentShelfCheck` uses the same supported one-agent consumer. The historical
 `StageRender.Check` remains a separate regression diagnostic; it does not enable its old
 six-character arrangement. Both stillness paths save before/after pixels and exact transforms
-and material blocks to diagnose the held Standard two-pixel failure before a production repair.
-Unity renders, mutation checks, stereo/device cost and wearer acceptance remain separate gates.
+and material blocks. The current actual results and coverage boundaries are recorded in
+[character-rendering.md](../validation/character-rendering.md#character-features-on-the-optional-shelf-2026-10-13).
+Unity consumer gates, mutation checks, stereo/device cost and wearer acceptance remain distinct.
 
-The actual unchanged-render probes isolated a shell/feature composition problem: isolated
-features and shells were stable, while the overlapping pair changed a few edge pixels.
-Explicit feature-before-shell sorting produced zero exact RGBA differences for all three
-failing identities at both text sizes; restoring equal order reproduced drift in five of six
-cases. The candidate therefore gives the feature `shell.sortingOrder - 1`, retaining the
-body's original material, transparent queue, blending and depth writes. It makes their
-composition order explicit; it does not change animation easing. Acceptance still requires
-the full identity/state/source renders and inspection of front, junction and ghost pixels.
+Actual unchanged-render probes isolated a shell/feature composition dependency: isolated
+features and shells were stable, while the overlapping pair changed a few edge pixels at fixed
+poses. Earlier feature order alone left ghost and Clover/Horns failures. Private feature-only
+depth-write-Off controls were stable in all ten failed-history/text-size series, while each
+other state/submission control failed somewhere. Motion residuals and generic batching causes
+were not established; no animation easing or project batching setting changes.
+
+The candidate gives the feature `shell.sortingOrder - 1` and one cached generated body-material
+copy with `_DepthWrite = 0`. The Resources-owned shell keeps the shader default depth writing
+(`_DepthWrite = 1`), needed for rear-ring and opaque foreground occlusion. The feature shader,
+render queue, depth test and blending remain the body's. Subsystem reset destroys only the owned
+feature material and later views share one regenerated copy. Actual composition guards consume
+this ownership, opaque foreground/background and the existing Checking ring relationship.
+Current ring poses have positive rear-shell/foreground samples but no rear-feature samples;
+this does not prove generic transparent depth support. Later transparent objects behind
+protruding features require deliberate ordering and separate visual validation. Candidate
+integration requires the current consumer gates and independent review; device behavior
+remains unverified.

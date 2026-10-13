@@ -146,10 +146,10 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 Check("component lifecycle", CheckComponentLifecycle);
-                // The stage's default distance and height; the character that waits for the person,
-                // in the middle, opened.
+                // Raw panel component regressions beside one confirmed optional shelf. Far cases
+                // also retain the original six-arc arrangement as a measured no-fit negative.
                 Check("RenderStage", () => RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
-                // A desk 0.46 m below the eyes, the lineup 0.55 m ahead, its bodies about 0.1 m above it.
+                // The second component gallery retains its independent interaction/opacity cases.
                 Check("RenderStage", () => RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 // Again with a Quest 3S's narrower field measured: the workspace stays inside it.
                 ViewField.Current = FieldChecks.Quest3S;
@@ -207,28 +207,44 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
-                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation);
-
-                // Opened the way the director opens it: the person looking at the character that needs them.
-                var opened = characters[3].Target;
-                var targets = characters.ConvertAll(character => character.Target);
-                var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
-                var (pose, direction) = WorkspaceLayout.Place(opened, targets, eyes, opened.BodyPosition - eyes, surface, new List<BodyInView>());
+                if (!surfaceDrop.HasValue) failures.AddRange(LegacyArcNoFit(name, eyes, radius));
+                var plane = MenuPlane.Create(root.transform);
+                var projects = ProjectsScreens.Projects(new ProjectsScreens.State
+                {
+                    Demonstration = true, TextSize = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard,
+                });
+                plane.Show(new MenuBar(MenuPlace.Projects, "Projects"), projects, null, null, Array.Empty<CharacterTarget>(),
+                    eyes, Vector3.forward, null, immediately: true);
+                var direction = plane.Direction;
+                var forward = PlaneLayout.Facing(direction) * Vector3.forward;
+                var pose = new Pose(eyes + forward * PanelFrame.Distance, PlaneLayout.Facing(direction));
                 var holder = new GameObject("Workspace");
                 holder.transform.SetParent(root.transform, false);
                 holder.transform.SetPositionAndRotation(pose.position, pose.rotation);
                 holder.transform.localScale = Vector3.one * PanelFrame.Scale;
                 var panel = WorkspacePanel.Create(holder.transform);
+                var characters = new List<(CharacterView View, CharacterTarget Target)>();
                 var view = new View(name, folder, camera, texture, root, panel, characters, eyes);
 
-                // As it opens on work that waits for the person: the approval under Waiting for you.
                 var waiting = Work.Approval("Run make migrate");
                 view.Show(waiting.Present(), new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou }, Steering());
-                Backdrop(characters[3].View.transform, eyes, pose);
+                var frame = GlazeChecks.MeshOutline(name + " raw workspace", eyes, panel.Frame.GetComponentsInChildren<Renderer>(false));
+                var agent = ConfirmedPlaneAgent(root.transform, plane, eyes, Presentation("render-3", 3), failures, name, frame);
+                characters.Add(agent);
+                var actualPoints = agent.View.GetComponentsInChildren<MeshFilter>(false)
+                    .Where(filter => filter.TryGetComponent<Renderer>(out var renderer) && renderer.enabled)
+                    .SelectMany(filter => filter.sharedMesh.vertices.Select(vertex => filter.transform.TransformPoint(vertex)));
+                failures.AddRange(GlazeChecks.InsideField(name + " actual optional agent and label", actualPoints, eyes, eyes + Vector3.forward,
+                    0f, ViewField.Current ?? MenuPage.Quest3S));
+                if (characters.Count != 1 || !agent.View.Grounded) failures.Add(name + ": raw component scene did not use one grounded confirmed agent.");
+                var occupied = characters.Select(character => WorkspaceLayout.InView(character.Target, eyes)).ToArray();
+                direction = new PanelDirection(direction.Yaw, direction.Elevation,
+                    WorkspacePlacement.Clears(direction, occupied, WorkspaceLayout.FrameSize), false);
+                plane.gameObject.SetActive(false);
+                Backdrop(agent.View.transform, eyes, pose);
                 if (ViewField.Current is ViewField field)
                 {
-                    // Read with the head turned toward it, over a desk as well, where it opens above the lineup, tipped
-                    // down as much as its bottom needs, at most 8 degrees (WorkspacePlacement.ReadingPitch).
+                    // The whole raw frame retains the same measured field margin and reading-pitch limit.
                     failures.AddRange(FieldChecks.Inside(name + ": the workspace", FieldChecks.Corners(view.Frame), eyes, pose.position,
                         WorkspacePlacement.ReadingPitch(WorkspaceLayout.FrameSize, direction.Elevation, field), field));
                 }
@@ -290,6 +306,49 @@ namespace Halcyonic.XR.Workspace.Editor
                 texture.Release();
                 UnityEngine.Object.DestroyImmediate(texture);
             }
+            return failures;
+        }
+
+        private static IEnumerable<string> LegacyArcNoFit(string name, Vector3 eyes, float radius)
+        {
+            var failures = new List<string>();
+            var root = new GameObject("Original six-arc no-fit negative");
+            try
+            {
+                var characters = Lineup(root.transform, eyes, radius, null, Presentation);
+                var targets = characters.ConvertAll(character => character.Target);
+                var looking = targets[3].BodyPosition - eyes;
+                var legacy = WorkspaceLayout.Place(targets[3], targets, eyes, looking, null, new List<BodyInView>()).Direction;
+                var holder = new GameObject("Measured legacy panel alternative"); holder.transform.SetParent(root.transform, false);
+                holder.transform.localScale = Vector3.one * PanelFrame.Scale;
+                var panel = WorkspacePanel.Create(holder.transform);
+                panel.Show(WorkspaceScreens.Screen(Work.Approval("Run make migrate").Present(), Steering(),
+                    new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou }), null);
+                ForceMeshes(root);
+                var lower = Mathf.Max(WorkspacePlacement.Lowest(WorkspaceLayout.FrameSize), WorkspacePlacement.Lowest(WorkspaceLayout.FrameSize, ViewField.Current));
+                var lowestLabelGap = GapAt(lower, labels: true);
+                var highestBodyGap = GapAt(WorkspacePlacement.HighestDegrees, labels: false);
+                if (legacy.Clear) failures.Add(name + ": original six-arc default unexpectedly claims to fit the unchanged comfort band.");
+                if (lowestLabelGap >= WorkspacePlacement.LabelClearanceDegrees)
+                    failures.Add(name + ": original six-arc lower alternative has no independently measured label-clearance shortfall.");
+                if (highestBodyGap >= WorkspacePlacement.ClearanceDegrees)
+                    failures.Add(name + ": original six-arc upper alternative has no independently measured body-clearance shortfall.");
+                Debug.Log("Halcyonic: " + name + ": original six-arc no-fit: lower label gap " + Degrees(lowestLabelGap)
+                    + " vs " + WorkspacePlacement.LabelClearanceDegrees + " required; upper body gap " + Degrees(highestBodyGap)
+                    + " vs " + WorkspacePlacement.ClearanceDegrees + " required; comfort alternatives " + Degrees(lower)
+                    + " and " + WorkspacePlacement.HighestDegrees + " degrees.");
+
+                float GapAt(float elevation, bool labels)
+                {
+                    var rotation = Quaternion.Euler(-elevation, legacy.Yaw, 0f);
+                    holder.transform.SetPositionAndRotation(eyes + rotation * Vector3.forward * PanelFrame.Distance, rotation);
+                    var frame = GlazeChecks.MeshOutline("actual legacy frame", eyes, panel.Frame.GetComponentsInChildren<Renderer>(false));
+                    return characters.Min(character => frame.Apart(labels
+                        ? GlazeChecks.MeshOutline("actual legacy label", eyes, character.View.Label.GetComponentsInChildren<Renderer>(false))
+                        : BodyExtent(character.View, eyes)));
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
             return failures;
         }
 
@@ -1204,9 +1263,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var root = view.Root;
             var name = view.Name;
             var peek = PeekLabel.Create(root.transform);
-            var peeked = new CharacterPresentation(view.Characters[3].View.WorkstreamId, Hostile("title"), CharacterActivity.WaitingForHuman, "Waiting for you",
+            var peeked = new CharacterPresentation(view.Characters[0].View.WorkstreamId, Hostile("title"), CharacterActivity.WaitingForHuman, "Waiting for you",
                 AttentionLevel.ActionRequired, new[] { "It wants to run: " + Hostile("peek") }, 1, true, false, false);
-            peek.Show(view.Characters[3].Target, view.Characters.ConvertAll(character => character.Target), PeekCard.Of(new WorkspacePresentation(peeked, null, null, null,
+            peek.Show(view.Characters[0].Target, view.Characters.ConvertAll(character => character.Target), PeekCard.Of(new WorkspacePresentation(peeked, null, null, null,
                 Array.Empty<WorkspaceAction>(), Array.Empty<WorkspaceAction>(), Array.Empty<CommandFeedback>(), Array.Empty<ActivityEntry>())), 1f, aboveCharacter: true);
 
             // The approval: the title, the goal, a notice, what it wants and the request.
