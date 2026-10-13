@@ -48,6 +48,10 @@ public class AgentPanelActivity extends Activity {
     private boolean draftsHealthy = true;
     private LinearLayout content;
     private TextView connection, requestAvailability;
+    private Button presentationButton;
+    private LinearLayout developmentControls;
+    private boolean compactPanel;
+    private long checkedAt;
     private LinearLayout requestActions;
     private EditText instruction, requestEditor;
     private String requestId, requestPending, requestText="", surface="task";
@@ -76,6 +80,8 @@ public class AgentPanelActivity extends Activity {
     protected boolean syntheticSurface() { return false; }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        compactPanel = state != null && state.getBoolean("halcyonic.panel.compact", false);
+        authority.compact(compactPanel);
         developmentAllowed = (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
         if (syntheticSurface()) {
             preview = true;
@@ -95,18 +101,28 @@ public class AgentPanelActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         files = new PanelFiles(this); shell();
     }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("halcyonic.panel.compact", compactPanel);
+        super.onSaveInstanceState(state);
+    }
     @Override public void onResume() {
-        cancelVoice(); super.onResume(); visible = true; authority.resumed(true); authority.top(false); generation++; busy = false;
-        if (preview) { if (snapshot != null && content != null) show(); return; }
+        cancelVoice(); super.onResume(); visible = true; authority.resumed(true); authority.top(false); authority.awaitingProjection(); generation++; busy = false;
+        if (preview) { if (snapshot != null && content != null) { authority.projected(); show(); } return; }
         loadSaved(); poll(true);
     }
     @Override public void onPause() {
         cancelVoice(); PanelContinuation current = editorRecord(); boolean persisted = saveState(); restore.paused(current, persisted);
         authority.resumed(false); visible = false; generation++; busy = false;
+        if (connection != null && compactPanel) connection.setText(withStorageWarning(monitorFreshness(true)));
         ui.removeCallbacks(refresh);
         if (transport != null) transport.cancel();
         closeReview(); instruction = null; requestEditor=null; agentOffer=requestView=null;
         super.onPause();
+    }
+    @Override protected void onStop() {
+        cancelNetwork();
+        if (connection != null && compactPanel) connection.setText(withStorageWarning(monitorFreshness(true)));
+        super.onStop();
     }
     @Override protected void onNewIntent(Intent intent) {
         cancelVoice(); super.onNewIntent(intent);
@@ -120,13 +136,18 @@ public class AgentPanelActivity extends Activity {
     }
     @Override public void onTopResumedActivityChanged(boolean top) {
         super.onTopResumedActivityChanged(top); authority.top(top);
-        if (!top) { cancelVoice(); rememberDraft(); closeReview(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
-        else if (visible && !preview) poll(true);
+        if (!top) {
+            cancelVoice(); rememberDraft(); closeReview(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel();
+            if (visible && authority.monitor() && !preview) poll(false);
+        } else if (visible && !preview) poll(true);
     }
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused); if (!focused) cancelVoice(); authority.activityFocus(focused);
-        if (!focused && review == null) { rememberDraft(); generation++; busy = false; if (transport != null) transport.cancel(); ui.removeCallbacks(refresh); }
-        else if (focused && visible && review == null && !preview && !busy) poll(false);
+        if (!focused && review == null) {
+            rememberDraft(); generation++; busy = false; if (transport != null) transport.cancel(); ui.removeCallbacks(refresh);
+            if (visible && authority.monitor() && !preview) poll(false);
+        }
+        else if (focused && visible && review == null && !preview && !busy) poll(true);
     }
     private boolean ownKeyboard() {
         View focused = review == null ? getCurrentFocus() : review.getCurrentFocus();
@@ -161,7 +182,7 @@ public class AgentPanelActivity extends Activity {
     private Button button(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false); }
     private Button button(LinearLayout parent, String label, Runnable action, boolean escape) {
         Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(18); button.setMinHeight(dp(52));
-        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; button.setOnClickListener(view -> { if (visible && review == owner && authority.interact(id, busy, escape)) { cancelVoice(); action.run(); } }); return button;
+        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; final int offeredGeneration = generation; button.setOnClickListener(view -> { if (visible && generation == offeredGeneration && review == owner && authority.interact(id, busy, escape)) { cancelVoice(); action.run(); } }); return button;
     }
     private void styleButton(Button button, String label) {
         GradientDrawable surface = new GradientDrawable();
@@ -171,18 +192,7 @@ public class AgentPanelActivity extends Activity {
         button.setBackground(surface); button.setTextColor(Color.rgb(238, 244, 255)); button.setPadding(dp(16), dp(10), dp(16), dp(10));
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2); layout.setMargins(0, dp(6), 0, dp(6)); button.setLayoutParams(layout);
     }
-    private static String stateName(String value) {
-        switch (value) {
-            case "waiting_for_human": return "Needs your decision";
-            case "running": return "Working";
-            case "verifying": return "Checking work";
-            case "completed": return "Completed";
-            case "interrupted": return "Stopped";
-            case "failed": return "Failed";
-            case "starting": return "Starting";
-            default: return PanelText.plain(value);
-        }
-    }
+    private static String stateName(String value) { return PanelModel.stateName(value); }
     private void shell() {
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34));
         text(root, "Halcyonic", 28);
@@ -191,15 +201,20 @@ public class AgentPanelActivity extends Activity {
         for (String name : new String[] {"Projects", "Workspace", "Other apps"}) {
             Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
-                if (!authority.interact(0) || (busy && name.equals("Projects"))) return;
+                if (!authority.navigate() || (busy && name.equals("Projects"))) return;
                 cancelVoice();
-                if (name.equals("Projects")) { if (!saveState()) return; projectId = workId = executionId = null; draft = "";loadRequest(null); closeReview(); show(); }
+                if (name.equals("Projects")) { if (!saveState()) return; projectId = workId = executionId = null; draft = "";loadRequest(null); selectionChanged(); }
                 else if (name.equals("Workspace")) { cancelNetwork(); returnToWorkspace(); }
                 else { if (!saveState() && !saveSelectedContext()) return; cancelNetwork(); try { startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception error) { connection.setText("Other apps could not open."); } }
             });
         }
+        presentationButton = new Button(this); presentationButton.setAllCaps(false); presentationButton.setMinHeight(dp(52));
+        styleButton(presentationButton, "Compact panel"); root.addView(presentationButton);
+        presentationButton.setOnClickListener(view -> { if (visible && authority.navigate()) changePresentation(!compactPanel); });
+        presentationButton.setVisibility(View.GONE);
+        developmentControls = new LinearLayout(this); developmentControls.setOrientation(LinearLayout.VERTICAL); root.addView(developmentControls);
         if (developmentAllowed && !preview) {
-            Button mode = new Button(this); mode.setText("Connection (development)"); mode.setAllCaps(false); styleButton(mode, "Connection (development)"); root.addView(mode);
+            Button mode = new Button(this); mode.setText("Connection (development)"); mode.setAllCaps(false); styleButton(mode, "Connection (development)"); developmentControls.addView(mode);
             mode.setOnClickListener(v -> { if (busy || !authority.interact(0) || !saveState()) return; LinearLayout choices = dialog("Development connection");
                 text(choices, "Use the paired computer, or the existing USB development connection. Changing connection never changes its saved credential.", 18);
                 button(choices, "Use paired computer", () -> switchConnection(false));
@@ -209,6 +224,39 @@ public class AgentPanelActivity extends Activity {
         }
         ScrollView scroll = new ScrollView(this); content = column(); scroll.addView(content); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
+    }
+    private void selectionChanged() {
+        cancelNetwork(); closeReview(); authority.awaitingProjection();
+        show(); saveState();
+        if (preview) { authority.projected(); show(); }
+        else authority.navigated(() -> poll(true));
+    }
+    private void changePresentation(boolean compact) {
+        if (compactPanel == compact || workId == null || !authority.navigate()) return;
+        // Preserve both independent drafts and their original pending identity before hiding editors.
+        if (!authority.changePresentation(compact, saveState())) return;
+        cancelNetwork(); closeReview();
+        compactPanel = compact;
+        connection.setText(withStorageWarning(compact ? monitorFreshness(false) : "Checking this task before enabling controls…"));
+        show();
+        if (!preview) poll(true); else { authority.projected(); show(); }
+    }
+    private String monitorFreshness(boolean paused) {
+        if (preview) return "Synthetic preview · no live work loaded, no requests sent.";
+        String when = checkedAt == 0 ? "Not checked yet" : "Last checked " + new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(new java.util.Date(checkedAt));
+        return (paused ? "Updates paused" : "Read-only task monitor") + " · " + when;
+    }
+    private void monitorTask(Map<String, Object> summary) {
+        text(content, "Project · " + PanelJson.text(summary.get("project")), 18);
+        text(content, PanelJson.text(summary.get("task")), 24);
+        text(content, (PanelJson.bool(summary.get("has_agent")) ? "Agent status · " : "Task status · ") + PanelJson.text(summary.get("state")), 22);
+        text(content, PanelJson.text(summary.get("source")), 16);
+        long approvals = PanelJson.integer(summary.get("permissions"), 0, Long.MAX_VALUE);
+        long questions = PanelJson.integer(summary.get("questions"), 0, Long.MAX_VALUE);
+        text(content, approvals + (approvals == 1 ? " permission request" : " permission requests") + " · "
+            + questions + (questions == 1 ? " agent question" : " agent questions"), 18);
+        if (!PanelJson.bool(summary.get("has_agent"))) text(content, "No current agent. Start work in Workspace.", 18);
+        if (requestPending != null) text(content, "The last workspace send is unconfirmed. Its original reference is retained.", 16);
     }
     private void cancelNetwork() { cancelVoice(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
     private void switchConnection(boolean usb) {
@@ -476,7 +524,7 @@ public class AgentPanelActivity extends Activity {
 
     private void poll(boolean rebuild) {
         ui.removeCallbacks(refresh);
-        if (!visible || busy) return;
+        if (!visible || busy || !authority.readProjection()) return;
         if (preview) return;
         busy = true; int requestGeneration = generation;
         PanelTransport next = new PanelTransport(files::connection); transport = next;
@@ -496,13 +544,13 @@ public class AgentPanelActivity extends Activity {
                 if (voiceLease != null && !voiceCurrent(received, receivedTarget)) cancelVoice();
                 if (identity != null && snapshot != null && !saveState()) { ui.postDelayed(refresh, 3000); return; }
                 if (received == null) {
-                    snapshot = null; identity = null; closeReview(); instruction = null;requestEditor=null;agentOffer=requestView=null;
-                    connection.setText(message); content.removeAllViews(); text(content, "Your agents continue on your computer. Open Workspace to check the connection.", 20);
+                    snapshot = null; identity = null; authority.awaitingProjection(); closeReview(); instruction = null;requestEditor=null;agentOffer=requestView=null;
+                    connection.setText(compactPanel ? message + "\n" + monitorFreshness(true) : message); content.removeAllViews(); text(content, "Your agents continue on your computer. Open Workspace to check the connection.", 20);
                 } else {
                     String priorContext = snapshot == null || workId == null ? null : snapshot.context(workId);
                     boolean connectionChanged = identity != null && !identity.same(receivedTarget);
                     boolean journalChanged = snapshot != null && !snapshot.journal.equals(received.journal);
-                    identity = receivedTarget; snapshot = received;
+                    identity = receivedTarget; snapshot = received; checkedAt = System.currentTimeMillis(); authority.projected();
                     PanelContinuation staged = restore.pending();
                     if (staged != null) { if (!applyContext(staged)) { show(); ui.postDelayed(refresh, 3000); return; } }
                     else if (connectionChanged || journalChanged || (continuation != null && !continuation.matches(identity, snapshot))) {
@@ -510,9 +558,9 @@ public class AgentPanelActivity extends Activity {
                     }
                     boolean contextChanged = priorContext != null && workId != null && !priorContext.equals(snapshot.context(workId));
                     if (contextChanged) closeReview();
-                    connection.setText(withStorageWarning(status()));
+                    connection.setText(withStorageWarning(compactPanel ? monitorFreshness(false) : status()));
                     if (contextChanged || rebuild || (instruction == null && requestEditor == null && review == null)) show();
-                    if (surface.equals("request") && review==null && executionId!=null) { pollRequest(); return; }
+                    if (!compactPanel && surface.equals("request") && review==null && executionId!=null) { pollRequest(); return; }
                 }
                 ui.postDelayed(refresh, 3000);
             });
@@ -530,12 +578,19 @@ public class AgentPanelActivity extends Activity {
 
     private void show() {
         cancelVoice(); rememberDraft();instruction = null;requestEditor=null;requestAvailability=null;requestActions=null; content.removeAllViews();
+        authority.compact(compactPanel && workId != null);
+        // Project/task lists are local navigation, not restoration of hidden task action controls.
+        if (workId == null && snapshot != null) authority.projected();
+        presentationButton.setVisibility(workId == null ? View.GONE : View.VISIBLE);
+        presentationButton.setText(compactPanel ? "Expand task controls" : "Compact panel");
+        presentationButton.setContentDescription(presentationButton.getText());
+        developmentControls.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
         if (snapshot == null) return;
         try {
             if (projectId == null) {
                 text(content, "Projects", 26);
                 if (snapshot.projects.isEmpty()) text(content, "No projects yet. Create one in Workspace.", 20);
-                for (Map<String, Object> project : snapshot.projects.values()) button(content, PanelText.plain(PanelJson.text(project.get("name"))), () -> { if (!saveState()) return; projectId = PanelJson.text(project.get("project_id")); continuation = null; show(); saveState(); });
+                for (Map<String, Object> project : snapshot.projects.values()) button(content, PanelText.plain(PanelJson.text(project.get("name"))), () -> { if (!saveState()) return; projectId = PanelJson.text(project.get("project_id")); continuation = null; selectionChanged(); });
                 return;
             }
             Map<String, Object> project = snapshot.projects.get(projectId);
@@ -547,19 +602,24 @@ public class AgentPanelActivity extends Activity {
                     Map<String, Object> taskRun = snapshot.execution(PanelJson.text(work.get("workstream_id")));
                     boolean simulated = taskRun != null && PanelJson.bool(PanelJson.object(taskRun.get("runtime")).get("synthetic"));
                     String label = PanelText.plain(PanelJson.text(work.get("title"))) + "\n" + stateName(PanelJson.text(work.get("status"))) + (simulated ? " · simulated" : "");
-                    button(content, label, () -> { if (!saveState()) return; workId = PanelJson.text(work.get("workstream_id")); Map<String, Object> run = snapshot.execution(workId); executionId = run == null ? null : PanelJson.text(run.get("execution_id")); continuation = null; restoreDraft(); show(); saveState(); });
+                    button(content, label, () -> { if (!saveState()) return; workId = PanelJson.text(work.get("workstream_id")); Map<String, Object> run = snapshot.execution(workId); executionId = run == null ? null : PanelJson.text(run.get("execution_id")); continuation = null; restoreDraft(); selectionChanged(); });
                 }
                 return;
             }
             Map<String, Object> work = snapshot.workstreams.get(workId);
             if (work == null || !projectId.equals(work.get("project_id"))) { workId = executionId = null; draft = "";loadRequest(null); show(); return; }
+            if (compactPanel) { monitorTask(snapshot.monitor(projectId, workId)); return; }
+            if (!preview && !authority.controlsReady()) {
+                text(content, "Checking this task before enabling controls…", 20);
+                return;
+            }
             text(content, "Task · " + PanelText.plain(PanelJson.text(work.get("title"))), 25);
             if (work.get("objective") != null) text(content, "Objective\n" + PanelText.plain(PanelJson.text(work.get("objective"))), 18);
             Map<String, Object> run = snapshot.execution(workId);
             if (run == null) { text(content, "This task has no current agent. Start work in Workspace.", 20); return; }
             executionId = PanelJson.text(run.get("execution_id"));
             Map<String, Object> runtime = PanelJson.object(run.get("runtime"));
-            text(content, "Agent · " + PanelText.plain(PanelJson.text(runtime.get("display_name"))) + (PanelJson.bool(runtime.get("synthetic")) ? " · simulated" : "") + "\n" + stateName(PanelJson.text(run.get("status"))), 19);
+            text(content, "Agent · " + PanelText.plain(PanelJson.text(runtime.get("display_name"))) + (PanelJson.bool(runtime.get("synthetic")) ? " · simulated" : "") + "\nAgent status · " + stateName(PanelJson.text(run.get("status"))), 19);
             final PanelUiState.Context displayed = actionContext();
             button(content,surface.equals("request")?"Task controls":"Ask workspace",()->{if(!saveState())return;surface=surface.equals("request")?"task":"request";agentOffer=requestView=null;show();saveSelectedContext();if(!preview)poll(true);});
             button(content, "Read recorded activity", this::activity);
@@ -595,7 +655,7 @@ public class AgentPanelActivity extends Activity {
     }
 
     private void reviewInstruction(PanelUiState.Context scope) {
-        if (!preview && (scope == null || !scope.same(actionContext()))) return;
+        if (!authority.commandsAllowed() || !preview && (scope == null || !scope.same(actionContext()))) return;
         String text = draft;
         reviewed("Review your instruction", PanelText.plain(text), "Send instruction", scope, () -> send("execution.send_instruction", PanelJson.map("execution_id", preview ? executionId : scope.execution, "text", text), null, null, scope));
     }
@@ -635,7 +695,7 @@ public class AgentPanelActivity extends Activity {
     private static String toolLabel(String name){switch(name){case "read_workspace":return "Read task context";case "read_events":return "Read task activity";case "read_understanding":return "Read project understanding";case "read_evaluation":return "Read checks";case "continue_task":return "Continue agent work";case "observe_task":return "Check agent outcome";case "ask_person":return "Ask for your direction";case "person_response":return "Your additional direction";default:return "Planning step";}}
     private static Map<String,Object> unavailableAgent(String message){return PanelJson.map("availability","unavailable","reason",PanelJson.map("code","unavailable","message",message));}
     private void pollRequest(){
-        final PanelUiState.Context scope=actionContext();if(scope==null||identity==null||busy||!visible||review!=null)return;
+        final PanelUiState.Context scope=actionContext();if(compactPanel||!authority.controlsReady()||scope==null||identity==null||busy||!visible||review!=null)return;
         final PanelIdentity target=identity;final String savedId=requestId,pending=requestPending;final int epoch=generation;
         busy=true;PanelTransport next=new PanelTransport(files::connection);transport=next;
         worker.execute(()->{
@@ -675,7 +735,7 @@ public class AgentPanelActivity extends Activity {
         catch(Exception error){connection.setText(withStorageWarning("The unsent request could not be cleared safely. Keep this view open."));}
     }
     private void sendWorkspace(String type,Map<String,Object> payload,PanelUiState.Context scope,String expectedRequest){
-        if(preview||identity==null||snapshot==null||busy||!visible||scope==null||!scope.same(actionContext())||requestPending!=null||!java.util.Objects.equals(expectedRequest,requestId))return;
+        if(preview||!authority.commandsAllowed()||identity==null||snapshot==null||busy||!visible||scope==null||!scope.same(actionContext())||requestPending!=null||!java.util.Objects.equals(expectedRequest,requestId))return;
         rememberDraft();final Map<String,Object> envelope=PanelModel.command(type,payload);final String pending=PanelJson.text(envelope.get("command_id"));
         // Both ordinary stores are durable before POST. Failure blocks sending and preserves the ID.
         final PanelIdentity target=identity;final int epoch=generation;
@@ -708,7 +768,7 @@ public class AgentPanelActivity extends Activity {
         });
     }
     private void approval(Map<String, Object> request, PanelUiState.Context scope) {
-        if (!preview && (scope == null || !scope.same(actionContext()))) return;
+        if (!authority.commandsAllowed() || !preview && (scope == null || !scope.same(actionContext()))) return;
         try {
             Map<String, Object> subject = PanelJson.object(request.get("subject"));
             if (!"tool_use".equals(subject.get("kind"))) throw PanelJson.invalid();
@@ -723,7 +783,7 @@ public class AgentPanelActivity extends Activity {
         } catch (Exception error) { connection.setText("This request cannot be read safely. Open Workspace."); }
     }
     private void question(Map<String, Object> request, PanelUiState.Context scope) {
-        if (!preview && (scope == null || !scope.same(actionContext()))) return;
+        if (!authority.commandsAllowed() || !preview && (scope == null || !scope.same(actionContext()))) return;
         try {
             StringBuilder whole = new StringBuilder("Agent questions\n");
             for (Object item : PanelJson.array(request.get("prompts"))) {
@@ -798,7 +858,7 @@ public class AgentPanelActivity extends Activity {
 
     private void send(String type, Map<String, Object> payload, Map<String, Object> request, List<Object> answers, PanelUiState.Context scope) {
         if (preview) { closeReview(); connection.setText("Synthetic preview · no request was sent."); return; }
-        if (snapshot == null || identity == null || busy || !visible || scope == null || !scope.same(actionContext())) return;
+        if (!authority.commandsAllowed() || snapshot == null || identity == null || busy || !visible || scope == null || !scope.same(actionContext())) return;
         rememberDraft();
         final PanelIdentity target = identity; final String journal = scope.journal, selectedWork = scope.work, selectedProject = scope.project, selectedExecution = scope.execution;
         final int requestGeneration = generation;

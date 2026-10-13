@@ -267,3 +267,52 @@ passed. The public syscall signatures were checked against the
 [Android Os API reference](https://developer.android.com/reference/android/system/Os).
 Actual Android directory-sync support and crash/power-loss recovery remain device evidence,
 not a claim made by the JVM ordering regressions.
+
+
+## Compact selected-task monitor
+
+Source and focused host/API checks verified 2026-10-13.
+
+The production Activity offers explicit **Compact panel** and **Expand task controls** actions
+for its selected task. The choice survives Activity recreation as local presentation state; it is
+not added to the shared continuation contract, journal or command envelope. Compact shows the
+complete safe plain project/task identity, the current host-projected run state (or task state
+without an agent), separate Live/Recorded and simulated provenance, exact permission-request and
+agent-question counts, and when the authenticated snapshot was last checked. Both compact and expanded views use the same status labels; Completed labels the current
+execution's status, not certified software completion. Missing or foreign project/task bindings refuse the summary.
+The Expand/Compact action remains outside the content scroll, including for long task titles.
+
+Before either transition the existing aggregate and selected private stores must retain both
+independent ordinary drafts, spoken origin/read part and the exact pending request command UUID.
+A save failure refuses the transition. Successful transition expires old review authority, voice
+and network generations before hiding the editor. Compact offers no instruction/request editor,
+review, send, stop, answer or microphone action. Expand requires a new authenticated snapshot
+before any action controls return; top-resumed and current window/dialog focus still gate every
+command, review and voice lease. Existing immutable tuple checks, phase-before-POST ordering and
+unknown-effect/no-retry rules are unchanged.
+
+While the compact Activity remains resumed and visible it can perform the existing bounded
+read-only snapshot GET even when another app owns top/input focus. Losing top/focus continues to
+revoke all input and command authority. Pause/stop cancels polling immediately and labels the
+displayed checked-at state as paused; it does not claim background liveness. Android documents
+multi-resume from API 29 and manufacturer variation; actual Horizon lifecycle behavior remains a
+device acceptance item. [Android multi-window lifecycle](https://developer.android.com/develop/ui/compose/layouts/adaptive/support-multi-window-mode#lifecycle).
+
+This is content compaction within the existing secure Activity, not a programmatic OS-window
+resize. The manifest remains resizable with 640 by 720 dp default and 480 by 480 dp minimum; the
+person uses Horizon's window resizing. No manifest, permission, service, private storage schema,
+transport or runtime capability is added.
+
+Consumed authority/projection regressions cover failed transitions, hidden ticket revocation,
+non-top read-only eligibility, pause, fresh-snapshot gating on Expand, exact selected identity,
+provenance and decision counts, no-agent/unknown/finished states, and independent draft/pending
+reference round trips. The final focused native suite passed 89/89 with zero skipped, including production/development
+Android API-36 compilation and the actual plain-Java consumers. Type checking and scoped lint
+passed. Independent source review found and closed a navigation refresh stall and an inert
+selected synthetic-preview resume; consumed ordered regressions cover both repairs. Ordinary
+focus return reoffers generation-expired controls from a fresh draw. Existing paired mock-runtime
+protocol checks remain intact; no model, live host or device journey was run for this change.
+
+These source/API checks do not establish Android view pixels or Horizon behavior. Native synthetic
+480/640 layout proof and actual secure Horizon foreground/paused/recreated journeys remain
+required, along with the final integrated gate and packaging.

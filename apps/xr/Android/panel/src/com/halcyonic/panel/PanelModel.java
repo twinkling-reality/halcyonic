@@ -15,7 +15,7 @@ import java.util.UUID;
 
 /** Snapshot projection and capability checks, read directly from the public control-plane contract. */
 final class PanelModel {
-    final String journal;
+    final String journal, origin;
     final long position;
     final Map<String, Map<String, Object>> projects, workstreams, executions, runtimes;
     final List<Object> commands;
@@ -24,7 +24,8 @@ final class PanelModel {
         Map<String, Object> v = PanelJson.object(PanelJson.parse(json));
         Map<String, Object> j = PanelJson.object(v.get("journal"));
         journal = PanelJson.text(j.get("journal_id")); PanelContinuation.matches(journal, PanelIdentity.ENTITY);
-        if (!Arrays.asList("live", "fixture").contains(PanelJson.text(j.get("origin")))) throw PanelJson.invalid();
+        origin = PanelJson.text(j.get("origin"));
+        if (!Arrays.asList("live", "fixture").contains(origin)) throw PanelJson.invalid();
         position = PanelJson.integer(v.get("position"), 0, Long.MAX_VALUE);
         projects = index(v.get("projects"), "project_id", PanelIdentity.ENTITY);
         workstreams = index(v.get("workstreams"), "workstream_id", PanelIdentity.ENTITY);
@@ -54,6 +55,34 @@ final class PanelModel {
         Map<String, Object> run = executions.get(PanelJson.text(work.get("current_execution_id")));
         if (run == null || !workId.equals(run.get("workstream_id")) || !work.get("project_id").equals(run.get("project_id"))) throw PanelJson.invalid();
         return run;
+    }
+    /** A read-only projection of this selected task, never a runtime action or model claim. */
+    Map<String, Object> monitor(String projectId, String workId) {
+        Map<String, Object> project = projects.get(projectId), work = workstreams.get(workId);
+        if (project == null || work == null || !projectId.equals(work.get("project_id"))) throw PanelJson.invalid();
+        Map<String, Object> run = execution(workId);
+        boolean synthetic = run != null && PanelJson.bool(PanelJson.object(run.get("runtime")).get("synthetic"));
+        String source = origin.equals("fixture") ? "Recorded state" : "Live host state";
+        if (synthetic) source += " · simulated agent";
+        int approvals = run == null ? 0 : PanelJson.array(run.get("pending_approvals")).size();
+        int questions = run == null ? 0 : PanelJson.array(run.get("pending_questions")).size();
+        return PanelJson.map("project", PanelText.plain(PanelJson.text(project.get("name"))),
+            "task", PanelText.plain(PanelJson.text(work.get("title"))),
+            "state", stateName(PanelJson.text((run == null ? work : run).get("status"))),
+            "source", source, "permissions", (long) approvals, "questions", (long) questions, "has_agent", run != null);
+    }
+    static String stateName(String state) {
+        switch (state) {
+            case "created": return "Not started";
+            case "starting": return "Starting";
+            case "running": return "Working";
+            case "verifying": return "Checking work";
+            case "waiting_for_human": return "Needs your decision";
+            case "completed": return "Completed";
+            case "interrupted": return "Stopped";
+            case "failed": return "Failed";
+            default: return "Can't tell yet";
+        }
     }
     String context(String workId) {
         Map<String, Object> run = execution(workId);
