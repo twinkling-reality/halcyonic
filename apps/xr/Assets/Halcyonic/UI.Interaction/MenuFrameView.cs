@@ -1136,6 +1136,21 @@ namespace Halcyonic.XR.UI
             GlazeText.Lay(label, wide + U(0.1f), 1);
             var tall = GlazeText.LineHeight(label);
             label.transform.localPosition = new Vector3(end - wide, middle + tall / 2f, -U(0.05f));
+            // The right edge is only an estimate: a left-column fact extends away from the
+            // composition's centre. Judge its actual laid text bounds and finite em before
+            // keeping the small size. Space for the body-size alternative is already reserved.
+            var localMiddle = label.transform.localPosition + Vector3.Scale(label.textBounds.center, label.transform.localScale);
+            var at = new Vector3(center.x + localMiddle.x * zoom, center.y + localMiddle.y * zoom, 1f);
+            var halfEm = Vector3.up * (label.fontSize * 0.1f * label.transform.localScale.y * zoom / 2f);
+            if (degrees < Glaze.Menu.BodyDegrees && Vector3.Angle(at + halfEm, at - halfEm) < Glaze.MinimumTextDegrees)
+            {
+                label.fontSize = GlazeTokens.FontSize(U(Glaze.Menu.BodyDegrees));
+                theirs = GlazeRuns.Of(label).Set(words, text => label.GetPreferredValues(text).x <= most);
+                wide = Mathf.Min(label.GetPreferredValues(label.text).x, most);
+                GlazeText.Lay(label, wide + U(0.1f), 1);
+                tall = GlazeText.LineHeight(label);
+                label.transform.localPosition = new Vector3(end - wide, middle + tall / 2f, -U(0.05f));
+            }
             return (new Vector2(wide, tall), theirs);
         }
 

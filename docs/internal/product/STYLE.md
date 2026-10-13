@@ -101,7 +101,9 @@ Three sizes on the plane (`Glaze.Menu`):
 - **Small text keeps 15 dp only where it reads at 14 dp or more.** Toward the outer edges of a wide
   composition, as a side panel's counts at the far right, it takes 18 dp
   (`PlaneComposition.SmallTextDegreesAt`). The layout decides from the part's place before laying
-  the text, so nothing overlaps afterwards.
+  the text, so nothing overlaps afterwards. The final small-label check uses its laid text bounds
+  and finite em, including a left-column fact extending away from the center; the row has already
+  reserved room for the 18 dp alternative.
 - **Heavier** are only the chosen section and the main action.
 - **Upright is ours; theirs leans** (the owner's pick, 2026-10-08). Everything Halcyonic didn't write,
   an agent's words, a title, a name, a label, a source's sentence and the person's own words, leans by

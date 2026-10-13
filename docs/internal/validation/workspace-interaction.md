@@ -476,3 +476,19 @@ keyboard and voice callbacks, long question/option paging, whole-read review, sa
 restoration and late-callback refusal. A successful Move ends by reflowing the file; the next
 action is tested only after its resulting renewed frame has actually been drawn. This is an
 Editor interaction witness, not microphone or wearer acceptance.
+
+
+### Full walkthrough readability corrections (2026-10-13)
+
+The migrated recorded walkthrough exposed actual standard-text failures: a left-column inline
+fact measured 0.873 degrees against the unchanged 0.875 minimum, and the tall two-column project
+recap put header/footer labels between 0.826 and 0.869 degrees. The small-fact estimate checked
+only its ending edge; the implementation now also measures the laid text bounds and finite em,
+promoting to the already reserved body size when needed. The recap's focused composition matches
+its existing standalone page budget. No text, evidence, reading step or threshold was removed.
+
+`JudgeWalkCheck` passes zero/one-shelf cases at both real-font sizes after the fixes. The full
+C# suite passes 1,666 tests, zero skipped; its existing recap paging test now also verifies that
+focus survives page composition while stale-page input is still rejected. Independent source
+review found no blocker. Current DirectorCheck and EntryJourneysCheck also pass both text sizes.
+The combined visual gate and device/wearer acceptance remain separate requirements.

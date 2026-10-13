@@ -434,7 +434,7 @@ namespace Halcyonic.Client
                             showModels, Live),
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
                         _ => NewProjectScreens.Recap(current, draft, CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
-                            Building() || OutcomeUnknown ? problem : null, WordsOffered),
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered).Focus(),
                     };
                 default:
                     switch (buildPage)
