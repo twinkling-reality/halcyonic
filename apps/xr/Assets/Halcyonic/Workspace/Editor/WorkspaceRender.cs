@@ -1464,9 +1464,8 @@ namespace Halcyonic.XR.Workspace.Editor
         internal static GlazeChecks.Extent BodyExtent(CharacterView view, Vector3 eyes)
         {
             var shell = view.Body.Find("Shell");
-            var extents = shell.GetComponent<MeshFilter>().sharedMesh.bounds.extents;
-            var scale = shell.lossyScale;
-            return GlazeChecks.Facing(view.WorkstreamId + "'s body", eyes, shell.position, Mathf.Max(extents.x * scale.x, extents.z * scale.z), extents.y * scale.y);
+            var ring = view.Body.Find("Ring").GetComponent<Renderer>();
+            return GlazeChecks.MeshOutline(view.WorkstreamId + "'s body", eyes, shell.GetComponentsInChildren<Renderer>(false).Concat(new[] { ring }));
         }
 
         /// <summary>Whether any part of a character's body falls inside the workspace's outline on the render.</summary>

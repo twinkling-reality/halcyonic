@@ -227,6 +227,9 @@ namespace Halcyonic.Client
         /// <summary>One turn of a busy icon (Starting, Working).</summary>
         public const float BusyTurnSeconds = 1.2f;
 
+        /// <summary>A character's blink, at its identity's interval (ADR 0027).</summary>
+        public const float BlinkSeconds = 0.14f;
+
         /// <summary>What arrives, as a column coming back from stepping aside or each part of a column opening, eases out (<see cref="EaseOut"/>) this long.</summary>
         public const float AppearSeconds = 0.2f;
 

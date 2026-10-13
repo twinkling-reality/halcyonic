@@ -25,7 +25,23 @@ namespace Halcyonic.XR.UI
     public sealed class CharacterLabelView : MonoBehaviour
     {
         /// <summary>The badge's top, below the body's centre: clear of the body as it settles or slumps.</summary>
-        public const float TopDegrees = 5f;
+        public static float TopDegrees => ClearBodyAt(0f);
+
+        // Keep the badge below the continuous body/feature sphere, including the deepest lift.
+        // The Checking ring's outer radius is 1.35 * 0.07 = 0.0945, inside the same 0.1 sphere.
+        // A tangent from the actual viewing elevation accounts for perspective on a desk.
+        private static float ClearBodyAt(float elevationDegrees)
+        {
+            var height = Mathf.Tan(elevationDegrees * Mathf.Deg2Rad);
+            var center = height + GlazeTokens.CharacterSlumpedLift;
+            // The badge sits 0.001 in front of its plane; its glyphs sit another 0.0005 forward.
+            // Expand the tangent by that full depth so tipping the label cannot spend its gap.
+            const float badgeDepth = 0.0015f;
+            var lower = Mathf.Atan2(center, 1f) - Mathf.Asin((GlazeTokens.CharacterBodyRadius + badgeDepth) / Mathf.Sqrt(1f + center * center));
+            var badgeTop = lower - 0.3f * Mathf.Deg2Rad;
+            var drop = height - Mathf.Tan(badgeTop);
+            return Mathf.Atan(drop) * Mathf.Rad2Deg;
+        }
 
         /// <summary>The widest a plate gets: 1.5 degrees less than the 12 between neighbours.</summary>
         public const float MaxWidthDegrees = 10.5f;
@@ -151,15 +167,19 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Lowers the label as much as being seen from <paramref name="elevationDegrees"/> above or
-        /// below eye level shortens the drop from the body to it, so its body never covers its badge,
+        /// Lowers the label below the continuous body sphere seen from <paramref name="elevationDegrees"/>,
+        /// including its deepest downward lift and the own-label gap, so its body never covers its badge,
         /// as on a desk seen from above. With <paramref name="faceEyes"/>, as on a desk, it also leans
         /// back about its top edge to face the eyes, so its words read at their size: upright, seen
         /// from above, they read at about two thirds of it (ADR 0026, 2026-10-02).
         /// </summary>
         public void ViewFrom(float elevationDegrees, bool faceEyes = false)
         {
-            var top = TopDegrees / Mathf.Max(Mathf.Cos(elevationDegrees * Mathf.Deg2Rad), 0.5f);
+            // Stage views have a positive horizontal eye distance. Avoid tangent singularities
+            // and invalid label rotations during tracking loss.
+            if (float.IsNaN(elevationDegrees) || float.IsInfinity(elevationDegrees)) elevationDegrees = 0f;
+            elevationDegrees = Mathf.Clamp(elevationDegrees, -85f, 85f);
+            var top = ClearBodyAt(elevationDegrees);
             var lean = faceEyes ? -elevationDegrees : 0f;
             if (Mathf.Abs(top - topDegrees) < 0.01f && Mathf.Abs(lean - leanDegrees) < 0.01f) return;
             topDegrees = top;

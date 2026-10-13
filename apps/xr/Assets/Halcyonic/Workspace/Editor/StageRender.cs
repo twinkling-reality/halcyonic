@@ -26,7 +26,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// Every State on the Stage. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md; it
     /// exits with 1 when a check fails.
     /// </summary>
-    public static class StageRender
+    public static partial class StageRender
     {
         private const int Size = 1024;
         private const float EyeHeight = 1.2f;
@@ -69,62 +69,16 @@ namespace Halcyonic.XR.Workspace.Editor
         }
         private static List<string> AgentShelf(string variant)
         {
-            var failures = new List<string>();
             var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "AgentShelfRenders", variant));
             Directory.CreateDirectory(folder);
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            var root = new GameObject("Grounded shelf witness");
-            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            var previousField = ViewField.Current;
             try
             {
-                var pose = new Vector3(0f, 1.15f, 1.2f);
-                var camera = WorkspaceRender.MakeCamera(root.transform, new Vector3(0f, 1.6f, 0f), texture);
-                camera.transform.rotation = Quaternion.LookRotation(pose - camera.transform.position);
-                var shelf = Surface.Create(root.transform, "Placed agent shelf", 0);
-                shelf.transform.position = pose;
-                shelf.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                shelf.Draw(new Vector2(AgentShelfDraft.Width(6), AgentShelfDraft.Depth), 0.025f, new Color(0.12f, 0.19f, 0.22f, 1f));
-                foreach (var (name, presentations) in new[] { ("states-a", StatesA()), ("states-b", StatesB()) })
-                {
-                    var views = new List<CharacterView>();
-                    for (var slot = 0; slot < presentations.Count; slot++)
-                    {
-                        var view = CharacterView.Create(root.transform, presentations[slot].WorkstreamId);
-                        view.Grounded = true;
-                        view.transform.position = pose + Vector3.right * ((slot - 2.5f) * AgentShelfDraft.Spacing * AgentShelfDraft.Scale);
-                        view.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-                        view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-                        view.Show(presentations[slot]);
-                        views.Add(view);
-                    }
-                    for (var frame = 0; frame <= 300; frame++)
-                    {
-                        foreach (var view in views)
-                        {
-                            view.AdvanceForRender(1f / 60f);
-                            var shell = view.Body.Find("Shell");
-                            var bottom = shell.GetComponent<MeshFilter>().sharedMesh.vertices.Min(vertex => shell.TransformPoint(vertex).y);
-                            if (Mathf.Abs(bottom - pose.y) > 0.0001f)
-                            { failures.Add(name + " " + view.WorkstreamId + " body loses shelf contact at frame " + frame + ": " + (bottom - pose.y)); break; }
-                        }
-                        if (frame == 0 || frame == 180)
-                        {
-                            var image = WorkspaceRender.Render(camera, texture);
-                            File.WriteAllBytes(Path.Combine(folder, name + "-" + frame + ".png"), image.EncodeToPNG());
-                            UnityEngine.Object.DestroyImmediate(image);
-                        }
-                    }
-                    foreach (var view in views) UnityEngine.Object.DestroyImmediate(view.gameObject);
-                }
+                ViewField.Current = FieldChecks.Quest3S;
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                return CharacterShelfCases(folder, features: false);
             }
-            catch (Exception error) { failures.Add(error.ToString()); }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(root);
-                texture.Release(); UnityEngine.Object.DestroyImmediate(texture);
-                WorkspaceRender.KeepFontAssetsAsCommitted();
-            }
-            return failures;
+            finally { ViewField.Current = previousField; WorkspaceRender.KeepFontAssetsAsCommitted(); }
         }
 
         /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
@@ -496,9 +450,12 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 GlazeMotion.Still = true;
                 Frames(216);
+                var valuesBefore = CharacterFrameValues(characters.Select(each => each.View));
                 first = WorkspaceRender.Render(camera, texture);
+                File.WriteAllBytes(Path.Combine(folder, name + "-kept-still-before.png"), first.EncodeToPNG());
                 Frames(72);
                 second = WorkspaceRender.Render(camera, texture);
+                SaveCharacterFrameDifferences(folder, name, valuesBefore, CharacterFrameValues(characters.Select(each => each.View)));
                 File.WriteAllBytes(Path.Combine(folder, name + "-kept-still.png"), second.EncodeToPNG());
                 var (changed, largest) = WorkspaceRender.Compare(first, second, all);
                 if (changed > 0)

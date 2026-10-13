@@ -12,6 +12,12 @@ namespace Halcyonic.XR.UI
     /// </summary>
     public static class GlazeTokens
     {
+        /// <summary>The continuous character shell/feature radius, shared with label clearance, in distance units.</summary>
+        public const float CharacterBodyRadius = 0.1f;
+
+        /// <summary>The character's deepest downward lift, shared by its pose and label clearance.</summary>
+        public const float CharacterSlumpedLift = -0.0095f;
+
         /// <summary>A token's colour as authored, in sRGB, with an opacity.</summary>
         public static Color ColorOf(GlazeColor color, float alpha = 1f) => new Color(color.R / 255f, color.G / 255f, color.B / 255f, alpha);
 

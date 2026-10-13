@@ -93,3 +93,50 @@ headset comfort, hand interaction, performance or wearer acceptance.
    the app's GPU time stays well under a frame.
 3. After a recenter and after a boundary change, the stage stands in front of the person again, and
    `adb logcat -s Unity` shows `placed the stage in front of the person because ...`.
+
+### Held character candidate adapted to the optional shelf, 2026-10-13
+
+**Scope and method.** The preserved feature/blink work is selectively adapted to the current
+one-agent shelf; the original held branch is unchanged. Existing grounding, independent label
+lip attachment, full source marks, palette refresh, optionality and console placement remain.
+The candidate adds only the six ADR 0013 identity features, declared identity blink intervals,
+the ADR 0027 0.14-second blink token, paused-state freeze, shared geometry constants and the
+held triangle-projection witness. Deterministic identity variety does not provide user
+customization. No ring/rim, travel or inferred reference feature is introduced.
+
+The shared hand/gaze target radius stays 0.1. Feature vertices are bounded to 1.32 shell units;
+0.07 body scale times a conservative 1.08 squash/stretch reaches 0.099792, inside that target.
+The most complex feature has at most 300 vertices/588 triangles, one material and one pass.
+The current supported one-agent shelf therefore adds at most one feature pass, rather than
+asserting that a six-agent group is a supported mode. This is a source bound, not device cost
+measurement or a recognizability result.
+
+**Regression entry points.** `StageRender.CharacterLifeCheck` runs at Standard and Larger text.
+It creates the actual character-free Projects console and reuses the existing confirmed-shelf
+search, whose whole envelope must clear that console and the measured field with existing
+margins. It then exercises each of the 48 shape/feature combinations as exactly one grounded
+agent. All existing activities in moving and held poses check shell/feature target containment,
+actual shell contact, actual mesh/label containment in the placement envelope, label readability
+and own-body clearance. Disabling only a feature must change pixels. Two fixed identities use
+the actual production clock at 72 Hz; changing only `_EyeOpen` in the same blink frame must
+change rendered eyes. Closed/crossed/flat eyes, immediate last-known freeze, Interrupted freeze
+and live resumption retain separate assertions. `StageRender.AgentShelfCheck` now uses this
+supported one-agent state consumer, retaining contact and adding state/readability/geometry
+coverage. The historical `StageRender.Check` retains its old independent regressions.
+
+**Stillness evidence remains unresolved.** The original held candidate's actual render passed
+Larger but failed Standard: two pixels changed under Keep things still, by at most 13/255.
+This candidate keeps the exact-zero assertion. Before any production stillness fix, both
+current and historical fixtures now save before/after PNGs, exact transform/material snapshots
+and parameter differences; a changing animation clock can be harmless when no rendered value
+uses it. Asymptotic easing is a source hypothesis, not an established cause. Neither a tolerance
+change nor a longer settling wait is proposed.
+
+**Validation status.** The current candidate's filtered CharacterIdentityTests and GlazeTokenTests
+passed 24/24 on .NET 10.0.401, with zero skipped. Actual Unity compilation and renders have not
+run for this candidate. Required root renders are CharacterLifeCheck,
+AgentShelfCheck and the historical StageRender.Check diagnostic, followed by the current
+ShelfWorkspace/Director/Appearance gates. Isolated shader-ignores-EyeOpen and old-blink-period
+mutations should each fail their specific witness and then be reverted. Stereo appearance,
+feature recognizability, native/device behavior, hand interaction, cost and wearer acceptance
+remain unverified.
