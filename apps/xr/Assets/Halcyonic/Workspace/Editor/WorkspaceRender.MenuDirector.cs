@@ -29,7 +29,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     foreach (var entry in new[] { (Name: "far-3s-director", Radius: CharacterStage.DefaultDistance, Drop: (float?)null, Window: false),
                         (Name: "desk-3s-director", Radius: 0.55f, Drop: (float?)0.46f, Window: false),
-                        (Name: "window-3s-director", Radius: CharacterStage.DefaultDistance, Drop: (float?)null, Window: true) })
+                        (Name: "shelf-3s-director", Radius: CharacterStage.DefaultDistance, Drop: (float?)null, Window: true) })
                     {
                         try { found.AddRange(RenderMenuDirector(entry.Name, folder, entry.Radius, entry.Drop, entry.Window)); }
                         catch (Exception error) { found.Add(entry.Name + ": " + error); }
@@ -115,7 +115,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Each state is drawn on one plane and held to the plane's checks; a file learns of the very
         /// frame it gave being drawn, and the menu's Tasks shows the open file's row chosen.
         /// </summary>
-        /// <param name="besideWindow">Legacy stage metadata must not move or disable the independently placed console; occupied geometry still applies.</param>
+        /// <param name="besideWindow">Also show the supported one-agent shelf; legacy window metadata never creates an external app window.</param>
         private static IEnumerable<string> RenderMenuDirector(string name, string folder, float radius, float? surfaceDrop, bool besideWindow = false)
         {
             var failures = new List<string>();
@@ -127,17 +127,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Where the head points; turned below to check the plane stays put until Reset position.
                 var looking = Vector3.zero;
                 var camera = MakeCamera(root.transform, eyes, texture);
-                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation, besideWindow: besideWindow);
-                var window = besideWindow ? Window(root.transform, eyes) : null;
-                var targets = characters.ConvertAll(character => character.Target);
-                var state = Projection(characters);
-                var opened = characters[3];
+                // Work exists independently of optional spatial representation. No arc or fabricated
+                // system window is part of the current console's production composition.
+                var characters = new List<(CharacterView View, CharacterTarget Target)>();
+                Transform? window = null;
+                var targets = new List<CharacterTarget>();
+                var state = DirectorWorkProjection();
+                var opened = Presentation("render-3", 3);
                 // The file's title, which the drag's checks lengthen to make the file taller under a drag,
                 // and whether it asks its Yes, as a confirmation standing on the plane.
-                var fileTitle = opened.View.Presentation!.Title;
+                var fileTitle = opened.Title;
                 var fileConfirming = false;
                 var fileBesideMenu = false;
-                looking = besideWindow ? Vector3.forward : opened.Target.BodyPosition - eyes;
+                looking = Vector3.forward;
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
                 // The stage as the director reads it: the drag's checks arrange it beside a window, or on another surface, for a while.
                 var windowNow = besideWindow;
@@ -174,7 +176,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         made = host.PageHeight(1, besideMenu: false);
                         return file = new StubColumn(() =>
                         {
-                            var waiting = WaitingFile(fileTitle, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
+                            var waiting = DirectorWaitingFile(fileTitle, StateLanguage.BadgeOf(opened), chosen: false,
                                 host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: fileBesideMenu), minimumLines: 0);
                             return fileConfirming ? Confirming(waiting) : waiting;
                         });
@@ -193,7 +195,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                     Demonstration = () => demonstrationPlays,
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, surfaceNow, windowNow),
+                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, null, windowNow),
                     CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
@@ -202,6 +204,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Full workspace starts at Projects. Move uses the visible console utility; global
                 // Minimize retains the composition behind its single Restore dock.
                 director.DrawNow();
+                if (besideWindow)
+                {
+                    var shown = ConfirmedDirectorAgent(root.transform, director, eyes, opened, failures, name);
+                    characters.Add(shown);
+                    targets.Add(shown.Target);
+                    director.StageRefreshedForRender();
+                    director.DrawNow();
+                }
+                if (state.Workstreams.Count != 6 || characters.Count != (besideWindow ? 1 : 0))
+                    failures.Add(name + ": the journal work count changed with optional agent visibility.");
                 if (director.Navigator.Place != MenuPlace.Projects) failures.Add(name + ": the initial workspace did not open Projects.");
                 PressMoveForOrganizationRender(director, 710);
                 director.DrawNow();
@@ -221,12 +233,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.Navigator.Place != MenuPlace.Tasks) failures.Add(name + ": choosing the visible Tasks section did not open Tasks.");
                 var tasksFrame = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Tasks, state)).Menu;
                 if (tasksFrame == null || tasksFrame.Sections.Count != 4) failures.Add(name + ": Tasks shows without the menu's four places.");
-                else if (tasksFrame.Lines.FirstOrDefault()?.Key != opened.View.WorkstreamId) failures.Add(name + ": the waiting task is not Tasks' first row.");
+                else if (tasksFrame.Lines.FirstOrDefault()?.Key != opened.WorkstreamId) failures.Add(name + ": the waiting task is not Tasks' first row.");
                 failures.AddRange(PlaneState(name + " director tasks", folder, camera, texture, director.Plane, characters, eyes, window));
 
                 // Its row opens its file beside the menu, and the row stays chosen.
                 var drawnTasks = director.Plane.Showing(MenuColumn.Menu);
-                if (!director.Navigator.Act(MenuColumn.Menu, TasksColumn.OpenTask, opened.View.WorkstreamId, drawnTasks, null))
+                if (!director.Navigator.Act(MenuColumn.Menu, TasksColumn.OpenTask, opened.WorkstreamId, drawnTasks, null))
                 {
                     failures.Add(name + ": a press on Tasks as drawn was not taken.");
                 }
@@ -255,8 +267,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add(name + ": the file did not learn of the very frame it gave being drawn.");
                     }
                     var chosen = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Tasks, state)).Menu?.Lines.FirstOrDefault(line => line.Chosen)?.Key;
-                    if (chosen != opened.View.WorkstreamId) failures.Add(name + ": Tasks does not show the open file's row chosen.");
-                    if (director.Plane.LightLine == null && !besideWindow) failures.Add(name + ": the file opened from Tasks shows no light line.");
+                    if (chosen != opened.WorkstreamId) failures.Add(name + ": Tasks does not show the open file's row chosen.");
+                    if (director.Plane.LightLine == null && characters.Count > 0) failures.Add(name + ": the file opened from Tasks shows no light line.");
                 }
                 director.DrawNow(); // Tasks.Showing may notify during the first draw; the next frame settles that change.
                 failures.AddRange(DirectorFileControls(name, director.Plane.Showing(MenuColumn.File)));
@@ -395,7 +407,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }, () => surfaceNow, Extra));
 
                 // Another app keeps focus: the plane goes while the actual task/project remain retained.
-                failures.AddRange(FoldMenu(name, folder, camera, texture, root, director, opened.View.Presentation!.Title));
+                failures.AddRange(FoldMenu(name, folder, camera, texture, root, director, opened.Title));
 
                 // This separate ordinary-file exercise uses the same measured packing at the two-column top line.
                 // The earlier drag exercise deliberately uses the full lone-file budget.
@@ -404,6 +416,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees) != 1)
                     failures.Add(name + ": the ordinary-file subject is not the measured one-row setup.");
                 file?.Change();
+                ProjectsForDirectorRender(director, failures, name);
                 director.DrawNow();
                 director.DrawNow();
                 var offeredMenu = director.Plane.Showing(MenuColumn.Menu);
@@ -470,7 +483,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 // A file opened over that chosen setting: the menu lets go of its side panel, which the file
                 // would leave undrawn, so its change can't act on details no one sees.
-                director.OpenFile(opened.View.WorkstreamId);
+                director.OpenFile(opened.WorkstreamId);
                 director.DrawNow();
                 failures.AddRange(PlaneState(name + " director file over a chosen setting", folder, camera, texture, director.Plane, characters, eyes, null));
                 file?.Close();
@@ -548,10 +561,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
-                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation);
-                var targets = characters.ConvertAll(character => character.Target);
-                var state = Projection(characters);
-                var opened = characters[3];
+                var characters = new List<(CharacterView View, CharacterTarget Target)>();
+                var targets = new List<CharacterTarget>();
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
                 var work = Work.Asking(new QuestionView
                 {
@@ -572,23 +583,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         },
                     },
                 });
-                var previous = opened;
-                var replacedTask = previous.View.WorkstreamId;
-                var taskView = CharacterView.Create(root.transform, work.Workstream.WorkstreamId);
-                taskView.Show(work.Present().Character);
-                taskView.transform.SetPositionAndRotation(previous.View.transform.position, previous.View.transform.rotation);
-                taskView.transform.localScale = previous.View.transform.localScale;
-                opened = (taskView, CharacterTarget.Attach(taskView, work.Workstream.WorkstreamId));
-                characters[3] = opened;
-                targets[3] = opened.Target;
-                UnityEngine.Object.DestroyImmediate(previous.View.gameObject);
-                state.ApplySnapshot(new Snapshot
-                {
-                    Journal = work.State.Journal!, Position = work.State.Position,
-                    Projects = state.Projects.Values.Concat(work.State.Projects.Values).GroupBy(project => project.ProjectId).Select(group => group.Last()).ToList(),
-                    Workstreams = state.Workstreams.Values.Where(task => task.WorkstreamId != replacedTask).Concat(work.State.Workstreams.Values).ToList(),
-                    Executions = work.State.Executions.Values.ToList(), Commands = work.State.Commands.Values.ToList(), Runtimes = work.State.Runtimes.ToList(),
-                }, new StateChanges());
+                var state = work.State;
                 var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
                 var commands = new CommandFactory(client);
                 var session = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
@@ -617,13 +612,18 @@ namespace Halcyonic.XR.Workspace.Editor
                         return null;
                     },
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, opened.Target.BodyPosition - eyes, targets, surface, false),
-                    CharacterOf = _ => opened.Target,
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, null, false),
+                    CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
                     // Voice is offered in the editor, so the question's pages carry Hold to talk.
                     Voice = root.AddComponent<HoldToTalk>(),
                 });
+                director.DrawNow();
+                var opened = ConfirmedDirectorAgent(root.transform, director, eyes, work.Present().Character, failures, name);
+                characters.Add(opened);
+                targets.Add(opened.Target);
+                director.StageRefreshedForRender();
                 var plane = director.Plane;
                 bool Press(string action, string? key = null)
                 {
@@ -981,8 +981,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.Add(name + ": no file stands on the plane to drag it by.");
                 return failures;
             }
+            Vector3 MovePoint() => plane.Chrome.Targets.First(button => button.Label.text == WorkspaceText.MoveWorkspace).transform.position;
             Vector3 Turned(Vector3 point, float right, float down) => eyes + Quaternion.Euler(down, right, 0f) * (point - eyes);
-            var held = subject.Subject.position;
+            var held = MovePoint();
             director.HoldSubjectForRender(held);
             if (!director.Dragging) failures.Add(name + ": holding the file's subject did not take hold of the plane.");
             director.DragSubjectForRender(Turned(held, 4f, 0f));
@@ -1022,18 +1023,30 @@ namespace Halcyonic.XR.Workspace.Editor
             }
 
             // Into the characters, holding does nothing: up into their labels, or over a desk, down into their bodies.
-            held = subject.Subject.position;
+            held = MovePoint();
             director.HoldSubjectForRender(held);
             if (!director.Dragging) failures.Add(name + ": held again where it was left, the file's subject took no hold of the plane.");
-            director.DragSubjectForRender(Turned(held, 0f, plane.Direction.Above ? 15f : -15f));
-            if (Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f) failures.Add(name + ": the plane was dragged into the characters.");
+            var blocked = extra("render-drag-obstacle");
+            var proposed = MenuDrag.Turned(plane.Direction, (0f, 3f));
+            blocked.View.transform.position = PlaneLayout.PointOf(eyes, proposed, 0f, 0f);
+            targets.Add(blocked);
+            director.StageRefreshedForRender();
+            director.DrawNow();
+            held = MovePoint();
+            director.HoldSubjectForRender(held);
+            var blockedAt = plane.Direction;
+            if (plane.Allows(proposed)) failures.Add(name + ": an overlapping occupied body escaped the console drag veto.");
+            director.DragSubjectForRender(Turned(held, 0f, -3f));
+            if (!plane.Direction.Equals(blockedAt)) failures.Add(name + ": the plane was dragged into the occupied body.");
+            targets.Remove(blocked);
+            UnityEngine.Object.DestroyImmediate(blocked.View.gameObject);
             director.LetGoForRender();
             director.DrawNow();
 
             // Swept far to the side, it stops where its centre would leave the field as seen turned to the stage.
             if (ViewField.Current is ViewField field && plane.StageYaw is float stage)
             {
-                held = subject.Subject.position;
+                held = MovePoint();
                 var before = plane.Direction.Yaw;
                 director.HoldSubjectForRender(held);
                 if (!director.Dragging) failures.Add(name + ": held to sweep it aside, the file's subject took no hold of the plane.");
@@ -1056,7 +1069,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 try
                 {
                     ViewField.Current = null;
-                    held = subject.Subject.position;
+                    held = MovePoint();
                     director.HoldSubjectForRender(held);
                     if (!director.Dragging) failures.Add(name + ": held with no field measured, the file's subject took no hold of the plane.");
                     for (var step = 1; step <= 170; step++) director.DragSubjectForRender(Turned(held, step * 1f, 0f));
@@ -1078,7 +1091,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // Dragged as far from the characters as it goes, then laid anew taller, a title in two rows: it
             // keeps only as much of the drag as still holds, so it stays inside the field and clear of every character.
             var title = subject.Frame!.Subject;
-            held = subject.Subject.position;
+            held = MovePoint();
             var level = plane.Direction.Elevation;
             var away = plane.Direction.Above ? -0.5f : 0.5f;
             // A plane already at the field's edge that way has no room to be dragged: there is no drag to keep.
@@ -1111,7 +1124,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                     director.DrawNow(); // The renewed Tasks column first learns the retained file selection.
                     failures.AddRange(DirectorFileControls(name + " standard Move " + way, plane.Showing(MenuColumn.File)));
-                    held = subject.Subject.position;
+                    held = MovePoint();
                     var off = plane.Direction.Above ? -1f : 1f;
                     director.HoldSubjectForRender(held);
                     if (!director.Dragging) failures.Add(name + ": held at the standard text, the file's subject took no hold of the plane.");
@@ -1165,14 +1178,14 @@ namespace Halcyonic.XR.Workspace.Editor
             // A confirmation standing on the plane keeps it where it is, held then or pressed then.
             confirm(true);
             director.DrawNow();
-            director.HoldSubjectForRender(subject.Subject.position);
+            director.HoldSubjectForRender(MovePoint());
             if (director.Dragging) failures.Add(name + ": held while a confirmation stands, the plane was dragged.");
             director.LetGoForRender();
             director.DrawNow();
             director.PressSubjectForRender();
             confirm(false);
             director.DrawNow();
-            director.MatureHoldForRender(subject.Subject.position);
+            director.MatureHoldForRender(MovePoint());
             if (director.Dragging) failures.Add(name + ": pressed while a confirmation stood, its hold dragged the plane once it went.");
             director.LetGoForRender();
             director.DrawNow();
@@ -1184,10 +1197,10 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 // Pressed just before, its press ends as the plane starts to move.
                 talking.HoldPressForRender();
-                director.HoldSubjectForRender(subject.Subject.position);
+                director.HoldSubjectForRender(MovePoint());
                 if (talking.PressUnderWay) failures.Add(name + ": Hold to talk pressed as the drag began was still pressed while the plane moved.");
                 talking.HoldPressForRender();
-                director.DragSubjectForRender(Turned(subject.Subject.position, 1f, 0f));
+                director.DragSubjectForRender(Turned(MovePoint(), 1f, 0f));
                 director.LetGoForRender();
                 director.DrawNow();
                 if (talking.PressUnderWay) failures.Add(name + ": Hold to talk pressed under a drag was still pressed after the plane was let go, so its hold could start the voice.");
@@ -1197,7 +1210,7 @@ namespace Halcyonic.XR.Workspace.Editor
             director.PressSubjectForRender();
             confirm(true);
             director.DrawNow();
-            director.MatureHoldForRender(subject.Subject.position);
+            director.MatureHoldForRender(MovePoint());
             if (director.Dragging) failures.Add(name + ": pressed before a confirmation stood, its hold dragged the plane once it matured with the confirmation standing.");
             director.LetGoForRender();
             confirm(false);
@@ -1206,18 +1219,18 @@ namespace Halcyonic.XR.Workspace.Editor
             // A press let go before its hold matured counts no more: a hold maturing later, with no press of its own, drags nothing.
             director.PressSubjectForRender();
             director.LetGoForRender();
-            director.MatureHoldForRender(subject.Subject.position);
+            director.MatureHoldForRender(MovePoint());
             if (director.Dragging) failures.Add(name + ": a press let go before its hold matured still dragged the plane when a hold matured later.");
             director.LetGoForRender();
             director.DrawNow();
 
             // Focus leaving ends a drag, and so does what stands on the plane changing under it.
-            director.HoldSubjectForRender(subject.Subject.position);
+            director.HoldSubjectForRender(MovePoint());
             if (!director.Dragging) failures.Add(name + ": the file's subject, held, took no hold of the plane.");
             director.FocusLeftForRender();
             if (director.Dragging) failures.Add(name + ": focus left, and the drag went on.");
             director.DrawNow();
-            director.HoldSubjectForRender(subject.Subject.position);
+            director.HoldSubjectForRender(MovePoint());
             if (!director.Dragging) failures.Add(name + ": focus back and the plane drawn, the file's subject took no hold of the plane.");
             director.Navigator.CloseMenu();
             director.DrawNow();
@@ -1275,8 +1288,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 director.ResetPosition();
                 director.DrawNow();
-                director.HoldSubjectForRender(subject.Subject.position);
-                for (var step = 1; step <= 8; step++) director.DragSubjectForRender(Turned(subject.Subject.position, 1f, 0f));
+                director.HoldSubjectForRender(MovePoint());
+                for (var step = 1; step <= 8; step++) director.DragSubjectForRender(Turned(MovePoint(), 1f, 0f));
                 director.LetGoForRender();
                 director.DrawNow();
                 if (!director.MovedByHand) failures.Add(name + ": dragged before the stage was " + what + ", the plane kept no drag.");
@@ -1300,14 +1313,14 @@ namespace Halcyonic.XR.Workspace.Editor
             targets.Add(gone);
             director.ResetPosition();
             director.DrawNow();
-            director.HoldSubjectForRender(subject.Subject.position);
+            director.HoldSubjectForRender(MovePoint());
             if (!director.Dragging) failures.Add(name + ": with one more character on the stage, the file's subject took no hold of the plane.");
             UnityEngine.Object.DestroyImmediate(gone.View.gameObject);
             try
             {
                 // Its label gone, nothing that judges the plane reads it.
                 plane.Allows(plane.Direction);
-                director.DragSubjectForRender(Turned(subject.Subject.position, 1f, 0f));
+                director.DragSubjectForRender(Turned(MovePoint(), 1f, 0f));
             }
             catch (Exception error)
             {
@@ -1317,7 +1330,7 @@ namespace Halcyonic.XR.Workspace.Editor
             director.LetGoForRender();
             targets.Remove(gone);
             director.DrawNow();
-            director.HoldSubjectForRender(subject.Subject.position);
+            director.HoldSubjectForRender(MovePoint());
             var arrives = extra("render-arrives");
             targets.Add(arrives);
             director.StageRefreshedForRender();
@@ -1436,7 +1449,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (subject == null) failures.Add(name + ": no file stands on the plane to drag it by as it folds.");
                 else
                 {
-                    director.HoldSubjectForRender(subject.Subject.position);
+                    director.HoldSubjectForRender(director.Plane.Chrome.Targets.First(button => button.Label.text == WorkspaceText.MoveWorkspace).transform.position);
                     if (!director.Dragging) failures.Add(name + ": the file's subject, held before folding, took no hold of the plane.");
                     FocusGuard.FoldForRender(true);
                     director.DrawNow();
@@ -1451,6 +1464,78 @@ namespace Halcyonic.XR.Workspace.Editor
                 FocusGuard.FoldForRender(null);
             }
             return failures;
+        }
+
+        /// <summary>Journal fixtures retain all work whether zero or one optional agent is shown.</summary>
+        private static ClientProjection DirectorWorkProjection() => Projection(Enumerable.Range(0, 6).Select(slot => Presentation("render-" + slot, slot)));
+
+        /// <summary>A bounded question page, with its first two short answers measured as a pair.</summary>
+        private static MenuFrame DirectorWaitingFile(string title, StateBadge badge, bool chosen, float budget, int minimumLines = 0)
+        {
+            var sample = WaitingFile(title, badge, chosen, budget, minimumLines);
+            var lines = new[]
+            {
+                new PageLine("Lockout duration?", wordsAreData: true, chip: "Agent says", claim: true),
+                new PageLine("15 minutes", wordsAreData: true, action: "answer", key: "0", choice: true),
+                new PageLine("1 hour", wordsAreData: true, action: "answer", key: "1", choice: true),
+            };
+            return new MenuFrame(sample.Subject, sample.Footer, sample.SubjectIsData, sample.Pill, sample.Sections,
+                Packed(lines, budget, minimumLines), sample.Source, sample.Side, sample.SourceIsData, sample.SubjectWaits);
+        }
+
+        /// <summary>One grounded shelf in the supported candidate range, with the real readable lip attachment.</summary>
+        private static (CharacterView View, CharacterTarget Target) ConfirmedDirectorAgent(Transform root, MenuDirector director,
+            Vector3 eyes, CharacterPresentation shown, List<string> failures, string name)
+        {
+            var corners = new Vector3[8];
+            Pose? accepted = null;
+            var measured = ViewField.Current ?? MenuPage.Quest3S;
+            var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
+                measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
+            foreach (var turn in new[] { -35f, 35f, -20f, 20f, 0f })
+            foreach (var distance in new[] { 2f, 1.8f, 1.5f, 1.2f })
+            foreach (var drop in new[] { 0.45f, 0.6f, 0.75f, 0.9f })
+            {
+                var rotation = Quaternion.Euler(0f, turn, 0f);
+                var candidate = new Pose(eyes + rotation * Vector3.forward * distance - Vector3.up * drop, rotation);
+                CharacterStage.WriteShelfCorners(candidate, AgentShelfDraft.Width(1), eyes, corners);
+                var fits = corners.All(corner =>
+                {
+                    var point = corner - eyes;
+                    return field.Shows(Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
+                        Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg);
+                });
+                if (!accepted.HasValue && fits && director.ClearsShelf(corners, eyes)) accepted = candidate;
+            }
+            if (!accepted.HasValue) failures.Add(name + ": no supported one-agent shelf cleared the actual console and field.");
+            var pose = accepted ?? new Pose(eyes + Vector3.forward * 2f - Vector3.up * 0.45f, Quaternion.identity);
+            var holder = new GameObject("Explicitly confirmed optional agent shelf").transform;
+            holder.SetParent(root, false);
+            holder.SetPositionAndRotation(pose.position, pose.rotation);
+            var shelf = Surface.Create(holder, "Placed agent shelf", 0);
+            shelf.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            shelf.Draw(new Vector2(AgentShelfDraft.Width(1), AgentShelfDraft.Depth), 0.025f, new Color(0.12f, 0.19f, 0.22f, 1f));
+            var view = CharacterView.Create(holder, shown.WorkstreamId);
+            view.Grounded = true;
+            view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+            view.Show(shown);
+            view.PlaceShelfLabel(eyes);
+            view.AdvanceForRender(1f / 60f);
+            return (view, CharacterTarget.Attach(view, shown.WorkstreamId));
+        }
+
+        private static void ProjectsForDirectorRender(MenuDirector director, List<string> failures, string name)
+        {
+            var projects = director.Plane.Chrome.Visible
+                ? director.Plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == "Projects") : null;
+            if (projects == null || !projects.gameObject.activeInHierarchy)
+            { failures.Add(name + ": no visible workspace Projects control."); return; }
+            projects.SettleForRender();
+            projects.Target.PointerForRender(706, Oculus.Interaction.PointerEventType.Select, projects.transform.position);
+            projects.Target.PointerForRender(706, Oculus.Interaction.PointerEventType.Unselect, projects.transform.position);
+            director.DrawNow();
+            if (director.Navigator.Place != MenuPlace.Projects) failures.Add(name + ": the visible Projects control did not open Projects.");
         }
 
         private static bool OpenSettingsCategoryForRender(MenuDirector director, string category)
@@ -1503,16 +1588,19 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>The session as the stage shows it: each character a task of one project, the opened one waiting for the person.</summary>
         private static ClientProjection Projection(List<(CharacterView View, CharacterTarget Target)> characters)
+            => Projection(characters.Select(character => character.View.Presentation!));
+
+        private static ClientProjection Projection(IEnumerable<CharacterPresentation> presentations)
         {
             const string Time = "2026-10-02T09:00:00.000Z";
-            var workstreams = characters.Select((character, slot) =>
+            var workstreams = presentations.Select((character, slot) =>
             {
-                var waits = character.View.Presentation!.Activity == CharacterActivity.WaitingForHuman;
+                var waits = character.Activity == CharacterActivity.WaitingForHuman;
                 return new WorkstreamView
                 {
-                    WorkstreamId = character.View.WorkstreamId,
+                    WorkstreamId = character.WorkstreamId,
                     ProjectId = "storefront",
-                    Title = character.View.Presentation!.Title,
+                    Title = character.Title,
                     Status = waits ? WorkstreamStatus.WaitingForHuman : WorkstreamStatus.Running,
                     Attention = new Attention { Level = waits ? AttentionLevel.ActionRequired : AttentionLevel.None, Reasons = new List<AttentionReason>() },
                     ExecutionIds = new List<string>(),
