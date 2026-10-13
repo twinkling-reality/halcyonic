@@ -1005,7 +1005,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 work.Execution.PendingQuestions[0].Prompts[0].Text = "Which colour scheme should the dashboard use?";
                 work.Execution.PendingQuestions[0].Prompts[0].Options = new List<QuestionOption>
                 {
-                    new QuestionOption { Label = "Light", Description = string.Join(" ", Enumerable.Range(0, 80).Select(index => "condition" + index)) },
+                    new QuestionOption { Label = "Light", Description = string.Join(" ", Enumerable.Range(0, 200).Select(index => "condition" + index)) },
                     new QuestionOption { Label = "Dark" },
                 };
                 FreshQuestionCase("long-option");
@@ -1013,6 +1013,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!PressWords("Light")) failures.Add(name + ": long option could not be selected from its current drawn row.");
                 director.DrawNow();
                 var detail = plane.Shown.FirstOrDefault(each => each.Kind == MenuColumn.Side).View?.Side;
+                // The independent console has a larger measured page than the old stage-attached
+                // fixture. This negative requires a genuinely partial read, not an 80-word answer
+                // that now fits wholly in one visible part.
+                if (detail == null || file!.Screen.Question.SideParts < 2 || file.Screen.Question.SidePart != 0
+                    || file.Screen.Question.AnswersRead(0))
+                    failures.Add(name + ": the long-option negative did not offer an unread multi-part first detail page.");
                 System.Threading.Thread.Sleep(TimeSpan.FromSeconds(0.45));
                 if (detail == null || !director.Navigator.Act(MenuColumn.Side, SidePanel.Close, null, plane.Showing(MenuColumn.Side), detail))
                     failures.Add(name + ": partially read long option details did not close through their visible Close control.");
