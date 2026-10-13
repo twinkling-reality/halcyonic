@@ -176,6 +176,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         made = host.PageHeight(1, besideMenu: false);
                         return file = new StubColumn(() =>
                         {
+                            if (fileBesideMenu)
+                            {
+                                var ordinary = Work.Running();
+                                ordinary.Workstream.Title = fileTitle;
+                                return FileScreens.Screen(ordinary.Present(), Steering(), new FileScreen { Section = FileSection.Activity }, new AnswerRoom(1));
+                            }
                             var waiting = DirectorWaitingFile(fileTitle, StateLanguage.BadgeOf(opened), chosen: false,
                                 host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: fileBesideMenu, focused: !fileBesideMenu),
                                 focused: !fileBesideMenu);
@@ -1165,7 +1171,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add(name + ": an old drawn frame took input after text-size repacking " + way + ".");
                     if (!plane.Allows(plane.Direction)) failures.Add(name + ": Larger repacking no longer fits the exact retained offset " + way + ".");
                     failures.AddRange(PlaneState(name + " director dragged " + way + " then larger text", folder, camera, texture, plane, characters, eyes, null, lightLine: characters.Count > 0));
-                    failures.AddRange(InSightOfStage(name + " director dragged " + way + " then larger text", plane, eyes));
+                    failures.AddRange(InSightOfConsole(name + " director dragged " + way + " then larger text", plane, eyes));
                     // A drag never takes the plane's centre above the highest a placement goes, nor below the lowest
                     // the field lets a placement go, or where the stage placed it if that is lower.
                     if (plane.Direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
@@ -1369,14 +1375,13 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The plane's centre, as its parts are drawn, inside the measured field less its margin with the head
-        /// turned to the stage's centre: a drag, and a plane laid anew under one, never takes it, or an
-        /// approval that may come to it, out of sight of the characters.
+        /// Every actual console corner, including its persistent header, remains inside the measured
+        /// field and margin at the console's current explicit reading pose. Its retained placement
+        /// and hand offset determine that pose; an optional shelf never supplies the viewing yaw.
         /// </summary>
-        private static IEnumerable<string> InSightOfStage(string what, MenuPlane plane, Vector3 eyes)
+        private static IEnumerable<string> InSightOfConsole(string what, MenuPlane plane, Vector3 eyes)
         {
-            if (!(ViewField.Current is ViewField field) || !(plane.StageYaw is float stage) || !(plane.Composition is PlaneComposition composition)) yield break;
-            // Each part where it is drawn, its size as laid, as the plane's checks take them.
+            if (!(ViewField.Current is ViewField field) || !(plane.Composition is PlaneComposition composition)) yield break;
             var parts = new List<GlazeChecks.PlaneShape>();
             for (var c = 0; c < plane.Shown.Count; c++)
             {
@@ -1385,16 +1390,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 parts.AddRange(view.Parts.Select((part, index) => new GlazeChecks.PlaneShape(part.name, part,
                     new Vector2(placed[index].Width, placed[index].Height) * PlaneComposition.Distance)));
             }
-            var toward = GlazeChecks.CompositionCenter(parts) - eyes;
-            var yaw = Mathf.DeltaAngle(stage, Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg);
-            var elevation = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
-            var margin = ViewField.EdgeMarginDegrees - 0.01f;
-            var shrunk = new ViewField(field.Left - margin, field.Right - margin, field.Up - margin, field.Down - margin);
-            if (!shrunk.Shows(yaw, elevation))
-            {
-                yield return what + ": the plane's centre stands " + GlazeChecks.Degrees(yaw) + " degrees across and " + GlazeChecks.Degrees(elevation)
-                    + " up from the stage's centre, out of the field turned to it.";
-            }
+            if (plane.Chrome.Visible) parts.Add(new GlazeChecks.PlaneShape("workspace header", plane.Chrome.transform,
+                plane.Chrome.Size * plane.Chrome.transform.localScale.x));
+            var corners = parts.SelectMany(part => new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }
+                .Select(y => part.Root.position + part.Root.right * (x * part.Size.x) + part.Root.up * (y * part.Size.y))));
+            var reading = MenuDrag.Turned(plane.Placed, plane.Moved);
+            var toward = PlaneLayout.PointOf(eyes, reading, 0f, 0f);
+            foreach (var failure in GlazeChecks.InsideField(what + " independent console footprint", corners, eyes, toward,
+                WorkspacePlacement.ReadingPitch(composition.Size, reading.Elevation, field), field)) yield return failure;
         }
 
         /// <summary>A file asking its Yes on its Send answer: Cancel where Send answer stood, Yes in the free middle.</summary>
@@ -1503,6 +1506,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>One grounded shelf in the supported candidate range, with the real readable lip attachment.</summary>
         private static (CharacterView View, CharacterTarget Target) ConfirmedDirectorAgent(Transform root, MenuDirector director,
             Vector3 eyes, CharacterPresentation shown, List<string> failures, string name)
+            => ConfirmedPlaneAgent(root, director.Plane, eyes, shown, failures, name);
+
+        private static (CharacterView View, CharacterTarget Target) ConfirmedPlaneAgent(Transform root, MenuPlane plane,
+            Vector3 eyes, CharacterPresentation shown, List<string> failures, string name)
         {
             var corners = new Vector3[8];
             Pose? accepted = null;
@@ -1522,7 +1529,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     return field.Shows(Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
                         Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg);
                 });
-                if (!accepted.HasValue && fits && director.ClearsShelf(corners, eyes)) accepted = candidate;
+                if (!accepted.HasValue && fits && plane.ClearsShelf(corners, eyes)) accepted = candidate;
             }
             if (!accepted.HasValue) failures.Add(name + ": no supported one-agent shelf cleared the actual console and field.");
             var pose = accepted ?? new Pose(eyes + Vector3.forward * 2f - Vector3.up * 0.45f, Quaternion.identity);
