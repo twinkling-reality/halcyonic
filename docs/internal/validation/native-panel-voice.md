@@ -87,3 +87,21 @@ exit/cancel, rate/level and no-speech behavior, both 30-second limits, panel foc
 panel↔immersive switches during capture/upload/result, concurrent edits, process recreation with
 retained spoken text and absent capture/confirmation, and no release microphone permission. Store
 justification and published processing/draft-retention disclosures require separate verification.
+
+
+## Integrated Android packaging (2026-10-13)
+
+The integrated `32169294` development and release Android builds succeeded after the compact
+panel change. Development APK: 114,630,718 bytes, SHA-256
+`54c02db2823984967181d6561ef1ca465221903ada9c1c6639af826c322cf296`.
+Release APK: 74,426,505 bytes, SHA-256
+`9b72fc98263c846b91f80c46e6cb6b35857176082e097fa07f5edd7984056917`.
+Actual DEX inspection found the production Activity, voice lease/capture and UI authority classes
+in both. The development manifest includes microphone permission and the synthetic preview;
+the release omits microphone and media-projection service permissions, the preview Activity/class
+and its exact asset. Neither requests all-package visibility. Presence of shared voice code in
+release does not enable recording: the existing development guard and permission exclusion remain.
+The full integrated repository check passes 1,172 tests with no failures or skips, type checking
+and lint included. These packages were archived, not installed; they precede the separate installed
+app-link and optional character-feature candidates. Hardware audio/focus/IME and wearer acceptance
+remain outstanding.
