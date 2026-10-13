@@ -62,6 +62,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var name = CharacterIdentity.Of(id).Shape + "-Ears";
                         var root = new GameObject("Captured idle residual witness " + name);
                         var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+                        var captured = new List<Texture2D>();
                         try
                         {
                             var eyes = new Vector3(0f, EyeHeight, 0f);
@@ -80,24 +81,23 @@ namespace Halcyonic.XR.Workspace.Editor
                             var later = ResidualMoment("after");
                             try
                             {
-                                var area = new RectInt(0, 0, Size, Size);
-                                var original = WorkspaceRender.Compare(first.Original, later.Original, area);
-                                var corrected = WorkspaceRender.Compare(first.Corrected, later.Corrected, area);
-                                if (corrected.Changed != 0) result.Add(name + ": exact idle residual correction leaves " + corrected.Changed + " drifting pixels.");
-                                if (variant == "Larger" && original.Changed == 0)
+                                var original = ExactCharacterPixels(first.Original, later.Original);
+                                var corrected = ExactCharacterPixels(first.Corrected, later.Corrected);
+                                if (corrected != 0) result.Add(name + ": exact idle residual correction leaves " + corrected + " drifting pixels.");
+                                if (variant == "Larger" && original == 0)
                                     result.Add(name + ": original captured idle residuals no longer reproduce the larger-text pixel drift; causal witness is inconclusive.");
                                 var accounted = 0;
-                                for (var y = 0; y < Size; y++)
-                                for (var x = 0; x < Size; x++)
+                                var originalBefore = first.Original.GetPixels32(); var originalAfter = later.Original.GetPixels32();
+                                var correctedBefore = first.Corrected.GetPixels32(); var correctedAfter = later.Corrected.GetPixels32();
+                                for (var pixel = 0; pixel < originalBefore.Length; pixel++)
                                 {
-                                    var pixel = new RectInt(x, y, 1, 1);
-                                    if (WorkspaceRender.Compare(first.Original, later.Original, pixel).Changed == 0) continue;
-                                    if (WorkspaceRender.Compare(first.Corrected, first.Original, pixel).Changed != 0
-                                        || WorkspaceRender.Compare(later.Corrected, later.Original, pixel).Changed != 0) accounted++;
+                                    if (SameCharacterPixel(originalBefore[pixel], originalAfter[pixel])) continue;
+                                    if (!SameCharacterPixel(correctedBefore[pixel], originalBefore[pixel])
+                                        || !SameCharacterPixel(correctedAfter[pixel], originalAfter[pixel])) accounted++;
                                 }
-                                if (accounted != original.Changed) result.Add(name + ": the isolated correction does not account for every original drifting pixel.");
-                                Debug.Log("Halcyonic: " + name + ": residual isolation original " + original.Changed + ", corrected "
-                                    + corrected.Changed + ", accounted " + accounted + " pixels.");
+                                if (accounted != original) result.Add(name + ": the isolated correction does not account for every original drifting pixel.");
+                                Debug.Log("Halcyonic: " + name + ": residual isolation original " + original + ", corrected "
+                                    + corrected + ", accounted " + accounted + " pixels.");
                             }
                             finally
                             {
@@ -113,9 +113,9 @@ namespace Halcyonic.XR.Workspace.Editor
                                 {
                                     var block = new MaterialPropertyBlock(); renderer.GetPropertyBlock(block); return block;
                                 }).ToArray();
-                                var original = WorkspaceRender.Render(camera, texture);
+                                var original = WorkspaceRender.Render(camera, texture); captured.Add(original);
                                 var repeated = WorkspaceRender.Render(camera, texture);
-                                if (WorkspaceRender.Compare(original, repeated, new RectInt(0, 0, Size, Size)).Changed != 0)
+                                if (ExactCharacterPixels(original, repeated) != 0)
                                     result.Add(name + ": repeated unchanged " + moment + " frame changes pixels, so residual isolation is inconclusive.");
                                 UnityEngine.Object.DestroyImmediate(repeated);
                                 Texture2D? corrected = null;
@@ -128,7 +128,7 @@ namespace Halcyonic.XR.Workspace.Editor
                                         block.SetFloat("_Fog", 0f); block.SetFloat("_EyeUneven", 0f); block.SetVector("_Look", Vector4.zero);
                                         renderer.SetPropertyBlock(block);
                                     }
-                                    corrected = WorkspaceRender.Render(camera, texture);
+                                    corrected = WorkspaceRender.Render(camera, texture); captured.Add(corrected);
                                     File.WriteAllBytes(Path.Combine(folder, name + "-" + moment + "-original.png"), original.EncodeToPNG());
                                     File.WriteAllBytes(Path.Combine(folder, name + "-" + moment + "-corrected.png"), corrected.EncodeToPNG());
                                 }
@@ -137,14 +137,18 @@ namespace Halcyonic.XR.Workspace.Editor
                                     view.Body.localRotation = originalRotation;
                                     for (var index = 0; index < renderers.Length; index++) renderers[index].SetPropertyBlock(originals[index]);
                                     var restored = WorkspaceRender.Render(camera, texture);
-                                    if (WorkspaceRender.Compare(original, restored, new RectInt(0, 0, Size, Size)).Changed != 0)
+                                    if (ExactCharacterPixels(original, restored) != 0)
                                         result.Add(name + ": restoring the captured " + moment + " parameters fails to restore exact pixels.");
                                     UnityEngine.Object.DestroyImmediate(restored);
                                 }
                                 return (original, corrected!);
                             }
                         }
-                        finally { UnityEngine.Object.DestroyImmediate(root); texture.Release(); UnityEngine.Object.DestroyImmediate(texture); }
+                        finally
+                        {
+                            foreach (var image in captured) if (image != null) UnityEngine.Object.DestroyImmediate(image);
+                            UnityEngine.Object.DestroyImmediate(root); texture.Release(); UnityEngine.Object.DestroyImmediate(texture);
+                        }
                     }
                 }
                 catch (Exception error) { result.Add(error.ToString()); }
@@ -153,6 +157,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 return result;
             });
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        // The causal diagnostic is stricter than the historical 2/255 RGB comparison.
+        private static bool SameCharacterPixel(Color32 a, Color32 b) => a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+
+        private static int ExactCharacterPixels(Texture2D a, Texture2D b)
+        {
+            var first = a.GetPixels32(); var second = b.GetPixels32();
+            if (a.width != b.width || a.height != b.height) throw new InvalidOperationException("Character pixel witnesses have different dimensions.");
+            var changed = 0;
+            for (var pixel = 0; pixel < first.Length; pixel++) if (!SameCharacterPixel(first[pixel], second[pixel])) changed++;
+            return changed;
         }
 
         private static MenuPlane CharacterConsole(Transform root, Vector3 eyes)
