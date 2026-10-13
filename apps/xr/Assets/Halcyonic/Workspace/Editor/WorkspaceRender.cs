@@ -106,41 +106,51 @@ namespace Halcyonic.XR.Workspace.Editor
             var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "WorkspaceRenders", paletteFolder, variant));
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
+            void Check(string journey, Func<IEnumerable<string>> run)
+            {
+                try { failures.AddRange(run()); }
+                catch (Exception error) { failures.Add(journey + ": " + error); }
+            }
             try
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 // The stage's default distance and height; the character that waits for the person,
                 // in the middle, opened.
-                failures.AddRange(RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderStage", () => RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // A desk 0.46 m below the eyes, the lineup 0.55 m ahead, its bodies about 0.1 m above it.
-                failures.AddRange(RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                Check("RenderStage", () => RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 // Again with a Quest 3S's narrower field measured: the workspace stays inside it.
                 ViewField.Current = FieldChecks.Quest3S;
-                failures.AddRange(RenderStage("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
-                failures.AddRange(RenderStage("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                Check("RenderStage", () => RenderStage("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderStage", () => RenderStage("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                // Current production compositions join the same full gate; an earlier failed
+                // journey is recorded without skipping later creation, review or return coverage.
+                Check("dedicated workspace", () => RenderDedicatedWorkspace("workspace", folder));
+                Check("workspace requests", () => RenderWorkspaceRequests("workspace", folder));
+                Check("optional shelf", () => RenderShelfWorkspace(Path.Combine(folder, "shelf"), 1, false));
                 // The menu's plane (ADR 0026) on the same stages, in the same field.
-                failures.AddRange(RenderMenuPlane("far-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
-                failures.AddRange(RenderMenuPlane("desk-3s-plane", folder, radius: 0.55f, surfaceDrop: 0.46f));
-                failures.AddRange(RenderMenuPlane("window-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
+                Check("RenderMenuPlane", () => RenderMenuPlane("far-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderMenuPlane", () => RenderMenuPlane("desk-3s-plane", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                Check("RenderMenuPlane", () => RenderMenuPlane("window-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
                 // The menu's director driving the plane, as WorkspaceDirector will host it.
                 keptOffsetAtLarger = 0;
-                failures.AddRange(RenderMenuDirector("far-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
-                failures.AddRange(RenderMenuDirector("desk-3s-director", folder, radius: 0.55f, surfaceDrop: 0.46f));
-                failures.AddRange(RenderMenuDirector("window-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
+                Check("RenderMenuDirector", () => RenderMenuDirector("far-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderMenuDirector", () => RenderMenuDirector("desk-3s-director", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                Check("RenderMenuDirector", () => RenderMenuDirector("shelf-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
                 if (keptOffsetAtLarger == 0) failures.Add("no director render exercised a nonzero retained hand offset at Larger; passive position retention goes unchecked.");
                 // A question of two prompts answered in a task's file and sent from Your answers.
-                failures.AddRange(RenderYourAnswers("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderYourAnswers", () => RenderYourAnswers("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // A judge's walk through the menu on the recorded demonstration, from the eyes.
-                failures.AddRange(RenderJudgeWalk("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderJudgeWalk", () => RenderJudgeWalk("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // The demonstration's first visit: ambient, then Projects from the bar, its lines raised above the menu.
-                failures.AddRange(RenderDemoWelcome("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
-                failures.AddRange(RenderDemoWelcome("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                Check("RenderDemoWelcome", () => RenderDemoWelcome("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderDemoWelcome", () => RenderDemoWelcome("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 // The first visit to a computer with no task: the first question, Projects and Settings in its place, the bar, New project.
-                failures.AddRange(RenderFirstVisit("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
-                failures.AddRange(RenderFirstVisit("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                Check("RenderFirstVisit", () => RenderFirstVisit("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                Check("RenderFirstVisit", () => RenderFirstVisit("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 // Every New project footer in the file's column: never four prompts, and each fits.
-                failures.AddRange(RenderNewProjectFooters(string.IsNullOrEmpty(variant) ? "the standard" : "the larger"));
-                failures.AddRange(RenderNewProjectReview(folder));
+                Check("RenderNewProjectFooters", () => RenderNewProjectFooters(string.IsNullOrEmpty(variant) ? "the standard" : "the larger"));
+                Check("RenderNewProjectReview", () => RenderNewProjectReview(folder));
             }
             catch (Exception error)
             {

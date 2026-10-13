@@ -267,6 +267,7 @@ namespace Halcyonic.XR.Workspace
             }
             FocusGuard.Left += director.OnFocusLeft;
             Glaze.PaletteChanged += director.OnPaletteChanged;
+            GlazeText.ScaleChanged += director.OnTextScaleChanged;
             setup.Presentation.Suspending += director.SuspendWorkspace;
             setup.Presentation.Changed += director.PresentationChanged;
             // New project's flow let go for another session or journal comes off the plane.
@@ -470,6 +471,7 @@ namespace Halcyonic.XR.Workspace
         {
             FocusGuard.Left -= OnFocusLeft;
             Glaze.PaletteChanged -= OnPaletteChanged;
+            GlazeText.ScaleChanged -= OnTextScaleChanged;
             if (setup != null)
             {
                 setup.Presentation.Suspending -= SuspendWorkspace;
@@ -482,6 +484,29 @@ namespace Halcyonic.XR.Workspace
         private void OnPaletteChanged()
         {
             // Colours change, geometry and reading evidence do not. Old targets wait for the exact redraw.
+            navigator.Moved();
+            dirty = true;
+        }
+
+        private void OnTextScaleChanged()
+        {
+            // Edit-mode render fixtures can destroy non-executing behaviours without OnDestroy.
+            // Never let a retained static delegate visit their destroyed Unity children.
+            if (this == null || plane == null)
+            {
+                GlazeText.ScaleChanged -= OnTextScaleChanged;
+                return;
+            }
+            // The same words now occupy different hit areas. A press or capture begun against
+            // the previous geometry cannot finish against the newly packed frame.
+            EndDrag();
+            subjectPressTaken = false;
+            subjectOrigin = null;
+            voice?.FocusLeft();
+            plane.UnsettleShown(float.MinValue);
+            foreach (var button in plane.Chrome.Targets) { button.EndPressSince(float.MinValue); button.Unsettle(); }
+            if (plane.Bar is MenuBarView bar) { bar.Target.EndPressSince(float.MinValue); bar.Target.Unsettle(); }
+            placementDrawn = null;
             navigator.Moved();
             dirty = true;
         }

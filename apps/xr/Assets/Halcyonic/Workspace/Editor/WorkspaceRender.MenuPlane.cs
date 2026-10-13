@@ -14,6 +14,74 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>The raw plane gallery and animation checks at both text sizes.</summary>
+        public static void PlaneCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "PlaneRenders", variant));
+                Directory.CreateDirectory(folder);
+                UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+                ViewField.Current = FieldChecks.Quest3S;
+                var found = new List<string>();
+                try { found.AddRange(RenderMenuPlane("far-3s-plane", folder, CharacterStage.DefaultDistance, null)); }
+                finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                foreach (var failure in found) Debug.LogError("Halcyonic: plane render: " + failure);
+                return found;
+            });
+            UnityEditor.EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        /// <summary>Actual character-free opening pixels, independent of the older stage galleries.</summary>
+        public static void OpeningFadeCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "OpeningFadeRenders", variant));
+                Directory.CreateDirectory(folder);
+                UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+                var root = new GameObject("Opening fade witness");
+                var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+                var found = new List<string>();
+                try
+                {
+                    ViewField.Current = FieldChecks.Quest3S;
+                    var eyes = new Vector3(0f, EyeHeight, 0f);
+                    var camera = MakeCamera(root.transform, eyes, texture);
+                    var plane = MenuPlane.Create(root.transform);
+                    var bar = new MenuBar(MenuPlace.Tasks, "One synthetic task");
+                    var frame = new MenuFrame("Synthetic task", new Footer(PlaneClose,
+                        farRight: new Prompt("send", "Send instruction", GlazeIcon.SendAnswer, main: true)),
+                        sections: new[] { new FrameSection("activity", "Activity", chosen: true) },
+                        lines: new[] { new PageLine("A measured opening and closing.") });
+                    void Show(MenuFrame? shown, bool immediately) => plane.Show(bar, null, shown, null, System.Array.Empty<CharacterTarget>(),
+                        eyes, Vector3.forward, null, immediately: immediately);
+                    found.AddRange(OpeningStrip("workspace opening", folder, camera, texture, plane,
+                        () => Show(null, true), () => Show(frame, false), () => Show(null, false)));
+                    // Actual unanimated meshes must fail the same pixel gate. Show whole at the
+                    // press and leave the same column visible instead of closing it.
+                    var unanimated = OpeningStrip("negative unanimated column", folder, camera, texture, plane,
+                        () => Show(null, true), () => { Show(frame, true); plane.Advance(MenuPlane.OpeningSeconds); }, () => Show(frame, true)).ToList();
+                    foreach (var part in new[] { "Subject", "Sections", "Content" })
+                    {
+                        if (!unanimated.Any(problem => problem.Contains(part + "'s shape is only") && problem.Contains("does not fade in")))
+                            found.Add("the unanimated " + part + " escaped the opening pixel gate");
+                        if (!unanimated.Any(problem => problem.Contains(part + "'s isolated shape is only") && problem.Contains("does not fade away")))
+                            found.Add("the unanimated " + part + " escaped the closing pixel gate");
+                    }
+                }
+                finally
+                {
+                    Object.DestroyImmediate(texture); Object.DestroyImmediate(root);
+                    ViewField.Current = null; KeepFontAssetsAsCommitted();
+                }
+                foreach (var failure in found) Debug.LogError("Halcyonic: opening fade: " + failure);
+                if (found.Count == 0) Debug.Log("Halcyonic: opening fade: every check passed; " + folder);
+                return found;
+            });
+            UnityEditor.EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         /// <summary>
         /// The menu's plane on a stage (ADR 0026), placed the way the director will place it: the menu on
         /// Tasks beside the waiting task's file; the file's cut answer chosen, its side panel sliding out
@@ -692,8 +760,10 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// A file assembling and fading away, as the eyes see it: one strip of moments of its opening, from the
         /// press, the light line drawing from its character and the parts fading in from the top, then of its
-        /// closing. Read from the captured pixels, as the eyes see them: each part's largest shape, its glass, a
-        /// tab or a well, at least <see cref="SeenFadeLevels"/> of 255 dimmer at the press than once the file
+        /// closing. The scene strip retains the complete composition. The pixel measurement isolates the
+        /// same column's renderers against the camera's black clear colour, so unrelated opaque headers,
+        /// other columns and characters cannot masquerade as this column's opacity. Each part's shapes
+        /// must still read at least <see cref="SeenFadeLevels"/> of 255 dimmer at the press than once the file
         /// shows whole, and as dim again near the end of its closing. Its parts arrive from the edge the light line
         /// meets: 0.12 s in, over a desk the page further along than the subject, elsewhere the subject. Closing,
         /// stepped at the headset's rate, no bar's words and file's both stand above a tenth of their opacity where
@@ -715,6 +785,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var at = 0f;
                 Texture2D? pressed = null;
                 Texture2D? whole = null;
+                Texture2D? isolatedPressed = null;
+                Texture2D? isolatedWhole = null;
+                Texture2D? isolatedClosing = null;
                 foreach (var moment in new[] { 0f, 0.05f, 0.12f, 0.18f, 0.24f, 0.3f, MenuPlane.OpeningSeconds })
                 {
                     plane.Advance(moment - at);
@@ -723,6 +796,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     frames.Add(Render(camera, texture));
                     if (moment == 0f) pressed = frames[frames.Count - 1];
                     whole = frames[frames.Count - 1];
+                    if (view != null && (moment == 0f || moment == MenuPlane.OpeningSeconds))
+                    {
+                        var isolated = RenderColumnOnly(camera, texture, view);
+                        frames.Add(isolated);
+                        if (moment == 0f) isolatedPressed = isolated;
+                        else isolatedWhole = isolated;
+                    }
                     // Its parts arrive from the edge the light line meets: over a desk the page first, else the subject.
                     if (moment == 0.12f && view != null && view.Parts.Count > 1)
                     {
@@ -753,8 +833,6 @@ namespace Halcyonic.XR.Workspace.Editor
                     shapes.Add((part.name, area));
                 }
                 close();
-                // The bar shows at once where the file's subject stood: what it covers is read from outside it.
-                var bar = plane.Bar is MenuBarView closed ? Around(camera, closed.transform, closed.Size, 0.6f, 0.9f) : new RectInt();
                 at = 0f;
                 Texture2D? closing = null;
                 var overlapped = false;
@@ -774,7 +852,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     ForceMeshes(plane.gameObject);
                     frames.Add(Render(camera, texture));
-                    if (moment == 0.148f) closing = frames[frames.Count - 1];
+                    if (moment == 0.148f)
+                    {
+                        closing = frames[frames.Count - 1];
+                        if (view != null) { isolatedClosing = RenderColumnOnly(camera, texture, view); frames.Add(isolatedClosing); }
+                    }
                     if (plane.Bar is MenuBarView shown)
                     {
                         if (moment == 0.2f && shown.Target.Accepting()) failures.Add(what + ": the bar takes a press at 0.2 s, while it still fades in.");
@@ -784,20 +866,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 plane.Advance(Glaze.AfterLeaveSeconds);
                 foreach (var (part, rect) in shapes)
                 {
-                    var shown = Brightness(whole!, rect);
-                    var atPress = Brightness(pressed!, rect);
-                    var uncovered = Brightness(whole!, rect, bar);
-                    var nearlyGone = Brightness(closing!, rect, bar);
-                    if (Uncovered(rect, bar) < rect.width * rect.height / 5)
-                    {
-                        Debug.Log("Halcyonic: workspace render " + what + ": the " + part + " stands under the bar as it closes, so its closing is not read.");
-                        uncovered = nearlyGone = float.NaN;
-                    }
+                    if (isolatedWhole == null || isolatedPressed == null || isolatedClosing == null)
+                    { failures.Add(what + ": the " + part + " has no isolated rendered fade evidence."); continue; }
+                    var shown = Brightness(isolatedWhole, rect);
+                    var atPress = Brightness(isolatedPressed, rect);
+                    var uncovered = Brightness(isolatedWhole, rect);
+                    var nearlyGone = Brightness(isolatedClosing, rect);
+                    Debug.Log("Halcyonic: complete scene fade " + what + " " + part + ": "
+                        + Brightness(pressed!, rect) + " -> " + Brightness(whole!, rect) + " -> " + Brightness(closing!, rect));
                     Debug.Log("Halcyonic: workspace render " + what + ": the " + part + "'s shape reads " + atPress.ToString("0", CultureInfo.InvariantCulture) + " at the press, "
                         + shown.ToString("0", CultureInfo.InvariantCulture) + " whole and " + nearlyGone.ToString("0", CultureInfo.InvariantCulture) + " near the end of its closing, of 255.");
                     if (shown - atPress < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s shape is only " + (shown - atPress).ToString("0", CultureInfo.InvariantCulture)
                         + " of 255 dimmer at the press than whole; it does not fade in.");
-                    if (uncovered - nearlyGone < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s shape, outside the bar, is only "
+                    if (uncovered - nearlyGone < SeenFadeLevels) failures.Add(what + ": as the eyes see it, the " + part + "'s isolated shape is only "
                         + (uncovered - nearlyGone).ToString("0", CultureInfo.InvariantCulture) + " of 255 dimmer near the end of its closing than whole; it does not fade away.");
                 }
                 var strip = new Texture2D(frames.Sum(frame => frame.width), frames.Max(frame => frame.height), TextureFormat.RGBA32, false);
@@ -850,6 +931,20 @@ namespace Halcyonic.XR.Workspace.Editor
             return null;
         }
 
+        /// <summary>Capture the actual column's meshes and materials without unrelated scene contributions.
+        /// Preserve every renderer's prior enablement; no shader, opacity, transform or camera changes.</summary>
+        private static Texture2D RenderColumnOnly(Camera camera, RenderTexture texture, MenuFrameView view)
+        {
+            var excluded = view.transform.root.GetComponentsInChildren<Renderer>(false)
+                .Where(renderer => renderer.enabled && !renderer.transform.IsChildOf(view.transform)).ToList();
+            try
+            {
+                foreach (var renderer in excluded) renderer.enabled = false;
+                return Render(camera, texture);
+            }
+            finally { foreach (var renderer in excluded) renderer.enabled = true; }
+        }
+
         /// <summary>How much dimmer, of 255, a part's shape must read as the eyes see it before it opens, and near the end of its closing, than whole.</summary>
         private const float SeenFadeLevels = 30f;
 
@@ -872,20 +967,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             return count == 0 ? 0f : 255f * sum / count;
-        }
-
-        /// <summary>How many pixels of <paramref name="rect"/> stand outside <paramref name="skip"/>.</summary>
-        private static int Uncovered(RectInt rect, RectInt skip)
-        {
-            var count = 0;
-            for (var y = rect.yMin; y < rect.yMax; y++)
-            {
-                for (var x = rect.xMin; x < rect.xMax; x++)
-                {
-                    if (!skip.Contains(new Vector2Int(x, y))) count++;
-                }
-            }
-            return count;
         }
 
         /// <summary>
