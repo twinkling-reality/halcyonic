@@ -10,6 +10,11 @@
 - Status: Source migration prepared; actual Unity render and full integration results are separate
   gates and are not claimed by this record.
 
+`WorkspaceRender.EntryJourneysCheck` runs these same four journeys at both real font sizes in the
+Quest 3S field and writes `Builds/EntryJourneyRenders`. It reports each journey's failures without
+skipping the other cases, restores the field/font setup and fails the Editor process for any error.
+The existing full render gate continues to run the same journeys separately.
+
 `RenderFirstVisit` starts an explicitly synthetic empty live-origin projection in the real menu
 director. It checks open Projects, offered folders, all four normal navigation sections and current
 selection through Tasks, Usage and Settings. Actual header Minimize and dock Open workspace pointer
