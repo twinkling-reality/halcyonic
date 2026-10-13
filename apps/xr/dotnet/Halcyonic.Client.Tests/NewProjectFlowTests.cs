@@ -2013,10 +2013,12 @@ public class NewProjectFlowTests
         var host = new Host { TextSize = TextSize.Larger };
         var flow = Recapped(host);
         var first = flow.Frame!;
+        Assert.That(first.Focused, Is.True, "the recap is the primary composition, matching its standalone page budget");
         flow.Drawn(first, null);
         Assert.That(first.Footer[PromptSlot.Secondary]!.Id, Is.EqualTo(Footer.NextPage), "the recap's facts page as the menu's lists, by the footer's Next page");
         flow.Act(Footer.NextPage, null);
         var second = flow.Frame!;
+        Assert.That(second.Focused, Is.True, "paging must not bring back a competing Projects column");
         flow.Act(Footer.NextPage, null);
         Assert.That(flow.Frame!.Lines.Select(line => line.Key), Is.EqualTo(second.Lines.Select(line => line.Key)), "a second press before the next page is drawn turns nothing");
     }
