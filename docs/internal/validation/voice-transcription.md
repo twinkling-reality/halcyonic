@@ -265,3 +265,16 @@ So the engine runs with the hint and voice activity detection at 500 ms.
 - The gate's threshold on real clips.
 - Whether whisper.cpp still invents text in a real room despite voice activity detection.
 - Whether a restart or a macOS update makes the first transcription slow again.
+
+
+## Configured engine recheck, 2026-10-13
+
+After installing development build `61646671`, the existing pinned local engine and model files
+were enabled for the live host through temporary process configuration. The existing files were
+used without a download or a saved-settings change. A separate direct `WhisperEngine` witness
+validated a newly generated Samantha synthetic WAV through production `readClip`, then transcribed
+it with the production engine: 2.3973125 seconds of audio, 334 ms transcription, every expected word
+matched after case/punctuation normalization. A separate two-second silent clip returned empty text.
+The synthetic WAV was removed after the witness; its report retains only metadata and match results.
+This verifies the currently configured local engine, not HTTP transport, Quest microphone capture,
+a person's voice, focus/permission behavior or wearer acceptance.
