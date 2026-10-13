@@ -52,6 +52,305 @@ namespace Halcyonic.Contracts
             instant.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
     }
 
+    public sealed class ToolResultsQuery
+    {
+        [JsonProperty("journal_id", Required = Required.Always)]
+        public string JournalId { get; set; } = default!;
+
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ToolResultsAvailability
+    {
+        [EnumMember(Value = "available")] Available,
+        [EnumMember(Value = "unsupported")] Unsupported,
+        [EnumMember(Value = "unknown")] Unknown,
+        [EnumMember(Value = "unavailable")] Unavailable,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ToolResultSummaryKind
+    {
+        [EnumMember(Value = "command")] Command,
+        [EnumMember(Value = "file_changes")] FileChanges,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ToolResultCompletion
+    {
+        [EnumMember(Value = "completed")] Completed,
+        [EnumMember(Value = "failed")] Failed,
+        [EnumMember(Value = "declined")] Declined,
+        [EnumMember(Value = "interrupted")] Interrupted,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class ToolResultSummary
+    {
+        [JsonProperty("event_id", Required = Required.Always)]
+        public string EventId { get; set; } = default!;
+
+        [JsonProperty("position", Required = Required.Always)]
+        public long Position { get; set; }
+
+        [JsonProperty("occurred_at", Required = Required.Always)]
+        public string OccurredAt { get; set; } = default!;
+
+        [JsonProperty("runtime_id", Required = Required.Always)]
+        public string RuntimeId { get; set; } = default!;
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public string Epistemic { get; set; } = "observed";
+
+        [JsonProperty("native_type", Required = Required.AllowNull)]
+        public string? NativeType { get; set; }
+
+        [JsonProperty("kind", Required = Required.Always)]
+        public ToolResultSummaryKind Kind { get; set; }
+
+        [JsonProperty("completion", Required = Required.Always)]
+        public ToolResultCompletion Completion { get; set; }
+
+        [JsonProperty("title", Required = Required.AllowNull)]
+        public string? Title { get; set; }
+
+        [JsonProperty("exit_code", Required = Required.AllowNull)]
+        public long? ExitCode { get; set; }
+
+        [JsonProperty("files_total", Required = Required.AllowNull)]
+        public long? FilesTotal { get; set; }
+
+        [JsonProperty("body_available", Required = Required.Always)]
+        public bool BodyAvailable { get; set; }
+
+        [JsonProperty("retained_complete", Required = Required.Always)]
+        public bool RetainedComplete { get; set; }
+    }
+
+    public sealed class ToolResultsResponse
+    {
+        [JsonProperty("journal_id", Required = Required.Always)]
+        public string JournalId { get; set; } = default!;
+
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("availability", Required = Required.Always)]
+        public ToolResultsAvailability Availability { get; set; }
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+
+        [JsonProperty("earlier", Required = Required.Always)]
+        public long Earlier { get; set; }
+
+        [JsonProperty("results", Required = Required.Always)]
+        public List<ToolResultSummary> Results { get; set; } = new List<ToolResultSummary>();
+    }
+
+    public sealed class ToolResultRedaction
+    {
+        [JsonProperty("policy", Required = Required.Always)]
+        public string Policy { get; set; } = "known_held_values";
+
+        [JsonProperty("replacements", Required = Required.Always)]
+        public long Replacements { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ToolResultBodyAvailability
+    {
+        [EnumMember(Value = "available")] Available,
+        [EnumMember(Value = "absent")] Absent,
+        [EnumMember(Value = "source_over_limit")] SourceOverLimit,
+        [EnumMember(Value = "omitted_scope")] OmittedScope,
+        [EnumMember(Value = "malformed")] Malformed,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ToolResultBodyTruncation
+    {
+        [EnumMember(Value = "none")] None,
+        [EnumMember(Value = "body_bound")] BodyBound,
+        [EnumMember(Value = "aggregate_bound")] AggregateBound,
+        [EnumMember(Value = "source_limit")] SourceLimit,
+        [EnumMember(Value = "scope")] Scope,
+        [EnumMember(Value = "absent")] Absent,
+        [EnumMember(Value = "malformed")] Malformed,
+    }
+
+    public sealed class ToolResultBody
+    {
+        [JsonProperty("text", Required = Required.AllowNull)]
+        public string? Text { get; set; }
+
+        [JsonProperty("availability", Required = Required.Always)]
+        public ToolResultBodyAvailability Availability { get; set; }
+
+        [JsonProperty("complete", Required = Required.Always)]
+        public bool Complete { get; set; }
+
+        [JsonProperty("truncation", Required = Required.Always)]
+        public ToolResultBodyTruncation Truncation { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ToolResultFileKind
+    {
+        [EnumMember(Value = "add")] Add,
+        [EnumMember(Value = "update")] Update,
+        [EnumMember(Value = "delete")] Delete,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ToolResultPathScope
+    {
+        [EnumMember(Value = "project_relative")] ProjectRelative,
+        [EnumMember(Value = "outside_project")] OutsideProject,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class ToolResultFile
+    {
+        [JsonProperty("kind", Required = Required.Always)]
+        public ToolResultFileKind Kind { get; set; }
+
+        [JsonProperty("path", Required = Required.AllowNull)]
+        public string? Path { get; set; }
+
+        [JsonProperty("path_scope", Required = Required.Always)]
+        public ToolResultPathScope PathScope { get; set; }
+
+        [JsonProperty("path_complete", Required = Required.Always)]
+        public bool PathComplete { get; set; }
+
+        [JsonProperty("move_path", Required = Required.AllowNull)]
+        public string? MovePath { get; set; }
+
+        [JsonProperty("move_path_scope", Required = Required.AllowNull)]
+        public ToolResultPathScope? MovePathScope { get; set; }
+
+        [JsonProperty("move_path_complete", Required = Required.AllowNull)]
+        public bool? MovePathComplete { get; set; }
+
+        [JsonProperty("patch", Required = Required.Always)]
+        public ToolResultBody Patch { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(ToolResultConverter))]
+    public abstract class ToolResult
+    {
+        [JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+
+        [JsonProperty("tool_call_id", Required = Required.Always)]
+        public string ToolCallId { get; set; } = default!;
+
+        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        public string? TurnId { get; set; }
+
+        [JsonProperty("completion", Required = Required.Always)]
+        public ToolResultCompletion Completion { get; set; }
+
+        [JsonProperty("redaction", Required = Required.Always)]
+        public ToolResultRedaction Redaction { get; set; } = default!;
+    }
+
+    public sealed class ToolResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(ToolResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            ToolResult value = tag switch
+            {
+                "command" => new CommandToolResult(),
+                "file_changes" => new FileChangesToolResult(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "ToolResult has no string kind."
+                    : "Unknown kind \"" + tag + "\" for ToolResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class CommandToolResult : ToolResult
+    {
+        protected override string Discriminator => "command";
+
+        [JsonProperty("exit_code", Required = Required.AllowNull)]
+        public long? ExitCode { get; set; }
+
+        [JsonProperty("output", Required = Required.Always)]
+        public ToolResultBody Output { get; set; } = default!;
+    }
+
+    public sealed class FileChangesToolResult : ToolResult
+    {
+        protected override string Discriminator => "file_changes";
+
+        [JsonProperty("files", Required = Required.Always)]
+        public List<ToolResultFile> Files { get; set; } = new List<ToolResultFile>();
+
+        [JsonProperty("files_total", Required = Required.Always)]
+        public long FilesTotal { get; set; }
+
+        [JsonProperty("list_complete", Required = Required.Always)]
+        public bool ListComplete { get; set; }
+    }
+
+    public sealed class ToolResultResponse
+    {
+        [JsonProperty("journal_id", Required = Required.Always)]
+        public string JournalId { get; set; } = default!;
+
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("workstream_id", Required = Required.Always)]
+        public string WorkstreamId { get; set; } = default!;
+
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("summary", Required = Required.Always)]
+        public ToolResultSummary Summary { get; set; } = default!;
+
+        [JsonProperty("result", Required = Required.Always)]
+        public ToolResult Result { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum JournalOrigin
     {
@@ -788,6 +1087,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("reports_tool_activity", Required = Required.Always)]
         public bool ReportsToolActivity { get; set; }
+
+        [JsonProperty("reports_tool_results", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ReportsToolResults { get; set; }
     }
 
     public sealed class Snapshot
@@ -1746,6 +2048,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("tool_call_id", Required = Required.Always)]
         public string ToolCallId { get; set; } = default!;
 
+        [JsonProperty("turn_id", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? TurnId { get; set; }
+
         [JsonProperty("outcome", Required = Required.Always)]
         public ToolOutcome Outcome { get; set; }
     }
@@ -1883,6 +2188,7 @@ namespace Halcyonic.Contracts
                 "runtime.question.resolved" => new RuntimeQuestionResolvedEvent(),
                 "runtime.tool.started" => new RuntimeToolStartedEvent(),
                 "runtime.tool.completed" => new RuntimeToolCompletedEvent(),
+                "runtime.tool.result" => new RuntimeToolResultEvent(),
                 "runtime.agent_message" => new RuntimeAgentMessageEvent(),
                 "runtime.test_run.started" => new RuntimeTestRunStartedEvent(),
                 "runtime.test_run.completed" => new RuntimeTestRunCompletedEvent(),
@@ -2115,6 +2421,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public RuntimeToolCompletedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class RuntimeToolResultEvent : EventEnvelope
+    {
+        protected override string Discriminator => "runtime.tool.result";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ToolResult Payload { get; set; } = default!;
     }
 
     public sealed class RuntimeAgentMessageEvent : EventEnvelope

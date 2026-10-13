@@ -36,6 +36,7 @@ import {
 } from './requests.ts';
 import { ModelRef, RuntimeRef } from './runtime.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
+import { ToolResult } from './tool-results.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -426,10 +427,13 @@ export const RUNTIME_EVENT_PAYLOADS = {
   'runtime.tool.completed': Type.Object(
     {
       tool_call_id: NativeId,
+      /** Added for exact live result correlation; older events/adapters may omit it. */
+      turn_id: Type.Optional(Nullable(NativeId)),
       outcome: Type.Union([Type.Literal('succeeded'), Type.Literal('failed')]),
     },
     strict,
   ),
+  'runtime.tool.result': ToolResult,
   /** Text the agent produced. Its content is a claim, so its provenance is `reported`. */
   'runtime.agent_message': Type.Object({ text: Text(32000) }, strict),
   'runtime.test_run.started': Type.Object(
@@ -501,6 +505,7 @@ export const RuntimeToolCompleted = runtimeEvent(
   'runtime.tool.completed',
   P['runtime.tool.completed'],
 );
+export const RuntimeToolResult = runtimeEvent('runtime.tool.result', P['runtime.tool.result']);
 export const RuntimeAgentMessage = runtimeEvent(
   'runtime.agent_message',
   P['runtime.agent_message'],
@@ -550,6 +555,7 @@ export const EVENT_VARIANTS = [
   RuntimeQuestionResolved,
   RuntimeToolStarted,
   RuntimeToolCompleted,
+  RuntimeToolResult,
   RuntimeAgentMessage,
   RuntimeTestRunStarted,
   RuntimeTestRunCompleted,

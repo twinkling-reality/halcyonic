@@ -8,6 +8,7 @@ import {
   type PairingServerMessage,
 } from './devices.ts';
 import { EVENT_VARIANTS, type EventEnvelope } from './events.ts';
+import { toolResultProblem } from './tool-results.ts';
 import { type ClientMessage, HelloMessage, PingMessage } from './realtime.ts';
 
 export interface ValidationIssue {
@@ -123,6 +124,15 @@ function checkEventSemantics(event: EventEnvelope): ValidationIssue[] {
   }
   if (event.event_type === 'runtime.agent_message' && event.provenance.epistemic !== 'reported') {
     issues.push({ path: '/provenance/epistemic', message: 'agent text must be "reported"' });
+  }
+  if (event.event_type === 'runtime.tool.result') {
+    if (event.provenance.epistemic !== 'observed')
+      issues.push({
+        path: '/provenance/epistemic',
+        message: 'native results must be observed structured fields',
+      });
+    const problem = toolResultProblem(event.payload);
+    if (problem) issues.push({ path: '/payload', message: problem });
   }
   return issues;
 }

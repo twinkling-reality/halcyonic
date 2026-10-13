@@ -16,6 +16,7 @@ interface UnionNaming {
 
 /** Every discriminated union in the contracts, and how C# names its variants. */
 const UNIONS: Readonly<Record<string, UnionNaming>> = {
+  ToolResult: { discriminator: 'kind', suffix: 'ToolResult' },
   ServerMessage: { discriminator: 'type', suffix: 'Message' },
   ClientMessage: { discriminator: 'type', suffix: 'Message' },
   EventEnvelope: { discriminator: 'event_type', suffix: 'Event' },
@@ -42,6 +43,9 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
 const ROOTS: readonly string[] = [
+  'ToolResultsQuery',
+  'ToolResultsResponse',
+  'ToolResultResponse',
   'ServerMessage',
   'ClientMessage',
   'Snapshot',
@@ -316,11 +320,13 @@ class CSharpGenerator {
       if (name === owner)
         throw new Error(`${owner}.${wire}: a member cannot share its type's name`);
       const constant = property.const;
-      if (optional && (constant !== undefined || property.type !== 'string')) {
-        // Absent is told apart from null only for a plain string; anything else is Nullable instead.
-        throw new Error(`${owner}.${wire}: only a plain string may be optional; use Nullable`);
-      }
       const type = this.#resolve(property, `${stem}${name}`);
+      if (optional && (constant !== undefined || !['string', 'bool'].includes(type.name))) {
+        // Narrow legacy compatibility: nullable string references and boolean declarations only.
+        throw new Error(
+          `${owner}.${wire}: only a plain string or boolean may be optional; use Nullable`,
+        );
+      }
       return {
         wire,
         name,

@@ -3864,11 +3864,134 @@
                   "minLength": 1,
                   "maxLength": 512
                 },
+                "turn_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "outcome": {
                   "$ref": "#/$defs/ToolOutcome"
                 }
               },
               "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "runtime.tool.result"
+            },
+            "source": {
+              "$ref": "#/$defs/RuntimeSource"
+            },
+            "payload": {
+              "$ref": "#/$defs/ToolResult"
             }
           },
           "additionalProperties": false
@@ -5738,6 +5861,9 @@
           "type": "boolean"
         },
         "reports_tool_activity": {
+          "type": "boolean"
+        },
+        "reports_tool_results": {
           "type": "boolean"
         }
       },
@@ -10512,6 +10638,599 @@
           "const": "failed"
         }
       ]
+    },
+    "ToolResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "tool_call_id",
+            "turn_id",
+            "completion",
+            "redaction",
+            "kind",
+            "exit_code",
+            "output"
+          ],
+          "properties": {
+            "tool_call_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "turn_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "completion": {
+              "$ref": "#/$defs/ToolResultCompletion"
+            },
+            "redaction": {
+              "$ref": "#/$defs/ToolResultRedaction"
+            },
+            "kind": {
+              "type": "string",
+              "const": "command"
+            },
+            "exit_code": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "output": {
+              "$ref": "#/$defs/ToolResultBody"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "tool_call_id",
+            "turn_id",
+            "completion",
+            "redaction",
+            "kind",
+            "files",
+            "files_total",
+            "list_complete"
+          ],
+          "properties": {
+            "tool_call_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "turn_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "completion": {
+              "$ref": "#/$defs/ToolResultCompletion"
+            },
+            "redaction": {
+              "$ref": "#/$defs/ToolResultRedaction"
+            },
+            "kind": {
+              "type": "string",
+              "const": "file_changes"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ToolResultFile"
+              },
+              "maxItems": 32
+            },
+            "files_total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "list_complete": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ToolResultBody": {
+      "type": "object",
+      "required": [
+        "text",
+        "availability",
+        "complete",
+        "truncation"
+      ],
+      "properties": {
+        "text": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "availability": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "available"
+            },
+            {
+              "type": "string",
+              "const": "absent"
+            },
+            {
+              "type": "string",
+              "const": "source_over_limit"
+            },
+            {
+              "type": "string",
+              "const": "omitted_scope"
+            },
+            {
+              "type": "string",
+              "const": "malformed"
+            }
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "truncation": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "none"
+            },
+            {
+              "type": "string",
+              "const": "body_bound"
+            },
+            {
+              "type": "string",
+              "const": "aggregate_bound"
+            },
+            {
+              "type": "string",
+              "const": "source_limit"
+            },
+            {
+              "type": "string",
+              "const": "scope"
+            },
+            {
+              "type": "string",
+              "const": "absent"
+            },
+            {
+              "type": "string",
+              "const": "malformed"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolResultCompletion": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "completed"
+        },
+        {
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "type": "string",
+          "const": "declined"
+        },
+        {
+          "type": "string",
+          "const": "interrupted"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "ToolResultRedaction": {
+      "type": "object",
+      "required": [
+        "policy",
+        "replacements"
+      ],
+      "properties": {
+        "policy": {
+          "type": "string",
+          "const": "known_held_values"
+        },
+        "replacements": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolResultPathScope": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "project_relative"
+        },
+        {
+          "type": "string",
+          "const": "outside_project"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "ToolResultFile": {
+      "type": "object",
+      "required": [
+        "kind",
+        "path",
+        "path_scope",
+        "path_complete",
+        "move_path",
+        "move_path_scope",
+        "move_path_complete",
+        "patch"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "add"
+            },
+            {
+              "type": "string",
+              "const": "update"
+            },
+            {
+              "type": "string",
+              "const": "delete"
+            }
+          ]
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path_scope": {
+          "$ref": "#/$defs/ToolResultPathScope"
+        },
+        "path_complete": {
+          "type": "boolean"
+        },
+        "move_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "move_path_scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ToolResultPathScope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "move_path_complete": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "patch": {
+          "$ref": "#/$defs/ToolResultBody"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolResultsAvailability": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "available"
+        },
+        {
+          "type": "string",
+          "const": "unsupported"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        },
+        {
+          "type": "string",
+          "const": "unavailable"
+        }
+      ]
+    },
+    "ToolResultsQuery": {
+      "type": "object",
+      "required": [
+        "journal_id",
+        "project_id",
+        "workstream_id"
+      ],
+      "properties": {
+        "journal_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "workstream_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolResultSummary": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "position",
+        "occurred_at",
+        "runtime_id",
+        "epistemic",
+        "native_type",
+        "kind",
+        "completion",
+        "title",
+        "exit_code",
+        "files_total",
+        "body_available",
+        "retained_complete"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "runtime_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "epistemic": {
+          "type": "string",
+          "const": "observed"
+        },
+        "native_type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "command"
+            },
+            {
+              "type": "string",
+              "const": "file_changes"
+            }
+          ]
+        },
+        "completion": {
+          "$ref": "#/$defs/ToolResultCompletion"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files_total": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "body_available": {
+          "type": "boolean"
+        },
+        "retained_complete": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolResultsResponse": {
+      "type": "object",
+      "required": [
+        "journal_id",
+        "project_id",
+        "workstream_id",
+        "execution_id",
+        "availability",
+        "total",
+        "earlier",
+        "results"
+      ],
+      "properties": {
+        "journal_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "workstream_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "execution_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "availability": {
+          "$ref": "#/$defs/ToolResultsAvailability"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "earlier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ToolResultSummary"
+          },
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolResultResponse": {
+      "type": "object",
+      "required": [
+        "journal_id",
+        "project_id",
+        "workstream_id",
+        "execution_id",
+        "summary",
+        "result"
+      ],
+      "properties": {
+        "journal_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "project_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "workstream_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "execution_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "summary": {
+          "$ref": "#/$defs/ToolResultSummary"
+        },
+        "result": {
+          "$ref": "#/$defs/ToolResult"
+        }
+      },
+      "additionalProperties": false
     },
     "ApprovalResolution": {
       "anyOf": [
