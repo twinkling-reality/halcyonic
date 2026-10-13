@@ -160,11 +160,16 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>Unchanged scene captures isolate target/depth paths and feature shader determinism, without animation or parameter correction.</summary>
-        public static void CharacterRenderDeterminismCheck()
+        public static void CharacterRenderDeterminismCheck() => CheckCharacterRenderDeterminism(composite: false);
+
+        /// <summary>Actual composed-layer visibility and explicit sorting controls, after isolated feature rendering proved stable.</summary>
+        public static void CharacterCompositeDeterminismCheck() => CheckCharacterRenderDeterminism(composite: true);
+
+        private static void CheckCharacterRenderDeterminism(bool composite)
         {
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
-                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "CharacterRenderDeterminism", variant));
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", composite ? "CharacterCompositeDeterminism" : "CharacterRenderDeterminism", variant));
                 Directory.CreateDirectory(folder);
                 var result = new List<string>();
                 var previousField = ViewField.Current; var wasStill = GlazeMotion.Still;
@@ -190,35 +195,67 @@ namespace Halcyonic.XR.Workspace.Editor
                             view.Show(Shown(id, CharacterActivity.Idle)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
                             WorkspaceRender.ForceMeshes(root); GlazeMotion.Still = true;
                             for (var frame = 0; frame < 216; frame++) view.AdvanceForRender(1f / 72f);
-                            var enabled = camera.enabled; var msaa = camera.allowMSAA;
-                            Series("reused-current", freshDepth: null);
-                            try { camera.enabled = false; Series("disabled-camera", freshDepth: null); }
-                            finally { camera.enabled = enabled; }
-                            try { camera.allowMSAA = false; Series("no-camera-msaa", freshDepth: null); }
-                            finally { camera.allowMSAA = msaa; }
-                            Series("fresh-depth24", freshDepth: 24);
-                            Series("fresh-depth32", freshDepth: 32);
                             var feature = view.FeatureForRender.Renderer!;
+                            var shell = view.Body.Find("Shell").GetComponent<Renderer>();
                             var renderers = root.GetComponentsInChildren<Renderer>(true);
                             var visibility = renderers.Select(renderer => renderer.enabled).ToArray();
-                            var originalMaterial = feature.sharedMaterial;
-                            try
+                            if (composite)
                             {
-                                foreach (var renderer in renderers) renderer.enabled = renderer == feature;
-                                Series("feature-only-body-shader", freshDepth: null);
-                                var shader = Shader.Find("Unlit/Color");
-                                if (shader == null) result.Add(name + ": built-in Unlit/Color diagnostic shader is unavailable.");
-                                else
+                                var featureOrder = feature.sortingOrder; var shellOrder = shell.sortingOrder;
+                                try
                                 {
-                                    unlit = new Material(shader) { color = view.FeatureForRender.Colour, renderQueue = originalMaterial.renderQueue };
-                                    feature.sharedMaterial = unlit;
-                                    Series("feature-only-unlit", freshDepth: null);
+                                    Composition("shell-feature-only", renderer => renderer == shell || renderer == feature);
+                                    Composition("character-all-parts", renderer => renderer.transform.IsChildOf(view.transform));
+                                    Composition("feature-noncharacter", renderer => renderer == feature || !renderer.transform.IsChildOf(view.transform));
+                                    Composition("full-minus-shell", renderer => renderer != shell);
+                                    Composition("shell-only", renderer => renderer == shell);
+                                    for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
+                                    shell.sortingOrder = 0; feature.sortingOrder = 1;
+                                    Series("full-feature-after-shell", freshDepth: null);
+                                    feature.sortingOrder = -1;
+                                    Series("full-feature-before-shell", freshDepth: null);
+                                }
+                                finally
+                                {
+                                    shell.sortingOrder = shellOrder; feature.sortingOrder = featureOrder;
+                                    for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
+                                }
+                                Series("full-restored-original-order", freshDepth: null);
+                                void Composition(string path, Func<Renderer, bool> include)
+                                {
+                                    for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index] && include(renderers[index]);
+                                    Series(path, freshDepth: null);
                                 }
                             }
-                            finally
+                            else
                             {
-                                feature.sharedMaterial = originalMaterial;
-                                for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
+                                var enabled = camera.enabled; var msaa = camera.allowMSAA;
+                                Series("reused-current", freshDepth: null);
+                                try { camera.enabled = false; Series("disabled-camera", freshDepth: null); }
+                                finally { camera.enabled = enabled; }
+                                try { camera.allowMSAA = false; Series("no-camera-msaa", freshDepth: null); }
+                                finally { camera.allowMSAA = msaa; }
+                                Series("fresh-depth24", freshDepth: 24);
+                                Series("fresh-depth32", freshDepth: 32);
+                                var originalMaterial = feature.sharedMaterial;
+                                try
+                                {
+                                    foreach (var renderer in renderers) renderer.enabled = renderer == feature;
+                                    Series("feature-only-body-shader", freshDepth: null);
+                                    var shader = Shader.Find("Unlit/Color");
+                                    if (shader == null) result.Add(name + ": built-in Unlit/Color diagnostic shader is unavailable.");
+                                    else
+                                    {
+                                        unlit = new Material(shader) { color = view.FeatureForRender.Colour, renderQueue = originalMaterial.renderQueue };
+                                        feature.sharedMaterial = unlit;
+                                        Series("feature-only-unlit", freshDepth: null);
+                                    }
+                                }
+                                finally
+                                {
+                                    feature.sharedMaterial = originalMaterial;
+                                    for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
+                                }
                             }
 
                             void Series(string path, int? freshDepth)
@@ -251,7 +288,9 @@ namespace Halcyonic.XR.Workspace.Editor
                                                 + " noise=" + Shader.GetGlobalTexture("_HalcyonicNoise")?.GetInstanceID());
                                             foreach (var renderer in view.GetComponentsInChildren<Renderer>(true))
                                                 records.Add(renderer.name + " localToWorld=" + renderer.localToWorldMatrix.ToString("R")
-                                                    + " worldToLocal=" + renderer.worldToLocalMatrix.ToString("R") + " bounds=" + renderer.bounds.ToString("R"));
+                                                    + " worldToLocal=" + renderer.worldToLocalMatrix.ToString("R") + " bounds=" + renderer.bounds.ToString("R")
+                                                    + " sortingLayer=" + renderer.sortingLayerID + " sortingOrder=" + renderer.sortingOrder
+                                                    + " queue=" + renderer.sharedMaterial?.renderQueue + " shader=" + renderer.sharedMaterial?.shader?.name);
                                             image = WorkspaceRender.Render(camera, currentTarget);
                                             File.WriteAllBytes(Path.Combine(folder, prefix + "-" + frame + ".png"), image.EncodeToPNG());
                                             var after = CharacterFrameValues(new[] { view });

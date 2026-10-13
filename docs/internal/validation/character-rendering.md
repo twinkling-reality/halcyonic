@@ -169,3 +169,16 @@ built-in Unlit/Color. Every path retains identical animation values, logs exact 
 camera/renderer matrices, shader globals and actual target format/sample/depth descriptors,
 and restores camera targets, visibility and materials. These paths diagnose rendering; a zero
 exit is only diagnostic execution success and is not stillness acceptance or a production fix.
+
+**Unchanged rendering result and next composition isolation.** The actual `b84e2be0` run found
+zero exact RGBA differences in isolated features with either the original body shader or
+Unlit/Color, for all three identities at both text sizes. Composed scenes still changed a few
+pixels across the camera/target paths. Both requested depth24 and depth32 were actually
+D32_SFloat_S8_UInt with one sample on Metal; this did not test different depth formats.
+Camera/renderer matrices, material values and shader globals stayed identical within each
+sequence. This supports investigating composition rather than assuming standalone shader or
+motion drift. `CharacterCompositeDeterminismCheck` therefore isolates shell+feature,
+character parts, feature+non-character parts, the full scene minus its shell, and shell alone;
+it also compares the unchanged full scene with explicit feature-before/after-shell sorting
+orders, restoring all orders and visibility afterward. It logs actual queue/order/bounds and
+exact pixels. No sorting tie, depth conflict or production fix is claimed before those results.
