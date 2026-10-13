@@ -151,6 +151,8 @@ body rotation, Fog/EyeUneven and subnormal Look values; a causal explanation sti
 `CharacterStillConvergenceCheck` replays those three cases, saves the original frame, replaces
 only those captured idle residuals with their exact rest targets in that same frame, renders,
 then restores every changed value and requires identical restored pixels. Unchanged repeated
-renders and corrected before/after moments must have exactly zero pixel differences. Larger
+renders and corrected before/after moments must have exactly zero Color32/RGBA differences;
+this diagnostic uses its own exact comparison, while the historical 2/255 RGB comparison is
+unchanged. Larger
 must reproduce the original drift, and the correction must account for every originally
 changing pixel. It does not change production or relax the original stillness checks.
