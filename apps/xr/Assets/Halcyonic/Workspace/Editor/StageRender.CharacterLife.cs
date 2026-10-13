@@ -557,6 +557,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     ViewField.Current = FieldChecks.Quest3S;
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    result.AddRange(CharacterMaterialCacheLifecycle());
+                    result.AddRange(CharacterRayDepthWitness());
                     foreach (CharacterFeature kind in Enum.GetValues(typeof(CharacterFeature)))
                     {
                         GlazeMotion.Still = false;
@@ -607,6 +609,10 @@ namespace Halcyonic.XR.Workspace.Editor
                                     var afterValues = CharacterFrameValues(new[] { view });
                                     if (beforeValues.Any(pair => afterValues[pair.Key] != pair.Value)) result.Add(name + ": repeated captures changed actual character values.");
                                     result.AddRange(CharacterFeatureShows(name, camera, texture, view));
+                                    if (feature != null && activity == CharacterActivity.Idle)
+                                        result.AddRange(CharacterOpaqueOcclusion(name, folder, camera, texture, root, view));
+                                    if (feature != null && activity == CharacterActivity.Verifying)
+                                        result.AddRange(CharacterRingOcclusion(name, folder, camera, texture, root, view));
                                     if (feature != null)
                                     {
                                         // The same posed camera retains the shell's front, not merely a stable feature silhouette.
@@ -661,6 +667,210 @@ namespace Halcyonic.XR.Workspace.Editor
                 return result;
             });
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        private static IEnumerable<string> CharacterMaterialCacheLifecycle()
+        {
+            var failures = new List<string>();
+            var root = new GameObject("Generated feature material ownership witness");
+            try
+            {
+                var first = CharacterView.Create(root.transform, "feature-Round-Ears-39");
+                var second = CharacterView.Create(root.transform, "feature-Clover-Horns-39");
+                var body = first.Body.Find("Shell").GetComponent<Renderer>().sharedMaterial;
+                var generated = first.FeatureForRender.Renderer!.sharedMaterial;
+                if (generated != second.FeatureForRender.Renderer!.sharedMaterial) failures.Add("Feature surfaces are cloned per instance rather than shared.");
+                UnityEngine.Object.DestroyImmediate(first.gameObject); UnityEngine.Object.DestroyImmediate(second.gameObject);
+                var reset = typeof(CharacterView).Assembly.GetType("Halcyonic.XR.CharacterMaterials")?.GetMethod("Reset",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                if (reset == null) failures.Add("Feature material ownership reset could not be exercised.");
+                else
+                {
+                    reset.Invoke(null, null);
+                    if (generated != null) failures.Add("Subsystem reset invoked in edit mode leaked the generated feature material.");
+                    if (body == null) failures.Add("Feature cache reset destroyed the Resources-owned body material.");
+                    var rebuilt = CharacterView.Create(root.transform, "feature-Round-Ears-39");
+                    var another = CharacterView.Create(root.transform, "feature-Clover-Horns-39");
+                    var replacement = rebuilt.FeatureForRender.Renderer!.sharedMaterial;
+                    if (replacement == null || ReferenceEquals(replacement, generated)
+                        || replacement != another.FeatureForRender.Renderer!.sharedMaterial || replacement.GetFloat("_DepthWrite") != 0f
+                        || rebuilt.Body.Find("Shell").GetComponent<Renderer>().sharedMaterial != body || body.GetFloat("_DepthWrite") != 1f)
+                        failures.Add("A feature cache reset did not recreate its owned surface while retaining body resource ownership.");
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+            return failures;
+        }
+
+        private static IEnumerable<string> CharacterOpaqueOcclusion(string name, string folder, Camera camera, RenderTexture texture, GameObject root, CharacterView view)
+        {
+            var failures = new List<string>();
+            var feature = view.FeatureForRender.Renderer!;
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            var visible = renderers.Select(renderer => renderer.enabled).ToArray();
+            GameObject? occluder = null; Material? material = null;
+            try
+            {
+                foreach (var renderer in renderers) renderer.enabled = renderer == feature;
+                var shader = Shader.Find("Unlit/Color");
+                if (shader == null) return new[] { name + ": opaque occlusion shader unavailable." };
+                material = new Material(shader) { color = new Color(0.6f, 0.65f, 0.7f, 1f) };
+                occluder = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                occluder.name = "Actual opaque depth witness"; occluder.transform.SetParent(root.transform, false);
+                occluder.GetComponent<Renderer>().sharedMaterial = material;
+                var bounds = feature.bounds;
+                var direction = (bounds.center - camera.transform.position).normalized;
+                var distance = Vector3.Distance(bounds.center, camera.transform.position);
+                var radius = bounds.extents.magnitude;
+                occluder.transform.rotation = Quaternion.LookRotation(direction);
+                occluder.transform.localScale = new Vector3(radius * 4f, radius * 4f, 0.01f);
+                foreach (var front in new[] { true, false })
+                {
+                    occluder.transform.position = camera.transform.position + direction * (distance + (front ? -1f : 1f) * (radius + 0.03f));
+                    Texture2D? with = null; Texture2D? without = null;
+                    try
+                    {
+                        feature.enabled = true; with = WorkspaceRender.Render(camera, texture);
+                        feature.enabled = false; without = WorkspaceRender.Render(camera, texture);
+                        feature.enabled = true;
+                        File.WriteAllBytes(Path.Combine(folder, name + (front ? "-opaque-in-front.png" : "-opaque-behind.png")), with.EncodeToPNG());
+                        var changed = ExactCharacterPixels(with, without);
+                        if (front && changed != 0) failures.Add(name + ": feature paints over an actual opaque foreground occluder.");
+                        if (!front && changed == 0) failures.Add(name + ": an opaque background hides the foreground feature.");
+                    }
+                    finally
+                    {
+                        feature.enabled = true;
+                        if (with != null) UnityEngine.Object.DestroyImmediate(with);
+                        if (without != null) UnityEngine.Object.DestroyImmediate(without);
+                    }
+                }
+            }
+            finally
+            {
+                for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visible[index];
+                if (occluder != null) UnityEngine.Object.DestroyImmediate(occluder);
+                if (material != null) UnityEngine.Object.DestroyImmediate(material);
+            }
+            return failures;
+        }
+
+        private static IEnumerable<string> CharacterRingOcclusion(string name, string folder, Camera camera, RenderTexture texture, GameObject root, CharacterView view)
+        {
+            var failures = new List<string>();
+            var feature = view.FeatureForRender.Renderer!;
+            var shell = view.Body.Find("Shell").GetComponent<Renderer>();
+            var ring = view.Body.Find("Ring").GetComponent<Renderer>();
+            if (!ring.enabled) return new[] { name + ": actual Checking ring is not visible for its occlusion witness." };
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            var visible = renderers.Select(renderer => renderer.enabled).ToArray();
+            var images = new List<Texture2D>();
+            try
+            {
+                var full = Shot("ring-full", renderer => true);
+                var withoutRing = Shot("ring-hidden", renderer => renderer != ring);
+                var featureOnly = Shot("feature-only", renderer => renderer == feature);
+                var shellOnly = Shot("shell-only", renderer => renderer == shell);
+                var ringOnly = Shot("ring-only", renderer => renderer == ring);
+                var originalMaterial = feature.sharedMaterial;
+                var later = new Material(originalMaterial) { renderQueue = ring.sharedMaterial.renderQueue + 1 };
+                Texture2D reference;
+                try
+                {
+                    // At samples where the ring is geometrically behind the feature, this is the painter-order reference.
+                    feature.sharedMaterial = later;
+                    reference = Shot("reference-feature-after-ring", renderer => true);
+                }
+                finally { feature.sharedMaterial = originalMaterial; UnityEngine.Object.DestroyImmediate(later); }
+                var actual = full.GetPixels32(); var absent = withoutRing.GetPixels32();
+                var rearReference = reference.GetPixels32();
+                var featurePixels = featureOnly.GetPixels32(); var shellPixels = shellOnly.GetPixels32(); var ringPixels = ringOnly.GetPixels32();
+                var featureMesh = CharacterRayMesh(feature); var shellMesh = CharacterRayMesh(shell); var ringMesh = CharacterRayMesh(ring);
+                var behindFeature = 0; var behindShell = 0; var foreground = 0; var visibleForeground = 0;
+                for (var pixel = 0; pixel < actual.Length; pixel++)
+                {
+                    if (ringPixels[pixel].r == 0 && ringPixels[pixel].g == 0 && ringPixels[pixel].b == 0) continue;
+                    var ray = camera.ScreenPointToRay(new Vector3(pixel % Size + 0.5f, pixel / Size + 0.5f, 0f));
+                    var ringDepth = CharacterRayDepth(ringMesh, ray, cullBack: false);
+                    if (float.IsPositiveInfinity(ringDepth)) continue;
+                    var shellDepth = CharacterRayDepth(shellMesh, ray);
+                    var featureDepth = CharacterRayDepth(featureMesh, ray);
+                    var shellDrawn = shellPixels[pixel].r != 0 || shellPixels[pixel].g != 0 || shellPixels[pixel].b != 0;
+                    var featureDrawn = featurePixels[pixel].r != 0 || featurePixels[pixel].g != 0 || featurePixels[pixel].b != 0;
+                    if (shellDrawn && shellDepth + 0.00001f < ringDepth && shellDepth < featureDepth)
+                    {
+                        behindShell++;
+                        if (!SameCharacterPixel(actual[pixel], absent[pixel])) failures.Add(name + ": rear ring paints over its depth-writing shell at " + pixel % Size + "," + pixel / Size + ".");
+                    }
+                    else if (featureDrawn && featureDepth + 0.00001f < ringDepth && featureDepth < shellDepth)
+                    {
+                        behindFeature++;
+                        if (!SameCharacterPixel(actual[pixel], rearReference[pixel])) failures.Add(name + ": later transparent ring differs from its actual rear-feature reference at " + pixel % Size + "," + pixel / Size + ".");
+                    }
+                    else if (ringDepth + 0.00001f < Mathf.Min(shellDepth, featureDepth))
+                    {
+                        foreground++;
+                        if (!SameCharacterPixel(actual[pixel], absent[pixel])) visibleForeground++;
+                    }
+                }
+                if (behindShell == 0) failures.Add(name + ": actual ring has no rear-shell sample, so its depth relationship was not exercised.");
+                if (visibleForeground == 0) failures.Add(name + ": actual foreground ring disappears from the composition.");
+                Debug.Log("Halcyonic: " + name + ": ring depth samples behind shell=" + behindShell + ", behind feature=" + behindFeature + ", foreground=" + foreground + ", visible foreground=" + visibleForeground
+                    + "; no overlap sample is not a claim of generic transparent occlusion support.");
+
+                Texture2D Shot(string suffix, Func<Renderer, bool> includes)
+                {
+                    for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visible[index] && includes(renderers[index]);
+                    var image = WorkspaceRender.Render(camera, texture); images.Add(image);
+                    File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + ".png"), image.EncodeToPNG());
+                    return image;
+                }
+            }
+            finally
+            {
+                for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visible[index];
+                foreach (var image in images) UnityEngine.Object.DestroyImmediate(image);
+            }
+            return failures;
+        }
+
+        private static (Vector3[] Vertices, int[] Triangles) CharacterRayMesh(Renderer renderer)
+        {
+            var mesh = renderer.GetComponent<MeshFilter>().sharedMesh;
+            return (mesh.vertices.Select(vertex => renderer.transform.TransformPoint(vertex)).ToArray(), mesh.triangles);
+        }
+
+        private static float CharacterRayDepth((Vector3[] Vertices, int[] Triangles) mesh, Ray ray, bool cullBack = true)
+        {
+            var nearest = float.PositiveInfinity;
+            for (var triangle = 0; triangle < mesh.Triangles.Length; triangle += 3)
+            {
+                var a = mesh.Vertices[mesh.Triangles[triangle]]; var b = mesh.Vertices[mesh.Triangles[triangle + 1]]; var c = mesh.Vertices[mesh.Triangles[triangle + 2]];
+                var first = b - a; var second = c - a; var cross = Vector3.Cross(ray.direction, second); var determinant = Vector3.Dot(first, cross);
+                if (cullBack ? determinant <= 1e-12f : Mathf.Abs(determinant) <= 1e-12f) continue; // Ring Cull Off; body Cull Back.
+                var from = ray.origin - a; var u = Vector3.Dot(from, cross) / determinant;
+                if (u < 0f || u > 1f) continue;
+                var along = Vector3.Cross(from, first); var v = Vector3.Dot(ray.direction, along) / determinant;
+                if (v < 0f || u + v > 1f) continue;
+                var distance = Vector3.Dot(second, along) / determinant;
+                if (distance > 0f) nearest = Mathf.Min(nearest, distance);
+            }
+            return nearest;
+        }
+
+        private static IEnumerable<string> CharacterRayDepthWitness()
+        {
+            var failures = new List<string>();
+            var vertices = new[] { new Vector3(-1f, -1f, 1f), new Vector3(0f, 1f, 1f), new Vector3(1f, -1f, 1f) };
+            var front = (Vertices: vertices, Triangles: new[] { 0, 1, 2 });
+            var back = (Vertices: vertices, Triangles: new[] { 2, 1, 0 });
+            var ray = new Ray(Vector3.zero, Vector3.forward);
+            if (CharacterRayDepth(front, ray) != 1f || !float.IsPositiveInfinity(CharacterRayDepth(back, ray))
+                || CharacterRayDepth(back, ray, cullBack: false) != 1f
+                || !float.IsPositiveInfinity(CharacterRayDepth(front, new Ray(new Vector3(3f, 0f, 0f), Vector3.forward)))
+                || !float.IsPositiveInfinity(CharacterRayDepth(front, new Ray(new Vector3(0f, 0f, 2f), Vector3.forward))))
+                failures.Add("Actual ring depth classifier failed a front/back, missed-ray or behind-ray negative.");
+            return failures;
         }
 
         private static MenuPlane CharacterConsole(Transform root, Vector3 eyes)
