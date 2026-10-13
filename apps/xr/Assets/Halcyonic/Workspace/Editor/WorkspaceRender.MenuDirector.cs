@@ -140,7 +140,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var fileConfirming = false;
                 var fileBesideMenu = false;
                 looking = Vector3.forward;
-                var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
+                float? surface = null; // A manually placed shelf is not an asserted room floor.
                 // The stage as the director reads it: the drag's checks arrange it beside a window, or on another surface, for a while.
                 var windowNow = besideWindow;
                 var surfaceNow = surface;
@@ -177,7 +177,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         return file = new StubColumn(() =>
                         {
                             var waiting = DirectorWaitingFile(fileTitle, StateLanguage.BadgeOf(opened), chosen: false,
-                                host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: fileBesideMenu), minimumLines: 0);
+                                host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: fileBesideMenu, focused: !fileBesideMenu),
+                                focused: !fileBesideMenu);
                             return fileConfirming ? Confirming(waiting) : waiting;
                         });
                     },
@@ -195,7 +196,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                     Demonstration = () => demonstrationPlays,
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, null, windowNow),
+                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, surfaceNow, windowNow),
                     CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
@@ -1380,10 +1381,14 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>A file asking its Yes on its Send answer: Cancel where Send answer stood, Yes in the free middle.</summary>
-        private static MenuFrame Confirming(MenuFrame waiting) => new MenuFrame(waiting.Subject,
-            Footer.Confirm(waiting.Footer, PromptSlot.FarRight, new Prompt("yes", "Yes, send", GlazeIcon.SendAnswer, PromptKind.Yes),
-                new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel)),
-            waiting.SubjectIsData, waiting.Pill, waiting.Sections, waiting.Lines, waiting.Source, waiting.Side, waiting.SourceIsData, waiting.SubjectWaits);
+        private static MenuFrame Confirming(MenuFrame waiting)
+        {
+            var confirmed = new MenuFrame(waiting.Subject,
+                Footer.Confirm(waiting.Footer, PromptSlot.FarRight, new Prompt("yes", "Yes, send", GlazeIcon.SendAnswer, PromptKind.Yes),
+                    new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel)),
+                waiting.SubjectIsData, waiting.Pill, waiting.Sections, waiting.Lines, waiting.Source, waiting.Side, waiting.SourceIsData, waiting.SubjectWaits);
+            return waiting.Focused ? confirmed.Focus() : confirmed;
+        }
 
         /// <summary>
         /// A drag's step allocates nothing in Unity's own runtime, where an enumerator through an interface
@@ -1469,18 +1474,13 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Journal fixtures retain all work whether zero or one optional agent is shown.</summary>
         private static ClientProjection DirectorWorkProjection() => Projection(Enumerable.Range(0, 6).Select(slot => Presentation("render-" + slot, slot)));
 
-        /// <summary>A bounded question page, with its first two short answers measured as a pair.</summary>
-        private static MenuFrame DirectorWaitingFile(string title, StateBadge badge, bool chosen, float budget, int minimumLines = 0)
+        /// <summary>The original full question sample, using the same focused-question budget and hidden sections as FileScreens.</summary>
+        private static MenuFrame DirectorWaitingFile(string title, StateBadge badge, bool chosen, float budget, bool focused)
         {
-            var sample = WaitingFile(title, badge, chosen, budget, minimumLines);
-            var lines = new[]
-            {
-                new PageLine("Lockout duration?", wordsAreData: true, chip: "Agent says", claim: true),
-                new PageLine("15 minutes", wordsAreData: true, action: "answer", key: "0", choice: true),
-                new PageLine("1 hour", wordsAreData: true, action: "answer", key: "1", choice: true),
-            };
-            return new MenuFrame(sample.Subject, sample.Footer, sample.SubjectIsData, sample.Pill, sample.Sections,
-                Packed(lines, budget, minimumLines), sample.Source, sample.Side, sample.SourceIsData, sample.SubjectWaits);
+            var sample = WaitingFile(title, badge, chosen, budget, minimumLines: 0);
+            if (!focused) return sample;
+            return new MenuFrame(sample.Subject, sample.Footer, sample.SubjectIsData, sample.Pill,
+                Array.Empty<FrameSection>(), sample.Lines, sample.Source, sample.Side, sample.SourceIsData, sample.SubjectWaits).Focus();
         }
 
         /// <summary>One grounded shelf in the supported candidate range, with the real readable lip attachment.</summary>
