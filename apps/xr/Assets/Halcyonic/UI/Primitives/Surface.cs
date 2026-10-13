@@ -224,7 +224,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Forgets cached objects when play mode starts without a domain reload.</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset()
+        private static void ResetStatics()
         {
             material = null;
             quad = null;

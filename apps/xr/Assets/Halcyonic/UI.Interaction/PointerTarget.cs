@@ -275,6 +275,6 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Forgets the count when play mode starts without a domain reload.</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset() => handsOnTargets = 0;
+        private static void ResetStatics() => handsOnTargets = 0;
     }
 }

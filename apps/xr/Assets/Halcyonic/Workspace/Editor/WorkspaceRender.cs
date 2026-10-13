@@ -77,6 +77,37 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>Creates and destroys UI components through Unity, rejecting lifecycle errors.</summary>
+        public static void ComponentLifecycleCheck()
+        {
+            var failures = CheckComponentLifecycle();
+            foreach (var failure in failures) Debug.LogError("Halcyonic: component lifecycle: " + failure);
+            if (failures.Count == 0) Debug.Log("Halcyonic: component lifecycle: every check passed");
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        private static List<string> CheckComponentLifecycle()
+        {
+            var failures = new List<string>();
+            void OnLog(string message, string trace, LogType type)
+            {
+                if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+                    failures.Add(message);
+            }
+            Application.logMessageReceived += OnLog;
+            try
+            {
+                foreach (var type in new[] { typeof(Surface), typeof(StateBadgeView), typeof(PointerTarget), typeof(AmbientCover) })
+                {
+                    var instance = new GameObject("Component lifecycle check");
+                    try { instance.AddComponent(type); }
+                    finally { UnityEngine.Object.DestroyImmediate(instance); }
+                }
+            }
+            finally { Application.logMessageReceived -= OnLog; }
+            return failures;
+        }
+
         /// <summary>The focused answer flow at both real-font text sizes, isolated from older workspace scenarios.</summary>
         public static void AnswerFlowCheck()
         {
@@ -114,6 +145,7 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                Check("component lifecycle", CheckComponentLifecycle);
                 // The stage's default distance and height; the character that waits for the person,
                 // in the middle, opened.
                 Check("RenderStage", () => RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));

@@ -150,7 +150,7 @@ namespace Halcyonic.XR
 
         /// <summary>Forgets every cover when play mode starts without a domain reload.</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset()
+        private static void ResetStatics()
         {
             active.Clear();
             every.Clear();
