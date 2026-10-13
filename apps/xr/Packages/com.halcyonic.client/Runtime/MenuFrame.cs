@@ -1005,7 +1005,7 @@ namespace Halcyonic.Client
         /// where they don't fit (<see cref="MenuColumns"/>).
         /// </summary>
         /// <param name="besideMenu">The page stands beside the menu, as Tasks' beside a file: the plane is the two columns, each this page.</param>
-        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false, bool focused = false, float header = 0f, bool centered = false, PanelDirection? placement = null, IReadOnlyList<BodyInView>? occupied = null)
+        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false, bool focused = false, float header = 0f, bool centered = false, PanelDirection? placement = null, IReadOnlyList<BodyInView>? occupied = null, bool readable = false)
         {
             if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows), subjectRows, "A subject takes a row or two.");
             var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
@@ -1020,6 +1020,7 @@ namespace Halcyonic.Client
                     : new[] { Column(Glaze.Menu.FileColumnDegrees, page) }, zoom, header);
                 var direction = placement ?? new PanelDirection(0f, 0f, true, false);
                 return (centered ? Inside(composition, direction, within) : Fits(composition, topDegrees, within))
+                    && (!readable || Readable(composition))
                     && (occupied == null || WorkspacePlacement.Clears(direction, occupied, composition.Size));
             }
             float low = 0f, high = 2f;
@@ -1031,6 +1032,25 @@ namespace Halcyonic.Client
                 else high = middle;
             }
             return low;
+        }
+
+        /// <summary>
+        /// The existing body-sized header, footer and text hold the minimum apparent em throughout
+        /// the composition. Smaller facts already promote to this role in the renderer. Field fit
+        /// alone permits a tall page whose end rows are too oblique to read.
+        /// </summary>
+        public static bool Readable(PlaneComposition composition)
+        {
+            const float DegreesPerRadian = 180f / MathF.PI;
+            var halfEm = U(Glaze.Menu.BodyDegrees) * composition.Zoom / 2f;
+            var up = composition.Height / 2f;
+            float Em(float right)
+            {
+                var across = MathF.Sqrt(1f + right * right);
+                return (MathF.Atan2(up + halfEm, across) - MathF.Atan2(up - halfEm, across)) * DegreesPerRadian;
+            }
+            // Across a row, the angular em's minimum is at the centre or an outer edge.
+            return MathF.Min(Em(0f), Em(composition.Width / 2f)) >= Glaze.MinimumTextDegrees;
         }
 
         /// <summary>The height <paramref name="rows"/> rows of a list take, 12 mm apart, as a page of Tasks lays them.</summary>

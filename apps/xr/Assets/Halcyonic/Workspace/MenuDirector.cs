@@ -986,7 +986,7 @@ namespace Halcyonic.XR.Workspace
             var looking = anchor?.Looking ?? stage.Looking;
             var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
             return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height,
-                centered: true, placement: direction, occupied: occupied);
+                centered: true, placement: direction, occupied: occupied, readable: focused);
 
         }
 

@@ -111,6 +111,29 @@ public class MenuPageTests
     }
 
     [Test]
+    public void FocusedPageHoldsReadableHeaderAndFooterWithinTheUnchangedField()
+    {
+        foreach (var text in new[] { TextSize.Standard, TextSize.Larger })
+        {
+            var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
+            var header = MenuPage.Words(1) + 2f * MenuPage.Target() + 4f * MenuPage.TargetGap;
+            PlaneComposition File(float page) => new PlaneComposition(new[]
+            {
+                new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), MenuPage.Subject(1, pill: true), MenuPage.Content(page)),
+            }, zoom, header);
+            var direction = new PanelDirection(0f, 0f, true, false);
+            var page = MenuPage.Height(text, 1, focused: true, header: header, centered: true, readable: true);
+            Assert.That(page, Is.GreaterThan(MenuPage.Words(1)), text.ToString());
+            Assert.That(MenuPage.Readable(File(page)), Is.True, text.ToString());
+            Assert.That(MenuPage.Inside(File(page), direction, MenuPage.Quest3S), Is.True, text.ToString());
+            Assert.That(MenuPage.Readable(File(page + MenuPage.Words(1))), Is.False, "another row fails the unchanged minimum: " + text);
+            var fieldOnly = MenuPage.Height(text, 1, focused: true, header: header, centered: true);
+            Assert.That(fieldOnly, Is.GreaterThan(page), text.ToString());
+            Assert.That(MenuPage.Readable(File(fieldOnly)), Is.False, "default callers retain their field-only budget: " + text);
+        }
+    }
+
+    [Test]
     public void NeverThreeColumns()
     {
         var column = new PlaneColumn(PlaneComposition.Units(26f), PlaneComposition.Units(20f));
