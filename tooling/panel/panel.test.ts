@@ -12,6 +12,8 @@ import { DEMO_WORKSTREAMS } from '../../apps/control-plane/src/demo-plan.ts';
 import { loopbackProof } from '../../apps/control-plane/src/http/security.ts';
 import { createNetworkIdentity } from '../../apps/control-plane/src/network/certificate.ts';
 import { credentialFromBytes } from '../../apps/control-plane/src/network/pairing-protocol.ts';
+import { writeWav } from '../../apps/control-plane/src/speech/wav.ts';
+import type { SpeechEngine } from '../../apps/control-plane/src/speech/whisper.ts';
 import { startTestServer } from '../../apps/control-plane/src/testing/harness.ts';
 import {
   compileValidator,
@@ -44,10 +46,16 @@ const PLAIN = [
   'PanelDrafts.java',
   'PanelProof.java',
   'PanelUiState.java',
+  'PanelVoice.java',
   'PanelRestore.java',
   'PanelViewStore.java',
 ];
-const ANDROID_ONLY = ['PanelFiles.java', 'PanelBridge.java', 'AgentPanelActivity.java'];
+const ANDROID_ONLY = [
+  'PanelFiles.java',
+  'PanelBridge.java',
+  'AgentPanelActivity.java',
+  'PanelVoiceCapture.java',
+];
 const DEVELOPMENT = join(PANEL, 'development/com/halcyonic/panel');
 const DEVELOPMENT_ONLY = ['PanelPreviewActivity.java'];
 const classes = mkdtempSync(join(tmpdir(), 'halcyonic-panel-'));
@@ -70,7 +78,10 @@ function args(command: string, values: readonly string[]) {
 }
 function run(command: string, ...values: string[]) {
   return Buffer.from(
-    execFileSync(join(BIN, 'java'), args(command, values), { encoding: 'utf8' }).trim(),
+    execFileSync(join(BIN, 'java'), args(command, values), {
+      encoding: 'utf8',
+      maxBuffer: 4 * 1024 * 1024,
+    }).trim(),
     'base64',
   ).toString();
 }
@@ -256,6 +267,135 @@ describe('production native agent panel', () => {
     ]);
   });
   after(() => rmSync(classes, { recursive: true, force: true }));
+  test('native voice leases and held gestures permanently reject stale authority without changing existing drafts', () => {
+    assert.equal(run('voice_state', pairing(1, '0'.repeat(64))), 'true');
+  });
+  test('native voice creates canonical bounded PCM16 WAV and strictly reads untrusted transcripts', () => {
+    for (const count of [7999, 480001]) assert.equal(run('voice_wav', String(count)), 'null');
+    for (const count of [8000, 16000, 480000]) {
+      const wav = Buffer.from(run('voice_wav', String(count)), 'base64');
+      const samples = Buffer.alloc(count * 2);
+      samples.writeInt16LE(-32768, 0);
+      samples.writeInt16LE(32767, 2);
+      assert.deepEqual(wav, writeWav(samples));
+    }
+    const engine = { name: 'synthetic-engine', version: 'test' };
+    const heard = { outcome: 'heard', text: 'Add a bounded regression.', language: 'en', engine };
+    assert.equal(run('voice_transcript', JSON.stringify(heard)), heard.text);
+    assert.equal(
+      run('voice_transcript', JSON.stringify({ outcome: 'nothing_heard', engine })),
+      'nothing_heard',
+    );
+    for (const changed of [
+      { ...heard, outcome: 'unknown' },
+      { ...heard, text: 'x'.repeat(4097) },
+      { ...heard, language: 'en invalid' },
+      { ...heard, other: true },
+      { ...heard, engine: { name: 'x'.repeat(65), version: 'test' } },
+      { outcome: 'nothing_heard', text: 'invented', engine },
+    ])
+      assert.equal(run('voice_transcript', JSON.stringify(changed)), 'refused');
+  });
+  test('native voice uses the real local transcription route and its host bounds without journaling or commands', async () => {
+    const received: Buffer[] = [];
+    let words = 'Synthetic transcript for a local draft.';
+    const speech: SpeechEngine = {
+      engine: { name: 'synthetic-engine', version: 'test' },
+      async transcribe(wav) {
+        received.push(wav);
+        return { kind: 'text', text: words };
+      },
+      async warmUp() {
+        return 0;
+      },
+    };
+    const server = await startTestServer({ speech });
+    try {
+      const target = JSON.stringify({ port: server.port, token: server.token });
+      const head = server.controlPlane.journal.head();
+      for (const count of [8000, 480000]) {
+        const answer = await runAsync('voice_request_usb', target, String(count));
+        assert.equal(answer.status, 200);
+        assert.deepEqual(received.at(-1), writeWav(Buffer.alloc(count * 2)));
+        assert.equal(run('voice_transcript', answer.body ?? ''), words);
+      }
+      words = '';
+      const empty = await runAsync('voice_request_usb', target, '16000');
+      assert.equal(empty.status, 200);
+      assert.equal(run('voice_transcript', empty.body ?? ''), 'nothing_heard');
+      const before = received.length;
+      for (const count of ['7999', '480001']) {
+        const refused = await runAsync('voice_request_usb', target, count);
+        assert.equal(refused.code, 'invalid_audio');
+        assert.equal(refused.unknown, false);
+      }
+      const cancelled = await runAsync('voice_request_usb', target, '16000', '999', 'cancel');
+      assert.equal(cancelled.code, 'panel_closed');
+      assert.equal(received.length, before);
+      assert.equal(server.controlPlane.journal.head(), head);
+    } finally {
+      await server.stop();
+    }
+  });
+  test('native audio never sends credentials or audio to an unpinned or replaced pairing and retains JSON route restrictions', async () => {
+    const server = await listener((_text, socket) => socket.end(response('{}')));
+    try {
+      const wrong = await runAsync('voice_request', pairing(server.port, '0'.repeat(64)), '16000');
+      assert.equal(wrong.code, 'certificate_changed');
+      const changed = await runAsync(
+        'voice_request',
+        pairing(server.port, server.pin),
+        '16000',
+        '3',
+      );
+      assert.equal(changed.code, 'pairing_changed');
+      assert.equal(server.heard.length, 0);
+      const generic = await runAsync(
+        'request',
+        pairing(server.port, server.pin),
+        'POST',
+        '/api/transcriptions',
+        '{}',
+      );
+      assert.equal(generic.code, 'unsupported_request');
+      const oversized = await runAsync('voice_request', pairing(server.port, server.pin), '480001');
+      assert.equal(oversized.code, 'invalid_audio');
+      assert.equal(server.heard.length, 0);
+    } finally {
+      await server.close();
+    }
+  });
+  test('native audio waits for a bounded transcription longer than the command idle timeout and refuses redirects without retry', async () => {
+    for (const redirect of [false, true]) {
+      const server = await listener((_text, socket) => {
+        if (redirect)
+          socket.end(
+            'HTTP/1.1 302 Found\r\nLocation: https://elsewhere.invalid/\r\nContent-Length: 0\r\n\r\n',
+          );
+        else
+          setTimeout(
+            () =>
+              socket.end(
+                response(
+                  JSON.stringify({
+                    outcome: 'nothing_heard',
+                    engine: { name: 'synthetic', version: 'test' },
+                  }),
+                ),
+              ),
+            4200,
+          );
+      });
+      try {
+        const result = await runAsync('voice_request', pairing(server.port, server.pin), '8000');
+        if (redirect) assert.equal(result.code, 'redirect_refused');
+        else assert.equal(result.status, 200);
+        assert.equal(server.heard.length, 1);
+      } finally {
+        await server.close();
+      }
+    }
+  });
   test('native workspace offer and exact request consumer accept canonical producer fields and reject foreign or malformed records', () => {
     const offer = { availability: 'available', model: 'synthetic-model', served: 'this_mac' };
     assert.equal(compileValidator(WorkspaceAgentStatus)(offer).ok, true);

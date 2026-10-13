@@ -35,5 +35,6 @@ final class PanelUiState {
     Review review(long id, Context context) { return new Review(id, epoch, context); }
     boolean read(Review ticket) { if (!valid(ticket)) return false; read = true; return true; }
     boolean authorize(Review ticket, Context current) { return read && valid(ticket) && (ticket.context == null ? current == null : ticket.context.same(current)); }
+    boolean current(Review ticket, Context current) { return valid(ticket) && ticket.context != null && ticket.context.same(current); }
     private boolean valid(Review ticket) { return ticket != null && ticket.owner == owner && ticket.epoch == epoch && interact(ticket.owner); }
 }

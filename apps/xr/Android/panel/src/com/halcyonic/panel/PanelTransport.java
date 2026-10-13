@@ -66,11 +66,22 @@ final class PanelTransport {
     Result request(PanelIdentity expected, String method, String path, String body) throws IOException {
         if (!(method.equals("GET") && (path.equals("/api/snapshot") || path.equals("/api/workspace/agent") || path.matches("/api/workspace/requests/" + PanelIdentity.ENTITY) || path.matches("/api/workspace/commands/" + PanelIdentity.UUID) || path.matches("/api/events\\?after=[0-9]{1,16}&limit=50&workstream_id=" + PanelIdentity.ENTITY)))
             && !(method.equals("POST") && path.equals("/api/commands") && body != null)) throw new Refused("unsupported_request", false);
+        byte[] bytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > 256 * 1024) throw new Refused("request_too_large", false);
+        return perform(expected, method, path, bytes, body == null ? null : "application/json", 15);
+    }
+
+    Result transcribe(PanelIdentity expected, byte[] wav) throws IOException {
+        PanelVoice.validate(wav);
+        return perform(expected, "POST", "/api/transcriptions", wav, "audio/wav", 30);
+    }
+
+    private Result perform(PanelIdentity expected, String method, String path, byte[] bytes, String contentType, int seconds) throws IOException {
         boolean wrote = false;
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
         Lease lease = new Lease(); active = lease;
         AtomicBoolean timedOut = new AtomicBoolean();
-        ScheduledFuture<?> cutoff = WATCHDOG.schedule(() -> { timedOut.set(true); lease.close(); }, 15, TimeUnit.SECONDS);
+        ScheduledFuture<?> cutoff = WATCHDOG.schedule(() -> { timedOut.set(true); lease.close(); }, seconds, TimeUnit.SECONDS);
         try {
             current(expected);
             Future<InetAddress[]> lookup = DNS.submit(() -> InetAddress.getAllByName(expected.host));
@@ -112,17 +123,15 @@ final class PanelTransport {
                     || !PanelProof.proves(health.headers.get("x-halcyonic-proof"), expected.credential, "127.0.0.1:" + expected.port, challenge)) throw new Refused("local_server_unproved", false);
             }
             current(expected);
-            byte[] bytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
-            if (bytes.length > 256 * 1024) throw new Refused("request_too_large", false);
             String host = expected.host.contains(":") ? "[" + expected.host + "]" : expected.host;
             String headers = method + " " + path + " HTTP/1.1\r\nHost: " + host + ":" + expected.port
                 + "\r\nAuthorization: Bearer " + expected.credential + "\r\nAccept: application/json\r\nConnection: close\r\n"
-                + (body == null ? "" : "Content-Type: application/json\r\nContent-Length: " + bytes.length + "\r\n") + "\r\n";
+                + (contentType == null ? "" : "Content-Type: " + contentType + "\r\nContent-Length: " + bytes.length + "\r\n") + "\r\n";
             OutputStream output = socket.getOutputStream();
             // A write can partially reach the host even when it throws. Never retry a command.
             wrote = method.equals("POST");
             output.write(headers.getBytes(StandardCharsets.US_ASCII)); output.write(bytes); output.flush();
-            Result result = response(new DeadlineInput(socket, deadline), deadline);
+            Result result = response(new DeadlineInput(socket, deadline, seconds == 30 ? 30000 : 4000), deadline, contentType != null && contentType.equals("audio/wav") ? 64 * 1024 : 8 * 1024 * 1024);
             current(expected);
             return result;
         } catch (Refused error) { throw new Refused(error.code, wrote || error.unknownEffect); }
@@ -136,18 +145,20 @@ final class PanelTransport {
     }
 
     private static final class DeadlineInput extends java.io.FilterInputStream {
-        private final Socket socket; private final long deadline;
-        DeadlineInput(Socket socket, long deadline) throws IOException { super(socket.getInputStream()); this.socket = socket; this.deadline = deadline; }
+        private final Socket socket; private final long deadline; private final int idle;
+        DeadlineInput(Socket socket, long deadline) throws IOException { this(socket, deadline, 4000); }
+        DeadlineInput(Socket socket, long deadline, int idle) throws IOException { super(socket.getInputStream()); this.socket = socket; this.deadline = deadline; this.idle = idle; }
         private void bound() throws IOException {
             long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
             if (remaining <= 0) throw new Refused("response_timeout", false);
-            socket.setSoTimeout((int) Math.min(4000, remaining));
+            socket.setSoTimeout((int) Math.min(idle, remaining));
         }
         @Override public int read() throws IOException { bound(); return super.read(); }
         @Override public int read(byte[] bytes, int offset, int count) throws IOException { bound(); return in.read(bytes, offset, count); }
     }
 
-    private static Result response(InputStream input, long deadline) throws IOException {
+    private static Result response(InputStream input, long deadline) throws IOException { return response(input, deadline, 8 * 1024 * 1024); }
+    private static Result response(InputStream input, long deadline, int maximum) throws IOException {
         int headerBytes = 0;
         String statusLine = line(input, deadline);
         headerBytes += statusLine.length();
@@ -169,7 +180,7 @@ final class PanelTransport {
         String length = headers.getOrDefault("content-length", "");
         if (!length.matches("[0-9]{1,8}")) throw new Refused("invalid_response", false);
         int count = Integer.parseInt(length);
-        if (count > 8 * 1024 * 1024) throw new Refused("response_too_large", false);
+        if (count > maximum) throw new Refused("response_too_large", false);
         byte[] bytes = new byte[count];
         for (int offset = 0; offset < count;) {
             if (System.nanoTime() > deadline) throw new Refused("response_timeout", false);

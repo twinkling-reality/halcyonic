@@ -39,6 +39,69 @@ public final class PanelSelfTest {
         }
         String result;
         switch (command) {
+            case "voice_state": {
+                PanelIdentity target=PanelIdentity.pairing(args[0]); Object editor=new Object();
+                PanelUiState.Context context=new PanelUiState.Context(target.key,"journal","project","work","run");
+                for(int scenario=0;scenario<17;scenario++) {
+                    PanelUiState state=new PanelUiState();state.resumed(true);state.top(true);state.activityFocus(true);
+                    PanelVoice.Lease lease=new PanelVoice.Lease(state,context,target,"instruction",editor,"Before",null,null,4);
+                    if(!lease.current(state,context,target,"instruction",editor,"Before",null,null,4,true))throw new AssertionError("Current lease refused.");
+                    PanelUiState.Context changed=context;
+                    if(scenario<5)changed=new PanelUiState.Context(scenario==0?"other":target.key,scenario==1?"other":"journal",scenario==2?"other":"project",scenario==3?"other":"work",scenario==4?"other":"run");
+                    if(scenario==11){state.activityFocus(false);state.activityFocus(true);}
+                    if(scenario==12){state.top(false);state.top(true);}
+                    if(scenario==13){state.resumed(false);state.resumed(true);}
+                    if(scenario==14){long owner=state.open();state.close(owner);}
+                    if(scenario==15)lease.revoke();
+                    PanelIdentity identity=scenario==16?new PanelIdentity(target.host,target.port,target.pin,target.device,"hlcd_changed_fixture"):target;
+                    boolean allowed=lease.current(state,changed,identity,scenario==5?"request":"instruction",scenario==6?new Object():editor,scenario==7?"Edited":"Before",scenario==8?"new-request":null,scenario==9?"pending":null,scenario==10?5:4,scenario!=15);
+                    if(allowed)throw new AssertionError("Foreign or expired voice lease accepted: "+scenario);
+                    if(lease.current(state,context,target,"instruction",editor,"Before",null,null,4,true))throw new AssertionError("Revoked voice lease revived.");
+                }
+                PanelVoice.Gesture gesture=new PanelVoice.Gesture();
+                if(!gesture.down(7,100)||gesture.mature(7,399)||gesture.release(7))throw new AssertionError("Short gesture captured.");
+                if(!gesture.down(7,100)||!gesture.mature(7,400)||gesture.mature(7,500)||!gesture.release(7)||gesture.release(7))throw new AssertionError("Held gesture ownership failed.");
+                gesture.down(7,100);gesture.mature(7,500);if(gesture.down(8,500)||gesture.release(7))throw new AssertionError("Second pointer retained capture.");
+                gesture.down(7,100);gesture.cancel();if(gesture.mature(7,500)||gesture.release(7))throw new AssertionError("Cancelled hold revived.");
+                if(!PanelVoice.append("Before","after").equals("Before after")||!PanelVoice.append("Before",null).equals("Before")||!PanelVoice.append("Before"," ").equals("Before"))throw new AssertionError("Draft append changed prior words.");
+                try {PanelVoice.append(String.join("",java.util.Collections.nCopies(32000,"x")),"overflow");throw new AssertionError("Draft was truncated or overflowed.");}catch(IllegalArgumentException expected){}
+                for(int refusal=0;refusal<2;refusal++) {
+                    byte[] rejected=PanelVoice.wav(new short[8000],8000);
+                    if(PanelVoice.usableClip(rejected,refusal!=0,refusal==1))throw new AssertionError("Rejected clip survived delivery guard.");
+                    for(byte value:rejected)if(value!=0)throw new AssertionError("Rejected clip was not disposed.");
+                }
+                byte[] accepted=PanelVoice.wav(new short[8000],8000);
+                if(!PanelVoice.usableClip(accepted,true,false)||accepted[0]!='R')throw new AssertionError("Current clip was erased before upload.");
+                PanelVoice.discard(accepted);for(byte value:accepted)if(value!=0)throw new AssertionError("Finished audio retained.");
+                java.util.concurrent.ExecutorService queued=java.util.concurrent.Executors.newSingleThreadExecutor();
+                java.util.concurrent.CountDownLatch running=new java.util.concurrent.CountDownLatch(1),hold=new java.util.concurrent.CountDownLatch(1);
+                queued.execute(()->{running.countDown();try{hold.await();}catch(InterruptedException stopped){Thread.currentThread().interrupt();}});
+                running.await();PanelVoice.Audio owned=new PanelVoice.Audio(PanelVoice.wav(new short[8000],8000));
+                java.util.concurrent.atomic.AtomicBoolean uploaded=new java.util.concurrent.atomic.AtomicBoolean();
+                queued.execute(()->{try{uploaded.set(true);}finally{owned.discard();}});
+                owned.discard();List<Runnable> removed=queued.shutdownNow();hold.countDown();queued.awaitTermination(1,java.util.concurrent.TimeUnit.SECONDS);
+                if(removed.size()!=1||uploaded.get())throw new AssertionError("Queued upload unexpectedly ran.");
+                for(byte value:owned.bytes)if(value!=0)throw new AssertionError("Never-run queued upload bypassed Activity disposal.");
+                result="true";break;
+            }
+            case "voice_wav": {
+                int count=Integer.parseInt(args[0]);short[] samples=new short[Math.max(0,count)];if(count>0)samples[0]=(short)-32768;if(count>1)samples[1]=32767;
+                byte[] wav=PanelVoice.wav(samples,count);
+                result=wav==null?"null":Base64.getEncoder().encodeToString(wav);break;
+            }
+            case "voice_transcript":try{String heard=PanelVoice.transcript(args[0]);result=heard==null?"nothing_heard":heard;}catch(Exception error){result="refused";}break;
+            case "voice_request":
+            case "voice_request_usb": {
+                Map<String,Object> usb=command.equals("voice_request_usb")?PanelJson.object(PanelJson.parse(args[0])):null;
+                PanelIdentity target=usb==null?PanelIdentity.pairing(args[0]):PanelIdentity.developmentUsb((int)PanelJson.integer(usb.get("port"),1,65535),PanelJson.text(usb.get("token")));
+                AtomicInteger reads=new AtomicInteger();
+                PanelTransport transport=new PanelTransport(()->{if(args.length>2&&reads.incrementAndGet()>=Integer.parseInt(args[2]))return target.scheme.equals("ws")?PanelIdentity.developmentUsb(target.port,"rotated_fixture_token_01234567890123456789"):new PanelIdentity(target.host,target.port,target.pin,target.device,"hlcd_changed_fixture");return target;});
+                int count=Integer.parseInt(args[1]);byte[] wav=PanelVoice.wav(new short[Math.max(0,count)],count);
+                if(count>PanelVoice.MAX_SAMPLES)wav=new byte[PanelVoice.MAX_BYTES+1];
+                if(args.length>3&&args[3].equals("cancel"))transport.cancel();
+                try {PanelTransport.Result response=transport.transcribe(target,wav);result=PanelJson.encode(PanelJson.map("status",response.status,"body",response.body));}
+                catch(PanelTransport.Refused error){result=PanelJson.encode(PanelJson.map("code",error.code,"unknown",error.unknownEffect));}break;
+            }
             case "continuation":
                 try { PanelContinuation.parse(args[0]); result = "true"; } catch (Exception error) { result = "false"; } break;
             case "viewstore":
