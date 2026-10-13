@@ -142,7 +142,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 looking = Vector3.forward;
                 float? surface = null; // A manually placed shelf is not an asserted room floor.
                 // The stage as the director reads it: the drag's checks arrange it beside a window, or on another surface, for a while.
-                var windowNow = besideWindow;
+                var windowNow = false; // The optional shelf does not assert an external app window.
                 var surfaceNow = surface;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
@@ -235,7 +235,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var tasksFrame = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Tasks, state)).Menu;
                 if (tasksFrame == null || tasksFrame.Sections.Count != 4) failures.Add(name + ": Tasks shows without the menu's four places.");
                 else if (tasksFrame.Lines.FirstOrDefault()?.Key != opened.WorkstreamId) failures.Add(name + ": the waiting task is not Tasks' first row.");
-                failures.AddRange(PlaneState(name + " director tasks", folder, camera, texture, director.Plane, characters, eyes, window));
+                failures.AddRange(PlaneState(name + " director tasks", folder, camera, texture, director.Plane, characters, eyes, window, lightLine: characters.Count > 0));
 
                 // Its row opens its file beside the menu, and the row stays chosen.
                 var drawnTasks = director.Plane.Showing(MenuColumn.Menu);
@@ -273,7 +273,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 director.DrawNow(); // Tasks.Showing may notify during the first draw; the next frame settles that change.
                 failures.AddRange(DirectorFileControls(name, director.Plane.Showing(MenuColumn.File)));
-                failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, window));
+                failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, window, lightLine: characters.Count > 0));
 
                 // A visible global Move press expires when its whole workspace is minimized.
                 // Restoring retains the file, but grants only the freshly drawn utility a new hold.
@@ -301,11 +301,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (besideWindow)
                 {
                     var retainedAt = director.Plane.Direction;
+                    windowNow = true;
                     director.StageRefreshedForRender();
                     director.DrawNow();
                     if (!director.Plane.Direction.Equals(retainedAt))
                         failures.Add(name + ": a stage window flag moved the independent console.");
-                    failures.AddRange(PlaneState(name + " director independent window stage", folder, camera, texture, director.Plane, characters, eyes, window));
+                    failures.AddRange(PlaneState(name + " director independent window stage", folder, camera, texture, director.Plane, characters, eyes, window, lightLine: false));
+                    windowNow = false;
+                    director.StageRefreshedForRender();
+                    director.DrawNow();
                 }
 
                 // Folded away, the person is elsewhere: a draw counts for nothing, and a press on it is not taken.
@@ -434,13 +438,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 var settings = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Settings, state)).Menu;
                 if (settings?.Subject != SettingsText.Subject) failures.Add(name + ": choosing Settings did not show Settings.");
                 if (director.Navigator.Beside != file) failures.Add(name + ": choosing a place took the file away.");
-                failures.AddRange(PlaneState(name + " director settings", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director settings", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
 
                 // Enter the visible Comfort category before choosing its supported setting.
                 if (!OpenSettingsCategoryForRender(director, Comfort.Heading))
                     failures.Add(name + ": Settings offered no visible Comfort category.");
                 director.DrawNow();
-                failures.AddRange(PlaneState(name + " director comfort category", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director comfort category", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
 
                 // A setting chosen with the file beside the menu: the details take the front, the file steps
                 // aside and takes nothing meanwhile; another setting chosen, then Close details, and it is back.
@@ -449,15 +453,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 if (!director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) != null) failures.Add(name + ": a setting chosen beside the file, and the file still stands on the plane.");
                 if (director.Navigator.Act(MenuColumn.File, "render-press", null, fileDrawn, null)) failures.Add(name + ": the file took a press while it stood aside.");
-                failures.AddRange(PlaneState(name + " director setting over a file", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director setting over a file", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 director.Navigator.Act(MenuColumn.Menu, SettingsColumn.OpenSetting, "sounds", director.Plane.Showing(MenuColumn.Menu), null);
                 director.DrawNow();
-                failures.AddRange(PlaneState(name + " director another setting over a file", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director another setting over a file", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 var details = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View;
                 if (details == null || !director.Navigator.Act(MenuColumn.Side, SidePanel.Close, null, null, details.Side)) failures.Add(name + ": the setting's details took no Close.");
                 director.DrawNow();
                 if (director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) == null) failures.Add(name + ": the details closed, and the file did not come back.");
-                failures.AddRange(PlaneState(name + " director file back from a setting", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director file back from a setting", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
 
                 // The file's Close, then the menu's: the closed bar alone.
                 // The file's Close; then, the menu alone on Settings, its text size chosen: its change stays
@@ -466,7 +470,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 director.Navigator.Act(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size", director.Plane.Showing(MenuColumn.Menu), null);
                 director.DrawNow();
-                failures.AddRange(PlaneState(name + " director text size chosen", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director text size chosen", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 var change = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Settings, state)).Menu?.Footer[PromptSlot.FarRight];
                 var inPlace = director.Plane.Shown.Count == 1 && director.Plane.Shown[0].Kind == MenuColumn.Side;
                 if (change != null && inPlace && !director.Navigator.Act(MenuColumn.Side, change.Id, null, null, director.Plane.Shown[0].View.Side))
@@ -486,7 +490,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // would leave undrawn, so its change can't act on details no one sees.
                 director.OpenFile(opened.WorkstreamId);
                 director.DrawNow();
-                failures.AddRange(PlaneState(name + " director file over a chosen setting", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director file over a chosen setting", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 file?.Close();
                 director.DrawNow();
 
@@ -495,7 +499,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": closed with no file open, the menu shows no bar.");
                 if (AmbientCover.PanelShowing) failures.Add(name + ": the closed bar alone covers the stage's banner.");
-                failures.AddRange(PlaneState(name + " director closed", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director closed", folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
 
                 // The head turns: a redraw keeps the plane where it was; Reset position places it where the person looks.
                 var stood = director.Plane.Direction.Yaw;
@@ -683,7 +687,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (!file.Screen.Question.Writing && !file.Screen.Question.Reviewing && !file.Screen.Question.ExplainingAmbiguity && file.Screen.Question.QuestionPart == null
                             && !frame.Lines.Any(line => line.Runs.AllTheirs && line.Action != FileScreens.Choose)) failures.Add(name + ": " + stage + " omitted its question context.");
                     }
-                    failures.AddRange(PlaneState(name + " answer-flow " + stage, folder, camera, texture, plane, characters, eyes, null));
+                    failures.AddRange(PlaneState(name + " answer-flow " + stage, folder, camera, texture, plane, characters, eyes, null, lightLine: characters.Count > 0));
                 }
                 void ReadQuestion()
                 {
@@ -817,7 +821,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var sendsBeforeCompact = sent.Count;
                     MinimizeForDirectorRender(director, failures, name);
                     director.DrawNow();
-                    failures.AddRange(PlaneState(name + " compact-editor-" + length, folder, camera, texture, plane, characters, eyes, null));
+                    failures.AddRange(PlaneState(name + " compact-editor-" + length, folder, camera, texture, plane, characters, eyes, null, lightLine: characters.Count > 0));
                     var compactBar = plane.Bar;
                     if (compactBar != null && !compactBar.GetComponentsInChildren<TMPro.TMP_Text>(false).Any(label => label.text.Contains(work.Workstream.Title)))
                         failures.Add(name + ": compact identity did not name its actual retained task.");
@@ -1006,7 +1010,7 @@ namespace Halcyonic.XR.Workspace.Editor
             director.DrawNow();
             if (director.Dragging) failures.Add(name + ": let go, the plane still followed the hand.");
             if (!director.MovedByHand) failures.Add(name + ": dragged, the director does not say the person moved the plane, so Settings would not.");
-            failures.AddRange(PlaneState(name + " director dragged", folder, camera, texture, plane, characters, eyes, null));
+            failures.AddRange(PlaneState(name + " director dragged", folder, camera, texture, plane, characters, eyes, null, lightLine: characters.Count > 0));
             if (!director.PressForRender(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null))
             {
                 failures.Add(name + ": drawn where it was left, the plane took no press.");
@@ -1107,7 +1111,7 @@ namespace Halcyonic.XR.Workspace.Editor
             director.DrawNow();
             retitle(title + ", and keep a record of every lockout for the security review at the end of the month");
             director.DrawNow();
-            failures.AddRange(PlaneState(name + " director dragged then taller", folder, camera, texture, plane, characters, eyes, null));
+            failures.AddRange(PlaneState(name + " director dragged then taller", folder, camera, texture, plane, characters, eyes, null, lightLine: characters.Count > 0));
             retitle(title);
             director.DrawNow();
 
@@ -1147,7 +1151,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (oldFrame != null && director.Navigator.Act(MenuColumn.File, "render-press", null, oldFrame, null))
                         failures.Add(name + ": an old drawn frame took input after text-size repacking " + way + ".");
                     if (!plane.Allows(plane.Direction)) failures.Add(name + ": Larger repacking no longer fits the exact retained offset " + way + ".");
-                    failures.AddRange(PlaneState(name + " director dragged " + way + " then larger text", folder, camera, texture, plane, characters, eyes, null));
+                    failures.AddRange(PlaneState(name + " director dragged " + way + " then larger text", folder, camera, texture, plane, characters, eyes, null, lightLine: characters.Count > 0));
                     failures.AddRange(InSightOfStage(name + " director dragged " + way + " then larger text", plane, eyes));
                     // A drag never takes the plane's centre above the highest a placement goes, nor below the lowest
                     // the field lets a placement go, or where the stage placed it if that is lower.
@@ -1527,6 +1531,9 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static void ProjectsForDirectorRender(MenuDirector director, List<string> failures, string name)
         {
+            // A changed file must be physically redrawn before global controls regain authority.
+            director.DrawNow();
+            director.DrawNow();
             var projects = director.Plane.Chrome.Visible
                 ? director.Plane.Chrome.Targets.FirstOrDefault(button => button.Label.text == "Projects") : null;
             if (projects == null || !projects.gameObject.activeInHierarchy)
