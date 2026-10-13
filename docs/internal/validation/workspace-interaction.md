@@ -391,3 +391,29 @@ hand-offset, stale-input, confirmation, folding and session-authority checks. A 
 body explicitly exercises the drag collision veto even in the character-free case. Source
 migration alone is not a passing visual witness: actual DirectorCheck and AnswerFlowCheck at both
 text sizes, plus the combined gate and headset acceptance, remain required.
+
+
+### Text-size input invalidation and measured column fades (2026-10-13)
+
+The current director journey exposed a held control surviving a text-size change because its
+label and action remained equal. `MenuDirector` now listens for the actual scale change, ends
+all current frame/header/dock presses and subject drag, cancels voice, and invalidates drawn
+authority before the next layout. The existing real-pointer resize negatives now pass in the
+director diagnostic; the complete journey still has separate Settings/geometry failures.
+Destroyed Editor fixtures also detach a surviving scale callback on invocation, because a
+non-executing Edit-mode component may not receive `OnDestroy`.
+
+The old fade sample measured unrelated scene objects behind or beside the column as if they
+were part of it. A diagnostic compared the full scene with the same column's own renderers at
+the same camera, pose, material and opacity. The full-scene section sample appeared brighter
+before opening than after, while its isolated pixels progressed from zero to visible and back.
+The retained full-scene strip is accompanied by isolated column captures for measurement.
+The existing 30-level pixel difference remains unchanged; every subject, section and content
+part must fade in and fade away, including parts previously excluded for dock overlap.
+
+`OpeningFadeCheck` passes both real-font sizes. A deliberately unanimated open/close goes
+through the same measurement and must fail every part's fade-in and fade-away guard. This
+proves detection of a missing rendered fade, not device comfort or both-eye rendering. The
+combined workspace gate records each journey's exception and continues to the remaining
+journeys, including current dedicated-workspace, request and optional-shelf cases. A failing
+earlier fixture can no longer silently prevent later creation and review validation.

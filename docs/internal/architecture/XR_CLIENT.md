@@ -558,6 +558,10 @@ launch/return, process recreation and current-frame action behavior need separat
   body at the lift its motion holds, risen while it waits, never its hop, bob or breath
   (`CharacterTarget.RestPosition`, `CharacterView.HeldLift`), so the plane never follows the
   animation and a waiting character's rise stays clear of it.
+  A text-size change ends every current button press and subject drag, cancels the active voice
+  lease, and invalidates the drawn frame before repacking. The next interaction must begin on
+  the newly drawn geometry; a same-label hold cannot survive the resize. Typed and completed
+  transcription drafts and the retained workspace position remain intact.
   A step is taken only where the plane stays inside the measured field, its centre in that field as
   seen with the head turned to the stage's centre (`MenuDrag.WithinReach`), clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
