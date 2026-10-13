@@ -381,7 +381,7 @@ The question-answer journey retains the real `FileColumn`, command sender, keybo
 callbacks and the same-task visible-dock resume witness, using one grounded shelf agent. Director
 lifecycle samples retain the original full reported question and options, using the production
 focused-question budget and hidden sections while answering. The production multi-prompt answer
-journey exercises full context, an 80-word option detail, paging and mandatory review. Global Move holds start on the currently visible Move utility. Settings is entered after
+journey exercises full context, a 200-word option detail, paging and mandatory review. Global Move holds start on the currently visible Move utility. Settings is entered after
 opening Projects through its visible global control and reopening the retained ordinary file
 through the visible Tasks row. Projects intentionally leaves task focus; Settings keeps that
 reopened file beside it. This separate ordinary-file witness uses the production Activity screen
@@ -456,3 +456,8 @@ Projects while its task file stays cached, checks that exact retained file ident
 current setting/details/Close navigation. Character-free director cases retain the full ordinary
 file-beside-Settings, file-aside refusal and file-return witness. No shelf collision or field check
 is bypassed to force a pair into occupied space.
+
+The partial-detail negative now requires an unread first part and at least two measured parts
+before Close. The independent console's larger page can show the previous 80-word detail wholly;
+that is legitimate read evidence. A 200-word detail preserves the intended partial-read condition
+without reducing the measured budget, truncating content or changing the read-before-send guard.
