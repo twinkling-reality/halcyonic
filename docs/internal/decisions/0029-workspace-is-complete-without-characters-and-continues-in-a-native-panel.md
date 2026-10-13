@@ -78,3 +78,20 @@ navigation, multiple retained drafts, whole-workspace minimize, deliberate place
 native commands, another app and return. Capturing another app requires a separately verified
 consent, permitted purpose, preview and supported attachment path. Source tests and screenshots
 alone do not establish comfort, comprehension, capture permission or superiority to desktop work.
+
+## Local installed-app links (2026-10-13)
+
+The native panel may retain one explicitly chosen installed launcher component for a project on
+this headset. This is local presentation metadata bound to the connection, journal and project;
+it is not a domain execution, artifact, repository-to-build association or evidence of software
+completion. Linking alone launches nothing. Open requires a fresh explicit action, the current
+original selection and installed component, and successful private draft preservation. The launch
+intent carries no project context, words, credential, attachment or command. It does not clear
+another app's task. Failed or uncertain launches are not retried automatically.
+
+The chooser queries only matching MAIN/LAUNCHER activities on demand, using a corresponding intent
+visibility declaration. It requests neither all-package visibility nor installation authority.
+Only the chosen component is retained; display labels and the catalog remain transient. Unavailable
+discovery or launch leaves the existing Home route available. The installed build's correspondence
+to source edits is always unknown in this scope. Implementation and headset acceptance remain
+separate checks; see [native-project-output.md](../validation/native-project-output.md).

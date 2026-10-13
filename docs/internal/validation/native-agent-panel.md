@@ -147,10 +147,13 @@ Horizon virtual displays in the sources reviewed. It is not a claim that every s
 physical-camera capture is prevented.
 [Android FLAG_SECURE](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE).
 
-No capture, microphone, accessibility, overlay, app-enumeration or notification permission is
-added. Native voice input is not implemented; the existing local `/api/transcriptions` engine is
-the available future path, with separate microphone consent and review. No cloud transcription
-service was introduced. Meta's MediaProjection policy permits casting, livestreaming and screen
+At this original checkpoint, no capture, microphone, accessibility, overlay, all-package inventory
+or notification permission was added. Development builds now have the separately consented held
+dictation consumer described in [native-panel-voice.md](native-panel-voice.md); release builds exclude
+its microphone permission, and native capture still needs device acceptance. The explicit installed
+app chooser uses only a narrow MAIN/LAUNCHER visibility query, described in
+[native-project-output.md](native-project-output.md), without QUERY_ALL_PACKAGES. No cloud
+transcription service was introduced. Meta's MediaProjection policy permits casting, livestreaming and screen
 sharing; whether assistant analysis fits an approved purpose remains open. Android's projection
 consent/token/service requirements, protected surfaces and Meta's one-projection limit must be
 resolved before a real attachment flow. Opening this panel grants no capture permission.
@@ -249,8 +252,10 @@ Independent exact-source review and integrated gates remain required for this ch
 Actual Android Back/focus/multi-resume/IME and crash recovery, secure Horizon rendering, JNI/APK
 packaging, paired connected request controls and Unity/native/Unity return remain device gates.
 File fsync/atomic replacement establish the source ordering; sudden device power-loss behavior
-is unverified. Native input is EditText/system keyboard only. It preserves speech-origin words
-from the shared handoff but has no native microphone capture/transcription consumer. Capture/share
+is unverified. At this checkpoint native input used EditText/system keyboard and preserved
+speech-origin words from the shared handoff. The later development-only native held dictation
+consumer is documented in [native-panel-voice.md](native-panel-voice.md); its hardware microphone,
+consent/lifecycle and audio return remain device gates. Capture/share
 still requires a separate deliberate consent and real attachment path; none was invented here.
 
 Independent review found that fsyncing the temporary record without syncing its renamed directory

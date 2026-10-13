@@ -87,3 +87,11 @@ and absence of actions after cancellation or connection/execution changes. Micro
 beside other apps and after Unity suspension requires hardware tests. Always-listening activation,
 speech output, arbitrary external-screen context and release microphone support remain separate
 unproven decisions. No permissions or release build policy were changed by this reference review.
+
+## Native held dictation
+
+Development builds now consume the existing local transcription route from an explicit native
+Hold to talk gesture. Consent, exact editor/tuple lifetime, cancellation, bounded WAV disposal and
+the independent source/API evidence are recorded in [native-panel-voice.md](native-panel-voice.md).
+Words remain an ordinary spoken draft for review; no model interpretation or gesture sends a
+command. Release microphone permission and cross-app/device acceptance remain separate gates.
