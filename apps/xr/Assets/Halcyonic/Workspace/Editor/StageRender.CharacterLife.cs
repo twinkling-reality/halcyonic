@@ -159,6 +159,155 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>Unchanged scene captures isolate target/depth paths and feature shader determinism, without animation or parameter correction.</summary>
+        public static void CharacterRenderDeterminismCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "CharacterRenderDeterminism", variant));
+                Directory.CreateDirectory(folder);
+                var result = new List<string>();
+                var previousField = ViewField.Current; var wasStill = GlazeMotion.Still;
+                try
+                {
+                    ViewField.Current = FieldChecks.Quest3S;
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    foreach (var id in new[] { "feature-Round-Ears-39", "feature-Blossom-Ears-9", "feature-Squircle-Ears-78" })
+                    {
+                        GlazeMotion.Still = false;
+                        var name = CharacterIdentity.Of(id).Shape + "-Ears";
+                        var root = new GameObject("Unchanged render witness " + name);
+                        var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+                        Material? unlit = null;
+                        try
+                        {
+                            var eyes = new Vector3(0f, EyeHeight, 0f);
+                            var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
+                            var plane = CharacterConsole(root.transform, eyes);
+                            var character = WorkspaceRender.ConfirmedPlaneAgent(root.transform, plane, eyes, Shown(id, CharacterActivity.Idle), result, name);
+                            var view = character.View;
+                            result.AddRange(CharacterEnvelopes(name, eyes, new List<(CharacterView View, CharacterTarget Target)> { character }));
+                            view.Show(Shown(id, CharacterActivity.Idle)); view.PlaceShelfLabel(eyes); Advance(view, 1f);
+                            WorkspaceRender.ForceMeshes(root); GlazeMotion.Still = true;
+                            for (var frame = 0; frame < 216; frame++) view.AdvanceForRender(1f / 72f);
+                            var enabled = camera.enabled; var msaa = camera.allowMSAA;
+                            Series("reused-current", freshDepth: null);
+                            try { camera.enabled = false; Series("disabled-camera", freshDepth: null); }
+                            finally { camera.enabled = enabled; }
+                            try { camera.allowMSAA = false; Series("no-camera-msaa", freshDepth: null); }
+                            finally { camera.allowMSAA = msaa; }
+                            Series("fresh-depth24", freshDepth: 24);
+                            Series("fresh-depth32", freshDepth: 32);
+                            var feature = view.FeatureForRender.Renderer!;
+                            var renderers = root.GetComponentsInChildren<Renderer>(true);
+                            var visibility = renderers.Select(renderer => renderer.enabled).ToArray();
+                            var originalMaterial = feature.sharedMaterial;
+                            try
+                            {
+                                foreach (var renderer in renderers) renderer.enabled = renderer == feature;
+                                Series("feature-only-body-shader", freshDepth: null);
+                                var shader = Shader.Find("Unlit/Color");
+                                if (shader == null) result.Add(name + ": built-in Unlit/Color diagnostic shader is unavailable.");
+                                else
+                                {
+                                    unlit = new Material(shader) { color = view.FeatureForRender.Colour, renderQueue = originalMaterial.renderQueue };
+                                    feature.sharedMaterial = unlit;
+                                    Series("feature-only-unlit", freshDepth: null);
+                                }
+                            }
+                            finally
+                            {
+                                feature.sharedMaterial = originalMaterial;
+                                for (var index = 0; index < renderers.Length; index++) renderers[index].enabled = visibility[index];
+                            }
+
+                            void Series(string path, int? freshDepth)
+                            {
+                                var prefix = name + "-" + path;
+                                var records = new List<string>();
+                                Texture2D? previous = null;
+                                var changes = 0;
+                                try
+                                {
+                                    for (var frame = 0; frame < 8; frame++)
+                                    {
+                                        var currentTarget = texture;
+                                        if (freshDepth.HasValue)
+                                        {
+                                            currentTarget = new RenderTexture(Size, Size, freshDepth.Value, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+                                            currentTarget.Create(); camera.targetTexture = currentTarget;
+                                        }
+                                        Texture2D? image = null;
+                                        try
+                                        {
+                                            var parameters = CharacterFrameValues(new[] { view });
+                                            records.Add("frame " + frame + " enabled=" + camera.enabled + " allowMSAA=" + camera.allowMSAA
+                                                + " qualityAA=" + QualitySettings.antiAliasing + " requestedAA=" + currentTarget.antiAliasing
+                                                + " actualSamples=" + currentTarget.descriptor.msaaSamples + " depth=" + currentTarget.depth
+                                                + " depthFormat=" + currentTarget.descriptor.depthStencilFormat + " format=" + currentTarget.graphicsFormat);
+                                            records.Add("view=" + camera.worldToCameraMatrix.ToString("R") + " projection=" + camera.projectionMatrix.ToString("R")
+                                                + " nonJittered=" + camera.nonJitteredProjectionMatrix.ToString("R") + " gpuProjection=" + GL.GetGPUProjectionMatrix(camera.projectionMatrix, true).ToString("R"));
+                                            records.Add("light=" + Shader.GetGlobalVector("_HalcyonicKeyLight").ToString("R")
+                                                + " noise=" + Shader.GetGlobalTexture("_HalcyonicNoise")?.GetInstanceID());
+                                            foreach (var renderer in view.GetComponentsInChildren<Renderer>(true))
+                                                records.Add(renderer.name + " localToWorld=" + renderer.localToWorldMatrix.ToString("R")
+                                                    + " worldToLocal=" + renderer.worldToLocalMatrix.ToString("R") + " bounds=" + renderer.bounds.ToString("R"));
+                                            image = WorkspaceRender.Render(camera, currentTarget);
+                                            File.WriteAllBytes(Path.Combine(folder, prefix + "-" + frame + ".png"), image.EncodeToPNG());
+                                            var after = CharacterFrameValues(new[] { view });
+                                            foreach (var value in parameters.Where(pair => !after.TryGetValue(pair.Key, out var current) || current != pair.Value))
+                                                result.Add(prefix + ": unchanged capture altered production value " + value.Key);
+                                            records.AddRange(parameters.Select(pair => pair.Key + "=" + pair.Value));
+                                            if (previous != null)
+                                            {
+                                                var count = ExactCharacterPixels(previous, image);
+                                                records.Add("exactRGBA changed=" + count);
+                                                if (count != 0)
+                                                {
+                                                    changes += count;
+                                                    var beforePixels = previous.GetPixels32(); var afterPixels = image.GetPixels32();
+                                                    var pixels = new List<string>();
+                                                    for (var pixel = 0; pixel < beforePixels.Length; pixel++)
+                                                    {
+                                                        if (SameCharacterPixel(beforePixels[pixel], afterPixels[pixel])) continue;
+                                                        if (pixels.Count < 128) pixels.Add((pixel % Size) + "," + (pixel / Size) + ": "
+                                                            + beforePixels[pixel] + " -> " + afterPixels[pixel]);
+                                                    }
+                                                    File.WriteAllLines(Path.Combine(folder, prefix + "-" + frame + "-pixels.txt"), pixels);
+                                                }
+                                                UnityEngine.Object.DestroyImmediate(previous);
+                                            }
+                                            previous = image; image = null;
+                                        }
+                                        finally
+                                        {
+                                            if (image != null) UnityEngine.Object.DestroyImmediate(image);
+                                            camera.targetTexture = texture;
+                                            if (freshDepth.HasValue) { currentTarget.Release(); UnityEngine.Object.DestroyImmediate(currentTarget); }
+                                        }
+                                    }
+                                }
+                                finally { if (previous != null) UnityEngine.Object.DestroyImmediate(previous); }
+                                File.WriteAllLines(Path.Combine(folder, prefix + "-parameters.txt"), records);
+                                Debug.Log("Halcyonic: unchanged character render: " + prefix + ": " + changes + " exactRGBA differences across seven unchanged pairs.");
+                                // This is a diagnostic, not an acceptance threshold or a replacement for KeepStill.
+                            }
+                        }
+                        finally
+                        {
+                            if (unlit != null) UnityEngine.Object.DestroyImmediate(unlit);
+                            UnityEngine.Object.DestroyImmediate(root); texture.Release(); UnityEngine.Object.DestroyImmediate(texture);
+                        }
+                    }
+                }
+                catch (Exception error) { result.Add(error.ToString()); }
+                finally { ViewField.Current = previousField; GlazeMotion.Still = wasStill; WorkspaceRender.KeepFontAssetsAsCommitted(); }
+                foreach (var failure in result) Debug.LogError("Halcyonic: character render diagnostic: " + failure);
+                return result;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         // The causal diagnostic is stricter than the historical 2/255 RGB comparison.
         private static bool SameCharacterPixel(Color32 a, Color32 b) => a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
 
