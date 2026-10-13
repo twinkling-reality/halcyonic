@@ -2954,3 +2954,7 @@ hand offset. Their complete header and columns must fit the measured field and c
 agent bodies and labels. Before field measurement is available, the Quest 3S fallback applies.
 The former stage-relative top-line precheck no longer hides a pair that fits the independent
 console. A genuinely obstructed or oversized pair still shows the task alone.
+
+A global Move hold survives an unchanged redraw only while the same front frame, file owner,
+header dimensions and world pose, and connection label remain current. Other global button
+presses are revoked on redraw. Hiding the header or changing text size revokes Move independently.

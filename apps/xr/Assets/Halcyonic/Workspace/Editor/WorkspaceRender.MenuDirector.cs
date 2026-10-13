@@ -911,6 +911,9 @@ namespace Halcyonic.XR.Workspace.Editor
                             if (!director.Dragging) failures.Add(name + ": an unchanged expanded redraw canceled the Move hold.");
                             director.LetGoForRender();
                             director.DrawNow();
+                            // Ending the successful drag reflows the retained file. Its Drawn callback
+                            // can renew the frame; the next visible action waits for that fresh draw.
+                            director.DrawNow();
                             PressMoveForOrganizationRender(director, 712);
                             director.DrawNow();
                             if (plane.Showing(MenuColumn.File)?.Subject != PlacementColumn.Subject || director.Navigator.Beside != retained)

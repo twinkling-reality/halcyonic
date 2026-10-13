@@ -376,6 +376,7 @@ namespace Halcyonic.XR.Workspace
             Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default,
             object? fileColumn = null, LineWords? compactIdentity = null, StateBadge? compactState = null, int waitingCount = 0, object? compactBinding = null)
         {
+            var previousFront = Front;
             // Keep navigator state, but give the pending answer its own focused composition.
             if (fileFrame?.Focused == true) menuFrame = null;
             eyes = at;
@@ -531,8 +532,14 @@ namespace Halcyonic.XR.Workspace
             bar.Hide();
             cover.SetActive(true);
             Direction = MenuDrag.Turned(Placed, Moved);
-            Chrome.Show(Composition!.Width / zoom, Composition.Height / zoom, ConnectionState, SelectionContext, OtherAppsAvailable, SelectedState, SelectedMarks);
-            headerPart = new PlanePart(0, 0, Composition.Width, WorkspaceChromeView.Height * zoom, 0f, Composition.Height / 2f - WorkspaceChromeView.Height * zoom / 2f);
+            var nextHeader = new PlanePart(0, 0, Composition!.Width, WorkspaceChromeView.Height * zoom, 0f, Composition.Height / 2f - WorkspaceChromeView.Height * zoom / 2f);
+            var preserveMove = Chrome.Visible && ReferenceEquals(previousFront, Front) && fileColumn == shownFileColumn
+                && headerPart.Width == nextHeader.Width && headerPart.Height == nextHeader.Height
+                && Vector3.Distance(Chrome.transform.position, PlaneLayout.PointOf(eyes, Direction, nextHeader.Right, nextHeader.Up)) < 0.000001f
+                && Quaternion.Angle(Chrome.transform.rotation, PlaneLayout.Facing(Direction)) < 0.0001f;
+            Chrome.Show(Composition.Width / zoom, Composition.Height / zoom, ConnectionState, SelectionContext, OtherAppsAvailable, SelectedState, SelectedMarks,
+                preserveMovePress: preserveMove);
+            headerPart = nextHeader;
             SlideTo(Chrome.transform, headerPart, zoom, null, immediately);
 
             for (var c = 0; c < shown.Count; c++)

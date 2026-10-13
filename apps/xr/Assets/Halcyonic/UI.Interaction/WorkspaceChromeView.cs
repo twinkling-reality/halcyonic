@@ -75,8 +75,9 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
-        public void Show(float width, float totalHeight, string connectionState, LineWords selection, bool appsAvailable, StateBadge? selectedState, IReadOnlyList<WorkMark> marks)
+        public void Show(float width, float totalHeight, string connectionState, LineWords selection, bool appsAvailable, StateBadge? selectedState, IReadOnlyList<WorkMark> marks, bool preserveMovePress = false)
         {
+            preserveMovePress &= gameObject.activeSelf && connection.text == connectionState;
             gameObject.SetActive(true);
             var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
             var left = -width / 2f + padding;
@@ -131,7 +132,10 @@ namespace Halcyonic.XR.UI
             rule.Selection = SurfaceSelection.CompositionDivider;
             rule.Draw(new Vector2(width, GlazeTokens.Units(0.08f)), 0f, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight));
             rule.transform.localPosition = new Vector3(0f, -Height / 2f, -0.001f);
-            foreach (var button in Targets) { button.EndPressSince(float.MinValue); button.Unsettle(); }
+            // A stable redraw must not restart a deliberate Move hold. The plane proves the
+            // same frame, owner and physical hit area; all other controls require a fresh press.
+            foreach (var button in Targets)
+                if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
         }
 
         public void Hide()
