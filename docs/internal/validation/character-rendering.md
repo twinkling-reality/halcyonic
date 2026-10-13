@@ -156,3 +156,16 @@ this diagnostic uses its own exact comparison, while the historical 2/255 RGB co
 unchanged. Larger
 must reproduce the original drift, and the correction must account for every originally
 changing pixel. It does not change production or relax the original stillness checks.
+
+**Residual-only hypothesis rejected.** The first same-frame diagnostic on `20dc32ee` failed:
+unchanged repeated and restored frames changed pixels, corrected moments still drifted, and
+the original larger-text cross-moment drift did not reproduce in that capture sequence. This
+contradicts a residual-only explanation; no production settling change is justified. The
+follow-up exact Color32 comparison strengthens this diagnostic without changing historical
+thresholds. `CharacterRenderDeterminismCheck` now captures at most eight unchanged frames per
+controlled path: reused current target, disabled camera, disabled camera MSAA, freshly created
+depth24/depth32 targets, isolated feature with the actual body shader and isolated feature with
+built-in Unlit/Color. Every path retains identical animation values, logs exact RGBA coordinates,
+camera/renderer matrices, shader globals and actual target format/sample/depth descriptors,
+and restores camera targets, visibility and materials. These paths diagnose rendering; a zero
+exit is only diagnostic execution success and is not stillness acceptance or a production fix.
