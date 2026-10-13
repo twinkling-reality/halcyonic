@@ -365,3 +365,26 @@ not established. Independent source review found no actionable defect in this bo
 The integrated full host check passed 1,162 tests and the C# suite passed 1,666, both with zero skips.
 The wider legacy director render still fails on stage/layout/input assumptions and remains an open
 migration and production-validation gate; this narrow result is not complete experience acceptance.
+
+
+### Current director and answer journey fixtures (2026-10-13)
+
+The director fixture now creates its six synthetic journal work items independently of spatial
+representation. The normal console cases contain no characters. The optional case creates one
+grounded shelf agent in the supported placement range, with the current measured shelf envelope
+and label lip attachment. It does not create an external application window. Legacy window and
+surface metadata remain passive-change inputs, so their inability to move the independent console
+is still checked. Manual shelf height is not passed as an asserted room floor.
+
+The question-answer journey retains the real `FileColumn`, command sender, keyboard and voice
+callbacks and the same-task character resume witness, using one grounded shelf agent. Director
+lifecycle samples use a short reported question with two independently measured offered answers;
+the production multi-prompt answer journey still exercises full context, paging and mandatory
+review. Global Move holds start on the currently visible Move utility. Settings is entered after
+opening Projects through its visible global control, preserving the ordinary file beside it.
+
+These changes preserve whole-plane field, geometry, target separation, occlusion, exact retained
+hand-offset, stale-input, confirmation, folding and session-authority checks. A temporary occupied
+body explicitly exercises the drag collision veto even in the character-free case. Source
+migration alone is not a passing visual witness: actual DirectorCheck and AnswerFlowCheck at both
+text sizes, plus the combined gate and headset acceptance, remain required.
