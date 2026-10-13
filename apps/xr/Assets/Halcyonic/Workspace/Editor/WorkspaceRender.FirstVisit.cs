@@ -1,17 +1,51 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>The current empty and recorded entry journeys, both placements and real font sizes.</summary>
+        public static void EntryJourneysCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "EntryJourneyRenders", variant));
+                Directory.CreateDirectory(folder);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var result = new List<string>();
+                void Check(string journey, Func<IEnumerable<string>> render)
+                {
+                    try { result.AddRange(render()); }
+                    catch (Exception error) { result.Add(journey + ": " + error); }
+                }
+                try
+                {
+                    ViewField.Current = FieldChecks.Quest3S;
+                    Check("first visit far", () => RenderFirstVisit("far-3s", folder, CharacterStage.DefaultDistance, null));
+                    Check("first visit desk", () => RenderFirstVisit("desk-3s", folder, 0.55f, 0.46f));
+                    Check("demo welcome far", () => RenderDemoWelcome("far-3s", folder, CharacterStage.DefaultDistance, null));
+                    Check("demo welcome desk", () => RenderDemoWelcome("desk-3s", folder, 0.55f, 0.46f));
+                }
+                finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                foreach (var failure in result) Debug.LogError("Halcyonic: entry journey: " + failure);
+                if (result.Count == 0) Debug.Log("Halcyonic: entry journey: every check passed; " + folder);
+                return result;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         /// <summary>
         /// ADR 0029's empty-computer entry through the actual menu director: Projects and full normal
         /// navigation without characters, global Minimize and its visible restore target, then explicit
