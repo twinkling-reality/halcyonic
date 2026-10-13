@@ -374,13 +374,14 @@ representation. The normal console cases contain no characters. The optional cas
 grounded shelf agent in the supported placement range, with the current measured shelf envelope
 and label lip attachment. It does not create an external application window. Legacy window and
 surface metadata remain passive-change inputs, so their inability to move the independent console
-is still checked. Manual shelf height is not passed as an asserted room floor.
+is still checked. Manual shelf height is not passed as an asserted room floor. The passive-change witness still
+supplies changed legacy surface metadata to the director and requires exact console retention.
 
 The question-answer journey retains the real `FileColumn`, command sender, keyboard and voice
 callbacks and the same-task character resume witness, using one grounded shelf agent. Director
-lifecycle samples use a short reported question with two independently measured offered answers;
-the production multi-prompt answer journey still exercises full context, paging and mandatory
-review. Global Move holds start on the currently visible Move utility. Settings is entered after
+lifecycle samples retain the original full reported question and options, using the production
+focused-question budget and hidden sections while answering. The production multi-prompt answer
+journey exercises full context, an 80-word option detail, paging and mandatory review. Global Move holds start on the currently visible Move utility. Settings is entered after
 opening Projects through its visible global control, preserving the ordinary file beside it.
 
 These changes preserve whole-plane field, geometry, target separation, occlusion, exact retained
