@@ -164,6 +164,7 @@ namespace Halcyonic.XR.Workspace
             saveCharacterColours = appearance.KeepCharacterColours;
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
+                SpatialWorkspace = true,
                 Presentation = Presentation,
                 InitialPlacementReady = InitialPlacementReady,
                 CharacterColours = characterColours,

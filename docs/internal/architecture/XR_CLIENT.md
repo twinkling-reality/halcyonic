@@ -3185,3 +3185,21 @@ row, its existing project-details route still offers task creation rather than o
 The flow says **Start task** and **Yes, start task** because its final command starts a runtime
 execution. Internal names such as `BuildSequence` and `StartBuilding` remain implementation names;
 the action does not promise a successful software build, APK, deployment or observed output.
+
+
+### Main spatial work composition, 2026-10-15
+
+WorkspaceDirector enables the spatial composition in its MenuDirector setup. Projects, Tasks,
+Usage and Settings share quiet place navigation in the chooser. An open task and all its details
+use one reading column, with Projects as the return, and fixed Move, Other apps and Minimize
+controls below. This retains the existing journal/session/command authority and draft state;
+it adds no executor capability. Explicit task/project identity metadata opts the main heading
+into a named, upright title beneath its host-owned kind caption, preserving literal escaping
+and outside-text ranges. Other prose keeps its provenance treatment.
+
+The exact character whose expanded main task file shows that identity does not repeat its title
+plaque. State and provenance remain on the character; title visibility returns with navigation,
+minimize, focus loss, a detail without the main identity, or owner destruction. Its full label's
+clearance envelope remains reserved, preserving shelf position and fit. The legacy setup default
+remains available to component fixtures; actual application activation is explicit. Renderer and
+wearer evidence is tracked in [the composition validation](../validation/spatial-workspace-composition.md).

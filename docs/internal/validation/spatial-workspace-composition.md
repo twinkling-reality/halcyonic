@@ -1,6 +1,7 @@
 # Spatial workspace composition candidate
 
-2026-10-15. This is an opt-in renderer candidate, not headset acceptance or a default migration.
+2026-10-15. The revised composition is enabled by the production WorkspaceDirector initializer.
+This source activation is not headset acceptance; build, install and wearer checks remain separate.
 The owner's actual headset review rejected the flat stacked composition; see the updated
 [style direction](../product/STYLE.md#spatial-composition-candidate--2026-10-15).
 
@@ -16,9 +17,9 @@ separate-rectangle spacing check does not describe this geometry.
 
 Checks before the first Unity render: client core .NET Standard build passed; aggregate Editor
 source compile against installed Unity/SDK assemblies passed with existing warnings. The latter
-is a syntax/API check, not an assembly-definition build or runtime proof. Actual Unity execution,
-visual inspection, interaction regressions and headset acceptance remain outstanding. Production
-keeps the existing default until these establish that the candidate is worth migrating.
+is a syntax/API check, not an assembly-definition build or runtime proof. At that checkpoint, actual Unity execution, visual inspection and interaction regressions were
+outstanding. The subsequent execution evidence below supersedes those pending source-only gates;
+headset acceptance remains outstanding.
 
 The first actual three-state renderer run passed the retained geometry/type/target/font checks,
 but visual review rejected it as a desktop dashboard. That result does not establish acceptance.
@@ -59,3 +60,11 @@ presets with the spatial layout enabled. It checks the category and choice pages
 Cancel, Apply and default restoration through drawn actions, retaining the existing save-count
 and palette assertions. Actual spatial text/target/field assertions replace only the legacy
 separate-rectangle geometry check for that layout. Execution evidence must follow the run.
+
+
+Production activation follows successful actual main/interaction/Appearance/placement renderer
+checks. The main WorkspaceDirector initializer enables the composition for live, recorded and
+disconnected use; the setup default is retained for legacy fixtures. Character identity sharing
+is presentation-only and keeps the full label's conservative clearance envelope. Final task
+creation and colour-flow checks, build/install evidence, and wearer judgment remain required;
+source activation is not evidence of their completion.
