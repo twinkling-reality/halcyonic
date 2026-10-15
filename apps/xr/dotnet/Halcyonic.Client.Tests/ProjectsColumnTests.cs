@@ -362,6 +362,22 @@ public class ProjectsColumnTests
         Assert.That(host.Sent.Count, Is.EqualTo(1));
     }
 
+    [Test]
+    public void ReflowRebuildsProjectPagesAgainstChangedPhysicalBudget()
+    {
+        var state = new Portfolio().Project("a", "Alpha").Project("b", "Beta").Project("c", "Gamma").Apply();
+        var host = new Host { State = state }; var budget = 0.61;
+        var column = new ProjectsColumn(host, Commands, new ProjectsMemory(),
+            () => WorkOverview.Of(state, new StageVisibility(), _ => false), (_, _) => { }, _ => Task.FromResult(Listing()),
+            lineHeight: _ => 0.2, pageHeight: () => budget);
+        column.Tick();
+        Assert.That(column.Frame!.Lines.Count, Is.EqualTo(3));
+        column.Drawn(column.Frame, null); budget = 0.41; column.Reflow();
+        Assert.That(column.Frame!.Lines.Count, Is.EqualTo(2));
+        column.Act(ProjectsScreens.FolderNavigation, null);
+        Assert.That(column.State().FoldersOpen, Is.False, "old drawn navigation does not survive geometry invalidation");
+    }
+
     [TestCase("focus")]
     [TestCase("journal")]
     public void FolderNavigationRequiresItsCurrentDrawnFrameAndJournal(string loss)

@@ -208,6 +208,9 @@ namespace Halcyonic.Client
         {
         }
 
+        /// <summary>Re-measure the current page after the workspace geometry changes.</summary>
+        public void Reflow() => Change();
+
         public void FocusLeft()
         {
             drawnFoldersFrame = null; drawnFoldersJournal = null;
