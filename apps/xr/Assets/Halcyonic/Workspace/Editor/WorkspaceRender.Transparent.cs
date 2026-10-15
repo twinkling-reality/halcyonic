@@ -69,10 +69,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     Submit = (_, _) => throw new InvalidOperationException("Render cannot submit."),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                 });
-                void Draw() { for (var tick = 0; tick < 4; tick++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); } ForceMeshes(root); }
+                static void Draw(MenuDirector shownDirector, GameObject sceneRoot)
+                {
+                    for (var tick = 0; tick < 4; tick++)
+                    { shownDirector.UpdateForRender(); shownDirector.DrawNow(); shownDirector.Plane.Advance(MenuPlane.OpeningSeconds); }
+                    ForceMeshes(sceneRoot);
+                }
                 void Capture(string name)
                 {
-                    Draw();
+                    Draw(director, root);
                     var face = director.Plane.Chrome.GetComponentsInChildren<Surface>(false).Single(surface => surface.name == "Coated work object" && surface.CoatedInstrument && surface.Size.x > 0f);
                     var image = Render(camera, target);
                     try
