@@ -18,6 +18,7 @@ namespace Halcyonic.XR.UI
         private const int Order = 20;
 
         private Surface shape = null!;
+        private Surface identityEdge = null!;
         private TextMeshPro line = null!;
         private OrganizationControlsView controls = null!;
         private TextMeshPro state = null!;
@@ -68,6 +69,7 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<MenuBarView>();
             view.shape = Surface.Create(go.transform, "Shape", Order);
+            view.identityEdge = Surface.Create(go.transform, "Retained work identity edge", Order + 1);
             view.controls = OrganizationControlsView.Create(go.transform);
             view.controls.Accepting = () => view.shown >= 1f && !FocusGuard.InputSuspended;
             view.controls.Toggled += () => view.Acted?.Invoke(MenuBar.Open);
@@ -85,7 +87,10 @@ namespace Halcyonic.XR.UI
             controls.Bind(compactBinding ?? (object)bar);
             gameObject.SetActive(true);
             size = new Vector2(PlaneComposition.Units(columnDegrees), Height);
-            shape.DrawGlass(size, radius: 0f);
+            shape.DrawCoatedInstrument(size, GlazeTokens.Units(0.6f), GlazeTokens.ColorOf(Glaze.Panel));
+            var edgeWidth = GlazeTokens.Units(0.4f);
+            identityEdge.DrawCoatedInstrument(new Vector2(edgeWidth, size.y - MenuPage.Grid), edgeWidth / 3f, GlazeTokens.ColorOf(Glaze.Palette.Raised));
+            identityEdge.transform.localPosition = new Vector3(-size.x / 2f + edgeWidth / 2f, 0f, -0.0005f);
             var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
             var left = -size.x / 2f + padding;
             var right = size.x / 2f - padding;

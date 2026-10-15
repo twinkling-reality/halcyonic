@@ -1202,7 +1202,7 @@ namespace Halcyonic.XR.Workspace
                 return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height,
                     centered: true, placement: direction, occupied: occupied, readable: focused);
             if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows));
-            // Spatial chooser navigation is a narrow rail, never a second legacy reading column.
+            // Spatial chooser navigation shares the object header, without an empty rail column.
             // A standalone wizard retains its actual sections; a focused task omits them.
             var zoom = TextSize == TextSize.Larger ? Comfort.LargerTextScale : 1f;
             var sections = !besideMenu && !focused ? GlazeButton.HeightOf(true) : 0f;
@@ -1212,8 +1212,7 @@ namespace Halcyonic.XR.Workspace
             {
                 var body = subject + sections + MenuPage.Content(page) + gap * (sections > 0f ? 2f : 1f);
                 var reading = new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), body, WorkspaceChromeView.SpatialBase);
-                var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);
-                var composition = new PlaneComposition(besideMenu ? new[] { rail, reading } : new[] { reading }, zoom, WorkspaceChromeView.SpatialHeader(!besideMenu));
+                var composition = new PlaneComposition(new[] { reading }, zoom, WorkspaceChromeView.SpatialHeader(!besideMenu));
                 return MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
                     && MenuPage.Readable(composition) && WorkspacePlacement.Clears(direction, occupied, composition.Size);
             }
