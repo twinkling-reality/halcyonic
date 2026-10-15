@@ -118,3 +118,27 @@ inside UNITY_BRANCH guards on the per-surface physical flag, so ordinary UI cont
 request that shading path. The additional vertex interpolators remain shared. Installed Unity
 HLSLSupport.cginc:723–729 verifies the platform macro. This is source specialization, not a
 measured GPU/frame-time improvement; actual shader compilation and device profiling still apply.
+
+## Third source iteration after rejected second render
+
+Root viewed the actual second bright/dark frames and rejected its periodic coating as diagonal
+carbon-like bars and its per-word supports as tiny stickers. The process also reported backing
+contrast failures, including1.0 clusters and4.28 for captions; they are not waived as aesthetic
+issues. This revision removes face periodic modulation completely. A smooth reflected-eye
+softbox remains, bounded below the existing0.018 peak budget.
+
+Header navigation/context/connection now share one shallow material; footer actions/provenance
+share one grip; tabs share one strip. The caption is inside the full existing subject material.
+All retain the same allocated footprint. Connection and provenance gain actual right inset, and
+header/footer words gain vertical breathing room inside existing reserved geometry. Their source
+text widths and all input targets remain unchanged. No independent word rectangles remain.
+
+The glyph-disabled capture now hides complete TMP text objects, including fallback submeshes,
+while retaining the group material. Residual failures log the worst pixel, authored foreground,
+actual background, label path and camera frame so source defects and probe faults can be separated.
+No lower contrast threshold or exclusion of an inconvenient text class is introduced.
+
+A possible lower-opacity optical lip is deliberately NOT enabled. The fixture first requires
+critical projected text corners to have at least0.004 distance-unit inset inside a real material
+face. Only actual passing inset/contrast evidence could justify a narrow transparent perimeter;
+a source padding constant alone does not prove caption, icon and provenance placement safety.

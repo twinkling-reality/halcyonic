@@ -1,7 +1,5 @@
 #nullable enable
 using Halcyonic.Client;
-using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -260,30 +258,6 @@ namespace Halcyonic.XR.UI
             var mesh = new Mesh { name = "Measured instrument bevel" }; mesh.vertices = vertices; mesh.triangles = triangles;
             mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
         }
-        /// <summary>Opaque, unoutlined contrast support tightly fitted to an actual semantic text group.
-        /// Padding is clipped inside the owner's already measured footprint; input geometry is unchanged.</summary>
-        public static void SupportText(IReadOnlyList<TMP_Text> words, Surface support, Transform owner, Rect within)
-        {
-            var low = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
-            var high = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-            foreach (var word in words)
-            {
-                if (!word.gameObject.activeInHierarchy || string.IsNullOrEmpty(word.text)) continue;
-                word.ForceMeshUpdate(); var bounds = word.textBounds;
-                foreach (var x in new[] { bounds.min.x, bounds.max.x }) foreach (var y in new[] { bounds.min.y, bounds.max.y })
-                {
-                    var point = owner.InverseTransformPoint(word.transform.TransformPoint(new Vector3(x, y, 0f)));
-                    low = Vector2.Min(low, new Vector2(point.x, point.y)); high = Vector2.Max(high, new Vector2(point.x, point.y));
-                }
-            }
-            if (float.IsInfinity(low.x)) { support.gameObject.SetActive(false); return; }
-            var pad = GlazeTokens.Units(0.32f);
-            low = Vector2.Max(low - Vector2.one * pad, within.min); high = Vector2.Min(high + Vector2.one * pad, within.max);
-            support.gameObject.SetActive(high.x > low.x && high.y > low.y);
-            support.Draw(high - low, pad, GlazeTokens.ColorOf(Glaze.Panel));
-            support.transform.localPosition = new Vector3((low.x + high.x) / 2f, (low.y + high.y) / 2f, 0.0001f);
-        }
-
         private void OnDestroy()
         { if (rimMesh != null) { if (Application.isPlaying) Destroy(rimMesh); else DestroyImmediate(rimMesh); } }
 
