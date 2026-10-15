@@ -499,3 +499,18 @@ native record; no credentials or continuation authority cross through that recor
 also requires a successful preference mirror in the current process, so a direct native launch
 with unknown settings remains still. No native loading shimmer hardware acceptance is claimed by
 source or JVM tests; evidence is in [native agent panel](../validation/native-agent-panel.md).
+
+## October 15 composition reset: title and reading material
+
+The owner rejected the actual installed stacked workspace. Earlier geometry and contrast checks
+remain narrow technical evidence, not aesthetic acceptance. The replacement composition uses a
+single selected-work title and subordinate navigation. Rajdhani Medium provides restrained
+industrial headings; Liberation Sans remains the body face and fallback for unsupported heading
+glyphs. A static, bundled SDF atlas consumes the OFL source; no runtime font download is required.
+The principal work title is 34 dp, used once, while all existing reading/target minima remain.
+
+Reading plates no longer repeat a broad white gloss or bright top stripe. Their opaque contrast,
+focus and selection semantics remain; emphasis comes from hierarchy and the selected work rather
+than a gradient on every part. This is part of the composition correction, not a claim that a
+font/material change alone satisfies the requested diegetic experience. Actual complete renders
+and a fresh wearer review are still required.
