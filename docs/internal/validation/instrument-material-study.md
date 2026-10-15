@@ -57,3 +57,10 @@ No image of another immersive app or overlay behavior is established by this fix
 
 The candidate does not resolve the broader rejected flat interaction composition. Source tests
 and contained geometry are prerequisites to visual judgment, not substitutes for it.
+
+Stereo camera API verification,2026-10-15: installed Unity6000.3.25f1
+`Contents/Resources/CGIncludes/UnityShaderVariables.cginc:24` maps _WorldSpaceCameraPos to
+unity_StereoWorldSpaceCameraPos[unity_StereoEyeIndex]. UnityInstancing.cginc:124–162 supplies
+UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX; the fragment initializes it before reading camera
+position. Thus the view-dependent edge uses the actual stereo eye when that variant is enabled.
+This installed-source check does not replace actual Android shader compilation or headset proof.
