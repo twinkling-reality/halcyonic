@@ -12,6 +12,29 @@ and rules.
 Every surface is reviewed from the eyes against the owner's test: one thing at a time, fixed
 controls, clean. `DirectionsRender` shows each rule below on the moments it was decided for.
 
+## Spatial composition candidate — 2026-10-15
+
+The owner's headset review rejected the stacked menu composition. The candidate gives an open
+task one reading column; its details replace that column and return to its retained draft. Only
+Projects remains as a place-navigation control while a task is open. The project chooser exposes
+Projects, Tasks, Usage and Settings as quiet icon-and-text controls beside its reading surface.
+Move, Other apps and Minimize remain along the base, with provenance on its own line below them.
+Dark reading surfaces and a restrained contrasting heading replace repeated bright glass frames.
+The selected work's literal name uses the larger title role. Paragraphs and controls still face
+the eyes together. There is no decorative folder shoulder or surrounding window frame.
+
+`MenuDirector.Setup.SpatialWorkspace` enables the candidate. It is off by default pending actual
+production renderer review; the older layout below remains the installed behavior. The new
+fixture uses the actual Projects, task instruction and pending approval frames and actions,
+with explicit synthetic data. It adds no work capability or automatic character arrangement.
+Known task titles and project-detail names carry explicit `MenuIdentityKind` metadata. In this
+candidate only, the header has a separate host-owned Task or Project caption and an upright
+literal name whose outside-text ranges remain intact. Generic `SubjectIsData` does not opt in;
+agent prose, questions, tool text and approvals keep their existing provenance treatment. The
+caption shares the measured state-badge row, with the state badge at the header's other edge.
+Readability, full decision text, action authority, local drafts, target size and measured field
+remain requirements. A quieter frame and a different font alone do not establish acceptance.
+
 ## The plane
 
 - **One plane facing the eyes.** A composition, such as the menu with a task's file beside it, is
@@ -117,6 +140,11 @@ Three sizes on the plane (`Glaze.Menu`):
   secondary colour, where no icon of ours stands; a title in its plate leans with the plate as its
   ground. Theirs comes after our words where we can word it so, and is cut first, inside its ground.
   Pills, the light line, prompts, places and sections hold our words alone.
+- **Named spatial identity:** a project or task heading may stand upright beneath a separate,
+  host-owned `Project` or `Task` caption. This narrow presentation uses explicit identity metadata,
+  retains outside-text ranges and literal escaping, and never applies to agent prose, approval
+  questions, tool output or action labels. Reusing the label for prose restores the italic treatment.
+  The caption establishes what the name identifies; the name cannot supply or alter that caption.
 - **Last on a page**: an unavailable prompt's reason, then the source line, one a page, at 18 dp in
   the secondary colour. A detail under a part, as a Seorak part's coverage or freshness, is its own
   18 dp line in the secondary colour.
@@ -499,3 +527,30 @@ native record; no credentials or continuation authority cross through that recor
 also requires a successful preference mirror in the current process, so a direct native launch
 with unknown settings remains still. No native loading shimmer hardware acceptance is claimed by
 source or JVM tests; evidence is in [native agent panel](../validation/native-agent-panel.md).
+
+## October 15 composition reset: title and reading material
+
+The owner rejected the actual installed stacked workspace. Earlier geometry and contrast checks
+remain narrow technical evidence, not aesthetic acceptance. The replacement composition uses a
+single selected-work title and subordinate navigation. Rajdhani Medium provides restrained
+industrial headings; Liberation Sans remains the body face and fallback for unsupported heading
+glyphs. A static, bundled SDF atlas consumes the OFL source; no runtime font download is required.
+The principal work title is 34 dp, used once, while all existing reading/target minima remain.
+
+Reading plates no longer repeat a broad white gloss or bright top stripe. Their opaque contrast,
+focus and selection semantics remain; emphasis comes from hierarchy and the selected work rather
+than a gradient on every part. This is part of the composition correction, not a claim that a
+font/material change alone satisfies the requested diegetic experience. Actual complete renders
+and a fresh wearer review are still required.
+
+### Task-focused composition candidate
+
+The selected task occupies one reading column. Its Projects control returns to the workspace
+chooser; the chooser carries Projects, Tasks, Usage and Settings. Those destinations do not
+remain a second rail beside an open task. Project context stays above the work, system controls
+below it, and practice/recorded provenance has its own reserved line clear of those targets.
+The named heading reserves two grid steps beyond the badge inset between its caption and Hero
+name; pagination and actual layout use the same inset, including larger-text SDF bounds.
+The named heading and the reading body retain contrast surfaces without a surrounding window or
+folder tab. The rear contact is dark, so translucent surfaces retain the palette's reading contrast.
+This composition remains a candidate until actual full-context and wearer validation pass.

@@ -80,6 +80,8 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The closed bar was pressed.</summary>
         public event Action? Opened;
+        public event Action<MenuPlace>? PlacePressed;
+        public bool SpatialWorkspace { get; set; }
 
         /// <summary>A column's words are laid as the plane has them; the director passes it on to the screen that counts what was read.</summary>
         public event Action<MenuColumn, MenuFrameView>? Drawn;
@@ -302,6 +304,7 @@ namespace Halcyonic.XR.Workspace
             plane.bar.Hide();
             plane.Chrome = WorkspaceChromeView.Create(go.transform);
             plane.Chrome.Accepting = () => !FocusGuard.InputSuspended && !plane.Sliding && plane.shown.Count > 0 && plane.shown.TrueForAll(each => !each.View.Opening && !each.View.Closing);
+            plane.Chrome.PlacePressed += place => plane.PlacePressed?.Invoke(place);
             plane.Chrome.OtherAppsPressed += () => plane.OtherAppsPressed?.Invoke();
             plane.Chrome.MinimizePressed += () => plane.MinimizePressed?.Invoke();
             plane.Chrome.ProjectsPressed += () => plane.ProjectsPressed?.Invoke();
@@ -401,6 +404,11 @@ namespace Halcyonic.XR.Workspace
             Front = fileFrame ?? menuFrame;
             // Standing in its frame's place, a side panel is as wide as that frame, so the footer it carries fits.
             var frontDegrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
+            if (SpatialWorkspace && Front != null)
+            {
+                ShowSpatial(menuBar, menuFrame, fileFrame, panel, fileColumn, all, looking, surfaceHeight, moved, immediately, previousFront);
+                return;
+            }
             var pill = fileFrame?.Pill != null && SelectedState == null;
             menu.OrganizationControls = false;
             file.OrganizationControls = false;
@@ -607,6 +615,55 @@ namespace Halcyonic.XR.Workspace
             Advance(0f);
         }
 
+        private void ShowSpatial(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, SidePanel? panel, object? fileColumn,
+            IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, (float Yaw, float Elevation) moved, bool immediately, MenuFrame? previousFront)
+        {
+            var zoom = GlazeText.Scale;
+            var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;
+            var view = kind == MenuColumn.Side ? side : kind == MenuColumn.File ? file : menu;
+            var was = shown.Count == 1 && shown[0].View == view && ReferenceEquals(shownFileColumn, fileColumn);
+            foreach (var other in frameViews) if (other != view) other.Hide();
+            view.SpatialWorkspace = true;
+            view.ExternalPlaces = kind == MenuColumn.Menu;
+            view.OrganizationControls = false;
+            var degrees = Glaze.Menu.FileColumnDegrees;
+            var identityKind = panel?.IdentityKind ?? Front!.IdentityKind;
+            var pillRoom = Front!.Pill != null || identityKind != null;
+            var subject = view.SpatialSubjectHeight(panel?.Subject ?? Front.Subject, degrees, pillRoom);
+            if (panel != null) view.Show(panel, degrees, subject, pillRoom, Front.Pill, Front);
+            else view.Show(Front, degrees, subject, pillRoom, stateInHeader: false);
+            var body = ColumnOf(view);
+            var contentHeights = body.Heights.Concat(new[] { WorkspaceChromeView.SpatialBase }).ToArray();
+            var focusedWork = fileFrame != null;
+            var bodyColumn = focusedWork ? 0 : 1;
+            var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);
+            var reading = new PlaneColumn(body.Width, contentHeights);
+            Composition = new PlaneComposition(focusedWork ? new[] { reading } : new[] { rail, reading }, zoom, WorkspaceChromeView.SpatialTop);
+            Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
+            Moved = moved;
+            Direction = MenuDrag.Turned(Placed, moved);
+            shown.Clear(); shown.Add((kind, view));
+            MenuAside = menuFrame != null && fileFrame != null;
+            shownFileColumn = kind == MenuColumn.File ? fileColumn : null;
+            lineTo = fileOf != null && kind != MenuColumn.Menu ? view : null;
+            lineColumn = lineTo == null ? -1 : bodyColumn;
+            bar.Hide(); cover.SetActive(true);
+            var bodyPart = Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
+            var nextHeader = new PlanePart(0, 0, Composition.Width, Composition.Height, 0f, 0f);
+            var preserveMove = was && ReferenceEquals(previousFront, Front) && Chrome.Visible && headerPart.Width == nextHeader.Width && headerPart.Height == nextHeader.Height
+                && Vector3.Distance(Chrome.transform.position, PlaneLayout.PointOf(eyes, Direction, 0f, 0f)) < 0.000001f
+                && Quaternion.Angle(Chrome.transform.rotation, PlaneLayout.Facing(Direction)) < 0.0001f;
+            headerPart = nextHeader;
+            Chrome.ShowSpatial(Composition.Width / zoom, Composition.Height / zoom, bodyPart.Left / zoom, bodyPart.Width / zoom,
+                ConnectionState, SelectionContext, OtherAppsAvailable, SelectedMarks, menuBar.Chosen, preserveMove, focusedWork);
+            SlideTo(Chrome.transform, headerPart, zoom, null, immediately);
+            if (!was) view.Open(lineTo != null, frames);
+            else if (Vector3.Distance(view.Parts[0].position, PlaneLayout.PointOf(eyes, Direction, bodyPart.Right, bodyPart.Up)) > MovedMeters) view.Unsettle();
+            SlideTo(view.Parts[0], bodyPart, zoom, null, immediately || !was);
+            view.Settle(bodyPart, zoom);
+            Advance(0f);
+        }
+
         /// <summary>
         /// A drag: the plane stands <paramref name="moved"/> from where the stage placed it, every part
         /// there at once, as laid; its words are not laid again.
@@ -632,7 +689,7 @@ namespace Halcyonic.XR.Workspace
                 for (var p = 0; p < all.Count; p++)
                 {
                     var placed = all[p];
-                    if (placed.Column != c) continue;
+                    if (SpatialWorkspace ? placed.Column != (Composition.Columns.Count == 1 ? 0 : 1) || placed.Index >= parts.Count : placed.Column != c) continue;
                     Stand(parts[index], placed, zoom);
                     index++;
                 }

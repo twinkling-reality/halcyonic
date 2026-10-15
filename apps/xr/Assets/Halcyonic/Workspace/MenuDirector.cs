@@ -51,6 +51,7 @@ namespace Halcyonic.XR.Workspace
         public sealed class Setup
         {
             public WorkspacePresentationState Presentation { get; set; } = new WorkspacePresentationState();
+            public bool SpatialWorkspace { get; set; }
             /// <summary>Only the first anchor waits for valid wearer tracking; an established workspace never follows ordinary head or focus changes.</summary>
             public Func<bool> InitialPlacementReady { get; set; } = () => true;
             public Func<ControlPlaneTarget?> ConnectionTarget { get; set; } = () => null;
@@ -217,6 +218,14 @@ namespace Halcyonic.XR.Workspace
             director.setup = setup;
             director.viewBindings = new WorkspaceViewBindings(director.RecordFor, director.ViewsChanged);
             director.plane = MenuPlane.Create(go.transform, director.OpenAs);
+            director.plane.SpatialWorkspace = setup.SpatialWorkspace;
+            director.plane.PlacePressed += place =>
+            {
+                if (!director.OrganizationStanding(MenuColumn.Menu, null, null)) return;
+                if (director.placement != null) director.LocalClosed();
+                director.navigator.CloseBeside();
+                director.Open(place);
+            };
             // The session shown first is no change; another one later is.
             director.memory.Session(setup.Session());
             // Each place's column is made afresh each time the menu shows it after opening, bound to the session shown then.
@@ -979,7 +988,8 @@ namespace Halcyonic.XR.Workspace
 
         public bool FitsHalf(PageLine answer, float columnDegrees) => MenuFrameView.FitsHalf(answer, columnDegrees);
 
-        public int TitleRows(string subject, float columnDegrees) => MenuFrameView.TitleRows(subject, columnDegrees);
+        public int TitleRows(string subject, float columnDegrees) => plane.SpatialWorkspace
+            ? MenuFrameView.SpatialTitleRows(subject, Glaze.Menu.FileColumnDegrees) : MenuFrameView.TitleRows(subject, columnDegrees);
 
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
@@ -996,7 +1006,7 @@ namespace Halcyonic.XR.Workspace
                 if (character != null) occupied.Add(WorkspaceLayout.InView(character, at));
             var looking = anchor?.Looking ?? stage.Looking;
             var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
-            return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height,
+            return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, plane.SpatialWorkspace ? WorkspaceChromeView.SpatialTop + WorkspaceChromeView.SpatialBase + Mathf.Max(0f, MenuFrameView.SpatialSubjectHeightOfRows(subjectRows, true) - MenuPage.Subject(subjectRows, true)) : WorkspaceChromeView.Height,
                 centered: true, placement: direction, occupied: occupied, readable: focused);
 
         }

@@ -28,6 +28,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A column's subject on the menu (24 dp), drawn light, one a column (ADR 0026).</summary>
         Subject,
+
+        /// <summary>The selected work's principal title (34 dp), one in the work field.</summary>
+        Hero,
     }
 
     /// <summary>
@@ -51,6 +54,7 @@ namespace Halcyonic.XR.UI
         private const float LightDilate = -0.12f;
 
         private static readonly Dictionary<TMP_FontAsset, Material> lightMaterials = new Dictionary<TMP_FontAsset, Material>();
+        private static TMP_FontAsset? instrumentFont;
 
         /// <summary>Every label made to follow <see cref="Scale"/>, with its role, so a change reaches the ones that show.</summary>
         private static readonly List<(WeakReference<TMP_Text> Label, GlazeType Type)> made = new List<(WeakReference<TMP_Text>, GlazeType)>();
@@ -76,6 +80,7 @@ namespace Halcyonic.XR.UI
             GlazeType.Body => Glaze.BodyDegrees,
             GlazeType.Badge => Glaze.BadgeDegrees,
             GlazeType.Subject => Glaze.Menu.TitleDegrees,
+            GlazeType.Hero => Glaze.HeroDegrees,
             _ => Glaze.CaptionDegrees,
         };
 
@@ -114,6 +119,11 @@ namespace Halcyonic.XR.UI
         {
             var text = AddAwake(parent, name);
             if (text.font == null) text.font = TMP_Settings.defaultFontAsset;
+            if (type == GlazeType.Subject || type == GlazeType.Display || type == GlazeType.Hero)
+            {
+                instrumentFont ??= Resources.Load<TMP_FontAsset>("HalcyonicUI/InstrumentType");
+                if (instrumentFont != null) text.font = instrumentFont;
+            }
             text.rectTransform.pivot = new Vector2(0.5f, 1f);
             text.richText = false;
             text.parseCtrlCharacters = true;
@@ -129,7 +139,7 @@ namespace Halcyonic.XR.UI
             text.textWrappingMode = TextWrappingModes.Normal;
             text.overflowMode = TextOverflowModes.Ellipsis;
             text.sortingOrder = order;
-            if (type == GlazeType.Subject) text.fontSharedMaterial = LightMaterial(text.font);
+            if (type == GlazeType.Subject && text.font != instrumentFont) text.fontSharedMaterial = LightMaterial(text.font);
             else if (strong ?? IsStrong(type)) SetStrong(text, true);
             var renderer = text.GetComponent<MeshRenderer>();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -395,6 +405,7 @@ namespace Halcyonic.XR.UI
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Reset()
         {
+            instrumentFont = null;
             strongMaterials.Clear();
             lightMaterials.Clear();
             made.Clear();

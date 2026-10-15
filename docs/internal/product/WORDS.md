@@ -18,6 +18,14 @@ The selected-project Tasks view offers **New task** as a literal action, keeping
 outside name out of the fixed button label. Opening it only opens that existing project's draft;
 no project or execution is created until the full existing review and explicit confirmation.
 
+## Named identities in the spatial composition
+
+A named task or project heading may be upright beneath a separate fixed **Task** or **Project**
+caption. Its name still uses outside-text escaping and tracked provenance. This narrow exception
+supersedes the older blanket italic-title wording below; it does not change agent prose, questions,
+approvals, tool output or action labels. The caption comes from known task/project identity, never
+from the supplied name. Ordinary prose on a reused label restores the standard treatment.
+
 ## The voice
 
 Calm and plain, like a capable colleague who says what is true now, how sure it is, and what you

@@ -110,7 +110,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Redaction = new ToolResultRedaction(), FilesTotal = files.Count, ListComplete = true, Files = files } };
         }
 
-        private static IEnumerable<string> RenderTaskResults(string name, string folder, bool withShelf, bool desk)
+        private static IEnumerable<string> RenderTaskResults(string name, string folder, bool withShelf, bool desk, bool spatialWorkspace = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Synthetic Results consumer " + name);
@@ -142,6 +142,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 WorkspacePresentation Present() => WorkspacePresenter.Present(work, session.State, new ActivityLog(), true);
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
+                    SpatialWorkspace = spatialWorkspace,
                     Commands = commands, Presentation = presentation, ConnectionTarget = () => target, Session = () => session,
                     State = () => session.State, Connected = () => session.Status.IsLive, Api = () => api,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
@@ -155,7 +156,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 { for (var turn = 0; turn < 4; turn++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); } }
                 void Shot(string step)
                 {
-                    Draw(); failures.AddRange(PlaneState(name + " results " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
+                    Draw();
+                    failures.AddRange(spatialWorkspace && director.Plane.Composition != null
+                        ? SpatialState(name + " results " + step, folder, root, camera, texture, director, characters, eyes)
+                        : PlaneState(name + " results " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 }
                 bool Press(string action, string? key = null)
                 {

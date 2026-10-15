@@ -40,6 +40,7 @@ namespace Halcyonic.XR.UI
         private const int Order = 20;
 
         private static TextMeshPro? measuring;
+        private static TextMeshPro? measuringHero;
 
         private readonly List<Line> lines = new List<Line>();
         private readonly List<Section> sections = new List<Section>();
@@ -48,6 +49,7 @@ namespace Halcyonic.XR.UI
         private Transform contentPart = null!;
         private Surface subjectPlate = null!;
         private TextMeshPro subjectTitle = null!;
+        private TextMeshPro identityCaption = null!;
         private StateBadgeView pill = null!;
         private Surface content = null!;
         private Surface footerLine = null!;
@@ -117,6 +119,14 @@ namespace Halcyonic.XR.UI
 
         /// <summary>When the subject plate was last made to wait to settle, as a column newly on the plane does.</summary>
         private float subjectUnsettledAt = float.NegativeInfinity;
+
+        public bool SpatialWorkspace { get; set; }
+        public bool ExternalPlaces { get; set; }
+        private Transform unifiedPart = null!;
+        private Surface unifiedPlate = null!;
+        private Surface unifiedBacking = null!;
+        private float UnifiedSections => sectionsPart.gameObject.activeSelf ? GlazeButton.HeightOf(true) : 0f;
+        private float UnifiedGap => U(0.35f);
 
         private Vector3 subjectPlateAt;
 
@@ -202,6 +212,8 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The subject's title and the grounds under outside text in it, for the renders' checks.</summary>
+        public Vector2 SubjectSize => new Vector2(width, subjectHeight);
+
         public (TextMeshPro Title, IReadOnlyList<Surface> Grounds) SubjectShown => (subjectTitle, subjectGrounds.Where(ground => ground.gameObject.activeSelf).ToList());
 
         /// <summary>The source line's label while it shows, for the renders' checks.</summary>
@@ -300,6 +312,33 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static float SubjectHeight(string subject, float columnDegrees, bool pillRoom, bool organizationControls = true) => MenuPage.Subject(TitleRows(subject, columnDegrees, organizationControls), pillRoom);
 
+        private static TextMeshPro HeroMeasure()
+        {
+            if (measuringHero == null)
+            {
+                measuringHero = GlazeText.Create(null!, "Work title measure", GlazeType.Hero, Color.white, TextAlignmentOptions.TopLeft, 0);
+                measuringHero.gameObject.hideFlags = HideFlags.HideAndDontSave;
+                measuringHero.gameObject.SetActive(false);
+            }
+            return measuringHero;
+        }
+
+        public static int SpatialTitleRows(string subject, float columnDegrees) =>
+            Mathf.Clamp(Count(HeroMeasure(), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
+
+        public static float SpatialSubjectHeightOfRows(int rows, bool pillRoom)
+        {
+            var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
+            var inner = SpatialInner(room);
+            return room + Mathf.Max(U(Glaze.TargetDegrees), inner + rows * GlazeText.LineHeight(HeroMeasure()) + 2f * U(Glaze.Menu.SubjectPaddingDegrees));
+        }
+
+        public float SpatialSubjectHeight(string subject, float columnDegrees, bool pillRoom)
+        {
+            subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
+            return SpatialSubjectHeightOfRows(SpatialTitleRows(subject, columnDegrees), pillRoom);
+        }
+
         public static float TitleWidth(float columnDegrees) => ContentWidth(columnDegrees) - OrganizationControlsView.Width() - MenuPage.TargetGap;
 
         /// <summary>
@@ -308,6 +347,10 @@ namespace Halcyonic.XR.UI
         /// split header stay inside a Quest 3S's field.
         /// </summary>
         private static float Inner(float pillRoom) => pillRoom > 0f ? pillRoom - U(Glaze.Menu.SubjectPaddingDegrees) + U(Glaze.Menu.GridDegrees) / 2f : 0f;
+
+        // Caption and Hero use different font metrics. Keep two grid steps between their full
+        // drawn bounds, including the SDF padding at larger text, in both pagination and layout.
+        private static float SpatialInner(float pillRoom) => Inner(pillRoom) + (pillRoom > 0f ? 2f * MenuPage.Grid : 0f);
 
         public static MenuFrameView Create(Transform parent, string name)
         {
@@ -336,7 +379,7 @@ namespace Halcyonic.XR.UI
             Begin(columnDegrees, subject, pillRoom || shown.Pill != null && !stateInHeader);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
-            LaySubject(shown.SubjectRuns, stateInHeader ? null : shown.Pill);
+            LaySubject(shown.SubjectRuns, stateInHeader ? null : shown.Pill, shown.IdentityKind);
             LaySections(shown.Sections, shown.SectionSlots);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
@@ -362,7 +405,7 @@ namespace Halcyonic.XR.UI
             Begin(columnDegrees, subject, pillRoom || pill != null);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = GlazeTokens.Text;
-            LaySubject(shown.SubjectRuns, pill);
+            LaySubject(shown.SubjectRuns, pill, shown.IdentityKind);
             LaySections(Array.Empty<FrameSection>(), 0);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
@@ -376,7 +419,16 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public void Settle(PlanePart placed, float zoom)
         {
-            LayContent(placed.Height / zoom, new Vector2(placed.Right, placed.Up), zoom);
+            if (SpatialWorkspace)
+            {
+                var total = placed.Height / zoom;
+                var section = UnifiedSections;
+                var gap = UnifiedGap;
+                var body = Mathf.Max(contentHeight, total - subjectHeight - section - gap * (section > 0f ? 2f : 1f));
+                LayContent(body, new Vector2(placed.Right, placed.Up - (subjectHeight + section) * zoom / 2f), zoom);
+                LayUnified(total, body);
+            }
+            else LayContent(placed.Height / zoom, new Vector2(placed.Right, placed.Up), zoom);
             // A ground under outside text first made as the plane lays the page fades with its part too.
             if (GroundsMade != groundsGathered) Gather();
             // Opening, its page shows whole only as the opening ends, and only then counts as drawn.
@@ -603,6 +655,10 @@ namespace Halcyonic.XR.UI
         private void Build()
         {
             still = () => motion == Motion.Still;
+            unifiedPart = Part("Work instrument");
+            unifiedPlate = Surface.Create(unifiedPart, "Reading surface", Order - 1);
+            unifiedBacking = Surface.Create(unifiedPart, "Instrument depth", Order - 2);
+            unifiedPart.gameObject.SetActive(false);
             subjectPart = Part("Subject");
             controls = OrganizationControlsView.Create(subjectPart);
             controls.Accepting = () => !SubjectSettling && !FocusGuard.InputSuspended;
@@ -617,6 +673,9 @@ namespace Halcyonic.XR.UI
             subjectPlate = Surface.Create(subjectPart, "Plate", Order);
             subjectTitle = GlazeText.Create(subjectPart, "Subject", GlazeType.Subject, GlazeTokens.Text, TextAlignmentOptions.TopLeft, Order + 2);
             subjectTitle.rectTransform.pivot = new Vector2(0f, 1f);
+            identityCaption = GlazeText.Create(subjectPart, "Identity kind", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, Order + 2);
+            identityCaption.rectTransform.pivot = new Vector2(0f, 0.5f);
+            identityCaption.gameObject.SetActive(false);
             pill = StateBadgeView.Create(subjectPart, "State pill", Order + 3, pill: true);
             content = Surface.Create(contentPart, "Plate", Order);
             footerLine = Surface.Create(contentPart, "Footer line", Order + 1);
@@ -750,13 +809,23 @@ namespace Halcyonic.XR.UI
 
         public void PaintSubjectForRender(bool pointed, bool pressed) => controls.Move.PaintForRender(pointed, pressed);
 
-        private void LaySubject(LineWords words, StateBadge? badge)
+        private void LaySubject(LineWords words, StateBadge? badge, MenuIdentityKind? identityKind)
         {
             var padding = U(Glaze.Menu.PaddingDegrees);
             var left = -width / 2f + padding;
             var room = width - 2f * padding - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
-            var theirs = GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
+            var namedIdentity = SpatialWorkspace && identityKind != null;
+            var theirs = namedIdentity
+                ? GlazeRuns.Of(subjectTitle).SetIdentity(words.Text, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows)
+                : GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
+            identityCaption.gameObject.SetActive(namedIdentity);
+            if (namedIdentity)
+            {
+                GlazeText.SetLiteral(identityCaption, identityKind == MenuIdentityKind.Task ? "Task" : "Project");
+                GlazeText.Lay(identityCaption, room / 2f, 1);
+                identityCaption.transform.localPosition = new Vector3(left, subjectHeight / 2f - reserve, -U(0.06f));
+            }
             var (rows, _) = GlazeText.Lay(subjectTitle, room, SubjectRows);
             var titleHeight = Mathf.Max(1, rows) * GlazeText.LineHeight(subjectTitle);
             var top = subjectHeight / 2f;
@@ -767,14 +836,14 @@ namespace Halcyonic.XR.UI
             controls.gameObject.SetActive(OrganizationControls);
             if (OrganizationControls) controls.Show(width / 2f - padding, subjectPlateAt.y, compact: false);
             // In the plate, under the pill's lower half, centred.
-            var inner = Inner(reserve);
+            var inner = SpatialWorkspace ? SpatialInner(reserve) : Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));
             GlazeRuns.TokenGrounds(subjectTitle, words.AllTheirs ? Array.Empty<(int, int)>() : theirs, subjectGrounds, subjectPart, Order + 1);
             pill.gameObject.SetActive(badge != null);
             if (badge != null)
             {
                 pill.Show(badge);
-                pill.transform.localPosition = new Vector3(left + pill.Width / 2f, top - reserve, -U(0.06f));
+                pill.transform.localPosition = new Vector3(namedIdentity ? width / 2f - padding - pill.Width / 2f : left + pill.Width / 2f, top - reserve, -U(0.06f));
             }
         }
 
@@ -785,6 +854,7 @@ namespace Halcyonic.XR.UI
 
         private void LaySections(IReadOnlyList<FrameSection> shown, int slots)
         {
+            if (ExternalPlaces) { shown = Array.Empty<FrameSection>(); slots = 0; }
             while (sections.Count < shown.Count) sections.Add(NewSection(sections.Count));
             var height = GlazeButton.HeightOf(true);
             slots = Mathf.Max(slots, shown.Count);
@@ -1193,8 +1263,43 @@ namespace Halcyonic.XR.UI
             return top - Mathf.Max(1, count) * GlazeText.LineHeight(label);
         }
 
+        private void LayUnified(float total, float body)
+        {
+            var section = UnifiedSections;
+            var top = total / 2f;
+            subjectPart.localPosition = new Vector3(0f, top - subjectHeight / 2f, -0.001f);
+            top -= subjectHeight + UnifiedGap;
+            if (section > 0f) { sectionsPart.localPosition = new Vector3(0f, top - section / 2f, -0.001f); top -= section + UnifiedGap; }
+            contentPart.localPosition = new Vector3(0f, top - body / 2f, -0.001f);
+            subjectPlate.gameObject.SetActive(false);
+            content.gameObject.SetActive(false);
+            foreach (var sectionView in sections) sectionView.Shape.gameObject.SetActive(false);
+            // The heading belongs to the work; its reading body is the only full surface.
+            // Keep the rear contact dark: a white slab behind translucent glass washes the whole
+            // instrument gray, defeating both the palette and the separation of reading levels.
+            subjectPlate.gameObject.SetActive(true);
+            subjectPlate.Draw(new Vector2(width, subjectHeight - reserve), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.94f));
+            unifiedPlate.Draw(new Vector2(width, body), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.98f));
+            unifiedPlate.transform.localPosition = new Vector3(0f, contentPart.localPosition.y, 0f);
+            unifiedBacking.Draw(new Vector2(width, body), 0f, GlazeTokens.ColorOf(Glaze.Panel));
+            unifiedBacking.transform.localPosition = new Vector3(0f, contentPart.localPosition.y, 0.008f / PlaneComposition.Distance);
+        }
+
         private void Collect()
         {
+            if (SpatialWorkspace)
+            {
+                subjectPart.SetParent(unifiedPart, false);
+                sectionsPart.SetParent(unifiedPart, false);
+                contentPart.SetParent(unifiedPart, false);
+                unifiedPart.gameObject.SetActive(true);
+                var total = subjectHeight + UnifiedSections + contentHeight + UnifiedGap * (UnifiedSections > 0f ? 2f : 1f);
+                LayUnified(total, contentHeight);
+                Parts = new[] { unifiedPart };
+                Heights = new[] { total };
+                Gather();
+                return;
+            }
             var parts = new List<Transform> { subjectPart };
             var heights = new List<float> { subjectHeight };
             if (sectionsPart.gameObject.activeSelf)
