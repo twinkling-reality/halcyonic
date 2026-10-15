@@ -11,6 +11,9 @@
     <PackageReference Include="Newtonsoft.Json" Version="$(NewtonsoftJsonVersion)" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../../Assets/Halcyonic/Editor/InteractionTelemetryShutdown.cs" Link="Editor/InteractionTelemetryShutdown.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../Halcyonic.Client/Halcyonic.Client.csproj" />
   </ItemGroup>
 </Project>
