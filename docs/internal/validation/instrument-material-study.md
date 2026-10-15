@@ -387,3 +387,25 @@ the running task's Stop, voice and instruction controls.
 Repeated fresh feedback events reset to the visible notice even if their words match; passive
 redraw does not. No route flags or drafts are discarded; another regression restores room and reaches the same
 routes. These checks do not claim that arbitrary zero or tiny allocations can display content.
+
+## Filled-cap feedback repair after actual pressed/pulse failures
+
+The actual expanded witness at warm `c6a6b624` failed main/pressed and listening/peak/rest/pressed
+SDF coverage at both reading sizes. Ordinary frame contrast and the newly scoped selection
+positive/negative cases reported no failures. The cap was shrinking to92percent while its glyph
+stayed fixed; listening additionally grew the microphone to118percent. Those combined transforms
+invalidated the resting glyph-inset proof. No glyph was shrunk or contrast threshold lowered.
+
+Spatial filled/listening caps now retain the original cap allocation and normal glyph size during
+both press and listening. Press feedback brightens the filled cap toward white by0.16; listening
+uses the same existing one-second phase to pulse its cap light by up to0.12. Their combined mix
+is bounded by0.28. The dark icon's background becomes lighter rather than losing its coverage.
+Active words/tone and the existing press action/sound remain; Keep things still restores a steady
+active cap. Legacy round caps keep their previous shrink and icon-growth behavior. Pulse runs
+before paint so light feedback and Still changes take effect in that frame without allocations.
+
+The imported actual fixture retains all pressed/pulse SDF checks and adds assertions that spatial
+cap/glyph bounds remain fixed, press and listening light actually change, and Still restores the
+steady light. It restores all globals and destroys the temporary listening footer before normal
+captures. Aggregate editor C# compile passed with existing warnings. Actual new geometry/feedback
+execution remains pending; the normal48-image contrast pass is not pressed/listening pixel proof.

@@ -135,10 +135,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         if (entry.Button.Icon == null) { failures.Add("filled spatial prompt lost its icon"); continue; }
                         CheckCap(entry.Button, "main/rest");
+                        var restSize = promptCap.Size; var restLight = promptCap.Fill;
                         try
                         {
                             entry.Button.PaintForRender(false, true);
                             CheckCap(entry.Button, "main/pressed");
+                            if (promptCap.Size != restSize || !Mathf.Approximately(entry.Button.IconGrowth, 1f))
+                                failures.Add("spatial press changed its proven filled cap/glyph reading allocation");
+                            if (promptCap.Fill.r + promptCap.Fill.g + promptCap.Fill.b <= restLight.r + restLight.g + restLight.b)
+                                failures.Add("fixed-coverage spatial press lost its visible light feedback");
                         }
                         finally { entry.Button.PaintForRender(false, false); }
                     }
@@ -156,13 +161,27 @@ namespace Halcyonic.XR.Workspace.Editor
                     listening.Show(new Footer(secondary: new Prompt("coverage-only", VoiceText.HoldToTalk,
                         GlazeIcon.HoldToTalk, holds: true, listens: true)), -0.6f, 0.6f, 0f, unboxedIcons: true);
                     var button = listening.Shown.Single().Button;
+                    var listeningCap = button.GetComponentsInChildren<Surface>(false).Single(surface => surface.name == "Cap");
+                    button.Pulse(0f); button.PaintForRender(false, false);
+                    var steadySize = listeningCap.Size; var steadyLight = listeningCap.Fill;
                     button.Pulse(Glaze.ListeningPulseSeconds / 2f);
+                    button.PaintForRender(false, false);
+                    if (!Mathf.Approximately(button.IconGrowth, 1f) || listeningCap.Size != steadySize)
+                        failures.Add("spatial listening pulse changed its proven glyph/cap bounds");
+                    if (listeningCap.Fill.r + listeningCap.Fill.g + listeningCap.Fill.b <= steadyLight.r + steadyLight.g + steadyLight.b)
+                        failures.Add("fixed-coverage spatial listening lost its visible light pulse");
                     ForceMeshes(listening.gameObject);
                     foreach (var pressed in new[] { false, true })
                     {
                         button.PaintForRender(false, pressed);
                         CheckCap(button, pressed ? "listening/peak/pressed" : "listening/peak/rest");
+                        if (listeningCap.Size != steadySize || !Mathf.Approximately(button.IconGrowth, 1f))
+                            failures.Add("pressed listening changed the proven filled cap/glyph allocation");
                     }
+                    GlazeMotion.Still = true;
+                    button.Pulse(Glaze.ListeningPulseSeconds / 2f); button.PaintForRender(false, false);
+                    if (listeningCap.Fill != steadyLight || !Mathf.Approximately(button.IconGrowth, 1f))
+                        failures.Add("Keep things still did not restore steady spatial listening feedback");
                 }
                 finally { GlazeMotion.Still = wasStill; UnityEngine.Object.DestroyImmediate(listening.gameObject); }
 
