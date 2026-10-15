@@ -47,7 +47,8 @@ public class AgentPanelActivity extends Activity {
     private PanelDrafts drafts = new PanelDrafts();
     private boolean draftsHealthy = true;
     private LinearLayout content;
-    private TextView connection, requestAvailability;
+    private PanelLoadingText connection;
+    private TextView requestAvailability;
     private Button presentationButton;
     private LinearLayout developmentControls;
     private boolean compactPanel;
@@ -113,6 +114,7 @@ public class AgentPanelActivity extends Activity {
         loadSaved(); poll(true);
     }
     @Override public void onPause() {
+        if (connection != null) connection.stop();
         cancelVoice(); PanelContinuation current = editorRecord(); boolean persisted = saveState(); restore.paused(current, persisted);
         authority.resumed(false); visible = false; generation++; busy = false;
         if (connection != null && compactPanel) connection.setText(withStorageWarning(monitorFreshness(true)));
@@ -139,6 +141,7 @@ public class AgentPanelActivity extends Activity {
     @Override public void onTopResumedActivityChanged(boolean top) {
         super.onTopResumedActivityChanged(top); authority.top(top);
         if (!top) {
+            if (connection != null) connection.stop();
             cancelVoice(); rememberDraft(); closeReview(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel();
             if (visible && authority.monitor() && !preview) poll(false);
         } else if (visible && !preview) poll(true);
@@ -146,6 +149,7 @@ public class AgentPanelActivity extends Activity {
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused); if (!focused) cancelVoice(); authority.activityFocus(focused);
         if (!focused && review == null) {
+            if (connection != null) connection.stop();
             rememberDraft(); generation++; busy = false; if (transport != null) transport.cancel(); ui.removeCallbacks(refresh);
             if (visible && authority.monitor() && !preview) poll(false);
         }
@@ -200,7 +204,9 @@ public class AgentPanelActivity extends Activity {
     private void shell() {
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34));
         text(root, "Halcyonic", 28);
-        connection = text(root, "Connecting to your computer…", 16);
+        connection = new PanelLoadingText(this); connection.setTextSize(16); connection.setPadding(0, dp(6), 0, dp(8));
+        root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
+        connection.setText("Connecting to your computer…");
         LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav);
         for (String name : new String[] {"Projects", "Workspace", "Other apps"}) {
             Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
@@ -262,7 +268,7 @@ public class AgentPanelActivity extends Activity {
         if (!PanelJson.bool(summary.get("has_agent"))) text(content, "No current agent. Start work in Workspace.", 18);
         if (requestPending != null) text(content, "The last workspace send is unconfirmed. Its original reference is retained.", 16);
     }
-    private void cancelNetwork() { cancelVoice(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
+    private void cancelNetwork() { if (connection != null) connection.stop(); cancelVoice(); generation++; busy = false; ui.removeCallbacks(refresh); if (transport != null) transport.cancel(); }
     private void switchConnection(boolean usb) {
         try { getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); preview = false; files.useDevelopmentUsb(usb); closeReview(); identity = null; snapshot = null; projectId = workId = executionId = null; instruction = null; draft = ""; continuation = null; generation++; busy = false; if (transport != null) transport.cancel(); loadSaved(); poll(true); }
         catch (Exception error) { connection.setText("That connection could not be selected."); }
@@ -684,6 +690,7 @@ public class AgentPanelActivity extends Activity {
         if (!visible || busy || !authority.readProjection()) return;
         if (preview) return;
         busy = true; int requestGeneration = generation;
+        if (restore.pending() != null) connection.loading("Checking your computer before restoring this view…");
         PanelTransport next = new PanelTransport(files::connection); transport = next;
         worker.execute(() -> {
             PanelIdentity target = null; PanelModel model = null; String failure = null;
@@ -698,6 +705,7 @@ public class AgentPanelActivity extends Activity {
             ui.post(() -> {
                 if (!visible || generation != requestGeneration) return;
                 busy = false;
+                connection.stop();
                 if (voiceLease != null && !voiceCurrent(received, receivedTarget)) cancelVoice();
                 if (identity != null && snapshot != null && !saveState()) { ui.postDelayed(refresh, 3000); return; }
                 if (received == null) {

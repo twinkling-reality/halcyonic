@@ -33,6 +33,7 @@ const BIN = process.env.JAVA_HOME
 const JAR = process.env.ANDROID_JAR ?? join(ANDROID, 'SDK/platforms/android-36/android.jar');
 const PLAIN = [
   'PanelJson.java',
+  'PanelWait.java',
   'PanelIdentity.java',
   'PanelTransport.java',
   'PanelContinuation.java',
@@ -54,6 +55,7 @@ const PLAIN = [
 ];
 const ANDROID_ONLY = [
   'PanelFiles.java',
+  'PanelLoadingText.java',
   'PanelBridge.java',
   'AgentPanelActivity.java',
   'PanelVoiceCapture.java',
@@ -613,6 +615,10 @@ describe('production native agent panel', () => {
       ),
       { request_id: null, pending_command_id: null, text: 'Earlier words.', spoken: true, part: 0 },
     );
+  });
+
+  test('native wait text stops on completion and respects still, visibility and system motion', () => {
+    assert.equal(run('wait_state'), 'true');
   });
 
   test('all production sources compile against Android API and are explicitly covered', () => {

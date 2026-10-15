@@ -3,6 +3,7 @@ package com.halcyonic.panel;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.Context;
 import android.os.Looper;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
@@ -13,6 +14,22 @@ import java.util.concurrent.atomic.AtomicReference;
 /** JNI entry points. Extras never contain credentials, selections, drafts or agent text. */
 public final class PanelBridge {
     private PanelBridge() {}
+
+    private static volatile boolean motionPermitted;
+    /** Exact tiny app-private preference; never uses a credential or continuation file. */
+    public static void setMotionStill(Activity activity, boolean still) {
+        motionPermitted = false;
+        if (activity == null) return;
+        PanelFiles files = new PanelFiles(activity);
+        try { files.write(PanelFiles.MOTION, PanelWait.motion(still)); motionPermitted = !still; }
+        catch (Exception error) { files.remove(PanelFiles.MOTION); }
+    }
+    static boolean motionPermitted() { return motionPermitted; }
+    static boolean motionStill(Context context) {
+        if (!motionPermitted) return true;
+        try { return PanelWait.still(new PanelFiles(context).read(PanelFiles.MOTION, 32)); }
+        catch (Exception error) { return true; }
+    }
 
     /** The result is the actual startActivity outcome, not a queued promise of a launch. */
     public static String open(Activity activity, String json, boolean inHome) {

@@ -8,6 +8,19 @@ namespace Halcyonic.XR.Workspace
     /// <summary>The production native agent panel. Only ordinary context crosses app-private storage.</summary>
     public static class AndroidPanelBridge
     {
+        /// <summary>Mirrors only the app's reduced-motion choice; native waits fail safe to still.</summary>
+        public static void SetMotionStill(bool still)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var bridge = new AndroidJavaClass("com.halcyonic.panel.PanelBridge");
+                bridge.CallStatic("setMotionStill", UnityEngine.Android.AndroidApplication.currentActivity, still);
+            }
+            catch (Exception) { /* Native unknown preference remains still. */ }
+#endif
+        }
+
         public enum WorkspaceViewsStatus { Available, Absent, Failed }
         public readonly struct WorkspaceViewsRead
         {
