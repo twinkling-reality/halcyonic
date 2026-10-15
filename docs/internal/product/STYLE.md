@@ -64,7 +64,7 @@ the page's shape at its bottom.
 
 - **The subject**, one a column, at the Title size, drawn light. In the menu's column a line holds
   about 36 characters; a longer subject wraps to a second line and its plate grows. Projects' subject
-  is its purpose, "What would you like to work on?". The primary subject reserves the production
+  is "Projects", matching its navigation place. The primary subject reserves the production
   measurer's exact Move/Compact widths, 12 mm between them and 12 mm clear of the title. Its plate is
   at least the 60 dp control height. TitleRows, SubjectHeight and page-height packing use that same
   reservation; a full retained task title is reachable through Move's Read title detail.
@@ -337,7 +337,8 @@ character-free workspace centers in the available field rather than reserving an
 label band above it. Header, perimeter and connected panes participate in field/drag geometry at
 both text sizes. Source, outside-text and decision-proof treatments remain on actual content.
 Move offers direct hand movement and Reset position, without guessed window arrangements.
-Actual Unity render and wearer acceptance of this redesign are still pending.
+Actual Unity composition evidence is recorded in the current validation checkpoint below; wearer
+acceptance remains pending.
 
 
 A neutral structural divider may separate the attached workspace header from its connected panes.
@@ -354,7 +355,8 @@ fresh/connected Projects, visible Tasks selection, a marked synthetic task in a 
 local instruction, global Minimize/restore and disconnected draft. Its structural negative controls
 remove the divider role and rotate the header against its body, preserving the arbitrary-bar and
 coplanarity rejection paths. It is a simulated renderer fixture, not proof of a real runtime send,
-native JNI return or wearer acceptance. Its actual Unity outcome is pending until run.
+native JNI return or wearer acceptance. The current validation checkpoint below records its
+actual Unity outcome.
 
 
 The console owns its world position independently of optional agents. Selecting a task or changing
@@ -398,14 +400,13 @@ composition and field checks; these changes do not reduce the minimum target or 
 existing project details, and uses the visible Projects header target while a local instruction is
 retained. It reopens that same task view and checks the draft survived and the body state pill was
 not duplicated. The navigation-focused core checks pass 54/54 with no skips, and Editor plus
-Android player-symbol source compilation passes (2026-10-12). Actual render validation of this
-new header/navigation checkpoint remains pending; earlier dedicated-frame passes cover the prior
-geometry and retention implementation, not this revised composition.
+Android player-symbol source compilation passes (2026-10-12). At that source checkpoint the new header/navigation render remained pending; the subsequent
+DedicatedWorkspaceCheck and current validation checkpoint below cover the revised composition.
 
 The Larger project-detail fixture closes the actually visible detail panel before selecting its
 project again: details replace the project list at that size. The first navigation render passed
 Standard but correctly refused the hidden Larger project row. This fixture correction preserves
-that visibility guard and awaits the repeated exact render.
+that visibility guard; the subsequent repeated exact render is recorded below.
 
 The corrected DedicatedWorkspaceCheck ran on integration fc32 at both Standard and Larger with
 30 current PNGs (2026-10-12). The project-to-task path, visible detail return, Projects breadcrumb,
@@ -419,7 +420,8 @@ spoken Yes remain visible controls. Model reply and recorded receipts have separ
 full measured paging, with source names treated as outside text. Request and recovery-focused
 checks passed 46/46 with zero skips at the first source checkpoint, with Editor/Android source
 compilation. The later RequestCheck result below supersedes its unrun screenshot status; full
-integrated gates remain pending.
+integrated gates were pending at that source checkpoint. The current validation checkpoint below
+records the later combined outcome.
 
 RequestCheck is the request-specific real-font composition gate. It uses the actual production
 column and director control routes with synthetic capability/result seams, and retains all field,
@@ -434,8 +436,8 @@ bound task title as the outside-text subject and measures its title height at bo
 Reply and Actions remain the section labels. The redundant Actions body heading is removed.
 The focused title/lifetime regressions pass 54/54 with zero skips; core, Editor and Android source
 compilation pass. RequestCheck now also checks the actual outside-text task subject on each
-visible request frame. The title-adjusted exact render remains pending. No live send or wearer
-acceptance is implied.
+visible request frame. The current validation checkpoint below includes the title-adjusted
+request composition. No live send or wearer acceptance is implied.
 
 The legacy director render route now starts from visible Projects and selects its offered Tasks
 section before opening the waiting task. Global Minimize and Restore use the actual console and
@@ -445,12 +447,31 @@ director's budget is the independently centered console with its measured header
 geometry. Passive stage flags and Larger repacking must retain the exact hand offset while the
 whole composition still fits and old input is revoked; automatic offset clamping is no longer an
 expected outcome. Task identity is checked in the actual file and project context rather than a
-removed character banner. Editor source compilation passes; the migrated exact render is pending.
-Its six-agent legacy setup and raw plane/fade fixtures still require separate migration or defect
-analysis, and their clearance, field, readability and visibility thresholds remain unchanged.
+removed character banner. At that source checkpoint Editor compilation passed while the migrated
+render and legacy raw plane/fade investigation remained pending. The current validation checkpoint
+below records the later combined outcome; clearance, field, readability and visibility thresholds
+remain unchanged.
 DirectorCheck runs all three existing director cases at both text sizes with the same PlaneState
 guards and nonzero retained-offset counter. It diagnoses this migration separately from untouched
 raw plane/stage cases; the full WorkspaceRender.Check retains them and remains the acceptance gate.
 The retained FirstQuestion column's regression expects the current concrete Projects subject for
 both choices while preserving its choice/action/voice checks. This legacy column test is not
 evidence that fresh production entry uses the superseded first-question policy.
+
+
+## Current validation checkpoint — 2026-10-15
+
+The October13 production checkpoint `61646671` passed the complete Workspace and Appearance
+Editor render gates, including current Projects/task navigation, retained instruction and request
+views, character-free and confirmed-shelf compositions, and both Standard and Larger text. Both
+Glaze and Graphite presets passed Appearance. Results additionally passed far/desk placement and
+zero/one shelf with exact displayed pages and both drafts retained. These later runs supersede
+pending-render statements in the source-checkpoint history above; they retain the original field,
+text, target, visibility and coplanarity constraints. Detailed scope and limits are recorded in
+[theme settings](../validation/theme-settings.md),
+[workspace requests](../validation/workspace-requests.md) and
+[recorded tool results](../validation/recorded-tool-results.md).
+
+These are synthetic Editor composition and continuity checks. They do not establish wearer
+readability, hand or microphone usability, live model reliability, native JNI/other-app return or
+source/build correspondence for an opened external app. Those remain separate acceptance gates.
