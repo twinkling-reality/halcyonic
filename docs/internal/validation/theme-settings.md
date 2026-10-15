@@ -251,8 +251,17 @@ and rendered body pixels. It reuses the measured confirmed-shelf fixture and opt
 console solely for this editor witness. A synthetic welcome/snapshot is pumped through the actual
 session watermark machinery; no transport starts, network request, runtime command or device is used.
 The actual AppearanceControls save path is checked by reloading its bounded preference after Apply.
+The witness fits the body only after opening the selected task and rejects the helper's diagnostic
+fallback. Every shot uses the spatial composition checker, retaining actual character/label clearance.
 The witness covers unchanged choice, visible preview, exact Cancel rollback, Apply, configured/source
 mismatch, session and watermark loss, target removal, and menu-only destruction leaving the body alive.
 Its nested cleanup restores the exact presence and typed values of both appearance preferences,
 and restores the interface palette, text scale, field and active render target even on failure.
-The entry point is source for a host editor check, not evidence of a completed run or wearer acceptance.
+The source-key delegate is an explicitly synthetic stand-in for ControlPlaneConnection's captured key;
+this fixture does not verify actual connection creation. Edit-mode non-ExecuteAlways objects do not
+receive the play-mode destruction callback, so the witness explicitly invokes production OnDestroy
+before destroying the menu and checks the surviving body before and after destruction. That verifies
+cleanup effects, not play-mode event delivery. The first host run failed: the fixture used the legacy
+separated-header checker, fitted against the wider chooser and continued with the helper's invalid
+fallback, and assumed edit-mode callback delivery. The corrected entry point still needs a new host run;
+none of this establishes wearer acceptance.
