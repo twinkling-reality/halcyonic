@@ -634,7 +634,7 @@ namespace Halcyonic.XR.Workspace
             else view.Show(Front, degrees, subject, pillRoom, stateInHeader: false);
             var body = ColumnOf(view);
             var contentHeights = body.Heights.Concat(new[] { WorkspaceChromeView.SpatialBase }).ToArray();
-            var focusedWork = kind == MenuColumn.File;
+            var focusedWork = fileFrame != null;
             var bodyColumn = focusedWork ? 0 : 1;
             var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);
             var reading = new PlaneColumn(body.Width, contentHeights);
@@ -689,7 +689,7 @@ namespace Halcyonic.XR.Workspace
                 for (var p = 0; p < all.Count; p++)
                 {
                     var placed = all[p];
-                    if (SpatialWorkspace ? placed.Column != (shown[c].Kind == MenuColumn.File ? 0 : 1) || placed.Index >= parts.Count : placed.Column != c) continue;
+                    if (SpatialWorkspace ? placed.Column != (Composition.Columns.Count == 1 ? 0 : 1) || placed.Index >= parts.Count : placed.Column != c) continue;
                     Stand(parts[index], placed, zoom);
                     index++;
                 }
