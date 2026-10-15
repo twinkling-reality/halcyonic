@@ -3109,3 +3109,20 @@ this does not prove generic transparent depth support. Later transparent objects
 protruding features require deliberate ordering and separate visual validation. Independent
 review and the candidate consumer gates passed before integration; the validation record
 separates their coverage from integrated checks and unverified device behavior.
+
+
+### First workspace pose
+
+On Android, the first console anchor waits for a wearer-present headset, an existing main camera,
+a valid XR head device reporting tracked position and rotation, and app input focus. All conditions
+must remain ready for 0.3 seconds. `InitialWorkspacePlacement` has no untracked timeout: a pose from
+an unworn headset or camera fallback cannot become the permanent workspace origin. The menu keeps
+its selected views and retries drawing each frame, so late tracking alone can reveal the workspace
+without a control-plane event. No hidden initial frame grants input or read authority.
+
+Once anchored, ordinary head motion, focus changes, redraws, minimize and restore preserve the
+workspace pose and deliberate Move offset. This change does not automatically recover an established
+workspace after a tracking-origin reset or movement during pause; that remains an explicit open
+question. Reset position keeps its existing deliberate meaning. Source, API and regression evidence
+is recorded in [initial workspace placement](../validation/initial-workspace-placement.md); actual
+headset startup acceptance remains separate from the source correction.

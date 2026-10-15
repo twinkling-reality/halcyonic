@@ -70,6 +70,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [mixed-reality-room.md](validation/mixed-reality-room.md) | Passthrough, the scene model through MRUK, spatial anchors and their permissions |
 | [character-rendering.md](validation/character-rendering.md) | How the characters render and place themselves, and their cost on a Quest 3 |
 | [theme-settings.md](validation/theme-settings.md) | Interface presets and Settings categories: preview lifetime, local preferences, provenance, consumers and the composition checks still required |
+| [initial-workspace-placement.md](validation/initial-workspace-placement.md) | Initial Android workspace placement waits for wearer presence, tracked head pose and focus; source and regression proof, pending renderer/device acceptance |
 | [workspace-interaction.md](validation/workspace-interaction.md) | Interaction SDK rig and targets, TextMeshPro and the system keyboard for the workspace, and what TextMeshPro and TextMesh make of text from outside |
 | [understanding-and-evaluation.md](validation/understanding-and-evaluation.md) | The workspace's Understanding and Evaluation sections: real sources read only, the demonstration's simulated answers, TextMeshPro escapes, renders |
 | [sound-rendering.md](validation/sound-rendering.md) | The Glaze sound's port checked against the soundbook page, and what rendering it costs |
