@@ -51,6 +51,8 @@ namespace Halcyonic.XR.Workspace
         public sealed class Setup
         {
             public WorkspacePresentationState Presentation { get; set; } = new WorkspacePresentationState();
+            /// <summary>Only the first anchor waits for valid wearer tracking; an established workspace never follows ordinary head or focus changes.</summary>
+            public Func<bool> InitialPlacementReady { get; set; } = () => true;
             public Func<ControlPlaneTarget?> ConnectionTarget { get; set; } = () => null;
             /// <summary>Makes the commands Projects' Connect sends.</summary>
             public CommandFactory? Commands { get; set; }
@@ -587,6 +589,15 @@ namespace Halcyonic.XR.Workspace
 
         private void Draw(bool immediately)
         {
+            if (anchor == null && !setup.InitialPlacementReady())
+            {
+                // Opening while unworn must not freeze a fallback/table pose as the permanent anchor.
+                // Retry on every update without drawing or granting authority to hidden controls.
+                plane.gameObject.SetActive(false);
+                dirty = true;
+                return;
+            }
+            plane.gameObject.SetActive(!FocusGuard.Folded);
             dirty = false;
             var bar = shownBar != null && Same(setup.Bar(navigator.Place), shownBar) ? shownBar : setup.Bar(navigator.Place);
             shownBar = bar;

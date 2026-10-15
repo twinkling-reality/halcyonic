@@ -28,6 +28,7 @@ namespace Halcyonic.XR.Workspace
     {
         /// <summary>Farther than a character's own motion, in its units: the stage moved it.</summary>
         private const float MovedFar = 1.5f * CharacterView.BodyRadius;
+        private readonly InitialWorkspacePlacement initialPlacement = new InitialWorkspacePlacement();
 
         private const float RefreshSeconds = 0.5f;
 
@@ -160,6 +161,7 @@ namespace Halcyonic.XR.Workspace
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
                 Presentation = Presentation,
+                InitialPlacementReady = InitialPlacementReady,
                 ConnectionTarget = () => ControlPlaneSettings.Target(),
                 State = () => connection.Session?.State,
                 Connected = () => connection.Session?.Status.IsLive == true,
@@ -390,6 +392,22 @@ namespace Halcyonic.XR.Workspace
             ExecutionSendInstructionCommand instruction => instruction.Payload.ExecutionId,
             _ => "",
         };
+
+        private bool InitialPlacementReady()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            var device = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(UnityEngine.XR.XRNode.Head);
+            var tracked = device.isValid
+                && device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.isTracked, out var isTracked) && isTracked
+                && device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.trackingState, out var tracking)
+                && (tracking & (UnityEngine.XR.InputTrackingState.Position | UnityEngine.XR.InputTrackingState.Rotation))
+                    == (UnityEngine.XR.InputTrackingState.Position | UnityEngine.XR.InputTrackingState.Rotation);
+            return initialPlacement.Poll(Time.unscaledTimeAsDouble, OVRManager.instance != null && OVRManager.instance.isUserPresent,
+                WorkspaceVisuals.Head != null && tracked, Application.isFocused && !FocusGuard.InputSuspended);
+#else
+            return true; // Non-device renderer fixtures inject their own readiness seam when needed.
+#endif
+        }
 
         private MenuDirector.Stage StageNow()
         {

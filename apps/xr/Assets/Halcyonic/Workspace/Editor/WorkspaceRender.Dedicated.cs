@@ -54,9 +54,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 FileColumn? file = null;
                 Action<string>? done = null;
                 var sends = 0;
+                var initialReady = false;
+                var placementEyes = Vector3.zero; // Camera fallback before the wearer is tracked.
+                var placementLooking = Vector3.right;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     Presentation = presentation,
+                    InitialPlacementReady = () => initialReady,
                     Commands = commands,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     State = () => state,
@@ -69,7 +73,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Keyboard = (_, _, accept, _) => done = accept,
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
                     File = (host, _) => file = new FileColumn(host, () => work.Present(live: connected), commands, () => null, _ => null, () => ""),
-                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
+                    StageNow = () => new MenuDirector.Stage(placementEyes, placementLooking, Array.Empty<CharacterTarget>(), null, false),
                 });
 
                 void Shot(string suffix)
@@ -97,7 +101,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     target.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, target.transform.position);
                 }
 
+                director.DrawNow();
+                if (director.Plane.gameObject.activeSelf || director.Plane.Composition != null)
+                    failures.Add(name + ": an unworn/untracked startup drew and anchored fallback geometry");
+                // No host/session event changes: a late tracked wearer pose alone must release the first frame.
+                placementEyes = eyes;
+                placementLooking = Vector3.forward;
+                initialReady = true;
                 Shot("fresh projects");
+                if (!director.Plane.gameObject.activeSelf || director.Plane.Composition == null || Mathf.Abs(director.Plane.Direction.Yaw) > 0.01f)
+                    failures.Add(name + ": late wearer tracking did not show the workspace at the current tracked orientation");
+                var firstPosition = director.Plane.Chrome.transform.position;
+                var firstRotation = director.Plane.Chrome.transform.rotation;
+                initialReady = false; // Later tracking/focus loss must not re-gate or re-anchor this workspace.
+                placementEyes = eyes + Vector3.right;
+                placementLooking = Vector3.right;
+                director.DrawNow();
+                if (!director.Plane.gameObject.activeSelf || Vector3.Distance(firstPosition, director.Plane.Chrome.transform.position) > 0.00001f
+                    || Quaternion.Angle(firstRotation, director.Plane.Chrome.transform.rotation) > 0.001f)
+                    failures.Add(name + ": an established workspace moved or disappeared when initial readiness changed");
+                placementEyes = eyes;
+                placementLooking = Vector3.forward;
+                initialReady = true;
                 if (!director.Navigator.IsOpen || director.Navigator.Place != MenuPlace.Projects || director.Navigator.Asking)
                     failures.Add(name + ": fresh startup did not expose normal Projects navigation");
                 if (root.GetComponentsInChildren<CharacterTarget>(true).Length != 0 || presentation.AgentsVisible)

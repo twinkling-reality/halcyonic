@@ -475,3 +475,10 @@ text, target, visibility and coplanarity constraints. Detailed scope and limits 
 These are synthetic Editor composition and continuity checks. They do not establish wearer
 readability, hand or microphone usability, live model reliability, native JNI/other-app return or
 source/build correspondence for an opened external app. Those remain separate acceptance gates.
+
+
+On Android the initial workspace waits for a present wearer, tracked head position and rotation,
+and input focus before taking its first anchor. An unworn or untracked camera pose is not a valid
+placement. Later ordinary head/focus changes preserve the established composition and Move offset;
+this is not head-following UI. The source and remaining device checks are recorded in
+[initial workspace placement](../validation/initial-workspace-placement.md).
