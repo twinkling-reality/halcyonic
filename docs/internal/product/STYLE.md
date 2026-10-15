@@ -552,6 +552,16 @@ than a gradient on every part. This is part of the composition correction, not a
 font/material change alone satisfies the requested diegetic experience. Actual complete renders
 and a fresh wearer review are still required.
 
+### Activity-dependent emphasis
+
+The central visual belongs to the activity the person chose. Directing work gives the selected
+task and its evidence the main reading space. Watching Viki or Netflix gives that space to the
+video; Halcyonic's presence should be quiet, peripheral and optional, with details opened on
+purpose. Do not shrink the full work dashboard beside video or require a character to remain
+visible. Preserve ordinary drafts and a clear return to work. This direction does not establish
+cross-app Unity rendering or native-panel wearer acceptance; those remain platform and device
+validation questions.
+
 ### Task-focused composition candidate
 
 The selected task occupies one reading column. Its Projects control returns to the workspace

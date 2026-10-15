@@ -65,6 +65,17 @@ provenance and complete request reading remain measurable constraints.
 
 ## Presentation and continuity
 
+The central object follows the person's current activity (owner clarification, 2026-10-15).
+When directing software work, the selected task and its relevant evidence take the main reading
+space. When watching Viki or Netflix, the video stays central; Halcyonic should offer only a quiet,
+optional peripheral glance, with task details opened intentionally. A task-focused workspace is
+not a requirement to keep work running or to watch something else. Returning to work retains
+connection-bound selection and ordinary unsent drafts, with fresh state and input authority.
+
+This is product intent, not evidence that a Unity object can overlay another immersive app.
+Native-panel visibility and usable placement beside video still need wearer acceptance; the
+previous invisible transition is unresolved by source tests or an Editor render.
+
 The focused workspace functions without characters, room scanning or a stage slot. Minimize
 workspace clears its panels, peeks and optional agents into one dock. Restore retains selected
 work and ordinary drafts, then obtains fresh state and input authority. Move workspace changes
