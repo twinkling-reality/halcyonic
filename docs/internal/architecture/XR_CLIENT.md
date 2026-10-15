@@ -3045,6 +3045,12 @@ part, independent question/request buffers and the pending command identity. Nav
 keyboard, voice, prepared send and old-frame authority. Results state itself is transient: no new
 private persistence surface is introduced.
 
+Explicit Read results reopening reuses the retained reader only while its copied connection,
+journal, project, task, execution, runtime and API still match. Session/journal renewal drops
+the owning file and reader. Reopening preserves the selected event/file and bounded page, but
+still performs fresh visible reads; compatibility alone grants no read or action authority.
+Selecting a task still opens its task surface, not its last results surface automatically.
+
 Every read binds the original copied connection/journal/project/task/execution, session and API,
 and requires the exact selected visible view, focus, no overlay/drag and no global Minimize or hidden
 aside. Completed reads recheck those conditions plus ordered list coverage and exact summary/body
