@@ -409,3 +409,34 @@ the running task's Stop, voice and instruction controls.
 Repeated fresh feedback events reset to the visible notice even if their words match; passive
 redraw does not. No route flags or drafts are discarded; another regression restores room and reaches the same
 routes. These checks do not claim that arbitrary zero or tiny allocations can display content.
+
+## Focused-context optical margin repair — 2026-10-15
+
+The actual material run at warm `fdecf9fc` retained the compact context header but exited1:
+"Line0words" resolved ink reached4.42/4.48, and the larger header State pill/Icon glyph rectangle
+crossed backing of4.01/4.25 at eye frames1/2. The actual larger Neutral/dark frame was viewed.
+The all-visible-TMP threshold remains4.5:1, with no label exclusions or palette modifications.
+
+Spatial host-owned nonpending plain reading facts now use primary foreground. This covers the
+truthful empty-activity line without changing its wording, event status, route order or page
+budget. Outside/agent text, provenance, semantic state colors and animated pending words retain
+their treatments. Unavailable words still resolve through the existing unavailable color rule.
+The nominally same label can rasterize differently after a compact header changes the viewport's
+projection; a prior pass did not provide sufficient margin for the thin secondary glyph core.
+
+Header state-pill icons now use the same1-degree nominal em as the already readable state word,
+inside their existing1.2-degree icon slot. Their centre, badge width/height and adjacent words do
+not move; stage badge icons retain their original size. This creates genuine inner clearance from
+the bright rounded border across the icon's turn, without expanding the pill or changing any
+character/target layout. The standard actual text-as-seen floor remains enforced; matching the
+word's em is not substituted for that measurement.
+
+The material fixture asserts primary ink on eligible host facts and sweeps each real header state
+icon through24 rotations. Every real TMP glyph-quad corner must remain inside the renderer's
+rounded pill by its full border width plus0.0005 distance-unit inset. Original rotations are
+restored before normal image capture. All three-palette, two-size, moving-eye backing/resolved-ink
+and material-negative checks remain unchanged. The new worktree is based exactly on `fdecf9fc`;
+compact context geometry and all later preset/cap changes are retained. Aggregate editor C#
+compilation passed with existing nullable/assembly warnings using current warm client/contract
+references. Actual new inset, type-floor and image-contrast execution remain pending; no wearer
+or aesthetic acceptance is claimed.

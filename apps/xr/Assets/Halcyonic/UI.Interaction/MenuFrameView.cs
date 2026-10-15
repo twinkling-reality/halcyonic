@@ -1103,7 +1103,12 @@ namespace Halcyonic.XR.UI
                 line.Icon.transform.localPosition = new Vector3(left + U(Glaze.Menu.IconColumnDegrees) / 2f, middle, -U(0.05f));
                 wordsLeft = left + U(Glaze.Menu.IconColumnDegrees) + grid;
             }
-            line.Words.color = ColourOf(carried && model.Tone != LineTone.Secondary ? LineTone.Primary : model.Tone, model.Available);
+            var wordsTone = carried && model.Tone != LineTone.Secondary ? LineTone.Primary : model.Tone;
+            // Thin host-owned reading facts need primary ink on the coated face. Outside text,
+            // semantic state tones and animated pending words keep their existing treatments.
+            if (SpatialWorkspace && wordsTone == LineTone.Secondary && !model.Runs.AnyTheirs && !model.Waits)
+                wordsTone = LineTone.Primary;
+            line.Words.color = ColourOf(wordsTone, model.Available);
             GlazeRuns.Of(line.Words).Lean(theirs);
             // Outside text on a ground takes the primary text colour, so it holds 4.5:1 there; a row all of it has no ground.
             GlazeRuns.Of(line.Words).Grounded = theirs.Count > 0 && !(role != null && model.Runs.AllTheirs) ? Grounded(model.Available) : (Color32?)null;
