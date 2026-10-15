@@ -362,21 +362,31 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 if (plane.Composition.Columns.Count != 1) failures.Add(name + ": focused work retained the chooser rail column");
                 var header = WorkspaceChromeView.SpatialHeader(true);
-                if (!Mathf.Approximately(plane.Composition.Header, header) || !Mathf.Approximately(header, MenuPage.Target())
+                if (!Mathf.Approximately(plane.Composition.Header, header) || !Mathf.Approximately(header, GlazeButton.HeightOf(false))
                     || header >= WorkspaceChromeView.SpatialTop)
                     failures.Add(name + ": focused context must reserve exactly its full Projects target, without chooser padding");
                 var projects = plane.Chrome.Targets.Single(button => button.Label.text == "Projects");
                 var projectCentre = plane.Chrome.transform.InverseTransformPoint(projects.transform.position);
                 var bandTop = plane.Chrome.Size.y / 2f; var bandBottom = bandTop - header;
-                if (projects.Size.y < MenuPage.Target() - 1e-6f
-                    || projectCentre.y + projects.Size.y / 2f > bandTop + 1e-6f
-                    || projectCentre.y - projects.Size.y / 2f < bandBottom - 1e-6f)
-                    failures.Add(name + ": compact context cropped or reduced its actual Projects target");
+                bool ContainsTarget(float bandHeight) => projects.Size.y >= GlazeButton.HeightOf(false) - 1e-6f
+                    && projectCentre.y + projects.Size.y / 2f <= bandTop + 1e-6f
+                    && projectCentre.y - projects.Size.y / 2f >= bandTop - bandHeight - 1e-6f;
+                if (!ContainsTarget(header))
+                    failures.Add(name + ": compact context cropped or reduced its actual Projects target; targetHeight=" + projects.Size.y.ToString("R")
+                        + ", header=" + header.ToString("R") + ", centreY=" + projectCentre.y.ToString("R")
+                        + ", bandTop=" + bandTop.ToString("R") + ", bandBottom=" + bandBottom.ToString("R") + ", zoom=" + plane.Composition.Zoom.ToString("R"));
+                // A real negative against the same actual target: the prior 48dp row cannot
+                // contain this ordinary 60dp prompt. Do not weaken the geometry to accept it.
+                if (ContainsTarget(MenuPage.Target()))
+                    failures.Add(name + ": compact-context negative accepted the former undersized minimum-row band");
                 var firstBody = plane.Composition.Parts.First(part => part.Column == 0 && part.Index == 0);
-                var expectedTop = plane.Composition.Height / 2f - header * plane.Composition.Zoom
-                    - PlaneComposition.Units(PlaneComposition.PartGapDegrees) * plane.Composition.Zoom;
+                // PlaneComposition's stack uses tan(full angle), unlike Units' two half angles.
+                var partGap = Glaze.MetersAt(PlaneComposition.PartGapDegrees, 1f) * plane.Composition.Zoom;
+                var expectedTop = plane.Composition.Height / 2f - header * plane.Composition.Zoom - partGap;
                 if (Mathf.Abs(firstBody.Top - expectedTop) > 1e-6f)
-                    failures.Add(name + ": focused reading body retained an extra unallocated context gap");
+                    failures.Add(name + ": focused reading body retained an extra unallocated context gap; actualTop=" + firstBody.Top.ToString("R")
+                        + ", expectedTop=" + expectedTop.ToString("R") + ", header=" + header.ToString("R")
+                        + ", partGap=" + partGap.ToString("R") + ", zoom=" + plane.Composition.Zoom.ToString("R"));
                 foreach (var words in new[] { "Projects", "Tasks", "Usage", "Settings" })
                 {
                     var target = plane.Chrome.Targets.Single(button => button.Label.text == words);
