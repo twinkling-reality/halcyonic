@@ -286,3 +286,19 @@ device-owned command through this route. Existing authenticated journal visibili
 A missing command or lost response does not authorize resubmission or a replacement command ID.
 Clients must verify command ID/type and the returned journal/project/task/execution tuple before
 using its request reference; this GET grants no action authority.
+
+### Delegated request direction
+
+Each `continue_task` instruction includes the original person request, all completed human Resume
+messages in their recorded order, and a separately labelled coordinator follow-up. The complete
+composition receives the existing held-secret replacement and must validate against the unchanged
+runtime instruction contract. Human direction is never silently cut to make a model follow-up fit.
+When the composition does not fit, no runtime command is prepared or dispatched; the request waits
+for a person with an explicit receipt asking for a shorter new request. Runtime observations do not
+automatically resume that refusal. These words preserve instruction context, not an enforced file
+write boundary or a guarantee that the runtime follows them.
+
+Request Actions distinguish a confirmed read, recorded person direction, and a finished native
+turn. A finished-turn heading explicitly leaves software changes unverified. Tool outcomes and
+recorded evidence remain separate: a completed turn can contain a failed command, and no native
+patch result does not establish that a command left the working tree unchanged.

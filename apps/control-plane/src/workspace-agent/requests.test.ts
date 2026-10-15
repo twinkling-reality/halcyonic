@@ -56,6 +56,8 @@ async function fixture(
       tools?: readonly ToolDefinition[],
     ) => Promise<ToolTurnResult>;
     projectName?: string;
+    requestText?: string;
+    secrets?: () => Iterable<{ what: string; value: string }>;
     title?: string;
     objective?: string;
     understand?: () => Promise<typeof unavailable>;
@@ -63,6 +65,7 @@ async function fixture(
 ) {
   let sink: ObservationSink | undefined,
     instructions = 0,
+    instructionTexts: string[] = [],
     turns = 0;
   const emit = (
     type: RuntimeObservation['type'],
@@ -110,8 +113,9 @@ async function fixture(
       emit('runtime.turn.started', { turn_id: 'existing-turn' });
       return { native_id: 'synthetic-session' };
     },
-    sendInstruction: async () => {
+    sendInstruction: async (request) => {
       instructions++;
+      instructionTexts.push(request.text);
       if (options.mode === 'immediate')
         emit('runtime.turn.completed', { turn_id: 'existing-turn' });
       if (options.mode === 'unknown') return new Promise(() => {});
@@ -123,6 +127,7 @@ async function fixture(
       ...(options.path ? { path: options.path } : {}),
       adapters: () => [adapter],
       logger: logs.logger,
+      ...(options.secrets ? { secrets: options.secrets } : {}),
     });
   const ids = createUuidV7Generator({ now: () => h.time.now().getTime() }),
     model = {
@@ -219,7 +224,11 @@ async function fixture(
           }),
   });
   const submit = (principal: Principal = { kind: 'local' }) => {
-    const outcome = h.controlPlane.commands.submit(command('submit'), 'http', principal);
+    const outcome = h.controlPlane.commands.submit(
+      command('submit', undefined, options.requestText),
+      'http',
+      principal,
+    );
     if (outcome.command?.result?.kind !== 'workspace_request_created')
       throw new Error('request missing');
     return outcome.command.result.request_id;
@@ -233,6 +242,9 @@ async function fixture(
     emit,
     command,
     submit,
+    get instructionTexts() {
+      return instructionTexts;
+    },
     get instructions() {
       return instructions;
     },
@@ -1197,6 +1209,133 @@ test('rejected busy Resume preserves the existing continuation and does not add 
     assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
   } finally {
     release();
+    await f.close();
+  }
+});
+
+test('runtime delegation retains the complete person request even when the model follow-up only asks to read', async () => {
+  const direction = 'Change only the synthetic shell colour. Preserve every other byte and file.';
+  const followup = 'Read the current synthetic colour.';
+  const f = await fixture({
+    requestText: direction,
+    turn: async () => answer([{ name: 'continue_task', arguments: { text: followup } }]),
+  });
+  try {
+    f.submit();
+    await settle();
+    assert.equal(f.instructionTexts.length, 1);
+    const delivered = f.instructionTexts[0];
+    assert.ok(delivered);
+    assert.ok(delivered.includes(`Original person request:\n\n${direction}`));
+    assert.ok(
+      delivered.includes(`Coordinator follow-up within that person direction:\n\n${followup}`),
+    );
+    assert.ok(delivered.indexOf(direction) < delivered.indexOf(followup));
+  } finally {
+    await f.close();
+  }
+});
+
+test('runtime delegation includes ordered completed human continuations without letting model text replace them', async () => {
+  const original = 'Work only in the synthetic project.';
+  const first = 'Keep the synthetic eye colour unchanged.';
+  const second = 'Change the shell only; the earlier boundary still applies.';
+  let modelTurn = 0;
+  const f = await fixture({
+    requestText: original,
+    turn: async () =>
+      ++modelTurn < 3
+        ? answer([])
+        : answer([
+            {
+              name: 'continue_task',
+              arguments: { text: 'Synthetic model follow-up: inspect first.' },
+            },
+          ]),
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    f.controlPlane.commands.submit(f.command('resume', id, first), 'http', { kind: 'local' });
+    await settle();
+    f.controlPlane.commands.submit(f.command('resume', id, second), 'http', { kind: 'local' });
+    await settle();
+    assert.equal(f.instructionTexts.length, 1);
+    const delivered = f.instructionTexts[0];
+    assert.ok(delivered);
+    assert.ok(delivered.includes(`Person continuation 1:\n\n${first}`));
+    assert.ok(delivered.includes(`Person continuation 2:\n\n${second}`));
+    assert.ok(delivered.indexOf(original) < delivered.indexOf(first));
+    assert.ok(delivered.indexOf(first) < delivered.indexOf(second));
+    assert.ok(
+      delivered.indexOf(second) <
+        delivered.indexOf('Coordinator follow-up within that person direction:'),
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('oversized complete human direction pauses for a person without truncation, dispatch or an automatic retry', async () => {
+  const f = await fixture({
+    requestText: 'a'.repeat(32000),
+    turn: async () =>
+      answer([
+        { name: 'continue_task', arguments: { text: 'Read the synthetic file.' } },
+        { name: 'read_workspace', arguments: {} },
+      ]),
+  });
+  try {
+    const id = f.submit();
+    await settle();
+    const request = f.coordinator.read(id, { kind: 'local' });
+    assert.ok(request);
+    assert.equal(request.status, 'waiting_for_human');
+    assert.equal(f.instructions, 0);
+    assert.equal(f.turns, 1);
+    assert.ok(
+      request.steps.some(
+        (s) =>
+          s.tool_name === 'continue_task' &&
+          s.status === 'waiting' &&
+          s.command_id === null &&
+          s.summary.includes('original direction was not truncated'),
+      ),
+    );
+    assert.ok(!request.steps.some((s) => s.tool_name === 'read_workspace'));
+    f.emit('runtime.turn.completed', { turn_id: 'existing-turn' });
+    await settle();
+    assert.equal(f.instructions, 0);
+    assert.equal(f.turns, 1);
+    assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'waiting_for_human');
+  } finally {
+    await f.close();
+  }
+});
+
+test('delegated instruction uses the full contract Unicode bound and retains existing held-secret replacement', async () => {
+  const secret = 'synthetic-held-secret-value';
+  const original = '界'.repeat(15000) + secret;
+  const followup = '😀'.repeat(15000) + secret;
+  const f = await fixture({
+    requestText: original,
+    secrets: () => [{ what: 'synthetic credential', value: secret }],
+    turn: async () => answer([{ name: 'continue_task', arguments: { text: followup } }]),
+  });
+  try {
+    f.submit();
+    await settle();
+    assert.equal(f.instructions, 1);
+    const delivered = f.instructionTexts[0];
+    assert.ok(delivered);
+    assert.ok(
+      delivered.length > 32000,
+      'UTF-16 length must not incorrectly refuse valid Unicode codepoints',
+    );
+    assert.ok(!delivered.includes(secret));
+    assert.equal(delivered.split('[redacted: synthetic credential]').length - 1, 2);
+    assert.ok(delivered.includes('界'.repeat(15000)) && delivered.includes('😀'.repeat(15000)));
+  } finally {
     await f.close();
   }
 });

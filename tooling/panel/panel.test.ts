@@ -401,6 +401,41 @@ describe('production native agent panel', () => {
       }
     }
   });
+  test('native request receipts distinguish observed turn outcome, read evidence and human direction', () => {
+    const finished = {
+      status: 'confirmed',
+      command_id: 'synthetic-command',
+      runtime_status: 'completed',
+      tool_name: 'continue_task',
+    };
+    assert.equal(
+      run('workspace_receipt', JSON.stringify(finished)),
+      'Turn finished\nSoftware changes remain unverified.',
+    );
+    assert.equal(
+      run(
+        'workspace_receipt',
+        JSON.stringify({
+          ...finished,
+          command_id: null,
+          runtime_status: null,
+          tool_name: 'read_results',
+        }),
+      ),
+      'Read confirmed',
+    );
+    assert.equal(
+      run(
+        'workspace_receipt',
+        JSON.stringify({ ...finished, runtime_status: null, tool_name: 'person_response' }),
+      ),
+      'Direction recorded',
+    );
+    assert.equal(
+      run('workspace_receipt', JSON.stringify({ ...finished, status: 'failed' })),
+      'failed',
+    );
+  });
   test('native workspace offer and exact request consumer accept canonical producer fields and reject foreign or malformed records', () => {
     const offer = { availability: 'available', model: 'synthetic-model', served: 'this_mac' };
     assert.equal(compileValidator(WorkspaceAgentStatus)(offer).ok, true);

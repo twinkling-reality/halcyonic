@@ -183,7 +183,9 @@ namespace Halcyonic.Client
                 if (request!.Steps.Count == 0) return words.Then(LineWords.Ours("No actions have been recorded."));
                 if (request.EarlierSteps > 0) words = words.Then(LineWords.Written(request.EarlierSteps + " earlier actions are retained on the computer.\n"));
                 foreach (var step in request.Steps)
-                    words = words.Then(LineWords.Written("\n" + ReceiptWords(step.Status.ToString(), step.CommandId != null) + "\n"))
+                    words = words.Then(LineWords.Written("\n" + ReceiptWords(step) + "\n"))
+                        .Then(step.CommandId != null && step.RuntimeStatus != null && step.Status.ToString() == "confirmed"
+                            ? LineWords.Written("Software changes remain unverified.\n") : LineWords.None)
                         .Then(LineWords.Theirs(step.Summary)).Then(LineWords.Written("\n"));
                 return words;
             }
@@ -193,9 +195,10 @@ namespace Halcyonic.Client
             else result = result.Then(LineWords.Ours("No reply has been recorded yet."));
             return result;
         }
-        private static string ReceiptWords(string status, bool command) => status switch
+        private static string ReceiptWords(WorkspaceRequestStep step) => step.Status.ToString() switch
         {
-            "prepared" => "Not sent", "running" => command ? "Sent" : "Reading", "waiting" => "Waiting", "confirmed" => "Confirmed",
+            "prepared" => "Not sent", "running" => step.CommandId != null ? "Sent" : "Reading", "waiting" => "Waiting", "confirmed" => step.ToolName == "person_response" ? "Direction recorded"
+                : step.CommandId != null && step.RuntimeStatus != null ? "Turn finished" : "Read confirmed",
             "rejected" => "Not sent", "failed" => "Failed", _ => "Unknown",
         };
         private static string StatusWords(string status) => status switch
