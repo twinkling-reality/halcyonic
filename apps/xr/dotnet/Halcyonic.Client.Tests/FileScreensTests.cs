@@ -321,6 +321,86 @@ public class FileScreensTests
         Assert.That(frame.Lines.Skip(1).Select(line => line.Action), Is.EqualTo(new[] { FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults }));
     }
 
+    [TestCase(false, false, 1, false)]
+    [TestCase(false, true, 1, false)]
+    [TestCase(true, false, 1, false)]
+    [TestCase(true, true, 1, false)]
+    [TestCase(true, true, 2, false)]
+    [TestCase(false, true, 2, true)]
+    [TestCase(true, true, 2, true)]
+    public void EveryActivityRouteRemainsReachableWithinRowAndPhysicalBudgets(bool physical, bool speak, int routeRows, bool notice)
+    {
+        PageBudget budget = physical ? HeightBudget.Of(TextSize.Larger, subjectRows: 2) : new RowBudget(4);
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = speak,
+            ShowTaskHereOffered = true, WorkspaceRequestOffered = true, ResultsOffered = true, CharacterColourOffered = true,
+            ShowTaskHereRows = routeRows, WorkspaceRequestRows = routeRows, ResultsRows = routeRows, CharacterColourRows = routeRows };
+        var workspace = Offering(Running().Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = new WorkspaceSteering(factory);
+        if (notice) screen.Notice = "Nothing was sent. Check the connection before trying again.";
+        var notices = 0;
+        var seen = new List<string>();
+        var first = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), budget);
+        Assert.That(first.Lines.First().Words, Is.EqualTo("No recorded activity yet."));
+        Assert.That(screen.Pages, Is.GreaterThan(1));
+        var count = screen.Pages;
+        for (var page = 0; page < count; page++)
+        {
+            var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), budget);
+            notices += frame.Lines.Count(line => line.Words == screen.Notice);
+            Assert.That(screen.Page, Is.EqualTo(page));
+            Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(4));
+            var used = 0f;
+            for (var index = 0; index < frame.Lines.Count; index++)
+            {
+                var line = frame.Lines[index];
+                used += line.Action == null ? budget.Words(line.Rows) : budget.Target(line.Rows);
+                if (index > 0) used += line.Action != null && frame.Lines[index - 1].Action != null ? budget.TargetGap : budget.LineGap;
+                if (line.Action != null && line.Action != Footer.NextPage) seen.Add(line.Action);
+            }
+            Assert.That(used, Is.LessThanOrEqualTo(budget.Room + 1e-6f), "complete final order including body pager fits");
+            Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(FileScreens.TellIt));
+            Assert.That(frame.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(FileScreens.Stop));
+            if (speak)
+            {
+                Assert.That(frame.Footer[PromptSlot.Secondary]!.Id, Is.EqualTo(FileScreens.HoldToTalk));
+                Assert.That(frame.Lines.Last().Action, Is.EqualTo(Footer.NextPage));
+            }
+            else Assert.That(frame.Footer[PromptSlot.Secondary]!.Id, Is.EqualTo(Footer.NextPage));
+            Assert.That(steering.Armed, Is.Null);
+            screen.NextPage();
+        }
+        Assert.That(notices, Is.EqualTo(notice ? 1 : 0), "the complete notice belongs to one measured page");
+        Assert.That(screen.Page, Is.Zero, "the existing pager cycles back to the truthful first page");
+        Assert.That(seen, Is.EqualTo(new[] { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults, FileScreens.OpenCharacterColour }));
+    }
+
+    [Test]
+    public void ActivityPagesRetainRecentRecordsAndClampAfterRoutesDisappear()
+    {
+        var present = Running().Present();
+        var entries = Enumerable.Range(1, 6).Select(index => new ActivityEntry(index, "2026-09-26T09:00:01.000Z", ActivityKind.Message, "Record " + index, true)).ToArray();
+        var workspace = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime,
+            present.Actions, present.Actions.Where(present.RequiresConfirmation).ToList(), present.Commands, entries);
+        var screen = new FileScreen { Section = FileSection.Activity, WorkspaceRequestOffered = true, ResultsOffered = true, CharacterColourOffered = true, ShowTaskHereOffered = true };
+        var steering = new WorkspaceSteering(factory);
+        var seen = new List<string>();
+        FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
+        var count = screen.Pages;
+        for (var page = 0; page < count; page++)
+        {
+            var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
+            seen.AddRange(frame.Lines.Where(line => line.Action == null).Select(line => line.Words));
+            Assert.That(frame.Lines.Where(line => line.Action == null).All(line => line.Runs.AllTheirs && line.Chip == "Agent says"), Is.True);
+            if (page + 1 < count) screen.NextPage();
+        }
+        Assert.That(seen, Is.EqualTo(new[] { "Record 3", "Record 4", "Record 5", "Record 6" }));
+        screen.WorkspaceRequestOffered = screen.ResultsOffered = screen.CharacterColourOffered = screen.ShowTaskHereOffered = false;
+        var reduced = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
+        Assert.That((screen.Page, screen.Pages), Is.EqualTo((0, 1)));
+        Assert.That(reduced.Lines.Count, Is.EqualTo(4));
+        Assert.That(reduced.Footer.All.Any(entry => entry.Prompt.Id == Footer.NextPage), Is.False);
+    }
+
     [Test]
     public void RecordedActivityPrecedesUtilityRoutesWithoutChangingProvenance()
     {
