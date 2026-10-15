@@ -82,3 +82,12 @@ does not establish simultaneous rendered project rows; a dedicated actual case i
 The integrated repository checks passed 1,195 tests with one optional runtime test skipped;
 C# checks passed 1,784. These checks do not clear the prior headset design rejection, invisible
 native-panel report, or pending live microphone and software build/open/restore acceptance.
+
+The multi-project source witness pumps a separate three-project snapshot through the actual
+session and production ProjectsColumn. It requires at least two distinct known project identities
+simultaneously drawn, then selects each shown row through the current production action route,
+checks its New task key and task ownership, returns to Projects, and opens the original project's
+exact existing task without sending work. It retains the shared actual text/target/field checks at
+both reading sizes. The earlier two-row arithmetic capacity assertion remains additional evidence
+only. Images are written beneath `SpatialWorkspaceRenders/multiple-projects` (and the Larger
+variant). This added fixture has not yet been executed; its source is not a completed render proof.
