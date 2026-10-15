@@ -129,10 +129,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     || Quaternion.Angle(initialRotation, director.Plane.Chrome.transform.rotation) > 0.01f)
                     failures.Add("ordinary small head turns/leans chased the reading object");
                 var stale = director.Plane.Showing(MenuColumn.File)!;
-                Retained("before pointer selection");
+                Retained("before head movement");
                 var send = director.Plane.GetComponentsInChildren<GlazeButton>(false).Single(button => button.Label.text == "Send instruction");
-                send.SettleForRender(); send.Target.PointerForRender(612, Oculus.Interaction.PointerEventType.Select, send.transform.position);
-                Retained("immediately after pointer selection, before head movement");
                 for (var step = 1; step <= 8; step++) { looking = Quaternion.Euler(0, step * 10, 0) * Vector3.forward; Tick(); }
                 var began = false; var recoveryDiagnosed = false;
                 for (var step = 0; step < 40; step++)
@@ -140,7 +138,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     Tick(redraw: true); // Identical passive redraws must not keep restarting the slide.
                     if (!director.FollowingForRender) continue;
                     began = true;
-                    if (!recoveryDiagnosed) { Retained("first recovery frame"); recoveryDiagnosed = true; }
+                    if (!recoveryDiagnosed)
+                    {
+                        // Ordinary Send activates on Select. Select only after movement has revoked authority;
+                        // its later release must not turn the denied pointer into a fresh settled action.
+                        send.SettleForRender(); send.Target.PointerForRender(612, Oculus.Interaction.PointerEventType.Select, send.transform.position);
+                        Retained("after denied pointer selection during recovery"); recoveryDiagnosed = true;
+                    }
                     if (director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, stale, null)
                         || director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, director.Plane.Showing(MenuColumn.File), null)
                         || director.Plane.Shown.Any(shown => shown.View.Targets.Any(button => button.Accepting()))
