@@ -81,7 +81,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         || item.View.ShownLines.Any(line => line.Model.Action == action && line.Model.Key == key && line.Model.Available));
                     if (target.View == null || !director.PressForRender(target.Kind, action, key,
                         target.View.Frame ?? target.View.InPlaceOf, target.View.Side))
-                        throw new InvalidOperationException("No current visible route for " + action);
+                        throw new InvalidOperationException("No current visible route for " + action + "; shown=" + string.Join(" | ", director.Plane.Shown.Select(item => (item.View.Frame?.Subject ?? item.View.Side?.Subject) + ":" + string.Join(",", item.View.ShownLines.Select(line => line.Model.Action)))));
                     Draw();
                 }
                 // Wizard/review callers use focused:false. Their page budget must still preserve
@@ -114,7 +114,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (page < review.PageCount - 1)
                     {
                         if (review.CanConfirm) failures.Add("Review offered confirmation before every part was read");
+                        var priorPage = review.Page;
+                        System.Threading.Thread.Sleep(TimeSpan.FromSeconds(NewWorkReview.NextPause + 0.05));
                         Press(NewProjectScreens.NextPart);
+                        if (review.Page != priorPage + 1)
+                            throw new InvalidOperationException("Visible review Next part did not advance after its reading pause: page=" + priorPage + ", now=" + review.Page);
                     }
                 }
                 if (!review.CanConfirm) failures.Add("The last actual review page never enabled explicit confirmation");
