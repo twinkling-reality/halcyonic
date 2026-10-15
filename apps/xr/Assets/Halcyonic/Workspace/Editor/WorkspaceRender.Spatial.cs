@@ -156,7 +156,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         (frame.Lines.Any(line => line.Action == action && line.Key == key && line.Available) ||
                          frame.Footer.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available)));
                     if (visible.View == null || !director.PressForRender(visible.Kind, action, key, visible.View.Frame, null))
+                    {
                         failures.Add("spatial: actual visible route refused " + action);
+                        Debug.LogError("Halcyonic: spatial route refused action=" + action + "; " + director.WorkspaceControlsStateForRender);
+                    }
                 }
                 void Shot(string name)
                 {
@@ -356,6 +359,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null) || syntheticLaunches != 1)
                         failures.Add("spatial: explicit Move mode accepted app-switch authority");
                     Draw();
+                    if (!director.Plane.Chrome.Targets.Any(button => button.gameObject.activeInHierarchy && button.Label.text == WorkspaceText.MoveWorkspace))
+                        Debug.LogError("Halcyonic: spatial expected Move after BeginMove; " + director.WorkspaceControlsStateForRender);
                     var move = director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace);
                     Click(move, 956);
                     if (director.Plane.Front?.Subject != "Move workspace") failures.Add("spatial: tapping Move reopened or replaced its explicit local mode");

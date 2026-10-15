@@ -593,6 +593,12 @@ namespace Halcyonic.XR.Workspace
         private double? followTimeForRender;
         public void FollowFrameForRender(double now) { followTimeForRender = now; Update(); }
         public bool FollowingForRender => workspaceFollow.Moving;
+        /// <summary>Bounded UI lifecycle metadata only; no project, instruction or agent text.</summary>
+        public string WorkspaceControlsStateForRender => "local-controls=" + (placement is PlacementColumn)
+            + ", column-moving=" + (placement is PlacementColumn controls && controls.Moving)
+            + ", move-mode=" + moveMode + ", dirty=" + dirty + ", compact=" + navigator.IsCompact + ", sliding=" + plane.Sliding
+            + ", chrome=" + string.Join("/", plane.Chrome.Targets.Where(button => button.gameObject.activeInHierarchy).Select(button => button.Label.text))
+            + ", actions=" + string.Join("/", plane.Front?.Lines.Select(line => line.Action ?? "none") ?? Array.Empty<string>());
 #endif
         private void RecoverWorkspace(double now)
         {
