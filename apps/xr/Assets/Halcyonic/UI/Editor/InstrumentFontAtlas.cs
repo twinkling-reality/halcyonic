@@ -22,27 +22,33 @@ namespace Halcyonic.XR.UI.Editor
         {
             try
             {
-                if (!File.ReadAllBytes("Assets/Halcyonic/UI/Fonts/Rajdhani/OFL.txt").SequenceEqual(
-                    File.ReadAllBytes("Assets/StreamingAssets/Halcyonic-Licenses/Rajdhani-OFL.txt")))
-                    throw new InvalidOperationException("The shipped title-font license differs from its source license.");
                 Build();
-                var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
-                if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null
-                    || !saved.HasCharacters(Characters) || saved.fallbackFontAssetTable.Count != 1
-                    || saved.fallbackFontAssetTable[0] != TMP_Settings.defaultFontAsset)
-                    throw new InvalidOperationException("The static title face or its reading fallback is incomplete.");
-                var root = new GameObject("Instrument type check");
-                try
-                {
-                    var title = GlazeText.Create(root.transform, "Selected work", GlazeType.Hero, Color.white, TextAlignmentOptions.TopLeft, 1);
-                    if (title.font != saved || title.richText || title.fontSize != GlazeTokens.FontSize(GlazeTokens.Units(Halcyonic.Client.Glaze.HeroDegrees)))
-                        throw new InvalidOperationException("The production title does not consume the bundled face and literal text policy.");
-                }
-                finally { UnityEngine.Object.DestroyImmediate(root); }
-                Debug.Log("Halcyonic: instrument type: static atlas, required glyphs, fallback and production title passed.");
+                ValidateSaved();
                 EditorApplication.Exit(0);
             }
             catch (Exception error) { Debug.LogError("Halcyonic: instrument type: " + error.Message); EditorApplication.Exit(1); }
+        }
+
+        /// <summary>Checks the saved production resource without rebuilding it or exiting the caller.</summary>
+        public static void ValidateSaved()
+        {
+            if (!File.ReadAllBytes("Assets/Halcyonic/UI/Fonts/Rajdhani/OFL.txt").SequenceEqual(
+                File.ReadAllBytes("Assets/StreamingAssets/Halcyonic-Licenses/Rajdhani-OFL.txt")))
+                throw new InvalidOperationException("The shipped title-font license differs from its source license.");
+            var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
+            if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null
+                || !saved.HasCharacters(Characters) || saved.fallbackFontAssetTable.Count != 1
+                || saved.fallbackFontAssetTable[0] != TMP_Settings.defaultFontAsset)
+                throw new InvalidOperationException("The static title face or its reading fallback is incomplete.");
+            var root = new GameObject("Instrument type check");
+            try
+            {
+                var title = GlazeText.Create(root.transform, "Selected work", GlazeType.Hero, Color.white, TextAlignmentOptions.TopLeft, 1);
+                if (title.font != saved || title.richText || title.fontSize != GlazeTokens.FontSize(GlazeTokens.Units(Halcyonic.Client.Glaze.HeroDegrees)))
+                    throw new InvalidOperationException("The production title does not consume the bundled face and literal text policy.");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+            Debug.Log("Halcyonic: instrument type: static atlas, required glyphs, fallback and production title passed.");
         }
 
         private static void Build()
