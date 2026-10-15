@@ -81,6 +81,7 @@ Shader "Halcyonic/Glaze Surface"
             float4 frag(v2f i) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(i);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float4 fill = UNITY_ACCESS_INSTANCED_PROP(Props, _Fill);
                 float4 edge = UNITY_ACCESS_INSTANCED_PROP(Props, _Edge);
                 float4 shape = UNITY_ACCESS_INSTANCED_PROP(Props, _Shape);
