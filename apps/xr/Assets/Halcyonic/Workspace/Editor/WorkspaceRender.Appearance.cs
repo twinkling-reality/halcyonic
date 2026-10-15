@@ -53,10 +53,10 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        /// <summary>Real production pages at both text sizes and presets, plus same-pose cache witnesses. No preferences are read or saved.</summary>
+        /// <summary>Real production pages at both text sizes and every preset, plus same-pose cache witnesses. No preferences are read or saved.</summary>
         public static void AppearanceCheck() => RunAppearance(true);
 
-        /// <summary>The current preview, apply, cancel, hidden-view and cache journeys alone, in both presets and sizes.</summary>
+        /// <summary>The current preview, apply, cancel, hidden-view and cache journeys alone, in every preset and both sizes.</summary>
         public static void AppearanceFlowCheck() => RunAppearance(false);
 
         private static void RunAppearance(bool includeGalleries)
@@ -114,7 +114,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             try
             {
-                foreach (var palette in new[] { GlazePalette.Default, GlazePalette.Graphite })
+                foreach (var palette in GlazePalette.Presets)
                 {
                     Glaze.SetPalette(palette);
                     failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
