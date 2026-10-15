@@ -233,7 +233,7 @@ namespace Halcyonic.Client
             NewProjectStep.YourIdea => "Your idea",
             NewProjectStep.Questions => "Questions",
             NewProjectStep.Recap => "Recap",
-            _ => "Build",
+            _ => "Start",
         };
 
         /// <summary>
