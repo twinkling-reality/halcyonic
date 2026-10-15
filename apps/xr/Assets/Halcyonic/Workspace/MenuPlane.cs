@@ -647,7 +647,8 @@ namespace Halcyonic.XR.Workspace
             if (panel != null) view.Show(panel, degrees, subject, pillRoom, Front.Pill, Front);
             else view.Show(Front, degrees, subject, pillRoom, stateInHeader: false);
             var body = ColumnOf(view);
-            var contentHeights = body.Heights.Concat(new[] { WorkspaceChromeView.SpatialFooter(SelectedMarks.Count) }).ToArray();
+            var provenanceHeight = WorkspaceChromeView.SpatialFooter(SelectedMarks.Count);
+            var contentHeights = provenanceHeight > 0f ? body.Heights.Concat(new[] { provenanceHeight }).ToArray() : body.Heights.ToArray();
             var focusedWork = fileFrame != null;
             var bodyColumn = 0;
             var reading = new PlaneColumn(body.Width, contentHeights);
