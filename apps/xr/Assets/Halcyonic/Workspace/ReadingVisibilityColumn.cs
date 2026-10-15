@@ -14,16 +14,17 @@ namespace Halcyonic.XR.Workspace
     {
         private readonly MenuFrame frame = new MenuFrame("Reading visibility check", new Footer(
             new Prompt(Footer.Close, "Return to workspace", GlazeIcon.Back, PromptKind.Close)), lines: new[] {
-                new PageLine("1 · Reading face", key: "reading-face", rows: 2),
-                new PageLine("2 · Opaque black / white", key: "reading-opaque", rows: 2),
-                new PageLine("3 · Room should show here", key: "reading-room", rows: 2),
+                new PageLine("1 · Material", key: "reading-face"),
+                new PageLine("2 · Opaque", key: "reading-opaque"),
+                new PageLine("3 · Translucent", key: "reading-room"),
             }).Focus();
         private readonly Shader opaqueShader, maskShader;
         private GameObject? patches;
         private Material? opaque, mask;
         private Mesh? mesh;
         private MenuFrame? drawn;
-        private bool? previousFocus;
+        private (bool AppFocus, bool Suspended, int EyeWidth, int EyeHeight)? previousMetadata;
+        public float PatchHeight { get; private set; }
         public ReadingVisibilityColumn(Shader opaqueShader, Shader maskShader)
         {
             this.opaqueShader = opaqueShader != null ? opaqueShader : throw new ArgumentNullException(nameof(opaqueShader));
@@ -40,8 +41,9 @@ namespace Halcyonic.XR.Workspace
         public void Said(string words) { }
         public void Tick()
         {
-            if (previousFocus == Application.isFocused) return;
-            previousFocus = Application.isFocused;
+            var metadata = (Application.isFocused, FocusGuard.InputSuspended, UnityEngine.XR.XRSettings.eyeTextureWidth, UnityEngine.XR.XRSettings.eyeTextureHeight);
+            if (previousMetadata == metadata) return;
+            previousMetadata = metadata;
             Debug.Log("Halcyonic: reading visibility comparison: frame=" + Time.frameCount
                 + ", app-focus=" + Application.isFocused + ", input-suspended=" + FocusGuard.InputSuspended
                 + ", eye-width=" + UnityEngine.XR.XRSettings.eyeTextureWidth + ", eye-height=" + UnityEngine.XR.XRSettings.eyeTextureHeight
@@ -50,7 +52,7 @@ namespace Halcyonic.XR.Workspace
         public void Paint(MenuPlane plane)
         {
             var view = plane.Shown.FirstOrDefault(item => item.View.Frame == frame).View;
-            if (view == null || plane.Opening(plane.Shown.First(item => item.View == view).Kind)) { HidePatches(); return; }
+            if (FocusGuard.InputSuspended || view == null || plane.Opening(plane.Shown.First(item => item.View == view).Kind)) { HidePatches(); return; }
             if (patches != null) return;
             patches = new GameObject("Synthetic reading comparison patches"); patches.transform.SetParent(view.transform, false);
             opaque = new Material(opaqueShader) { hideFlags = HideFlags.DontSave };
@@ -60,12 +62,18 @@ namespace Halcyonic.XR.Workspace
             {
                 if (row.Model.Key != "reading-face" && row.Model.Key != "reading-opaque" && row.Model.Key != "reading-room") continue;
                 var anchor = new GameObject(row.Model.Key); anchor.transform.SetParent(patches.transform, false);
-                anchor.transform.SetPositionAndRotation(row.Words.transform.position - row.Words.transform.up * GlazeText.LineHeight(row.Words) * row.Words.transform.lossyScale.y * 1.4f, row.Words.transform.rotation);
+                var lineHeight = GlazeText.LineHeight(row.Words);
+                PatchHeight = lineHeight * .7f;
+                // All three controls occupy the same right-aligned measured part of their own row.
+                // Text remains at the left; nothing is placed in an unallocated blank second line.
+                anchor.transform.SetPositionAndRotation(row.Words.transform.position
+                    + row.Words.transform.right * (row.Words.rectTransform.rect.width - .16f - MenuPage.Grid) * row.Words.transform.lossyScale.x
+                    - row.Words.transform.up * lineHeight * row.Words.transform.lossyScale.y / 2f, row.Words.transform.rotation);
                 anchor.transform.localScale = Vector3.one * (row.Words.transform.lossyScale.x / patches.transform.lossyScale.x);
                 if (row.Model.Key == "reading-face")
                 {
                     var face = Surface.Create(anchor.transform, "Production opaque witness", 35);
-                    face.DrawCoatedInstrument(new Vector2(.16f, .022f), .002f, GlazeTokens.ColorOf(Glaze.Panel));
+                    face.DrawCoatedInstrument(new Vector2(.16f, PatchHeight), .002f, GlazeTokens.ColorOf(Glaze.Panel));
                     face.transform.localPosition = new Vector3(.08f, 0f, -.003f);
                 }
                 else if (row.Model.Key == "reading-opaque")
@@ -80,7 +88,7 @@ namespace Halcyonic.XR.Workspace
         private void Quad(Transform parent, string name, float x, Color colour, Material material, float width = .08f)
         {
             var go = new GameObject(name); go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(x, 0, -.003f); go.transform.localScale = new Vector3(width, .022f, 1f);
+            go.transform.localPosition = new Vector3(x, 0, -.003f); go.transform.localScale = new Vector3(width, PatchHeight, 1f);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = go.AddComponent<MeshRenderer>(); renderer.sharedMaterial = material; renderer.sortingOrder = 35;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; renderer.receiveShadows = false;
@@ -94,7 +102,7 @@ namespace Halcyonic.XR.Workspace
             if (mask != null) { Release(mask); mask = null; }
             if (mesh != null) { Release(mesh); mesh = null; }
         }
-        public void FocusLeft() { drawn = null; HidePatches(); previousFocus = null; }
+        public void FocusLeft() { drawn = null; HidePatches(); previousMetadata = null; }
     }
 }
 #endif

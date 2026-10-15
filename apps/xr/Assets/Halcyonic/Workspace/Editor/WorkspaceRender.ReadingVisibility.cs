@@ -44,13 +44,24 @@ namespace Halcyonic.XR.Workspace.Editor
                 var frame = column.Frame;
                 plane.Show(new MenuBar(MenuPlace.Settings, "Development check"), null, frame, null, Array.Empty<CharacterTarget>(), eyes, Vector3.forward, null, immediately: true, fileColumn: column);
                 plane.Advance(MenuPlane.OpeningSeconds);
-                column.Drawn(frame, null); column.Paint(plane); ForceMeshes(root);
+                column.Drawn(frame, null); ForceMeshes(root); column.Paint(plane); ForceMeshes(root);
                 var image = Render(camera, target);
                 try
                 {
-                    foreach (var expected in new[] { (Name: "Production opaque witness", Alpha: 1f), (Name: "Opaque black", Alpha: 1f), (Name: "Opaque white", Alpha: 1f), (Name: "Known .15 alpha mask", Alpha: .15f) })
+                    foreach (var expected in new[] { (Name: "Production opaque witness", Row: "reading-face", Alpha: 1f), (Name: "Opaque black", Row: "reading-opaque", Alpha: 1f), (Name: "Opaque white", Row: "reading-opaque", Alpha: 1f), (Name: "Known .15 alpha mask", Row: "reading-room", Alpha: .15f) })
                     {
                         var shape = root.GetComponentsInChildren<Transform>(false).Single(part => part.name == expected.Name);
+                        var row = plane.Shown.Single().View.ShownLines.Single(line => line.Model.Key == expected.Row);
+                        var lineHeight = GlazeText.LineHeight(row.Words);
+                        foreach (var vertex in shape.GetComponent<MeshFilter>().sharedMesh.vertices)
+                        {
+                            var local = row.Words.transform.InverseTransformPoint(shape.TransformPoint(vertex));
+                            if (local.x < 0 || local.x > row.Words.rectTransform.rect.width || local.y > 0 || local.y < -lineHeight)
+                                failures.Add(expected.Name + ": actual patch escaped its allocated label row");
+                        }
+                        var patchLeft = row.Words.rectTransform.rect.width - .16f - MenuPage.Grid;
+                        if (row.Words.textBounds.max.x + MenuPage.Grid >= patchLeft)
+                            failures.Add(expected.Name + ": actual label glyphs overlap patch allocation");
                         var point = camera.WorldToScreenPoint(shape.position);
                         if (point.z <= 0 || point.x < 0 || point.y < 0 || point.x >= Size || point.y >= Size) { failures.Add(expected.Name + ": witness outside camera target"); continue; }
                         var pixel = image.GetPixel((int)point.x, (int)point.y);
