@@ -72,6 +72,7 @@ namespace Halcyonic.Client
         private MenuFrame? drawnColourFrame;
         private Func<bool>? colourAvailable;
         private Action? openCharacterColour;
+        private string? colourJournal, colourTask;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -127,7 +128,13 @@ namespace Halcyonic.Client
         public void OfferResults(Action open)
         { if (openResults != null) return; openResults = open; Screen.ResultsOffered = true; Rebuild(); }
         public void OfferCharacterColours(Func<bool> available, Action open)
-        { if (colourAvailable != null) return; colourAvailable = available; openCharacterColour = open; Rebuild(); }
+        {
+            if (colourAvailable != null) return;
+            colourAvailable = available; openCharacterColour = open;
+            colourJournal = host.State?.Journal?.JournalId; colourTask = Now?.Character.WorkstreamId; Rebuild();
+        }
+        private bool CanColour() => colourAvailable?.Invoke() == true && host.Connected && !host.Demonstration
+            && colourJournal != null && colourJournal == host.State?.Journal?.JournalId && colourTask == Now?.Character.WorkstreamId;
         public WorkspaceRequestContinuation? ContinuationRequest() => RequestView?.ExecutionId == Now?.Execution?.ExecutionId
             ? RequestView?.Draft : requestExecution == Now?.Execution?.ExecutionId && retainedRequest != null ? new WorkspaceRequestContinuation
             { RequestId = retainedRequest.RequestId, PendingCommandId = retainedRequest.PendingCommandId, Text = retainedRequest.Text, Spoken = retainedRequest.Spoken, Part = retainedRequest.Part } : null;
@@ -244,7 +251,9 @@ namespace Halcyonic.Client
                     if (taskWasDrawn && Frame?.Lines.Any(line => line.Action == id && line.Available) == true && CanShowTaskHere()) showTask?.Invoke();
                     return;
                 case FileScreens.OpenCharacterColour:
-                    if (drawnColourFrame == Frame && colourAvailable?.Invoke() == true && Frame?.Lines.Any(line => line.Action == id) == true) openCharacterColour?.Invoke();
+                    var colourWasDrawn = drawnColourFrame == Frame;
+                    drawnColourFrame = null;
+                    if (colourWasDrawn && CanColour() && Frame?.Lines.Any(line => line.Action == id && line.Available) == true) openCharacterColour?.Invoke();
                     return;
                 case FileScreens.OpenResults:
                     if (drawnResultsFrame == Frame && Frame?.Lines.Any(line => line.Action == id && line.Available) == true) openResults?.Invoke();
@@ -740,6 +749,7 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
+            drawnColourFrame = null;
             drawnResultsFrame = null;
             drawnShowTaskFrame = null;
             RequestView?.FocusLeft();
@@ -774,7 +784,6 @@ namespace Halcyonic.Client
         private void Rebuild()
         {
             drawnColourFrame = null;
-            Screen.CharacterColourOffered = colourAvailable?.Invoke() == true;
             drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;
             drawnResultsFrame = null;
@@ -790,6 +799,7 @@ namespace Halcyonic.Client
             if (leavingExecution != null && leavingExecution != presentation.Execution?.ExecutionId && ContinuationRequest() is WorkspaceRequestContinuation leavingRequest)
             { RequestDraftLeaving?.Invoke(leavingExecution, leavingRequest); DropRequest(); Surface = WorkspaceSurface.Task; }
             Now = presentation;
+            Screen.CharacterColourOffered = CanColour();
             drawnInstructionFrame = null;
             drawnInstructionNoticeFrame = null;
             if (Screen.Instruction.Open && Screen.Instruction.ExecutionId != presentation.Execution?.ExecutionId)

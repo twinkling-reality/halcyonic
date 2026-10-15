@@ -21,6 +21,10 @@ namespace Halcyonic.XR
         private const string DemonstrationResource = "HalcyonicDemonstration";
 
         private DemonstrationFallback? sessions;
+        private string? sourceConnectionKey;
+
+        /// <summary>Opaque local identity captured with the actual control-plane session, never from later preferences.</summary>
+        public string? SourceConnectionKey => sessions?.Current != null && ReferenceEquals(sessions.Current, sessions.ControlPlane) ? sourceConnectionKey : null;
         private ConnectionStatus loggedControlPlane = ConnectionStatus.Stopped;
         private ConnectionStatus loggedDemonstration = ConnectionStatus.Stopped;
         private DemonstrationReason? loggedReason;
@@ -73,6 +77,7 @@ namespace Halcyonic.XR
             };
             RealtimeSession? controlPlane = null;
             var target = ControlPlaneSettings.Target();
+            sourceConnectionKey = null;
             if (target == null)
             {
                 Log("no pairing and no access token, so no control plane is configured. Looked in: " + string.Join(", ", ControlPlaneSettings.TokenPaths()));
@@ -81,6 +86,8 @@ namespace Halcyonic.XR
             {
                 if (target.Pairing != null) Log("connecting over the network to the control plane paired at " + target.Pairing.Address);
                 controlPlane = target.CreateSession(client);
+                try { sourceConnectionKey = WorkspaceContinuity.ConnectionKey(target); }
+                catch (ArgumentException) { sourceConnectionKey = null; }
             }
             sessions = new DemonstrationFallback(controlPlane, () => LoadDemonstration(client));
             sessions.Start();
@@ -202,6 +209,7 @@ namespace Halcyonic.XR
             if (sessions == null) return;
             _ = sessions.StopAsync();
             sessions = null;
+            sourceConnectionKey = null;
         }
     }
 }
