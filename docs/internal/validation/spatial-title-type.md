@@ -24,3 +24,9 @@ production Hero consumer assertions. Unity then aborted during shutdown (exit 13
 content-generation evidence, not a successful process check. The final composition run must verify
 the saved atlas, both text sizes and actual full-context appearance. No headset acceptance or
 complete redesign is claimed by this foundation change.
+
+The subsequent complete first-composition fixture validated the saved atlas at both text sizes and
+exited cleanly with code 0. Its appearance was rejected during visual review; passing geometry and
+font checks does not establish design acceptance. A later narrow named-identity check preserves
+literal markup/backslash handling and outside ranges while checking upright identity → italic prose
+→ upright identity reuse against actual mesh vertices. That new check awaits its next Unity run.
