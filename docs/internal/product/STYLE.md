@@ -46,15 +46,24 @@ rule. It must cross no body or label. Zero-character use remains complete.
 
 ## Instrument material candidate — 2026-10-15
 
-The spatial candidate uses one physical reading material per subject, page and semantic chrome
-cluster, rather than supports behind individual words. Its inward rounded bevel and side mesh
-reflect an analytic neutral studio source from the actual eye direction. The reading centre stays
-opaque with a bounded smooth sheen; it does not blur or refract the room. There is no periodic
-face texture, glowing continuous outline or transparent-glass claim. The focused task's Projects
-icon remains beside its words without a circular prompt cap; its target and layout stay fixed.
-Other prompt caps keep their existing semantics. The study palette remains fixture-only, without
-changing any saved appearance key or default. Actual comparison and acceptance requirements are
-recorded in [instrument material validation](../validation/instrument-material-study.md).
+The fourth comparison's repeated bevelled rectangles was rejected. The spatial candidate now
+places one quiet, translucent smoked carrier behind the existing composition footprint. It adds
+no surrounding window controls or visible outer frame. A task's identity, sections and reading
+body share one continuous opaque reading region slightly in front of that carrier. Context and
+global controls have subordinate opaque supports fitted to their complete semantic word groups.
+They have no independent physical edges or outlines. The legacy rule below that each part owns
+its own rounded shape does not apply to this spatial composition.
+
+The carrier's bounded thickness and reflected-eye studio light are visible in empty margins and
+gutters. Those areas genuinely transmit the background; no full opaque rear plate defeats them.
+Opaque foreground reading supports shield words from that light and environmental contrast loss.
+This is an alpha-transmission/analytic-reflection model, without scene blur, refraction or captured
+room lighting. The selected Task/Project caption uses primary strong text after an actual resolved
+ink contrast failure; all words retain the4.5:1 check. The focused task's Projects icon remains
+beside its words without a circular cap; its target and layout stay fixed. Other prompt caps keep
+their semantics. The neutral palette remains fixture-only, without a saved-key or default change.
+Actual negative controls, selected-character context and acceptance requirements are recorded in
+[instrument material validation](../validation/instrument-material-study.md).
 
 ## The plane
 

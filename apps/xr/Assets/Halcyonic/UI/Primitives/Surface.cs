@@ -70,8 +70,10 @@ namespace Halcyonic.XR.UI
         private MaterialPropertyBlock? rimBlock;
         private Vector2 rimSize;
         private float rimRadius;
-        private const float Thickness = 0.012f; // In distance units: 5.5 mm at the normal 0.46 m plane.
+        private float rimDepth;
+        private const float Thickness = 0.006f; // In distance units: 2.8 mm at the normal 0.46 m plane.
         public float MaterialDepth => physical ? Thickness : 0f;
+        public bool OpticalCarrier => physical;
         public MeshRenderer? MaterialRim => physical ? rim : null;
 #if UNITY_EDITOR
         /// <summary>Same face and geometry allocation, without physical edge, for a negative render control.</summary>
@@ -126,13 +128,12 @@ namespace Halcyonic.XR.UI
         public void Draw(Vector2 size, float radius, Color fill, Color edge = default, float edgeWidth = 0f, float dash = 0f, float halftone = 0f)
         { physical = false; Shape(size, radius, fill, edge, edgeWidth, dash, halftone, Vector4.zero); }
 
-        /// <summary>A controlled reading substrate with a real inset bevel and rear edge. Its entire
-        /// mesh stays within the allocated face footprint and behind its reading face.</summary>
-        public void DrawInstrument(Vector2 size, float radius, Color fill)
+        /// <summary>A single translucent carrier behind independently opaque reading regions.
+        /// Empty margins really transmit the background; no opaque rear plate is added here.</summary>
+        public void DrawOpticalCarrier(Vector2 size, float radius, Color fill)
         {
             physical = true;
-            // Reading opacity is deliberate; glass is expressed at the edge, not through washed-out words.
-            fill.a = Mathf.Max(0.98f, fill.a);
+            fill.a = 0.26f;
             Shape(size, radius, fill, Color.clear, 0f, 0f, 0f, Vector4.zero);
         }
 
@@ -199,7 +200,7 @@ namespace Halcyonic.XR.UI
             block.SetVector(PatternId, new Vector4(dash, dash > 0f ? 0.5f : 0f, halftone, halftone * 0.3f));
             // The glass's light and sheen fade with the shape.
             block.SetVector(GlassId, new Vector4(glass.x * opacity, glass.y, glass.z * opacity, glass.w));
-            block.SetVector(PhysicalId, new Vector4(physical ? 1f : 0f, 0.004f, 0.10f * opacity, 0f));
+            block.SetVector(PhysicalId, new Vector4(physical ? 1f : 0f, 0f, 0.10f * opacity, 0f));
             shapeRenderer.SetPropertyBlock(block);
             UpdateRim(opacity);
         }
@@ -216,24 +217,24 @@ namespace Halcyonic.XR.UI
                 rim.sortingOrder = shapeRenderer.sortingOrder + 1;
             }
             rim.gameObject.SetActive(true);
-            if (rimMesh == null || rimSize != size || rimRadius != radius)
+            if (rimMesh == null || rimSize != size || rimRadius != radius || rimDepth != MaterialDepth)
             {
                 if (rimMesh != null) { if (Application.isPlaying) Destroy(rimMesh); else DestroyImmediate(rimMesh); }
-                rimSize = size; rimRadius = radius;
-                rimMesh = MakeRim(size, Mathf.Clamp(radius, 0f, Mathf.Min(size.x, size.y) / 2f));
+                rimSize = size; rimRadius = radius; rimDepth = MaterialDepth;
+                rimMesh = MakeRim(size, Mathf.Clamp(radius, 0f, Mathf.Min(size.x, size.y) / 2f), MaterialDepth, 0.001f);
                 rim.GetComponent<MeshFilter>().sharedMesh = rimMesh;
             }
             var properties = rimBlock ??= new MaterialPropertyBlock();
-            properties.SetVector(FillId, Linear(GlazeTokens.ColorOf(Glaze.Raised), opacity));
-            properties.SetVector(PhysicalId, new Vector4(1f, 0.004f, 0.10f * opacity, 1f));
+            properties.SetVector(FillId, Linear(GlazeTokens.ColorOf(Glaze.Raised, 0.45f), opacity));
+            properties.SetVector(PhysicalId, new Vector4(1f, 0f, 0.10f * opacity, 1f));
             rim.SetPropertyBlock(properties);
         }
 
-        private static Mesh MakeRim(Vector2 size, float radius)
+        private static Mesh MakeRim(Vector2 size, float radius, float depth, float bevel)
         {
             const int steps = 8, count = 4 * (steps + 1);
             var vertices = new Vector3[count * 3]; var triangles = new int[count * 12];
-            var inset = Mathf.Min(0.0035f, Mathf.Min(size.x, size.y) / 8f);
+            var inset = Mathf.Min(bevel, Mathf.Min(size.x, size.y) / 8f);
             for (var corner = 0; corner < 4; corner++)
             for (var step = 0; step <= steps; step++)
             {
@@ -245,8 +246,8 @@ namespace Halcyonic.XR.UI
                 var outer = centre + direction * radius;
                 var inner = centre + direction * Mathf.Max(0f, radius - inset) - Vector2.Scale(sign, Vector2.one * Mathf.Max(0f, inset - radius));
                 vertices[index] = new Vector3(inner.x / size.x, inner.y / size.y, 0f);
-                vertices[count + index] = new Vector3(outer.x / size.x, outer.y / size.y, Thickness * 0.2f);
-                vertices[2 * count + index] = new Vector3(outer.x / size.x, outer.y / size.y, Thickness);
+                vertices[count + index] = new Vector3(outer.x / size.x, outer.y / size.y, depth * 0.2f);
+                vertices[2 * count + index] = new Vector3(outer.x / size.x, outer.y / size.y, depth);
                 var next = (index + 1) % count;
                 for (var strip = 0; strip < 2; strip++)
                 {

@@ -170,3 +170,50 @@ NetCoreRuntime/DotNetSdkRoslyn compiler and existing Unity assembly references. 
 and Newtonsoft/netstandard compatibility warnings remain; no shader or actual render result is
 implied by this compile. The older Mono compiler was unsuitable for the existing target-typed
 source, so its language errors were not treated as product defects.
+
+
+## Structural source revision after rejected fourth comparison
+
+The fourth actual comparison fixed the Projects icon backing. Two Identity kind resolved-ink
+checks still reached only4.47:1, so the selected Task/Project caption now uses primary strong text.
+The4.5:1 whole-bounds and resolved-core thresholds remain unchanged. Root rejected the actual
+appearance: five independently bevelled charcoal rectangles still read as a flat form. The retained
+Titanfall and running-HUD references were viewed again. Their useful common feature is a coherent
+optical field and information belonging to a subject, not repeated decorative glass cards.
+
+The spatial workspace now has exactly one physical optical carrier in its existing complete
+allocation. Its face has0.26 base alpha and its real mesh is0.006 distance units thick (2.8mm at
+0.46m), with a0.001 inward bevel. It sits0.006 units behind the chrome's normal reading plane.
+The actual measured reading/carrier separation must be between1mm and8mm in the fixture, and
+bounded real eye movement must produce nonzero relative image parallax. No target geometry or
+text layout is moved to invent that depth. Its virtual studio reflection is smooth and neutral;
+the face's reflected contribution is bounded to0.22, with opacity increasing with reflection.
+The narrow real edge is subordinate; no all-around glowing outline or periodic pattern is added.
+
+The subject, sections and content share one continuous opaque reading field, with no separate
+subject/tab plate or rim. The opaque rear body plate is removed. Header and footer supports fit
+whole semantic glyph groups with0.005-unit padding clipped to their reserved allocations; there
+are no per-word boxes or independent bevels. Every such support uses the opaque authored panel
+fill. Opaque reading regions occlude the carrier's reflected light behind glyphs. Empty carrier
+margins and gutters have no opaque rear geometry and genuinely transmit their background. This
+is neither environmental reflection nor scene blur/refraction, and the actual first-glance result
+can still look like dark reading regions on a window. Source arithmetic cannot accept it.
+
+The fixture requires exactly one physical carrier and three opaque unbevelled reading groups
+for its focused-task scenario. It samples geometry-selected interior empty points beyond the
+reading groups' filtering fringes at identical positions in bright/dark scenes; every paired
+sample must preserve at least0.25 average RGB background contribution. The actual flat control
+removes physical thickness and optical shading while preserving composition, text, palette and
+base transparency. At least three interior empty samples must visibly differ, independently of
+the retained overall pixel-difference floor, so brightening only the edge cannot establish proof.
+All critical text backing/resolved-ink and strict field/target checks remain. The existing
+SpatialWorkspaceCheck selected-character/connector image is also required: the centred isolated
+material fixture alone does not establish contextual diegesis or a coherent work object.
+
+The obsolete opaque-instrument drawing entry point and unconsumed tab material were removed,
+rather than retained as speculative modes. Actual new shader execution, all contrast/transmission/
+negative controls, selected-character comparison and wearer acceptance remain pending.
+
+The structural candidate's aggregate editor C# compile passed on the installed Unity6000.3.25f1
+NetCoreRuntime/DotNetSdkRoslyn compiler with the existing nullable and assembly warnings only.
+That compile does not execute the shader, geometry-selected transmission probes or contrast checks.

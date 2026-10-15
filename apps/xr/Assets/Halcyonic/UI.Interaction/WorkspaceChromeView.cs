@@ -165,8 +165,9 @@ namespace Halcyonic.XR.UI
             gameObject.SetActive(true);
             Size = new Vector2(width, totalHeight);
             frame.gameObject.SetActive(true);
-            frame.Draw(new Vector2(width, totalHeight), 0f, Color.clear);
-            frame.transform.localPosition = Vector3.zero;
+            frame.DrawOpticalCarrier(new Vector2(width, totalHeight), GlazeTokens.Units(0.8f), GlazeTokens.ColorOf(Glaze.Panel));
+            // Separate reading plane and carrier have real, bounded depth under head motion.
+            frame.transform.localPosition = new Vector3(0f, 0f, 0.006f);
             heading.gameObject.SetActive(false); rule.gameObject.SetActive(false);
             status.gameObject.SetActive(false);
             var gap = MenuPage.TargetGap;
@@ -222,20 +223,58 @@ namespace Halcyonic.XR.UI
             // One quiet material for each semantic cluster, not an individual word sticker.
             while (contrastSupports.Count < 3) contrastSupports.Add(Surface.Create(transform, "Grouped chrome material", 21));
             var headerHeight = SpatialTop - gap;
-            contrastSupports[0].DrawInstrument(new Vector2(width, headerHeight), GlazeTokens.Units(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
+            contrastSupports[0].Draw(new Vector2(width - 0.008f, headerHeight), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
             contrastSupports[0].transform.localPosition = new Vector3(0f, top - headerHeight / 2f, 0.0001f);
-            contrastSupports[1].DrawInstrument(new Vector2(contentWidth, SpatialBase - gap), GlazeTokens.Units(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
+            contrastSupports[1].Draw(new Vector2(contentWidth - 0.008f, SpatialBase - gap), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
             contrastSupports[1].transform.localPosition = new Vector3(contentLeft + contentWidth / 2f, -totalHeight / 2f + (SpatialBase - gap) / 2f, 0.0001f);
             contrastSupports[2].gameObject.SetActive(!focusedWork);
             if (!focusedWork)
             {
                 var railHeight = MenuPage.Target() * 4f + gap * 3f;
-                contrastSupports[2].DrawInstrument(new Vector2(SpatialRail, railHeight), GlazeTokens.Units(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
+                contrastSupports[2].Draw(new Vector2(SpatialRail - 0.008f, railHeight), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
                 contrastSupports[2].transform.localPosition = new Vector3(left + SpatialRail / 2f, top - SpatialTop - railHeight / 2f, 0.0001f);
             }
             contrastSupports[0].gameObject.SetActive(true); contrastSupports[1].gameObject.SetActive(true);
+            // Fit whole semantic groups, never individual word stickers. The translucent carrier
+            // remains visible through each group's reserved empty breathing room.
+            var headerWords = new List<TMP_Text> { connection };
+            if (context.gameObject.activeSelf) headerWords.Add(context);
+            if (product.gameObject.activeSelf) headerWords.Add(product);
+            if (focusedWork) { headerWords.Add(projects.Label); if (projects.Icon != null) headerWords.Add(projects.Icon); }
+            FitReadingGroup(contrastSupports[0], headerWords);
+            var footerWords = new List<TMP_Text> { move.Label, apps.Label, minimize.Label };
+            if (provenance.gameObject.activeSelf) footerWords.Add(provenance);
+            FitReadingGroup(contrastSupports[1], footerWords);
             foreach (var button in Targets)
                 if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
+        }
+
+        private void FitReadingGroup(Surface surface, IEnumerable<TMP_Text> words)
+        {
+            var allocation = surface.Size;
+            var centre = surface.transform.localPosition;
+            var left = float.PositiveInfinity; var right = float.NegativeInfinity;
+            var bottom = float.PositiveInfinity; var top = float.NegativeInfinity;
+            foreach (var word in words)
+            {
+                word.ForceMeshUpdate();
+                var bounds = word.textBounds;
+                foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                {
+                    var point = transform.InverseTransformPoint(word.transform.TransformPoint(new Vector3(x, y, 0f)));
+                    left = Mathf.Min(left, point.x); right = Mathf.Max(right, point.x);
+                    bottom = Mathf.Min(bottom, point.y); top = Mathf.Max(top, point.y);
+                }
+            }
+            if (float.IsInfinity(left)) return;
+            const float padding = 0.005f;
+            left = Mathf.Max(centre.x - allocation.x / 2f, left - padding);
+            right = Mathf.Min(centre.x + allocation.x / 2f, right + padding);
+            bottom = Mathf.Max(centre.y - allocation.y / 2f, bottom - padding);
+            top = Mathf.Min(centre.y + allocation.y / 2f, top + padding);
+            surface.Draw(new Vector2(right - left, top - bottom), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
+            surface.transform.localPosition = new Vector3((left + right) / 2f, (bottom + top) / 2f, centre.z);
         }
 
         public void Hide()

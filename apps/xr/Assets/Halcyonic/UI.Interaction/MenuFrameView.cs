@@ -127,7 +127,6 @@ namespace Halcyonic.XR.UI
         private Surface unifiedPlate = null!;
         private Surface unifiedBacking = null!;
         private float UnifiedSections => sectionsPart.gameObject.activeSelf ? GlazeButton.HeightOf(true) : 0f;
-        private Surface? tabMaterial;
         private float UnifiedGap => U(0.35f);
 
         private Vector3 subjectPlateAt;
@@ -828,6 +827,8 @@ namespace Halcyonic.XR.UI
             identityCaption.gameObject.SetActive(namedIdentity);
             if (namedIdentity)
             {
+                identityCaption.color = GlazeTokens.Text;
+                GlazeText.SetStrong(identityCaption, true);
                 GlazeText.SetLiteral(identityCaption, identityKind == MenuIdentityKind.Task ? "Task" : "Project");
                 GlazeText.Lay(identityCaption, room / 2f, 1);
                 identityCaption.transform.localPosition = new Vector3(left, subjectHeight / 2f - reserve, -U(0.06f));
@@ -1343,23 +1344,12 @@ namespace Halcyonic.XR.UI
             subjectPlate.gameObject.SetActive(false);
             content.gameObject.SetActive(false);
             foreach (var sectionView in sections) sectionView.Shape.gameObject.SetActive(false);
-            tabMaterial ??= Surface.Create(unifiedPart, "Grouped task tab material", Order);
-            tabMaterial.gameObject.SetActive(section > 0f);
-            if (section > 0f)
-            {
-                tabMaterial.DrawInstrument(new Vector2(width, section), U(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
-                tabMaterial.transform.localPosition = sectionsPart.localPosition + new Vector3(0f, 0f, 0.0001f);
-            }
-            // The heading belongs to the work; its reading body is the only full surface.
-            // Keep the rear contact dark: a white slab behind translucent glass washes the whole
-            // instrument gray, defeating both the palette and the separation of reading levels.
-            subjectPlate.gameObject.SetActive(true);
-            subjectPlate.transform.localPosition = Vector3.zero;
-            subjectPlate.DrawInstrument(new Vector2(width, subjectHeight), U(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
-            unifiedPlate.DrawInstrument(new Vector2(width, body), U(0.4f), GlazeTokens.ColorOf(Glaze.Panel, 0.98f));
-            unifiedPlate.transform.localPosition = new Vector3(0f, contentPart.localPosition.y, 0f);
-            unifiedBacking.Draw(new Vector2(width, body), U(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
-            unifiedBacking.transform.localPosition = new Vector3(0f, contentPart.localPosition.y, 0.008f / PlaneComposition.Distance);
+            // One uninterrupted reading plane: identity, sections and content belong to the
+            // same work. The chrome owns the translucent carrier behind this opaque region.
+            subjectPlate.gameObject.SetActive(false);
+            unifiedPlate.Draw(new Vector2(width - 0.008f, total), U(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
+            unifiedPlate.transform.localPosition = Vector3.zero;
+            unifiedBacking.gameObject.SetActive(false);
         }
 
         private void Collect()
