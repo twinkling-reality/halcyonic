@@ -17,7 +17,8 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 The owner's headset review rejected the stacked menu composition. The candidate gives an open
 task one reading column; its details replace that column and return to its retained draft. Only
 Projects remains as a place-navigation control while a task is open. The project chooser exposes
-Projects, Tasks, Usage and Settings as quiet icon-and-text controls beside its reading surface.
+Projects, Tasks, Usage and Settings as one bounded navigation row above its reading surface.
+The chooser and a focused task use the same reading-column width; no empty navigation column is allocated.
 Move, Other apps and Minimize remain along the base, with provenance on its own line below them.
 Context and task share the coated reading face described below; hierarchy replaces repeated
 bright glass frames.
@@ -30,10 +31,9 @@ older layout below describes that legacy system. The actual spatial fixtures use
 task instruction, pending approval, question, Results and Appearance frames and actions,
 with explicit synthetic data. It adds no work capability or automatic character arrangement.
 Known task titles and project-detail names carry explicit `MenuIdentityKind` metadata. In this
-candidate only, the header has a separate host-owned Task or Project caption and an upright
-literal name whose outside-text ranges remain intact. Generic `SubjectIsData` does not opt in;
-agent prose, questions, tool text and approvals keep their existing provenance treatment. The
-caption shares the measured state-badge row, with the state badge at the header's other edge.
+candidate only, the header has an upright literal name whose outside-text ranges remain intact.
+It omits the redundant Task/Project eyebrow; project context and the state badge carry that context. Generic `SubjectIsData` does not opt in;
+agent prose, questions, tool text and approvals keep their existing provenance treatment. The state badge retains its measured header allocation.
 Readability, full decision text, action authority, local drafts, target size and measured field
 remain requirements. A quieter frame and a different font alone do not establish acceptance.
 
@@ -55,7 +55,9 @@ allocated footprint. There is no surrounding transparent carrier, inner opaque p
 material rim or periodic face texture. This analytic optical response does not capture room
 reflection, refract or blur the scene, or transmit passthrough through the reading face.
 
-The global utility dock is separate, quiet and fitted to its complete semantic group. The complete
+The global organization controls sit in a recessed near-edge region of the same opaque object.
+A narrow physical edge connects its full composition and is repeated on the minimized object.
+No detached word-fitted utility rectangle is drawn. The complete
 geometry/input allocation remains separate from the visual face, preserving target dimensions,
 placement bounds and character/connector ownership. The legacy rule below that each part owns its
 own rounded shape does not apply to this spatial composition. Activity records and its truthful
@@ -68,15 +70,15 @@ border; the badge's outer size and stage icons are unchanged. Host-owned, nonpen
 facts use primary ink on the spatial coated face. Outside text, provenance and semantic state tones
 retain their treatments; unavailable words keep their declared unavailable treatment.
 
-The Task/Project caption uses primary strong text. Small navigation/context, reached sections,
-utility labels and chevrons use primary ink; size and position retain their hierarchy. Unreached
-sections remain unavailable in the quiet secondary role. Selection on the coated face uses a
-6-percent white lift with the existing selected frame. Spatial filled/listening prompt caps are
-rounded squares within the original cap bounds, shielding their complete icon rectangle. Presses
-keep that coverage fixed and brighten the cap; spatial listening pulses the cap light while its
-microphone keeps its normal size. Keep things still leaves a steady active cap. Legacy round
-prompts retain their existing shrink/glyph-pulse feedback. The focused task's Projects icon and ordinary spatial footer prompts keep their icon/text layout
-and target without circular caps. The spatial footer has no subpixel decorative divider.
+Small navigation/context, reached sections, utility labels and chevrons use primary ink; size
+and position retain their hierarchy. Unreached sections remain unavailable in the quiet secondary
+role. Selection on the coated face uses a 6-percent white lift with the existing selected frame.
+Spatial task-footer actions have a full opaque rest boundary matching their target. One whole
+control carries the main action's accent container/foreground; secondary controls use Control and
+Outline. Icons stand inside that boundary without a second cap. Pressing depresses the complete
+boundary; hover adds its focus edge. Legacy component fixtures keep their cap treatment. The
+spatial footer has no decorative divider. Position and availability still follow the existing
+Close/rare/secondary/main command contract; rendering never changes approval or send authority.
 
 Material rendering does not redefine historical preset values or saved appearance keys. Palette
 selection and default adoption follow the Colour section independently of the coating. Every
@@ -616,10 +618,9 @@ The selected task occupies one reading column. Its Projects control returns to t
 chooser; the chooser carries Projects, Tasks, Usage and Settings. Those destinations do not
 remain a second rail beside an open task. Project context stays above the work, system controls
 below it, and practice/recorded provenance has its own reserved line clear of those targets.
-The named heading reserves two grid steps beyond the badge inset between its caption and Hero
-name; pagination and actual layout use the same inset, including larger-text SDF bounds.
+The named heading reserves its badge inset and Hero name; pagination and actual layout use the same inset, including larger-text SDF bounds.
 Context, named heading, sections and reading body share the opaque coated face, without a folder
-tab, clear rear carrier or independently backed internal plates. The quiet utility dock is separate.
+tab, clear rear carrier or independently backed internal plates. The organization edge is contained within that same face.
 This composition remains a candidate until actual full-context and wearer validation pass.
 
 The focused work object's context row reserves one full Projects target in height. Project and
@@ -642,3 +643,12 @@ control native Android panel placement. A moving or settling reading object acce
 frame input; its exact local drafts/pages survive and require a fresh physical draw. Keep things
 still uses an immediate content reposition with the same input settling. Candidate timings and
 translation tolerances require an actual wearer check; renderer success alone is not comfort.
+
+The October 15 work-object candidate removes the chooser side rail and its unused horizontal
+space. Four complete, separated navigation targets share the chooser header; task focus keeps
+only the Projects return. The matching page-height calculation includes this header and the
+contained organization edge. Its spatial proof checks the actual row geometry, single column,
+full title provenance/bounds and whole-action rest backing, including an icon-only negative.
+This candidate has not yet passed actual Unity rendering or wearer review; earlier coating
+evidence does not establish these new compositions. No character is enabled or moved by this
+change, and the existing character-placement and connector guarantees remain unchanged.

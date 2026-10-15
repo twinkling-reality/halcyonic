@@ -641,10 +641,9 @@ namespace Halcyonic.XR.Workspace
             var body = ColumnOf(view);
             var contentHeights = body.Heights.Concat(new[] { WorkspaceChromeView.SpatialBase }).ToArray();
             var focusedWork = fileFrame != null;
-            var bodyColumn = focusedWork ? 0 : 1;
-            var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);
+            var bodyColumn = 0;
             var reading = new PlaneColumn(body.Width, contentHeights);
-            Composition = new PlaneComposition(focusedWork ? new[] { reading } : new[] { rail, reading }, zoom, WorkspaceChromeView.SpatialHeader(focusedWork));
+            Composition = new PlaneComposition(new[] { reading }, zoom, WorkspaceChromeView.SpatialHeader(focusedWork));
             Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
             Moved = moved;
             Direction = MenuDrag.Turned(Placed, moved);

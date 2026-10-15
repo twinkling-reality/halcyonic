@@ -315,7 +315,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
                     if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
                         failures.Add("spatial: character title did not return when Projects replaced its task");
-                    if (director.Plane.Composition?.Columns.Count != 2 || new[] { "Projects", "Tasks", "Usage", "Settings" }.Any(words =>
+                    if (director.Plane.Composition?.Columns.Count != 1 || new[] { "Projects", "Tasks", "Usage", "Settings" }.Any(words =>
                         !director.Plane.Chrome.Targets.Single(button => button.Label.text == words).gameObject.activeInHierarchy))
                         failures.Add("spatial: actual Projects target did not return the complete chooser navigation");
                     if (director.Navigator.Place != MenuPlace.Projects || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
@@ -430,6 +430,36 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
             failures.AddRange(GlazeChecks.TargetsLargeEnough(view.Targets.Concat(plane.Chrome.Targets), eyes, name));
+            // The visible rest face must describe the full actionable region, not just its icon.
+            bool Bounded(GlazeButton target) => target.SelectionSurface.Fill.a >= 0.98f
+                && Vector2.Distance(target.SelectionSurface.Size, target.Size) < 0.0001f;
+            foreach (var (_, target) in view.Footer.Shown)
+            {
+                target.PaintForRender(false, false);
+                if (!Bounded(target)) failures.Add(name + ": task action has no complete visible rest boundary: " + target.Label.text);
+                try
+                {
+                    target.BoundedPrompt = false; target.PaintForRender(false, false);
+                    if (Bounded(target)) failures.Add(name + ": affordance negative accepted an icon-only action");
+                }
+                finally { target.BoundedPrompt = true; target.PaintForRender(false, false); }
+            }
+            if (plane.Shown[0].Kind == MenuColumn.Menu)
+            {
+                var navigation = plane.Chrome.Targets.Where(target => target.gameObject.activeInHierarchy
+                    && new[] { "Projects", "Tasks", "Usage", "Settings" }.Contains(target.Label.text)).ToList();
+                if (plane.Composition.Columns.Count != 1 || navigation.Count != 4)
+                    failures.Add(name + ": chooser navigation retained an empty side column or lost a route");
+                for (var i = 1; i < navigation.Count; i++)
+                {
+                    var before = plane.Chrome.transform.InverseTransformPoint(navigation[i - 1].transform.position);
+                    var at = plane.Chrome.transform.InverseTransformPoint(navigation[i].transform.position);
+                    if (Mathf.Abs(before.y - at.y) > 0.0001f
+                        || at.x - navigation[i].Size.x / 2f < before.x + navigation[i - 1].Size.x / 2f + MenuPage.TargetGap - 0.0001f)
+                        failures.Add(name + ": chooser navigation does not share a separated local header row");
+                }
+            }
+
             failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
             var headerTexts = plane.Chrome.GetComponentsInChildren<TMPro.TMP_Text>(false);
             var contextText = headerTexts.SingleOrDefault(label => label.name == "Project and task");
@@ -443,35 +473,15 @@ namespace Halcyonic.XR.Workspace.Editor
             var named = view.Side?.IdentityKind ?? view.Frame?.IdentityKind;
             if (named != null)
             {
-                var caption = view.GetComponentsInChildren<TMPro.TMP_Text>(false).SingleOrDefault(label => label.name == "Identity kind");
-                if (caption == null || caption.text != (named == MenuIdentityKind.Task ? "Task" : "Project"))
-                    failures.Add(name + ": named work identity lacks its fixed host caption");
                 var title = view.SubjectShown.Title;
-                if (caption != null)
+                if (string.IsNullOrWhiteSpace(title.text)) failures.Add(name + ": work identity has no readable title");
+                var bounds = title.textBounds;
+                foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                foreach (var y in new[] { bounds.min.y, bounds.max.y })
                 {
-                    var titleSeen = GlazeChecks.Of("named title", eyes, title.gameObject);
-                    var captionSeen = GlazeChecks.Of("identity caption", eyes, caption.gameObject);
-                    if (captionSeen.Bottom < titleSeen.Top - 0.01f)
-                    {
-                        var captionBounds = caption.textBounds; var titleBounds = title.textBounds;
-                        failures.Add(name + ": identity caption overlaps its name; projected mesh caption bottom=" + captionSeen.Bottom.ToString("0.000")
-                            + ", title top=" + titleSeen.Top.ToString("0.000") + "; local TMP caption bounds=" + captionBounds
-                            + ", title bounds=" + titleBounds + "; subject positions caption=" + caption.transform.localPosition + ", title=" + title.transform.localPosition);
-                    }
-                    var titleSize = title.fontSize * title.transform.lossyScale.y / Vector3.Distance(eyes, title.transform.position);
-                    var captionSize = caption.fontSize * caption.transform.lossyScale.y / Vector3.Distance(eyes, caption.transform.position);
-                    if (titleSize <= captionSize) failures.Add(name + ": named work title does not lead its subordinate caption");
-                    foreach (var label in new TMPro.TMP_Text[] { caption, title })
-                    {
-                        var bounds = label.textBounds;
-                        foreach (var x in new[] { bounds.min.x, bounds.max.x })
-                        foreach (var y in new[] { bounds.min.y, bounds.max.y })
-                        {
-                            var point = view.Subject.InverseTransformPoint(label.transform.TransformPoint(new Vector3(x, y, 0f)));
-                            if (Mathf.Abs(point.x) > view.SubjectSize.x / 2f + 0.0001f || Mathf.Abs(point.y) > view.SubjectSize.y / 2f + 0.0001f)
-                                failures.Add(name + ": named header text exceeds its allocated subject bounds");
-                        }
-                    }
+                    var point = view.Subject.InverseTransformPoint(title.transform.TransformPoint(new Vector3(x, y, 0f)));
+                    if (Mathf.Abs(point.x) > view.SubjectSize.x / 2f + 0.0001f || Mathf.Abs(point.y) > view.SubjectSize.y / 2f + 0.0001f)
+                        failures.Add(name + ": named header text exceeds its allocated subject bounds");
                 }
                 if (GlazeRuns.Of(view.SubjectShown.Title).Theirs.Count == 0)
                     failures.Add(name + ": named identity lost outside-text provenance");
