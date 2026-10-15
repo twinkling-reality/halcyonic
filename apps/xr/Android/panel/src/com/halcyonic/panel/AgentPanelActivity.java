@@ -3,8 +3,10 @@ package com.halcyonic.panel;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -49,6 +51,7 @@ public class AgentPanelActivity extends Activity {
     private LinearLayout content;
     private PanelLoadingText connection;
     private TextView requestAvailability;
+    private TextView productHeading;
     private Button presentationButton;
     private LinearLayout developmentControls;
     private boolean compactPanel;
@@ -190,26 +193,34 @@ public class AgentPanelActivity extends Activity {
     private Button connectionButton(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false, true); }
     private Button button(LinearLayout parent, String label, Runnable action, boolean escape, boolean localConnection) {
         Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(18); button.setMinHeight(dp(52));
-        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; final int offeredGeneration = generation; button.setOnClickListener(view -> { if (visible && generation == offeredGeneration && review == owner && (localConnection ? !busy && authority.connectionInteract(id) : authority.interact(id, busy, escape))) { cancelVoice(); action.run(); } }); return button;
+        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, false); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; final int offeredGeneration = generation; button.setOnClickListener(view -> { if (visible && generation == offeredGeneration && review == owner && (localConnection ? !busy && authority.connectionInteract(id) : authority.interact(id, busy, escape))) { cancelVoice(); action.run(); } }); return button;
     }
-    private void styleButton(Button button, String label) {
-        GradientDrawable surface = new GradientDrawable();
-        boolean primary = label.startsWith("Send") || label.equals("Workspace") || label.startsWith("Review instruction");
-        surface.setColor(primary ? Color.rgb(35, 73, 126) : Color.rgb(26, 37, 54));
-        surface.setCornerRadius(dp(10)); surface.setStroke(dp(1), Color.rgb(75, 105, 145));
-        button.setBackground(surface); button.setTextColor(Color.rgb(238, 244, 255)); button.setPadding(dp(16), dp(10), dp(16), dp(10));
+    // Roles are assigned by the action site, never inferred from displayed or outside words.
+    private void styleButton(Button button, boolean primary) {
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[] {-android.R.attr.state_enabled}, controlFace(0xFF252D38, 0xFF556273));
+        states.addState(new int[] {android.R.attr.state_pressed}, controlFace(0xFF46566F, 0xFFEEF2F6));
+        states.addState(new int[] {android.R.attr.state_focused}, controlFace(0xFF3B4A61, 0xFFEEF2F6));
+        states.addState(new int[] {}, controlFace(primary ? 0xFF22324F : 0xFF303C4E, primary ? 0xFF7FA9F8 : 0xFF73839A));
+        button.setBackground(states);
+        button.setTextColor(new ColorStateList(new int[][] {new int[] {-android.R.attr.state_enabled}, new int[] {}}, new int[] {0xFF8A96A5, 0xFFEEF2F6}));
+        button.setPadding(dp(16), dp(10), dp(16), dp(10));
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2); layout.setMargins(0, dp(6), 0, dp(6)); button.setLayoutParams(layout);
+    }
+    private GradientDrawable controlFace(int fill, int outline) {
+        GradientDrawable surface = new GradientDrawable(); surface.setColor(fill);
+        surface.setCornerRadius(dp(10)); surface.setStroke(dp(1), outline); return surface;
     }
     private static String stateName(String value) { return PanelModel.stateName(value); }
     private void shell() {
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34));
-        text(root, "Halcyonic", 28);
+        productHeading = text(root, "Halcyonic", 28);
         connection = new PanelLoadingText(this); connection.setTextSize(16); connection.setPadding(0, dp(6), 0, dp(8));
         root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
         connection.setText("Connecting to your computer…");
         LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav);
         for (String name : new String[] {"Projects", "Workspace", "Other apps"}) {
-            Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
+            Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, false); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
                 if (!authority.navigate() || (busy && name.equals("Projects"))) return;
                 cancelVoice();
@@ -219,12 +230,12 @@ public class AgentPanelActivity extends Activity {
             });
         }
         presentationButton = new Button(this); presentationButton.setAllCaps(false); presentationButton.setMinHeight(dp(52));
-        styleButton(presentationButton, "Compact panel"); root.addView(presentationButton);
+        styleButton(presentationButton, false); root.addView(presentationButton);
         presentationButton.setOnClickListener(view -> { if (visible && authority.navigate()) changePresentation(!compactPanel); });
         presentationButton.setVisibility(View.GONE);
         developmentControls = new LinearLayout(this); developmentControls.setOrientation(LinearLayout.VERTICAL); root.addView(developmentControls);
         if (developmentAllowed && !preview) {
-            Button mode = new Button(this); mode.setText("Connection (development)"); mode.setAllCaps(false); styleButton(mode, "Connection (development)"); developmentControls.addView(mode);
+            Button mode = new Button(this); mode.setText("Connection (development)"); mode.setAllCaps(false); styleButton(mode, false); developmentControls.addView(mode);
             mode.setOnClickListener(v -> { if (!visible || busy || !authority.connectionInteract(0) || !saveState()) return; LinearLayout choices = dialog("Development connection");
                 text(choices, "Use the paired computer, or the existing USB development connection. Changing connection never changes its saved credential.", 18);
                 connectionButton(choices, "Use paired computer", () -> switchConnection(false));
@@ -263,7 +274,7 @@ public class AgentPanelActivity extends Activity {
         text(content, PanelJson.text(summary.get("source")), 16);
         long approvals = PanelJson.integer(summary.get("permissions"), 0, Long.MAX_VALUE);
         long questions = PanelJson.integer(summary.get("questions"), 0, Long.MAX_VALUE);
-        text(content, approvals + (approvals == 1 ? " permission request" : " permission requests") + " · "
+        if (approvals > 0 || questions > 0) text(content, approvals + (approvals == 1 ? " permission request" : " permission requests") + " · "
             + questions + (questions == 1 ? " agent question" : " agent questions"), 18);
         if (!PanelJson.bool(summary.get("has_agent"))) text(content, "No current agent. Start work in Workspace.", 18);
         if (requestPending != null) text(content, "The last workspace send is unconfirmed. Its original reference is retained.", 16);
@@ -574,7 +585,7 @@ public class AgentPanelActivity extends Activity {
         if (!developmentAllowed || preview) return;
         voiceEditor = editor; voiceRoute = route;
         voiceStatus = text(parent, "Hold to talk adds words locally. Review before sending.", 16);
-        Button held = new Button(this); voiceButton = held; held.setAllCaps(false); held.setMinHeight(dp(52)); styleButton(held, "Hold to talk");
+        Button held = new Button(this); voiceButton = held; held.setAllCaps(false); held.setMinHeight(dp(52)); styleButton(held, false);
         Runnable label = () -> { String words = editor.getText().toString(); String value = words.isEmpty() ? "Hold to talk" : "Hold to add words"; held.setText(value); held.setContentDescription(value); };
         label.run(); parent.addView(held);
         editor.addTextChangedListener(new TextWatcher() {
@@ -747,7 +758,8 @@ public class AgentPanelActivity extends Activity {
         // Project/task lists are local navigation, not restoration of hidden task action controls.
         if (workId == null && snapshot != null) authority.projected();
         presentationButton.setVisibility(workId == null ? View.GONE : View.VISIBLE);
-        presentationButton.setText(compactPanel ? "Expand task controls" : "Compact panel");
+        presentationButton.setText(compactPanel ? "Open task" : "Keep a small view");
+        productHeading.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
         presentationButton.setContentDescription(presentationButton.getText());
         developmentControls.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
         if (snapshot == null) return;
@@ -760,7 +772,7 @@ public class AgentPanelActivity extends Activity {
             }
             Map<String, Object> project = snapshot.projects.get(projectId);
             if (project == null) { projectId = null; show(); return; }
-            text(content, "Project · " + PanelText.plain(PanelJson.text(project.get("name"))), 23);
+            if (!compactPanel || workId == null) text(content, "Project · " + PanelText.plain(PanelJson.text(project.get("name"))), 23);
             if (workId == null) {
                 projectOutputControls();
                 text(content, "Tasks", 26);
@@ -1112,7 +1124,7 @@ public class AgentPanelActivity extends Activity {
     }
     private void gatedButton(LinearLayout root, LinearLayout body, ScrollView scroll, String label, PanelUiState.Context scope, Runnable next) {
         PanelUiState.Review ticket = authority.review(reviewOwner, scope); Dialog shown = review;
-        Button continueButton = button(root, label, () -> { if (review == shown && authority.authorize(ticket, actionContext())) next.run(); }); continueButton.setEnabled(false);
+        Button continueButton = button(root, label, () -> { if (review == shown && authority.authorize(ticket, actionContext())) next.run(); }); styleButton(continueButton, true); continueButton.setEnabled(false);
         Runnable read = () -> { if (review == shown && body.getHeight() > 0 && scroll.getHeight() > 0 && scroll.getScrollY() + scroll.getHeight() >= body.getHeight()) continueButton.setEnabled(authority.read(ticket)); };
         reviewReads.add(read); scroll.getViewTreeObserver().addOnScrollChangedListener(read::run); scroll.getViewTreeObserver().addOnGlobalLayoutListener(read::run); scroll.post(read);
     }

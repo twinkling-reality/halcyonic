@@ -380,3 +380,24 @@ Unity Editor and Android-symbol source compilation also pass. These checks estab
 lifecycle policy, not visible native pixels, real JNI preference storage or wearer acceptance.
 The native wait still needs an actual device observation while a permitted restoration read runs,
 including failure exit and the still preference.
+
+## Compact hierarchy and explicit control roles — October 15, 2026 candidate
+
+The selected compact view omits the repeated product heading and duplicate project heading, and
+omits the zero-permissions/zero-questions line. It retains task identity, actual state, source,
+nonzero attention counts, pending-send uncertainty and the last-read freshness message. **Open task**
+uses the same local expansion path and fresh-projection guard; **Keep a small view** uses the same
+save-before-hide path. This reduces content density; it does not resize or position the OS window.
+
+Button emphasis is assigned by its action site, never inferred from label text. In particular,
+outside project/task names cannot become primary buttons by starting with “Send”. Final reviewed
+continuations receive primary emphasis and remain disabled until the unchanged reading and
+current-authority checks allow them. Native rest, pressed, focused and disabled appearances use
+Android state lists, with disabled matched first. Source review found no command/authority changes.
+
+The Android API 36 production/development compilation and all 92 focused native checks passed.
+The state-list APIs were checked against the current official
+[StateListDrawable](https://developer.android.com/reference/android/graphics/drawable/StateListDrawable)
+and [ColorStateList](https://developer.android.com/reference/android/content/res/ColorStateList)
+references. Actual native visuals, hand focus, OS window placement and visibility beside video
+still need device validation; these source and JVM checks do not establish wearer acceptance.
