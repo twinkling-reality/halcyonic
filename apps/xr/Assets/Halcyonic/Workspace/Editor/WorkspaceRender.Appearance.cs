@@ -105,7 +105,35 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> AppearancePages(string folder, GlazePalette palette)
+        /// <summary>The actual appearance navigation and reversible palette flow in the spatial composition.</summary>
+        public static void SpatialAppearanceCheck()
+        {
+            InstrumentFontAtlas.ValidateSaved();
+            var before = Glaze.Palette;
+            var field = ViewField.Current;
+            var failures = new List<string>();
+            try
+            {
+                foreach (var palette in new[] { GlazePalette.Default, GlazePalette.Graphite })
+                {
+                    Glaze.SetPalette(palette);
+                    failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
+                    {
+                        var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "SpatialAppearanceRenders", palette.Key, variant));
+                        Directory.CreateDirectory(folder);
+                        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                        ViewField.Current = FieldChecks.Quest3S;
+                        return AppearancePages(folder, palette, spatialWorkspace: true);
+                    }));
+                }
+            }
+            finally { Glaze.SetPalette(before); ViewField.Current = field; KeepFontAssetsAsCommitted(); }
+            foreach (var failure in failures) Debug.LogError("Halcyonic: spatial appearance: " + failure);
+            if (failures.Count == 0) Debug.Log("Halcyonic: spatial appearance: every check passed");
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        private static List<string> AppearancePages(string folder, GlazePalette palette, bool spatialWorkspace = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Production Appearance pages");
@@ -123,6 +151,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var saves = 0;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
+                    SpatialWorkspace = spatialWorkspace,
                     State = () => state,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     Appearance = settings,
@@ -134,14 +163,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 void Shot(string name)
                 {
                     director.DrawNow();
-                    failures.AddRange(PlaneState("appearance " + name, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
+                    director.Plane.Advance(MenuPlane.OpeningSeconds);
+                    if (spatialWorkspace)
+                        failures.AddRange(SpatialState("appearance " + name, folder, root, camera, texture, director, characters, eyes));
+                    else failures.AddRange(PlaneState("appearance " + name, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: characters.Count > 0));
                 }
                 void Press(string id, string? key = null)
                 {
                     var drawn = director.Plane.Showing(MenuColumn.Menu);
                     if (drawn == null || !(drawn.Lines.Any(line => line.Action == id && line.Key == key)
                         || drawn.Footer.All.Any(each => each.Prompt.Id == id))
-                        || !director.Navigator.Act(MenuColumn.Menu, id, key, drawn, null))
+                        || !(spatialWorkspace ? director.PressForRender(MenuColumn.Menu, id, key, drawn, null) : director.Navigator.Act(MenuColumn.Menu, id, key, drawn, null)))
                         failures.Add("appearance: no visible drawn route for " + id + " " + key + ".");
                 }
                 director.Open(MenuPlace.Settings);

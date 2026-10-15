@@ -36,3 +36,26 @@ Named identity metadata tests cover explicit opt-in, outside-text retention, cop
 and rejecting generic host prose or unknown identity kinds. Root's saved-font check covers literal
 markup/control handling and upright/prose/upright mesh reuse. Actual render and interaction results
 must be recorded after execution; source compilation alone does not establish these.
+
+
+The current focused-work candidate removes the persistent place-navigation rail from a selected
+task and keeps only Projects as its return. All file details use the same single reading column.
+The chooser prioritizes known projects; folder discovery is explicitly opened with Connect a
+folder. The previous shoulder and bright backing were removed after visual rejection.
+
+Actual Unity runs of `SpatialWorkspaceCheck` and `SpatialWorkspaceInteractionCheck` now exit
+successfully at standard and larger text. The latter exercises complete long questions, answer
+paging, explicit review before one Send, recorded output and patch paging, stale-frame refusal,
+retained drafts and minimize/restore through production views. Real text mesh bounds caught a
+caption/name collision; the heading now reserves two extra grid steps without lowering checks.
+The saved-font validation also passes identity/prose reuse, literal escaping and shipped-license
+comparison. These are synthetic renderer and interaction proofs, not headset comfort, wearer
+approval, microphone capture or end-to-end software-build acceptance. The character relationship
+and first-use flow still require actual stage validation.
+
+
+`SpatialAppearanceCheck` reuses the production appearance journey at both text sizes and both
+presets with the spatial layout enabled. It checks the category and choice pages, preview pages,
+Cancel, Apply and default restoration through drawn actions, retaining the existing save-count
+and palette assertions. Actual spatial text/target/field assertions replace only the legacy
+separate-rectangle geometry check for that layout. Execution evidence must follow the run.
