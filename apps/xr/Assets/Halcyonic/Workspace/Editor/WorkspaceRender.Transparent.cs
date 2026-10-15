@@ -177,7 +177,8 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var failures = new List<string>();
             label.ForceMeshUpdate();
-            var rect = ScreenBounds(camera, label.bounds);
+            // TMP_Text.bounds is mesh-local; Renderer.bounds supplies the actual world-space raster footprint.
+            var rect = ScreenBounds(camera, label.GetComponent<Renderer>().bounds);
             var low = 1f; var high = 0f; var count = 0;
             // Sample actual rasterised title stroke and its enclosed dark substrate. Anti-aliased
             // fringe is excluded by taking the brightest core pixel, not its mean with empty space.
