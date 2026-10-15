@@ -1247,7 +1247,9 @@ namespace Halcyonic.XR.Workspace
                 var body = subject + sections + MenuPage.Content(page) + gap * (sections > 0f ? 2f : 1f);
                 var marks = navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var selectedWork) == true
                     ? StateLanguage.MarksOf(CharacterPresenter.Present(selectedWork, State, Connected && !Demonstration)).Count : 0;
-                var reading = new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), body, WorkspaceChromeView.SpatialFooter(marks));
+                var provenanceHeight = WorkspaceChromeView.SpatialFooter(marks);
+                var readingWidth = PlaneComposition.Units(Glaze.Menu.FileColumnDegrees);
+                var reading = provenanceHeight > 0f ? new PlaneColumn(readingWidth, body, provenanceHeight) : new PlaneColumn(readingWidth, body);
                 var composition = new PlaneComposition(new[] { reading }, zoom, WorkspaceChromeView.SpatialHeader(!besideMenu));
                 return MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
                     && MenuPage.Readable(composition) && WorkspacePlacement.Clears(direction, occupied, composition.Size);
