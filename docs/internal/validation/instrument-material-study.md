@@ -97,3 +97,11 @@ The analytic studio softbox is authored in the instrument's normalized frame, no
 world horizon or camera. Reflected world-eye rays are projected into that frame; normalizing each
 basis avoids nonuniform plate dimensions distorting reflection angles. This keeps the comparison
 meaningful on the actual pitched reading surface while the highlight still responds to real lean.
+
+Face texture tradeoff before the second render: the original631-radian fine modulation would be
+filtered away at the actual approximately300-pixel panel width. The coating now uses173 radians
+across the normalized face (about27.5 cycles), with derivative attenuation toward the Nyquist
+limit. Peak sheen is0.0145×1.22=0.01769 linear before attenuation, still below the0.018 budget.
+This aims for a subtle directional finish under the reflected softbox, not noise over paragraphs.
+Whether that finish is visible and convincing, or instead distracts from text, is an actual motion
+review question; no source calculation establishes aesthetic acceptance.

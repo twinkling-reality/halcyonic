@@ -182,9 +182,9 @@ Shader "Halcyonic/Glaze Surface"
                 float2 boxRay = materialRay.xy / max(0.1, -materialRay.z);
                 float2 boxAxes = float2(0.94 * boxRay.x + 0.34 * boxRay.y, -0.34 * boxRay.x + 0.94 * boxRay.y);
                 float softbox = smoothstep(0.0, 0.14, min(0.72 - abs(boxAxes.x + 0.12), 0.22 - abs(boxAxes.y - 0.18)));
-                float coatingPhase = dot(i.local.xy, float2(631.0, 41.0));
-                float coating = cos(coatingPhase) * saturate(1.0 - fwidth(coatingPhase)) * 0.1;
-                float faceSheen = physical.x * saturate(physical.z / 0.10) * 0.016 * softbox * (1.0 + coating);
+                float coatingPhase = dot(i.local.xy, float2(173.0, 17.0));
+                float coating = cos(coatingPhase) * saturate(1.0 - fwidth(coatingPhase) / 3.14159) * 0.22;
+                float faceSheen = physical.x * saturate(physical.z / 0.10) * 0.0145 * softbox * (1.0 + coating);
                 color += float3(0.98, 1.0, 0.98) * faceSheen;
                 return float4(color, alpha) * cover;
             }
