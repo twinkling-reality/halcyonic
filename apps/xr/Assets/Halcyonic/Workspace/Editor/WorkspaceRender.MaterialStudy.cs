@@ -74,6 +74,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.OpenFile(work.Workstream.WorkstreamId);
                 for (var tick = 0; tick < 4; tick++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); }
                 ForceMeshes(root);
+                var navigation = director.Plane.Chrome.Targets.Single(button => button.name == "Projects navigation");
+                var cap = navigation.GetComponentsInChildren<Surface>(false).Single(surface => surface.name == "Cap");
+                if (cap.Size != Vector2.zero || navigation.Icon == null)
+                    failures.Add("spatial header navigation must retain its icon without a cap behind its glyph bounds");
                 var physical = root.GetComponentsInChildren<Surface>(false).Where(surface => surface.MaterialDepth > 0f).ToArray();
                 if (physical.Length < 2) failures.Add("production heading and body did not consume physical material");
                 foreach (var surface in physical)
