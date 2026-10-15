@@ -52,3 +52,10 @@ The saved-font validation also passes identity/prose reuse, literal escaping and
 comparison. These are synthetic renderer and interaction proofs, not headset comfort, wearer
 approval, microphone capture or end-to-end software-build acceptance. The character relationship
 and first-use flow still require actual stage validation.
+
+
+`SpatialAppearanceCheck` reuses the production appearance journey at both text sizes and both
+presets with the spatial layout enabled. It checks the category and choice pages, preview pages,
+Cancel, Apply and default restoration through drawn actions, retaining the existing save-count
+and palette assertions. Actual spatial text/target/field assertions replace only the legacy
+separate-rectangle geometry check for that layout. Execution evidence must follow the run.
