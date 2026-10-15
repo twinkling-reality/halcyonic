@@ -126,6 +126,7 @@ namespace Halcyonic.XR.UI
         private Surface unifiedPlate = null!;
         private Surface unifiedBacking = null!;
         private float UnifiedSections => sectionsPart.gameObject.activeSelf ? GlazeButton.HeightOf(true) : 0f;
+        private readonly List<Surface> semanticSupports = new List<Surface>();
         private float UnifiedGap => U(0.35f);
 
         private Vector3 subjectPlateAt;
@@ -1341,6 +1342,13 @@ namespace Halcyonic.XR.UI
             subjectPlate.gameObject.SetActive(false);
             content.gameObject.SetActive(false);
             foreach (var sectionView in sections) sectionView.Shape.gameObject.SetActive(false);
+            var supportedWords = new List<TMP_Text> { identityCaption };
+            supportedWords.AddRange(sections.Where(section => section.Words.gameObject.activeInHierarchy).Select(section => (TMP_Text)section.Words));
+            while (semanticSupports.Count < supportedWords.Count) semanticSupports.Add(Surface.Create(unifiedPart, "Semantic text contrast support", Order + 1));
+            var supportBounds = new Rect(-width / 2f, -total / 2f, width, total);
+            for (var index = 0; index < semanticSupports.Count; index++)
+                if (index < supportedWords.Count) Surface.SupportText(new[] { supportedWords[index] }, semanticSupports[index], unifiedPart, supportBounds);
+                else semanticSupports[index].gameObject.SetActive(false);
             // The heading belongs to the work; its reading body is the only full surface.
             // Keep the rear contact dark: a white slab behind translucent glass washes the whole
             // instrument gray, defeating both the palette and the separation of reading levels.

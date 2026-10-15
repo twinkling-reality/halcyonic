@@ -64,3 +64,31 @@ unity_StereoWorldSpaceCameraPos[unity_StereoEyeIndex]. UnityInstancing.cginc:124
 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX; the fragment initializes it before reading camera
 position. Thus the view-dependent edge uses the actual stereo eye when that variant is enabled.
 This installed-source check does not replace actual Android shader compilation or headset proof.
+
+## Second source iteration after actual rejected proof
+
+The first actual InstrumentMaterialCheck exited0 across both sizes/palettes/backdrops. Root viewed
+the images and rejected the aesthetic: a thin bright outline did not read as glass. The bright
+white image also exposed missing contrast behind the floating Projects/connection/footer/tab and
+identity-caption text. Font angular-size checks did not detect that environmental contrast loss.
+No acceptance follows from that earlier clean process. The preserved archive is material-first-rejected.
+
+The second candidate removes the constant all-around optical highlight and adds an analytic
+softbox sampled by reflected eye rays across the fixed face. Its camera-dependent face light
+is bounded below0.018 additional linear luminance, including the fine coating variation. The
+white-composite contrast calculation includes that peak, not just the untouched substrate. This
+is still a controlled studio reflection model, not captured room illumination or scene refraction.
+
+Unbacked semantic text groups gain tightly fitted, unoutlined opaque supports measured from actual
+glyph meshes, including button icons. Padding is clipped inside the existing owner bounds. The
+caption and tab words receive the same contrast support; neither their wording nor hit geometry
+changes. This is local legibility support, not a surrounding window or another equal button grid.
+
+Each motion frame now renders a second image with critical text renderers temporarily disabled,
+keeping its actual material/background. Image probes compare resolved ink pixels against those
+matching background pixels for Projects/navigation, connection/context, Move/Other apps/Minimize,
+provenance, Task caption and tabs. At least two changed ink pixels and a resolved4.5:1 core are
+required per label. This image probe does not treat antialias fringe pixels as authored text color;
+source contrast checks remain separate. The former white floating labels on white fail this test.
+Support geometry itself retains the complete strict field checks. Actual second shader/render
+execution and motion/aesthetic judgment remain pending.

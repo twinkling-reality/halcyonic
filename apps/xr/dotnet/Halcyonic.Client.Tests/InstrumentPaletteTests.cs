@@ -24,7 +24,7 @@ public class InstrumentPaletteTests
     public void ReadingHasContrastOnTheActualLinearWhiteComposite(bool candidate)
     {
         var palette = candidate ? GlazePalette.InstrumentStudy : GlazePalette.Default;
-        var backing = palette.Panel.Luminance * 0.98 + 0.02;
+        var backing = palette.Panel.Luminance * 0.98 + 0.02 + 0.018;
         Assert.That((palette.Text.Luminance + 0.05) / (backing + 0.05), Is.GreaterThanOrEqualTo(4.5));
         Assert.That((palette.TextSecondary.Luminance + 0.05) / (backing + 0.05), Is.GreaterThanOrEqualTo(4.5));
         // The former .94 translucent heading is a real negative, not byte-space alpha math.
