@@ -110,6 +110,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw(); var plane = director.Plane; ForceMeshes(root);
                     if (plane.Composition == null || plane.Shown.Count != 1) { failures.Add(name + ": expected one focused reading surface"); return; }
                     var view = plane.Shown[0].View;
+                    if (plane.Shown[0].Kind == MenuColumn.File)
+                    {
+                        if (plane.Composition.Columns.Count != 1) failures.Add(name + ": focused work retained the chooser rail column");
+                        foreach (var words in new[] { "Projects", "Tasks", "Usage", "Settings" })
+                        {
+                            var target = plane.Chrome.Targets.Single(button => button.Label.text == words);
+                            if (target.gameObject.activeInHierarchy != (words == "Projects"))
+                                failures.Add(name + ": focused work has the wrong actual place target visibility: " + words);
+                        }
+                    }
                     var bodyColumn = plane.Shown[0].Kind == MenuColumn.File ? 0 : 1;
                     var body = plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
                     var shape = new GlazeChecks.PlaneShape("work reading surface", view.Parts[0], new Vector2(body.Width, body.Height) * PlaneComposition.Distance);
@@ -213,6 +223,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         Draw();
                     }
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
+                    if (director.Plane.Composition?.Columns.Count != 2 || new[] { "Projects", "Tasks", "Usage", "Settings" }.Any(words =>
+                        !director.Plane.Chrome.Targets.Single(button => button.Label.text == words).gameObject.activeInHierarchy))
+                        failures.Add("spatial: actual Projects target did not return the complete chooser navigation");
                     if (director.Navigator.Place != MenuPlace.Projects || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                         failures.Add("spatial: peripheral Projects navigation discarded the local draft");
                     if (staleFrame != null && director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, staleFrame, null))
