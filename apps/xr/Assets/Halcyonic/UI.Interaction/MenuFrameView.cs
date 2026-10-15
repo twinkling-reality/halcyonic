@@ -49,6 +49,7 @@ namespace Halcyonic.XR.UI
         private Transform contentPart = null!;
         private Surface subjectPlate = null!;
         private TextMeshPro subjectTitle = null!;
+        private TextMeshPro identityCaption = null!;
         private StateBadgeView pill = null!;
         private Surface content = null!;
         private Surface footerLine = null!;
@@ -372,7 +373,7 @@ namespace Halcyonic.XR.UI
             Begin(columnDegrees, subject, pillRoom || shown.Pill != null && !stateInHeader);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
-            LaySubject(shown.SubjectRuns, stateInHeader ? null : shown.Pill);
+            LaySubject(shown.SubjectRuns, stateInHeader ? null : shown.Pill, shown.IdentityKind);
             LaySections(shown.Sections, shown.SectionSlots);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
@@ -398,7 +399,7 @@ namespace Halcyonic.XR.UI
             Begin(columnDegrees, subject, pillRoom || pill != null);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = GlazeTokens.Text;
-            LaySubject(shown.SubjectRuns, pill);
+            LaySubject(shown.SubjectRuns, pill, shown.IdentityKind);
             LaySections(Array.Empty<FrameSection>(), 0);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
@@ -666,6 +667,9 @@ namespace Halcyonic.XR.UI
             subjectPlate = Surface.Create(subjectPart, "Plate", Order);
             subjectTitle = GlazeText.Create(subjectPart, "Subject", GlazeType.Subject, GlazeTokens.Text, TextAlignmentOptions.TopLeft, Order + 2);
             subjectTitle.rectTransform.pivot = new Vector2(0f, 1f);
+            identityCaption = GlazeText.Create(subjectPart, "Identity kind", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, Order + 2);
+            identityCaption.rectTransform.pivot = new Vector2(0f, 0.5f);
+            identityCaption.gameObject.SetActive(false);
             pill = StateBadgeView.Create(subjectPart, "State pill", Order + 3, pill: true);
             content = Surface.Create(contentPart, "Plate", Order);
             footerLine = Surface.Create(contentPart, "Footer line", Order + 1);
@@ -799,13 +803,23 @@ namespace Halcyonic.XR.UI
 
         public void PaintSubjectForRender(bool pointed, bool pressed) => controls.Move.PaintForRender(pointed, pressed);
 
-        private void LaySubject(LineWords words, StateBadge? badge)
+        private void LaySubject(LineWords words, StateBadge? badge, MenuIdentityKind? identityKind)
         {
             var padding = U(Glaze.Menu.PaddingDegrees);
             var left = -width / 2f + padding;
             var room = width - 2f * padding - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
-            var theirs = GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
+            var namedIdentity = SpatialWorkspace && identityKind != null;
+            var theirs = namedIdentity
+                ? GlazeRuns.Of(subjectTitle).SetIdentity(words.Text, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows)
+                : GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
+            identityCaption.gameObject.SetActive(namedIdentity);
+            if (namedIdentity)
+            {
+                GlazeText.SetLiteral(identityCaption, identityKind == MenuIdentityKind.Task ? "Task" : "Project");
+                GlazeText.Lay(identityCaption, room / 2f, 1);
+                identityCaption.transform.localPosition = new Vector3(left, subjectHeight / 2f - reserve, -U(0.06f));
+            }
             var (rows, _) = GlazeText.Lay(subjectTitle, room, SubjectRows);
             var titleHeight = Mathf.Max(1, rows) * GlazeText.LineHeight(subjectTitle);
             var top = subjectHeight / 2f;
@@ -823,7 +837,7 @@ namespace Halcyonic.XR.UI
             if (badge != null)
             {
                 pill.Show(badge);
-                pill.transform.localPosition = new Vector3(left + pill.Width / 2f, top - reserve, -U(0.06f));
+                pill.transform.localPosition = new Vector3(namedIdentity ? width / 2f - padding - pill.Width / 2f : left + pill.Width / 2f, top - reserve, -U(0.06f));
             }
         }
 
@@ -1254,9 +1268,10 @@ namespace Halcyonic.XR.UI
             subjectPlate.gameObject.SetActive(false);
             content.gameObject.SetActive(false);
             foreach (var sectionView in sections) sectionView.Shape.gameObject.SetActive(false);
-            unifiedPlate.Draw(new Vector2(width, total), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.94f));
-            unifiedBacking.Draw(new Vector2(width + U(0.24f), total + U(0.24f)), 0f, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, 0.42f));
-            unifiedBacking.transform.localPosition = new Vector3(U(0.12f), -U(0.12f), 0.008f / PlaneComposition.Distance);
+            unifiedPlate.Draw(new Vector2(width - U(0.24f), total - U(0.24f)), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.94f));
+            unifiedPlate.transform.localPosition = new Vector3(-U(0.12f), U(0.12f), 0f);
+            unifiedBacking.Draw(new Vector2(width, total), 0f, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, 0.42f));
+            unifiedBacking.transform.localPosition = new Vector3(0f, 0f, 0.008f / PlaneComposition.Distance);
         }
 
         private void Collect()

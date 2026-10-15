@@ -27,6 +27,11 @@ section strip and content block must be a separate framed shape for this candida
 production renderer review; the older layout below remains the installed behavior. The new
 fixture uses the actual Projects, task instruction and pending approval frames and actions,
 with explicit synthetic data. It adds no work capability or automatic character arrangement.
+Known task titles and project-detail names carry explicit `MenuIdentityKind` metadata. In this
+candidate only, the header has a separate host-owned Task or Project caption and an upright
+literal name whose outside-text ranges remain intact. Generic `SubjectIsData` does not opt in;
+agent prose, questions, tool text and approvals keep their existing provenance treatment. The
+caption shares the measured state-badge row, with the state badge at the header's other edge.
 Readability, full decision text, action authority, local drafts, target size and measured field
 remain requirements. A quieter frame and a different font alone do not establish acceptance.
 

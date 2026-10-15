@@ -7,6 +7,38 @@ namespace Halcyonic.Client.Tests;
 /// <summary>The menu's frames, sections, lines, side panels, footers and bar (ADR 0026): what they refuse.</summary>
 public class MenuFrameTests
 {
+    [Test]
+    public void NamedIdentityIsExplicitAndSurvivesFrameCopies()
+    {
+        var words = LineWords.TheirName("<b>Ship</b> \u202Ebuild");
+        var frame = new MenuFrame(words, new Footer(Close), identityKind: MenuIdentityKind.Task).Focus();
+        foreach (var copy in new[] { frame, frame.With(frame.Footer, Array.Empty<PageLine>(), null), frame.WithSections(Array.Empty<FrameSection>()) })
+        {
+            Assert.That(copy.IdentityKind, Is.EqualTo(MenuIdentityKind.Task));
+            Assert.That(copy.SubjectRuns, Is.SameAs(words));
+            Assert.That(copy.SubjectRuns.AllTheirs, Is.True);
+            Assert.That(copy.Focused, Is.True);
+        }
+    }
+
+    [Test]
+    public void GenericOutsideSubjectsDoNotBecomeNamedIdentities()
+    {
+        Assert.That(new MenuFrame("reported approval text", new Footer(Close), subjectIsData: true).IdentityKind, Is.Null);
+        Assert.That(new SidePanel("reported tool output", subjectIsData: true).IdentityKind, Is.Null);
+    }
+
+    [Test]
+    public void IdentityKindCannotRelabelHostProseOrAnUnknownKind()
+    {
+        Assert.Throws<ArgumentException>(() => new MenuFrame("Tasks", new Footer(Close), identityKind: MenuIdentityKind.Task));
+        Assert.Throws<ArgumentException>(() => new SidePanel("Reported by agent", identityKind: MenuIdentityKind.Project));
+        Assert.Throws<ArgumentException>(() => new MenuFrame(LineWords.TheirName("Work"), new Footer(Close), identityKind: (MenuIdentityKind)100));
+        var project = new SidePanel("Project <b>name</b>", subjectIsData: true, identityKind: MenuIdentityKind.Project);
+        Assert.That(project.IdentityKind, Is.EqualTo(MenuIdentityKind.Project));
+        Assert.That(project.SubjectRuns.AllTheirs, Is.True);
+    }
+
     private static Prompt Close => new(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
 
     private static Prompt Action(string id, bool main = false, bool available = true, string? reason = null) =>
