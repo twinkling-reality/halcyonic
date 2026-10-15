@@ -176,3 +176,25 @@ the test tolerance. The assertion now uses the actual stacking formula and repor
 expected top, gap and zoom; production stacking is unchanged. This correction does not establish
 that the entire compact candidate passes: a root-owned actual rerun remains required after the
 other chat releases Unity. No further Unity or device action occurred in this repair lane.
+
+
+## Final compact-context actual comparison — 2026-10-15
+
+SpatialWorkspaceCheck completed with clean exit0 on warm source
+`a6268310dd5172a47dc747997c5bfc4271d1a7f4` (focused-header-spatial-proof.log). Its valid manifest
+contains24 fresh images across standard/larger text, including project selection, multiple
+project identities, task/detail and selected-character composition, long project/disconnected
+context and pending approval. Every listed file matches its recorded hash. The complete actual
+Projects prompt is contained in the focused context band; the original smaller-row allocation
+is rejected, and the reading body uses the real composition gap. Existing field, text, target,
+selection and character/connector geometry checks passed without moving the selected character
+to improve the view. This supersedes the earlier failing compact-header fixture results, which
+remain recorded above.
+
+Integration `1e02c11897d120352cbf66f1829a16575146b478` has the exact same non-document source and
+fixtures as that warm run; its independent final pnpm check passed1,195 tests with one optional
+skip, plus type checking/lint. Fresh evidence selection, archive invalidation and source-equivalence
+limits are detailed in [material validation](instrument-material-study.md#final-source-equivalent-editor-gates--2026-10-15).
+These are controlled composition and interaction-geometry results, not a new APK/device result or
+wearer approval. The compact header visibly reduces the context gap, while the perceived flatness,
+selected character's contextual relationship and comfort remain experience questions.

@@ -297,3 +297,23 @@ but encountered a native Editor shutdown failure and an inactive-target geometry
 After restricting geometry to active characters, matching the existing legacy checker, the actual
 run passes every colour/material/pixel/persistence assertion at both reading sizes and exits cleanly.
 None of this establishes wearer acceptance or actual connection-key capture.
+
+
+## Final spatial Appearance comparison — 2026-10-15
+
+SpatialAppearanceCheck completed with clean exit0 on warm source
+`a6268310dd5172a47dc747997c5bfc4271d1a7f4` (focused-header-appearance-proof.log). The final valid
+archive contains84 fresh images: Glaze, Graphite and Neutral at both reading sizes through the
+production category/choice, preview, Cancel, Apply and explained Restore default flows. Every
+listed image matches its manifest hash. The compact focused-context and coated-reading source
+was retained. Historical Glaze/Graphite identities and saved keys remain distinct; Neutral's
+candidate default does not reinterpret an existing saved choice. Fixture preference cleanup and
+controlled render success are not evidence that the owner's headset preference was changed.
+
+Integration `1e02c11897d120352cbf66f1829a16575146b478` is byte-identical to this warm source outside
+documents. Its final pnpm check passed1,195 tests with one optional skip and zero failures, plus
+type checking/lint. The prior1,831-test C# pass at `ea12cf02` remains applicable to the unchanged
+XR Packages/dotnet trees; it was not rerun under the final integration hash. The fresh manifests
+and invalidated mixed-history copies are described in [material validation](instrument-material-study.md#final-source-equivalent-editor-gates--2026-10-15).
+The84-image editor pass is not calibrated headset contrast, live-device palette activation,
+Android performance, a new installed APK or wearer acceptance.

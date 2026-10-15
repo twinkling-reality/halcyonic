@@ -446,3 +446,41 @@ production override and its fixture assertion additionally exclude WordsAreData 
 Legacy PageLine string construction can mark external/claimed words using those flags without
 Runs.AnyTheirs, so that flag alone was insufficient. External activity notes and agent claims
 therefore retain their original secondary/provenance treatment. No other source scope changed.
+
+
+## Final source-equivalent editor gates — 2026-10-15
+
+The final warm source `a6268310dd5172a47dc747997c5bfc4271d1a7f4` completed
+InstrumentMaterialCheck with clean exit0. The focused-header-material-proof.log reports every
+source geometry, actual scene and motion control passed. Its48 fresh PNGs cover Glaze, Graphite
+and Neutral at both reading sizes, bright/dark backgrounds, three real eye positions and matching
+flat controls. This run includes the compact actual Projects-target header, primary host-fact
+ink with external-data/claim guards, inset header state icon, all-visible-TMP4.5:1 backing/core
+checks, selected-owner positive/negative cases, rotating state-icon border clearance and fixed
+pressed/listening-cap geometry/feedback checks. No text class or contrast threshold was waived.
+The pressed/listening witnesses establish the checked geometry, fixed bounds and feedback/Still
+properties; normal material captures are not pressed/listening-state pixel contrast proof.
+
+The same warm source completed SpatialWorkspaceCheck and SpatialAppearanceCheck with clean
+exit0, retaining24 and84 fresh PNGs respectively. Their detailed scope and limits are recorded in
+[spatial composition](spatial-workspace-composition.md) and [theme settings](theme-settings.md).
+All three valid archive manifests name that exact warm source and contain per-file hashes; every
+listed file was checked against its hash:48/24/84 entries, zero mismatches. Initial archive copies
+had inadvertently mixed older images with new output. Those copies were explicitly invalidated
+and renamed with the suffix `-mixed-history-not-current`; they are not the final evidence sets.
+The valid material/Appearance sets were freshly selected by source file time at or after their
+fresh log creation, rather than by a recursive copy of the accumulated render directory.
+
+Integration candidate `1e02c11897d120352cbf66f1829a16575146b478` preserved the newer integration
+documents and was compared against the warm source: its complete non-document tree, including
+production code and fixtures, was byte-identical. Root fast-forwarded integration to that candidate
+after the actual gates. Its final pnpm check exited0: type checking, lint and1,195 tests passed,
+with one optional test skipped and zero failures. The previous full C# run passed1,831 tests at
+`ea12cf02`; the XR Packages and dotnet trees are unchanged between that source and the final warm
+source. This is retained evidence, not a claim that the C# suite was rerun at the final commit.
+
+Earlier failed renders and checker corrections remain above. The final result establishes these
+controlled editor/source gates, not calibrated passthrough readability, captured room optics,
+Android/device performance, a new APK build or installation, or wearer/aesthetic acceptance.
+The remaining flat-window impression and material subtlety require actual wearer judgment; no
+clean process exit or source equivalence settles that experience gate.
