@@ -45,8 +45,10 @@ namespace Halcyonic.Client
         public const string No = "No";
         public const string CantTell = HostText.YourStart + " can't look inside it";
 
-        /// <summary>Under a project whose shown name looks like another project's or a free folder's.</summary>
+        /// <summary>Local recovery when supplied physical measurements cannot hold the complete project rows.</summary>
         public const string MoreRoom = "Move the workspace to make room for projects.";
+
+        /// <summary>Under a project whose shown name looks like another project's or a free folder's.</summary>
         public const string ProjectLooksAlike = "Another project or folder has a name that looks the same. Check its work to be sure it's the one you mean.";
 
         /// <summary>
