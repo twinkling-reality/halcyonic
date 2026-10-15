@@ -55,6 +55,7 @@ namespace Halcyonic.XR.Workspace
             /// <summary>Only the first anchor waits for valid wearer tracking; an established workspace never follows ordinary head or focus changes.</summary>
             public Func<bool> InitialPlacementReady { get; set; } = () => true;
             public CharacterColourSettings CharacterColours { get; set; } = new CharacterColourSettings();
+            public Func<string?> CharacterSourceConnectionKey { get; set; } = () => null;
             public Func<string, bool> SaveCharacterColours { get; set; } = _ => false;
             public Func<ControlPlaneTarget?> ConnectionTarget { get; set; } = () => null;
             /// <summary>Makes the commands Projects' Connect sends.</summary>
@@ -792,32 +793,56 @@ namespace Halcyonic.XR.Workspace
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
         }
 
+        // A shown body's last accepted source stays attached while its projection is cached/offline.
+        // Rollback therefore never relabels an old body with a newly configured connection.
+        private readonly Dictionary<CharacterTarget, CharacterColourScope> colourOrigins = new Dictionary<CharacterTarget, CharacterColourScope>();
+        private bool CurrentColourSource(out string key)
+        {
+            key = setup.CharacterSourceConnectionKey() ?? "";
+            return CurrentSnapshot && key.Length > 0 && TryKey(out var configured) && configured == key;
+        }
         private void ApplyCharacterColours()
         {
-            if (this == null || setup == null || State?.Journal == null || !TryKey(out var key)) return;
-            foreach (var target in setup.StageNow().Characters)
-                if (target != null && target.View != null && State.Workstreams.ContainsKey(target.View.WorkstreamId))
-                    target.View.SetIdentityHue(setup.CharacterColours.DisplayedHue(new CharacterColourScope(key, State.Journal.JournalId, target.View.WorkstreamId)));
+            if (this == null || setup == null) return;
+            var canBind = CurrentColourSource(out var key);
+            var shown = setup.StageNow().Characters;
+            foreach (var target in shown)
+            {
+                if (target == null || target.View == null) continue;
+                if (canBind && State?.Journal != null && State.Workstreams.ContainsKey(target.View.WorkstreamId))
+                    colourOrigins[target] = new CharacterColourScope(key, State.Journal.JournalId, target.View.WorkstreamId);
+                if (colourOrigins.TryGetValue(target, out var origin))
+                    target.View.SetIdentityHue(setup.CharacterColours.DisplayedHue(origin));
+            }
+            foreach (var gone in colourOrigins.Keys.Where(target => target == null || !shown.Contains(target)).ToArray())
+            {
+                if (gone != null && gone.View != null) gone.View.SetIdentityHue(CharacterColourSettings.Hue(setup.CharacterColours.Applied(colourOrigins[gone])));
+                colourOrigins.Remove(gone);
+            }
         }
 
         private bool ColourTarget(FileColumn file, out CharacterColourScope? scope, out CharacterTarget? target)
         {
             scope = null; target = null;
             var task = file.Now?.Character.WorkstreamId;
-            if (task == null || !CurrentSnapshot || !TryKey(out var key) || State?.Journal == null || !State.Workstreams.ContainsKey(task)) return false;
+            if (task == null || Away || FocusGuard.InputSuspended || setup.Presentation.Minimized || !CurrentColourSource(out var key)
+                || State?.Journal == null || !State.Workstreams.ContainsKey(task)) return false;
             target = setup.CharacterOf(task);
             if (target == null || target.View == null || !target.gameObject.activeInHierarchy) return false;
             scope = new CharacterColourScope(key, State.Journal.JournalId, task);
-            return true;
+            return colourOrigins.TryGetValue(target, out var accepted) && accepted.Equals(scope);
         }
 
         private void OpenCharacterColour(FileColumn file)
         {
             if (!ColourTarget(file, out var scope, out var target) || scope == null || target == null) return;
-            var column = new CharacterColourColumn(setup.CharacterColours, scope,
-                () => ColourTarget(file, out var current, out var shown) && scope.Equals(current) && shown == target,
+            var session = setup.Session();
+            CharacterColourColumn? column = null;
+            column = new CharacterColourColumn(setup.CharacterColours, scope,
+                () => ReferenceEquals(placement, column) && ReferenceEquals(setup.Session(), session)
+                    && ColourTarget(file, out var current, out var shown) && scope.Equals(current) && shown == target,
                 setup.SaveCharacterColours);
-            OpenLocal(column);
+            if (!OpenLocal(column)) column.FocusLeft();
         }
 
         private void OpenPlacement()

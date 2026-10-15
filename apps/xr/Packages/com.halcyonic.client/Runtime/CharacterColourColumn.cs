@@ -15,6 +15,7 @@ namespace Halcyonic.Client
         private readonly object owner = new object();
         private string chosen;
         private bool preview;
+        private bool ended;
         private int page;
         private string? error;
         private MenuFrame? frame, drawn;
@@ -22,7 +23,7 @@ namespace Halcyonic.Client
         { this.settings = settings; this.scope = scope; this.current = current; this.persist = persist; chosen = settings.Applied(scope); }
         public event Action? Changed;
         public event Action? Closed;
-        public MenuFrame? Frame => frame ??= new MenuFrame(preview ? "Preview character colour" : "Character colour", new Footer(
+        public MenuFrame? Frame => ended ? null : frame ??= new MenuFrame(preview ? "Preview character colour" : "Character colour", new Footer(
             new Prompt(Footer.Close, "Back to task", GlazeIcon.Back, PromptKind.Close),
             rare: preview ? new Prompt(Cancel, "Cancel", GlazeIcon.Close) : null,
             secondary: !preview ? new Prompt(Footer.NextPage, Footer.NextPageWords(page, 2), GlazeIcon.Next, PromptKind.NextPage) : null,
@@ -34,6 +35,7 @@ namespace Halcyonic.Client
         private void Invalidate() { frame = drawn = null; Changed?.Invoke(); }
         public void Act(string id, string? key)
         {
+            if (ended) return;
             if (!current()) { Leave(); return; }
             var exact = Frame;
             if (drawn != exact) return;
@@ -50,10 +52,10 @@ namespace Halcyonic.Client
             else return;
             Invalidate();
         }
-        private void Leave() { settings.Cancel(owner); preview = false; Invalidate(); Closed?.Invoke(); }
-        public void FocusLeft() { settings.Cancel(owner); preview = false; chosen = settings.Applied(scope); error = null; Invalidate(); }
-        public void Drawn(MenuFrame given, Footer? sidePanel) { if (ReferenceEquals(given, Frame) && current()) drawn = given; }
-        public void Tick() { if (!current()) Leave(); }
+        private void Leave() { if (ended) return; ended = true; settings.Cancel(owner); preview = false; Invalidate(); Closed?.Invoke(); }
+        public void FocusLeft() { ended = true; settings.Cancel(owner); preview = false; chosen = settings.Applied(scope); error = null; Invalidate(); }
+        public void Drawn(MenuFrame given, Footer? sidePanel) { if (!ended && sidePanel == null && ReferenceEquals(given, Frame) && current()) drawn = given; }
+        public void Tick() { if (!ended && !current()) Leave(); }
         public void HoldStarted(string id) { }
         public void HoldEnded(string id, bool letGo) { }
         public void Heard(string text) { }

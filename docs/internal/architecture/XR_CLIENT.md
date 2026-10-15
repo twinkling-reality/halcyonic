@@ -3085,6 +3085,27 @@ identity variation, not a user customization control. Features use the body shad
 state surface cues, retain its lightened hue, and have no eyes or separate state semantics.
 No ring/rim replacement, automatic placement, character-mediated navigation or travel is added.
 
+The selected task's Activity page additionally offers **Character colour** only while its actual
+character is deliberately shown, with a current live snapshot and matching source identity. The
+local palette is Original, Cyan, Violet and Pink. Choosing does not change the body; Preview changes
+that real body's identity hue, and an independently drawn Apply colour saves it on this headset.
+Cancel, Back, focus loss, minimization, hidden/removed/replaced character, changed session or a
+lost snapshot watermark restores the applied hue without saving. An ended editor cannot revive.
+The zero-character workflow remains complete; this control never creates, places or enables a body.
+
+Overrides are scoped by the opaque identity captured with the actual control-plane session, journal
+and Workstream, never by relabelling cached state with a newly configured connection. The renderer
+retains each real target's last accepted source scope for offline rollback; a new scope requires a
+fresh snapshot and the actual session source matching the configured target. Preview also captures
+the exact session and CharacterTarget references. The `halcyonic.character-colours` device preference
+is a strict versioned local store, bounded to 64 overrides and 64 KiB; malformed input falls back to
+Original, and Original removes only its own override. A complete fresh snapshot may prune missing
+tasks only within its actual connection/journal. Failed persistence retains the previous applied
+value and a cancellable preview. These preferences, source identities and task text are not logged.
+Only body and lightened feature identity hue change: shape, eyes, state colours, animation and blink
+clocks remain owned by their existing sources. Core regression tests and source review establish
+these boundaries; real Unity rendering and wearer acceptance remain separate validation.
+
 The actual blink path consumes each identity's declared 3–7 second interval and the shared
 0.14 second `Glaze.BlinkSeconds` duration. Closed, crossed and flat eye kinds remain distinct.
 A paused presentation (including last-known and Interrupted) snaps to its state once in `Show`,

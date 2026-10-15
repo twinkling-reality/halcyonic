@@ -167,6 +167,7 @@ namespace Halcyonic.XR.Workspace
                 Presentation = Presentation,
                 InitialPlacementReady = InitialPlacementReady,
                 CharacterColours = characterColours,
+                CharacterSourceConnectionKey = () => connection.SourceConnectionKey,
                 SaveCharacterColours = appearance.KeepCharacterColours,
                 ConnectionTarget = () => ControlPlaneSettings.Target(),
                 State = () => connection.Session?.State,
@@ -293,8 +294,8 @@ namespace Halcyonic.XR.Workspace
                 if (OpenWorkstream is string open) ReadHistory(open);
             }
             if (changes.Resynchronized && session.SnapshotCurrent && connection.DemonstrationLine == null && characterColours != null && saveCharacterColours != null
-                && session.State.Journal != null && ControlPlaneSettings.Target() is ControlPlaneTarget colourTarget)
-                characterColours.Prune(WorkspaceContinuity.ConnectionKey(colourTarget), session.State.Journal.JournalId,
+                && session.State.Journal != null && connection.SourceConnectionKey is string colourKey)
+                characterColours.Prune(colourKey, session.State.Journal.JournalId,
                     session.State.Workstreams.Keys.ToList(), saveCharacterColours);
             activity.Record(changes.Events);
             Refresh();
