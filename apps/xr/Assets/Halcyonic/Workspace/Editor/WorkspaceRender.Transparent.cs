@@ -73,7 +73,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 void Capture(string name)
                 {
                     Draw();
-                    var face = root.GetComponentsInChildren<Surface>(false).Single(surface => surface.CoatedInstrument && surface.Size.x > 0f);
+                    var face = director.Plane.Chrome.GetComponentsInChildren<Surface>(false).Single(surface => surface.name == "Coated work object" && surface.CoatedInstrument && surface.Size.x > 0f);
                     var image = Render(camera, target);
                     try
                     {
