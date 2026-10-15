@@ -182,9 +182,11 @@ public class AgentPanelActivity extends Activity {
         parent.addView(view, new LinearLayout.LayoutParams(-1, -2)); return view;
     }
     private Button button(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false); }
-    private Button button(LinearLayout parent, String label, Runnable action, boolean escape) {
+    private Button button(LinearLayout parent, String label, Runnable action, boolean escape) { return button(parent, label, action, escape, false); }
+    private Button connectionButton(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false, true); }
+    private Button button(LinearLayout parent, String label, Runnable action, boolean escape, boolean localConnection) {
         Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(18); button.setMinHeight(dp(52));
-        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; final int offeredGeneration = generation; button.setOnClickListener(view -> { if (visible && generation == offeredGeneration && review == owner && authority.interact(id, busy, escape)) { cancelVoice(); action.run(); } }); return button;
+        parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; final int offeredGeneration = generation; button.setOnClickListener(view -> { if (visible && generation == offeredGeneration && review == owner && (localConnection ? !busy && authority.connectionInteract(id) : authority.interact(id, busy, escape))) { cancelVoice(); action.run(); } }); return button;
     }
     private void styleButton(Button button, String label) {
         GradientDrawable surface = new GradientDrawable();
@@ -217,11 +219,11 @@ public class AgentPanelActivity extends Activity {
         developmentControls = new LinearLayout(this); developmentControls.setOrientation(LinearLayout.VERTICAL); root.addView(developmentControls);
         if (developmentAllowed && !preview) {
             Button mode = new Button(this); mode.setText("Connection (development)"); mode.setAllCaps(false); styleButton(mode, "Connection (development)"); developmentControls.addView(mode);
-            mode.setOnClickListener(v -> { if (busy || !authority.interact(0) || !saveState()) return; LinearLayout choices = dialog("Development connection");
+            mode.setOnClickListener(v -> { if (!visible || busy || !authority.connectionInteract(0) || !saveState()) return; LinearLayout choices = dialog("Development connection");
                 text(choices, "Use the paired computer, or the existing USB development connection. Changing connection never changes its saved credential.", 18);
-                button(choices, "Use paired computer", () -> switchConnection(false));
-                button(choices, "Use USB connection (development)", () -> switchConnection(true));
-                button(choices, "Preview synthetic panel (screenshots allowed)", this::previewSynthetic);
+                connectionButton(choices, "Use paired computer", () -> switchConnection(false));
+                connectionButton(choices, "Use USB connection (development)", () -> switchConnection(true));
+                connectionButton(choices, "Preview synthetic panel (screenshots allowed)", this::previewSynthetic);
             });
         }
         ScrollView scroll = new ScrollView(this); content = column(); scroll.addView(content); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));

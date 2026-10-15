@@ -72,6 +72,14 @@ release APK. Its deliberate mode record holds only a boolean. Paired and USB con
 different continuation keys; Unity must be using the same target for a return to restore context.
 See [xr-loopback-proof.md](xr-loopback-proof.md).
 
+Connection selection is local recovery navigation, so a missing paired computer or an awaiting
+projection cannot disable the development chooser. Its opener and three choices still require
+an expanded, resumed, top and focused Activity/dialog with current owner and generation, no
+pending network request, and the existing save-before-leave guard. This grants no task command
+or review authority; those still require a fresh matching projection. The native panel reads
+`access-token` directly for explicitly selected USB mode; the older glance token is unrelated.
+Opening the panel from Unity preserves ordinary context and does not silently select USB.
+
 ## Work and continuity
 
 The panel reads `GET /api/snapshot`, reads the first 50 recorded task events through

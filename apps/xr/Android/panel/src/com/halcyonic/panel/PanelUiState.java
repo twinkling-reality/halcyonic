@@ -46,6 +46,8 @@ final class PanelUiState {
     long open() { expire(); owner = ++owners; dialogFocus = false; return owner; }
     void close(long id) { if (owner == id) { owner = 0; dialogFocus = false; expire(); } }
     private void expire() { epoch++; read = false; }
+    /** Local connection recovery stays available without granting command or review authority. */
+    boolean connectionInteract(long id) { return !compact && resumed && top && (id == 0 ? owner == 0 && activityFocus : owner == id && dialogFocus); }
     boolean interact(long id) { return controlsReady() && resumed && top && (id == 0 ? owner == 0 && activityFocus : owner == id && dialogFocus); }
     boolean interact(long id, boolean busy, boolean escape) { return interact(id) && (!busy || escape); }
     Review review(long id, Context context) { return new Review(id, epoch, context); }
