@@ -3203,3 +3203,9 @@ minimize, focus loss, a detail without the main identity, or owner destruction. 
 clearance envelope remains reserved, preserving shelf position and fit. The legacy setup default
 remains available to component fixtures; actual application activation is explicit. Renderer and
 wearer evidence is tracked in [the composition validation](../validation/spatial-workspace-composition.md).
+
+Spatial page budgets preserve the minimum apparent text size as well as the complete field.
+This applies to every spatial caller, including creation-wizard and mandatory-review pages
+whose host request is not marked focused. Such reviews paginate before their peripheral
+connection, navigation or movement text becomes too oblique; field fit alone is insufficient.
+The legacy composition retains its existing focused-page policy.

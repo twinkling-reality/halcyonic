@@ -18,3 +18,11 @@ spatial route fixture; whole pending questions and Results are covered by Spatia
 
 Client-core build and aggregate Editor source compilation passed. Actual Unity execution and
 visual review remain required; source compilation is not an asmdef or scene PASS.
+
+The first actual execution found a production sizing defect: nonfocused wizard review pages
+used only field fit, allowing peripheral chrome below the existing 14 dp threshold. Spatial
+MenuDirector page budgets now enforce the same apparent-text readable limit for every caller,
+including wizard/review callers that do not pass focused:true. Legacy layout behavior is unchanged.
+The fixture independently compares a nonfocused spatial page budget with the readable bound and
+requires the field-only bound to be larger, so the former caller behavior fails this regression.
+Actual rendered multi-page review and unchanged text thresholds remain required.
