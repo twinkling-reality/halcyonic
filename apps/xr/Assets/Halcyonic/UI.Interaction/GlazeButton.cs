@@ -763,9 +763,9 @@ namespace Halcyonic.XR.UI
             if (role == ButtonRole.Prompt && BoundedPrompt)
             {
                 var promptTone = Glaze.Tone(listens && available ? GlazeTone.Active : GlazeTone.Accent);
-                var fill = on && available || listens && available ? GlazeTokens.ColorOf(promptTone.Container) : GlazeTokens.ColorOf(Glaze.Palette.Control);
-                var edge = hovered || pressed ? pointedFrame : on && available ? GlazeTokens.ColorOf(promptTone.Strong) : GlazeTokens.ColorOf(Glaze.Palette.Outline);
-                plate.Draw(pressed ? size * PressedScale : size, GlazeTokens.Units(0.35f), fill, edge,
+                var fill = on && available || listens && available ? GlazeTokens.ColorOf(promptTone.Container) : GlazeTokens.ColorOf(Glaze.Panel);
+                var edge = hovered || pressed ? pointedFrame : on && available ? GlazeTokens.ColorOf(promptTone.Strong) : GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity);
+                plate.Draw(pressed ? size * PressedScale : size, radius, fill, edge,
                     GlazeTokens.Units(hovered || pressed ? Glaze.Menu.PointedFrameDegrees : Glaze.Menu.HairlineDegrees));
                 plate.Selection = hovered ? SurfaceSelection.Pointed : SurfaceSelection.None;
             }

@@ -521,6 +521,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 target.PaintForRender(false, false);
                 if (!Bounded(target)) failures.Add(name + ": task action has no complete visible rest boundary: " + target.Label.text);
+                if (Mathf.Abs(target.SelectionSurface.CornerRadius - GlazeTokens.Units(Glaze.Menu.RadiusDegrees)) > 0.00001f)
+                    failures.Add(name + ": task action differs from the shared control corner shape: " + target.Label.text);
                 try
                 {
                     target.BoundedPrompt = false; target.PaintForRender(false, false);
