@@ -186,6 +186,7 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(product, WorkspaceText.Product);
             GlazeText.Lay(product, SpatialRail, 1);
             product.transform.localPosition = new Vector3(left + gap, labelY, -0.001f);
+            connection.color = context.color = GlazeTokens.Text;
             GlazeText.SetLiteral(connection, connectionState);
             var connectionRoom = contentWidth * (focusedWork ? 0.28f : 0.5f);
             GlazeText.Lay(connection, connectionRoom, 1);
@@ -217,7 +218,7 @@ namespace Halcyonic.XR.UI
                 if (!visible) continue;
                 var at = focusedWork ? top - MenuPage.Target() / 2f : y;
                 button.ShowPrompt(words, icon, new Vector2(left + SpatialRail / 2f, at), SpatialRail, !focusedWork && destination == place, framedIcon: !focusedWork);
-                if (!button.On) button.Label.color = GlazeTokens.TextSecondary;
+                if (!button.On) button.Label.color = GlazeTokens.Text;
                 y -= MenuPage.Target() + gap;
             }
             move.Role = apps.Role = minimize.Role = ButtonRole.Prompt;
@@ -227,7 +228,7 @@ namespace Halcyonic.XR.UI
             apps.Available = appsAvailable;
             apps.Show(WorkspaceText.OtherApps, new Vector2(contentLeft + contentWidth / 2f, baseY), buttonWidth);
             minimize.Show(WorkspaceText.Minimize, new Vector2(contentLeft + contentWidth - buttonWidth / 2f, baseY), buttonWidth);
-            move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.TextSecondary;
+            move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.Text;
             // One quiet material for each semantic cluster, not an individual word sticker.
             while (contrastSupports.Count < 3) contrastSupports.Add(Surface.Create(transform, "Grouped chrome material", 21));
             contrastSupports[0].gameObject.SetActive(false);

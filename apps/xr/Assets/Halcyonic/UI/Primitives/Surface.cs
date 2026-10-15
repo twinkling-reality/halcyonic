@@ -92,6 +92,7 @@ namespace Halcyonic.XR.UI
         public Color Edge => edge;
 
         public float EdgeWidth => edgeWidth;
+        public float CornerRadius => radius;
 
         /// <summary>
         /// What the shape says about choosing (ADR 0026), set by the component that draws it, so the

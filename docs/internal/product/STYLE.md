@@ -63,7 +63,10 @@ routes such as Ask workspace and Read results. A utility route does not count as
 an agent's event keeps its existing provenance and styling. No progress is invented to fill space.
 
 The selected Task/Project caption uses primary strong text after an actual resolved-ink contrast
-failure. The focused task's Projects icon and ordinary spatial footer prompts retain their icon/text
+failure. Small spatial navigation/context, reached sections and utility labels use primary ink
+where actual thin secondary glyph cores failed; positions and size retain their hierarchy. The
+selected section uses a6-percent white lift on the coated face. Spatial filled/listening prompt
+caps are rounded squares within the original cap bounds, shielding their entire icon rectangle. The focused task's Projects icon and ordinary spatial footer prompts retain their icon/text
 layout and target without a circular cap. Main filled and listening caps retain their meanings;
 the spatial footer has no subpixel decorative divider.
 The neutral palette comparison and saved-preset adoption are separate from this material change.

@@ -130,11 +130,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var entry in footerView.Shown)
                 {
                     var prompt = footerView.Showing![entry.Slot]!;
-                    if (prompt.DrawnAsMain || prompt.Listens) continue;
                     var promptCap = entry.Button.GetComponentsInChildren<Surface>(false).Single(surface => surface.name == "Cap");
-                    if (promptCap.Size != Vector2.zero || entry.Button.Icon == null)
+                    if (prompt.DrawnAsMain || prompt.Listens)
+                    {
+                        if (entry.Button.Icon == null) { failures.Add("filled spatial prompt lost its icon"); continue; }
+                        var bounds = entry.Button.Icon.textBounds;
+                        foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                        foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                        {
+                            var local = promptCap.transform.InverseTransformPoint(entry.Button.Icon.transform.TransformPoint(new Vector3(x, y, 0f)));
+                            var p = Vector2.Scale(new Vector2(Mathf.Abs(local.x), Mathf.Abs(local.y)), promptCap.Size);
+                            var q = p - promptCap.Size / 2f + Vector2.one * promptCap.CornerRadius;
+                            var distance = Vector2.Max(q, Vector2.zero).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - promptCap.CornerRadius;
+                            if (distance > -0.001f) failures.Add("filled prompt cap does not shield its complete glyph quad with inset");
+                        }
+                    }
+                    else if (promptCap.Size != Vector2.zero || entry.Button.Icon == null)
                         failures.Add("spatial ordinary footer prompt must retain its icon without an intersecting cap ring");
                 }
+                var selections = shown.GetComponentsInChildren<Surface>(false).Where(surface => surface.Selection == SurfaceSelection.Lit).ToArray();
+                if (selections.Length != 1 || selections[0].Fill.a > 0.0601f)
+                    failures.Add("coated spatial section must use its contrast-bounded selection lift");
                 failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, "instrument centre"));
                 failures.AddRange(GlazeChecks.TargetsLargeEnough(shown.Targets.Concat(director.Plane.Chrome.Targets), eyes, "instrument centre"));
                 var positions = new[] { new Vector3(-0.09f, 0.02f, 0f), Vector3.zero, new Vector3(0.09f, -0.02f, 0f) };
