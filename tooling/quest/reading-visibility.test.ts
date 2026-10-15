@@ -10,7 +10,10 @@ test('reading comparison runtime code has an explicit development compile bounda
     const code = source(name);
     assert.match(code, /^#nullable enable\s+#if UNITY_EDITOR \|\| DEVELOPMENT_BUILD/);
     assert.match(code, /#endif\s*$/);
-    assert.doesNotMatch(code, /Shader\.Find|Resources\.Load|AsyncGPUReadback|ReadPixels|\.Submit\(/);
+    assert.doesNotMatch(
+      code,
+      /Shader\.Find|Resources\.Load|AsyncGPUReadback|ReadPixels|\.Submit\(/,
+    );
   }
 });
 
