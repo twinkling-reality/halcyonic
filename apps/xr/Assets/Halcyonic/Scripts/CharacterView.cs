@@ -148,6 +148,20 @@ namespace Halcyonic.XR
 
         public string WorkstreamId { get; private set; } = "";
 
+        private bool bodyOnlyPresentation;
+        /// <summary>A local task portrait shares this real identity and state, with the surrounding
+        /// task heading supplying words. It owns no stage placement or interaction target.</summary>
+        public bool BodyOnlyPresentation
+        {
+            get => bodyOnlyPresentation;
+            set
+            {
+                bodyOnlyPresentation = value;
+                if (labels != null) labels.gameObject.SetActive(!value);
+                if (value) { haloRenderer.enabled = false; ringRenderer.enabled = false; }
+            }
+        }
+
         /// <summary>What the character shows now, or null before the first <see cref="Show"/>.</summary>
         public CharacterPresentation? Presentation => presentation;
 
@@ -696,14 +710,14 @@ namespace Halcyonic.XR
                 featureRenderer.SetPropertyBlock(bodyBlock);
             }
 
-            haloRenderer.enabled = haloStrength > 0.004f;
+            haloRenderer.enabled = !bodyOnlyPresentation && haloStrength > 0.004f;
             if (haloRenderer.enabled)
             {
                 haloBlock.SetColor(ColorId, new Color(haloColor.r, haloColor.g, haloColor.b, haloStrength));
                 haloRenderer.SetPropertyBlock(haloBlock);
             }
 
-            ringRenderer.enabled = ringAlpha > 0.004f;
+            ringRenderer.enabled = !bodyOnlyPresentation && ringAlpha > 0.004f;
             if (ringRenderer.enabled)
             {
                 // Level around the body, tipping back and forth, and sweeping around.
