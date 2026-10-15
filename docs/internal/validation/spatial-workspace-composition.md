@@ -92,3 +92,21 @@ applying the unchanged measured hierarchy algorithm to each group and to all rem
 content. A negative witness temporarily makes one actual name smaller than its summary and must
 be rejected, then restores its exact font size. Text, target, field and selection checks are retained.
 This corrected fixture still requires a new actual run.
+
+
+## Focused context allocation candidate, October 15
+
+Actual coated-face captures still showed a large context-to-task gap. Source inspection found
+that a focused task reserved the chooser header's full target plus two target gaps, followed by
+the composition's normal part gap, despite retaining only one Projects target there. The
+candidate now reserves the complete existing target alone and centers project/connection words
+on that row. Chooser allocation, actual target dimensions, type roles, character placements and
+input authority remain unchanged. MenuPlane and MenuDirector's physical page-height solver read
+the same focused/chooser header selector.
+
+The existing actual spatial fixture now requires the full Projects target to be contained in
+that header band and the reading body to start exactly after the ordinary composition part gap.
+It compares geometry in composition units at both text sizes, rather than asserting screenshot
+pixel distances. Source compilation and those future actual assertions do not prove material
+appeal, motion comfort or wearer acceptance. Root-owned same-camera paired renders, field/target
+checks and the larger-text/all-route flows remain required before acceptance.
