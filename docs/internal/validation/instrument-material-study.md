@@ -404,6 +404,8 @@ could conceal it until expiry. The full notice now leads page zero and newly arr
 returns there; repeated words, passive redraw and expiry do not repeatedly reset navigation.
 A regression starts on another page before delivering a notice and requires it to be immediately
 visible. A complete row plus pager that cannot fit the supplied allocation explicitly refuses
-with a move-for-room explanation and Close, following the project chooser's refusal pattern.
-No route flags or drafts are discarded; another regression restores room and reaches the same
+with a move-for-room explanation, following the project chooser's refusal pattern while keeping
+the running task's Stop, voice and instruction controls.
+Repeated fresh feedback events reset to the visible notice even if their words match; passive
+redraw does not. No route flags or drafts are discarded; another regression restores room and reaches the same
 routes. These checks do not claim that arbitrary zero or tiny allocations can display content.

@@ -1194,6 +1194,26 @@ public class FileColumnTests
     }
 
     [Test]
+    public void RepeatedFreshActivityFeedbackIsVisibleEvenWhenItsWordsMatch()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt));
+        column.Screen.Section = FileSection.Activity;
+        column.Screen.WorkspaceRequestOffered = true;
+        column.Screen.ResultsOffered = true;
+        column.Said(VoiceText.NothingHeard);
+        Assert.That(column.Frame!.Lines.First().Words, Is.EqualTo(VoiceText.NothingHeard));
+        Assert.That(column.Screen.Pages, Is.GreaterThan(1));
+        column.Act(Footer.NextPage, null);
+        Assert.That(column.Screen.Page, Is.GreaterThan(0));
+        column.Said(VoiceText.NothingHeard);
+        Assert.That(column.Screen.Page, Is.Zero);
+        Assert.That(column.Frame!.Lines.First().Words, Is.EqualTo(VoiceText.NothingHeard));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
     public void WhereTheVoiceStandsNeverGrowsThePageAndOnlyOtherWordsAreNotices()
     {
         // Listening and writing down show on Hold to talk itself, drawn by the plane from the menu's one voice (Prompt.Voiced).

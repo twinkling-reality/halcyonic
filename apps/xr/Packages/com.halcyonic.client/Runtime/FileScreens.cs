@@ -313,7 +313,7 @@ namespace Halcyonic.Client
                     // The offered routes and draft state remain intact for a later reflow.
                     screen.Page = 0; screen.Pages = 1;
                     return new Page(new[] { new PageLine("Move the workspace to make room for Activity.", tone: LineTone.Secondary, rows: 2) },
-                        source, new Footer(CloseFile));
+                        source, normal);
                 }
                 page.Add(line);
             }
