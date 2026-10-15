@@ -91,12 +91,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, "instrument centre"));
                 failures.AddRange(GlazeChecks.TargetsLargeEnough(shown.Targets.Concat(director.Plane.Chrome.Targets), eyes, "instrument centre"));
                 var positions = new[] { new Vector3(-0.09f, 0.02f, 0f), Vector3.zero, new Vector3(0.09f, -0.02f, 0f) };
-                var center = director.Plane.transform.position;
+                // MenuPlane is a coordinator root; its children are independently positioned.
+                // Use the actual whole frame for field direction and the actual reading part for aim.
+                var center = director.Plane.Chrome.FrameSurface.transform.position;
+                var readingCenter = shown.Parts[0].position;
+                if ((readingCenter - eyes).sqrMagnitude < 0.01f || Vector3.Dot(readingCenter - eyes, Vector3.forward) <= 0f)
+                    failures.Add("actual reading part has no valid forward camera target");
                 var rigid = physical.Select(surface => surface.transform.localToWorldMatrix).ToArray();
                 Color32[]? lastMaterialPixels = null;
                 for (var frame = 0; frame < positions.Length; frame++)
                 {
-                    camera.transform.position = eyes + positions[frame]; camera.transform.rotation = Quaternion.LookRotation(center - camera.transform.position, Vector3.up);
+                    camera.transform.position = eyes + positions[frame]; camera.transform.rotation = Quaternion.LookRotation(readingCenter - camera.transform.position, Vector3.up);
                     ForceMeshes(root);
                     foreach (var surface in physical)
                     {
@@ -105,7 +110,16 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.AddRange(GlazeChecks.InsideField("actual material rim " + frame, points, camera.transform.position, center, WorkspacePlacement.ReadingPitch(director.Plane.Composition!.Size, director.Plane.Direction.Elevation, field), field));
                     }
                     failures.AddRange(GlazeChecks.TextAsSeen(root, camera.transform.position, "instrument motion " + frame));
-                    var image = Render(camera, texture); lastMaterialPixels = image.GetPixels32(); File.WriteAllBytes(Path.Combine(folder, "motion-" + frame + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
+                    var projected = camera.WorldToViewportPoint(readingCenter);
+                    if (projected.z <= 0f || projected.x <= 0f || projected.x >= 1f || projected.y <= 0f || projected.y >= 1f)
+                        failures.Add("actual reading centre is outside the positive camera image");
+                    var image = Render(camera, texture);
+                    var centrePixel = image.GetPixel(Mathf.Clamp(Mathf.RoundToInt(projected.x * (image.width - 1)), 0, image.width - 1),
+                        Mathf.Clamp(Mathf.RoundToInt(projected.y * (image.height - 1)), 0, image.height - 1));
+                    var background = image.GetPixel(0, 0); // Same rendered color pipeline, known empty corner.
+                    if (Mathf.Abs(centrePixel.r - background.r) + Mathf.Abs(centrePixel.g - background.g) + Mathf.Abs(centrePixel.b - background.b) < 0.05f)
+                        failures.Add("camera aimed at the reading part but captured only its background");
+                    lastMaterialPixels = image.GetPixels32(); File.WriteAllBytes(Path.Combine(folder, "motion-" + frame + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
                     for (var index = 0; index < physical.Length; index++) if (physical[index].transform.localToWorldMatrix != rigid[index]) failures.Add("camera motion moved the material instead of revealing its real depth");
                 }
                 // Same real production frame, camera, palette and text; only the physical edge is removed.
