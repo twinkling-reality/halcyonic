@@ -634,8 +634,11 @@ namespace Halcyonic.XR.Workspace
             else view.Show(Front, degrees, subject, pillRoom, stateInHeader: false);
             var body = ColumnOf(view);
             var contentHeights = body.Heights.Concat(new[] { WorkspaceChromeView.SpatialBase }).ToArray();
+            var focusedWork = kind == MenuColumn.File;
+            var bodyColumn = focusedWork ? 0 : 1;
             var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);
-            Composition = new PlaneComposition(new[] { rail, new PlaneColumn(body.Width, contentHeights) }, zoom, WorkspaceChromeView.SpatialTop);
+            var reading = new PlaneColumn(body.Width, contentHeights);
+            Composition = new PlaneComposition(focusedWork ? new[] { reading } : new[] { rail, reading }, zoom, WorkspaceChromeView.SpatialTop);
             Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
             Moved = moved;
             Direction = MenuDrag.Turned(Placed, moved);
@@ -643,16 +646,16 @@ namespace Halcyonic.XR.Workspace
             MenuAside = menuFrame != null && fileFrame != null;
             shownFileColumn = kind == MenuColumn.File ? fileColumn : null;
             lineTo = fileOf != null && kind != MenuColumn.Menu ? view : null;
-            lineColumn = lineTo == null ? -1 : 1;
+            lineColumn = lineTo == null ? -1 : bodyColumn;
             bar.Hide(); cover.SetActive(true);
-            var bodyPart = Composition.Parts.First(part => part.Column == 1 && part.Index == 0);
+            var bodyPart = Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
             var nextHeader = new PlanePart(0, 0, Composition.Width, Composition.Height, 0f, 0f);
             var preserveMove = was && ReferenceEquals(previousFront, Front) && Chrome.Visible && headerPart.Width == nextHeader.Width && headerPart.Height == nextHeader.Height
                 && Vector3.Distance(Chrome.transform.position, PlaneLayout.PointOf(eyes, Direction, 0f, 0f)) < 0.000001f
                 && Quaternion.Angle(Chrome.transform.rotation, PlaneLayout.Facing(Direction)) < 0.0001f;
             headerPart = nextHeader;
             Chrome.ShowSpatial(Composition.Width / zoom, Composition.Height / zoom, bodyPart.Left / zoom, bodyPart.Width / zoom,
-                ConnectionState, SelectionContext, OtherAppsAvailable, SelectedMarks, menuBar.Chosen, preserveMove);
+                ConnectionState, SelectionContext, OtherAppsAvailable, SelectedMarks, menuBar.Chosen, preserveMove, focusedWork);
             SlideTo(Chrome.transform, headerPart, zoom, null, immediately);
             if (!was) view.Open(lineTo != null, frames);
             else if (Vector3.Distance(view.Parts[0].position, PlaneLayout.PointOf(eyes, Direction, bodyPart.Right, bodyPart.Up)) > MovedMeters) view.Unsettle();
@@ -686,7 +689,7 @@ namespace Halcyonic.XR.Workspace
                 for (var p = 0; p < all.Count; p++)
                 {
                     var placed = all[p];
-                    if (SpatialWorkspace ? placed.Column != 1 || placed.Index >= parts.Count : placed.Column != c) continue;
+                    if (SpatialWorkspace ? placed.Column != (shown[c].Kind == MenuColumn.File ? 0 : 1) || placed.Index >= parts.Count : placed.Column != c) continue;
                     Stand(parts[index], placed, zoom);
                     index++;
                 }
