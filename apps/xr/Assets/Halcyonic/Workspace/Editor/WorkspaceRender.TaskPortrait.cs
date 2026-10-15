@@ -124,13 +124,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var tick = 0; tick < 240; tick++) character.AdvanceForRender(1f / 60f);
                     var stillPosition = character.Body.localPosition; var stillRotation = character.Body.localRotation; var stillScale = character.Body.localScale;
                     var stillPose = character.PoseForRender;
+                    var heldBefore = Render(camera, target);
+                    var heldPixels = heldBefore.GetPixels(sampleRect.x, sampleRect.y, 128, 128);
+                    UnityEngine.Object.DestroyImmediate(heldBefore);
                     for (var tick = 0; tick < 120; tick++) character.AdvanceForRender(1f / 60f);
                     if (Vector3.Distance(stillPosition, character.Body.localPosition) > .00001f
                         || Quaternion.Angle(stillRotation, character.Body.localRotation) > .001f || stillScale != character.Body.localScale
                         || stillPose != character.PoseForRender)
                         failures.Add(activity + ": Still portrait visibly changed after settling");
                     var still = Render(camera, target);
-                    try { File.WriteAllBytes(Path.Combine(folder, activity + "-still.png"), still.EncodeToPNG()); }
+                    try
+                    {
+                        var afterPixels = still.GetPixels(sampleRect.x, sampleRect.y, 128, 128);
+                        var changedStill = afterPixels.Where((pixel, index) => RasterDifference(pixel, heldPixels[index]) > 1f / 255f).Count();
+                        Debug.Log("Halcyonic: task portrait actual Still raster " + activity + ": changed-pixels=" + changedStill);
+                        if (changedStill != 0) failures.Add(activity + ": actual Still raster changed after settling");
+                        File.WriteAllBytes(Path.Combine(folder, activity + "-still.png"), still.EncodeToPNG());
+                    }
                     finally { UnityEngine.Object.DestroyImmediate(still); }
                 }
                 var old = avatar.Character!;
