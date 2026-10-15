@@ -13,9 +13,12 @@
     "Oculus.Interaction",
     "Oculus.Interaction.OVR",
     "Oculus.Interaction.Editor",
-    "Unity.TextMeshPro"
+    "Unity.TextMeshPro",
+    "Halcyonic.XR.Room"
   ],
-  "includePlatforms": ["Editor"],
+  "includePlatforms": [
+    "Editor"
+  ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,
