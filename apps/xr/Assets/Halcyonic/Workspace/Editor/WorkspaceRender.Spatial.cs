@@ -158,6 +158,21 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add("spatial: known project identity must lead its own supporting summary line");
                         if (GlazeRuns.Of(row.Words).Theirs.Count == 0 || row.Words.richText)
                             failures.Add("spatial: known project identity lost literal outside-text provenance");
+                        if (row.Words.rectTransform.pivot != new Vector2(0f, 1f)
+                            || !Mathf.Approximately(row.Words.fontSize, GlazeTokens.FontSize(GlazeTokens.Units(Glaze.TitleDegrees)))
+                            || row.Fact != null && !Mathf.Approximately(row.Fact.fontSize, GlazeTokens.FontSize(GlazeTokens.Units(Glaze.BodyDegrees))))
+                            failures.Add("spatial: project row text must keep its left origin and unscaled metric before composition zoom");
+                        row.Words.ForceMeshUpdate(); row.Fact?.ForceMeshUpdate();
+                        if (row.Words.textBounds.min.x < -0.001f)
+                            failures.Add("spatial: project name mesh extends left of its measured content origin");
+                        if (row.Fact != null)
+                        {
+                            var actual = Mathf.Max(GlazeButton.HeightOf(true), GlazeText.LineHeight(row.Words)
+                                + Mathf.Max(1, row.Fact.textInfo.lineCount) * GlazeText.LineHeight(row.Fact)
+                                + 3f * GlazeTokens.Units(Glaze.Menu.GridDegrees)) + Glaze.TargetGapMeters / Glaze.Menu.PlaneMeters;
+                            if (Mathf.Abs(MenuFrameView.ProjectListLineHeight(row.Model, Glaze.Menu.FileColumnDegrees) - actual) > 0.001f)
+                                failures.Add("spatial: project pagination metric disagrees with actual title and summary mesh line heights");
+                        }
                     }
                 }
                 Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);

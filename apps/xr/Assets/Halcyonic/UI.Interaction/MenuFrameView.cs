@@ -1133,7 +1133,7 @@ namespace Halcyonic.XR.UI
             var title = line.ProjectTitle;
             title.gameObject.SetActive(true);
             var titleHeight = GlazeText.LineHeight(title);
-            line.Fact.fontSize = GlazeTokens.FontSize(U(GlazeText.ScaledDegreesOf(GlazeType.Body)));
+            line.Fact.fontSize = GlazeTokens.FontSize(U(Glaze.BodyDegrees));
             var wordsLeft = left + U(Glaze.Menu.IconColumnDegrees) + grid;
             var room = right - wordsLeft - ChevronRoom;
             line.Fact.textWrappingMode = TextWrappingModes.Normal;
@@ -1441,7 +1441,8 @@ namespace Halcyonic.XR.UI
                 this.name = name;
                 Icon = GlazeIcons.Create(parent, name + " icon", Glaze.Menu.BodyDegrees, GlazeTokens.Text, Order + 3);
                 ordinaryWords = Label(name + " words", GlazeTokens.Text);
-                ProjectTitle = GlazeText.Create(parent, name + " project identity", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.TopLeft, Order + 3, scaled: true);
+                ProjectTitle = GlazeText.Create(parent, name + " project identity", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.TopLeft, Order + 3);
+                ProjectTitle.rectTransform.pivot = new Vector2(0f, 1f);
                 Shimmer = GlazeShimmer.On(Words);
                 Name = Label(name + " name", GlazeTokens.TextSecondary);
                 Fact = Label(name + " fact", GlazeTokens.TextSecondary);
