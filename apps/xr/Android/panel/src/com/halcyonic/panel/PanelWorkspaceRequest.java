@@ -5,6 +5,12 @@ import java.util.Map;
 
 /** Strict consumer of requests.ts. Local references do not authorize a request for another tuple. */
 final class PanelWorkspaceRequest {
+    static String receiptWords(Map<String,Object> step) {
+        String status=PanelJson.text(step.get("status"));
+        if(!"confirmed".equals(status))return PanelText.plain(status);
+        if("person_response".equals(step.get("tool_name")))return "Direction recorded";
+        return step.get("command_id")!=null&&step.get("runtime_status")!=null?"Turn finished\nSoftware changes remain unverified.":"Read confirmed";
+    }
     static final String[] STATES = {"running", "waiting_for_human", "waiting_for_runtime", "responded", "stopped", "interrupted", "failed"};
     static Map<String, Object> offer(String json) {
         Map<String, Object> value = PanelJson.object(PanelJson.parse(json));

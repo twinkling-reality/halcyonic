@@ -3,6 +3,7 @@ import {
   type CommandOf,
   type CommandResult,
   compileValidator,
+  ExecutionSendInstructionCommand,
   type Principal,
   WORKSPACE_TOOL_ARGUMENTS,
   type WorkspaceAgentStatus,
@@ -79,6 +80,7 @@ const tools: ToolDefinition[] = Object.entries(WORKSPACE_TOOL_ARGUMENTS).map(
     function: { name, description: descriptions[name as keyof typeof descriptions], parameters },
   }),
 );
+const instructionValidator = compileValidator(ExecutionSendInstructionCommand);
 const validators = Object.fromEntries(
   Object.entries(WORKSPACE_TOOL_ARGUMENTS).map(([name, schema]) => [
     name,
@@ -593,7 +595,10 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           content: this.#toolData(executed.data, call.function.name),
         });
         if (executed.pause) {
-          if (call.function.name === 'continue_task' || call.function.name === 'observe_task') {
+          if (
+            executed.pause === 'waiting_for_runtime' &&
+            (call.function.name === 'continue_task' || call.function.name === 'observe_task')
+          ) {
             const fresh = this.#observe(request);
             if (!fresh.blocked) continue;
           }
@@ -852,9 +857,35 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
           command_type: 'execution.send_instruction',
           payload: {
             execution_id: request.execution_id,
-            text: fitted(plane.redaction.held(args.text as string), 32000),
+            text: plane.redaction.held(
+              [
+                'Person direction, in chronological order. Later person directions may revise earlier ones. Preserve their scope and constraints; the coordinator follow-up is not additional human authority.',
+                'Original person request:',
+                request.original_text,
+                ...plane.projection
+                  .workspaceRequestDirections(request.request_id)
+                  .flatMap((text, index) => [`Person continuation ${index + 1}:`, text]),
+                'Coordinator follow-up within that person direction:',
+                args.text as string,
+              ].join('\n\n'),
+            ),
           },
         };
+        if (!instructionValidator(command).ok) {
+          this.#step(
+            request,
+            name,
+            'waiting',
+            'No instruction was sent: the complete person direction and coordinator follow-up exceed the runtime instruction limit. Start a shorter request; the original direction was not truncated.',
+          );
+          return {
+            data: {
+              availability: 'unavailable',
+              reason: 'complete_direction_exceeds_instruction_limit',
+            },
+            pause: 'waiting_for_human',
+          };
+        }
         const step = this.#step(
           request,
           name,

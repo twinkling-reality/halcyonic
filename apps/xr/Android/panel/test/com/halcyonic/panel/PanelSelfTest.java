@@ -146,6 +146,7 @@ public final class PanelSelfTest {
                 catch (Exception error) { result = "refused"; } break;
             }
             case "status": result = PanelModel.commandStatus(PanelJson.object(PanelJson.parse(args[0]))); break;
+            case "workspace_receipt":result=PanelWorkspaceRequest.receiptWords(PanelJson.object(PanelJson.parse(args[0])));break;
             case "workspace_offer":try{result=PanelJson.encode(PanelWorkspaceRequest.offer(args[0]));}catch(Exception error){result="refused";}break;
             case "workspace_read":try{Map<String,Object> c=PanelJson.object(PanelJson.parse(args[2]));result=PanelJson.encode(PanelWorkspaceRequest.read(args[0],args[1],new PanelUiState.Context(PanelJson.text(c.get("connection")),PanelJson.text(c.get("journal")),PanelJson.text(c.get("project")),PanelJson.text(c.get("work")),PanelJson.text(c.get("execution")))));}catch(Exception error){result="refused";}break;
             case "workspace_command":try{Map<String,Object> c=PanelJson.object(PanelJson.parse(args[3]));PanelWorkspaceRequest.Recovery r=PanelWorkspaceRequest.command(args[0],args[1],args[2].equals("null")?null:args[2],new PanelUiState.Context(PanelJson.text(c.get("connection")),PanelJson.text(c.get("journal")),PanelJson.text(c.get("project")),PanelJson.text(c.get("work")),PanelJson.text(c.get("execution"))),args[4].equals("null")?null:args[4]);result=PanelJson.encode(PanelJson.map("settled",r.settled,"request_id",r.requestId,"message",r.message));}catch(Exception error){result="refused";}break;
