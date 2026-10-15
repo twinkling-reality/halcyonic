@@ -48,9 +48,11 @@ namespace Halcyonic.XR.Room
             if (director == null || value && !ShelfPlaced) return;
             director.Presentation.SetAgentsEnabled(value);
         }
-        public void PlaceAgents()
+        public void PlaceAgents() => Place(null, null, null);
+        public void PlaceTask(string workstreamId, string title, System.Func<bool> current) => Place(workstreamId, title, current);
+        private void Place(string? workstreamId, string? title, System.Func<bool>? current)
         {
-            if (director == null || FocusGuard.InputSuspended || director.Presentation.Minimized || director.MenuHost == null) return;
+            if (director == null || FocusGuard.InputSuspended || director.Presentation.Minimized || director.MenuHost == null || current?.Invoke() == false) return;
             director.EnsureAgentStage();
             if (!placement.BeginPreview())
             {
@@ -59,7 +61,13 @@ namespace Halcyonic.XR.Room
             }
             drag?.End();
             column = new AgentShelfColumn(director.MenuHost, placement.Draft, direction => { drag?.End(); placement.MovePreview(direction); },
-                () => { if (placement.ApplyPreview()) SetEnabled(true); }, placement.CancelPreview, placement.FindRoomSurface);
+                () =>
+                {
+                    if (current?.Invoke() == false) { placement.CancelPreview(); return; }
+                    if (!placement.ApplyPreview()) return;
+                    if (workstreamId != null) director.EnsureAgentStage().Request(workstreamId);
+                    SetEnabled(true);
+                }, placement.CancelPreview, placement.FindRoomSurface, title, current);
             if (!director.OpenLocal(column)) column.FocusLeft();
             else { MakeHandle(); PreviewChanged(); }
         }

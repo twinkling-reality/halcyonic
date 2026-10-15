@@ -25,6 +25,7 @@ namespace Halcyonic.Client
         public const string Deny = WorkspaceScreens.Deny;
         public const string Stop = WorkspaceScreens.Stop;
         public const string OpenWorkspaceRequest = "file-workspace-request";
+        public const string ShowTaskHere = "file-show-task-here";
         public const string OpenResults = "file-results";
         public const string TellIt = WorkspaceScreens.TellIt;
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
@@ -238,6 +239,7 @@ namespace Halcyonic.Client
             }
 
             var lines = new List<PageLine>();
+            if (screen.ShowTaskHereOffered) lines.Add(new PageLine("Show this task here", icon: GlazeIcon.Next, action: ShowTaskHere, opens: true, rows: screen.ShowTaskHereRows));
             if (screen.WorkspaceRequestOffered && workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true)
                 lines.Add(new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true, rows: screen.WorkspaceRequestRows));
             if (screen.ResultsOffered && workspace.Execution != null)
