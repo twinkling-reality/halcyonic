@@ -294,6 +294,7 @@ namespace Halcyonic.XR
 
         /// <summary>The production animation clock for deterministic blink witnesses.</summary>
         public float ClockForRender => clock;
+        public Vector4 BodyColourForRender => bodyColor;
 
         /// <summary>For the editor's renders: how its eyes stand and how strong its light is now.</summary>
         public (float Open, float LookX, float LookY, float Ink, float Halo, float Uneven) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, haloStrength, eyeUneven);
@@ -309,6 +310,19 @@ namespace Halcyonic.XR
         /// wins.
         /// </summary>
         public void LookAtPerson(bool look) => lookAtPerson = look;
+
+        /// <summary>Only this task body's local identity hue; geometry, clocks, eyes and state cues remain owned by their existing sources.</summary>
+        public void SetIdentityHue(double? hue)
+        {
+            if (hue.HasValue && hue.Value != 197.0 && hue.Value != 285.0 && hue.Value != 329.0) throw new System.ArgumentException("Unsupported character colour.");
+            var colour = Color.HSVToRGB((float)(hue ?? identity.Hue) / 360f, (float)identity.Saturation, (float)identity.Value);
+            var next = new Vector4(colour.r, colour.g, colour.b, 1f);
+            if (bodyColor == next) return;
+            bodyColor = next;
+            var lighter = Color.Lerp(colour, Color.white, FeatureLighten);
+            featureColor = new Vector4(lighter.r, lighter.g, lighter.b, 1f);
+            Apply(surfaceClock); // Redraw the held pose without advancing its animation or blink clock.
+        }
 
         private void Build(string workstreamId)
         {
