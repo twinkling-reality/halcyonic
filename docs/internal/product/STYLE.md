@@ -623,7 +623,7 @@ remain a second rail beside an open task. Project context and Workspace stay abo
 practice/recorded provenance has its own small line only when present.
 The named heading reserves its badge inset and Hero name; pagination and actual layout use the same inset, including larger-text SDF bounds.
 Context, named heading, sections and reading body share the opaque coated face, without a folder
-tab, clear rear carrier or independently backed internal plates. The organization edge is contained within that same face.
+tab, clear rear carrier or independently backed internal plates. Workspace remains in the header; no organization strip is allocated below the face.
 This composition remains a candidate until actual full-context and wearer validation pass.
 
 The focused work object's context row reserves one full Projects target in height. Project and
@@ -649,8 +649,7 @@ translation tolerances require an actual wearer check; renderer success alone is
 
 The October 15 work-object candidate removes the chooser side rail and its unused horizontal
 space. One complete Workspace target occupies the chooser header; task focus adds
-the direct Projects return. The matching page-height calculation includes this header and the
-contained organization edge. Its spatial proof checks the actual row geometry, single column,
+the direct Projects return. The matching page-height calculation includes this header and only the actual provenance line. Its spatial proof checks the actual row geometry, single column,
 full title provenance/bounds and whole-action rest backing, including an icon-only negative.
 This candidate has not yet passed actual Unity rendering or wearer review; earlier coating
 evidence does not establish these new compositions. No character is enabled or moved by this
@@ -674,8 +673,8 @@ absence of command targets. These new portrait compositions remain unvalidated u
 rendering and wearer review; the separate body component's implementation is not that evidence.
 The compact object's leading edge uses the same selected task portrait and hue, with the complete
 animated body fit inside its shorter allocation. Its adjacent literal task identity and state
-remain readable without relying on the character alone. Move and Expand retain their separate
-full targets; the portrait itself does not expand or command the task.
+remain readable without relying on the character alone. Open workspace retains its complete target; movement is available through Workspace after
+opening. The portrait itself does not expand or command the task.
 
 ## Workspace controls candidate — second pass
 
@@ -704,3 +703,10 @@ starts leaving. This is an intentional discrete identity transition, not a claim
 Workspace's Other apps action retains platform availability and requires the exact current drawn
 local controls page. It is unavailable in explicit moving mode; successful switching uses the
 existing draft capture and workspace suspension path.
+
+The compact object gives identity and Open workspace one target-height band. State and the
+workspace waiting count use a separate lower reading band with its full measured width, so a long
+state cannot collide with the Open workspace target. Only if the exact state/count widths exceed
+that band does the count use another line and the object grow. Status words, count and action
+labels keep their size; a long literal task name may be cut within its controlled outside-text
+range, with the complete task available through Open workspace.
