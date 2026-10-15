@@ -12,6 +12,7 @@ Shader "Halcyonic/Glaze Surface"
         _Edge ("Edge, straight alpha", Color) = (0, 0, 0, 0)
         _Shape ("Width, height, corner radius and edge width", Vector) = (1, 1, 0.1, 0)
         _Pattern ("Dash period and duty, halftone pitch and dot radius", Vector) = (0, 0, 0, 0)
+        _Physical ("Instrument enabled, edge band, reflection strength, rim", Vector) = (0, 0, 0, 0)
         _Glass ("Glow opacity and reach, sheen opacity and width", Vector) = (0, 0, 0, 0)
     }
 
@@ -39,6 +40,7 @@ Shader "Halcyonic/Glaze Surface"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Edge)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Shape)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Pattern)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _Physical)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Glass)
             UNITY_INSTANCING_BUFFER_END(Props)
 
@@ -46,6 +48,7 @@ Shader "Halcyonic/Glaze Surface"
             {
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
+                float3 normal : NORMAL;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -53,6 +56,9 @@ Shader "Halcyonic/Glaze Surface"
             {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
+                float3 world : TEXCOORD1;
+                float3 normal : TEXCOORD2;
+                float3 local : TEXCOORD3;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -66,6 +72,9 @@ Shader "Halcyonic/Glaze Surface"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                o.world = mul(unity_ObjectToWorld, v.vertex).xyz;
+                o.local = v.vertex.xyz;
+                o.normal = UnityObjectToWorldNormal(dot(v.normal, v.normal) > 0.01 ? v.normal : float3(0, 0, -1));
                 return o;
             }
 
@@ -77,6 +86,22 @@ Shader "Halcyonic/Glaze Surface"
                 float4 shape = UNITY_ACCESS_INSTANCED_PROP(Props, _Shape);
                 float4 pattern = UNITY_ACCESS_INSTANCED_PROP(Props, _Pattern);
                 float4 glass = UNITY_ACCESS_INSTANCED_PROP(Props, _Glass);
+                float4 physical = UNITY_ACCESS_INSTANCED_PROP(Props, _Physical);
+                float3 view = normalize(_WorldSpaceCameraPos.xyz - i.world);
+                float3 normal = normalize(i.normal);
+                // A fixed studio key on the material, not a claim to reflect the user's room.
+                float3 key = normalize(float3(-0.45, 0.75, -0.55));
+                float facing = saturate(abs(dot(normal, view)));
+                float fresnel = pow(1.0 - facing, 4.0);
+                float reflection = pow(saturate(dot(reflect(-key, normal), view)), 36.0);
+                if (physical.w > 0.5)
+                {
+                    float grainPhase = dot(i.local, float3(920.0, 37.0, 1200.0));
+                    float grain = cos(grainPhase) * saturate(1.0 - fwidth(grainPhase)) * 0.025;
+                    float light = 0.36 + 0.64 * saturate(dot(normal, key)) + grain;
+                    float lift = saturate(physical.z * (0.3 + 1.5 * reflection + fresnel));
+                    return float4(lerp(fill.rgb * light, float3(0.72, 0.76, 0.72), lift) * fill.a, fill.a);
+                }
 
                 // The signed distance to the outline in the shape's own units, negative inside.
                 float2 size = max(shape.xy, 1e-5);
@@ -138,6 +163,11 @@ Shader "Halcyonic/Glaze Surface"
                 alpha = alpha * (1.0 - edgeAlpha) + edgeAlpha;
                 color = color * (1.0 - sheen) + sheen;
                 alpha = alpha * (1.0 - sheen) + sheen;
+                // A narrow optical edge changes with the real camera. The reading centre is untouched.
+                float opticalBand = physical.x * saturate(1.0 + d / max(physical.y, 1e-5));
+                float optical = physical.z * opticalBand * (0.2 + 0.8 * fresnel + reflection);
+                color = color * (1.0 - optical) + float3(0.72, 0.76, 0.72) * optical;
+                alpha = alpha * (1.0 - optical) + optical;
                 return float4(color, alpha) * cover;
             }
             ENDCG
