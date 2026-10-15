@@ -200,6 +200,34 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (distance > -0.001f) failures.Add(state + ": filled prompt cap does not shield its complete glyph quad with inset");
                     }
                 }
+                foreach (var row in shown.ShownLines.Where(row => row.Model.Tone == LineTone.Secondary
+                    && !row.Model.Runs.AnyTheirs && !row.Model.Waits && row.Model.Available))
+                    if (!((Color32)row.Words.color).Equals((Color32)GlazeTokens.Text))
+                        failures.Add("host-owned spatial reading fact lacks its primary optical contrast margin");
+                foreach (var state in shown.GetComponentsInChildren<StateBadgeView>(false).Where(state => state.ShowsIcon))
+                {
+                    var shape = state.GetComponentsInChildren<Surface>(false).Single();
+                    var savedRotation = state.Icon.transform.localRotation;
+                    try
+                    {
+                        state.Icon.ForceMeshUpdate(); var bounds = state.Icon.textBounds;
+                        for (var angle = 0; angle < 360; angle += 15)
+                        {
+                            state.Icon.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
+                            foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                            foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                            {
+                                var local = shape.transform.InverseTransformPoint(state.Icon.transform.TransformPoint(new Vector3(x, y, 0f)));
+                                var point = Vector2.Scale(new Vector2(Mathf.Abs(local.x), Mathf.Abs(local.y)), shape.Size);
+                                var q = point - shape.Size / 2f + Vector2.one * shape.CornerRadius;
+                                var distance = Vector2.Max(q, Vector2.zero).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - shape.CornerRadius;
+                                if (distance > -shape.EdgeWidth - 0.0005f)
+                                    failures.Add("rotating header state icon crosses its bright pill border at " + angle + " degrees");
+                            }
+                        }
+                    }
+                    finally { state.Icon.transform.localRotation = savedRotation; }
+                }
                 var selections = shown.GetComponentsInChildren<Surface>(false).Where(surface => surface.Selection == SurfaceSelection.Lit).ToArray();
                 if (selections.Length != 1 || selections[0].Fill.a > 0.0601f)
                     failures.Add("coated spatial section must use its contrast-bounded selection lift");
