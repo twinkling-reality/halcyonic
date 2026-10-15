@@ -44,3 +44,24 @@ headset washout, establish submitted device eye-buffer alpha, classify system fo
 behaviour, or establish wearer readability and design acceptance. Those remain unresolved. A
 controlled device comparison of the actual face and a plain opaque reference, with contemporaneous
 focus/layer metadata, is the next discriminant; no speculative production shader change was made.
+
+## Deliberate development device comparison
+
+The development-only Reading visibility check uses the normal workspace's retained local overlay,
+without a replacement camera or renderer. Its three labeled, equally sized/deep patches show the
+production coated material, an independent black/white opaque shader reference, and a deliberate
+translucent negative. The negative uses Meta's documented multiplicative framebuffer mask so an
+opaque reading face underneath does not incorrectly leave its resulting alpha at 1. Runtime text
+states shader intent; it does not report measured submitted eye-buffer alpha. Focus and eye-target
+size flags are metadata, not a cause assignment. No model, transport command, room capture or
+camera readback is introduced.
+
+Its shader references are explicit in transient development build scenes, using the same
+`BuildOptions.Development` boundary as the existing builder; runtime types compile only in the
+editor or development builds. No shader enters Resources or Always Included. Unity 6.3's
+[IProcessSceneWithReport documentation](https://docs.unity3d.com/6000.3/Documentation/ScriptReference/Build.IProcessSceneWithReport.html),
+checked October 15, 2026, confirms the per-build-scene callback, and warns that unchanged cached
+scenes can skip it. Source guards check the boundary and absence of fallback shader lookup or
+readback. Final release artifact exclusion remains unproven until its actual build is inspected;
+it is not inferred from unused-shader stripping. Host patch RGBA, entry/return retention, production
+packaging and device comparison must each be validated separately.
