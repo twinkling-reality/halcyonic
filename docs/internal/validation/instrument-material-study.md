@@ -226,3 +226,51 @@ fixture negatives. This does not certify an escaped word's legibility: the uncha
 whole-bounds contrast test must still reject any unshielded ink. The depth check now requires the
 signed rear direction, and the carrier/rim must sort behind every opaque reading region. Aggregate
 editor compilation passed again with the same existing warnings.
+
+
+## Coated reading-face revision after rejected carrier comparison
+
+The actual carrier run passed its4.5:1 text checks but failed four interior optical negatives.
+Bright material-v-flat images changed only about1.1k pixels at standard size and1.5k at larger,
+versus25k/30k over dark backgrounds. The two retained material images and actual selected-character
+composition were viewed: broad light-gray carrier bands plus an opaque dark reading poster made
+a larger window, not a coherent work object. The selected character's existing distant placement
+and long connector were preserved, not rearranged to make that render more attractive. The old
+carrier commits and their failures remain evidence; no source edit reclassifies them as accepted.
+
+The new candidate removes the carrier and the inner reading poster entirely. One opaque coated
+work object spans context, identity, sections and page, while a fitted quiet utility dock remains
+separate. Its visual surface is separate from the existing complete geometry/input FrameSurface,
+so MenuPlane bounds and all existing target/character placement geometry retain their allocation.
+It uses the same0.006-distance-unit inward thickness with a narrow0.001 bevel, not repeated thick
+bevels. Smooth reflected-eye studio light now crosses that actual opaque face with maximum0.025
+linear lift. Authored secondary contrast at peak is approximately5.56 for historical Glaze and
+5.88 for the neutral study; actual image checks remain4.5, including antialiasing and disabled
+labels when present. QuietText is the secondary role, not the dimmer TextDisabled palette token.
+There is no transmission/refraction/room-reflection claim for this opaque coated material.
+
+The fixture now probes all active task/chrome TMP words and icons, including body/state/control
+text, rather than only the old navigation/caption subset. It retains source alpha, actual complete
+backing coverage, resolved ink, targets, strict field, real thickness and eye-motion rigidity.
+Its negative control keeps the exact opaque face, scene, palette, text and camera while removing
+reflected studio light and the real edge. Interior samples on the actual reading face must differ
+independently of edge differences. The superseded carrier's transmission/parallax contract is not
+applied to an opaque material; its failed actual results remain above. Global preset comparison
+coverage is maintained separately by the palette adoption change.
+
+Activity now names its existing truthful empty state even when Ask workspace/Read results routes
+are offered. Actual activity or pending decisions precede those utility routes, retaining reported
+versus observed provenance. It adds no synthetic status or workflow capability. Focused real C#
+FileScreensTests passed21 checks, including the empty state with both routes at3/4-row budgets and
+a reported event before routes with unchanged provenance. Aggregate editor C# compile passed with
+the existing nullable/assembly warnings. Actual new shader/contrast/material/selected-character
+images and wearer acceptance remain pending; a source contrast budget is not aesthetic acceptance.
+
+The same ordinary prompt-cap geometry previously observed crossing the Projects glyph rectangle
+also serves Close/Stop in the task footer. Spatial ordinary footer prompts now consistently use
+unboxed icons, retaining their exact icon/text layout and target. Main filled caps and listening
+caps retain their meanings; unrelated legacy controls keep their existing caps. The actual fixture
+asserts retained icons/zero-sized ordinary caps before its all-TMP contrast checks. The spatial
+footer's0.05-degree, low-opacity divider is suppressed: at the actual image scale it rendered as
+broken subpixel dashes rather than a useful separator. Its geometry never carried input authority.
+Aggregate editor compilation passed again after this scoped consistency change.

@@ -12,6 +12,7 @@ namespace Halcyonic.XR.UI
     public sealed class WorkspaceChromeView : MonoBehaviour
     {
         private Surface frame = null!;
+        private Surface workFace = null!;
         private Surface identityShoulder = null!;
         private Surface heading = null!;
         private Surface rule = null!;
@@ -52,6 +53,8 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<WorkspaceChromeView>();
             view.frame = Surface.Create(go.transform, "Connected frame", 16);
+            view.workFace = Surface.Create(go.transform, "Coated work object", 16);
+            view.workFace.gameObject.SetActive(false);
             view.identityShoulder = Surface.Create(go.transform, "Work identity shoulder", 19);
             view.heading = Surface.Create(go.transform, "Header", 19);
             view.rule = Surface.Create(go.transform, "Header rule", 20);
@@ -93,6 +96,7 @@ namespace Halcyonic.XR.UI
         {
             foreach (var button in Targets) { button.Role = ButtonRole.Navigation; button.Label.alignment = TextAlignmentOptions.Center; button.Label.color = GlazeTokens.Text; }
             identityShoulder.gameObject.SetActive(false);
+            workFace.gameObject.SetActive(false);
             product.gameObject.SetActive(true);
             context.gameObject.SetActive(true);
             tasks.gameObject.SetActive(false); usage.gameObject.SetActive(false); settings.gameObject.SetActive(false);
@@ -165,9 +169,13 @@ namespace Halcyonic.XR.UI
             gameObject.SetActive(true);
             Size = new Vector2(width, totalHeight);
             frame.gameObject.SetActive(true);
-            frame.DrawOpticalCarrier(new Vector2(width, totalHeight), GlazeTokens.Units(0.8f), GlazeTokens.ColorOf(Glaze.Panel));
-            // Separate reading plane and carrier have real, bounded depth under head motion.
-            frame.transform.localPosition = new Vector3(0f, 0f, 0.006f);
+            // The frame remains the exact complete geometry/input allocation. Its one reading
+            // object covers context, identity, sections and page; the utility dock stays separate.
+            frame.Draw(new Vector2(width, totalHeight), 0f, Color.clear);
+            frame.transform.localPosition = Vector3.zero;
+            workFace.gameObject.SetActive(true);
+            workFace.DrawCoatedInstrument(new Vector2(width, totalHeight - SpatialBase), GlazeTokens.Units(0.6f), GlazeTokens.ColorOf(Glaze.Panel));
+            workFace.transform.localPosition = new Vector3(0f, SpatialBase / 2f, 0.0001f);
             heading.gameObject.SetActive(false); rule.gameObject.SetActive(false);
             status.gameObject.SetActive(false);
             var gap = MenuPage.TargetGap;
@@ -222,26 +230,11 @@ namespace Halcyonic.XR.UI
             move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.TextSecondary;
             // One quiet material for each semantic cluster, not an individual word sticker.
             while (contrastSupports.Count < 3) contrastSupports.Add(Surface.Create(transform, "Grouped chrome material", 21));
-            var headerHeight = SpatialTop - gap;
-            contrastSupports[0].Draw(new Vector2(width - 0.008f, headerHeight), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
-            contrastSupports[0].transform.localPosition = new Vector3(0f, top - headerHeight / 2f, 0.0001f);
+            contrastSupports[0].gameObject.SetActive(false);
+            contrastSupports[2].gameObject.SetActive(false);
+            contrastSupports[1].gameObject.SetActive(true);
             contrastSupports[1].Draw(new Vector2(contentWidth - 0.008f, SpatialBase - gap), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
             contrastSupports[1].transform.localPosition = new Vector3(contentLeft + contentWidth / 2f, -totalHeight / 2f + (SpatialBase - gap) / 2f, 0.0001f);
-            contrastSupports[2].gameObject.SetActive(!focusedWork);
-            if (!focusedWork)
-            {
-                var railHeight = MenuPage.Target() * 4f + gap * 3f;
-                contrastSupports[2].Draw(new Vector2(SpatialRail - 0.008f, railHeight), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
-                contrastSupports[2].transform.localPosition = new Vector3(left + SpatialRail / 2f, top - SpatialTop - railHeight / 2f, 0.0001f);
-            }
-            contrastSupports[0].gameObject.SetActive(true); contrastSupports[1].gameObject.SetActive(true);
-            // Fit whole semantic groups, never individual word stickers. The translucent carrier
-            // remains visible through each group's reserved empty breathing room.
-            var headerWords = new List<TMP_Text> { connection };
-            if (context.gameObject.activeSelf) headerWords.Add(context);
-            if (product.gameObject.activeSelf) headerWords.Add(product);
-            if (focusedWork) { headerWords.Add(projects.Label); if (projects.Icon != null) headerWords.Add(projects.Icon); }
-            FitReadingGroup(contrastSupports[0], headerWords);
             var footerWords = new List<TMP_Text> { move.Label, apps.Label, minimize.Label };
             if (provenance.gameObject.activeSelf) footerWords.Add(provenance);
             FitReadingGroup(contrastSupports[1], footerWords);

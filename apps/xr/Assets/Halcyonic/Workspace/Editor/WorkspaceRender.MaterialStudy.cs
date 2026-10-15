@@ -28,21 +28,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var found = new List<string>();
                     foreach (var palette in new[] { GlazePalette.Default, GlazePalette.InstrumentStudy })
+                    foreach (var bright in new[] { false, true })
                     {
-                        var transmitted = new List<Color>[2];
-                        for (var backdrop = 0; backdrop < 2; backdrop++)
-                        {
-                            var bright = backdrop == 1; transmitted[backdrop] = new List<Color>();
-                            Glaze.SetPalette(palette);
-                            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "InstrumentMaterialRenders", variant, palette.Key, bright ? "bright" : "dark"));
-                            Directory.CreateDirectory(folder); EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                            ViewField.Current = FieldChecks.Quest3S;
-                            found.AddRange(RenderInstrumentMotion(folder, bright, transmitted[backdrop]));
-                        }
-                        if (transmitted[0].Count == 0 || transmitted[0].Count != transmitted[1].Count)
-                            found.Add("carrier has no matching interior transmission witnesses across backdrops");
-                        else if (transmitted[0].Zip(transmitted[1], (dark, light) => (light.r + light.g + light.b - dark.r - dark.g - dark.b) / 3f).Min() < 0.25f)
-                            found.Add("actual interior carrier gutters did not transmit the changed background");
+                        Glaze.SetPalette(palette);
+                        var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "InstrumentMaterialRenders", variant, palette.Key, bright ? "bright" : "dark"));
+                        Directory.CreateDirectory(folder); EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                        ViewField.Current = FieldChecks.Quest3S;
+                        found.AddRange(RenderInstrumentMotion(folder, bright));
                     }
                     return found;
                 }));
@@ -54,7 +46,7 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static IEnumerable<string> RenderInstrumentMotion(string folder, bool bright, List<Color> transmitted)
+        private static IEnumerable<string> RenderInstrumentMotion(string folder, bool bright)
         {
             var failures = new List<string>(); var root = new GameObject("Actual instrument motion study");
             var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
@@ -87,20 +79,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (cap.Size != Vector2.zero || navigation.Icon == null)
                     failures.Add("spatial header navigation must retain its icon without a cap behind its glyph bounds");
                 var physical = root.GetComponentsInChildren<Surface>(false).Where(surface => surface.MaterialDepth > 0f).ToArray();
-                if (physical.Length != 1 || !physical[0].OpticalCarrier)
-                    failures.Add("workspace must have one continuous optical carrier, without repeated physical cards");
+                if (physical.Length != 1 || !physical[0].CoatedInstrument)
+                    failures.Add("workspace must have one continuous coated work object");
                 var readingSupports = root.GetComponentsInChildren<Surface>(false)
-                    .Where(surface => surface.Size.x > 0f && (surface.name == "Reading surface" || surface.name == "Grouped chrome material")).ToArray();
-                if (readingSupports.Length != 3 || readingSupports.Any(surface => surface.Fill.a < 0.999f || surface.MaterialDepth != 0f))
-                    failures.Add("reading must have three opaque unoutlined semantic regions, without independent bevels");
-                var carrier = director.Plane.Chrome.FrameSurface;
-                var mainReading = readingSupports.Single(surface => surface.name == "Reading surface");
-                var separation = Vector3.Dot(carrier.transform.position - mainReading.transform.position, carrier.transform.forward);
-                if (separation < 0.001f || separation > 0.008f)
-                    failures.Add("carrier must remain physically behind its reading plane at bounded depth");
-                if (carrier.Renderer.sortingOrder >= mainReading.Renderer.sortingOrder
-                    || readingSupports.Any(surface => surface.Renderer.sortingOrder <= carrier.MaterialRim!.sortingOrder))
-                    failures.Add("carrier optical layers must sort behind every opaque reading region");
+                    .Where(surface => surface.Size.x > 0f && surface.name == "Grouped chrome material").ToArray();
+                if (readingSupports.Length != 1 || readingSupports.Any(surface => surface.Fill.a < 0.999f || surface.MaterialDepth != 0f))
+                    failures.Add("only the quiet opaque utility dock may have a separate support");
+                if (root.GetComponentsInChildren<Surface>(false).Any(surface => surface.Size.x > 0f && surface.name == "Reading surface"))
+                    failures.Add("an independent opaque poster remains on the coated work object");
+                var instrument = physical.Single();
+                if (readingSupports.Any(surface => surface.Renderer.sortingOrder <= instrument.MaterialRim!.sortingOrder))
+                    failures.Add("utility reading must sort ahead of physical edge geometry");
                 // Exercise the actual semantic fitter with an escaped and then empty glyph union.
                 // Both cases must retain its full opaque allocation rather than invert or shrink it.
                 var shield = Surface.Create(director.Plane.Chrome.transform, "Reading fitter negative", 21);
@@ -119,19 +108,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (shield.Size != allocation || shield.Fill.a < 0.999f) failures.Add("empty glyph fit corrupted its opaque allocation");
                 }
                 finally { UnityEngine.Object.DestroyImmediate(escaped.gameObject); UnityEngine.Object.DestroyImmediate(shield.gameObject); }
-                // Choose interior empty material geometrically, excluding every opaque reading
-                // region and its filtering fringe. These are not silhouette or rim witnesses.
+                // Interior face witnesses prove a material response across the reading object,
+                // independently of its thin silhouette. No transmission is claimed or tested.
                 var witness = new List<Vector3>();
-                for (var row = 1; row < 20; row++) for (var column = 1; column < 10; column++)
-                {
-                    var point = carrier.transform.TransformPoint(new Vector3(-0.45f + column * 0.09f, -0.45f + row * 0.045f, 0f));
-                    var covered = readingSupports.Any(surface => {
-                        var local = surface.transform.InverseTransformPoint(point);
-                        return Mathf.Abs(local.x) < 0.5f + 0.006f / surface.Size.x && Mathf.Abs(local.y) < 0.5f + 0.006f / surface.Size.y;
-                    });
-                    if (!covered) witness.Add(point);
-                }
-                if (witness.Count < 3) failures.Add("carrier has no meaningful interior empty optical area");
+                for (var row = 1; row < 10; row++) for (var column = 1; column < 10; column++)
+                    witness.Add(instrument.transform.TransformPoint(new Vector3(-0.45f + column * 0.09f, -0.45f + row * 0.09f, 0f)));
                 foreach (var surface in physical)
                 {
                     var rim = surface.MaterialRim;
@@ -142,9 +123,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var vertex in mesh.vertices)
                         if (Mathf.Abs(vertex.x) > 0.50001f || Mathf.Abs(vertex.y) > 0.50001f || vertex.z < -0.00001f || vertex.z > surface.MaterialDepth + 0.00001f)
                             failures.Add("material mesh escaped allocated face footprint/depth");
-                    if (surface.Fill.a < 0.2f || surface.Fill.a > 0.4f) failures.Add("carrier lost its deliberate background transmission");
+                    if (surface.Fill.a < 0.999f) failures.Add("coated reading face must remain opaque");
                 }
                 var shown = director.Plane.Shown.Single().View;
+                foreach (var footerView in shown.GetComponentsInChildren<FooterView>(false))
+                foreach (var entry in footerView.Shown)
+                {
+                    var prompt = footerView.Showing![entry.Slot]!;
+                    if (prompt.DrawnAsMain || prompt.Listens) continue;
+                    var promptCap = entry.Button.GetComponentsInChildren<Surface>(false).Single(surface => surface.name == "Cap");
+                    if (promptCap.Size != Vector2.zero || entry.Button.Icon == null)
+                        failures.Add("spatial ordinary footer prompt must retain its icon without an intersecting cap ring");
+                }
                 failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, "instrument centre"));
                 failures.AddRange(GlazeChecks.TargetsLargeEnough(shown.Targets.Concat(director.Plane.Chrome.Targets), eyes, "instrument centre"));
                 var positions = new[] { new Vector3(-0.09f, 0.02f, 0f), Vector3.zero, new Vector3(0.09f, -0.02f, 0f) };
@@ -156,7 +146,6 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("actual reading part has no valid forward camera target");
                 var rigid = physical.Select(surface => surface.transform.localToWorldMatrix).ToArray();
                 Color32[]? lastMaterialPixels = null;
-                var parallax = new List<Vector2>();
                 for (var frame = 0; frame < positions.Length; frame++)
                 {
                     camera.transform.position = eyes + positions[frame]; camera.transform.rotation = Quaternion.LookRotation(readingCenter - camera.transform.position, Vector3.up);
@@ -178,36 +167,27 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (projected.z <= 0f || projected.x <= 0f || projected.x >= 1f || projected.y <= 0f || projected.y >= 1f)
                         failures.Add("actual reading centre is outside the positive camera image");
                     var image = Render(camera, texture);
-                    foreach (var point in witness)
-                    {
-                        var pixel = camera.WorldToScreenPoint(point);
-                        if (pixel.x < 1f || pixel.x >= image.width - 1 || pixel.y < 1f || pixel.y >= image.height - 1)
-                        { failures.Add("interior carrier witness escaped the actual image"); continue; }
-                        transmitted.Add(image.GetPixel(Mathf.RoundToInt(pixel.x), Mathf.RoundToInt(pixel.y)));
-                    }
-                    var rear = carrier.transform.position;
-                    var front = rear - carrier.transform.forward * separation;
-                    parallax.Add((Vector2)(camera.WorldToScreenPoint(rear) - camera.WorldToScreenPoint(front)));
                     var centrePixel = image.GetPixel(Mathf.Clamp(Mathf.RoundToInt(projected.x * (image.width - 1)), 0, image.width - 1),
                         Mathf.Clamp(Mathf.RoundToInt(projected.y * (image.height - 1)), 0, image.height - 1));
                     var background = image.GetPixel(0, 0); // Same rendered color pipeline, known empty corner.
                     if (Mathf.Abs(centrePixel.r - background.r) + Mathf.Abs(centrePixel.g - background.g) + Mathf.Abs(centrePixel.b - background.b) < 0.05f)
                         failures.Add("camera aimed at the reading part but captured only its background");
+                    // Include actual body words, icons, state text and unavailable labels, not
+                    // just navigation/caption. Reflection now crosses the reading face itself.
                     var critical = director.Plane.Chrome.GetComponentsInChildren<TMP_Text>(false)
-                        .Concat(shown.GetComponentsInChildren<TMP_Text>(false).Where(word => word.name == "Identity kind" || word.name.StartsWith("Section ") && word.name.EndsWith(" words")))
+                        .Concat(shown.GetComponentsInChildren<TMP_Text>(false))
                         .Where(word => !string.IsNullOrWhiteSpace(word.text)).Distinct().ToArray();
                     foreach (var word in critical)
                     {
                         var bounds = word.textBounds;
                         var worldCorners = new[] { bounds.min.x, bounds.max.x }.SelectMany(x => new[] { bounds.min.y, bounds.max.y }.Select(y => word.transform.TransformPoint(new Vector3(x, y, 0f)))).ToArray();
-                        // Evidence required before any optical lip can reduce perimeter opacity.
-                        // No lip is enabled in this revision: test the proposed 0.004 inset now.
-                        var insideReading = physical.Any(surface => worldCorners.All(point => {
+                        // All glyph bounds must remain inset inside a real opaque reading region.
+                        var insideReading = physical.Concat(readingSupports).Any(surface => worldCorners.All(point => {
                             var local = surface.transform.InverseTransformPoint(point);
                             return (0.5f - Mathf.Abs(local.x)) * surface.Size.x >= 0.004f
                                 && (0.5f - Mathf.Abs(local.y)) * surface.Size.y >= 0.004f;
                         }));
-                        if (!insideReading) failures.Add("critical text lacks proposed optical-lip inset (lip remains disabled): " + word.transform.parent.name + "/" + word.name + "; frame=" + frame);
+                        if (!insideReading) failures.Add("critical text lacks opaque reading inset: " + word.transform.parent.name + "/" + word.name + "; frame=" + frame);
                     }
                     var textObjects = critical.Select(word => word.gameObject).Where(text => text.activeSelf).ToArray();
                     Texture2D withoutWords;
@@ -259,9 +239,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     lastMaterialPixels = image.GetPixels32(); File.WriteAllBytes(Path.Combine(folder, "motion-" + frame + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
                     for (var index = 0; index < physical.Length; index++) if (physical[index].transform.localToWorldMatrix != rigid[index]) failures.Add("camera motion moved the material instead of revealing its real depth");
                 }
-                if (parallax.Count == 3 && (parallax[2] - parallax[0]).magnitude < 0.05f)
-                    failures.Add("actual bounded eye movement revealed no reading/carrier depth parallax");
-                // Same geometry/background/text: flatten all optical shading and real thickness.
+                // Same opaque face, geometry allocation, text and background; remove only
+                // reflected studio light and physical thickness for the actual negative control.
                 foreach (var surface in physical) surface.FlattenMaterialForRender();
                 if (physical.Any(surface => surface.MaterialRim != null || surface.MaterialDepth != 0f)) failures.Add("flat negative control retained physical material");
                 var flat = Render(camera, texture); var flatPixels = flat.GetPixels32();
@@ -276,12 +255,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     return lastMaterialPixels != null && Math.Abs(pixel.r - lastMaterialPixels[index].r)
                         + Math.Abs(pixel.g - lastMaterialPixels[index].g) + Math.Abs(pixel.b - lastMaterialPixels[index].b) > 8;
                 });
-                if (interiorChanged < 3) failures.Add("material negative control changed only its edge, without interior optical response");
+                if (interiorChanged < 3) failures.Add("material negative control changed only its edge, without a reading-face response");
                 File.WriteAllBytes(Path.Combine(folder, "flat-control.png"), flat.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(flat);
                 if (GlazeColor.Contrast(Glaze.TextSecondary, Glaze.Panel) < 4.5) failures.Add("candidate secondary text lacks opaque source contrast");
-                // Linear compositor worst-case: the .98 substrate over ideal white. Do not use encoded byte interpolation.
-                var composite = Glaze.Panel.Luminance * 0.98 + 0.02 + 0.018;
-                if ((Glaze.TextSecondary.Luminance + 0.05) / (composite + 0.05) < 4.5) failures.Add("candidate secondary text lacks bright-background linear-composite contrast");
+                // Opaque coating + maximum studio reflection, not the rejected clear carrier.
+                var peakBacking = Glaze.Panel.Luminance + 0.025;
+                if ((Glaze.TextSecondary.Luminance + 0.05) / (peakBacking + 0.05) < 4.5)
+                    failures.Add("candidate secondary text lacks opaque reflected-face contrast budget");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); texture.Release(); UnityEngine.Object.DestroyImmediate(texture); }
             return failures;

@@ -308,6 +308,31 @@ public class FileScreensTests
         Assert.That(frame.Source, Is.Null, "a mixed event log cannot be attributed wholesale to the agent");
     }
 
+    [TestCase(3)]
+    [TestCase(4)]
+    public void EmptyActivityNamesMissingRecordsBeforeExistingUtilityRoutes(int rows)
+    {
+        var screen = new FileScreen { Section = FileSection.Activity, WorkspaceRequestOffered = true, ResultsOffered = true };
+        var frame = Screen(screen, room: new AnswerRoom(rows));
+        Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(rows));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No recorded activity yet.", "Ask workspace", "Read results" }));
+        Assert.That(frame.Lines[0].Action, Is.Null);
+        Assert.That(frame.Lines[0].Tone, Is.EqualTo(LineTone.Secondary));
+        Assert.That(frame.Lines.Skip(1).Select(line => line.Action), Is.EqualTo(new[] { FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults }));
+    }
+
+    [Test]
+    public void RecordedActivityPrecedesUtilityRoutesWithoutChangingProvenance()
+    {
+        var present = Running().Present();
+        var activity = new[] { new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Message, "Checking the tests", true) };
+        var workspace = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime,
+            present.Actions, present.Actions.Where(present.RequiresConfirmation).ToList(), present.Commands, activity);
+        var frame = Screen(new FileScreen { Section = FileSection.Activity, WorkspaceRequestOffered = true, ResultsOffered = true }, workspace);
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Checking the tests", "Ask workspace", "Read results" }));
+        Assert.That((frame.Lines[0].Chip, frame.Lines[0].Runs.AllTheirs), Is.EqualTo(("Agent says", true)));
+    }
+
     [Test]
     public void EmptyActivityDoesNotInventAnEventFromTheCurrentState()
     {
