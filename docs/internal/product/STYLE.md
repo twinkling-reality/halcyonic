@@ -665,3 +665,7 @@ character; preview never grants runtime or approval authority. Source loss still
 The spatial proof checks real Workstream binding, body-only presentation, title separation and
 absence of command targets. These new portrait compositions remain unvalidated until actual
 rendering and wearer review; the separate body component's implementation is not that evidence.
+The compact object's leading edge uses the same selected task portrait and hue, with the complete
+animated body fit inside its shorter allocation. Its adjacent literal task identity and state
+remain readable without relying on the character alone. Move and Expand retain their separate
+full targets; the portrait itself does not expand or command the task.

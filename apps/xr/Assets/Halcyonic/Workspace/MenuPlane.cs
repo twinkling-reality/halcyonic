@@ -527,7 +527,7 @@ namespace Halcyonic.XR.Workspace
                 // Where something closes, the bar shows only once it has left, then fades in, so the bar's words
                 // never stand over the file's; newly laid otherwise, as the plane starts, it stands whole at once.
                 var barWas = bar.gameObject.activeSelf;
-                bar.Show(menuBar, Glaze.Menu.FileColumnDegrees, compactIdentity, compactState, waitingCount, compactBinding);
+                bar.Show(menuBar, Glaze.Menu.FileColumnDegrees, compactIdentity, compactState, waitingCount, compactBinding, SpatialWorkspace ? SelectedPortrait : null, SelectedPortraitHue);
                 if (!barWas)
                 {
                     var closing = false;
