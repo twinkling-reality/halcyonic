@@ -55,6 +55,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 var found = new List<string>();
                 try
                 {
+                    var pending = Work.Asking(new QuestionView {
+                        QuestionId = "render-spatial-long-question", Answerable = true, AskedAt = Time,
+                        Prompts = new List<QuestionPrompt> { new QuestionPrompt {
+                            Key = "environment", Header = "Release target", Multiple = false, FreeText = false,
+                            Text = string.Join(" ", Enumerable.Repeat("Which environment should receive this change after the current tests finish?", 16)),
+                            Options = new List<QuestionOption> {
+                                new() { Label = "Staging", Description = string.Join(" ", Enumerable.Repeat("Use the existing staging environment and preserve its current data.", 12)) },
+                                new() { Label = "Production", Description = "Use the production environment." } } } } });
+                    found.AddRange(RenderSpatialWorkspace(folder, pending, waiting: true, question: true));
                     found.AddRange(RenderTaskResults("spatial", folder, withShelf: false, desk: false, spatialWorkspace: true));
                 }
                 finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
@@ -65,7 +74,7 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting)
+        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Actual spatial workspace composition witness");
@@ -83,7 +92,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 inbox.Enqueue(new WelcomeMessage { Journal = journal, Head = 1, ServerTime = Time,
                     CommandPolicies = new List<CommandPolicy> {
                         new() { CommandType = CommandType.ExecutionRespondToApproval, Policy = PolicyCategory.ReviewRequired },
-                        new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.LowConsequence } } });
+                        new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.LowConsequence },
+                        new() { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.LowConsequence } } });
                 inbox.Enqueue(new SnapshotMessage { Snapshot = snapshot }); inbox.Enqueue(new ConnectionStatus(ConnectionPhase.Live)); session.Pump();
                 if (!session.SnapshotCurrent) failures.Add("spatial fixture did not establish current session authority");
                 var eyes = new Vector3(0f, EyeHeight, 0f);
@@ -147,7 +157,61 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
                 if (!waiting) { Press(FileScreens.TellIt); done?.Invoke("Add a regression test for the rate limit."); }
-                Shot(waiting ? "spatial-waiting-approval" : "spatial-working-direction");
+                Shot(question ? "spatial-question-first-part" : waiting ? "spatial-waiting-approval" : "spatial-working-direction");
+                if (question && selectedFile != null)
+                {
+                    void SettledPress(string action, string? key = null)
+                    {
+                        Draw(); System.Threading.Thread.Sleep(450); Press(action, key); Draw();
+                    }
+                    var firstFrame = director.Plane.Showing(MenuColumn.File);
+                    if (selectedFile.Screen.Question.QuestionPart == null) failures.Add("spatial: long question did not exercise full-question paging");
+                    if (firstFrame != null && director.PressForRender(MenuColumn.File, FileScreens.SendAnswer, null, firstFrame, null))
+                        failures.Add("spatial: unread question accepted Send answer");
+                    var questionParts = 0;
+                    while (selectedFile.Screen.Question.QuestionPart != null && questionParts++ < 64)
+                    {
+                        Shot("spatial-question-part-" + questionParts);
+                        SettledPress(FileScreens.NextPart, FileScreens.QuestionKey);
+                    }
+                    if (questionParts < 2 || questionParts >= 64 || selectedFile.Screen.Question.QuestionPart != null)
+                        failures.Add("spatial: whole question pager did not finish within its measured bound");
+                    Draw();
+                    var option = director.Plane.Showing(MenuColumn.File)?.Lines.FirstOrDefault(line => line.Action == FileScreens.Choose && line.Available);
+                    if (option?.Key == null) failures.Add("spatial: fully read question has no actual answer choice");
+                    else SettledPress(FileScreens.Choose, option.Key);
+                    var sideParts = 0;
+                    while (selectedFile.Screen.Question.SideOption != null && sideParts++ < 64)
+                    {
+                        Shot("spatial-question-answer-detail-" + sideParts);
+                        if (director.Plane.Composition?.Columns.Count != 1) failures.Add("spatial: task answer details restored a competing chooser rail");
+                        var sideView = director.Plane.Shown.Single().View;
+                        Draw(); System.Threading.Thread.Sleep(450);
+                        var next = sideView.Footer.Showing?.All.FirstOrDefault(slot => slot.Prompt.Id == Footer.NextPage).Prompt;
+                        var action = next != null && selectedFile.Screen.Question.SidePart + 1 < selectedFile.Screen.Question.SideParts ? Footer.NextPage : SidePanel.Close;
+                        if (!director.PressForRender(MenuColumn.Side, action, null, sideView.InPlaceOf, sideView.Side))
+                            failures.Add("spatial: actual full-answer detail refused its current paging/return action");
+                        Draw();
+                    }
+                    if (sideParts < 2 || sideParts >= 64 || selectedFile.Screen.Question.SideOption != null)
+                        failures.Add("spatial: full answer detail did not page and return within its measured bound");
+                    Shot("spatial-question-returned-from-detail");
+                    var beforeReview = director.Plane.Showing(MenuColumn.File);
+                    if (beforeReview != null && director.PressForRender(MenuColumn.File, FileScreens.SendAnswer, null, beforeReview, null))
+                        failures.Add("spatial: selected answer bypassed the mandatory review");
+                    SettledPress(FileScreens.NextQuestion);
+                    if (!selectedFile.Screen.Question.Reviewing) failures.Add("spatial: Review answers did not open the actual review");
+                    var reviewParts = 0;
+                    while (selectedFile.Screen.Question.Page + 1 < selectedFile.Screen.Question.Pages && reviewParts++ < 64)
+                    {
+                        Shot("spatial-question-review-part-" + reviewParts);
+                        SettledPress(FileScreens.MoreAnswers);
+                    }
+                    Shot("spatial-question-reviewed-answer");
+                    if (FileScreens.WhySendWaits(selectedFile.Screen) != null) failures.Add("spatial: completed actual review still blocks the answer");
+                    SettledPress(FileScreens.SendAnswer);
+                    if (sends != 1) failures.Add("spatial: explicit answer Send did not submit exactly once");
+                }
                 if (!director.Plane.SelectedMarks.Any(mark => mark.Word == StateLanguage.Practice)) failures.Add("spatial: synthetic work lost Practice provenance");
                 if (!waiting)
                 {
@@ -202,7 +266,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         || selectedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                         failures.Add("spatial: restore lost hand placement, selected task or draft");
                 }
-                if (sends != 0) failures.Add("spatial: navigation or drafting submitted a command");
+                if (sends != (question ? 1 : 0)) failures.Add("spatial: navigation, review or drafting submitted an unexpected command");
             }
             finally { UnityEngine.Object.DestroyImmediate(texture); UnityEngine.Object.DestroyImmediate(root); }
             return failures;
