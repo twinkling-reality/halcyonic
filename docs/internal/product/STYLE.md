@@ -14,14 +14,15 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 
 ## Spatial composition candidate — 2026-10-15
 
-The owner's headset review rejected the stacked menu composition. The next renderer candidate
-puts one actual work view on a unified reading surface, attaches place navigation on the left,
-and keeps Move, Other apps and Minimize along its base. The selected work's literal title uses
-the larger title role. Place navigation is unboxed type with a chosen fill; system utilities use
-the quieter prompt role. The actual project context occupies a shoulder attached to the reading
-object, and its backing has a visible shallow rim rather than a surrounding window frame. Paragraphs
-and controls still face the eyes together. This supersedes the requirement that every subject,
-section strip and content block must be a separate framed shape for this candidate.
+The owner's headset review rejected the stacked menu composition. The candidate gives an open
+task one reading column; its details replace that column and return to its retained draft. Only
+Projects remains as a place-navigation control while a task is open. The project chooser exposes
+Projects, Tasks, Usage and Settings as quiet icon-and-text controls beside its reading surface.
+Move, Other apps and Minimize remain along the base, with provenance on its own line below them.
+Context and task share the coated reading face described below; hierarchy replaces repeated
+bright glass frames.
+The selected work's literal name uses the larger title role. Paragraphs and controls still face
+the eyes together. There is no decorative folder shoulder or surrounding window frame.
 
 `WorkspaceDirector` enables `MenuDirector.Setup.SpatialWorkspace` for the main application.
 The setup option defaults off for explicitly retained legacy component/geometry fixtures; the
@@ -44,34 +45,39 @@ clearance. With the duplicated title plaque absent, the task connector leaves th
 body top and joins its named heading; both the drag predictor and rendered line use that same
 rule. It must cross no body or label. Zero-character use remains complete.
 
-## Instrument material candidate — 2026-10-15
+## Coated reading material
 
-The separate bevelled cards and the later clear carrier/opaque-poster comparison were both
-rejected. The spatial candidate now gives context, named identity, sections and reading body
-one continuous opaque coated face. Its own thin inward edge has real bounded thickness; a neutral
-virtual studio source reflects across the actual reading face as the eye moves. Its peak lift
-is0.025 linear luminance, with every visible task/chrome word and icon still subject to actual
-whole-bounds and resolved-ink4.5:1 checks. This is an opaque optical coating, without room
-reflection, refraction, blur or transmitted-passthrough claims. There is no clear surrounding
-carrier, bright empty band, periodic face texture or independent internal material rim.
+The spatial workspace gives project context, named identity, sections and page one continuous
+opaque coated face. A neutral virtual studio source reflects smoothly across that face from the
+actual eye direction, with a maximum0.025 linear-luminance lift. The inward edge is0.006 distance
+units deep (about2.8mm at the normal0.46m distance), with a0.001-unit bevel contained inside the
+allocated footprint. There is no surrounding transparent carrier, inner opaque poster, repeated
+material rim or periodic face texture. This analytic optical response does not capture room
+reflection, refract or blur the scene, or transmit passthrough through the reading face.
 
-The global utility dock is separate, quiet and fitted to its complete semantic group. The full
-existing geometry/input allocation, character pose and connector ownership remain intact. The
-legacy rule below that each part owns its own rounded shape does not apply to this spatial
-composition. Activity records or its truthful "No recorded activity yet." state precede utility
-routes such as Ask workspace and Read results. A utility route does not count as recorded activity;
-an agent's event keeps its existing provenance and styling. No progress is invented to fill space.
+The global utility dock is separate, quiet and fitted to its complete semantic group. The complete
+geometry/input allocation remains separate from the visual face, preserving target dimensions,
+placement bounds and character/connector ownership. The legacy rule below that each part owns its
+own rounded shape does not apply to this spatial composition. Activity records and its truthful
+"No recorded activity yet." state lead utility routes such as Ask workspace and Read results;
+a utility route is not recorded activity, and reported agent text keeps its provenance.
 
-The selected Task/Project caption uses primary strong text after an actual resolved-ink contrast
-failure. Small spatial navigation/context, reached sections and utility labels use primary ink
-where actual thin secondary glyph cores failed; positions and size retain their hierarchy. The
-selected section uses a6-percent white lift on the coated face. Spatial filled/listening prompt
-caps are rounded squares within the original cap bounds, shielding their entire icon rectangle. The focused task's Projects icon and ordinary spatial footer prompts retain their icon/text
-layout and target without a circular cap. Main filled and listening caps retain their meanings;
-the spatial footer has no subpixel decorative divider.
-The neutral palette comparison and saved-preset adoption are separate from this material change.
-Actual negative controls, selected-character context and acceptance requirements are recorded in
-[instrument material validation](../validation/instrument-material-study.md).
+The Task/Project caption uses primary strong text. Small navigation/context, reached sections,
+utility labels and chevrons use primary ink; size and position retain their hierarchy. Unreached
+sections remain unavailable in the quiet secondary role. Selection on the coated face uses a
+6-percent white lift with the existing selected frame. Spatial filled/listening prompt caps are
+rounded squares within the original cap bounds, shielding their complete icon rectangle. The
+focused task's Projects icon and ordinary spatial footer prompts keep their icon/text layout
+and target without circular caps. The spatial footer has no subpixel decorative divider.
+
+Material rendering does not redefine historical preset values or saved appearance keys. Palette
+selection and default adoption follow the Colour section independently of the coating. Every
+visible word and icon must retain actual whole-bounds backing and resolved-ink contrast of4.5:1,
+including unavailable labels when present. The comparison at warm commit `9b547a02` passed those
+technical checks across three palettes, both reading sizes and bright/dark backgrounds, together
+with geometry, moving-eye and interior material/flat-negative checks. That editor evidence is not
+wearer acceptance, calibrated passthrough readability or proof of comfort. Exact evidence and
+remaining limits are in [material validation](../validation/instrument-material-study.md).
 
 ## The plane
 
@@ -581,11 +587,10 @@ industrial headings; Liberation Sans remains the body face and fallback for unsu
 glyphs. A static, bundled SDF atlas consumes the OFL source; no runtime font download is required.
 The principal work title is 34 dp, used once, while all existing reading/target minima remain.
 
-Reading plates no longer repeat a broad white gloss or bright top stripe. Their opaque contrast,
-focus and selection semantics remain; emphasis comes from hierarchy and the selected work rather
-than a gradient on every part. This is part of the composition correction, not a claim that a
-font/material change alone satisfies the requested diegetic experience. Actual complete renders
-and a fresh wearer review are still required.
+The spatial reading surface follows [Coated reading material](#coated-reading-material): one
+opaque face with bounded reflected light, rather than independently glossed parts. Focus and
+selection retain their meanings. This material and typography do not establish a successful
+diegetic experience; full-context evidence and fresh wearer review remain required.
 
 ### Task-focused composition candidate
 
@@ -595,8 +600,8 @@ remain a second rail beside an open task. Project context stays above the work, 
 below it, and practice/recorded provenance has its own reserved line clear of those targets.
 The named heading reserves two grid steps beyond the badge inset between its caption and Hero
 name; pagination and actual layout use the same inset, including larger-text SDF bounds.
-The named heading and the reading body retain contrast surfaces without a surrounding window or
-folder tab. The rear contact is dark, so translucent surfaces retain the palette's reading contrast.
+Context, named heading, sections and reading body share the opaque coated face, without a folder
+tab, clear rear carrier or independently backed internal plates. The quiet utility dock is separate.
 This composition remains a candidate until actual full-context and wearer validation pass.
 
 The type hierarchy resets for each independent known-project entry: its name leads its own
@@ -604,36 +609,11 @@ supporting task summary. A later project's name may therefore be larger than the
 project's summary. This is not a blanket exception to descending type: ordinary reading content
 retains that rule, and each project's actual name-to-summary group must satisfy it independently.
 
-### Physical reading material comparison, 2026-10-15
+### Material evidence
 
-The owner rejected the installed flat treatment and asked for gloss, glass and material presence.
-The isolated candidate gives only the spatial heading and reading body an inset bevel and real
-rear edge, contained inside their allocated footprint. A narrow neutral optical edge responds
-to the real camera; subtle filtered satin grain belongs to the side material. The reading centre
-has no moving reflection, broad white wash or blur. The substrate remains at least98% opaque;
-its text must keep minimum contrast against a bright background. This is a controlled studio-key
-specular response, not a reflection or measurement of the wearer's room. No new permission,
-reflection capture, vendor dependency, input target or animation loop is introduced.
-
-The neutral instrument palette is an explicit comparison fixture value, not a saved appearance
-preset or silently changed default. Characters and semantic state colors keep their existing
-identity/meaning. Physical material and a new color field do not establish that the flat-form
-interaction has been solved. Actual angled/moving production scene evidence and wearer judgment
-remain required; see [material comparison](../validation/instrument-material-study.md).
-
-The first physical-material render passed geometry but remained aesthetically rejected. The next
-candidate uses a reflected-eye analytic softbox with a bounded face luminance contribution,
-rather than a constant bright perimeter. Floating system words, task captions and tabs require
-their own tight contrast support over bright passthrough; font size alone does not establish
-legibility. Their supports stay unoutlined and inside measured owner bounds, preserving actual
-targets and the existing source/selection treatment. Actual image contrast and motion evidence
-must accompany the material study before acceptance.
-
-The second material proof was also rejected: visible periodic coating and word-sized dark boxes
-fragmented the interface. The next candidate removes face stripes, groups system information into
-one header and one footer grip, groups tabs into a strip, and includes the kind caption in the
-heading material. Its edge insets must protect actual text against bright surroundings. A more
-transparent optical lip remains disabled until actual glyph-to-edge margins and contrast pass.
+[Coated reading material](#coated-reading-material) defines the current implementation. Superseded
+card, coating and carrier comparisons are retained only in the [validation history](../validation/instrument-material-study.md),
+not as alternative authoring rules.
 
 ## Out-of-view workspace recovery, 2026-10-15 candidate
 

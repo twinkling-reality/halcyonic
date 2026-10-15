@@ -314,3 +314,23 @@ before any normal capture, restores the global Still value, opens no voice path 
 nothing. The existing all-visible-TMP 4.5:1 pixel probes and 48 normal controlled images remain
 unchanged. This addition checks actual engine-owned glyph geometry when run in Unity; preparing
 or source-compiling it is not a passed Unity observation, nor pressed-state pixel contrast proof.
+
+## Actual repaired coated-face comparison — 2026-10-15
+
+The actual Unity editor run at warm commit `9b547a02` exited0. Its retained log reports:
+"every source geometry, actual scene and motion control passed." The comparison covers historical
+Glaze, Graphite and Neutral, standard/larger reading sizes, bright/dark backdrops, three real eye
+positions and a same-camera opaque flat control:48 images. Every visible task/chrome TMP word and
+icon in those scenarios passed complete-backing and resolved-ink4.5:1 checks. Selected spatial
+fill, filled-cap glyph coverage, text/target minima, strict field, actual inward thickness and
+material rigidity under eye movement passed. Interior material-v-flat differences passed separately
+from edge differences. The threshold was not lowered after the earlier failed run.
+
+This confirms the implemented opaque coating's controlled editor comparison, not scene refraction,
+room-reflection capture, calibrated passthrough readability, Android shader/device performance or
+wearer comfort/aesthetic acceptance. Root found the coherent face improved over the carrier while
+noting subtle gloss and the reserved context gap. The actual selected-character spatial comparison
+was still underway when this record was added; it is not included in this material result. Palette
+adoption is a separate compatibility-preserving change; this material evidence does not reinterpret
+historical preset bytes or saved keys. No device build/install or wearer approval follows from the
+clean editor process alone.
