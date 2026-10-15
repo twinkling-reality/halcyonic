@@ -242,3 +242,17 @@ workspace and task-file galleries, the appearance flows and the cache witnesses 
 and sizes. The integrated repository check passes 1,172 tests, no failures or skips, plus type
 checking and lint. Headset preset legibility, live activation and wearer comfort remain unverified
 for this correction.
+
+### Scoped character colour rendering witness
+
+`Halcyonic.XR.Workspace.Editor.WorkspaceRender.CharacterColourCheck` exercises the production
+Character colour route with a real `CharacterView`, `CharacterTarget`, body material property block
+and rendered body pixels. It reuses the measured confirmed-shelf fixture and opts into the spatial
+console solely for this editor witness. A synthetic welcome/snapshot is pumped through the actual
+session watermark machinery; no transport starts, network request, runtime command or device is used.
+The actual AppearanceControls save path is checked by reloading its bounded preference after Apply.
+The witness covers unchanged choice, visible preview, exact Cancel rollback, Apply, configured/source
+mismatch, session and watermark loss, target removal, and menu-only destruction leaving the body alive.
+Its nested cleanup restores the exact presence and typed values of both appearance preferences,
+and restores the interface palette, text scale, field and active render target even on failure.
+The entry point is source for a host editor check, not evidence of a completed run or wearer acceptance.
