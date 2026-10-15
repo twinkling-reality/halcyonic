@@ -12,6 +12,7 @@ namespace Halcyonic.XR.UI
     public sealed class WorkspaceChromeView : MonoBehaviour
     {
         private Surface frame = null!;
+        private Surface identityShoulder = null!;
         private Surface heading = null!;
         private Surface rule = null!;
         private TextMeshPro product = null!;
@@ -50,6 +51,7 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<WorkspaceChromeView>();
             view.frame = Surface.Create(go.transform, "Connected frame", 16);
+            view.identityShoulder = Surface.Create(go.transform, "Work identity shoulder", 19);
             view.heading = Surface.Create(go.transform, "Header", 19);
             view.rule = Surface.Create(go.transform, "Header rule", 20);
             view.product = GlazeText.Create(go.transform, "Halcyonic", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 23, strong: true);
@@ -88,6 +90,9 @@ namespace Halcyonic.XR.UI
 
         public void Show(float width, float totalHeight, string connectionState, LineWords selection, bool appsAvailable, StateBadge? selectedState, IReadOnlyList<WorkMark> marks, bool preserveMovePress = false)
         {
+            foreach (var button in Targets) { button.Role = ButtonRole.Navigation; button.Label.alignment = TextAlignmentOptions.Center; button.Label.color = GlazeTokens.Text; }
+            identityShoulder.gameObject.SetActive(false);
+            context.gameObject.SetActive(true);
             tasks.gameObject.SetActive(false); usage.gameObject.SetActive(false); settings.gameObject.SetActive(false);
             preserveMovePress &= gameObject.activeSelf && connection.text == connectionState;
             gameObject.SetActive(true);
@@ -157,8 +162,7 @@ namespace Halcyonic.XR.UI
             gameObject.SetActive(true);
             Size = new Vector2(width, totalHeight);
             frame.gameObject.SetActive(true);
-            frame.Draw(new Vector2(width, totalHeight), GlazeTokens.Units(0.6f), Color.clear,
-                GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, 0.10f), GlazeTokens.Units(0.04f));
+            frame.Draw(new Vector2(width, totalHeight), 0f, Color.clear);
             frame.transform.localPosition = Vector3.zero;
             heading.gameObject.SetActive(false); rule.gameObject.SetActive(false);
             status.gameObject.SetActive(false);
@@ -172,10 +176,19 @@ namespace Halcyonic.XR.UI
             GlazeText.SetLiteral(connection, connectionState);
             GlazeText.Lay(connection, contentWidth / 2f, 1);
             connection.transform.localPosition = new Vector3(contentLeft + contentWidth, labelY, -0.001f);
-            var contextRoom = contentWidth / 2f - gap;
-            GlazeRuns.Of(context).Set(selection, _ => true);
-            GlazeText.Lay(context, contextRoom, 1);
-            context.transform.localPosition = new Vector3(contentLeft, labelY, -0.001f);
+            var contextRoom = contentWidth * 0.62f;
+            var hasIdentity = selection.Text != "Projects" && !string.IsNullOrWhiteSpace(selection.Text);
+            context.gameObject.SetActive(hasIdentity);
+            identityShoulder.gameObject.SetActive(hasIdentity);
+            if (hasIdentity)
+            {
+                var shoulderHeight = SpatialTop + PlaneComposition.Units(PlaneComposition.PartGapDegrees);
+                identityShoulder.Draw(new Vector2(contextRoom, shoulderHeight + GlazeTokens.Units(0.15f)), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.94f));
+                identityShoulder.transform.localPosition = new Vector3(contentLeft + contextRoom / 2f, top - shoulderHeight / 2f, 0f);
+                GlazeRuns.Of(context).Set(selection, tried => context.GetPreferredValues(tried).x <= contextRoom - 2f * gap);
+                GlazeText.Lay(context, contextRoom - 2f * gap, 1);
+                context.transform.localPosition = new Vector3(contentLeft + gap, labelY, -0.001f);
+            }
             provenance.gameObject.SetActive(marks.Count > 0);
             if (marks.Count > 0)
             {
@@ -187,16 +200,20 @@ namespace Halcyonic.XR.UI
             var y = top - SpatialTop - MenuPage.Target() / 2f;
             foreach (var (button, destination, words) in entries)
             {
-                button.gameObject.SetActive(true); button.On = destination == place;
+                button.gameObject.SetActive(true); button.Role = ButtonRole.Row; button.On = destination == place;
+                button.Label.alignment = TextAlignmentOptions.Left;
                 button.Show(words, new Vector2(left + SpatialRail / 2f, y), SpatialRail);
+                button.Label.color = button.On ? GlazeTokens.Text : GlazeTokens.TextSecondary;
                 y -= MenuPage.Target() + gap;
             }
+            move.Role = apps.Role = minimize.Role = ButtonRole.Prompt;
             var buttonWidth = (contentWidth - 2f * gap) / 3f;
             var baseY = -totalHeight / 2f + SpatialBase / 2f;
             move.Show(WorkspaceText.MoveWorkspace, new Vector2(contentLeft + buttonWidth / 2f, baseY), buttonWidth);
             apps.Available = appsAvailable;
             apps.Show(WorkspaceText.OtherApps, new Vector2(contentLeft + contentWidth / 2f, baseY), buttonWidth);
             minimize.Show(WorkspaceText.Minimize, new Vector2(contentLeft + contentWidth - buttonWidth / 2f, baseY), buttonWidth);
+            move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.TextSecondary;
             foreach (var button in Targets)
                 if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
         }

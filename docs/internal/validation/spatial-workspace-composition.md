@@ -19,3 +19,10 @@ source compile against installed Unity/SDK assemblies passed with existing warni
 is a syntax/API check, not an assembly-definition build or runtime proof. Actual Unity execution,
 visual inspection, interaction regressions and headset acceptance remain outstanding. Production
 keeps the existing default until these establish that the candidate is worth migrating.
+
+The first actual three-state renderer run passed the retained geometry/type/target/font checks,
+but visual review rejected it as a desktop dashboard. That result does not establish acceptance.
+The next candidate removes the outer frame and idle navigation/utility boxes, attaches actual
+project identity to the reading object's shoulder and exposes its shallow edge. Host title row
+counting and height reservation now use the same actual Hero face and line height as the view,
+including long titles. Further actual render review is required.
