@@ -208,6 +208,9 @@ namespace Halcyonic.Client
             var lines = Lines(state, projects, offers, project, folder, problemChosen);
 
             var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize, sourceLine: false), state.LineHeight, state.AvailableHeight);
+            if (pages == null)
+                return new MenuFrame(subject, new Footer(new Prompt(Footer.Close, ProjectsText.Close, GlazeIcon.Close, PromptKind.Close)),
+                    lines: new[] { new PageLine(ProjectsText.MoreRoom, rows: 2, tone: LineTone.Secondary) });
             var page = Math.Max(0, state.Page) % pages.Count;
             // A chosen row shows on its own page, so its side panel slides out beside it.
             var chosenAt = pages.FindIndex(each => each.Any(line => line.Chosen));
@@ -344,27 +347,33 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Pages of at most <paramref name="rows"/> rows, in order; a heading never ends a page, so it
-        /// stays with the first row under it. Always at least one page.
+        /// stays with the first row under it. Null means supplied physical measurements cannot hold
+        /// a complete row/group; remembered selection remains state, never offered interaction.
         /// </summary>
-        private static List<List<PageLine>> Paginate(List<PageLine> lines, int rows, Func<PageLine, double>? measured, double available)
+        private static List<List<PageLine>>? Paginate(List<PageLine> lines, int rows, Func<PageLine, double>? measured, double available)
         {
             var pages = new List<List<PageLine>> { new List<PageLine>() };
-            var physical = measured != null && available > 0 && !double.IsNaN(available) && !double.IsInfinity(available);
+            var physical = measured != null;
+            bool Valid(double value) => value > 0 && !double.IsNaN(value) && !double.IsInfinity(value);
+            if (physical && !Valid(available)) return null;
             var limit = physical ? available : rows;
-            double Cost(PageLine line) => physical ? Math.Max(0.0001, measured!(line)) : line.Rows;
+            // Snapshot each rendered metric once. A supplied measurement never falls back to rows.
+            var costs = lines.Select(line => physical ? measured!(line) : line.Rows).ToArray();
+            if (physical && costs.Any(cost => !Valid(cost) || cost > limit)) return null;
             var used = 0.0;
             for (var index = 0; index < lines.Count; index++)
             {
                 var line = lines[index];
                 var heading = line.Words == ProjectsText.FoldersHeading && line.Action == null && index + 1 < lines.Count;
-                var needs = Cost(line) + (heading ? Cost(lines[index + 1]) : 0);
+                var needs = costs[index] + (heading ? costs[index + 1] : 0);
+                if (physical && needs > limit) return null;
                 if (used > 0 && used + needs > limit)
                 {
                     pages.Add(new List<PageLine>());
                     used = 0;
                 }
                 pages[pages.Count - 1].Add(line);
-                used += Cost(line);
+                used += costs[index];
             }
             return pages;
         }

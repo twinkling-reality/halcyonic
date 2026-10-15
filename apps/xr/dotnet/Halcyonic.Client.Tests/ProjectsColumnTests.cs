@@ -378,6 +378,30 @@ public class ProjectsColumnTests
         Assert.That(column.State().FoldersOpen, Is.False, "old drawn navigation does not survive geometry invalidation");
     }
 
+    [Test]
+    public void ReflowRevokesOldProjectActionsDuringNoRoomAndRestoresRememberedDetails()
+    {
+        var state = new Portfolio().Project("a", "Alpha").Project("b", "Beta").Apply();
+        var host = new Host { State = state }; var budget = 0.6; var shows = 0;
+        var column = new ProjectsColumn(host, Commands, new ProjectsMemory(),
+            () => WorkOverview.Of(state, new StageVisibility(), _ => false), (_, _) => shows++, _ => Task.FromResult(Listing()),
+            lineHeight: _ => 0.2, pageHeight: () => budget);
+        column.Tick(); column.OpenDetails("b");
+        Assert.That(column.Frame!.Side!.Subject, Is.EqualTo("Beta"));
+        column.Drawn(column.Frame, null); budget = 0; column.Reflow();
+        Assert.That(column.Frame!.Lines.Single().Words, Is.EqualTo(ProjectsText.MoreRoom));
+        foreach (var action in new[] { ProjectsScreens.AddTask, ProjectsScreens.ShowProject, ProjectsScreens.HideProject,
+            ProjectsScreens.NewProject, ProjectsScreens.ChooseProject, ProjectsScreens.FolderNavigation, Footer.NextPage })
+            column.Act(action, "a");
+        Assert.That(column.State().ChosenProject, Is.EqualTo("b"));
+        Assert.That((shows, host.Sent.Count, host.Opened.Count), Is.EqualTo((0, 0, 0)));
+        budget = 0.6; column.Reflow();
+        Assert.That(column.Frame!.Side!.Subject, Is.EqualTo("Beta"));
+        Assert.That(column.Frame.Lines.Single(line => line.Chosen).Key, Is.EqualTo("b"));
+        column.Act(ProjectsScreens.AddTask, null);
+        Assert.That(host.Opened.Single().Project, Is.EqualTo("b"));
+    }
+
     [TestCase("focus")]
     [TestCase("journal")]
     public void FolderNavigationRequiresItsCurrentDrawnFrameAndJournal(string loss)
