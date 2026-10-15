@@ -126,14 +126,23 @@ Agent text, task titles and quoted content remain data, never spoken instruction
 A delayed interpretation cannot act on a new selection or a new connection. Failure leaves the
 person's words available to correct without silently retrying a command.
 
-**Current status:** development builds transcribe held speech locally on the Mac into a particular
-field, under [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md). The
-creation companion helps develop an idea; its ask/propose exchange has no tools and is not the
-general workspace agent. The open-ended workspace agent loop, native-panel microphone continuity and voice in release builds are not
-implemented or accepted on hardware. The next implementation must measure target selection,
-ambiguity recovery, interruption, correction and end-to-end latency with real headset speech.
-The implementation decision is [ADR 0030](../decisions/0030-workspace-requests-use-a-journaled-agent-tool-loop.md):
-a journaled request lifecycle, model-selected typed tools and observed results through existing runtime authority.
+**Current status (2026-10-15):** the implemented workspace request loop binds a request to one
+selected project, task and current execution. Its local model can choose scoped reads, send supported
+instructions through the existing command path and inspect recorded outcomes. Unity and native
+panels expose the request, reported reply and recorded actions. This is task-scoped assistance;
+global workspace navigation, project creation and arbitrary other-app control are not tools of this
+loop. The separate creation companion's ask/propose exchange still has no tools.
+
+Development builds transcribe held speech locally on the Mac into a particular field, under
+[ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md), including explicit
+native-panel [held dictation](../validation/native-panel-voice.md). Losing focus or leaving the
+editor cancels capture; continuous listening through background or Unity/native transitions is not
+implemented. Release microphone input is not enabled. The journaled loop and its current evidence
+are recorded in [ADR 0030](../decisions/0030-workspace-requests-use-a-journaled-agent-tool-loop.md)
+and [workspace request verification](../validation/workspace-requests.md). Deterministic runtime
+witnesses and synthetic local-model probes do not establish reliable open-ended execution with a
+real model or acceptance on a headset. Real speech target selection, ambiguity recovery,
+interruption, correction, return behavior and end-to-end latency remain acceptance work.
 Product references and their limits are recorded in
 [contextual-voice.md](../validation/contextual-voice.md).
 

@@ -28,7 +28,7 @@ evidence of documented behavior, not independent usability or reliability measur
   requirement for open-ended requests executed through tools, rather than a voice phrase catalogue.
   It does not establish a Halcyonic integration or permission to install, configure or run OpenClaw.
 
-## Halcyonic source facts
+## Historical source snapshot — 2026-10-12, before the workspace loop
 
 `MenuVoice` binds one recording to the column that started it. Its captured delivery callback
 checks the recording generation and column identity. Leaving the column or losing focus drops
@@ -42,6 +42,21 @@ microphone accuracy. The existing local companion handles project creation; no w
 agent loop exists at this review. Its prompt explicitly says it cannot read, run or build anything,
 and its transport submits no tools. Renaming or widening that ask/propose reply would not supply
 the missing execution loop.
+
+## Current implementation — 2026-10-15
+
+The historical snapshot above describes the earlier implementation, not the current product.
+The integrated journaled coordinator now consumes local model-selected tools within one selected
+project/task/current execution. Unity and native panels expose Request, Reply and Actions;
+[workspace request verification](workspace-requests.md) records the actual authority and runtime
+witnesses. The loop does not provide global workspace navigation, project creation or arbitrary
+other-app access. Its reported reply is distinct from observed action receipts.
+
+Development builds also implement explicit native [held dictation](native-panel-voice.md) through
+the existing local transcription route. Focus loss, editor changes and transitions cancel capture;
+background microphone continuity and release microphone support are not implemented. Neither
+synthetic transcription nor the deterministic runtime witness establishes real headset speech,
+model reliability or the complete other-app return journey.
 
 ## Local tool-call protocol proof
 
