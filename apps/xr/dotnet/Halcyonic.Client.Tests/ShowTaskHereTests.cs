@@ -44,9 +44,11 @@ public class ShowTaskHereTests
         file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.Zero);
         file.Drawn(file.Frame!, null); available = false;
         file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.Zero, "support must still be available at press");
-        available = true; host.Live = false;
+        available = true; file.Drawn(file.Frame!, null); host.Live = false;
         file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.Zero, "disconnection expires authority");
         host.Live = true;
+        file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.Zero, "reconnect cannot revive an old draw");
+        file.Drawn(file.Frame!, null);
         file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.EqualTo(1));
         file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.EqualTo(1), "one drawn press is consumed once");
         file.Drawn(file.Frame!, null); file.FocusLeft();

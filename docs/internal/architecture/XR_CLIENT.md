@@ -2198,7 +2198,9 @@ exists. Passthrough remains independent of whether optional characters are prese
 - **A selected task, here.** A live task's Activity page offers **Show this task here** when the
   local room-placement controls are available. This local presentation action sends no runtime
   command and needs no runtime capability. Its current drawn row is bound to the exact task and
-  journal; disconnected, demonstration and unsupported contexts do not offer it. It opens the
+  journal and requires the owned live session snapshot to have reached its welcome watermark;
+  disconnected, resynchronizing, demonstration and unsupported contexts do not offer it. A failed
+  authority check consumes the old drawn row; reconnect requires a fresh draw. It opens the
   existing measured shelf preview, with that task's title marked as outside data. Apply is still
   required. Until Apply succeeds, the existing shelf pose, selected character and enabled state
   remain unchanged; Cancel preserves them. Apply selects exactly that task and enables its real

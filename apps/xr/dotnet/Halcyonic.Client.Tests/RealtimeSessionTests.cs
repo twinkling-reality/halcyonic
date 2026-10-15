@@ -584,6 +584,12 @@ public class RealtimeSessionTests
         StartSession(options => { options.InitialRetryDelay = TimeSpan.FromMilliseconds(200); options.MaxRetryDelay = TimeSpan.FromMilliseconds(400); });
         var first = await ConnectLiveAsync(Samples.Snapshot(5, new[] { Samples.Workstream("w1") }));
         Assert.That(session.SnapshotCurrent, Is.True);
+        var host = new FakeMenuHost { State = session.State };
+        var placements = 0;
+        var file = new FileColumn(host, () => WorkspacePresenter.Present(session.State.Workstreams["w1"], session.State, new ActivityLog(), session.Status.IsLive),
+            new CommandFactory(Samples.Client), () => null, _ => null, () => "");
+        file.OfferShowTaskHere(() => session.SnapshotCurrent, () => placements++);
+        file.Drawn(file.Frame!, null);
         first.Close("1001 going away");
         await Pumping.Until(session, current => current.Status.Phase == ConnectionPhase.WaitingToRetry, "cached state is disconnected");
         Assert.That(session.SnapshotCurrent, Is.False);
@@ -593,9 +599,16 @@ public class RealtimeSessionTests
         second.Send(Samples.Welcome(resumed: true, head: 6));
         await Pumping.Until(session, current => current.Status.IsLive, "a welcome arrived ahead of the applied state");
         Assert.That(session.SnapshotCurrent, Is.False, "Live alone cannot cover an unapplied welcome head");
+        file.Act(FileScreens.ShowTaskHere, null);
+        Assert.That(placements, Is.Zero, "live cached task state cannot open placement before the welcome head is applied");
         second.Send(Samples.Event(6, Samples.Workstream("w1", WorkstreamStatus.Running)));
         await Pumping.Until(session, current => current.State.Position == 6, "the welcome watermark is applied");
         Assert.That(session.SnapshotCurrent, Is.True);
+        file.Act(FileScreens.ShowTaskHere, null);
+        Assert.That(placements, Is.Zero, "reaching the watermark cannot revive the consumed draw");
+        file.Drawn(file.Frame!, null);
+        file.Act(FileScreens.ShowTaskHere, null);
+        Assert.That(placements, Is.EqualTo(1), "only a fresh drawn action after the current watermark can open placement");
     }
 
 }
