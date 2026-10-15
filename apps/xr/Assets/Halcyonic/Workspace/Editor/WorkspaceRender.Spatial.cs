@@ -377,10 +377,39 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: Minimize left the reading object or peripheral controls active");
                     if (director.Plane.Bar is MenuBarView dock)
                     {
+                        var longIdentity = LineWords.TheirName(string.Join(" ", Enumerable.Repeat("A deliberately long retained task identity", 8)));
+                        var longestState = new StateBadge(WorkState.FinishedThisRound, StateLanguage.WordOf(WorkState.FinishedThisRound), GlazeTone.Success,
+                            GlazeIcon.FinishedThisRound, BadgeFill.Soft, BadgeEdge.None, false, false, 0, false);
+                        dock.Show(new MenuBar(MenuPlace.Tasks, "Synthetic compact layout witness"), Glaze.Menu.FileColumnDegrees,
+                            longIdentity, longestState, int.MaxValue, taskPortrait: work.Present().Character);
+                        dock.Shown = 1f; ForceMeshes(root);
+                        var required = new TMPro.TMP_Text[] { dock.Badge.Word, dock.WaitingCount, dock.Target.Label };
+                        failures.AddRange(GlazeChecks.NothingCut(required, "compact stress"));
+                        failures.AddRange(GlazeChecks.TargetsLargeEnough(new[] { dock.Target }, eyes, "compact stress"));
+                        foreach (var label in required)
+                        {
+                            foreach (var x in new[] { label.textBounds.min.x, label.textBounds.max.x })
+                            foreach (var y in new[] { label.textBounds.min.y, label.textBounds.max.y })
+                            {
+                                var at = dock.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(x, y, 0f)));
+                                if (Mathf.Abs(at.x) > dock.Size.x / 2f + 0.0001f || Mathf.Abs(at.y) > dock.Size.y / 2f + 0.0001f)
+                                    failures.Add("compact stress: required readable state/count/action escaped its actual allocation");
+                            }
+                        }
+                        var badgeSeen = GlazeChecks.Of("compact state", eyes, dock.Badge.Word.gameObject);
+                        var countSeen = GlazeChecks.Of("compact count", eyes, dock.WaitingCount.gameObject);
+                        var actionSeen = GlazeChecks.Of("compact open", eyes, dock.Target.Label.gameObject);
+                        if (badgeSeen.Left < countSeen.Right && badgeSeen.Right > countSeen.Left && badgeSeen.Bottom < countSeen.Top && badgeSeen.Top > countSeen.Bottom
+                            || badgeSeen.Left < actionSeen.Right && badgeSeen.Right > actionSeen.Left && badgeSeen.Bottom < actionSeen.Top && badgeSeen.Top > actionSeen.Bottom
+                            || countSeen.Left < actionSeen.Right && countSeen.Right > actionSeen.Left && countSeen.Bottom < actionSeen.Top && countSeen.Top > actionSeen.Bottom)
+                            failures.Add("compact stress: state/count/action text overlaps");
+                        camera.transform.rotation = PlaneLayout.Facing(director.Plane.Direction);
+                        var compactImage = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, "spatial-compact-long-identity-state-count.png"), compactImage.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(compactImage);
                         dock.Shown = 0.5f;
                         if (dock.TaskIdentity.gameObject.activeSelf) failures.Add("spatial: compact portrait stayed opaque during its object's fade");
                         dock.Shown = 1f;
                         if (dock.TaskIdentity.WorkstreamId != null && !dock.TaskIdentity.gameObject.activeSelf) failures.Add("spatial: compact portrait failed to return with its complete object");
+                        director.DrawNow(); Draw();
                         Click(dock.Target, 953);
                     }
                     else failures.Add("spatial: minimized workspace has no actual restore target");
