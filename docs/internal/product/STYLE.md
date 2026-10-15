@@ -614,6 +614,9 @@ practice/recorded provenance has its own small line only when present.
 The named heading reserves its badge inset and Hero name; pagination and actual layout use the same inset, including larger-text SDF bounds.
 Context, named heading, sections and reading body share the opaque coated face, without a folder
 tab, clear rear carrier or independently backed internal plates. Workspace remains in the header; no organization strip is allocated below the face.
+Bounded footer actions use the same corner radius as the header controls. Secondary actions use
+the neutral reading-face colour and the shared quiet hairline; primary actions retain the blue
+accent container and edge. Shape does not distinguish these roles.
 This composition remains a candidate until actual full-context and wearer validation pass.
 
 The focused work object's context row reserves one full Projects target in height. Project and
