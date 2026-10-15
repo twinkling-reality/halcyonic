@@ -116,6 +116,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Every button on the column asks this before taking a press: none while the column opens or closes.</summary>
         private Func<bool> still = null!;
+        public bool InputSuspended { get; set; }
 
         /// <summary>When the subject plate was last made to wait to settle, as a column newly on the plane does.</summary>
         private float subjectUnsettledAt = float.NegativeInfinity;
@@ -655,14 +656,14 @@ namespace Halcyonic.XR.UI
 
         private void Build()
         {
-            still = () => motion == Motion.Still;
+            still = () => motion == Motion.Still && !InputSuspended;
             unifiedPart = Part("Work instrument");
             unifiedPlate = Surface.Create(unifiedPart, "Reading surface", Order - 1);
             unifiedBacking = Surface.Create(unifiedPart, "Instrument depth", Order - 2);
             unifiedPart.gameObject.SetActive(false);
             subjectPart = Part("Subject");
             controls = OrganizationControlsView.Create(subjectPart);
-            controls.Accepting = () => !SubjectSettling && !FocusGuard.InputSuspended;
+            controls.Accepting = () => !InputSuspended && !SubjectSettling && !FocusGuard.InputSuspended;
             controls.MovePressed += () => MovePressed?.Invoke();
             controls.PressStarted += () => SubjectPressed?.Invoke();
             controls.Held += point => SubjectHeld?.Invoke(point);

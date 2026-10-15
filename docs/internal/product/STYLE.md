@@ -593,3 +593,13 @@ their own tight contrast support over bright passthrough; font size alone does n
 legibility. Their supports stay unoutlined and inside measured owner bounds, preserving actual
 targets and the existing source/selection treatment. Actual image contrast and motion evidence
 must accompany the material study before acceptance.
+
+## Out-of-view workspace recovery, 2026-10-15 candidate
+
+The owner rejected the fixed workspace staying behind when they turned. Reading content now stays
+still through ordinary small head movement, then recovers to the resting wearer after it leaves
+view. It never changes XR tracking or the camera, never moves room-placed characters, and does not
+control native Android panel placement. A moving or settling reading object accepts no task or
+frame input; its exact local drafts/pages survive and require a fresh physical draw. Keep things
+still uses an immediate content reposition with the same input settling. Candidate timings and
+translation tolerances require an actual wearer check; renderer success alone is not comfort.

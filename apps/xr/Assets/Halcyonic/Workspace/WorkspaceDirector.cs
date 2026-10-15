@@ -165,6 +165,7 @@ namespace Halcyonic.XR.Workspace
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
                 SpatialWorkspace = true,
+                ResponsiveWorkspace = true,
                 Presentation = Presentation,
                 InitialPlacementReady = InitialPlacementReady,
                 CharacterColours = characterColours,

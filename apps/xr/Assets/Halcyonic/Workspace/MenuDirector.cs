@@ -52,7 +52,8 @@ namespace Halcyonic.XR.Workspace
         {
             public WorkspacePresentationState Presentation { get; set; } = new WorkspacePresentationState();
             public bool SpatialWorkspace { get; set; }
-            /// <summary>Only the first anchor waits for valid wearer tracking; an established workspace never follows ordinary head or focus changes.</summary>
+            public bool ResponsiveWorkspace { get; set; }
+            /// <summary>Admits a head pose only with valid wearer tracking and focus, for initial placement and out-of-view recovery.</summary>
             public Func<bool> InitialPlacementReady { get; set; } = () => true;
             public CharacterColourSettings CharacterColours { get; set; } = new CharacterColourSettings();
             public Func<string?> CharacterSourceConnectionKey { get; set; } = () => null;
@@ -167,6 +168,8 @@ namespace Halcyonic.XR.Workspace
         /// a page, a side panel or a value, stays where it was rather than following the head.
         /// </summary>
         private (Vector3 Eyes, Vector3 Looking)? anchor;
+        private readonly WorkspaceFollow workspaceFollow = new WorkspaceFollow();
+        private bool followSnap;
         private (bool Open, IMenuColumn? Beside) anchoredFor;
 
         /// <summary>The stage's arrangement as the plane was last laid against it: beside a window or not, and the surface under the characters.</summary>
@@ -395,6 +398,7 @@ namespace Halcyonic.XR.Workspace
         {
             drag = null;
             anchor = null;
+            workspaceFollow.Reset(); plane.Repositioning = false;
             movedByHand = false;
             moved = default;
             ReflowFiles();
@@ -544,6 +548,7 @@ namespace Halcyonic.XR.Workspace
             KeepViews();
             Follow();
             RecoverViews();
+            RecoverWorkspace(FollowNow);
             placement?.Tick();
             navigator.Tick();
             memory.TickFiles(navigator.Beside);
@@ -558,7 +563,8 @@ namespace Halcyonic.XR.Workspace
             // Mid-drag nothing is laid again under the hand; the plane is drawn where it was left once let go.
             if (drag != null) return;
             var bar = setup.Bar(navigator.Place);
-            if (dirty || shownBar == null || !Same(bar, shownBar)) Draw(immediately: false);
+            if (dirty || shownBar == null || !Same(bar, shownBar)) Draw(immediately: followSnap);
+            followSnap = false;
         }
 
         /// <summary>
@@ -568,6 +574,73 @@ namespace Halcyonic.XR.Workspace
         /// off the plane and makes the menu's places afresh, so nothing made for one ticks or shows for
         /// another; what was made can't send to another anyway (<see cref="SessionBoundHost"/>).
         /// </summary>
+        private double FollowNow
+        {
+            get
+            {
+#if UNITY_EDITOR
+                if (followTimeForRender.HasValue) return followTimeForRender.Value;
+#endif
+                return Time.unscaledTimeAsDouble;
+            }
+        }
+#if UNITY_EDITOR
+        private double? followTimeForRender;
+        public void FollowFrameForRender(double now) { followTimeForRender = now; Update(); }
+        public bool FollowingForRender => workspaceFollow.Moving;
+#endif
+        private void RecoverWorkspace(double now)
+        {
+            if (!setup.ResponsiveWorkspace || anchor == null || plane.Composition == null) return;
+            var stage = setup.StageNow();
+            var wasMoving = workspaceFollow.Moving;
+            if (setup.Presentation.Minimized || !navigator.ShowsAnything) workspaceFollow.Reset();
+            var poseReady = setup.InitialPlacementReady();
+            var blocked = Away || drag != null || setup.Presentation.Minimized || !navigator.ShowsAnything
+                || !poseReady || Voiced() != null;
+            var headPosition = new System.Numerics.Vector3(stage.Eyes.x, stage.Eyes.y, stage.Eyes.z);
+            var headForward = new System.Numerics.Vector3(stage.Looking.x, stage.Looking.y, stage.Looking.z);
+            bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+            blocked |= !Finite(stage.Eyes.x) || !Finite(stage.Eyes.y) || !Finite(stage.Eyes.z)
+                || !Finite(stage.Looking.x) || !Finite(stage.Looking.y) || !Finite(stage.Looking.z) || stage.Looking.sqrMagnitude < 0.5f;
+            if (blocked)
+            {
+                workspaceFollow.Update(now, headPosition, headForward, false, true, plane.Sliding);
+                plane.Repositioning = workspaceFollow.Moving || !poseReady
+                    || !Finite(stage.Eyes.x) || !Finite(stage.Eyes.y) || !Finite(stage.Eyes.z)
+                    || !Finite(stage.Looking.x) || !Finite(stage.Looking.y) || !Finite(stage.Looking.z) || stage.Looking.sqrMagnitude < 0.5f;
+                return;
+            }
+            var forward = stage.Looking.normalized;
+            var rotation = Quaternion.LookRotation(forward, Vector3.up);
+            var field = ViewField.Current ?? MenuPage.Quest3S;
+            var outside = false;
+            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2)
+            {
+                var corner = plane.Chrome.transform.TransformPoint(new Vector3(plane.Chrome.Size.x * x * 0.5f, plane.Chrome.Size.y * y * 0.5f, 0));
+                var relative = Quaternion.Inverse(rotation) * (corner - stage.Eyes);
+                var yaw = Mathf.Atan2(relative.x, relative.z) * Mathf.Rad2Deg;
+                var pitch = Mathf.Atan2(relative.y, new Vector2(relative.x, relative.z).magnitude) * Mathf.Rad2Deg;
+                if (relative.z <= 0 || !field.Shows(yaw, pitch)) outside = true;
+            }
+            var distance = Vector3.Distance(stage.Eyes, plane.Chrome.transform.position);
+            outside |= distance < PlaneComposition.Distance * 0.65f || distance > PlaneComposition.Distance * 1.5f;
+            var recover = workspaceFollow.Update(now,
+                headPosition, headForward, outside, blocked, plane.Sliding);
+            plane.Repositioning = workspaceFollow.Moving;
+            if (recover)
+            {
+                // Retain drafts/pages while dropping all prior interaction authority, like existing Move.
+                if (!navigator.IsCompact && navigator.Compact()) navigator.Expand();
+                navigator.Moved(); placementDrawn = null;
+                plane.UnsettleShown(float.MinValue);
+                foreach (var button in plane.Chrome.Targets) { button.EndPressSince(float.MinValue); button.Unsettle(); }
+                anchor = (stage.Eyes, stage.Looking); moved = default; movedByHand = false;
+                ReflowFiles(); followSnap = setup.Comfort.Still; dirty = true;
+            }
+            if (wasMoving && !workspaceFollow.Moving) { navigator.Moved(); dirty = true; }
+        }
+
         private void Follow()
         {
             bool another;
@@ -712,7 +785,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A press, only while the app has focus and only on the frame last drawn in its slot; the stage's sounds answer one taken.</summary>
         private bool OnActed(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
-            if (Away || dirty || drag != null || plane.Sliding) return false;
+            if (Away || plane.Repositioning || dirty || drag != null || plane.Sliding) return false;
             if (placement != null)
             {
                 if (frame != placementFrame || from != MenuColumn.File || frame == null || frame != placementDrawn
@@ -732,7 +805,7 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void OnDrawn(MenuColumn from, MenuFrameView view)
         {
-            if (Away) return;
+            if (Away || plane.Repositioning) return;
             if (placement != null)
             {
                 if (from == MenuColumn.File && view.Frame == placementFrame)
@@ -752,7 +825,7 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void OnHoldStarted(MenuColumn from, Prompt prompt, MenuFrame? frame, SidePanel? side)
         {
-            if (FocusGuard.InputSuspended || drag != null) return;
+            if (FocusGuard.InputSuspended || plane.Repositioning || drag != null) return;
             if (navigator.Taking(from, prompt.Id, frame, side) is IMenuColumn column) voice?.Hold(column, prompt.Id);
         }
 
@@ -802,7 +875,7 @@ namespace Halcyonic.XR.Workspace
 
         private bool OrganizationStanding(MenuColumn from, MenuFrame? frame, SidePanel? side)
         {
-            if (Away || dirty || drag != null || plane.Sliding) return false;
+            if (Away || plane.Repositioning || dirty || drag != null || plane.Sliding) return false;
             // Global frame controls remain usable over a local overlay. Its task/content input
             // still belongs exclusively to the exact overlay frame that was physically drawn.
             if (frame == null && side == null) return plane.Chrome.Visible || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
