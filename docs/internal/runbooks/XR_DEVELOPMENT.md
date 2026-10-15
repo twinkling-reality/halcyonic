@@ -306,11 +306,12 @@ them, and proves the redesign's other checks catch what they must: parts off one
 eyes (`OnePlane`), type that rises down a column (`TypeStepsDown`), and a second selection treatment
 or an accent bar (`OneSelectionTreatment`).
 
-Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
-Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
-shutdown, as macOS's crash reports show. It happens after the work is done and saved; read the
-verdict from the log (`Halcyonic: workspace render: ...`, `Halcyonic: stage interaction set up.`,
-`Build Finished, Result: Success.`) rather than from the exit status.
+Batch runs can end with exit status 134 after their fixture verdict: macOS crash reports identify
+an Interaction SDK telemetry worker aborting on a mutex during native shutdown. Treat the fixture
+verdict and the process result separately; completed captures do not make the command successful.
+The macOS batch editor installs a version-guarded call to the SDK's existing telemetry shutdown
+on editor quit. This workaround's managed lifecycle tests pass, but native prevention still needs
+a Unity run. Evidence and limits: [interaction-sdk-editor-shutdown.md](../validation/interaction-sdk-editor-shutdown.md).
 
 Text in the workspace is TextMeshPro. Its essential resources are committed in
 `Assets/TextMesh Pro`, imported from the builtin `com.unity.ugui` package, without the EmojiOne
