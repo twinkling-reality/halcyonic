@@ -70,6 +70,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var sends = 0;
                 FileColumn? selectedFile = null;
                 var presentation = new WorkspacePresentationState();
+                var targets = new List<CharacterTarget>();
+                var characters = new List<(CharacterView View, CharacterTarget Target)>();
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup {
                     SpatialWorkspace = true, Commands = commands, Presentation = presentation,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
@@ -80,7 +82,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => done = accept,
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
                     File = (host, _) => selectedFile = new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
-                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
+                    CharacterOf = id => targets.FirstOrDefault(target => target.View.WorkstreamId == id),
+                    StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, null, false),
                 });
                 // Production host pagination must count the actual title face, not the previous
                 // title role; a font whose width changes the wrap must not silently overfill a page.
@@ -114,10 +117,30 @@ namespace Halcyonic.XR.Workspace.Editor
                     // gap invariant is inapplicable. Text, targets, field and reading orientation retain their thresholds.
                     if (Quaternion.Angle(shape.Root.rotation, chrome.Root.rotation) > 0.05f || Mathf.Abs(Vector3.Dot(shape.Root.position - chrome.Root.position, chrome.Root.forward)) > 0.0005f)
                         failures.Add(name + ": peripheral controls and reading face do not share their physical plane");
-                    failures.AddRange(GlazeChecks.TypeStepsDown(new[] { (IReadOnlyList<GlazeChecks.PlaneShape>)new[] { shape } }, eyes, name));
+                    // A fixed kind caption above the actual name is an intentional header hierarchy.
+                    // Retain the existing descending type check inside the actual reading content.
+                    var contentShape = new GlazeChecks.PlaneShape("reading content", view.Content.transform.parent, shape.Size);
+                    failures.AddRange(GlazeChecks.TypeStepsDown(new[] { (IReadOnlyList<GlazeChecks.PlaneShape>)new[] { contentShape } }, eyes, name));
                     failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
                     failures.AddRange(GlazeChecks.TargetsLargeEnough(view.Targets.Concat(plane.Chrome.Targets), eyes, name));
                     failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
+                    var named = view.Side?.IdentityKind ?? view.Frame?.IdentityKind;
+                    if (named != null)
+                    {
+                        var caption = view.GetComponentsInChildren<TMPro.TMP_Text>(false).SingleOrDefault(label => label.name == "Identity kind");
+                        if (caption == null || caption.text != (named == MenuIdentityKind.Task ? "Task" : "Project"))
+                            failures.Add(name + ": named work identity lacks its fixed host caption");
+                        if (GlazeRuns.Of(view.SubjectShown.Title).Theirs.Count == 0)
+                            failures.Add(name + ": named identity lost outside-text provenance");
+                    }
+                    foreach (var character in characters)
+                    {
+                        var label = GlazeChecks.Of("character label", eyes, character.View.Label.gameObject);
+                        var bodyExtent = BodyExtent(character.View, eyes);
+                        foreach (var obstacle in new[] { label, bodyExtent })
+                            if (GlazeChecks.OutlineApart(chrome, eyes, obstacle) < GlazeChecks.GapDegrees - 0.01f)
+                                failures.Add(name + ": work object or controls overlap the actual character");
+                    }
                     if (!view.Footer.Fits) failures.Add(name + ": current frame actions do not fit");
                     if (ViewField.Current is ViewField field) {
                         var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }.Select(y => chrome.Root.position + chrome.Root.right * x * chrome.Size.x + chrome.Root.up * y * chrome.Size.y));
@@ -130,12 +153,26 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 if (!waiting) Shot("spatial-projects");
                 Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                if (!waiting)
+                {
+                    Press(TasksColumn.ProjectDetails);
+                    Shot("spatial-project-details");
+                    var details = director.Plane.Shown.Single();
+                    if (!director.PressForRender(details.Kind, SidePanel.Close, null, details.View.InPlaceOf, details.View.Side))
+                        failures.Add("spatial: actual project details Close did not return navigation");
+                    Draw(); Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                }
                 Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
                 if (!waiting) { Press(FileScreens.TellIt); done?.Invoke("Add a regression test for the rate limit."); }
                 Shot(waiting ? "spatial-waiting-approval" : "spatial-working-direction");
                 if (!director.Plane.SelectedMarks.Any(mark => mark.Word == StateLanguage.Practice)) failures.Add("spatial: synthetic work lost Practice provenance");
                 if (!waiting)
                 {
+                    var shown = ConfirmedDirectorAgent(root.transform, director, eyes, work.Present().Character, failures, "spatial character context");
+                    targets.Add(shown.Target); characters.Add(shown); presentation.SetAgentsEnabled(true);
+                    director.StageRefreshedForRender();
+                    Shot("spatial-working-direction-with-character");
+                    if (director.Plane.LightLine == null) failures.Add("spatial: selected real character has no actual work-file connection");
                     var retainedFile = selectedFile;
                     var staleFrame = director.Plane.Showing(MenuColumn.File);
                     void Click(GlazeButton button, int pointer)

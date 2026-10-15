@@ -26,3 +26,13 @@ The next candidate removes the outer frame and idle navigation/utility boxes, at
 project identity to the reading object's shoulder and exposes its shallow edge. Host title row
 counting and height reservation now use the same actual Hero face and line height as the view,
 including long titles. Further actual render review is required.
+
+The follow-up fixture includes actual project-detail identity and an explicitly placed one-character
+context using the existing production CharacterView/CharacterTarget and work-file light line. Zero-
+character work remains complete. The character placement seam is synthetic and explicit, not a
+new automatic arrangement policy. The physical backing stays inside the allocated work bounds;
+its visible rim comes from a slightly inset front, not an unmeasured enlarged footprint.
+Named identity metadata tests cover explicit opt-in, outside-text retention, copy/focus preservation
+and rejecting generic host prose or unknown identity kinds. Root's saved-font check covers literal
+markup/control handling and upright/prose/upright mesh reuse. Actual render and interaction results
+must be recorded after execution; source compilation alone does not establish these.

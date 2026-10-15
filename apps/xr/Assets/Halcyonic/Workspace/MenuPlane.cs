@@ -627,9 +627,11 @@ namespace Halcyonic.XR.Workspace
             view.ExternalPlaces = kind == MenuColumn.Menu;
             view.OrganizationControls = false;
             var degrees = Glaze.Menu.FileColumnDegrees;
-            var subject = view.SpatialSubjectHeight(Front!.Subject, degrees, Front.Pill != null);
-            if (panel != null) view.Show(panel, degrees, subject, Front.Pill != null, Front.Pill, Front);
-            else view.Show(Front, degrees, subject, Front.Pill != null, stateInHeader: false);
+            var identityKind = panel?.IdentityKind ?? Front!.IdentityKind;
+            var pillRoom = Front!.Pill != null || identityKind != null;
+            var subject = view.SpatialSubjectHeight(panel?.Subject ?? Front.Subject, degrees, pillRoom);
+            if (panel != null) view.Show(panel, degrees, subject, pillRoom, Front.Pill, Front);
+            else view.Show(Front, degrees, subject, pillRoom, stateInHeader: false);
             var body = ColumnOf(view);
             var contentHeights = body.Heights.Concat(new[] { WorkspaceChromeView.SpatialBase }).ToArray();
             var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);

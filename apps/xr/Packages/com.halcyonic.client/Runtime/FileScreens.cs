@@ -130,7 +130,7 @@ namespace Halcyonic.Client
                 source: page.Source,
                 sourceIsData: page.SourceIsData,
                 side: page.Side,
-                sourceRuns: page.SourceRuns);
+                sourceRuns: page.SourceRuns, identityKind: MenuIdentityKind.Task);
             return focused ? frame.Focus() : frame;
         }
 
