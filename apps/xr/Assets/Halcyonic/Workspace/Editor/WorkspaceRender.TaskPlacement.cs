@@ -204,7 +204,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("a stale snapshot did not cancel preview while preserving the confirmed shelf");
                 if (stale != null && menu.PressForRender(MenuColumn.File, AgentShelfColumn.Apply, null, stale, null)) failures.Add("a stale placement frame retained Apply authority");
                 PlacementPump(session, new SnapshotMessage { Snapshot = new Snapshot { Journal = journal, Position = 2, Projects = snapshot.Projects, Workstreams = snapshot.Workstreams, Executions = snapshot.Executions, Runtimes = snapshot.Runtimes } });
-                Draw(); Open(prior.WorkstreamId); stale = menu.Plane.Shown.Single().View.Frame;
+                if (!session.SnapshotCurrent) failures.Add("the restored snapshot did not satisfy the current watermark");
+                // The real file refresh uses a 0.5 second monotonic deadline; immediate edit-mode
+                // Draw calls do not advance it. Let actual Tick reoffer the local action, without
+                // changing its predicate or granting authority to the previously drawn frame.
+                var refreshDeadline = System.Diagnostics.Stopwatch.StartNew();
+                do { Draw(); if (file?.Frame?.Lines.Any(line => line.Action == FileScreens.ShowTaskHere && line.Available) == true) break;
+                    Thread.Sleep(10); } while (refreshDeadline.Elapsed.TotalSeconds < FileColumn.RefreshSeconds + 0.5);
+                Open(prior.WorkstreamId); stale = menu.Plane.Shown.Single().View.Frame;
                 PlacementPump(replacement, new WelcomeMessage { Journal = journal, Head = 1, ServerTime = Time }, new SnapshotMessage { Snapshot = snapshot }, new ConnectionStatus(ConnectionPhase.Live));
                 PlacementField(typeof(ControlPlaneConnection), "sessions").SetValue(connection, new DemonstrationFallback(replacement, () => null)); Draw();
                 if (placement.Preview != null || !SamePose(kept, placement.Preferred) || stage.ShelfPage.Title != keptSelection)
