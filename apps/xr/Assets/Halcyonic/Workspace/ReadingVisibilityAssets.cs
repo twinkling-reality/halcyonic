@@ -11,6 +11,10 @@ namespace Halcyonic.XR.Workspace
         public Shader Mask = null!;
         public static ReadingVisibilityAssets? Current { get; private set; }
         private void Awake() => Current = this;
+#if UNITY_EDITOR
+        /// <summary>Explicit edit-mode fixture registration; runtime uses the normal Awake lifecycle.</summary>
+        public void RegisterForEditor() => Current = this;
+#endif
         private void OnDestroy() { if (Current == this) Current = null; }
     }
 }

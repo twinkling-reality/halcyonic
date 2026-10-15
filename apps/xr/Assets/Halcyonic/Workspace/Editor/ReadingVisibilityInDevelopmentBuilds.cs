@@ -31,6 +31,7 @@ namespace Halcyonic.XR.Workspace.Editor
             assets.Opaque = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Halcyonic/Workspace/Development/ReadingOpaque.shader");
             assets.Mask = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Halcyonic/Workspace/Development/ReadingMask.shader");
             if (assets.Opaque == null || assets.Mask == null) throw new BuildFailedException("Reading comparison shaders unavailable; no fallback is permitted.");
+            assets.RegisterForEditor();
             return assets;
         }
     }

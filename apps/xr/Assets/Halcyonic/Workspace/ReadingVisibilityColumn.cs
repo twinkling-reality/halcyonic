@@ -17,7 +17,7 @@ namespace Halcyonic.XR.Workspace
                 new PageLine("1 · Material", key: "reading-face"),
                 new PageLine("2 · Opaque", key: "reading-opaque"),
                 new PageLine("3 · Translucent", key: "reading-room"),
-            }).Focus();
+            }, source: "Temporary synthetic test; no work is sent.").Focus();
         private readonly Shader opaqueShader, maskShader;
         private GameObject? patches;
         private Material? opaque, mask;
