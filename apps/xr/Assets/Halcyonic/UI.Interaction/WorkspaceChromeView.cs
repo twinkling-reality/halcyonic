@@ -21,7 +21,6 @@ namespace Halcyonic.XR.UI
         private TextMeshPro context = null!;
         private TextMeshPro provenance = null!;
         private StateBadgeView status = null!;
-        private readonly List<Surface> contrastSupports = new List<Surface>();
         private readonly List<Surface> grounds = new List<Surface>();
         private GlazeButton move = null!;
         private GlazeButton apps = null!;
@@ -109,7 +108,6 @@ namespace Halcyonic.XR.UI
             var left = -width / 2f + padding;
             var right = width / 2f - padding;
             Size = new Vector2(width, Height);
-            foreach (var support in contrastSupports) support.gameObject.SetActive(false);
             frame.Draw(new Vector2(width, totalHeight), 0f, Color.clear,
                 GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees));
             frame.transform.localPosition = new Vector3(0f, -(totalHeight - Height) / 2f, 0.001f);
@@ -243,47 +241,11 @@ namespace Halcyonic.XR.UI
             move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.Text;
             // The organization controls are recessed into the same object at its near edge.
             // No detached fitted rectangle follows individual word bounds.
-            foreach (var support in contrastSupports) support.gameObject.SetActive(false);
             heading.gameObject.SetActive(true);
             heading.Draw(new Vector2(width - 2f * MenuPage.Grid, SpatialBase - gap), GlazeTokens.Units(0.3f), GlazeTokens.ColorOf(Glaze.Palette.Well));
             heading.transform.localPosition = new Vector3(0f, -totalHeight / 2f + (SpatialBase - gap) / 2f, -0.0002f);
             foreach (var button in Targets)
                 if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
-        }
-
-        private void FitReadingGroup(Surface surface, IEnumerable<TMP_Text> words)
-        {
-            var allocation = surface.Size;
-            var centre = surface.transform.localPosition;
-            var left = float.PositiveInfinity; var right = float.NegativeInfinity;
-            var bottom = float.PositiveInfinity; var top = float.NegativeInfinity;
-            foreach (var word in words)
-            {
-                if (string.IsNullOrWhiteSpace(word.text)) continue;
-                word.ForceMeshUpdate();
-                var bounds = word.textBounds;
-                foreach (var x in new[] { bounds.min.x, bounds.max.x })
-                foreach (var y in new[] { bounds.min.y, bounds.max.y })
-                {
-                    var point = transform.InverseTransformPoint(word.transform.TransformPoint(new Vector3(x, y, 0f)));
-                    left = Mathf.Min(left, point.x); right = Mathf.Max(right, point.x);
-                    bottom = Mathf.Min(bottom, point.y); top = Mathf.Max(top, point.y);
-                }
-            }
-            // Retain the already drawn full opaque allocation for invalid/stale or escaping
-            // bounds. Never invert a support or silently pretend clipping shields escaped ink.
-            if (new[] { left, right, bottom, top }.Any(value => float.IsNaN(value) || float.IsInfinity(value))
-                || right <= left || top <= bottom
-                || left < centre.x - allocation.x / 2f || right > centre.x + allocation.x / 2f
-                || bottom < centre.y - allocation.y / 2f || top > centre.y + allocation.y / 2f) return;
-            const float padding = 0.005f;
-            left = Mathf.Max(centre.x - allocation.x / 2f, left - padding);
-            right = Mathf.Min(centre.x + allocation.x / 2f, right + padding);
-            bottom = Mathf.Max(centre.y - allocation.y / 2f, bottom - padding);
-            top = Mathf.Min(centre.y + allocation.y / 2f, top + padding);
-            if (right <= left || top <= bottom) return;
-            surface.Draw(new Vector2(right - left, top - bottom), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
-            surface.transform.localPosition = new Vector3((left + right) / 2f, (bottom + top) / 2f, centre.z);
         }
 
         public void Hide()
