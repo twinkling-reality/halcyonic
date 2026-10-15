@@ -403,6 +403,17 @@ namespace Halcyonic.XR.Workspace.Editor
                             || badgeSeen.Left < actionSeen.Right && badgeSeen.Right > actionSeen.Left && badgeSeen.Bottom < actionSeen.Top && badgeSeen.Top > actionSeen.Bottom
                             || countSeen.Left < actionSeen.Right && countSeen.Right > actionSeen.Left && countSeen.Bottom < actionSeen.Top && countSeen.Top > actionSeen.Bottom)
                             failures.Add("compact stress: state/count/action text overlaps");
+                        if (dock.TaskIdentity.Character != null)
+                        {
+                            var bodySeen = BodyExtent(dock.TaskIdentity.Character, eyes);
+                            foreach (var label in required.Concat(new[] { dock.RetainedIdentity }))
+                            {
+                                var wordsSeen = GlazeChecks.Of("compact required words", eyes, label.gameObject);
+                                if (bodySeen.Left < wordsSeen.Right && bodySeen.Right > wordsSeen.Left
+                                    && bodySeen.Bottom < wordsSeen.Top && bodySeen.Top > wordsSeen.Bottom)
+                                    failures.Add("compact stress: actual portrait envelope overlaps readable identity/state/count/action");
+                            }
+                        }
                         camera.transform.rotation = PlaneLayout.Facing(director.Plane.Direction);
                         var compactImage = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, "spatial-compact-long-identity-state-count.png"), compactImage.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(compactImage);
                         dock.Shown = 0.5f;
