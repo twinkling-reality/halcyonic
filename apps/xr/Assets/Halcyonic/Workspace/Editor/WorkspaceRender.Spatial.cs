@@ -110,7 +110,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw(); var plane = director.Plane; ForceMeshes(root);
                     if (plane.Composition == null || plane.Shown.Count != 1) { failures.Add(name + ": expected one focused reading surface"); return; }
                     var view = plane.Shown[0].View;
-                    var body = plane.Composition.Parts.First(part => part.Column == 1 && part.Index == 0);
+                    var bodyColumn = plane.Shown[0].Kind == MenuColumn.File ? 0 : 1;
+                    var body = plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
                     var shape = new GlazeChecks.PlaneShape("work reading surface", view.Parts[0], new Vector2(body.Width, body.Height) * PlaneComposition.Distance);
                     var chrome = new GlazeChecks.PlaneShape("peripheral controls", plane.Chrome.transform, plane.Chrome.Size * plane.Chrome.transform.localScale.x);
                     // The chrome bounds deliberately enclose the work, so the old separated-rectangle
