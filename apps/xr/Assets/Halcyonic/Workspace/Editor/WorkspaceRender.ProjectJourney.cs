@@ -76,10 +76,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 void Press(string action, string? key = null)
                 {
                     Draw();
-                    var target = director.Plane.Shown.LastOrDefault(item => item.View.Frame is MenuFrame frame &&
-                        (frame.Lines.Any(line => line.Action == action && line.Key == key && line.Available)
-                        || frame.Footer.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available)));
-                    if (target.View == null || !director.PressForRender(target.Kind, action, key, target.View.Frame, null))
+                    var target = director.Plane.Shown.LastOrDefault(item =>
+                        item.View.Footer.Showing?.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available) == true
+                        || item.View.ShownLines.Any(line => line.Model.Action == action && line.Model.Key == key && line.Model.Available));
+                    if (target.View == null || !director.PressForRender(target.Kind, action, key,
+                        target.View.Frame ?? target.View.InPlaceOf, target.View.Side))
                         throw new InvalidOperationException("No current visible route for " + action);
                     Draw();
                 }
