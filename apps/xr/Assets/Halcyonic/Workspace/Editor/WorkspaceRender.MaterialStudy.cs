@@ -95,9 +95,30 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("reading must have three opaque unoutlined semantic regions, without independent bevels");
                 var carrier = director.Plane.Chrome.FrameSurface;
                 var mainReading = readingSupports.Single(surface => surface.name == "Reading surface");
-                var separation = Mathf.Abs(Vector3.Dot(carrier.transform.position - mainReading.transform.position, carrier.transform.forward));
+                var separation = Vector3.Dot(carrier.transform.position - mainReading.transform.position, carrier.transform.forward);
                 if (separation < 0.001f || separation > 0.008f)
-                    failures.Add("reading plane lacks bounded physical separation from its carrier");
+                    failures.Add("carrier must remain physically behind its reading plane at bounded depth");
+                if (carrier.Renderer.sortingOrder >= mainReading.Renderer.sortingOrder
+                    || readingSupports.Any(surface => surface.Renderer.sortingOrder <= carrier.MaterialRim!.sortingOrder))
+                    failures.Add("carrier optical layers must sort behind every opaque reading region");
+                // Exercise the actual semantic fitter with an escaped and then empty glyph union.
+                // Both cases must retain its full opaque allocation rather than invert or shrink it.
+                var shield = Surface.Create(director.Plane.Chrome.transform, "Reading fitter negative", 21);
+                var escaped = GlazeText.Create(director.Plane.Chrome.transform, "Escaped glyph negative", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 23);
+                try
+                {
+                    var allocation = new Vector2(0.1f, 0.05f);
+                    shield.Draw(allocation, 0f, GlazeTokens.ColorOf(Glaze.Panel));
+                    GlazeText.SetLiteral(escaped, "Outside"); GlazeText.Lay(escaped, 0.2f, 1);
+                    escaped.transform.localPosition = new Vector3(1f, 1f, 0f);
+                    var fit = typeof(WorkspaceChromeView).GetMethod("FitReadingGroup", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                    fit.Invoke(director.Plane.Chrome, new object[] { shield, new TMP_Text[] { escaped } });
+                    if (shield.Size != allocation || shield.Fill.a < 0.999f) failures.Add("escaped glyph fit corrupted its opaque allocation");
+                    GlazeText.SetLiteral(escaped, "");
+                    fit.Invoke(director.Plane.Chrome, new object[] { shield, new TMP_Text[] { escaped } });
+                    if (shield.Size != allocation || shield.Fill.a < 0.999f) failures.Add("empty glyph fit corrupted its opaque allocation");
+                }
+                finally { UnityEngine.Object.DestroyImmediate(escaped.gameObject); UnityEngine.Object.DestroyImmediate(shield.gameObject); }
                 // Choose interior empty material geometrically, excluding every opaque reading
                 // region and its filtering fringe. These are not silhouette or rim witnesses.
                 var witness = new List<Vector3>();
