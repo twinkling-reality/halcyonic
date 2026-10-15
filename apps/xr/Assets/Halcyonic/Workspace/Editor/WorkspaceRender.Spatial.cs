@@ -167,8 +167,16 @@ namespace Halcyonic.XR.Workspace.Editor
                         var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }.Select(y => chrome.Root.position + chrome.Root.right * x * chrome.Size.x + chrome.Root.up * y * chrome.Size.y));
                         failures.AddRange(GlazeChecks.InsideField(name, corners, eyes, chrome.Root.position, WorkspacePlacement.ReadingPitch(plane.Composition.Size, plane.Direction.Elevation, field), field));
                     }
+                    var drawnActions = (view.Footer.Showing?.All.Select(slot => slot.Prompt.Id) ?? Enumerable.Empty<string>()).ToHashSet();
+                    var carried = view.Side == null ? null : plane.Front!.Footer.InPlace(view.Side);
                     foreach (var (_, prompt) in plane.Front!.Footer.All)
-                        if (prompt.Kind != PromptKind.Close && !(view.Footer.Showing?.All.Any(slot => slot.Prompt.Id == prompt.Id) ?? false)) failures.Add(name + ": offered action is absent: " + prompt.Id);
+                    {
+                        if (prompt.Kind == PromptKind.Close || drawnActions.Contains(prompt.Id)) continue;
+                        // Match production Footer.InPlace: only actions whose complete subject is
+                        // visible are carried. Close details must return the original page for the rest.
+                        if (carried == null || carried.All.Any(slot => slot.Prompt.Id == prompt.Id) || !drawnActions.Contains(SidePanel.Close))
+                            failures.Add(name + ": offered action has neither its target nor Close details to return it: " + prompt.Id);
+                    }
                     camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
                     var image = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
                 }
@@ -212,6 +220,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
                     if (!ReferenceEquals(retainedFile, selectedFile) || selectedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                         failures.Add("spatial: reopening the actual task replaced its retained draft");
+                    Draw(); // The newly reopened task must actually stand before Move can accept a press.
                     var move = director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace);
                     var point = move.transform.position;
                     director.HoldSubjectForRender(point);
