@@ -59,9 +59,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         QuestionId = "render-spatial-long-question", Answerable = true, AskedAt = Time,
                         Prompts = new List<QuestionPrompt> { new QuestionPrompt {
                             Key = "environment", Header = "Release target", Multiple = false, FreeText = false,
-                            Text = string.Join(" ", Enumerable.Repeat("Which environment should receive this change after the current tests finish?", 16)),
+                            Text = string.Join("\n", Enumerable.Repeat("Which environment should receive this change after the current tests finish?", 40)),
                             Options = new List<QuestionOption> {
-                                new() { Label = "Staging", Description = string.Join(" ", Enumerable.Repeat("Use the existing staging environment and preserve its current data.", 12)) },
+                                new() { Label = "Staging", Description = string.Join("\n", Enumerable.Repeat("Preserve the current staging data.", 28)) },
                                 new() { Label = "Production", Description = "Use the production environment." } } } } });
                     found.AddRange(RenderSpatialWorkspace(folder, pending, waiting: true, question: true));
                     found.AddRange(RenderTaskResults("spatial", folder, withShelf: false, desk: false, spatialWorkspace: true));
@@ -166,8 +166,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     var firstFrame = director.Plane.Showing(MenuColumn.File);
                     if (selectedFile.Screen.Question.QuestionPart == null) failures.Add("spatial: long question did not exercise full-question paging");
-                    if (firstFrame != null && director.PressForRender(MenuColumn.File, FileScreens.SendAnswer, null, firstFrame, null))
-                        failures.Add("spatial: unread question accepted Send answer");
+                    if (firstFrame != null) director.PressForRender(MenuColumn.File, FileScreens.SendAnswer, null, firstFrame, null);
+                    if (sends != 0 || selectedFile.Steering.Armed != null || FileScreens.WhySendWaits(selectedFile.Screen) == null)
+                        failures.Add("spatial: unread question sent or armed an answer, or lost its reading gate");
                     var questionParts = 0;
                     while (selectedFile.Screen.Question.QuestionPart != null && questionParts++ < 64)
                     {
@@ -197,7 +198,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: full answer detail did not page and return within its measured bound");
                     Shot("spatial-question-returned-from-detail");
                     var beforeReview = director.Plane.Showing(MenuColumn.File);
-                    if (beforeReview != null && director.PressForRender(MenuColumn.File, FileScreens.SendAnswer, null, beforeReview, null))
+                    if (beforeReview != null) director.PressForRender(MenuColumn.File, FileScreens.SendAnswer, null, beforeReview, null);
+                    if (sends != 0 || selectedFile.Steering.Armed != null || selectedFile.Screen.Question.Reviewing || FileScreens.WhySendWaits(selectedFile.Screen) == null)
                         failures.Add("spatial: selected answer bypassed the mandatory review");
                     SettledPress(FileScreens.NextQuestion);
                     if (!selectedFile.Screen.Question.Reviewing) failures.Add("spatial: Review answers did not open the actual review");
@@ -324,7 +326,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var titleSeen = GlazeChecks.Of("named title", eyes, title.gameObject);
                     var captionSeen = GlazeChecks.Of("identity caption", eyes, caption.gameObject);
-                    if (captionSeen.Bottom < titleSeen.Top - 0.01f) failures.Add(name + ": identity caption overlaps its name");
+                    if (captionSeen.Bottom < titleSeen.Top - 0.01f)
+                    {
+                        var captionBounds = caption.textBounds; var titleBounds = title.textBounds;
+                        failures.Add(name + ": identity caption overlaps its name; projected mesh caption bottom=" + captionSeen.Bottom.ToString("0.000")
+                            + ", title top=" + titleSeen.Top.ToString("0.000") + "; local TMP caption bounds=" + captionBounds
+                            + ", title bounds=" + titleBounds + "; subject positions caption=" + caption.transform.localPosition + ", title=" + title.transform.localPosition);
+                    }
                     var titleSize = title.fontSize * title.transform.lossyScale.y / Vector3.Distance(eyes, title.transform.position);
                     var captionSize = caption.fontSize * caption.transform.lossyScale.y / Vector3.Distance(eyes, caption.transform.position);
                     if (titleSize <= captionSize) failures.Add(name + ": named work title does not lead its subordinate caption");
