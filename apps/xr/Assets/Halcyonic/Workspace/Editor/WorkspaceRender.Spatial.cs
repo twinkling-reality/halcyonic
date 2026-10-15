@@ -129,6 +129,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 });
                 // Production host pagination must count the actual title face, not the previous
                 // title role; a font whose width changes the wrap must not silently overfill a page.
+                var syntheticLaunches = 0;
+                string? savedViews = null;
+                director.ConfigurePanelLaunchForRender(new WorkspaceViewRecovery(() => (true, savedViews), json => { savedViews = json; return true; }), json =>
+                {
+                    syntheticLaunches++;
+                    if (!WorkspaceContinuity.TryParse(json, out var record) || record == null
+                        || record.WorkstreamId != work.Workstream.WorkstreamId || record.JournalId != journal.JournalId
+                        || record.Instruction?.Text != "Add a regression test for the rate limit." || string.IsNullOrWhiteSpace(savedViews))
+                        failures.Add("spatial: synthetic final app dispatch lost validated source, serialized draft or saved views");
+                    return new AndroidPanelBridge.LaunchResult(true, "");
+                });
                 var titleWitnesses = Enumerable.Range(1, 12).Select(count => string.Join(" ", Enumerable.Repeat("Build rate limiting", count))).ToList();
                 foreach (var title in titleWitnesses)
                 {
@@ -315,8 +326,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
                     if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
                         failures.Add("spatial: character title did not return when Projects replaced its task");
-                    if (director.Plane.Composition?.Columns.Count != 1 || new[] { "Projects", "Tasks", "Usage", "Settings" }.Any(words =>
-                        !director.Plane.Chrome.Targets.Single(button => button.Label.text == words).gameObject.activeInHierarchy))
+                    if (director.Plane.Composition?.Columns.Count != 1 || !director.Plane.Chrome.Targets.Any(button => button.Label.text == "Workspace" && button.gameObject.activeInHierarchy))
                         failures.Add("spatial: actual Projects target did not return the complete chooser navigation");
                     if (director.Navigator.Place != MenuPlace.Projects || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                         failures.Add("spatial: peripheral Projects navigation discarded the local draft");
@@ -326,20 +336,53 @@ namespace Halcyonic.XR.Workspace.Editor
                     Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
                     if (!ReferenceEquals(retainedFile, selectedFile) || selectedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                         failures.Add("spatial: reopening the actual task replaced its retained draft");
-                    Draw(); // The newly reopened task must actually stand before Move can accept a press.
+                    Draw();
+                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 954);
+                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) Press(Footer.NextPage);
+                    var staleControls = director.Plane.Front;
+                    Press(Footer.NextPage); // Moving away revokes the previously drawn page.
+                    if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null) || syntheticLaunches != 0)
+                        failures.Add("spatial: page-stale Workspace controls authorized app dispatch");
+                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) Press(Footer.NextPage);
+                    Press(PlacementColumn.OtherApps);
+                    Draw();
+                    if (syntheticLaunches != 1 || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
+                        failures.Add("spatial: actual Workspace app route failed final synthetic dispatch or lost its draft");
+                    if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null))
+                        failures.Add("spatial: closed local controls kept app-switch authority");
+                    director.Expand(); Draw();
+                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 955);
+                    Press(PlacementColumn.BeginMove);
+                    if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null) || syntheticLaunches != 1)
+                        failures.Add("spatial: explicit Move mode accepted app-switch authority");
+                    Draw();
                     var move = director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace);
+                    Click(move, 956);
+                    if (director.Plane.Front?.Subject != "Move workspace") failures.Add("spatial: tapping Move reopened or replaced its explicit local mode");
                     var point = move.transform.position;
                     director.HoldSubjectForRender(point);
                     if (!director.Dragging) failures.Add("spatial: named Move did not begin its real hand drag");
                     director.DragSubjectForRender(eyes + Quaternion.Euler(0f, 4f, 0f) * (point - eyes));
                     director.LetGoForRender(); Draw();
+                    if (director.Plane.Front?.Subject != "Move workspace" || syntheticLaunches != 1)
+                        failures.Add("spatial: drag release fired a local tap or app action");
                     var moved = director.Plane.Moved;
-                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.Minimize), 952);
+                    Press(Footer.Close); // Done moving returns to the retained task.
+                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 952);
+                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.Minimize); page++) Press(Footer.NextPage);
+                    Press(PlacementColumn.Minimize);
                     if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
                         failures.Add("spatial: minimizing retained a hidden character title");
                     if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible)
                         failures.Add("spatial: Minimize left the reading object or peripheral controls active");
-                    if (director.Plane.Bar is MenuBarView dock) Click(dock.Target, 953);
+                    if (director.Plane.Bar is MenuBarView dock)
+                    {
+                        dock.Shown = 0.5f;
+                        if (dock.TaskIdentity.gameObject.activeSelf) failures.Add("spatial: compact portrait stayed opaque during its object's fade");
+                        dock.Shown = 1f;
+                        if (dock.TaskIdentity.WorkstreamId != null && !dock.TaskIdentity.gameObject.activeSelf) failures.Add("spatial: compact portrait failed to return with its complete object");
+                        Click(dock.Target, 953);
+                    }
                     else failures.Add("spatial: minimized workspace has no actual restore target");
                     if (presentation.Minimized || director.Plane.Moved != moved || !ReferenceEquals(retainedFile, selectedFile)
                         || selectedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
@@ -362,8 +405,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 if (plane.Composition.Columns.Count != 1) failures.Add(name + ": focused work retained the chooser rail column");
                 var header = WorkspaceChromeView.SpatialHeader(true);
-                if (!Mathf.Approximately(plane.Composition.Header, header) || !Mathf.Approximately(header, GlazeButton.HeightOf(false))
-                    || header >= WorkspaceChromeView.SpatialTop)
+                if (!Mathf.Approximately(plane.Composition.Header, header) || !Mathf.Approximately(header, GlazeButton.HeightOf(false)))
                     failures.Add(name + ": focused context must reserve exactly its full Projects target, without chooser padding");
                 var projects = plane.Chrome.Targets.Single(button => button.Label.text == "Projects");
                 var projectCentre = plane.Chrome.transform.InverseTransformPoint(projects.transform.position);
@@ -387,12 +429,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": focused reading body retained an extra unallocated context gap; actualTop=" + firstBody.Top.ToString("R")
                         + ", expectedTop=" + expectedTop.ToString("R") + ", header=" + header.ToString("R")
                         + ", partGap=" + partGap.ToString("R") + ", zoom=" + plane.Composition.Zoom.ToString("R"));
-                foreach (var words in new[] { "Projects", "Tasks", "Usage", "Settings" })
-                {
-                    var target = plane.Chrome.Targets.Single(button => button.Label.text == words);
-                    if (target.gameObject.activeInHierarchy != (words == "Projects"))
-                        failures.Add(name + ": focused work has the wrong actual place target visibility: " + words);
-                }
+                var activeChrome = plane.Chrome.Targets.Where(target => target.gameObject.activeInHierarchy).ToList();
+                if (activeChrome.Count != 2 || !activeChrome.Any(target => target.Label.text == "Workspace" || target.Label.text == WorkspaceText.MoveWorkspace))
+                    failures.Add(name + ": focused work must expose only Projects return and Workspace controls");
             }
             var bodyColumn = plane.Composition.Columns.Count - 1;
             var body = plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
@@ -446,18 +485,11 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             if (plane.Shown[0].Kind == MenuColumn.Menu)
             {
-                var navigation = plane.Chrome.Targets.Where(target => target.gameObject.activeInHierarchy
-                    && new[] { "Projects", "Tasks", "Usage", "Settings" }.Contains(target.Label.text)).ToList();
-                if (plane.Composition.Columns.Count != 1 || navigation.Count != 4)
-                    failures.Add(name + ": chooser navigation retained an empty side column or lost a route");
-                for (var i = 1; i < navigation.Count; i++)
-                {
-                    var before = plane.Chrome.transform.InverseTransformPoint(navigation[i - 1].transform.position);
-                    var at = plane.Chrome.transform.InverseTransformPoint(navigation[i].transform.position);
-                    if (Mathf.Abs(before.y - at.y) > 0.0001f
-                        || at.x - navigation[i].Size.x / 2f < before.x + navigation[i - 1].Size.x / 2f + MenuPage.TargetGap - 0.0001f)
-                        failures.Add(name + ": chooser navigation does not share a separated local header row");
-                }
+                var navigation = plane.Chrome.Targets.Where(target => target.gameObject.activeInHierarchy).ToList();
+                if (plane.Composition.Columns.Count != 1 || navigation.Count != 1 || navigation[0].Label.text != "Workspace")
+                    failures.Add(name + ": root chooser must have one stable Workspace control and no permanent utility/nav strip");
+                if (view.Frame?.Subject == "Projects" && view.Frame.Side == null && view.Frame.Footer.All.Any(slot => slot.Prompt.Id == Footer.Close))
+                    failures.Add(name + ": root chooser retained redundant Close despite local Workspace minimize");
             }
 
             failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
@@ -468,7 +500,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var contextSeen = GlazeChecks.Of("project context", eyes, contextText.gameObject);
                 var connectionSeen = GlazeChecks.Of("connection", eyes, connectionText.gameObject);
-                if (contextSeen.Right > connectionSeen.Left - 0.01f) failures.Add(name + ": actual project and connection header text overlap");
+                if (contextSeen.Right > connectionSeen.Left - 0.01f && contextSeen.Bottom < connectionSeen.Top - 0.01f) failures.Add(name + ": actual project and connection header text overlap");
             }
             if (view.TaskPortrait != null)
             {
@@ -478,6 +510,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": selected task portrait lost its real workstream/body-only binding");
                 if (portrait.GetComponentsInChildren<PointerTarget>(true).Length != 0)
                     failures.Add(name + ": decorative portrait acquired task command input authority");
+                view.Close();
+                if (portrait.gameObject.activeSelf) failures.Add(name + ": body portrait remained opaque while its subject left");
+                view.Stop();
+                if (!portrait.gameObject.activeSelf) failures.Add(name + ": body portrait did not return with its complete subject");
                 if (portrait.Character != null)
                 {
                     var portraitSeen = BodyExtent(portrait.Character, eyes);

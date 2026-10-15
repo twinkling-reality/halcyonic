@@ -265,3 +265,10 @@ Take these seriously and do not hide them:
 - runtime differences make normalized control impossible;
 - multitasking fails on real hardware (networking, rendering, background behavior);
 - target developers do not wear a headset when the work matters.
+
+The current isolated spatial composition candidate puts global organization behind one Workspace
+control. Its local page includes existing destinations, placement, minimize, other apps and task
+portrait visibility; it grants no runtime capability. Move is an explicit local mode with a real
+hold target and Done moving return. The unselected Projects chooser has no redundant Close, while
+a task keeps the existing context-closing behavior. This candidate remains subject to actual
+rendering and wearer evaluation; earlier composition checks do not establish its acceptance.

@@ -16,12 +16,15 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 
 The owner's headset review rejected the stacked menu composition. The candidate gives an open
 task one reading column; its details replace that column and return to its retained draft. Only
-Projects remains as a place-navigation control while a task is open. The project chooser exposes
-Projects, Tasks, Usage and Settings as one bounded navigation row above its reading surface.
-The chooser and a focused task use the same reading-column width; no empty navigation column is allocated.
-Move, Other apps and Minimize remain along the base, with provenance on its own line below them.
-Context and task share the coated reading face described below; hierarchy replaces repeated
-bright glass frames.
+Projects remains as a direct return while a task is open. One stable Workspace control opens
+local workspace controls and the global destination index. The chooser does not repeat a four-tab
+application row or allocate an empty navigation column. Move, Reset position, Minimize workspace,
+Open other apps, task portrait visibility and Projects/Tasks/Usage/Settings are reachable through
+that local page. It packs complete targets by the same actual height budget and pages every route;
+an off-page or stale action has no authority. Other apps remains unavailable when unsupported.
+There is no permanent utility slab or target strip below the task. Only actual provenance marks
+reserve a small final line; zero marks reserve no extra bottom region. Context, task and evidence
+share one solid reading face.
 The selected work's literal name uses the larger title role. Paragraphs and controls still face
 the eyes together. There is no decorative folder shoulder or surrounding window frame.
 
@@ -55,8 +58,8 @@ allocated footprint. There is no surrounding transparent carrier, inner opaque p
 material rim or periodic face texture. This analytic optical response does not capture room
 reflection, refract or blur the scene, or transmit passthrough through the reading face.
 
-The global organization controls sit in a recessed near-edge region of the same opaque object.
-A narrow physical edge connects its full composition and is repeated on the minimized object.
+The Workspace control stays in the context header; its local page replaces the evidence body on purpose.
+A narrow physical edge connects the composition and is repeated on the minimized object.
 No detached word-fitted utility rectangle is drawn. The complete
 geometry/input allocation remains separate from the visual face, preserving target dimensions,
 placement bounds and character/connector ownership. The legacy rule below that each part owns its
@@ -615,9 +618,9 @@ validation questions.
 ### Task-focused composition candidate
 
 The selected task occupies one reading column. Its Projects control returns to the workspace
-chooser; the chooser carries Projects, Tasks, Usage and Settings. Those destinations do not
-remain a second rail beside an open task. Project context stays above the work, system controls
-below it, and practice/recorded provenance has its own reserved line clear of those targets.
+chooser; Workspace carries Projects, Tasks, Usage and Settings. Those destinations do not
+remain a second rail beside an open task. Project context and Workspace stay above the work;
+practice/recorded provenance has its own small line only when present.
 The named heading reserves its badge inset and Hero name; pagination and actual layout use the same inset, including larger-text SDF bounds.
 Context, named heading, sections and reading body share the opaque coated face, without a folder
 tab, clear rear carrier or independently backed internal plates. The organization edge is contained within that same face.
@@ -625,7 +628,7 @@ This composition remains a candidate until actual full-context and wearer valida
 
 The focused work object's context row reserves one full Projects target in height. Project and
 connection words align with that target; the composition's ordinary part gap follows it before
-task identity. The chooser retains its larger navigation header. This removes unused focused
+task identity. The chooser shares that single-target-height header. This removes unused focused
 context space without reducing a hit target or type size. The same allocation drives the actual
 composition and available page-height calculation; actual paired captures remain the design gate.
 
@@ -645,8 +648,8 @@ still uses an immediate content reposition with the same input settling. Candida
 translation tolerances require an actual wearer check; renderer success alone is not comfort.
 
 The October 15 work-object candidate removes the chooser side rail and its unused horizontal
-space. Four complete, separated navigation targets share the chooser header; task focus keeps
-only the Projects return. The matching page-height calculation includes this header and the
+space. One complete Workspace target occupies the chooser header; task focus adds
+the direct Projects return. The matching page-height calculation includes this header and the
 contained organization edge. Its spatial proof checks the actual row geometry, single column,
 full title provenance/bounds and whole-action rest backing, including an icon-only negative.
 This candidate has not yet passed actual Unity rendering or wearer review; earlier coating
@@ -655,13 +658,13 @@ change, and the existing character-placement and connector guarantees remain unc
 
 Selected tasks now also have a local body-only character portrait at their title's leading edge.
 It uses the actual Workstream presentation and identity hue; the title measure reserves its
-4.5-degree-wide slot plus the normal target gap, and the subject reserves its full5-degree-high
+5.5-degree-wide slot plus the normal target gap, and the subject reserves its full6.5-degree-high
 animated envelope. Its own labels, halo and ring are absent because the adjacent title/state
 already identify the task. The portrait has no runtime command target. It is a local illustration
 of the selected task, independent of whether a character has deliberately been placed in the room.
 Opening work never enables or moves a room character.
 
-Move's local details offer Show task portraits or Hide task portraits. This device preference
+Workspace's local controls offer Show task portraits or Hide task portraits. This device preference
 applies to all tasks and survives app restart. A hidden portrait restores the full title width.
 Per-task colour still binds to the current connection, journal and Workstream. Its existing
 preview/apply/cancel route may now use a selected source-bound portrait without requiring a room
@@ -673,3 +676,31 @@ The compact object's leading edge uses the same selected task portrait and hue, 
 animated body fit inside its shorter allocation. Its adjacent literal task identity and state
 remain readable without relying on the character alone. Move and Expand retain their separate
 full targets; the portrait itself does not expand or command the task.
+
+## Workspace controls candidate — second pass
+
+Workspace is a deliberate local page, preserving the task and draft behind it. Move workspace
+enters an explicit placement mode: the stable header target reads Move and enables its existing
+real hold/drag path. The local page explains that hold and offers Reset position; Done moving
+returns to the retained task. A normal Workspace hold never starts an unexpected move. Compact's
+explicit named Move target keeps its existing behavior. Closing, focus loss or leaving the local
+page revokes its drawn actions; movement and approvals never share input authority.
+
+The unselected Projects root omits redundant Close because it only collapsed that root. Minimize
+is available through Workspace. Selected project details retain their own close route. A task's
+Close still closes the actual task context; it is not relabeled Back to tasks, because closing a
+task opened from a character need not reveal an open task list.
+
+Neutral now uses the established blue Accent family for the whole main-action control. That
+accent remains distinct from amber attention and preserves state colours and saved preset keys.
+Its foreground/container contrast is checked in core tests; actual resolved button contrast is
+still part of the render gate. The local character is larger and reaches the face's leading edge
+within its measured allocation. Neither that adjustment nor fewer controls establishes wearer
+acceptance. Actual complete compositions and movement/draft/approval regressions remain required.
+
+Local character bodies do not inherit the text/surface opacity shader. They therefore appear
+only when the expanded subject or compact object is complete and disappear immediately when it
+starts leaving. This is an intentional discrete identity transition, not a claimed body fade.
+Workspace's Other apps action retains platform availability and requires the exact current drawn
+local controls page. It is unavailable in explicit moving mode; successful switching uses the
+existing draft capture and workspace suspension path.
