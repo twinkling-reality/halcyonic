@@ -30,7 +30,6 @@ namespace Halcyonic.XR.UI
         public event Action<MenuPlace>? PlacePressed;
         public static float SpatialTop => GlazeButton.HeightOf(false);
         public static float SpatialHeader(bool focusedWork) => SpatialTop;
-        public static float SpatialBase => 0f;
         public static float SpatialFooter(int marks) => marks > 0 ? MenuPage.Words(1) + 2f * MenuPage.TargetGap : 0f;
         public static float SpatialRail => PlaneComposition.Units(8f);
         public bool MoveMode { get; set; }
