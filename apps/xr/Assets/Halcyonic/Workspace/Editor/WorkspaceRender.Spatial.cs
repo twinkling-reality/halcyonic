@@ -32,6 +32,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 try
                 {
                     found.AddRange(RenderSpatialWorkspace(folder, Work.Running(), false));
+                    var multiple = Path.Combine(folder, "multiple-projects"); Directory.CreateDirectory(multiple);
+                    found.AddRange(RenderSpatialWorkspace(multiple, Work.Running(), false, multipleProjects: true));
                     found.AddRange(RenderSpatialWorkspace(folder, Work.Approval("Run make migrate"), true));
                 }
                 finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
@@ -74,7 +76,7 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false)
+        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false, bool multipleProjects = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Actual spatial workspace composition witness");
@@ -88,6 +90,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = work.State.Projects.Values.ToList(),
                     Workstreams = new List<WorkstreamView> { work.Workstream }, Executions = new List<ExecutionView> { work.Execution },
                     Runtimes = work.State.Runtimes.ToList() };
+                if (multipleProjects)
+                    snapshot.Projects.AddRange(new[] {
+                        new ProjectView { ProjectId = "0192a7a0-0000-7000-8000-0000000000b2", Name = "Search service", CreatedAt = Time, UpdatedAt = Time },
+                        new ProjectView { ProjectId = "0192a7a0-0000-7000-8000-0000000000b3", Name = "Mobile client", CreatedAt = Time, UpdatedAt = Time }
+                    });
                 var inbox = (ConcurrentQueue<object>)typeof(RealtimeSession).GetField("inbox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(session)!;
                 inbox.Enqueue(new WelcomeMessage { Journal = journal, Head = 1, ServerTime = Time,
                     CommandPolicies = new List<CommandPolicy> {
@@ -174,6 +181,32 @@ namespace Halcyonic.XR.Workspace.Editor
                                 failures.Add("spatial: project pagination metric disagrees with actual title and summary mesh line heights");
                         }
                     }
+                }
+                if (multipleProjects)
+                {
+                    var simultaneous = director.Plane.Shown.SelectMany(shown => shown.View.ShownLines)
+                        .Where(row => row.Model.ProjectIdentity).ToList();
+                    var keys = simultaneous.Select(row => row.Model.Key).ToList();
+                    if (keys.Count < 2 || keys.Distinct().Count() != keys.Count
+                        || simultaneous.Any(row => !row.Model.Available || !row.Model.Pressable || !row.Words.gameObject.activeInHierarchy))
+                        failures.Add("spatial: multiple-project snapshot did not render at least two distinct current selectable project identities together");
+                    foreach (var key in keys)
+                    {
+                        Press(ProjectsScreens.ChooseProject, key);
+                        var tasks = director.Plane.Shown.Select(shown => shown.View.Frame).Where(frame => frame != null).ToList();
+                        if (!tasks.Any(frame => frame!.Lines.Any(line => line.Action == TasksColumn.NewTask && line.Key == key && line.Available))
+                            || tasks.SelectMany(frame => frame!.Lines).Any(line => line.Action == TasksColumn.OpenTask
+                                && session.State.Workstreams.TryGetValue(line.Key!, out var shownTask) && shownTask.ProjectId != key))
+                            failures.Add("spatial: visible project selection opened task controls belonging to a different project");
+                        director.Open(MenuPlace.Projects); Draw();
+                    }
+                    Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                    Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
+                    Shot("spatial-multiple-projects-selected-task");
+                    if (selectedFile?.Now?.Character.WorkstreamId != work.Workstream.WorkstreamId
+                        || director.Navigator.BesideTask != work.Workstream.WorkstreamId || sends != 0)
+                        failures.Add("spatial: project selection failed to open its exact existing task without sending work");
+                    return failures;
                 }
                 Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
                 if (!waiting)
