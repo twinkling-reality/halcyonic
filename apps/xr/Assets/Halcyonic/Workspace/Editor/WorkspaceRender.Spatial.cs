@@ -42,6 +42,29 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>Existing full Results consumer flow under the candidate layout, including exact paging and return.</summary>
+        public static void SpatialWorkspaceInteractionCheck()
+        {
+            InstrumentFontAtlas.ValidateSaved();
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "SpatialInteractionRenders", variant));
+                Directory.CreateDirectory(folder);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                ViewField.Current = FieldChecks.Quest3S;
+                var found = new List<string>();
+                try
+                {
+                    found.AddRange(RenderTaskResults("spatial", folder, withShelf: false, desk: false, spatialWorkspace: true));
+                }
+                finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                foreach (var failure in found) Debug.LogError("Halcyonic: spatial interaction: " + failure);
+                if (found.Count == 0) Debug.Log("Halcyonic: spatial interaction: every check passed; " + folder);
+                return found;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
         private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting)
         {
             var failures = new List<string>();
@@ -68,6 +91,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var commands = new CommandFactory(client);
                 Action<string>? done = null;
                 var sends = 0;
+                var connected = true;
                 FileColumn? selectedFile = null;
                 var presentation = new WorkspacePresentationState();
                 var targets = new List<CharacterTarget>();
@@ -76,12 +100,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     SpatialWorkspace = true, Commands = commands, Presentation = presentation,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     ConnectionTarget = () => ControlPlaneTarget.Local(new Uri("ws://127.0.0.1:9/realtime"), "render"),
-                    State = () => session.State, Session = () => session, Connected = () => true,
+                    State = () => session.State, Session = () => session, Connected = () => connected,
                     Overview = () => WorkOverview.Of(session.State, new StageVisibility(), _ => true), Bar = place => TasksColumn.Bar(place, session.State),
                     ReadLocations = _ => Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => done = accept,
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
-                    File = (host, _) => selectedFile = new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
+                    File = (host, _) => selectedFile = new FileColumn(host, () => work.Present(live: connected), commands, () => null, _ => null, () => ""),
                     CharacterOf = id => targets.FirstOrDefault(target => target.View.WorkstreamId == id),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, targets, null, false),
                 });
@@ -107,89 +131,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 void Shot(string name)
                 {
-                    Draw(); var plane = director.Plane; ForceMeshes(root);
-                    if (plane.Composition == null || plane.Shown.Count != 1) { failures.Add(name + ": expected one focused reading surface"); return; }
-                    var view = plane.Shown[0].View;
-                    if (plane.Shown[0].Kind == MenuColumn.File)
-                    {
-                        if (plane.Composition.Columns.Count != 1) failures.Add(name + ": focused work retained the chooser rail column");
-                        foreach (var words in new[] { "Projects", "Tasks", "Usage", "Settings" })
-                        {
-                            var target = plane.Chrome.Targets.Single(button => button.Label.text == words);
-                            if (target.gameObject.activeInHierarchy != (words == "Projects"))
-                                failures.Add(name + ": focused work has the wrong actual place target visibility: " + words);
-                        }
-                    }
-                    var bodyColumn = plane.Shown[0].Kind == MenuColumn.File ? 0 : 1;
-                    var body = plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
-                    var shape = new GlazeChecks.PlaneShape("work reading surface", view.Parts[0], new Vector2(body.Width, body.Height) * PlaneComposition.Distance);
-                    var chrome = new GlazeChecks.PlaneShape("peripheral controls", plane.Chrome.transform, plane.Chrome.Size * plane.Chrome.transform.localScale.x);
-                    // The chrome bounds deliberately enclose the work, so the old separated-rectangle
-                    // gap invariant is inapplicable. Text, targets, field and reading orientation retain their thresholds.
-                    if (Quaternion.Angle(shape.Root.rotation, chrome.Root.rotation) > 0.05f || Mathf.Abs(Vector3.Dot(shape.Root.position - chrome.Root.position, chrome.Root.forward)) > 0.0005f)
-                        failures.Add(name + ": peripheral controls and reading face do not share their physical plane");
-                    // A fixed kind caption above the actual name is an intentional header hierarchy.
-                    // Retain the existing descending type check inside the actual reading content.
-                    var contentShape = new GlazeChecks.PlaneShape("reading content", view.Content.transform.parent, shape.Size);
-                    failures.AddRange(GlazeChecks.TypeStepsDown(new[] { (IReadOnlyList<GlazeChecks.PlaneShape>)new[] { contentShape } }, eyes, name));
-                    failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
-                    failures.AddRange(GlazeChecks.TargetsLargeEnough(view.Targets.Concat(plane.Chrome.Targets), eyes, name));
-                    failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
-                    var named = view.Side?.IdentityKind ?? view.Frame?.IdentityKind;
-                    if (named != null)
-                    {
-                        var caption = view.GetComponentsInChildren<TMPro.TMP_Text>(false).SingleOrDefault(label => label.name == "Identity kind");
-                        if (caption == null || caption.text != (named == MenuIdentityKind.Task ? "Task" : "Project"))
-                            failures.Add(name + ": named work identity lacks its fixed host caption");
-                        var title = view.SubjectShown.Title;
-                        if (caption != null)
-                        {
-                            var titleSeen = GlazeChecks.Of("named title", eyes, title.gameObject);
-                            var captionSeen = GlazeChecks.Of("identity caption", eyes, caption.gameObject);
-                            if (captionSeen.Bottom < titleSeen.Top - 0.01f) failures.Add(name + ": identity caption overlaps its name");
-                            var titleSize = title.fontSize * title.transform.lossyScale.y / Vector3.Distance(eyes, title.transform.position);
-                            var captionSize = caption.fontSize * caption.transform.lossyScale.y / Vector3.Distance(eyes, caption.transform.position);
-                            if (titleSize <= captionSize) failures.Add(name + ": named work title does not lead its subordinate caption");
-                            foreach (var label in new TMPro.TMP_Text[] { caption, title })
-                            {
-                                var bounds = label.textBounds;
-                                foreach (var x in new[] { bounds.min.x, bounds.max.x })
-                                foreach (var y in new[] { bounds.min.y, bounds.max.y })
-                                {
-                                    var point = view.Subject.InverseTransformPoint(label.transform.TransformPoint(new Vector3(x, y, 0f)));
-                                    if (Mathf.Abs(point.x) > view.SubjectSize.x / 2f + 0.0001f || Mathf.Abs(point.y) > view.SubjectSize.y / 2f + 0.0001f)
-                                        failures.Add(name + ": named header text exceeds its allocated subject bounds");
-                                }
-                            }
-                        }
-                        if (GlazeRuns.Of(view.SubjectShown.Title).Theirs.Count == 0)
-                            failures.Add(name + ": named identity lost outside-text provenance");
-                    }
-                    foreach (var character in characters)
-                    {
-                        var label = GlazeChecks.Of("character label", eyes, character.View.Label.gameObject);
-                        var bodyExtent = BodyExtent(character.View, eyes);
-                        foreach (var obstacle in new[] { label, bodyExtent })
-                            if (GlazeChecks.OutlineApart(chrome, eyes, obstacle) < GlazeChecks.GapDegrees - 0.01f)
-                                failures.Add(name + ": work object or controls overlap the actual character");
-                    }
-                    if (!view.Footer.Fits) failures.Add(name + ": current frame actions do not fit");
-                    if (ViewField.Current is ViewField field) {
-                        var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }.Select(y => chrome.Root.position + chrome.Root.right * x * chrome.Size.x + chrome.Root.up * y * chrome.Size.y));
-                        failures.AddRange(GlazeChecks.InsideField(name, corners, eyes, chrome.Root.position, WorkspacePlacement.ReadingPitch(plane.Composition.Size, plane.Direction.Elevation, field), field));
-                    }
-                    var drawnActions = (view.Footer.Showing?.All.Select(slot => slot.Prompt.Id) ?? Enumerable.Empty<string>()).ToHashSet();
-                    var carried = view.Side == null ? null : plane.Front!.Footer.InPlace(view.Side);
-                    foreach (var (_, prompt) in plane.Front!.Footer.All)
-                    {
-                        if (prompt.Kind == PromptKind.Close || drawnActions.Contains(prompt.Id)) continue;
-                        // Match production Footer.InPlace: only actions whose complete subject is
-                        // visible are carried. Close details must return the original page for the rest.
-                        if (carried == null || carried.All.Any(slot => slot.Prompt.Id == prompt.Id) || !drawnActions.Contains(SidePanel.Close))
-                            failures.Add(name + ": offered action has neither its target nor Close details to return it: " + prompt.Id);
-                    }
-                    camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
-                    var image = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
+                    Draw();
+                    failures.AddRange(SpatialState(name, folder, root, camera, texture, director, characters, eyes));
                 }
                 if (!waiting) Shot("spatial-projects");
                 Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
@@ -208,6 +151,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!director.Plane.SelectedMarks.Any(mark => mark.Word == StateLanguage.Practice)) failures.Add("spatial: synthetic work lost Practice provenance");
                 if (!waiting)
                 {
+                    // Explicit synthetic snapshot seam: exercise the actual bound project's header,
+                    // not a hand-painted breadcrumb, then return to the original fixture snapshot.
+                    var originalName = session.State.Projects[work.Workstream.ProjectId].Name;
+                    session.State.Projects[work.Workstream.ProjectId].Name = string.Join(" ", Enumerable.Repeat("Long project identity", 8));
+                    director.Navigator.Renew(); Shot("spatial-long-project-header");
+                    connected = false; Shot("spatial-long-project-disconnected-header");
+                    connected = true; session.State.Projects[work.Workstream.ProjectId].Name = originalName;
+                    director.Navigator.Renew(); Draw();
                     var shown = ConfirmedDirectorAgent(root.transform, director, eyes, work.Present().Character, failures, "spatial character context");
                     targets.Add(shown.Target); characters.Add(shown); presentation.SetAgentsEnabled(true);
                     director.StageRefreshedForRender();
@@ -254,6 +205,105 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (sends != 0) failures.Add("spatial: navigation or drafting submitted a command");
             }
             finally { UnityEngine.Object.DestroyImmediate(texture); UnityEngine.Object.DestroyImmediate(root); }
+            return failures;
+        }
+
+        private static IEnumerable<string> SpatialState(string name, string folder, GameObject root, Camera camera,
+            RenderTexture texture, MenuDirector director, List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes)
+        {
+            var failures = new List<string>();
+            var plane = director.Plane; ForceMeshes(root);
+            if (plane.Composition == null || plane.Shown.Count != 1) { failures.Add(name + ": expected one focused reading surface"); return failures; }
+            var view = plane.Shown[0].View;
+            if (plane.Shown[0].Kind == MenuColumn.File || view.InPlaceOf?.IdentityKind == MenuIdentityKind.Task)
+            {
+                if (plane.Composition.Columns.Count != 1) failures.Add(name + ": focused work retained the chooser rail column");
+                foreach (var words in new[] { "Projects", "Tasks", "Usage", "Settings" })
+                {
+                    var target = plane.Chrome.Targets.Single(button => button.Label.text == words);
+                    if (target.gameObject.activeInHierarchy != (words == "Projects"))
+                        failures.Add(name + ": focused work has the wrong actual place target visibility: " + words);
+                }
+            }
+            var bodyColumn = plane.Composition.Columns.Count - 1;
+            var body = plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
+            var shape = new GlazeChecks.PlaneShape("work reading surface", view.Parts[0], new Vector2(body.Width, body.Height) * PlaneComposition.Distance);
+            var chrome = new GlazeChecks.PlaneShape("peripheral controls", plane.Chrome.transform, plane.Chrome.Size * plane.Chrome.transform.localScale.x);
+            // The chrome bounds deliberately enclose the work, so the old separated-rectangle
+            // gap invariant is inapplicable. Text, targets, field and reading orientation retain their thresholds.
+            if (Quaternion.Angle(shape.Root.rotation, chrome.Root.rotation) > 0.05f || Mathf.Abs(Vector3.Dot(shape.Root.position - chrome.Root.position, chrome.Root.forward)) > 0.0005f)
+                failures.Add(name + ": peripheral controls and reading face do not share their physical plane");
+            // A fixed kind caption above the actual name is an intentional header hierarchy.
+            // Retain the existing descending type check inside the actual reading content.
+            var contentShape = new GlazeChecks.PlaneShape("reading content", view.Content.transform.parent, shape.Size);
+            failures.AddRange(GlazeChecks.TypeStepsDown(new[] { (IReadOnlyList<GlazeChecks.PlaneShape>)new[] { contentShape } }, eyes, name));
+            failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
+            failures.AddRange(GlazeChecks.TargetsLargeEnough(view.Targets.Concat(plane.Chrome.Targets), eyes, name));
+            failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
+            var headerTexts = plane.Chrome.GetComponentsInChildren<TMPro.TMP_Text>(false);
+            var contextText = headerTexts.SingleOrDefault(label => label.name == "Project and task");
+            var connectionText = headerTexts.SingleOrDefault(label => label.name == "Connection state");
+            if (contextText != null && connectionText != null && !string.IsNullOrEmpty(contextText.text))
+            {
+                var contextSeen = GlazeChecks.Of("project context", eyes, contextText.gameObject);
+                var connectionSeen = GlazeChecks.Of("connection", eyes, connectionText.gameObject);
+                if (contextSeen.Right > connectionSeen.Left - 0.01f) failures.Add(name + ": actual project and connection header text overlap");
+            }
+            var named = view.Side?.IdentityKind ?? view.Frame?.IdentityKind;
+            if (named != null)
+            {
+                var caption = view.GetComponentsInChildren<TMPro.TMP_Text>(false).SingleOrDefault(label => label.name == "Identity kind");
+                if (caption == null || caption.text != (named == MenuIdentityKind.Task ? "Task" : "Project"))
+                    failures.Add(name + ": named work identity lacks its fixed host caption");
+                var title = view.SubjectShown.Title;
+                if (caption != null)
+                {
+                    var titleSeen = GlazeChecks.Of("named title", eyes, title.gameObject);
+                    var captionSeen = GlazeChecks.Of("identity caption", eyes, caption.gameObject);
+                    if (captionSeen.Bottom < titleSeen.Top - 0.01f) failures.Add(name + ": identity caption overlaps its name");
+                    var titleSize = title.fontSize * title.transform.lossyScale.y / Vector3.Distance(eyes, title.transform.position);
+                    var captionSize = caption.fontSize * caption.transform.lossyScale.y / Vector3.Distance(eyes, caption.transform.position);
+                    if (titleSize <= captionSize) failures.Add(name + ": named work title does not lead its subordinate caption");
+                    foreach (var label in new TMPro.TMP_Text[] { caption, title })
+                    {
+                        var bounds = label.textBounds;
+                        foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                        foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                        {
+                            var point = view.Subject.InverseTransformPoint(label.transform.TransformPoint(new Vector3(x, y, 0f)));
+                            if (Mathf.Abs(point.x) > view.SubjectSize.x / 2f + 0.0001f || Mathf.Abs(point.y) > view.SubjectSize.y / 2f + 0.0001f)
+                                failures.Add(name + ": named header text exceeds its allocated subject bounds");
+                        }
+                    }
+                }
+                if (GlazeRuns.Of(view.SubjectShown.Title).Theirs.Count == 0)
+                    failures.Add(name + ": named identity lost outside-text provenance");
+            }
+            foreach (var character in characters)
+            {
+                var label = GlazeChecks.Of("character label", eyes, character.View.Label.gameObject);
+                var bodyExtent = BodyExtent(character.View, eyes);
+                foreach (var obstacle in new[] { label, bodyExtent })
+                    if (GlazeChecks.OutlineApart(chrome, eyes, obstacle) < GlazeChecks.GapDegrees - 0.01f)
+                        failures.Add(name + ": work object or controls overlap the actual character");
+            }
+            if (!view.Footer.Fits) failures.Add(name + ": current frame actions do not fit");
+            if (ViewField.Current is ViewField field) {
+                var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }.Select(y => chrome.Root.position + chrome.Root.right * x * chrome.Size.x + chrome.Root.up * y * chrome.Size.y));
+                failures.AddRange(GlazeChecks.InsideField(name, corners, eyes, chrome.Root.position, WorkspacePlacement.ReadingPitch(plane.Composition.Size, plane.Direction.Elevation, field), field));
+            }
+            var drawnActions = (view.Footer.Showing?.All.Select(slot => slot.Prompt.Id) ?? Enumerable.Empty<string>()).ToHashSet();
+            var carried = view.Side == null ? null : plane.Front!.Footer.InPlace(view.Side);
+            foreach (var (_, prompt) in plane.Front!.Footer.All)
+            {
+                if (prompt.Kind == PromptKind.Close || drawnActions.Contains(prompt.Id)) continue;
+                // Match production Footer.InPlace: only actions whose complete subject is
+                // visible are carried. Close details must return the original page for the rest.
+                if (carried == null || carried.All.Any(slot => slot.Prompt.Id == prompt.Id) || !drawnActions.Contains(SidePanel.Close))
+                    failures.Add(name + ": offered action has neither its target nor Close details to return it: " + prompt.Id);
+            }
+            camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
+            var image = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
             return failures;
         }
     }
