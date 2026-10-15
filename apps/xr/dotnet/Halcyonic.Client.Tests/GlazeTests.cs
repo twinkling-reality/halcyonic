@@ -19,7 +19,8 @@ public class GlazeTokenTests
         Assert.That(GlazeColor.Contrast(GlazeColor.Hex(0x000000), GlazeColor.Hex(0xFFFFFF)), Is.EqualTo(21).Within(1e-9));
         Assert.That(GlazeColor.Contrast(Glaze.Panel, Glaze.Panel), Is.EqualTo(1).Within(1e-9));
         Assert.That(GlazeColor.Contrast(Glaze.Text, Glaze.Panel), Is.EqualTo(GlazeColor.Contrast(Glaze.Panel, Glaze.Text)), "order does not matter");
-        Assert.That(Glaze.Panel.ToString(), Is.EqualTo("#1B222D"));
+        Assert.That(GlazePalette.Glaze.Panel.ToString(), Is.EqualTo("#1B222D"));
+        Assert.That(GlazePalette.Default.Panel.ToString(), Is.EqualTo("#242726"));
     }
 
     [Test]

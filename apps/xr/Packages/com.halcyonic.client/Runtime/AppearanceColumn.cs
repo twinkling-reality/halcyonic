@@ -42,7 +42,7 @@ namespace Halcyonic.Client
                     return new MenuFrame("Restore default appearance?", new Footer(close,
                         rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
                         farRight: new Prompt(Restore, "Restore default", GlazeIcon.ResetPosition, main: true)),
-                        lines: new[] { new PageLine("Use Glaze for the interface."), new PageLine("Your comfort and space stay as you set them.", rows: 2) });
+                        lines: new[] { new PageLine("Use " + GlazePalette.Default.Name + " for the interface."), new PageLine("Your comfort and space stay as you set them.", rows: 2) });
                 }
                 if (!preview)
                 {
