@@ -23,11 +23,14 @@ namespace Halcyonic.Client
         private readonly Action? openProjectDetails;
         private readonly Action? allProjects;
         private string? measuredProject;
+        private string? drawnNewTaskProject, drawnNewTaskJournal;
         public const string SavedViews = "tasks-saved-views";
         public const string ProjectDetails = "tasks-project-details";
         public const string AllProjects = "tasks-all-projects";
+        public const string NewTask = "tasks-new-task";
         private int rows;
         private TextSize rowsAt;
+        private bool rowsWithNewTask;
         private int page;
         private string? showing;
         private long position = -1;
@@ -48,10 +51,11 @@ namespace Halcyonic.Client
         private void Measure()
         {
             var height = host.PageHeight(1, besideMenu: true);
-            var reserved = project?.Invoke() != null && allProjects != null ? 1 : 0;
+            var reserved = (project?.Invoke() != null && allProjects != null ? 1 : 0) + (NewTaskProject() != null ? 1 : 0);
             var most = Math.Max(1, host.PageRows(sourceLine: false) - reserved);
             rows = Math.Max(1, Enumerable.Range(1, most).LastOrDefault(count => MenuPage.Rows(count + reserved) <= height));
             rowsAt = host.TextSize;
+            rowsWithNewTask = NewTaskProject() != null;
         }
 
         public event Action? Changed;
@@ -63,7 +67,7 @@ namespace Halcyonic.Client
         {
             get
             {
-                if (rowsAt != host.TextSize) Measure();
+                if (rowsAt != host.TextSize || rowsWithNewTask != (NewTaskProject() != null)) Measure();
                 return rows;
             }
         }
@@ -103,7 +107,9 @@ namespace Halcyonic.Client
                     footer = new Footer(close, rare: footer[PromptSlot.Rare],
                         secondary: openProjectDetails != null ? new Prompt(ProjectDetails, "Project details", GlazeIcon.Next) : null,
                         farRight: footer[PromptSlot.FarRight]);
-                    // All projects is a real measured content row, independent of the agent shelf's display filter.
+                    var selected = NewTaskProject();
+                    if (selected != null) lines.Insert(0, new PageLine(TasksText.NewTask, icon: GlazeIcon.AddTask, action: NewTask, key: selected.ProjectId));
+                    // These navigation/action rows reserve real measured room, independent of the agent shelf's display filter.
                     if (allProjects != null) lines.Insert(0, new PageLine("All projects", icon: GlazeIcon.Back, action: AllProjects));
                     return new MenuFrame("Tasks", footer, lines: lines);
                 }
@@ -132,6 +138,14 @@ namespace Halcyonic.Client
                 case AllProjects when project?.Invoke() != null:
                     allProjects?.Invoke();
                     break;
+                case NewTask:
+                    var selected = SelectedProject();
+                    if (selected == null || key == null || key != drawnNewTaskProject || key != selected.ProjectId
+                        || drawnNewTaskJournal == null || drawnNewTaskJournal != host.State?.Journal?.JournalId
+                        || !host.Connected || host.Demonstration) return;
+                    drawnNewTaskProject = drawnNewTaskJournal = null;
+                    host.OpenNewProject(selected.ProjectId, selected.Name);
+                    return;
                 case OpenTask when key != null && Tasks().Any(task => task.WorkstreamId == key):
                     host.OpenFile(key);
                     break;
@@ -147,6 +161,10 @@ namespace Halcyonic.Client
 
         public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
+            var selected = NewTaskProject();
+            drawnNewTaskProject = selected != null && drawn.Lines.Any(line => line.Action == NewTask && line.Key == selected.ProjectId && line.Available)
+                ? selected.ProjectId : null;
+            drawnNewTaskJournal = drawnNewTaskProject == null ? null : host.State?.Journal?.JournalId;
         }
 
         public void HoldStarted(string id)
@@ -170,7 +188,9 @@ namespace Halcyonic.Client
         {
             var now = host.State?.Position ?? -1;
             var selected = project?.Invoke();
+            if (!host.Connected || host.Demonstration) drawnNewTaskProject = drawnNewTaskJournal = null;
             if (now == position && measuredProject == selected) return;
+            drawnNewTaskProject = drawnNewTaskJournal = null;
             position = now;
             if (measuredProject != selected) { measuredProject = selected; page = 0; Measure(); }
             Changed?.Invoke();
@@ -178,7 +198,18 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
+            drawnNewTaskProject = drawnNewTaskJournal = null;
         }
+
+        private ProjectView? NewTaskProject()
+        {
+            var needed = (allProjects != null ? 1 : 0) + 2; // Navigation, new task and at least one task/empty row.
+            return host.Connected && !host.Demonstration && host.PageRows(false) >= needed
+                && MenuPage.Rows(needed) <= host.PageHeight(1, besideMenu: true) ? SelectedProject() : null;
+        }
+
+        private ProjectView? SelectedProject() => project?.Invoke() is string id && host.State?.Projects.TryGetValue(id, out var selected) == true
+            ? selected : null;
 
         private List<WorkstreamView> Tasks()
         {
@@ -213,6 +244,7 @@ namespace Halcyonic.Client
     public static class TasksText
     {
         public const string Close = "Close";
+        public const string NewTask = "New task";
 
         /// <summary>A page with no tasks on it.</summary>
         public const string None = "No tasks yet.";

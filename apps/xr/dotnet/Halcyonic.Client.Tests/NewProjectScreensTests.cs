@@ -425,6 +425,7 @@ public class NewProjectRecapTests
         Assert.That(frame.Side, Is.Null, "no fact chosen");
         Assert.That(frame.Footer[PromptSlot.Rare], Is.Null, "with no row chosen, the footer's middle is free for paging");
         var start = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That(start.Words, Is.EqualTo("Start task"), "the action starts an execution, not a successful software build");
         Assert.That((start.Id, start.Main, start.Available), Is.EqualTo((NewProjectScreens.StartBuilding, true, false)));
         Assert.That(frame.Reason, Is.EqualTo(EntryText.ChooseWhereFilesLive), "the reason is the page's last line");
 
@@ -743,6 +744,16 @@ public class NewProjectStartTests
     {
         review.Drawn(now);
         return NewProjectScreens.Review(Idea(), review, problem);
+    }
+
+    [Test]
+    public void TaskStartCopyDoesNotPromiseASoftwareBuild()
+    {
+        Assert.That(EntryText.StartBuilding, Is.EqualTo("Start task"));
+        Assert.That(EntryText.ConfirmStart, Is.EqualTo("Yes, start task"));
+        Assert.That(EntryText.NothingStartsYet, Does.Contain("Start task").And.Not.Contain("building"));
+        Assert.That(EntryText.RecapLine, Is.EqualTo("Change anything before you start the task."));
+        Assert.That(EntryText.ReviewAfresh, Does.Contain("Start task").And.Not.Contain("building"));
     }
 
     [Test]

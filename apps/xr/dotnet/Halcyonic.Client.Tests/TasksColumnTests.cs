@@ -34,6 +34,7 @@ internal sealed class FakeMenuHost : IMenuHost
     public float Height { get; set; } = MenuPage.Rows(4);
 
     public List<string> Opened { get; } = new();
+    public List<(string? Project, string? Name)> NewProjectRequests { get; } = new();
 
     public List<CommandEnvelope> Sent { get; } = new();
 
@@ -68,7 +69,8 @@ internal sealed class FakeMenuHost : IMenuHost
 
     public void OpenFile(string workstreamId) => Opened.Add("file " + workstreamId);
 
-    public void OpenNewProject(string? projectId, string? projectName) => Opened.Add("new project " + projectId);
+    public void OpenNewProject(string? projectId, string? projectName)
+    { Opened.Add("new project " + projectId); NewProjectRequests.Add((projectId, projectName)); }
 }
 
 [TestFixture]
@@ -107,7 +109,7 @@ public class TasksColumnTests
         for (var page = 0; page < pages; page++)
         {
             var frame = column.Frame!;
-            Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(host.PageRows(false)), "All projects reserves a real measured row");
+            Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(host.PageRows(false)), "All projects and New task reserve real measured rows");
             Assert.That(frame.Lines.Any(line => line.Action == TasksColumn.AllProjects), Is.True);
             Assert.That(frame.Footer.All.Any(prompt => prompt.Prompt.Id == TasksColumn.SavedViews && prompt.Prompt.Available), Is.True);
             Assert.That(frame.Footer.All.Any(prompt => prompt.Prompt.Id == TasksColumn.ProjectDetails && prompt.Prompt.Available), Is.True);
@@ -249,4 +251,77 @@ public class TasksColumnTests
         Assert.That(changes, Is.EqualTo(1), "once for the journal as it stands, then only as it moves");
         Assert.That(host.Sent, Is.Empty, "Tasks never sends");
     }
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void NewTaskOpensTheExistingProjectFlowOnlyFromItsDrawnLiteralAction(TextSize size)
+    {
+        var state = StateWith(Array.Empty<WorkstreamView>());
+        state.Projects[Samples.ProjectId].Name = "<color=red>Outside name</color> " + new string('x', 400);
+        var host = new FakeMenuHost { State = state, TextSize = size };
+        var column = new TasksColumn(host, project: () => Samples.ProjectId, allProjects: () => { });
+        var frame = column.Frame!;
+        var action = frame.Lines.Single(line => line.Action == TasksColumn.NewTask);
+        Assert.That((action.Words, action.WordsAreData, action.Key), Is.EqualTo(("New task", false, Samples.ProjectId)));
+        Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(host.PageRows(false)));
+        column.Act(TasksColumn.NewTask, Samples.ProjectId);
+        Assert.That(host.Opened, Is.Empty, "an unseen control cannot open the flow");
+        column.Drawn(frame, null); column.Act(TasksColumn.NewTask, Samples.ProjectId);
+        column.Act(TasksColumn.NewTask, Samples.ProjectId);
+        Assert.That(host.NewProjectRequests, Is.EqualTo(new[] { ((string?)Samples.ProjectId, (string?)state.Projects[Samples.ProjectId].Name) }));
+        Assert.That(host.Sent, Is.Empty, "opening a task draft never creates a project or starts work");
+    }
+
+    [TestCase("selection")]
+    [TestCase("journal")]
+    [TestCase("disconnected")]
+    [TestCase("practice")]
+    [TestCase("focus")]
+    public void NewTaskCannotRetargetOrReviveAfterItsDrawnScopeExpires(string change)
+    {
+        var host = new FakeMenuHost { State = StateWith(Array.Empty<WorkstreamView>(), twoProjects: true) };
+        string? selected = Samples.ProjectId;
+        var column = new TasksColumn(host, project: () => selected);
+        column.Tick(); column.Drawn(column.Frame!, null);
+        if (change == "selection") { selected = "other"; column.Tick(); selected = Samples.ProjectId; column.Tick(); }
+        if (change == "journal") host.State = StateWith(Array.Empty<WorkstreamView>());
+        if (change == "journal") host.State!.Journal!.JournalId = "another-journal";
+        if (change == "disconnected") { host.Connected = false; column.Tick(); host.Connected = true; column.Tick(); }
+        if (change == "practice") { host.Demonstration = true; column.Tick(); host.Demonstration = false; column.Tick(); }
+        if (change == "focus") column.FocusLeft();
+        column.Act(TasksColumn.NewTask, Samples.ProjectId);
+        Assert.That(host.Opened, Is.Empty);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void NewTaskIsOfferedOnlyForAnExistingSelectedProjectOnALiveNonPracticeConnection()
+    {
+        var host = new FakeMenuHost { State = StateWith(Array.Empty<WorkstreamView>()) };
+        string? selected = null;
+        var column = new TasksColumn(host, project: () => selected);
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.NewTask), Is.False);
+        selected = "missing"; column.Tick();
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.NewTask), Is.False);
+        selected = Samples.ProjectId; column.Tick();
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.NewTask), Is.True);
+        host.Connected = false; column.Tick();
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.NewTask), Is.False);
+        host.Connected = true; host.Demonstration = true; column.Tick();
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == TasksColumn.NewTask), Is.False);
+    }
+
+    [Test]
+    public void AShortProjectListRetainsTheExistingDetailsRouteRatherThanOverflowingToAddAnAction()
+    {
+        var host = new FakeMenuHost { State = StateWith(new[] { Task("own", WorkstreamStatus.Running, 1) }), Height = MenuPage.Rows(2) + 0.001f };
+        var details = 0;
+        var column = new TasksColumn(host, project: () => Samples.ProjectId, openProjectDetails: () => details++, allProjects: () => { });
+        Assert.That(column.Frame!.Lines.Count, Is.EqualTo(2));
+        Assert.That(column.Frame.Lines.Any(line => line.Action == TasksColumn.NewTask), Is.False);
+        Assert.That(column.Frame.Footer.All.Any(each => each.Prompt.Id == TasksColumn.ProjectDetails), Is.True);
+        column.Act(TasksColumn.ProjectDetails, null);
+        Assert.That(details, Is.EqualTo(1));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
 }

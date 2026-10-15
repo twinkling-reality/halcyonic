@@ -809,7 +809,7 @@ launch/return, process recreation and current-frame action behavior need separat
   first part (`WorkspaceSteering.Armings`). Measured differently under one confirmation, as when the
   question below it changes, a request drawn whole stays read and shows its last part, and one drawn
   only in part is read again from its first (`WorkspaceSteering.ReadAgain`), as lane C's review of
-  Start building does. After the text size changes, nothing read stays read, since every part was
+  Start task does. After the text size changes, nothing read stays read, since every part was
   drawn at the other size (`FileScreen.ReadAgainAtNewSize`): the request, drawn whole or not, and
   every question's parts, its answers read in a side panel and the page of answers are read again
   from the first part, and Yes, Approve's confirmation and Send answer wait until every part has
@@ -991,7 +991,7 @@ launch/return, process recreation and current-frame action behavior need separat
   in projected state before interpreting an acknowledgement: a completed event still counts when
   its acknowledgement is lost. An unknown acknowledgement keeps the request unresolved until a
   terminal record arrives or the person deliberately clears it after checking the workstreams.
-- **`BuildSequence`** is Start building's command chain, moved out of the panel so it is tested:
+- **`BuildSequence`** is Start task's command chain, moved out of the panel so it is tested:
   `project.create` for a new project, with the folder chosen, or `project.set_location` first for
   an existing project that is to work in another folder (which completes with no result), then
   `workstream.create` and `execution.start`, each sent only once the control plane recorded the one
@@ -1002,7 +1002,7 @@ launch/return, process recreation and current-frame action behavior need separat
   Yes confirmed and builds every later step from it, never from the draft as it changes after, and
   reviewing changes nothing in the draft. The panel also refuses Yes for a review that is no longer
   the request as it stands (`SameRequest`), as after a change made by way of the steps, and shows
-  that request afresh; starts nothing more while a build is on its way, Start building saying
+  that request afresh; starts nothing more while a build is on its way, Start task saying
   "Already starting. Wait to hear how it went."; shows a move only when the folder sent is not where
   the project already is (`EntryScreens.Moves`); and, once a project is made
   and a later step stops, keeps that project and the name it was made with (`ProjectIdea.ProjectMade`).
@@ -1129,7 +1129,7 @@ launch/return, process recreation and current-frame action behavior need separat
   welcome's Not now). Text from outside comes in as `LabelText.Plain` shows it and says it is data,
   which alone may end in an ellipsis.
 - **`EntryScreens`** holds the checks New project builds on, kept from the retired entry panel,
-  whose screens Projects and New project took over (ADR 0026): why Start building can't go ahead now
+  whose screens Projects and New project took over (ADR 0026): why Start task can't go ahead now
   (`StartProblem`, the recap's checks in their order), the whole request (`ReviewOf`, given names as
   they are, so the review spells each once), the folder a send carries (`FolderSent`) and whether a
   request moves a project (`Moves`). The panel's own creating, its screens and its banner for work
@@ -1178,7 +1178,7 @@ launch/return, process recreation and current-frame action behavior need separat
   takes only its Close details and what it carries in the page's place (`Footer.InPlace`), never a
   line or prompt of the page it hides, and counts no part read (`NewProjectFlow.DrawnWith`). The
   recap marks safe there a fact's Change, Choose another folder, More options, Start over and its
-  Yes, start over, whose side panels show all they act on, and Start building, whose review shows
+  Yes, start over, whose side panels show all they act on, and Start task, whose review shows
   everything before its Yes, so each is reached at larger text too; a row is keyed by what it chooses (a suggestion or fixed
   answer by the question it answers and its words, a folder by its place's path and its own name),
   so a press on a frame drawn before a new reply or listing never takes another, even the same
@@ -1193,7 +1193,7 @@ launch/return, process recreation and current-frame action behavior need separat
   the retired entry panel kept for every journal alike, under the key its builds used, moves once to
   the first live journal read unless that journal keeps its own; the move stays until no headset can
   still carry a build of the entry panel's creating. While one is kept and no build is on its
-  way, it comes first on opening, Build shows it, Start building and Start over wait with "Your last
+  way, it comes first on opening, Build shows it, Start task and Start over wait with "Your last
   start may have gone through.", and only the person's Clear, then Yes, clear removes it; the flow
   replaces or clears only an id it kept for its own build, never one kept by an earlier run or by
   the entry panel's retired creating. A build the person confirmed goes on after Close: the director keeps one flow for the
@@ -1220,7 +1220,7 @@ launch/return, process recreation and current-frame action behavior need separat
   kept across a restart through `CreationDrafts`, for the computer they were made with. A kept
   folder's place is read again from every listing the computer gives (`ProjectIdea.ReadPlaces`,
   lane L's `ProjectFolder.Current`), once when a draft with a folder opens; a place it no longer
-  lists shows as gone and Start building waits, "Choose where its files live.", until a listing
+  lists shows as gone and Start task waits, "Choose where its files live.", until a listing
   shows it again, and a read that fails changes nothing.
 - **`NewProjectScreens`** builds New project (ADR 0026) as `MenuFrame`s, from the same models
   and checks as the entry panel's retired creating, kept in `EntryScreens`: the steps as a row of shapes (Your idea,
@@ -1250,10 +1250,10 @@ launch/return, process recreation and current-frame action behavior need separat
   folder's name are given on a words page: the words as a row that opens the keyboard, Hold to talk
   beside Done, and Done unavailable, saying the rule, while they break it. Hold to talk stands
   beside the main action wherever words are given, and heard words land chosen with the note to
-  check them. Start building's review shows the whole request a part at a time as the Unity layer
+  check them. Start task's review shows the whole request a part at a time as the Unity layer
   measured it, each part from the wrapped row where it was split, never cut, with Next part as the
-  last row of every part but the last; Yes, start building appears in the middle only once the
-  last part has shown, with Cancel where Start building was pressed. Start building then shows
+  last row of every part but the last; Yes, start task appears in the middle only once the
+  last part has shown, with Cancel where Start task was pressed. Start task then shows
   each step and the next action its outcome allows.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
@@ -2022,7 +2022,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
 - **Runtimes and folders:** the mock runtime uses its generic `simulated_start` scenario when no runtime options are sent,
   which says no software work was performed, and needs no folder. Codex and OpenCode work in the
   project's folder ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)),
-  which New project asks for before it offers Start building.
+  which New project asks for before it offers Start task.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
@@ -2617,7 +2617,7 @@ instruction; typing always stays:
 - **Where it shows.** In New project's footer wherever words are given (Your idea, a question,
   the first task, the name or a new folder's); heard words land where words are given, an idea
   saying "This is what your computer heard. Check it before you go on.", and nothing is sent until
-  Start building and the review. In an open workspace, at the end of the action row when the work takes
+  Start task and the review. In an open workspace, at the end of the action row when the work takes
   instructions and the row has room; a heard instruction always asks "Your computer heard the words above. Send them?" under the words, once all its parts are read.
   Never in the recorded demonstration, and never for approve, deny, stop or any
   confirmation.
@@ -3126,3 +3126,19 @@ workspace after a tracking-origin reset or movement during pause; that remains a
 question. Reset position keeps its existing deliberate meaning. Source, API and regression evidence
 is recorded in [initial workspace placement](../validation/initial-workspace-placement.md); actual
 headset startup acceptance remains separate from the source correction.
+
+
+### Starting another task in an existing project
+
+A selected project's Tasks list offers **New task** directly where the measured list has room for
+the action and at least one task/empty row, alongside the
+existing All projects route. It opens the same existing-project task flow as Add a task in project
+details; it does not create another project, change its folder or submit a command. The action
+requires its exact project row to have been drawn, the same current journal and selected project,
+and a live non-demonstration connection. A changed selection, lost focus or stale journal cannot
+retarget that action. Saved drafts, details and task paging remain reachable. If a very short list cannot fit the extra
+row, its existing project-details route still offers task creation rather than overflowing.
+
+The flow says **Start task** and **Yes, start task** because its final command starts a runtime
+execution. Internal names such as `BuildSequence` and `StartBuilding` remain implementation names;
+the action does not promise a successful software build, APK, deployment or observed output.

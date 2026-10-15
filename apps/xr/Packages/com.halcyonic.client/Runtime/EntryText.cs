@@ -26,7 +26,7 @@ namespace Halcyonic.Client
         public const string AddTask = "Add a task";
         public const string WaitingForMac = "Waiting for " + HostText.Your + ".";
 
-        /// <summary>Why Start building can't be pressed while a build is on its way (the coordinator, 2026-10-02).</summary>
+        /// <summary>Why Start task can't be pressed while a build is on its way (the coordinator, 2026-10-02).</summary>
         public const string AlreadyStarting = "Already starting. Wait to hear how it went.";
 
         public const string IdeaPrompt = "What would you like to make?";
@@ -54,7 +54,7 @@ namespace Halcyonic.Client
 
         /// <summary>Typing a first task of one's own in place of the companion's suggestion and one's earlier words.</summary>
         public const string TypeMyOwn = "Type my own";
-        public const string NothingStartsYet = "Nothing starts until you choose Start building.";
+        public const string NothingStartsYet = "Nothing starts until you choose Start task.";
         public const string GuideNote = "Fixed questions, not an AI. You can change every answer.";
         public const string Back = "Back";
 
@@ -62,8 +62,8 @@ namespace Halcyonic.Client
         public const string Chosen = "Chosen";
 
 
-        public const string RecapLine = "Change anything before you start building.";
-        public const string StartBuilding = "Start building";
+        public const string RecapLine = "Change anything before you start the task.";
+        public const string StartBuilding = "Start task";
         public const string StartOver = "Start over";
         public const string ConfirmStartOver = "Yes, start over";
         public const string MoreOptions = "More options";
@@ -222,7 +222,7 @@ namespace Halcyonic.Client
 
         /// <summary>Under the review's title: the items are Halcyonic's own account of what will be sent, so it asks to check them, never claims to be the command.</summary>
         public const string ReviewLine = "Check every part before you start.";
-        public const string ConfirmStart = "Yes, start building";
+        public const string ConfirmStart = "Yes, start task";
         public const string Change = "Change";
 
         /// <summary>The final press, locked in its place until the person has seen the last part: what is left to do, not a part's name.</summary>
@@ -298,7 +298,7 @@ namespace Halcyonic.Client
         public const string ResetPosition = "Reset position";
         public const string Close = "Close";
 
-        /// <summary>Why Start building can't go ahead, for each check the recap makes, in its order.</summary>
+        /// <summary>Why Start task can't go ahead, for each check the recap makes, in its order.</summary>
         public const string DemoCannotStart = "The demo can't start new work. Real work runs on " + HostText.Your + ".";
         public const string ChooseHowItRuns = "Choose how it runs in More options.";
         public const string ChooseAgain = "What you chose in More options isn't available now. Choose again.";
@@ -332,7 +332,7 @@ namespace Halcyonic.Client
         public const string NotSureItHappened = "Not sure it happened. Check the tasks on the stage before you try again.";
 
         /// <summary>
-        /// How a step of Start building went: sent is not done, and only a completed record confirms.
+        /// How a step of Start task went: sent is not done, and only a completed record confirms.
         /// A refusal says why and what to do from its code, and so does a failure about a folder; never the
         /// control plane's or an agent app's message (<see cref="WorkspaceText.WhyRefused"/>).
         /// </summary>
@@ -397,7 +397,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The recap's note after focus left a review whose final press waited.</summary>
-        public const string ReviewAfresh = "You went to another window, so nothing was started. Press Start building to check it again.";
+        public const string ReviewAfresh = "You went to another window, so nothing was started. Press Start task to check it again.";
 
         /// <summary>A simulated runtime in a live session, named for what it does, so no one takes it for a real one.</summary>
         public const string PracticeRun = "Practice run: builds nothing";

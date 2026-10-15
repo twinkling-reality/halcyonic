@@ -9,6 +9,15 @@ Text from outside (titles, agent messages, tool output, server errors) is not ou
 written, by `LabelText`'s rule, and only where a person needs it, and it leans, on a ground only
 Halcyonic draws where it meets our words (the owner, 2026-10-08; ADR 0026).
 
+## Starting a task
+
+The current action is **Start task**, confirmed by **Yes, start task**. It starts the selected
+runtime execution; it does not promise a software build, APK, deployment or working output.
+Older wording examples below that call this action Start building are superseded by this name.
+The selected-project Tasks view offers **New task** as a literal action, keeping the project's
+outside name out of the fixed button label. Opening it only opens that existing project's draft;
+no project or execution is created until the full existing review and explicit confirmation.
+
 ## The voice
 
 Calm and plain, like a capable colleague who says what is true now, how sure it is, and what you
