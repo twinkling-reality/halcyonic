@@ -59,6 +59,16 @@ meaningful unit of work (for example "Fix the authentication regression") and is
 represents. An **Execution** is one attempt by one runtime toward a Workstream, and a Workstream
 keeps its identity across executions and runtimes. Details: [DOMAIN_MODEL.md](../architecture/DOMAIN_MODEL.md).
 
+## Intended experience
+
+This section states intent.
+
+Halcyonic explores VR as a working environment for agentic software development. A person should be
+able to see and move among multiple projects and repositories, work with actual native VR or
+desktop outputs, direct agents, and understand changes and performance without repeatedly losing
+context. Salidium contributes understanding and evidence. Seorak contributes performance
+measurements. Those belong in the same working experience. Context should hold when focus changes.
+
 ## Entry and navigation
 
 The workspace is the front door, including return visits. Projects and Tasks remain discoverable
@@ -219,13 +229,18 @@ provider-neutral backend.
 2. **XR shell (built, device refinement ongoing).** A Unity client consumes the realtime stream
    and renders workstream characters that react to status and attention, hands first.
 3. **The defining interaction (built, device refinement ongoing).** Open a character into its
-   workspace, act, collapse it back. A real approval has been observed on Quest.
+   workspace, act, collapse it back. On 2026-09-29 a Quest session opened a workspace and completed
+   an approval through the control plane
+   ([quest-3-device.md](../validation/quest-3-device.md), second session). Later interface revisions
+   have their own notes in that record. That session is dated evidence, and it is not proof the
+   current build is finished.
 4. **Real work (partly built).** OpenCode, Claude Code and Codex adapters exist; Salidium and
-   Seorak read-through exists. A real Codex execution was read through both local daemons. Each
-   project binds to one folder the host approves, and a client that never names a path has started
-   real OpenCode and Codex work on a local model in a new folder through the control plane
-   ([project-location.md](../validation/project-location.md)). The headset still needs to choose a
-   folder and a complete live-start walkthrough.
+   Seorak read-through exists. A real Codex execution was read through both local daemons. The
+   control plane can bind a project to one folder the host approves, and tests have started
+   OpenCode and Codex on a local model in a new folder
+   ([project-location.md](../validation/project-location.md)). A complete live start on a headset is
+   not closed by the fifth session in [quest-3-device.md](../validation/quest-3-device.md), which
+   that record calls partly.
 
 The minimum viable product needs understandable project/task entry, hands-only interaction,
 whole-workspace minimize/return, one real runtime, one supported action with a runtime-confirmed

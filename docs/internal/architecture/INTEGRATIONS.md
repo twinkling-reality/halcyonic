@@ -108,6 +108,8 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
 [Claude Code](../validation/claude-code-capabilities.md), [Codex](../validation/codex-capabilities.md),
 [questions](../validation/agent-questions.md).
 
+The column "Codex app-server (experimental)" is the vendor's label for that command in the check above, set beside exec, which that check called stable. [ADR 0011](../decisions/0011-codex-app-server-stable-surface.md) selects only the stable methods and refuses `experimentalApi`. The column does not mean the adapter opts into the experimental API ([record](../validation/codex-capabilities.md)).
+
 ## Integration status
 
 | Integration | Status | Blocking question |
