@@ -21,6 +21,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Three actual production routes in the candidate spatial composition, at both reading sizes.</summary>
         public static void SpatialWorkspaceCheck()
         {
+            InstrumentFontAtlas.ValidateSaved();
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
                 var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "SpatialWorkspaceRenders", variant));
