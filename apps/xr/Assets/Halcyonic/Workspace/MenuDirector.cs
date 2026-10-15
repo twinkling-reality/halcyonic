@@ -239,7 +239,9 @@ namespace Halcyonic.XR.Workspace
                     () => director.memory.SelectedProjectId, director.OpenProjectDetails, director.OpenAllTasks),
                 // Over the memory kept for the app's run on this journal, so a Connect in flight is never sent twice.
                 [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
-                    director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations, director.OpenProjectTasks),
+                    director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations, director.OpenProjectTasks,
+                    setup.SpatialWorkspace ? line => MenuFrameView.ProjectListLineHeight(line, Glaze.Menu.FileColumnDegrees) : null,
+                    setup.SpatialWorkspace ? () => director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true) : null),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
                 [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
             });

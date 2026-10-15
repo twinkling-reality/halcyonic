@@ -60,12 +60,25 @@ public class ProjectsScreensTests
         Zone = TimeZoneInfo.Utc,
     };
 
+    private static IReadOnlyList<PageLine> AllLines(ProjectsScreens.State state)
+    {
+        var saved = state.Page; var found = new List<PageLine>();
+        for (var page = 0; page < 100; page++)
+        {
+            state.Page = page; var frame = ProjectsScreens.Projects(state); found.AddRange(frame.Lines);
+            var next = frame.Footer.All.FirstOrDefault(each => each.Prompt.Id == Footer.NextPage).Prompt;
+            if (next == null || next.Words == "First page") break;
+        }
+        state.Page = saved; return found;
+    }
+
     [Test]
     public void ProjectsListsKnownProjectsThenFreeFoldersAndOffersNewProject()
     {
-        var frame = ProjectsScreens.Projects(State(Listing(Root("Projects", Folder("shop"), Folder("used", true, "2026-10-02T11:00:00.000Z", ProjectA)))));
+        var state = State(Listing(Root("Projects", Folder("shop"), Folder("used", true, "2026-10-02T11:00:00.000Z", ProjectA))));
+        var frame = ProjectsScreens.Projects(state);
         Assert.That(frame.Subject, Is.EqualTo("Projects"), "the view uses its familiar capability name");
-        Assert.That(frame.Lines.Select(line => (line.Words, line.Fact, line.Action)), Is.EqualTo(new (string, string?, string?)[]
+        Assert.That(AllLines(state).Select(line => (line.Words, line.Fact, line.Action)), Is.EqualTo(new (string, string?, string?)[]
         {
             ("Alpha", "1 task waiting", ProjectsScreens.ChooseProject),
             ("Beta", "Hidden · 1 task paused", ProjectsScreens.ChooseProject),
@@ -78,6 +91,7 @@ public class ProjectsScreensTests
         {
             (PromptSlot.Close, Footer.Close, false),
             (PromptSlot.Rare, ProjectsScreens.FolderNavigation, false),
+            (PromptSlot.Secondary, Footer.NextPage, false),
             (PromptSlot.FarRight, ProjectsScreens.NewProject, true),
         }));
     }
@@ -385,10 +399,10 @@ public class ProjectsScreensTests
     {
         var state = new Portfolio().Project("p", "acme-api").Work("w", "p", WorkstreamStatus.Running).Apply();
         var projects = State(Listing(Root("Projects", Folder("Acme-API"), Folder("notes", false))), WorkOverview.Of(state, new StageVisibility(), _ => true));
-        var frame = ProjectsScreens.Projects(projects);
-        Assert.That(frame.Lines.Single(line => line.Words == "acme-api").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
-        Assert.That(frame.Lines.Single(line => line.Words == "Acme-API").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
-        Assert.That(frame.Lines.Single(line => line.Words == "notes").Fact, Does.Not.StartWith(ConnectText.LooksLikeAnother));
+        var frame = AllLines(projects);
+        Assert.That(frame.Single(line => line.Words == "acme-api").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
+        Assert.That(frame.Single(line => line.Words == "Acme-API").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
+        Assert.That(frame.Single(line => line.Words == "notes").Fact, Does.Not.StartWith(ConnectText.LooksLikeAnother));
         projects.ChosenProject = "p";
         Assert.That(ProjectsScreens.Projects(projects).Side!.Facts.Select(fact => fact.Value), Does.Contain(ProjectsText.ProjectLooksAlike));
 
@@ -569,12 +583,43 @@ public class ProjectsScreensTests
         const string Other = "0192a7a0-0000-7000-8000-00000000000b";
         var portfolio = new Portfolio().Project(ProjectA, "SVC").Project(Other, "svc").Apply();
         var listing = Listing(Root("Projects", Folder("svc", true, "2026-10-01T00:00:00.000Z", Other)));
-        var frame = ProjectsScreens.Projects(State(listing, WorkOverview.Of(portfolio, new StageVisibility(), _ => true)));
-        Assert.That(frame.Lines.Single(line => line.Words == "SVC").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
+        var frame = AllLines(State(listing, WorkOverview.Of(portfolio, new StageVisibility(), _ => true)));
+        Assert.That(frame.Single(line => line.Words == "SVC").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
 
         var alone = new Portfolio().Project(Other, "svc").Apply();
         var own = ProjectsScreens.Projects(State(listing, WorkOverview.Of(alone, new StageVisibility(), _ => true)));
         Assert.That(own.Lines.Single(line => line.Words == "svc").Fact, Does.Not.StartWith(ConnectText.LooksLikeAnother), "a project is not a look-alike of its own folder");
+    }
+
+    [Test]
+    public void PhysicalProjectBudgetKeepsThreeTypicalProjectsAndPagesByTheirMeasuredHeight()
+    {
+        var portfolio = new Portfolio();
+        for (var index = 0; index < 10; index++) portfolio.Project("p" + index, "Project " + index);
+        var state = State(overview: WorkOverview.Of(portfolio.Apply(), new StageVisibility(), _ => false));
+        state.FoldersOpen = false; state.LineHeight = _ => 0.2; state.AvailableHeight = 0.61;
+        Assert.That(ProjectsScreens.Projects(state).Lines.Count, Is.EqualTo(3));
+        Assert.That(AllLines(state).Select(line => line.Key), Is.EquivalentTo(Enumerable.Range(0, 10).Select(index => "p" + index)));
+        state.LineHeight = line => line.Key == "p0" ? 0.5 : 0.2;
+        Assert.That(ProjectsScreens.Projects(state).Lines.Count, Is.EqualTo(1), "a genuinely taller project consumes its actual budget without overlapping the next target");
+        state.Page = 1;
+        Assert.That(ProjectsScreens.Projects(state).Lines.Count, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void OnlyKnownProjectsOptIntoThePrimaryIdentityRow()
+    {
+        var state = State();
+        var all = AllLines(state);
+        Assert.That(all.Where(line => line.ProjectIdentity).Select(line => line.Key), Is.EquivalentTo(new[] { "a", "b" }));
+        foreach (var line in all.Where(line => line.ProjectIdentity))
+        {
+            Assert.That(line.Runs.AllTheirs, Is.True);
+            Assert.That(line.FactRuns!.AnyTheirs, Is.False);
+            Assert.That(line.Rows, Is.EqualTo(3));
+            Assert.That(line.Icon, Is.EqualTo(GlazeIcon.Quote));
+        }
+        Assert.That(PageLine.KnownProject("<b>name</b>\\n", "1 task running", "p").Words, Is.EqualTo("<b>name</b>\\n"));
     }
 
     private static ClientProjection With(params CommandView[] commands)
@@ -593,7 +638,7 @@ public class ProjectsScreensTests
         state.Listing = null; state.ListingProblem = "Folder read failed";
         var frame = ProjectsScreens.Projects(state);
         Assert.That(frame.Lines.All(line => line.Action == ProjectsScreens.ChooseProject), Is.True);
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Alpha", "Beta" }));
+        Assert.That(AllLines(state).Select(line => line.Words), Is.EqualTo(new[] { "Alpha", "Beta" }));
         Assert.That(frame.Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.FolderNavigation && each.Prompt.Words == "Connect a folder"), Is.True);
         Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.ChooseProblem, ProjectsScreens.ProblemKey), Is.False);
         state.FoldersOpen = true;

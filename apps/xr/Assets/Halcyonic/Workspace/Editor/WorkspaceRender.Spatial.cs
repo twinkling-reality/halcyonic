@@ -144,7 +144,22 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     failures.AddRange(SpatialState(name, folder, root, camera, texture, director, characters, eyes));
                 }
-                if (!waiting) Shot("spatial-projects");
+                if (!waiting)
+                {
+                    Shot("spatial-projects");
+                    var typicalProject = PageLine.KnownProject("Typical project", "1 task running", "measured-only");
+                    var projectBudget = director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true);
+                    if (projectBudget < 2f * MenuFrameView.ProjectListLineHeight(typicalProject, Glaze.Menu.FileColumnDegrees))
+                        failures.Add("spatial: Projects must fit at least two typical project rows at the current reading size");
+                    foreach (var row in director.Plane.Shown.SelectMany(shown => shown.View.ShownLines).Where(row => row.Model.ProjectIdentity))
+                    {
+                        if (row.Fact == null || row.Icon == null || row.Words.fontSize <= row.Fact.fontSize
+                            || row.Fact.transform.position.y >= row.Words.transform.position.y)
+                            failures.Add("spatial: known project identity must lead its own supporting summary line");
+                        if (GlazeRuns.Of(row.Words).Theirs.Count == 0 || row.Words.richText)
+                            failures.Add("spatial: known project identity lost literal outside-text provenance");
+                    }
+                }
                 Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
                 if (!waiting)
                 {

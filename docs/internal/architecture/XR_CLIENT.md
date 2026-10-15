@@ -3215,3 +3215,15 @@ standalone reading body for tasks and creation flows. It includes the measured H
 standalone flow sections, unified gaps and complete top/base controls. Legacy two-column sizing
 is not used as a proxy for the spatial chooser. Full field, minimum apparent text and retained
 character clearance constrain the resulting page budget.
+
+Known project rows use an explicit `PageLine.KnownProject` identity presentation: the literal
+outside name leads in the existing Title role, with its host-owned task summary beneath it in
+Body text. The quote provenance marker and outside-text ranges remain; agent prose and folder
+rows retain their existing treatment. Both lines share the existing project navigation target.
+Only the spatial Projects list with known project identities quiets its generic heading to the
+Caption role; task/project detail headings and other places keep their existing title roles.
+The production spatial chooser supplies physical page height and measured row heights, including
+name, fully wrapped summary and target spacing, rather than spending the legacy logical-row
+budget per project. Typical projects can share a page; taller summaries consume their actual
+height. Core-only/legacy callers retain the conservative logical-row fallback. The renderer
+retains target, text and field checks at both reading sizes.

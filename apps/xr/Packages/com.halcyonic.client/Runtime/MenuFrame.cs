@@ -233,6 +233,13 @@ namespace Halcyonic.Client
             FromRow = fromRow;
         }
 
+        /// <summary>An explicitly known project identity with its host-owned task summary below.</summary>
+        public bool ProjectIdentity { get; private set; }
+
+        public static PageLine KnownProject(string name, string summary, string projectId, bool chosen = false) =>
+            new PageLine(LineWords.TheirName(name), fact: LineWords.Ours(summary), action: ProjectsScreens.ChooseProject,
+                key: projectId, opens: true, chosen: chosen, rows: 3) { ProjectIdentity = true };
+
         public string Words { get; }
 
         /// <summary>Its words as runs, Halcyonic's and outside text's; one of Halcyonic's for a line made from a string.</summary>
