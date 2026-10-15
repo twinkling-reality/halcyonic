@@ -361,6 +361,22 @@ namespace Halcyonic.XR.Workspace.Editor
             if (plane.Shown[0].Kind == MenuColumn.File || view.InPlaceOf?.IdentityKind == MenuIdentityKind.Task)
             {
                 if (plane.Composition.Columns.Count != 1) failures.Add(name + ": focused work retained the chooser rail column");
+                var header = WorkspaceChromeView.SpatialHeader(true);
+                if (!Mathf.Approximately(plane.Composition.Header, header) || !Mathf.Approximately(header, MenuPage.Target())
+                    || header >= WorkspaceChromeView.SpatialTop)
+                    failures.Add(name + ": focused context must reserve exactly its full Projects target, without chooser padding");
+                var projects = plane.Chrome.Targets.Single(button => button.Label.text == "Projects");
+                var projectCentre = plane.Chrome.transform.InverseTransformPoint(projects.transform.position);
+                var bandTop = plane.Chrome.Size.y / 2f; var bandBottom = bandTop - header;
+                if (projects.Size.y < MenuPage.Target() - 1e-6f
+                    || projectCentre.y + projects.Size.y / 2f > bandTop + 1e-6f
+                    || projectCentre.y - projects.Size.y / 2f < bandBottom - 1e-6f)
+                    failures.Add(name + ": compact context cropped or reduced its actual Projects target");
+                var firstBody = plane.Composition.Parts.First(part => part.Column == 0 && part.Index == 0);
+                var expectedTop = plane.Composition.Height / 2f - header * plane.Composition.Zoom
+                    - PlaneComposition.Units(PlaneComposition.PartGapDegrees) * plane.Composition.Zoom;
+                if (Mathf.Abs(firstBody.Top - expectedTop) > 1e-6f)
+                    failures.Add(name + ": focused reading body retained an extra unallocated context gap");
                 foreach (var words in new[] { "Projects", "Tasks", "Usage", "Settings" })
                 {
                     var target = plane.Chrome.Targets.Single(button => button.Label.text == words);

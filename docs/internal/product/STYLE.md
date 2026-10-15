@@ -626,3 +626,10 @@ control native Android panel placement. A moving or settling reading object acce
 frame input; its exact local drafts/pages survive and require a fresh physical draw. Keep things
 still uses an immediate content reposition with the same input settling. Candidate timings and
 translation tolerances require an actual wearer check; renderer success alone is not comfort.
+
+
+The focused work object's context row reserves one full Projects target in height. Project and
+connection words align with that target; the composition's ordinary part gap follows it before
+task identity. The chooser retains its larger navigation header. This removes unused focused
+context space without reducing a hit target or type size. The same allocation drives the actual
+composition and available page-height calculation; actual paired captures remain the design gate.

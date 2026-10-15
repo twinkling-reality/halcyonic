@@ -3209,7 +3209,12 @@ the action does not promise a successful software build, APK, deployment or obse
 WorkspaceDirector enables the spatial composition in its MenuDirector setup. Projects, Tasks,
 Usage and Settings share quiet place navigation in the chooser. An open task and all its details
 use one reading column, with Projects as the return, and fixed Move, Other apps and Minimize
-controls below. This retains the existing journal/session/command authority and draft state;
+controls below. Focused context reserves exactly one complete Projects-target height; its context
+words align vertically with that target. The normal composition part gap separates it from task
+identity, removing the chooser header's two extra target gaps. The chooser retains its existing
+header. Production composition and the page-height solver use the same header selector, preserving
+hit targets, type floors and measured field limits together. This retains the existing
+journal/session/command authority and draft state;
 it adds no executor capability. Explicit task/project identity metadata opts the main heading
 into a named, upright title beneath its host-owned kind caption, preserving literal escaping
 and outside-text ranges. Other prose keeps its provenance treatment.
