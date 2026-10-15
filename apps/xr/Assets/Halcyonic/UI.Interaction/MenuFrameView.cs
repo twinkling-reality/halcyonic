@@ -1346,10 +1346,10 @@ namespace Halcyonic.XR.UI
             // Keep the rear contact dark: a white slab behind translucent glass washes the whole
             // instrument gray, defeating both the palette and the separation of reading levels.
             subjectPlate.gameObject.SetActive(true);
-            subjectPlate.Draw(new Vector2(width, subjectHeight - reserve), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.94f));
-            unifiedPlate.Draw(new Vector2(width, body), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.98f));
+            subjectPlate.DrawInstrument(new Vector2(width, subjectHeight - reserve), U(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
+            unifiedPlate.DrawInstrument(new Vector2(width, body), U(0.4f), GlazeTokens.ColorOf(Glaze.Panel, 0.98f));
             unifiedPlate.transform.localPosition = new Vector3(0f, contentPart.localPosition.y, 0f);
-            unifiedBacking.Draw(new Vector2(width, body), 0f, GlazeTokens.ColorOf(Glaze.Panel));
+            unifiedBacking.Draw(new Vector2(width, body), U(0.4f), GlazeTokens.ColorOf(Glaze.Panel));
             unifiedBacking.transform.localPosition = new Vector3(0f, contentPart.localPosition.y, 0.008f / PlaneComposition.Distance);
         }
 

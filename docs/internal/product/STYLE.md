@@ -588,3 +588,19 @@ control native Android panel placement. A moving or settling reading object acce
 frame input; its exact local drafts/pages survive and require a fresh physical draw. Keep things
 still uses an immediate content reposition with the same input settling. Candidate timings and
 translation tolerances require an actual wearer check; renderer success alone is not comfort.
+### Physical reading material comparison, 2026-10-15
+
+The owner rejected the installed flat treatment and asked for gloss, glass and material presence.
+The isolated candidate gives only the spatial heading and reading body an inset bevel and real
+rear edge, contained inside their allocated footprint. A narrow neutral optical edge responds
+to the real camera; subtle filtered satin grain belongs to the side material. The reading centre
+has no moving reflection, broad white wash or blur. The substrate remains at least98% opaque;
+its text must keep minimum contrast against a bright background. This is a controlled studio-key
+specular response, not a reflection or measurement of the wearer's room. No new permission,
+reflection capture, vendor dependency, input target or animation loop is introduced.
+
+The neutral instrument palette is an explicit comparison fixture value, not a saved appearance
+preset or silently changed default. Characters and semantic state colors keep their existing
+identity/meaning. Physical material and a new color field do not establish that the flat-form
+interaction has been solved. Actual angled/moving production scene evidence and wearer judgment
+remain required; see [material comparison](../validation/instrument-material-study.md).

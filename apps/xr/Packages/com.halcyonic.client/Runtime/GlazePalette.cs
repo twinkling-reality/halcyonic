@@ -43,7 +43,7 @@ namespace Halcyonic.Client
         public GlazeColor Ground => GlazeColor.Hex(0xFFFFFF);
         public GlazeColor EdgeLight => GlazeColor.Hex(0xFFFFFF);
         public GlazeToneColors Tone(GlazeTone tone) => tones.TryGetValue(tone, out var value) ? value : throw new ArgumentOutOfRangeException(nameof(tone));
-        private static GlazePalette Make(bool graphite)
+        private static GlazePalette Make(bool graphite, bool instrument = false)
         {
             var Panel = GlazeColor.Hex(0x1B222D);
             var Raised = GlazeColor.Hex(0x242D3A);
@@ -77,10 +77,21 @@ namespace Halcyonic.Client
                 tones[GlazeTone.Neutral] = new GlazeToneColors(TextSecondary, Raised, Control, Text);
                 tones[GlazeTone.Accent] = new GlazeToneColors(GlazeColor.Hex(0xB3D0FA), GlazeColor.Hex(0x263650), GlazeColor.Hex(0x98BAF0), GlazeColor.Hex(0x0B1422));
             }
-            return new GlazePalette(graphite ? "graphite" : "glaze", graphite ? "Graphite" : "Glaze",
+            if (instrument)
+            {
+                Panel = GlazeColor.Hex(0x242726); Raised = GlazeColor.Hex(0x2E3330);
+                Control = GlazeColor.Hex(0x3A423D); ControlHover = GlazeColor.Hex(0x49534C); ControlPressed = GlazeColor.Hex(0x59645C);
+                Well = GlazeColor.Hex(0x1D211F); Text = GlazeColor.Hex(0xE9E7E0); TextSecondary = GlazeColor.Hex(0xB9BEB9);
+                TextDisabled = GlazeColor.Hex(0x949D96); Outline = GlazeColor.Hex(0x78887C);
+                tones[GlazeTone.Neutral] = new GlazeToneColors(TextSecondary, Raised, Control, Text);
+                tones[GlazeTone.Accent] = new GlazeToneColors(GlazeColor.Hex(0xE4E2DB), GlazeColor.Hex(0x343B36), GlazeColor.Hex(0xD6DBD4), GlazeColor.Hex(0x202722));
+            }
+            return new GlazePalette(instrument ? "instrument-study" : graphite ? "graphite" : "glaze", instrument ? "Instrument study" : graphite ? "Graphite" : "Glaze",
                 Panel, Raised, Control, ControlHover, ControlPressed, Well, Text, TextSecondary, TextDisabled, Outline, tones);
         }
 
+        /// <summary>Consumed only by the explicit material comparison fixture; not a saved user preset.</summary>
+        public static GlazePalette InstrumentStudy { get; } = Make(false, true);
         public static GlazePalette Default { get; } = Make(false);
         public static GlazePalette Graphite { get; } = Make(true);
         public static IReadOnlyList<GlazePalette> Presets { get; } = Array.AsReadOnly(new[] { Default, Graphite });
