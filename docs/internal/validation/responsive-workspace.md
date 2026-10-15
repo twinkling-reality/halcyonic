@@ -59,3 +59,13 @@ new arrival or immediate request and position/rotation/scale match. Explicit imm
 arrivals and manual Stand remain distinct. Frame/target settling and frame ownership still apply;
 only a phantom animation restart is removed. The actual repeated-redraw trace is its regression
 witness; actual execution remains pending.
+
+The prospective connector chooser now receives the prospective viewer and obstacles throughout
+endpoint selection and intersection checks; it does not choose against the old view first. A line
+attached to its own body keeps the real body penetration test without adding the other-body halo
+at that attachment; other bodies retain their clearance margin. The actual renderer uses the same
+own-body rule. A positive fixture deliberately places the selected task's grounded real character
+offset beside the next anchor, requires its prospective heading connector to be allowed, then
+requires actual recovery with unchanged character pose, shared task identity and a real connector.
+Thirty-nine actual connector samples must clear that body and label. This prevents a blanket
+selected-character follow disable from passing the collision-negative case.

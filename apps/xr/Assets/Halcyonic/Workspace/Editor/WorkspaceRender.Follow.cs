@@ -185,6 +185,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 presentation.SetAgentsEnabled(false); fixedView.gameObject.SetActive(false); Rest(); Shot("07-clear-anchor-after-character-hidden");
                 if (fixedView.transform.position != placedRoot || file.Screen.Instruction.Words != draft || sends != 0)
                     failures.Add("safe recovery changed the placed character or retained draft, or sent work");
+                // Deliberately place the selected task's real character safely beside the next anchor.
+                fixedView.gameObject.SetActive(true); fixedView.Grounded = true;
+                fixedView.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+                fixedView.transform.SetPositionAndRotation(eyes + Quaternion.Euler(0, 15, 0) * Vector3.forward * 2f - Vector3.up * 0.6f,
+                    Quaternion.Euler(0, 195, 0));
+                fixedView.PlaceShelfLabel(eyes); fixedView.AdvanceForRender(0);
+                presentation.SetAgentsEnabled(true); Rest();
+                var positiveRoot = fixedView.transform.position; var positiveBody = fixedTarget.BodyPosition;
+                var positiveLooking = Quaternion.Euler(0, 340, 0) * Vector3.forward;
+                if (!fixedView.Label.IdentityInWorkspace || !director.Plane.CanRecoverAt(eyes, positiveLooking, targets))
+                    failures.Add("safe offset selected-character anchor/heading connector was falsely rejected");
+                looking = positiveLooking; var positiveMoved = false;
+                for (var frameIndex = 0; frameIndex < 60; frameIndex++) { Tick(); positiveMoved |= director.FollowingForRender; }
+                if (!positiveMoved || director.FollowingForRender || fixedView.transform.position != positiveRoot || fixedTarget.BodyPosition != positiveBody)
+                    failures.Add("safe selected-character recovery failed or changed explicit character placement");
+                Shot("08-selected-character-recovered");
+                if (!fixedView.Label.IdentityInWorkspace || director.Plane.LightLine == null)
+                    failures.Add("selected-character recovery lost the shared task heading or real connector");
+                if (director.Plane.LightLine is (Vector3 lineFrom, Vector3 lineTo))
+                {
+                    var outline = MenuPlane.LabelOutline(fixedView); var extent = BodyExtent(fixedView, eyes);
+                    for (var sample = 1; sample < 40; sample++)
+                    {
+                        var point = Vector3.Lerp(lineFrom, lineTo, sample / 40f); var relative = point - eyes;
+                        var yaw = Mathf.Atan2(relative.x, relative.z) * Mathf.Rad2Deg;
+                        var elevation = Mathf.Atan2(relative.y, new Vector2(relative.x, relative.z).magnitude) * Mathf.Rad2Deg;
+                        if (MenuPlane.OnLabel(outline, eyes, point)
+                            || yaw >= extent.Left && yaw <= extent.Right && elevation >= extent.Bottom && elevation <= extent.Top)
+                        { failures.Add("actual selected-character connector crosses its body or label after recovery"); break; }
+                    }
+                }
                 if (!director.PressForRender(MenuColumn.File, FileScreens.Cancel, null, director.Plane.Showing(MenuColumn.File), null))
                     failures.Add("fresh settled workspace never returned ordinary task input authority");
             }
