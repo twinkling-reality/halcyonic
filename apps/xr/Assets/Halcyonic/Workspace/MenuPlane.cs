@@ -832,6 +832,11 @@ namespace Halcyonic.XR.Workspace
             var scale = PlaneComposition.Distance * composition.Zoom;
             Vector3 Point(PlanePart part, float x, float y) => PlaneLayout.PointOf(eyes, at, part.Right, part.Up) + rotation * (new Vector3(x, y, 0f) * scale);
             var half = lineTo.Width / 2f;
+            if (fileOf.View.Label.IdentityInWorkspace)
+            {
+                var top = fileOf.RestPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
+                return ClearJoin(top, top, Point(subject, -half, lineTo.PlateTop), Point(subject, half, lineTo.PlateTop));
+            }
             if (at.Above)
             {
                 var top = fileOf.RestPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
@@ -1021,6 +1026,13 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             var subject = to.Subject;
+            if (of.View.Label.IdentityInWorkspace)
+            {
+                var top = of.BodyPosition + Vector3.up * (CharacterView.BodyExtent * of.Scale);
+                Join(top, top, subject.TransformPoint(new Vector3(-to.Width / 2f, to.PlateTop, 0f)),
+                    subject.TransformPoint(new Vector3(to.Width / 2f, to.PlateTop, 0f)));
+                return;
+            }
             if (Direction.Above)
             {
                 var content = to.Parts[to.Parts.Count - 1];
