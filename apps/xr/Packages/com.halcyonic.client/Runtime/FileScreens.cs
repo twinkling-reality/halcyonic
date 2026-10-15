@@ -117,7 +117,9 @@ namespace Halcyonic.Client
             var lines = page.Lines.ToList();
             var instructionEditor = screen.Instruction.Open && steering.Armed == null;
             var presetEditor = screen.Presets != null && !screen.Instruction.Open && steering.Armed == null;
-            if (screen.Notice != null && (!instructionEditor || screen.Instruction.InlineNotice && !screen.Instruction.ExplainingNotice)
+            var activityOwnsNotice = screen.Section == FileSection.Activity && steering.Armed == null
+                && !instructionEditor && !presetEditor && !steering.Typing;
+            if (screen.Notice != null && !activityOwnsNotice && (!instructionEditor || screen.Instruction.InlineNotice && !screen.Instruction.ExplainingNotice)
                 && (!presetEditor || !screen.ShowingPresetNotice))
                 lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary,
                     rows: instructionEditor ? Math.Max(1, screen.Instruction.NoticeRows) : presetEditor ? Math.Max(1, screen.PresetNoticeRows) : 2));
@@ -260,41 +262,61 @@ namespace Halcyonic.Client
             // before its optional routes, instead of silently presenting an action directory.
             if (lines.Count == 0 && workspace.Activity.Count == 0 && string.IsNullOrWhiteSpace(screen.ActivityNote))
                 lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
-            lines.AddRange(utilityLines);
-            var used = lines.Sum(line => line.Rows);
             var activity = workspace.Activity;
-            var fits = Math.Max(0, room.Rows - used);
-            if (budget != null)
-            {
-                var occupied = 0f;
-                for (var index = 0; index < lines.Count; index++)
-                {
-                    var line = lines[index];
-                    occupied += line.Action == null ? budget.Words(line.Rows) : budget.Target(line.Rows);
-                    if (index > 0) occupied += line.Action != null && lines[index - 1].Action != null ? budget.TargetGap : budget.LineGap;
-                }
-                var remaining = budget.Room - occupied - (lines.Count > 0 ? budget.LineGap : 0);
-                var measured = 0;
-                while (budget.Words(measured + 1) + measured * budget.LineGap <= remaining) measured++;
-                fits = Math.Min(fits, measured);
-            }
-            if (activity.Count == 0 && screen.ActivityNote.Length > 0 && fits > 0)
-            {
+            // Keep a bounded recent log, then page it with the routes. Routes must not consume
+            // all log capacity, nor may mandatory rows silently overflow an empty log.
+            var recent = Math.Max(1, room.Rows);
+            if (activity.Count == 0 && screen.ActivityNote.Length > 0)
                 lines.Add(new PageLine(screen.ActivityNote.TrimStart(' ', '·'), wordsAreData: true, tone: LineTone.Secondary));
-            }
-            for (var index = Math.Max(0, activity.Count - fits); index < activity.Count; index++)
+            for (var index = Math.Max(0, activity.Count - recent); index < activity.Count; index++)
             {
                 var entry = activity[index];
-                // Halcyonic's words upright, a name, a title or the agent's message leaning; the agent's under
-                // Halcyonic's quote mark with "Agent says" as its class, never quoted (settled 2026-10-08).
                 var time = Clock(entry.OccurredAt, screen.Zone);
                 lines.Add(entry.Words.AnyTheirs
                     ? new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null)
-                    // A line of Halcyonic's own words alone, as it always was: one row of the log, which may end in an ellipsis.
                     : new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary));
             }
             if (lines.Count == 0) lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
-            return new Page(lines.Where(line => !utilityLines.Contains(line)).Concat(utilityLines).ToArray(), source, normal);
+            lines.AddRange(utilityLines);
+            // Activity notices join the same paging allocation, rather than being appended
+            // after packing on every page. Keep their complete words and normal two-row size.
+            if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
+            var measured = budget ?? new RowBudget(room.Rows);
+            float Height(PageLine line) => line.Action == null ? measured.Words(line.Rows) : measured.Target(line.Rows);
+            float Gap(PageLine before, PageLine after) => before.Action != null && after.Action != null ? measured.TargetGap : measured.LineGap;
+            float Used(IReadOnlyList<PageLine> entries)
+            {
+                var height = 0f;
+                for (var index = 0; index < entries.Count; index++)
+                    height += Height(entries[index]) + (index > 0 ? Gap(entries[index - 1], entries[index]) : 0f);
+                return height;
+            }
+            var availableRows = room.Rows;
+            var availableHeight = measured.Room;
+            var needsPages = lines.Sum(line => line.Rows) > availableRows || Used(lines) > availableHeight + 1e-6f;
+            // A full Activity footer owns voice as well as writing. Keep that action in place
+            // and use the existing body pager pattern rather than replacing Hold to talk.
+            var bodyPager = needsPages && normal[PromptSlot.Secondary] != null;
+            var pager = new PageLine("Next page", icon: GlazeIcon.Next, action: Footer.NextPage, control: LineControl.Action);
+            var pages = new List<List<PageLine>> { new List<PageLine>() };
+            foreach (var line in lines)
+            {
+                var page = pages[pages.Count - 1];
+                var proposed = page.Concat(new[] { line }).ToList();
+                var withPager = bodyPager ? proposed.Concat(new[] { pager }).ToArray() : proposed.ToArray();
+                if (page.Count > 0 && (withPager.Sum(item => item.Rows) > availableRows || Used(withPager) > availableHeight + 1e-6f))
+                { page = new List<PageLine>(); pages.Add(page); }
+                page.Add(line);
+            }
+            screen.Pages = pages.Count;
+            screen.Page = Math.Max(0, Math.Min(screen.Page, pages.Count - 1));
+            var shown = pages[screen.Page];
+            if (pages.Count > 1)
+            {
+                if (bodyPager) shown.Add(new PageLine(Footer.NextPageWords(screen.Page, pages.Count), icon: GlazeIcon.Next, action: Footer.NextPage, control: LineControl.Action));
+                else normal = normal.WithNext(Next(screen.Page, pages.Count));
+            }
+            return new Page(shown, source, normal);
         }
 
         /// <summary>

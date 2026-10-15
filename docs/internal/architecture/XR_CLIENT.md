@@ -3085,6 +3085,16 @@ identity variation, not a user customization control. Features use the body shad
 state surface cues, retain its lightened hue, and have no eyes or separate state semantics.
 No ring/rim replacement, automatic placement, character-mediated navigation or travel is added.
 
+Activity leads with actual problems and a bounded recent event log, or explicitly says that no
+activity has been recorded. Its optional Show this task here, Ask workspace, Read results and
+Character colour routes follow that content. The complete ordered list pages using the existing
+file Page/Pages/NextPage state when its measured row or physical height budget is exceeded; no
+route is dropped to fit. The usual footer pager is used unless Hold to talk owns that slot, in
+which case a measured body pager preserves the voice and instruction controls. Reflow clamps the
+current page, and changing sections resets it through the existing file navigation rules. Ordinary
+Activity notices also occupy one measured page in full, rather than being appended after packing
+on every page; confirmation, instruction and preset notice paths retain their own rules.
+
 The selected task's Activity page additionally offers **Character colour** only while its actual
 character is deliberately shown, with a current live snapshot and matching source identity. The
 local palette is Original, Cyan, Violet and Pink. Choosing does not change the body; Preview changes
