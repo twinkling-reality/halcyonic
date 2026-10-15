@@ -549,6 +549,8 @@ The selected task occupies one reading column. Its Projects control returns to t
 chooser; the chooser carries Projects, Tasks, Usage and Settings. Those destinations do not
 remain a second rail beside an open task. Project context stays above the work, system controls
 below it, and practice/recorded provenance has its own reserved line clear of those targets.
+The named heading reserves two grid steps beyond the badge inset between its caption and Hero
+name; pagination and actual layout use the same inset, including larger-text SDF bounds.
 The named heading and the reading body retain contrast surfaces without a surrounding window or
 folder tab. The rear contact is dark, so translucent surfaces retain the palette's reading contrast.
 This composition remains a candidate until actual full-context and wearer validation pass.

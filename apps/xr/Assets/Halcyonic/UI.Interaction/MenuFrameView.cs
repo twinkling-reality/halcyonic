@@ -329,7 +329,7 @@ namespace Halcyonic.XR.UI
         public static float SpatialSubjectHeightOfRows(int rows, bool pillRoom)
         {
             var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
-            var inner = pillRoom ? room - U(Glaze.Menu.SubjectPaddingDegrees) + MenuPage.Grid / 2f : 0f;
+            var inner = SpatialInner(room);
             return room + Mathf.Max(U(Glaze.TargetDegrees), inner + rows * GlazeText.LineHeight(HeroMeasure()) + 2f * U(Glaze.Menu.SubjectPaddingDegrees));
         }
 
@@ -347,6 +347,10 @@ namespace Halcyonic.XR.UI
         /// split header stay inside a Quest 3S's field.
         /// </summary>
         private static float Inner(float pillRoom) => pillRoom > 0f ? pillRoom - U(Glaze.Menu.SubjectPaddingDegrees) + U(Glaze.Menu.GridDegrees) / 2f : 0f;
+
+        // Caption and Hero use different font metrics. Keep two grid steps between their full
+        // drawn bounds, including the SDF padding at larger text, in both pagination and layout.
+        private static float SpatialInner(float pillRoom) => Inner(pillRoom) + (pillRoom > 0f ? 2f * MenuPage.Grid : 0f);
 
         public static MenuFrameView Create(Transform parent, string name)
         {
@@ -832,7 +836,7 @@ namespace Halcyonic.XR.UI
             controls.gameObject.SetActive(OrganizationControls);
             if (OrganizationControls) controls.Show(width / 2f - padding, subjectPlateAt.y, compact: false);
             // In the plate, under the pill's lower half, centred.
-            var inner = Inner(reserve);
+            var inner = SpatialWorkspace ? SpatialInner(reserve) : Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));
             GlazeRuns.TokenGrounds(subjectTitle, words.AllTheirs ? Array.Empty<(int, int)>() : theirs, subjectGrounds, subjectPart, Order + 1);
             pill.gameObject.SetActive(badge != null);
