@@ -338,6 +338,30 @@ public class ProjectsColumnTests
         Assert.That(changes, Is.EqualTo(2));
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Does.Not.Contain("shop"), "away, no folder is offered");
     }
+    [Test]
+    public void FirstConnectedProjectKeepsItsChosenFolderAndConfirmedReceipt()
+    {
+        var host = new Host();
+        WorkOverview current = WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false);
+        var memory = new ProjectsMemory();
+        var column = new ProjectsColumn(host, Commands, memory, () => current, (_, _) => { }, _ => Task.FromResult(Listing("shop")));
+        column.Tick();
+        column.Act(ProjectsScreens.ChooseFolder, KeyOf(column, "shop"));
+        column.Act(ProjectsScreens.Connect, null);
+        var snapshot = Samples.Snapshot(2);
+        snapshot.Projects = new List<ProjectView> { new() { ProjectId = ProjectA, Name = "shop", CreatedAt = Samples.Time, UpdatedAt = Samples.Time } };
+        snapshot.Commands = new List<CommandView> { new() { CommandId = host.Sent.Single().CommandId, Status = CommandStatus.Completed, Result = new ProjectCreatedResult { ProjectId = ProjectA } } };
+        host.State!.ApplySnapshot(snapshot, new StateChanges());
+        current = WorkOverview.Of(host.State, new StageVisibility(), _ => false);
+        column.Tick();
+        Assert.That(memory.Connection!.Connected, Is.True);
+        Assert.That(column.State().FoldersOpen, Is.True, "deliberate folder selection keeps its receipt through the first project projection");
+        Assert.That(column.Frame!.Side, Is.Not.Null);
+        Assert.That(ProjectsScreens.TargetOf(column.State()).Connection, Is.SameAs(memory.Connection));
+        Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.AddTask));
+        Assert.That(host.Sent.Count, Is.EqualTo(1));
+    }
+
     [TestCase("focus")]
     [TestCase("journal")]
     public void FolderNavigationRequiresItsCurrentDrawnFrameAndJournal(string loss)

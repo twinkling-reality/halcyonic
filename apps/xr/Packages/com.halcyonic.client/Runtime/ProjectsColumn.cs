@@ -133,9 +133,11 @@ namespace Halcyonic.Client
                     Choose(key, null, problem: false);
                     return;
                 case ProjectsScreens.ChooseFolder:
+                    foldersOpen = true;
                     Choose(null, key, problem: false);
                     return;
                 case ProjectsScreens.ChooseProblem:
+                    foldersOpen = true;
                     Choose(null, null, problem: true);
                     return;
                 case ProjectsScreens.NewProject:
