@@ -16,7 +16,7 @@ movement provider, not a reading deadzone/rest policy, so no vendor movement API
 ## Source and tests
 
 The core WorkspaceFollow policy reuses PeekChoice dwell/calm-turn constants, with explicit new
-translation/distance candidates. Focus/tracking readiness, a manual drag, active voice, or minimized
+translation/distance candidates. Focus/tracking readiness, a manual drag, active voice or pending keyboard, or minimized
 work prevent automatic recovery. Current head-relative full-object corners trigger the recovery
 request; calm dwell captures one anchor. Existing navigation compact/expand retains drafts and
 pages while removing authorization. Director, actual content buttons and chrome reject input during
@@ -26,7 +26,7 @@ motion/settling; old presses are cancelled. An unchanged slide target preserves 
 The editor ResponsiveWorkspaceCheck uses production MenuDirector/MenuPlane/UI and a synthetic
 current session that is never started. It drives yaw and translation traces, repeated passive
 redraws, still/slide preferences, current-head front-field corners, target/text thresholds, retained
-draft text, stale press release and not-ready input negatives. It restores static renderer state,
+draft text and pending keyboard callback, stale press release and not-ready input negatives. It restores static renderer state,
 destroys its synthetic scene, and starts no transport or real command. It has not yet executed.
 
 ## Required actual acceptance
