@@ -35,6 +35,12 @@ caption shares the measured state-badge row, with the state badge at the header'
 Readability, full decision text, action authority, local drafts, target size and measured field
 remain requirements. A quieter frame and a different font alone do not establish acceptance.
 
+When the exact task's expanded main file shows its name, its character keeps the state badge and
+provenance marks without repeating the name on a second plaque. The title returns on Projects,
+minimize, focus loss, details without that identity, or another task. The full label's conservative
+placement envelope stays reserved, so this presentation change does not move the shelf or reduce
+clearance. Zero-character use remains complete.
+
 ## The plane
 
 - **One plane facing the eyes.** A composition, such as the menu with a task's file beside it, is

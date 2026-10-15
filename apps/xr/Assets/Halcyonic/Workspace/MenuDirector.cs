@@ -306,6 +306,7 @@ namespace Halcyonic.XR.Workspace
 
         private void SuspendWorkspace()
         {
+            ShareCharacterIdentity(null);
             EndDrag();
             voice?.FocusLeft();
             if (placement != null) LocalClosed();
@@ -484,6 +485,7 @@ namespace Halcyonic.XR.Workspace
 
         private void OnDestroy()
         {
+            ShareCharacterIdentity(null);
             FocusGuard.Left -= OnFocusLeft;
             Glaze.PaletteChanged -= OnPaletteChanged;
             GlazeText.ScaleChanged -= OnTextScaleChanged;
@@ -614,6 +616,7 @@ namespace Halcyonic.XR.Workspace
             {
                 // Opening while unworn must not freeze a fallback/table pose as the permanent anchor.
                 // Retry on every update without drawing or granting authority to hidden controls.
+                ShareCharacterIdentity(null);
                 plane.gameObject.SetActive(false);
                 dirty = true;
                 return;
@@ -669,6 +672,10 @@ namespace Halcyonic.XR.Workspace
                 // Only the views' normal settled Drawn callbacks grant authority to these refreshed frames.
                 ShowComposition();
             }
+            var identityIsVisible = setup.SpatialWorkspace && !Away && !navigator.IsCompact && !setup.Presentation.Minimized
+                && placement == null && character != null && plane.Shown.Any(item => item.Kind == MenuColumn.File
+                    && item.View.Frame?.IdentityKind == MenuIdentityKind.Task && item.View.Side == null);
+            ShareCharacterIdentity(identityIsVisible ? character?.View : null);
             // Passive redraws preserve the exact hand placement; the active drag owns changes to it.
             moved = plane.Moved;
         }
@@ -751,6 +758,7 @@ namespace Halcyonic.XR.Workspace
 
         private void OnFocusLeft()
         {
+            ShareCharacterIdentity(null);
             EndDrag();
             voice?.FocusLeft();
             navigator.FocusLeft();
@@ -797,6 +805,15 @@ namespace Halcyonic.XR.Workspace
             if (frame == null && side == null) return plane.Chrome.Visible || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
             if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
+        }
+
+        private CharacterView? sharedIdentity;
+        private void ShareCharacterIdentity(CharacterView? current)
+        {
+            if (sharedIdentity == current) return;
+            if (sharedIdentity != null) sharedIdentity.Label.IdentityInWorkspace = false;
+            sharedIdentity = current;
+            if (sharedIdentity != null) sharedIdentity.Label.IdentityInWorkspace = true;
         }
 
         // A shown body's last accepted source stays attached while its projection is cached/offline.

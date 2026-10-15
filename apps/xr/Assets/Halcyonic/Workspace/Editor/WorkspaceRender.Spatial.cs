@@ -229,6 +229,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     targets.Add(shown.Target); characters.Add(shown); presentation.SetAgentsEnabled(true);
                     director.StageRefreshedForRender();
                     Shot("spatial-working-direction-with-character");
+                    if (!shown.View.Label.IdentityInWorkspace || shown.View.Label.Title.gameObject.activeSelf || shown.View.Label.Plate.gameObject.activeSelf
+                        || !shown.View.Label.Badge.gameObject.activeInHierarchy || !shown.View.Label.Tags.All(tag => tag.gameObject.activeInHierarchy))
+                        failures.Add("spatial: expanded exact task must share its title while retaining character state/provenance");
                     if (director.Plane.LightLine == null) failures.Add("spatial: selected real character has no actual work-file connection");
                     var retainedFile = selectedFile;
                     var staleFrame = director.Plane.Showing(MenuColumn.File);
@@ -240,6 +243,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         Draw();
                     }
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
+                    if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
+                        failures.Add("spatial: character title did not return when Projects replaced its task");
                     if (director.Plane.Composition?.Columns.Count != 2 || new[] { "Projects", "Tasks", "Usage", "Settings" }.Any(words =>
                         !director.Plane.Chrome.Targets.Single(button => button.Label.text == words).gameObject.activeInHierarchy))
                         failures.Add("spatial: actual Projects target did not return the complete chooser navigation");
@@ -260,6 +265,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.LetGoForRender(); Draw();
                     var moved = director.Plane.Moved;
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.Minimize), 952);
+                    if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
+                        failures.Add("spatial: minimizing retained a hidden character title");
                     if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible)
                         failures.Add("spatial: Minimize left the reading object or peripheral controls active");
                     if (director.Plane.Bar is MenuBarView dock) Click(dock.Target, 953);

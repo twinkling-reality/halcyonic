@@ -76,6 +76,15 @@ namespace Halcyonic.XR.UI
         private float plateWidth;
         private float bottom;
         private bool badgeOnly;
+        private bool identityInWorkspace;
+
+        /// <summary>The exact task title is visible on its expanded workspace; retain state and provenance locally.</summary>
+        public bool IdentityInWorkspace
+        {
+            get => identityInWorkspace;
+            set { if (identityInWorkspace == value) return; identityInWorkspace = value; if (shown != null) Layout(shown); }
+        }
+
 
         /// <summary>
         /// How far below its origin the label reaches, its mark included: a negative height, in its
@@ -266,6 +275,7 @@ namespace Halcyonic.XR.UI
                 }
                 bottom = label.Marks.Count > 0 ? markMiddle - MarkTag.Height / 2f : under;
                 HalfWidth = Mathf.Max(Mathf.Max(widest, markRow), shortPlate.x) / 2f;
+                PresentSharedIdentity(label, top - badgeHeight);
                 return;
             }
             plate.gameObject.SetActive(true);
@@ -291,6 +301,27 @@ namespace Halcyonic.XR.UI
             }
             bottom = marked ? plateBottom - MarkTag.Height / 2f : plateBottom;
             HalfWidth = Mathf.Max(plateWidth, Mathf.Max(widest, row)) / 2f;
+            PresentSharedIdentity(label, top - badgeHeight);
+        }
+
+        private void PresentSharedIdentity(CharacterLabel label, float badgeBottom)
+        {
+            if (!identityInWorkspace) return;
+            title.gameObject.SetActive(false);
+            shortTitle.gameObject.SetActive(false);
+            plate.gameObject.SetActive(false);
+            var row = 0f;
+            for (var index = 0; index < label.Marks.Count; index++) row += tags[index].Width + (index > 0 ? GlazeTokens.Units(0.35f) : 0f);
+            var x = -row / 2f;
+            for (var index = 0; index < label.Marks.Count; index++)
+            {
+                tags[index].transform.localPosition = new Vector3(x + tags[index].Width / 2f,
+                    badgeBottom - GlazeTokens.Units(MarkRoomDegrees) - MarkTag.Height / 2f, -0.001f);
+                x += tags[index].Width + GlazeTokens.Units(0.35f);
+            }
+            // Preserve the full label's conservative placement envelope. Opening or closing its
+            // task changes typography, never the confirmed shelf or the workspace's fit budget.
+
         }
     }
 }
