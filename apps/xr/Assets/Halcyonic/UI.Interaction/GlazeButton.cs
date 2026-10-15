@@ -107,6 +107,7 @@ namespace Halcyonic.XR.UI
         private bool compact;
         private bool promptCap = true;
         private bool squarePromptCap;
+        private float capPulse;
         private bool coatedSelection;
         private bool row;
         private bool on;
@@ -582,14 +583,19 @@ namespace Halcyonic.XR.UI
         public float IconGrowth => icon != null ? icon.transform.localScale.x : 1f;
 
         /// <summary>
-        /// Its icon at <paramref name="now"/>, in seconds: grown along the listening pulse, a sine that never
-        /// jerks, while it listens and motion may play, else at its own size. Called every frame, it allocates
-        /// nothing and moves nothing but the icon's size inside its cap; the renders call it at the times they draw.
+        /// Listening feedback at <paramref name="now"/>: spatial filled caps pulse their light with
+        /// fixed glyph bounds; legacy round caps grow the icon. Still keeps a steady active cap.
+        /// Called every frame without allocations; the renders exercise the same production path.
         /// </summary>
         public void Pulse(float now)
         {
             if (icon == null) return;
-            var grow = listens && !GlazeMotion.Still ? 1f + Glaze.ListeningPulseDepth * Glaze.Loop(now, Glaze.ListeningPulseSeconds) : 1f;
+            var pulse = listens && !GlazeMotion.Still ? Glaze.Loop(now, Glaze.ListeningPulseSeconds) : 0f;
+            var nextCapPulse = squarePromptCap ? pulse : 0f;
+            if (!Mathf.Approximately(capPulse, nextCapPulse)) { capPulse = nextCapPulse; paintedState = -1; }
+            // Spatial filled caps preserve their proven reading allocation: pulse the cap light,
+            // not the glyph bounds. Legacy round prompts keep their existing size pulse.
+            var grow = squarePromptCap ? 1f : 1f + Glaze.ListeningPulseDepth * pulse;
             if (!Mathf.Approximately(icon.transform.localScale.x, grow)) icon.transform.localScale = new Vector3(grow, grow, 1f);
         }
 
@@ -696,8 +702,8 @@ namespace Halcyonic.XR.UI
         {
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime);
             UpdateHold(Time.unscaledTime);
-            Paint();
             if (listens) Pulse(Time.unscaledTime);
+            Paint();
         }
 
         private void UpdateHold(float now)
@@ -777,11 +783,12 @@ namespace Halcyonic.XR.UI
             var active = Glaze.Tone(GlazeTone.Active);
             var main = on && available;
             var listening = listens && available;
-            var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed ? 0.92f : 1f);
+            var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed && !squarePromptCap ? 0.92f : 1f);
             var capRadius = capSize * (squarePromptCap ? 0.22f : 0.5f);
+            var feedback = squarePromptCap ? Mathf.Clamp01((pressed ? 0.16f : 0f) + capPulse * 0.12f) : 0f;
             if (!promptCap) cap.Draw(Vector2.zero, 0f, Color.clear);
-            else if (main) cap.Draw(Vector2.one * capSize, capRadius, GlazeTokens.ColorOf(accent.Strong));
-            else if (listening) cap.Draw(Vector2.one * capSize, capRadius, GlazeTokens.ColorOf(active.Strong));
+            else if (main) cap.Draw(Vector2.one * capSize, capRadius, Color.Lerp(GlazeTokens.ColorOf(accent.Strong), Color.white, feedback));
+            else if (listening) cap.Draw(Vector2.one * capSize, capRadius, Color.Lerp(GlazeTokens.ColorOf(active.Strong), Color.white, feedback));
             else cap.Draw(Vector2.one * capSize, capRadius, Color.clear, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
             cap.Selection = main ? SurfaceSelection.MainCap : SurfaceSelection.None;
             cap.Fade(opacity);
