@@ -79,6 +79,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         failures.AddRange(TransparentMetrics(name, camera, face, image));
                         failures.AddRange(TransparentContrast(name, camera, director.Plane.Shown.Single().View.SubjectShown.Title, image));
+                        RecordRolledField(name, folder, camera, target, director.Plane);
                         File.WriteAllBytes(Path.Combine(folder, name + "-rgba.png"), image.EncodeToPNG());
                         var composite = CompositeRoom(image);
                         try { File.WriteAllBytes(Path.Combine(folder, name + "-known-room.png"), composite.EncodeToPNG()); }
@@ -133,6 +134,44 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+
+
+        /// <summary>Characterise actual camera roll independently of the production forward-only
+        /// placement model. Counts are diagnostic, not a claim of comfort or automatic recovery.</summary>
+        private static void RecordRolledField(string name, string folder, Camera camera, RenderTexture target, MenuPlane plane)
+        {
+            var original = camera.transform.rotation;
+            var field = ViewField.Current ?? MenuPage.Quest3S;
+            try
+            {
+                foreach (var roll in new[] { -25f, -15f, 0f, 15f, 25f })
+                {
+                    camera.transform.rotation = original * Quaternion.AngleAxis(roll, Vector3.forward);
+                    var outside = 0; var excess = 0f;
+                    foreach (var x in new[] { -.5f, .5f }) foreach (var y in new[] { -.5f, .5f })
+                    {
+                        var corner = plane.Chrome.transform.TransformPoint(new Vector3(x * plane.Chrome.Size.x, y * plane.Chrome.Size.y, 0));
+                        var relative = camera.transform.InverseTransformPoint(corner);
+                        var yaw = Mathf.Atan2(relative.x, relative.z) * Mathf.Rad2Deg;
+                        var elevation = Mathf.Atan2(relative.y, new Vector2(relative.x, relative.z).magnitude) * Mathf.Rad2Deg;
+                        if (relative.z <= 0 || !field.Shows(yaw, elevation)) outside++;
+                        // Flat-frustum vertical coordinate, matching ViewField.Shows.
+                        var vertical = Mathf.Atan2(relative.y, relative.z) * Mathf.Rad2Deg;
+                        excess = Mathf.Max(excess, (float)Math.Max(Math.Max(yaw - field.Right, -yaw - field.Left), Math.Max(vertical - field.Up, -vertical - field.Down)));
+                    }
+                    Debug.Log("Halcyonic: transparent reading rolled field " + name + ": roll=" + roll + ", outside-corners=" + outside + ", maximum-excess-degrees=" + excess.ToString("F3"));
+                    var rolled = Render(camera, target);
+                    try
+                    {
+                        var composite = CompositeRoom(rolled);
+                        try { File.WriteAllBytes(Path.Combine(folder, name + "-roll-" + roll + "-known-room.png"), composite.EncodeToPNG()); }
+                        finally { UnityEngine.Object.DestroyImmediate(composite); }
+                    }
+                    finally { UnityEngine.Object.DestroyImmediate(rolled); }
+                }
+            }
+            finally { camera.transform.rotation = original; }
+        }
 
         private static List<string> TransparentContrast(string name, Camera camera, TMP_Text label, Texture2D image)
         {
