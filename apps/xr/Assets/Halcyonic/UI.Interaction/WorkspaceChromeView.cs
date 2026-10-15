@@ -176,10 +176,11 @@ namespace Halcyonic.XR.UI
             GlazeText.Lay(product, SpatialRail, 1);
             product.transform.localPosition = new Vector3(left, labelY, -0.001f);
             GlazeText.SetLiteral(connection, connectionState);
-            GlazeText.Lay(connection, contentWidth / 2f, 1);
+            var connectionRoom = contentWidth * (focusedWork ? 0.28f : 0.5f);
+            GlazeText.Lay(connection, connectionRoom, 1);
             connection.transform.localPosition = new Vector3(contentLeft + contentWidth, labelY, -0.001f);
             var contextStart = focusedWork ? left + SpatialRail + gap : contentLeft;
-            var contextRoom = focusedWork ? Mathf.Max(0f, width - SpatialRail - gap - contentWidth * 0.28f) : contentWidth * 0.62f;
+            var contextRoom = focusedWork ? Mathf.Max(0f, width - SpatialRail - 2f * gap - connectionRoom) : contentWidth * 0.62f;
             var hasIdentity = selection.Text != "Projects" && !string.IsNullOrWhiteSpace(selection.Text);
             context.gameObject.SetActive(hasIdentity);
             identityShoulder.gameObject.SetActive(false);
