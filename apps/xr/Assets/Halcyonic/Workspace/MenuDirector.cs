@@ -224,7 +224,8 @@ namespace Halcyonic.XR.Workspace
             go.transform.SetParent(parent, false);
             var director = go.AddComponent<MenuDirector>();
             director.setup = setup;
-            setup.CharacterColours.Changed += director.ApplyCharacterColours;
+            director.showTaskPortraits = PlayerPrefs.GetInt(PortraitPreference, 1) != 0;
+            setup.CharacterColours.Changed += director.CharacterColoursChanged;
             director.viewBindings = new WorkspaceViewBindings(director.RecordFor, director.ViewsChanged);
             director.plane = MenuPlane.Create(go.transform, director.OpenAs);
             director.plane.SpatialWorkspace = setup.SpatialWorkspace;
@@ -510,7 +511,7 @@ namespace Halcyonic.XR.Workspace
                 foreach (var pair in colourOrigins)
                     if (pair.Key != null && pair.Key.View != null) pair.Key.View.SetIdentityHue(CharacterColourSettings.Hue(setup.CharacterColours.Applied(pair.Value)));
                 colourOrigins.Clear();
-                setup.CharacterColours.Changed -= ApplyCharacterColours;
+                setup.CharacterColours.Changed -= CharacterColoursChanged;
             }
             navigator?.FocusLeft();
         }
@@ -868,13 +869,32 @@ namespace Halcyonic.XR.Workspace
             return LineWords.Ours(navigator.Beside is NewProjectFlow ? ProjectsText.NewProject : MenuBar.Word(navigator.Place));
         }
 
+        private const string PortraitPreference = "halcyonic.task.portraits";
+        private bool showTaskPortraits = true;
+        private bool HasTaskPortrait => showTaskPortraits && navigator.BesideTask != null;
+        private void SetTaskPortraits(bool show)
+        {
+            showTaskPortraits = show;
+            PlayerPrefs.SetInt(PortraitPreference, show ? 1 : 0);
+            PlayerPrefs.Save();
+            dirty = true;
+        }
+
         private LineWords WorkspaceContext()
         {
+            plane.SelectedPortrait = null;
+            plane.SelectedPortraitHue = null;
             plane.SelectedState = null;
             plane.SelectedMarks = Array.Empty<WorkMark>();
             if (navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true)
             {
                 var presentation = CharacterPresenter.Present(work, State, Connected && !Demonstration);
+                if (showTaskPortraits)
+                {
+                    plane.SelectedPortrait = presentation;
+                    if (CurrentColourSource(out var key) && State.Journal != null)
+                        plane.SelectedPortraitHue = setup.CharacterColours.DisplayedHue(new CharacterColourScope(key, State.Journal.JournalId, task));
+                }
                 plane.SelectedState = StateLanguage.BadgeOf(presentation);
                 plane.SelectedMarks = StateLanguage.MarksOf(presentation);
                 return State.Projects.TryGetValue(work.ProjectId, out var project)
@@ -918,6 +938,8 @@ namespace Halcyonic.XR.Workspace
             key = setup.CharacterSourceConnectionKey() ?? "";
             return CurrentSnapshot && key.Length > 0 && TryKey(out var configured) && configured == key;
         }
+        private void CharacterColoursChanged() { ApplyCharacterColours(); dirty = true; }
+
         private void ApplyCharacterColours()
         {
             if (this == null || setup == null) return;
@@ -945,14 +967,16 @@ namespace Halcyonic.XR.Workspace
             if (task == null || Away || FocusGuard.InputSuspended || setup.Presentation.Minimized || !CurrentColourSource(out var key)
                 || State?.Journal == null || !State.Workstreams.ContainsKey(task)) return false;
             target = setup.CharacterOf(task);
-            if (target == null || target.View == null || !target.gameObject.activeInHierarchy) return false;
             scope = new CharacterColourScope(key, State.Journal.JournalId, task);
-            return colourOrigins.TryGetValue(target, out var accepted) && accepted.Equals(scope);
+            // A source-bound local portrait permits appearance preview without creating a room body.
+            if (showTaskPortraits && navigator.BesideTask == task) return true;
+            return target != null && target.View != null && target.gameObject.activeInHierarchy
+                && colourOrigins.TryGetValue(target, out var accepted) && accepted.Equals(scope);
         }
 
         private void OpenCharacterColour(FileColumn file)
         {
-            if (!ColourTarget(file, out var scope, out var target) || scope == null || target == null) return;
+            if (!ColourTarget(file, out var scope, out var target) || scope == null) return;
             var session = setup.Session();
             CharacterColourColumn? column = null;
             column = new CharacterColourColumn(setup.CharacterColours, scope,
@@ -964,7 +988,7 @@ namespace Halcyonic.XR.Workspace
 
         private void OpenPlacement()
         {
-            OpenLocal(new PlacementColumn(this, ResetPosition, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null));
+            OpenLocal(new PlacementColumn(this, ResetPosition, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null, () => showTaskPortraits, SetTaskPortraits));
         }
 
         /// <summary>An explicitly requested local overlay that preserves retained work and owns no runtime authority.</summary>
@@ -1181,7 +1205,7 @@ namespace Halcyonic.XR.Workspace
         public bool FitsHalf(PageLine answer, float columnDegrees) => MenuFrameView.FitsHalf(answer, columnDegrees);
 
         public int TitleRows(string subject, float columnDegrees) => plane.SpatialWorkspace
-            ? MenuFrameView.SpatialTitleRows(subject, Glaze.Menu.FileColumnDegrees) : MenuFrameView.TitleRows(subject, columnDegrees);
+            ? MenuFrameView.SpatialTitleRows(subject, Glaze.Menu.FileColumnDegrees, HasTaskPortrait) : MenuFrameView.TitleRows(subject, columnDegrees);
 
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
@@ -1207,7 +1231,7 @@ namespace Halcyonic.XR.Workspace
             var zoom = TextSize == TextSize.Larger ? Comfort.LargerTextScale : 1f;
             var sections = !besideMenu && !focused ? GlazeButton.HeightOf(true) : 0f;
             var gap = PlaneComposition.Units(0.35f);
-            var subject = MenuFrameView.SpatialSubjectHeightOfRows(subjectRows, true);
+            var subject = MenuFrameView.SpatialSubjectHeightOfRows(subjectRows, true, HasTaskPortrait);
             bool HoldsSpatial(float page)
             {
                 var body = subject + sections + MenuPage.Content(page) + gap * (sections > 0f ? 2f : 1f);

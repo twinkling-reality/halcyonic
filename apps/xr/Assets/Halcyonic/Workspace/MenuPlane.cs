@@ -49,6 +49,8 @@ namespace Halcyonic.XR.Workspace
         public LineWords SelectionContext { get; set; } = LineWords.Ours("Projects");
         public bool OtherAppsAvailable { get; set; }
         public StateBadge? SelectedState { get; set; }
+        public CharacterPresentation? SelectedPortrait { get; set; }
+        public double? SelectedPortraitHue { get; set; }
         public IReadOnlyList<WorkMark> SelectedMarks { get; set; } = Array.Empty<WorkMark>();
         public event Action? OtherAppsPressed;
         public event Action? MinimizePressed;
@@ -630,6 +632,8 @@ namespace Halcyonic.XR.Workspace
             var was = shown.Count == 1 && shown[0].View == view && ReferenceEquals(shownFileColumn, fileColumn);
             foreach (var other in frameViews) if (other != view) other.Hide();
             view.SpatialWorkspace = true;
+            view.TaskPortrait = fileFrame != null ? SelectedPortrait : null;
+            view.TaskPortraitHue = SelectedPortraitHue;
             view.ExternalPlaces = kind == MenuColumn.Menu;
             view.OrganizationControls = false;
             var degrees = Glaze.Menu.FileColumnDegrees;

@@ -122,6 +122,13 @@ namespace Halcyonic.XR.UI
         private float subjectUnsettledAt = float.NegativeInfinity;
 
         public bool SpatialWorkspace { get; set; }
+        public CharacterPresentation? TaskPortrait { get; set; }
+        public double? TaskPortraitHue { get; set; }
+        private TaskIdentityAvatarView portrait = null!;
+        public TaskIdentityAvatarView TaskIdentity => portrait;
+        public static float PortraitWidth => U(4.5f);
+        public static float PortraitHeight => U(5f);
+        private bool HasPortrait => SpatialWorkspace && TaskPortrait != null;
         public bool ExternalPlaces { get; set; }
         private Transform unifiedPart = null!;
         private Surface unifiedPlate = null!;
@@ -324,20 +331,20 @@ namespace Halcyonic.XR.UI
             return measuringHero;
         }
 
-        public static int SpatialTitleRows(string subject, float columnDegrees) =>
-            Mathf.Clamp(Count(HeroMeasure(), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
+        public static int SpatialTitleRows(string subject, float columnDegrees, bool portrait = false) =>
+            Mathf.Clamp(Count(HeroMeasure(), subject, ContentWidth(columnDegrees) - (portrait ? PortraitWidth + MenuPage.TargetGap : 0f)), 1, SubjectRows);
 
-        public static float SpatialSubjectHeightOfRows(int rows, bool pillRoom)
+        public static float SpatialSubjectHeightOfRows(int rows, bool pillRoom, bool portrait = false)
         {
             var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
             var inner = SpatialInner(room);
-            return room + Mathf.Max(U(Glaze.TargetDegrees), inner + rows * GlazeText.LineHeight(HeroMeasure()) + 2f * U(Glaze.Menu.SubjectPaddingDegrees));
+            return Mathf.Max(portrait ? PortraitHeight + 2f * U(Glaze.Menu.SubjectPaddingDegrees) : 0f, room + Mathf.Max(U(Glaze.TargetDegrees), inner + rows * GlazeText.LineHeight(HeroMeasure()) + 2f * U(Glaze.Menu.SubjectPaddingDegrees)));
         }
 
         public float SpatialSubjectHeight(string subject, float columnDegrees, bool pillRoom)
         {
             subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
-            return SpatialSubjectHeightOfRows(SpatialTitleRows(subject, columnDegrees), pillRoom);
+            return SpatialSubjectHeightOfRows(SpatialTitleRows(subject, columnDegrees, HasPortrait), pillRoom, HasPortrait);
         }
 
         public static float TitleWidth(float columnDegrees) => ContentWidth(columnDegrees) - OrganizationControlsView.Width() - MenuPage.TargetGap;
@@ -661,6 +668,7 @@ namespace Halcyonic.XR.UI
             unifiedBacking = Surface.Create(unifiedPart, "Instrument depth", Order - 2);
             unifiedPart.gameObject.SetActive(false);
             subjectPart = Part("Subject");
+            portrait = TaskIdentityAvatarView.Create(subjectPart);
             controls = OrganizationControlsView.Create(subjectPart);
             controls.Accepting = () => !InputSuspended && !SubjectSettling && !FocusGuard.InputSuspended;
             controls.MovePressed += () => MovePressed?.Invoke();
@@ -814,9 +822,13 @@ namespace Halcyonic.XR.UI
         private void LaySubject(LineWords words, StateBadge? badge, MenuIdentityKind? identityKind)
         {
             var padding = U(Glaze.Menu.PaddingDegrees);
-            var left = -width / 2f + padding;
-            var room = width - 2f * padding - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
+            var portraitRoom = HasPortrait ? PortraitWidth + MenuPage.TargetGap : 0f;
+            var left = -width / 2f + padding + portraitRoom;
+            var room = width - 2f * padding - portraitRoom - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
+            if (HasPortrait)
+                portrait.Show(TaskPortrait!, TaskPortraitHue, new Vector2(-width / 2f + padding + PortraitWidth / 2f, 0f), new Vector2(PortraitWidth, PortraitHeight));
+            else portrait.Hide();
             var namedIdentity = SpatialWorkspace && identityKind != null;
             if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
             var theirs = namedIdentity
