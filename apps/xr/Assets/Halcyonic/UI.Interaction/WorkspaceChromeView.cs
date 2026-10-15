@@ -32,7 +32,7 @@ namespace Halcyonic.XR.UI
         public static float SpatialTop => MenuPage.Target() + 2f * MenuPage.TargetGap;
         // Focused work has one Projects target in its context row. The composition adds
         // its normal part gap below this complete target; no second empty band is needed.
-        public static float SpatialHeader(bool focusedWork) => focusedWork ? MenuPage.Target() : SpatialTop;
+        public static float SpatialHeader(bool focusedWork) => focusedWork ? GlazeButton.HeightOf(false) : SpatialTop;
         public static float SpatialBase => MenuPage.Target() + MenuPage.Words(1) + 3f * MenuPage.TargetGap;
         public static float SpatialRail => PlaneComposition.Units(12f);
         public Func<bool> Accepting { get; set; } = () => false;
@@ -219,7 +219,7 @@ namespace Halcyonic.XR.UI
                 var visible = !focusedWork || destination == MenuPlace.Projects;
                 button.gameObject.SetActive(visible);
                 if (!visible) continue;
-                var at = focusedWork ? top - MenuPage.Target() / 2f : y;
+                var at = focusedWork ? top - SpatialHeader(true) / 2f : y;
                 button.ShowPrompt(words, icon, new Vector2(left + SpatialRail / 2f, at), SpatialRail, !focusedWork && destination == place, framedIcon: !focusedWork);
                 if (!button.On) button.Label.color = GlazeTokens.Text;
                 y -= MenuPage.Target() + gap;

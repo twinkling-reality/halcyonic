@@ -110,3 +110,22 @@ It compares geometry in composition units at both text sizes, rather than assert
 pixel distances. Source compilation and those future actual assertions do not prove material
 appeal, motion comfort or wearer acceptance. Root-owned same-camera paired renders, field/target
 checks and the larger-text/all-route flows remain required before acceptance.
+
+
+### First compact-context actual proof and correction
+
+The actual focused fixture failed 24 new header/body-gap assertions across both sizes; existing
+field, type and target checks did not fail. Source investigation found a real allocation error:
+MenuPage.Target() is the minimum 48dp row, while Projects.ShowPrompt uses the ordinary 60dp
+GlazeButton.HeightOf(false). Both the focused header height and Projects center now derive from
+that actual ordinary-button height; the shared composition/budget selector retains this change.
+The fixture requires complete target containment and rejects the former minimum-row band against
+the same actual target as a negative. Failure diagnostics include target/header heights, center,
+header boundaries and zoom. No target or text is reduced.
+
+The separate body-gap assertion used PlaneComposition.Units(angle), twice tan(half-angle), while
+the real stack computes Glaze.MetersAt(angle,1), tan(full-angle). Their small difference exceeded
+the test tolerance. The assertion now uses the actual stacking formula and reports actual versus
+expected top, gap and zoom; production stacking is unchanged. This correction does not establish
+that the entire compact candidate passes: a root-owned actual rerun remains required after the
+other chat releases Unity. No further Unity or device action occurred in this repair lane.
