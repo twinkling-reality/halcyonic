@@ -121,3 +121,12 @@ Android launch, 6,332 ms first frame, and 6,329 ms live-stage readiness. The dev
 checks passed with both development USB routes preserved. These observations establish installation
 and live connection only. Wearer review of the revised composition and real native-panel
 visibility, microphone capture, and the complete software build/open/restore workflow remain open.
+
+
+The wearer subsequently rejected this installed revision: the main surface still feels flat,
+and the workspace leaves view during head turns. Source inspection confirms that the current
+workspace captures its initial world position and yaw and does not follow later head movement;
+Reset position resamples the pose. Passing static renders do not validate this movement policy.
+The owner requested a material treatment with glass/gloss and perceptible depth. Palette and
+typography changes alone have not met the requested experience. This installed revision remains
+a failed experience gate while a new motion/material candidate is developed.
