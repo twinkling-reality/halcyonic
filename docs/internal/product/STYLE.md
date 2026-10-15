@@ -19,9 +19,9 @@ task one reading column; its details replace that column and return to its retai
 Projects remains as a direct return while a task is open. One stable Workspace control opens
 local workspace controls and the global destination index. The chooser does not repeat a four-tab
 application row or allocate an empty navigation column. Move, Reset position, Minimize workspace,
-Open other apps, task portrait visibility and Projects/Tasks/Usage/Settings are reachable through
+Open work window, task portrait visibility and Projects/Tasks/Usage/Settings are reachable through
 that local page. It packs complete targets by the same actual height budget and pages every route;
-an off-page or stale action has no authority. Other apps remains unavailable when unsupported.
+an off-page or stale action has no authority. Open work window remains unavailable when unsupported.
 There is no permanent utility slab or target strip below the task. Only actual provenance marks
 reserve a small final line; zero marks reserve no extra bottom region. Context, task and evidence
 share one solid reading face.

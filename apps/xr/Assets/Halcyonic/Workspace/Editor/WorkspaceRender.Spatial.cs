@@ -342,12 +342,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: reopening the actual task replaced its retained draft");
                     Draw();
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 954);
-                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) Press(Footer.NextPage);
+                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) { Press(Footer.NextPage); Draw(); }
                     var staleControls = director.Plane.Front;
                     Press(Footer.NextPage); // Moving away revokes the previously drawn page.
                     if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null) || syntheticLaunches != 0)
                         failures.Add("spatial: page-stale Workspace controls authorized app dispatch");
-                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) Press(Footer.NextPage);
+                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.OtherApps);
                     Draw();
                     if (syntheticLaunches != 1 || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
@@ -375,7 +375,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var moved = director.Plane.Moved;
                     Press(Footer.Close); // Done moving returns to the retained task.
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 952);
-                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.Minimize); page++) Press(Footer.NextPage);
+                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.Minimize); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.Minimize);
                     if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
                         failures.Add("spatial: minimizing retained a hidden character title");
