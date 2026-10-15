@@ -334,6 +334,9 @@ namespace Halcyonic.Client
     /// then facts or lines, its source line last, in parts where it pages. It holds nothing to press
     /// but its own Close, so its lines only say something.
     /// </summary>
+    /// <summary>A known named work object, never inferred from generic outside text.</summary>
+    public enum MenuIdentityKind { Task, Project }
+
     public sealed class SidePanel
     {
         /// <summary>What the side panel's Close raises.</summary>
@@ -346,21 +349,21 @@ namespace Halcyonic.Client
         /// <param name="parts">The part showing, from 0, and how many there are, where it pages, which its frame's Next page turns; null where it doesn't.</param>
         /// <param name="sourceIsData">The source line is text from outside, as an answer's provenance or an error a service returned.</param>
         public SidePanel(string subject, bool subjectIsData = false, IReadOnlyList<SideFact>? facts = null, IReadOnlyList<PageLine>? lines = null,
-            string? source = null, (int Part, int Parts)? parts = null, bool sourceIsData = false)
+            string? source = null, (int Part, int Parts)? parts = null, bool sourceIsData = false, MenuIdentityKind? identityKind = null)
             : this(subjectIsData ? LineWords.TheirName(subject) : LineWords.Written(subject), subjectIsData, facts, lines,
-                source == null ? null : LineWords.Written(source), parts, sourceIsData)
+                source == null ? null : LineWords.Written(source), parts, sourceIsData, identityKind)
         {
         }
 
         /// <summary>A side panel whose subject and source line are runs, Halcyonic's words and outside text (<see cref="LineWords"/>).</summary>
         public SidePanel(LineWords subject, IReadOnlyList<SideFact>? facts = null, IReadOnlyList<PageLine>? lines = null, LineWords? source = null,
-            (int Part, int Parts)? parts = null)
-            : this(subject ?? throw new ArgumentNullException(nameof(subject)), subject.AnyTheirs, facts, lines, source, parts, source?.AnyTheirs == true)
+            (int Part, int Parts)? parts = null, MenuIdentityKind? identityKind = null)
+            : this(subject ?? throw new ArgumentNullException(nameof(subject)), subject.AnyTheirs, facts, lines, source, parts, source?.AnyTheirs == true, identityKind)
         {
         }
 
         private SidePanel(LineWords subject, bool subjectIsData, IReadOnlyList<SideFact>? facts, IReadOnlyList<PageLine>? lines,
-            LineWords? source, (int Part, int Parts)? parts, bool sourceIsData)
+            LineWords? source, (int Part, int Parts)? parts, bool sourceIsData, MenuIdentityKind? identityKind)
         {
             if (string.IsNullOrWhiteSpace(subject.Text)) throw new ArgumentException("A side panel has its subject.", nameof(subject));
             facts ??= Array.Empty<SideFact>();
@@ -368,6 +371,9 @@ namespace Halcyonic.Client
             if (facts.Count > 0 && lines.Count > 0) throw new ArgumentException("A side panel shows facts or lines, not both.", nameof(lines));
             if (lines.Any(line => line.Action != null)) throw new ArgumentException("A side panel holds nothing to press but its own Close.", nameof(lines));
             if (parts is (int part, int count) && (count < 1 || part < 0 || part >= count)) throw new ArgumentOutOfRangeException(nameof(parts), parts, "A part is one of its parts.");
+            if (identityKind != null && (!Enum.IsDefined(typeof(MenuIdentityKind), identityKind.Value) || !subject.AllTheirs))
+                throw new ArgumentException("A named identity is a known kind with an outside name.", nameof(identityKind));
+            IdentityKind = identityKind;
             SubjectRuns = subject;
             Subject = subject.Text;
             SubjectIsData = subjectIsData;
@@ -378,6 +384,8 @@ namespace Halcyonic.Client
             SourceIsData = sourceIsData;
             Parts = parts;
         }
+
+        public MenuIdentityKind? IdentityKind { get; }
 
         public string Subject { get; }
 
@@ -767,9 +775,9 @@ namespace Halcyonic.Client
         /// <param name="subjectWaits">The subject says what waits for the person, as Tasks' "1 task is waiting for you": it takes the waiting colour, as the closed bar's line does.</param>
         public MenuFrame(string subject, Footer footer, bool subjectIsData = false, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
             IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false,
-            int? sectionSlots = null)
+            int? sectionSlots = null, MenuIdentityKind? identityKind = null)
             : this(subjectIsData ? LineWords.TheirName(subject) : LineWords.Written(subject), footer, subjectIsData, pill, sections, lines,
-                source == null ? null : LineWords.Written(source), side, sourceIsData, subjectWaits, sectionSlots)
+                source == null ? null : LineWords.Written(source), side, sourceIsData, subjectWaits, sectionSlots, identityKind)
         {
         }
 
@@ -781,18 +789,18 @@ namespace Halcyonic.Client
         /// <param name="sourceRuns">The source line as runs, a source's version leaning, in place of <paramref name="source"/>.</param>
         public MenuFrame(LineWords subject, Footer footer, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
             IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false,
-            LineWords? sourceRuns = null)
+            LineWords? sourceRuns = null, MenuIdentityKind? identityKind = null)
             : this(subject ?? throw new ArgumentNullException(nameof(subject)), footer, subject.AnyTheirs, pill, sections, lines,
-                sourceRuns ?? (source == null ? null : LineWords.Written(source)), side, sourceIsData || sourceRuns?.AnyTheirs == true, subjectWaits)
+                sourceRuns ?? (source == null ? null : LineWords.Written(source)), side, sourceIsData || sourceRuns?.AnyTheirs == true, subjectWaits, identityKind: identityKind)
         {
         }
 
         /// <summary>This frame with <paramref name="footer"/>, <paramref name="lines"/> and <paramref name="side"/> in place of its own, its subject and source line as they are.</summary>
         public MenuFrame With(Footer footer, IReadOnlyList<PageLine> lines, SidePanel? side) =>
-            CopyFocus(new MenuFrame(SubjectRuns, footer, SubjectIsData, Pill, Sections, lines, SourceRuns, side, SourceIsData, SubjectWaits));
+            CopyFocus(new MenuFrame(SubjectRuns, footer, SubjectIsData, Pill, Sections, lines, SourceRuns, side, SourceIsData, SubjectWaits, identityKind: IdentityKind));
 
         private MenuFrame(LineWords subject, Footer footer, bool subjectIsData, StateBadge? pill, IReadOnlyList<FrameSection>? sections,
-            IReadOnlyList<PageLine>? lines, LineWords? source, SidePanel? side, bool sourceIsData, bool subjectWaits, int? sectionSlots = null)
+            IReadOnlyList<PageLine>? lines, LineWords? source, SidePanel? side, bool sourceIsData, bool subjectWaits, int? sectionSlots = null, MenuIdentityKind? identityKind = null)
         {
             if (string.IsNullOrWhiteSpace(subject.Text)) throw new ArgumentException("A frame has its subject.", nameof(subject));
             sections ??= Array.Empty<FrameSection>();
@@ -809,6 +817,9 @@ namespace Halcyonic.Client
                 throw new ArgumentException("A side panel slides out from the chosen line that opens it, or from a chosen answer cut to fit.", nameof(side));
             }
             if (source != null && string.IsNullOrWhiteSpace(source.Text)) throw new ArgumentException("A source line has its words, or is null.", nameof(source));
+            if (identityKind != null && (!Enum.IsDefined(typeof(MenuIdentityKind), identityKind.Value) || !subject.AllTheirs))
+                throw new ArgumentException("A named identity is a known kind with an outside name.", nameof(identityKind));
+            IdentityKind = identityKind;
             SubjectRuns = subject;
             Subject = subject.Text;
             SubjectIsData = subjectIsData;
@@ -827,7 +838,9 @@ namespace Halcyonic.Client
         /// <summary>This frame with <paramref name="sections"/> in place of its own, as the menu's places on a place's page.</summary>
         /// <param name="slots">How many slots the row is laid in, the sections given standing in the last of them; as many as there are when null.</param>
         public MenuFrame WithSections(IReadOnlyList<FrameSection> sections, int? slots = null) =>
-            CopyFocus(new MenuFrame(SubjectRuns, Footer, SubjectIsData, Pill, sections, Lines, SourceRuns, Side, SourceIsData, SubjectWaits, slots));
+            CopyFocus(new MenuFrame(SubjectRuns, Footer, SubjectIsData, Pill, sections, Lines, SourceRuns, Side, SourceIsData, SubjectWaits, slots, IdentityKind));
+
+        public MenuIdentityKind? IdentityKind { get; }
 
         public string Subject { get; }
 

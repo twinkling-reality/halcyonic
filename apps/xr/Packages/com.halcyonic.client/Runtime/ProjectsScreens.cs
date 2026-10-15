@@ -218,7 +218,7 @@ namespace Halcyonic.Client
                     new SideFact(ProjectsText.OnTheStage, project.Shown ? ProjectsText.Shown : ProjectsText.Hidden),
                 };
                 if (LooksAlike(project, projects, offers, state)) facts.Add(new SideFact(ProjectsText.ItsName, ProjectsText.ProjectLooksAlike));
-                side = new SidePanel(project.Name, subjectIsData: true, facts: facts);
+                side = new SidePanel(project.Name, subjectIsData: true, facts: facts, identityKind: MenuIdentityKind.Project);
                 footer = new Footer(
                     close,
                     secondary: project.Shown
