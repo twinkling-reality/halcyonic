@@ -59,7 +59,8 @@ and first-use flow still require actual stage validation.
 presets with the spatial layout enabled. It checks the category and choice pages, preview pages,
 Cancel, Apply and default restoration through drawn actions, retaining the existing save-count
 and palette assertions. Actual spatial text/target/field assertions replace only the legacy
-separate-rectangle geometry check for that layout. Execution evidence must follow the run.
+separate-rectangle geometry check for that layout. Actual execution passes both presets and
+reading sizes with a clean process exit, including a repeat after spatial page-budget changes.
 
 
 Production activation follows successful actual main/interaction/Appearance/placement renderer
@@ -68,3 +69,16 @@ disconnected use; the setup default is retained for legacy fixtures. Character i
 is presentation-only and keeps the full label's conservative clearance envelope. Final task
 creation and colour-flow checks, build/install evidence, and wearer judgment remain required;
 source activation is not evidence of their completion.
+
+
+The project hierarchy revision renders outside project names upright above host-owned work
+summaries, preserving literal provenance and one navigation target per project. The full main
+render's assertions pass at both sizes, including the visible task-to-character connector and
+shared identity. That run terminated with a native Editor shutdown failure after assertions;
+it is not a clean process pass. Project creation, long-question/Results interaction and full
+Appearance checks subsequently exited successfully. Multi-project capacity arithmetic alone
+does not establish simultaneous rendered project rows; a dedicated actual case is required.
+
+The integrated repository checks passed 1,195 tests with one optional runtime test skipped;
+C# checks passed 1,784. These checks do not clear the prior headset design rejection, invisible
+native-panel report, or pending live microphone and software build/open/restore acceptance.

@@ -16,8 +16,10 @@ It does not apply the legacy separated-card gap expectation to the unified compo
 not weaken any typography, field or target threshold. Settings/Appearance/Comfort have their own
 spatial route fixture; whole pending questions and Results are covered by SpatialWorkspaceInteractionCheck.
 
-Client-core build and aggregate Editor source compilation passed. Actual Unity execution and
-visual review remain required; source compilation is not an asmdef or scene PASS.
+Client-core build and aggregate Editor source compilation passed. Subsequent actual Unity
+execution now passes the complete route at both reading sizes with a clean process exit. This
+is synthetic renderer/interaction evidence; live project creation and wearer acceptance remain
+separate requirements.
 
 The first actual execution found a production sizing defect: nonfocused wizard review pages
 used only field fit, allowing peripheral chrome below the existing 14 dp threshold. Spatial
