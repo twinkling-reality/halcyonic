@@ -988,7 +988,8 @@ namespace Halcyonic.XR.Workspace
 
         public bool FitsHalf(PageLine answer, float columnDegrees) => MenuFrameView.FitsHalf(answer, columnDegrees);
 
-        public int TitleRows(string subject, float columnDegrees) => MenuFrameView.TitleRows(subject, columnDegrees);
+        public int TitleRows(string subject, float columnDegrees) => plane.SpatialWorkspace
+            ? MenuFrameView.SpatialTitleRows(subject, Glaze.Menu.FileColumnDegrees) : MenuFrameView.TitleRows(subject, columnDegrees);
 
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
@@ -1005,7 +1006,7 @@ namespace Halcyonic.XR.Workspace
                 if (character != null) occupied.Add(WorkspaceLayout.InView(character, at));
             var looking = anchor?.Looking ?? stage.Looking;
             var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
-            return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, plane.SpatialWorkspace ? WorkspaceChromeView.SpatialTop + WorkspaceChromeView.SpatialBase + PlaneComposition.Units((Glaze.HeroDegrees - Glaze.Menu.TitleDegrees) * subjectRows * Glaze.Menu.LineSpacing) : WorkspaceChromeView.Height,
+            return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, plane.SpatialWorkspace ? WorkspaceChromeView.SpatialTop + WorkspaceChromeView.SpatialBase + Mathf.Max(0f, MenuFrameView.SpatialSubjectHeightOfRows(subjectRows, true) - MenuPage.Subject(subjectRows, true)) : WorkspaceChromeView.Height,
                 centered: true, placement: direction, occupied: occupied, readable: focused);
 
         }

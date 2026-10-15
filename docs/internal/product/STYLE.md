@@ -17,7 +17,9 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 The owner's headset review rejected the stacked menu composition. The next renderer candidate
 puts one actual work view on a unified reading surface, attaches place navigation on the left,
 and keeps Move, Other apps and Minimize along its base. The selected work's literal title uses
-the larger title role. A shallow backing gives the reading object physical depth; paragraphs
+the larger title role. Place navigation is unboxed type with a chosen fill; system utilities use
+the quieter prompt role. The actual project context occupies a shoulder attached to the reading
+object, and its backing has a visible shallow rim rather than a surrounding window frame. Paragraphs
 and controls still face the eyes together. This supersedes the requirement that every subject,
 section strip and content block must be a separate framed shape for this candidate.
 

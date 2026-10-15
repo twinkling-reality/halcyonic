@@ -40,6 +40,7 @@ namespace Halcyonic.XR.UI
         private const int Order = 20;
 
         private static TextMeshPro? measuring;
+        private static TextMeshPro? measuringHero;
 
         private readonly List<Line> lines = new List<Line>();
         private readonly List<Section> sections = new List<Section>();
@@ -308,13 +309,31 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static float SubjectHeight(string subject, float columnDegrees, bool pillRoom, bool organizationControls = true) => MenuPage.Subject(TitleRows(subject, columnDegrees, organizationControls), pillRoom);
 
+        private static TextMeshPro HeroMeasure()
+        {
+            if (measuringHero == null)
+            {
+                measuringHero = GlazeText.Create(null!, "Work title measure", GlazeType.Hero, Color.white, TextAlignmentOptions.TopLeft, 0);
+                measuringHero.gameObject.hideFlags = HideFlags.HideAndDontSave;
+                measuringHero.gameObject.SetActive(false);
+            }
+            return measuringHero;
+        }
+
+        public static int SpatialTitleRows(string subject, float columnDegrees) =>
+            Mathf.Clamp(Count(HeroMeasure(), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
+
+        public static float SpatialSubjectHeightOfRows(int rows, bool pillRoom)
+        {
+            var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
+            var inner = pillRoom ? room - U(Glaze.Menu.SubjectPaddingDegrees) + MenuPage.Grid / 2f : 0f;
+            return room + Mathf.Max(U(Glaze.TargetDegrees), inner + rows * GlazeText.LineHeight(HeroMeasure()) + 2f * U(Glaze.Menu.SubjectPaddingDegrees));
+        }
+
         public float SpatialSubjectHeight(string subject, float columnDegrees, bool pillRoom)
         {
             subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
-            var rows = Mathf.Clamp(Count(subjectTitle, subject, ContentWidth(columnDegrees)), 1, SubjectRows);
-            var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
-            var inner = pillRoom ? room - U(Glaze.Menu.SubjectPaddingDegrees) + MenuPage.Grid / 2f : 0f;
-            return room + Mathf.Max(U(Glaze.TargetDegrees), inner + rows * GlazeText.LineHeight(subjectTitle) + 2f * U(Glaze.Menu.SubjectPaddingDegrees));
+            return SpatialSubjectHeightOfRows(SpatialTitleRows(subject, columnDegrees), pillRoom);
         }
 
         public static float TitleWidth(float columnDegrees) => ContentWidth(columnDegrees) - OrganizationControlsView.Width() - MenuPage.TargetGap;
@@ -1235,10 +1254,9 @@ namespace Halcyonic.XR.UI
             subjectPlate.gameObject.SetActive(false);
             content.gameObject.SetActive(false);
             foreach (var sectionView in sections) sectionView.Shape.gameObject.SetActive(false);
-            unifiedPlate.Draw(new Vector2(width, total), U(0.55f), GlazeTokens.ColorOf(Glaze.Panel, 0.94f),
-                GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, 0.24f), U(0.055f));
-            unifiedBacking.Draw(new Vector2(width, total), U(0.55f), GlazeTokens.ColorOf(Glaze.Palette.Outline, 0.6f));
-            unifiedBacking.transform.localPosition = new Vector3(0f, 0f, 0.008f);
+            unifiedPlate.Draw(new Vector2(width, total), 0f, GlazeTokens.ColorOf(Glaze.Panel, 0.94f));
+            unifiedBacking.Draw(new Vector2(width + U(0.24f), total + U(0.24f)), 0f, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, 0.42f));
+            unifiedBacking.transform.localPosition = new Vector3(U(0.12f), -U(0.12f), 0.008f / PlaneComposition.Distance);
         }
 
         private void Collect()
