@@ -100,7 +100,7 @@ Shader "Halcyonic/Glaze Surface"
                     float grainPhase = dot(i.local, float3(920.0, 37.0, 1200.0));
                     float grain = cos(grainPhase) * saturate(1.0 - fwidth(grainPhase)) * 0.025;
                     float light = 0.36 + 0.64 * saturate(dot(normal, key)) + grain;
-                    float lift = saturate(physical.z * (0.3 + 1.5 * reflection + fresnel));
+                    float lift = saturate(physical.z * (0.15 + 1.5 * reflection + fresnel));
                     return float4(lerp(fill.rgb * light, float3(0.72, 0.76, 0.72), lift) * fill.a, fill.a);
                 }
 
@@ -166,9 +166,20 @@ Shader "Halcyonic/Glaze Surface"
                 alpha = alpha * (1.0 - sheen) + sheen;
                 // A narrow optical edge changes with the real camera. The reading centre is untouched.
                 float opticalBand = physical.x * saturate(1.0 + d / max(physical.y, 1e-5));
-                float optical = physical.z * opticalBand * (0.2 + 0.8 * fresnel + reflection);
+                float optical = physical.z * opticalBand * (0.8 * fresnel + 0.5 * reflection);
                 color = color * (1.0 - optical) + float3(0.72, 0.76, 0.72) * optical;
                 alpha = alpha * (1.0 - optical) + optical;
+                // An analytic near-frontal softbox reflected in the face, not a screen-attached
+                // gradient. Reflected eye rays vary across this fixed world surface and with lean.
+                // Peak additive linear light stays below .018, preserving the reading contrast budget.
+                float3 reflectedEye = reflect(-view, normal);
+                float2 boxRay = reflectedEye.xy / max(0.1, -reflectedEye.z);
+                float2 boxAxes = float2(0.94 * boxRay.x + 0.34 * boxRay.y, -0.34 * boxRay.x + 0.94 * boxRay.y);
+                float softbox = smoothstep(0.0, 0.14, min(0.72 - abs(boxAxes.x + 0.12), 0.22 - abs(boxAxes.y - 0.18)));
+                float coatingPhase = dot(i.local.xy, float2(631.0, 41.0));
+                float coating = cos(coatingPhase) * saturate(1.0 - fwidth(coatingPhase)) * 0.1;
+                float faceSheen = physical.x * saturate(physical.z / 0.10) * 0.016 * softbox * (1.0 + coating);
+                color += float3(0.98, 1.0, 0.98) * faceSheen;
                 return float4(color, alpha) * cover;
             }
             ENDCG
