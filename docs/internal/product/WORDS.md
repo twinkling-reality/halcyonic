@@ -13,6 +13,8 @@ Halcyonic draws where it meets our words (the owner, 2026-10-08; ADR 0026).
 
 The current action is **Start task**, confirmed by **Yes, start task**. It starts the selected
 runtime execution; it does not promise a software build, APK, deployment or working output.
+The wizard’s final visible step is **Start**, including its review and waiting states. Its internal
+Build enum/navigation key remains an implementation detail.
 Older wording examples below that call this action Start building are superseded by this name.
 The selected-project Tasks view offers **New task** as a literal action, keeping the project's
 outside name out of the fixed button label. Opening it only opens that existing project's draft;
