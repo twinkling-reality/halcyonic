@@ -257,6 +257,7 @@ namespace Halcyonic.XR.UI
             var bottom = float.PositiveInfinity; var top = float.NegativeInfinity;
             foreach (var word in words)
             {
+                if (string.IsNullOrWhiteSpace(word.text)) continue;
                 word.ForceMeshUpdate();
                 var bounds = word.textBounds;
                 foreach (var x in new[] { bounds.min.x, bounds.max.x })
@@ -267,12 +268,18 @@ namespace Halcyonic.XR.UI
                     bottom = Mathf.Min(bottom, point.y); top = Mathf.Max(top, point.y);
                 }
             }
-            if (float.IsInfinity(left)) return;
+            // Retain the already drawn full opaque allocation for invalid/stale or escaping
+            // bounds. Never invert a support or silently pretend clipping shields escaped ink.
+            if (new[] { left, right, bottom, top }.Any(value => float.IsNaN(value) || float.IsInfinity(value))
+                || right <= left || top <= bottom
+                || left < centre.x - allocation.x / 2f || right > centre.x + allocation.x / 2f
+                || bottom < centre.y - allocation.y / 2f || top > centre.y + allocation.y / 2f) return;
             const float padding = 0.005f;
             left = Mathf.Max(centre.x - allocation.x / 2f, left - padding);
             right = Mathf.Min(centre.x + allocation.x / 2f, right + padding);
             bottom = Mathf.Max(centre.y - allocation.y / 2f, bottom - padding);
             top = Mathf.Min(centre.y + allocation.y / 2f, top + padding);
+            if (right <= left || top <= bottom) return;
             surface.Draw(new Vector2(right - left, top - bottom), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
             surface.transform.localPosition = new Vector3((left + right) / 2f, (bottom + top) / 2f, centre.z);
         }

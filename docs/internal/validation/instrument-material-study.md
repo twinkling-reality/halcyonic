@@ -217,3 +217,12 @@ negative controls, selected-character comparison and wearer acceptance remain pe
 The structural candidate's aggregate editor C# compile passed on the installed Unity6000.3.25f1
 NetCoreRuntime/DotNetSdkRoslyn compiler with the existing nullable and assembly warnings only.
 That compile does not execute the shader, geometry-selected transmission probes or contrast checks.
+
+Independent source review confirmed premultiplied carrier alpha, rear ordering and the absence of
+an opaque rear in empty regions. Two guards were tightened before actual execution: invalid,
+empty or escaped glyph unions retain their complete already-opaque reading allocation rather
+than clipping to inverted/shrunken geometry; the real helper is exercised by escaped/empty-glyph
+fixture negatives. This does not certify an escaped word's legibility: the unchanged actual
+whole-bounds contrast test must still reject any unshielded ink. The depth check now requires the
+signed rear direction, and the carrier/rim must sort behind every opaque reading region. Aggregate
+editor compilation passed again with the same existing warnings.
