@@ -357,3 +357,22 @@ separate real button with only the coated flag must also be rejected as an ineli
 Existing generic selection-negative fixtures are unchanged. Aggregate editor C# compile passed;
 actual execution of these added negatives and the repaired full spatial comparison remain pending.
 No actual4.5:1 threshold, palette, rendering coefficient, target or input behavior changed here.
+
+## Activity route packing correction
+
+Source review of the coated candidate found that a truthful empty-state line plus all four
+offered utility routes produced five rows in a four-row page. The previous budget calculation
+only reduced recorded activity; it never bounded those mandatory lines. Activity now packs the
+final content-first order into retained file pages by both row count and actual target/word/gap
+height. Recent records remain bounded and precede the routes; the empty statement is not invented
+when records exist. All offered routes remain reachable. A footer pager retains ordinary actions;
+when voice occupies its slot, a measured body pager preserves Hold to talk as well.
+
+Focused managed checks cover all four routes, four-row budgets and the physical larger-text
+budget with a two-row title, including two-row route labels and voice on/off. Independent review
+found an additional overflow when a two-row notice was appended after packing beside a body
+pager and a two-row route. Ordinary Activity now pages that complete notice once with its other
+content; the regression covers this exact combination in both row and physical budgets. They check exact
+route reachability, complete final-page cost including the body pager, unchanged Stop/instruction/
+voice controls, unarmed steering, recent-record provenance and page clamping after routes leave.
+Actual Unity field/target checks and wearer acceptance remain separate and pending.
