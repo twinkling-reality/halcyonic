@@ -34,6 +34,9 @@ namespace Halcyonic.Client
         private string? chosenProject;
         private string? chosenFolder;
         private bool chosenProblem;
+        private bool foldersOpen;
+        private MenuFrame? drawnFoldersFrame;
+        private string? drawnFoldersJournal;
         private int page;
         private bool closed;
         private MenuFrame? frame;
@@ -83,6 +86,7 @@ namespace Halcyonic.Client
             ChosenProject = chosenProject,
             ChosenFolder = chosenFolder,
             ChosenProblem = chosenProblem,
+            FoldersOpen = foldersOpen,
             TextSize = host.TextSize,
             Connection = memory.Connection,
             BoundPaths = BoundPaths(host.State),
@@ -106,6 +110,13 @@ namespace Halcyonic.Client
             var target = ProjectsScreens.TargetOf(state);
             switch (id)
             {
+                case ProjectsScreens.FolderNavigation:
+                    if (!ReferenceEquals(drawnFoldersFrame, frame) || drawnFoldersFrame == null
+                        || drawnFoldersJournal == null || drawnFoldersJournal != host.State?.Journal?.JournalId) return;
+                    foldersOpen = !foldersOpen;
+                    page = 0;
+                    Change();
+                    return;
                 case Footer.Close:
                     closed = true;
                     Cancel();
@@ -162,7 +173,9 @@ namespace Halcyonic.Client
 
         public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
-            // Nothing in Projects counts as read only once it has shown.
+            if (!ReferenceEquals(drawn, frame) || sidePanel != null) return;
+            drawnFoldersFrame = drawn.Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.FolderNavigation && each.Prompt.Available) ? drawn : null;
+            drawnFoldersJournal = drawnFoldersFrame == null ? null : host.State?.Journal?.JournalId;
         }
 
         /// <summary>Explicit Project details navigation selects the current project's normal detail/actions frame.</summary>
@@ -191,7 +204,7 @@ namespace Halcyonic.Client
 
         public void FocusLeft()
         {
-            // Projects arms no confirmation.
+            drawnFoldersFrame = null; drawnFoldersJournal = null;
         }
 
         /// <summary>
@@ -289,6 +302,7 @@ namespace Halcyonic.Client
 
         private void Change()
         {
+            drawnFoldersFrame = null; drawnFoldersJournal = null;
             frame = null;
             Changed?.Invoke();
         }

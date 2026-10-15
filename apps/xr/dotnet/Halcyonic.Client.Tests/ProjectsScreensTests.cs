@@ -55,6 +55,7 @@ public class ProjectsScreensTests
         Overview = overview ?? Overview(),
         Listing = listing ?? Listing(Root("Projects", Folder("shop"))),
         Live = true,
+        FoldersOpen = true,
         Now = Now,
         Zone = TimeZoneInfo.Utc,
     };
@@ -76,6 +77,7 @@ public class ProjectsScreensTests
         Assert.That(frame.Footer.All.Select(each => (each.Slot, each.Prompt.Id, each.Prompt.Main)), Is.EqualTo(new[]
         {
             (PromptSlot.Close, Footer.Close, false),
+            (PromptSlot.Rare, ProjectsScreens.FolderNavigation, false),
             (PromptSlot.FarRight, ProjectsScreens.NewProject, true),
         }));
     }
@@ -84,6 +86,7 @@ public class ProjectsScreensTests
     public void WithNoProjectsYetTheFoldersAndNewProjectAnswerTheQuestion()
     {
         var state = State(overview: WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false));
+        state.FoldersOpen = false;
         var frame = ProjectsScreens.Projects(state);
         Assert.That(frame.Subject, Is.EqualTo("Projects"));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
@@ -255,8 +258,8 @@ public class ProjectsScreensTests
         var first = ProjectsScreens.Projects(state);
         Assert.That(first.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(MenuFrame.RowsAPage(size, sourceLine: false)));
         Assert.That(first.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading));
-        Assert.That(first.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Secondary, PromptSlot.FarRight }),
-            "three prompts fit the column: Close, Next page, New project");
+        Assert.That(first.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Rare, PromptSlot.Secondary, PromptSlot.FarRight }),
+            "folder navigation retains the pager and main action in their existing slots");
         Assert.That((first.Footer[PromptSlot.Secondary]!.Kind, first.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((PromptKind.NextPage, "Next page")));
         Assert.That(first.Footer.All.Count(each => each.Prompt.DrawnAsMain), Is.EqualTo(1));
 
@@ -582,4 +585,39 @@ public class ProjectsScreensTests
         state.ApplySnapshot(snapshot, new StateChanges());
         return state;
     }
+    [TestCase(false)]
+    [TestCase(true)]
+    public void KnownWorkComesFirstWithoutFolderAdministrationUntilExplicitlyOpened(bool disconnected)
+    {
+        var state = State(); state.FoldersOpen = false; state.Live = !disconnected;
+        state.Listing = null; state.ListingProblem = "Folder read failed";
+        var frame = ProjectsScreens.Projects(state);
+        Assert.That(frame.Lines.All(line => line.Action == ProjectsScreens.ChooseProject), Is.True);
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Alpha", "Beta" }));
+        Assert.That(frame.Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.FolderNavigation && each.Prompt.Words == "Connect a folder"), Is.True);
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.ChooseProblem, ProjectsScreens.ProblemKey), Is.False);
+        state.FoldersOpen = true;
+        Assert.That(Enumerable.Range(0, 3).Any(page => { state.Page = page; return ProjectsScreens.Projects(state).Lines.Any(line => line.Words == ProjectsText.FoldersHeading); }), Is.True);
+    }
+
+    [Test]
+    public void KnownProjectPagingNeverLosesFolderNavigationOrSubstitutesAHiddenFolderAction()
+    {
+        var portfolio = new Portfolio();
+        for (var index = 0; index < 20; index++) portfolio.Project("project-" + index, "Project " + index);
+        var state = State(overview: WorkOverview.Of(portfolio.Apply(), new StageVisibility(), _ => false));
+        state.FoldersOpen = false;
+        var seen = new HashSet<string>();
+        for (var page = 0; page < 20; page++)
+        {
+            state.Page = page;
+            var frame = ProjectsScreens.Projects(state);
+            Assert.That(frame.Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.FolderNavigation), Is.True);
+            Assert.That(frame.Lines.All(line => line.Action == ProjectsScreens.ChooseProject), Is.True);
+            foreach (var line in frame.Lines) seen.Add(line.Words);
+            Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.ChooseFolder, "hidden"), Is.False);
+        }
+        Assert.That(seen.Count, Is.EqualTo(20), "all known work remains reachable across actual pages");
+    }
+
 }

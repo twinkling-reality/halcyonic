@@ -8,7 +8,7 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// The menu's Projects place as a <see cref="MenuFrame"/> (ADR 0026): the projects Halcyonic's
-    /// journal knows, then the folders on the person's computer that no project uses
+    /// journal knows; explicit discovery then adds the folders on the person's computer that no project uses
     /// (<see cref="FolderConnect"/>). A row only takes the person somewhere: choosing one lights it and
     /// slides its side panel out, the project's work or the folder's facts and what connecting does,
     /// and the footer then carries what can be done with it, its main action always at the far right,
@@ -30,6 +30,7 @@ namespace Halcyonic.Client
         public const string ChooseAnother = "projects-choose-another";
         public const string ChooseProblem = "projects-choose-folders-problem";
         public const string ReadAgain = "projects-read-again";
+        public const string FolderNavigation = "projects-folder-navigation";
 
         /// <summary>The key of the row that says why no folder is listed.</summary>
         public const string ProblemKey = "folders";
@@ -54,6 +55,9 @@ namespace Halcyonic.Client
 
             /// <summary>The recorded demonstration, which connects nothing and starts nothing.</summary>
             public bool Demonstration { get; set; }
+
+            /// <summary>Explicitly expanded folder discovery while known projects stay first.</summary>
+            public bool FoldersOpen { get; set; }
 
             /// <summary>The chosen project's id, or null.</summary>
             public string? ChosenProject { get; set; }
@@ -151,11 +155,11 @@ namespace Halcyonic.Client
             var projects = state.Overview?.Projects ?? (IReadOnlyList<ProjectSummary>)Array.Empty<ProjectSummary>();
             var project = state.ChosenProject == null ? null : projects.FirstOrDefault(each => each.ProjectId == state.ChosenProject);
             // Folders are listed, and so can be chosen, only while connected outside the demonstration.
-            var folder = project != null || state.ChosenFolder == null || !state.Live || state.Demonstration
+            var folder = project != null || !FoldersVisible(state) || state.ChosenFolder == null || !state.Live || state.Demonstration
                 ? null
                 : FolderConnect.Find(OffersOf(state, projects), state.ChosenFolder);
             var connection = folder != null && state.Connection != null && state.Connection.Folder.Key == folder.Key ? state.Connection : null;
-            var problem = project == null && folder == null && state.ChosenProblem && FoldersProblem(state) != null;
+            var problem = project == null && folder == null && state.ChosenProblem && FoldersVisible(state) && FoldersProblem(state) != null;
             return new Target(project, folder, connection, problem);
         }
 
@@ -244,7 +248,9 @@ namespace Halcyonic.Client
             }
             else
             {
-                footer = new Footer(close, farRight: new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
+                footer = new Footer(close,
+                    rare: projects.Count > 0 && !state.Demonstration ? new Prompt(FolderNavigation, state.FoldersOpen ? "Back to projects" : "Connect a folder", GlazeIcon.ConnectProjects) : null,
+                    farRight: new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
             }
             // One prompt pages: Next page, which on the last page reads First page and starts again, at the
             // far right where nothing is the main action, else beside it. It waits while a row is chosen:
@@ -255,6 +261,8 @@ namespace Halcyonic.Client
             }
             return new MenuFrame(subject, footer, lines: pages[page], side: side);
         }
+
+        private static bool FoldersVisible(State state) => state.FoldersOpen || (state.Overview?.Projects.Count ?? 0) == 0;
 
         /// <summary>
         /// Why the folders could not be listed, as its row and side panel say it, when that is so: they
@@ -279,7 +287,7 @@ namespace Halcyonic.Client
                     action: ChooseProject, key: project.ProjectId, opens: true, chosen: project == chosenProject));
             }
             // The demonstration connects nothing, so it lists no folders.
-            if (state.Demonstration) return lines;
+            if (state.Demonstration || !FoldersVisible(state)) return lines;
             lines.Add(Say(ProjectsText.FoldersHeading));
             if (!state.Live)
             {
