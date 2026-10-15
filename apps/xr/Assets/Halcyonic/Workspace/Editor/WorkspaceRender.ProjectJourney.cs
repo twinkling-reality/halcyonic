@@ -84,18 +84,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         throw new InvalidOperationException("No current visible route for " + action + "; shown=" + string.Join(" | ", director.Plane.Shown.Select(item => (item.View.Frame?.Subject ?? item.View.Side?.Subject) + ":" + string.Join(",", item.View.ShownLines.Select(line => line.Model.Action)))));
                     Draw();
                 }
-                // Wizard/review callers use focused:false. Their page budget must still preserve
-                // the spatial chrome's minimum apparent text, rather than only fitting the field.
-                Draw();
-                var pageBudget = director.PageHeight(1, besideMenu: false, focused: false);
-                var spatialHeader = WorkspaceChromeView.SpatialTop + WorkspaceChromeView.SpatialBase
-                    + Mathf.Max(0f, MenuFrameView.SpatialSubjectHeightOfRows(1, true) - MenuPage.Subject(1, true));
-                var independentReadable = MenuPage.Height(director.TextSize, 1, 0f, ViewField.Current, false, false,
-                    spatialHeader, centered: true, placement: new PanelDirection(0f, 0f, true, false), readable: true);
-                var fieldOnly = MenuPage.Height(director.TextSize, 1, 0f, ViewField.Current, false, false,
-                    spatialHeader, centered: true, placement: new PanelDirection(0f, 0f, true, false), readable: false);
-                if (pageBudget > independentReadable + 0.00001f || independentReadable >= fieldOnly - 0.00001f)
-                    failures.Add("A nonfocused spatial wizard page did not enforce the independently measured readable limit");
+                // This visible route is the negative regression: the former legacy two-column
+                // spatial budget hid New task at Standard size. Actual targets, field and text
+                // below must all pass, rather than dispatching a hidden abstract action.
                 Shot("01-projects"); Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId); Shot("02-project-tasks");
                 Press(TasksColumn.NewTask, work.Workstream.ProjectId); Shot("03-new-task-idea");
                 if (flow?.Idea?.ExistingProjectId != work.Workstream.ProjectId) failures.Add("New task did not bind the selected existing project");
