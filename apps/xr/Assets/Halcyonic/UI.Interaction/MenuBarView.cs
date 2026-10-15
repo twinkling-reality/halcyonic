@@ -19,6 +19,8 @@ namespace Halcyonic.XR.UI
 
         private Surface shape = null!;
         private Surface identityEdge = null!;
+        private TaskIdentityAvatarView portrait = null!;
+        public TaskIdentityAvatarView TaskIdentity => portrait;
         private TextMeshPro line = null!;
         private OrganizationControlsView controls = null!;
         private TextMeshPro state = null!;
@@ -70,6 +72,7 @@ namespace Halcyonic.XR.UI
             var view = go.AddComponent<MenuBarView>();
             view.shape = Surface.Create(go.transform, "Shape", Order);
             view.identityEdge = Surface.Create(go.transform, "Retained work identity edge", Order + 1);
+            view.portrait = TaskIdentityAvatarView.Create(go.transform);
             view.controls = OrganizationControlsView.Create(go.transform);
             view.controls.Accepting = () => view.shown >= 1f && !FocusGuard.InputSuspended;
             view.controls.Toggled += () => view.Acted?.Invoke(MenuBar.Open);
@@ -82,7 +85,7 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>Shows <paramref name="bar"/> closed, <paramref name="columnDegrees"/> wide.</summary>
-        public void Show(MenuBar bar, float columnDegrees, LineWords? identity = null, StateBadge? status = null, int waitingCount = 0, object? compactBinding = null)
+        public void Show(MenuBar bar, float columnDegrees, LineWords? identity = null, StateBadge? status = null, int waitingCount = 0, object? compactBinding = null, CharacterPresentation? taskPortrait = null, double? portraitHue = null)
         {
             controls.Bind(compactBinding ?? (object)bar);
             gameObject.SetActive(true);
@@ -92,7 +95,12 @@ namespace Halcyonic.XR.UI
             identityEdge.DrawCoatedInstrument(new Vector2(edgeWidth, size.y - MenuPage.Grid), edgeWidth / 3f, GlazeTokens.ColorOf(Glaze.Palette.Raised));
             identityEdge.transform.localPosition = new Vector3(-size.x / 2f + edgeWidth / 2f, 0f, -0.0005f);
             var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
-            var left = -size.x / 2f + padding;
+            var portraitWidth = taskPortrait != null ? MenuFrameView.PortraitWidth : 0f;
+            if (taskPortrait != null)
+                portrait.Show(taskPortrait, portraitHue, new Vector2(-size.x / 2f + padding + portraitWidth / 2f, 0f),
+                    new Vector2(portraitWidth, size.y - 2f * MenuPage.Grid));
+            else portrait.Hide();
+            var left = -size.x / 2f + padding + (taskPortrait != null ? portraitWidth + MenuPage.TargetGap : 0f);
             var right = size.x / 2f - padding;
             controls.Show(right, 0f, compact: true);
             var room = right - left - OrganizationControlsView.Width(compact: true) - MenuPage.TargetGap;
