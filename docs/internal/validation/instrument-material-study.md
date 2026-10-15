@@ -334,3 +334,26 @@ was still underway when this record was added; it is not included in this materi
 adoption is a separate compatibility-preserving change; this material evidence does not reinterpret
 historical preset bytes or saved keys. No device build/install or wearer approval follows from the
 clean editor process alone.
+
+
+## Selection-checker contract alignment after repaired material proof
+
+The following actual SpatialWorkspaceCheck at `9b547a02` failed four old exact0.10 selection-fill
+assertions. ADR0026 requires one selection meaning: the selected shape's lit fill and frame,
+pointing's frame alone, no selection bar/underline, and accent only for the main action cap. The
+coated face's already contrast-proven0.06 lift preserves that meaning; the generic checker had
+not yet represented its narrowly scoped material budget.
+
+OneSelectionTreatment now permits exact0.06 white fill only on the actual selection surface of
+a chosen section owned by a spatial MenuFrameView, with matching chosen model/button state and
+the explicit coated-selection mode. It still requires the existing exact lit frame and retains
+all pointed/accent/bar/caret/divider checks. A flag on an unrelated button is insufficient. Legacy
+surfaces still require their original0.10 fill. The0.06 alpha comparison is tight to0.0001, rather
+than accepting the checker's older broad color tolerance as an opacity range.
+
+The actual material fixture checks the real selected surface positively, mutates it to both0.10
+and0.065 and requires the specific wrong-lit-fill failure, then restores its exact drawing. A
+separate real button with only the coated flag must also be rejected as an ineligible owner.
+Existing generic selection-negative fixtures are unchanged. Aggregate editor C# compile passed;
+actual execution of these added negatives and the repaired full spatial comparison remain pending.
+No actual4.5:1 threshold, palette, rendering coefficient, target or input behavior changed here.

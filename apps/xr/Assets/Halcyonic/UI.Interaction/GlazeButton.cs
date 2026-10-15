@@ -152,6 +152,8 @@ namespace Halcyonic.XR.UI
         public static event Action<GlazeButton>? AnyRefused;
 
         /// <summary>Selection on the reflective spatial reading face needs a lower white lift.</summary>
+        public const float CoatedSelectionOpacity = 0.06f;
+        public Surface SelectionSurface => plate;
         public bool CoatedSelection
         {
             get => coatedSelection;
@@ -734,7 +736,7 @@ namespace Halcyonic.XR.UI
         {
             var white = Color.white;
             var radius = GlazeTokens.Units(Glaze.Menu.RadiusDegrees);
-            var litFill = GlazeTokens.ColorOf(Glaze.Palette.Selection, coatedSelection ? 0.06f : Glaze.Menu.LitFillOpacity);
+            var litFill = GlazeTokens.ColorOf(Glaze.Palette.Selection, coatedSelection ? CoatedSelectionOpacity : Glaze.Menu.LitFillOpacity);
             var litFrame = GlazeTokens.ColorOf(Glaze.Palette.Selection, Glaze.Menu.LitFrameOpacity);
             var pointedFrame = GlazeTokens.ColorOf(Glaze.Palette.Focus, Glaze.Menu.PointedFrameOpacity);
             var opacity = away ? AwayOpacity : 1f;
