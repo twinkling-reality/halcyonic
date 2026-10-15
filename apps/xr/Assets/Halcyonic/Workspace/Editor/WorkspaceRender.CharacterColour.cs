@@ -115,13 +115,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 Texture2D Shot(string step)
                 {
-                    Draw(); failures.AddRange(PlaneState("colour " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine: false));
+                    Draw(); failures.AddRange(SpatialState("colour " + step, folder, root, camera, texture, director, characters, eyes));
                     var image = Render(camera, texture); images.Add(image); return image;
                 }
-                Draw();
+                // Fit the explicit optional body beside the selected task, not the wider project chooser.
+                Draw(); director.OpenFile(ResultsTask); Draw();
+                var beforePlacement = failures.Count;
                 var agent = ConfirmedDirectorAgent(root.transform, director, eyes, Present().Character, failures, "colour");
+                // The shared helper emits a diagnostic fallback after failure. It is never valid proof.
+                if (failures.Count != beforePlacement) return failures;
                 targets.Add(agent.Target); characters.Add(agent); presentation.SetAgentsEnabled(true);
-                director.OpenFile(ResultsTask); Draw(); file!.Reflow();
+                Draw(); file!.Reflow();
                 var original = agent.View.BodyColourForRender; var clock = agent.View.ClockForRender;
                 var shell = agent.View.Body.GetComponentsInChildren<Renderer>(true).Single(renderer => renderer.name == "Shell");
                 var block = new MaterialPropertyBlock();
@@ -163,7 +167,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 Pump(new ConnectionStatus(ConnectionPhase.Live)); Draw(); director.OpenFile(ResultsTask); Draw(); file!.Reflow(); Press(FileScreens.OpenCharacterColour);
                 BeginAlternate(); targets.Clear(); agent.View.gameObject.SetActive(false); Draw(); Shot("target lost"); AssertBody(previewColour, "target loss");
                 agent.View.gameObject.SetActive(true); targets.Add(agent.Target); Draw(); director.OpenFile(ResultsTask); Draw(); file!.Reflow(); Press(FileScreens.OpenCharacterColour);
-                BeginAlternate(); UnityEngine.Object.DestroyImmediate(director.gameObject); AssertBody(previewColour, "menu destruction");
+                BeginAlternate();
+                // Non-ExecuteAlways behaviours do not receive play-mode destruction callbacks in this
+                // edit-mode witness. Exercise the actual cleanup method explicitly before destruction;
+                // this proves its real-body effect, not Unity's play-mode callback delivery.
+                typeof(MenuDirector).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(director, null);
+                AssertBody(previewColour, "production menu destruction cleanup");
+                UnityEngine.Object.DestroyImmediate(director.gameObject); AssertBody(previewColour, "menu destruction");
                 var survivingBody = Render(camera, texture); images.Add(survivingBody);
                 File.WriteAllBytes(Path.Combine(folder, "menu-destroyed-body.png"), survivingBody.EncodeToPNG());
                 if (writes != 1 || sends != 0) failures.Add("lost authority saved a preview or any colour action submitted a runtime command");
@@ -172,6 +182,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 try
                 {
+                    foreach (var remaining in root.GetComponentsInChildren<MenuDirector>(true))
+                        typeof(MenuDirector).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(remaining, null);
                     UnityEngine.Object.DestroyImmediate(root);
                     foreach (var image in images) UnityEngine.Object.DestroyImmediate(image);
                     texture.Release(); UnityEngine.Object.DestroyImmediate(texture);
