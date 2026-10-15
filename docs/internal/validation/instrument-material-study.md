@@ -440,3 +440,9 @@ compact context geometry and all later preset/cap changes are retained. Aggregat
 compilation passed with existing nullable/assembly warnings using current warm client/contract
 references. Actual new inset, type-floor and image-contrast execution remain pending; no wearer
 or aesthetic acceptance is claimed.
+
+Independent review tightened the host-owned fact predicate before actual execution: both the
+production override and its fixture assertion additionally exclude WordsAreData and Claim.
+Legacy PageLine string construction can mark external/claimed words using those flags without
+Runs.AnyTheirs, so that flag alone was insufficient. External activity notes and agent claims
+therefore retain their original secondary/provenance treatment. No other source scope changed.
