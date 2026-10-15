@@ -17,8 +17,9 @@ public class AppearanceSettingsTests
     public void RestorePalette() => Glaze.SetPalette(previous);
 
     [Test]
-    public void DefaultKeepsExistingSurfaceAndSemanticColoursExactly()
+    public void HistoricalGlazeKeepsExistingSurfaceAndSemanticColoursExactly()
     {
+        Glaze.SetPalette(GlazePalette.Glaze);
         Assert.That(Glaze.Panel.ToString(), Is.EqualTo("#1B222D"));
         Assert.That(Glaze.Raised.ToString(), Is.EqualTo("#242D3A"));
         Assert.That(Glaze.Control.ToString(), Is.EqualTo("#303C4E"));
@@ -33,7 +34,51 @@ public class AppearanceSettingsTests
     }
 
     [Test]
-    public void BothPresetsKeepWordsReadableOverWhitePassthroughAndSelectedGlass()
+    public void NeutralIsStableCurrentDefaultWithoutReinterpretingHistoricalKeys()
+    {
+        Assert.That(GlazePalette.Presets.Select(palette => palette.Key), Is.EqualTo(new[] { "neutral", "glaze", "graphite" }));
+        Assert.That(GlazePalette.Default, Is.SameAs(GlazePalette.Neutral));
+        Assert.That(GlazePalette.InstrumentStudy, Is.SameAs(GlazePalette.Neutral));
+        Assert.That(Surfaces(GlazePalette.Neutral), Is.EqualTo(new[] { "#242726", "#2E3330", "#3A423D", "#49534C", "#59645C", "#1D211F", "#E9E7E0", "#B9BEB9", "#949D96", "#78887C" }));
+        Assert.That(Surfaces(AppearanceSettings.Load("version=1;theme=glaze").Applied), Is.EqualTo(new[] { "#1B222D", "#242D3A", "#303C4E", "#3B4A61", "#46566F", "#151B24", "#EEF2F6", "#AAB5C2", "#8A96A5", "#73839A" }));
+        Assert.That(Surfaces(AppearanceSettings.Load("version=1;theme=graphite").Applied), Is.EqualTo(new[] { "#20242A", "#2A3038", "#363F49", "#45505D", "#526071", "#191D23", "#EEF2F6", "#AAB5C2", "#8A96A5", "#73839A" }));
+        Assert.That(GlazePalette.Graphite.Tone(GlazeTone.Accent).Strong.ToString(), Is.EqualTo("#98BAF0"));
+        foreach (var palette in GlazePalette.Presets)
+            foreach (var tone in new[] { GlazeTone.Active, GlazeTone.Attention, GlazeTone.Success, GlazeTone.Failure, GlazeTone.Unknown, GlazeTone.Simulated })
+                Assert.That(palette.Tone(tone), Is.EqualTo(GlazePalette.Glaze.Tone(tone)), palette.Key + " " + tone);
+        Assert.That(GlazePalette.Find("instrument-study"), Is.Null);
+        Assert.That(GlazePalette.Find("Neutral"), Is.Null, "preset keys remain exact");
+    }
+
+    private static string[] Surfaces(GlazePalette palette) => new[] { palette.Panel, palette.Raised, palette.Control, palette.ControlHover, palette.ControlPressed, palette.Well, palette.Text, palette.TextSecondary, palette.TextDisabled, palette.Outline }.Select(colour => colour.ToString()).ToArray();
+
+    [Test]
+    public void NeutralPreviewFromHistoricalChoiceRollsBackAndOnlyExplicitApplySaves()
+    {
+        foreach (var leaving in new[] { "cancel", "focus", "close", "apply" })
+        {
+            var settings = AppearanceSettings.Load("version=1;theme=glaze");
+            Glaze.SetPalette(settings.Applied);
+            var saved = new List<string>();
+            var column = new AppearanceColumn(settings, () => saved.Add(settings.Save()));
+            column.Act(AppearanceColumn.Choose, "neutral");
+            Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Glaze));
+            column.Act(AppearanceColumn.Preview, null);
+            Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Neutral));
+            Assert.That(settings.Applied, Is.SameAs(GlazePalette.Glaze));
+            Assert.That(saved, Is.Empty);
+            if (leaving == "focus") column.FocusLeft();
+            else column.Act(leaving == "cancel" ? AppearanceColumn.Cancel : leaving == "close" ? Footer.Close : AppearanceColumn.Apply, null);
+            var expected = leaving == "apply" ? GlazePalette.Neutral : GlazePalette.Glaze;
+            Assert.That(Glaze.Palette, Is.SameAs(expected), leaving);
+            Assert.That(settings.Applied, Is.SameAs(expected), leaving);
+            Assert.That(saved, Is.EqualTo(leaving == "apply" ? new[] { "version=1;theme=neutral" } : Array.Empty<string>()));
+            Assert.That(AppearanceSettings.Load(settings.Save()).Applied, Is.SameAs(expected));
+        }
+    }
+
+    [Test]
+    public void AllPresetsKeepWordsReadableOverWhitePassthroughAndSelectedGlass()
     {
         foreach (var palette in GlazePalette.Presets)
         {
@@ -54,7 +99,7 @@ public class AppearanceSettingsTests
     }
 
     [Test]
-    public void BothPresetsRoundTripOnlyVersionedAppearanceValues()
+    public void AllPresetsRoundTripOnlyVersionedAppearanceValues()
     {
         foreach (var palette in GlazePalette.Presets)
         {
@@ -72,7 +117,7 @@ public class AppearanceSettingsTests
     [TestCase("version=1;theme=graphite;theme=glaze")]
     [TestCase("theme=graphite")]
     [TestCase("version=1;theme=graphite;token=anything")]
-    public void DamagedOrUnsupportedPreferencesFallBackToTheOriginalAppearance(string? saved) =>
+    public void DamagedOrUnsupportedPreferencesFallBackToCurrentDefaultAppearance(string? saved) =>
         Assert.That(AppearanceSettings.Load(saved).Applied, Is.SameAs(GlazePalette.Default));
 
     [Test]
@@ -84,7 +129,7 @@ public class AppearanceSettingsTests
         column.Act(AppearanceColumn.Choose, "graphite");
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default));
         Assert.That(column.Frame!.Lines.Single(line => line.Key == "graphite").Chosen, Is.True);
-        Assert.That(column.Frame.Lines.Take(2).Select(line => line.AnswerMark), Is.All.EqualTo(AnswerMark.Single));
+        Assert.That(column.Frame.Lines.Take(GlazePalette.Presets.Count).Select(line => line.AnswerMark), Is.All.EqualTo(AnswerMark.Single));
         column.Act(AppearanceColumn.Preview, null);
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite));
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Default));
@@ -130,6 +175,8 @@ public class AppearanceSettingsTests
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Graphite));
         column.Act(AppearanceColumn.ReadRestore, null);
         Assert.That(column.Frame!.Subject, Is.EqualTo("Restore default appearance?"));
+        Assert.That(column.Frame.Lines.First().Words, Is.EqualTo("Use Neutral for the interface."));
+        Assert.That(saved, Is.Zero);
         column.Act(AppearanceColumn.Restore, null);
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Default));
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Default));
@@ -170,7 +217,7 @@ public class AppearanceSettingsTests
         var comfort = new Comfort();
         var rows = ComfortSettings.Of(comfort, () => { });
         var hub = new SettingsHubColumn(new FakeMenuHost(), rows, appearance, () => { });
-        Assert.That(hub.Frame!.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new[] { ("Appearance", "Glaze"), ("Comfort", "Standard") }));
+        Assert.That(hub.Frame!.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new[] { ("Appearance", "Neutral"), ("Comfort", "Standard") }));
         Assert.That(hub.Frame.Lines.All(line => line.Opens && !line.Choice), Is.True);
         hub.Act(SettingsHubColumn.OpenCategory, "Comfort");
         Assert.That(hub.Frame!.Lines.Any(line => line.Key == "moving-badges"), Is.True);

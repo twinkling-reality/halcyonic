@@ -11,6 +11,29 @@
   Cancel, Apply, Restore, visibility rollback and seeded cache witnesses. Wearer/device acceptance
   and live activation remain separate observations.
 
+## Neutral adoption candidate, October 15
+
+The candidate adds the stable `neutral` key and makes Neutral the default for absent or invalid
+appearance values and explicit Restore. Its low-chroma surfaces and neutral action colours are
+the previously explicit InstrumentStudy comparison values; the alias refers to the same object,
+not a fourth chooser entry. Presets list Neutral, historical Glaze, then Graphite. The exact
+`glaze` and `graphite` keys and colours are preserved. The version-1 serialized envelope remains
+unchanged; no migration, headset preference read/write or device activation was performed.
+
+Source audit confirms `AppearanceControls.Awake` loads only `halcyonic.appearance` and applies the
+loaded palette. `AppearanceSettings.Load` has no persistence callback. `AppearanceColumn` previews
+without saving, rolls back on Cancel/focus/close, and invokes its save callback only from explicit
+Apply or explained Restore. Restore now names `GlazePalette.Default.Name`. Character-colour,
+Comfort/Still, placement and project state are separate consumers and were not changed.
+
+Focused tests retain exact historical surface values, verify all six state/practice tone tuples
+are unchanged across the three presets, check immutable preset order and exact lookup keys,
+round-trip all three values, and exercise Neutral preview/rollback/apply from saved historical
+Glaze. Existing contrast and navigator lifetime checks remain in force. These are source and
+managed-behavior results, not actual three-palette Unity composition, character harmony, headset
+legibility or wearer acceptance. October 12's two-palette evidence below does not validate this
+new candidate. The material aesthetic is a separate review question.
+
 ## Current integrated evidence, October 12
 
 - The final production/C# tree `d7fcecd2` passed 1033 repository and 1566 C# tests, zero skipped,
