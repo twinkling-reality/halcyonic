@@ -908,6 +908,11 @@ namespace Halcyonic.XR.UI
             sectionsPart.gameObject.SetActive(shown.Count > 0);
         }
 
+        /// <summary>Exact semantic owners eligible for the coated material's selection budget.</summary>
+        public bool UsesCoatedSectionSelection(Surface surface) => SpatialWorkspace && sections.Any(section =>
+            section.Model?.Chosen == true && section.Button.On && section.Button.CoatedSelection
+            && ReferenceEquals(section.Button.SelectionSurface, surface));
+
         private Section NewSection(int index)
         {
             var section = new Section(sectionsPart, "Section " + index);

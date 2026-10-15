@@ -448,7 +448,8 @@ namespace Halcyonic.XR.UI.Editor
         /// <summary>
         /// One selection treatment (ADR 0026), by the role each shape's component gives it
         /// (<see cref="Surface.Selection"/>): what is chosen is the lit fill, white at
-        /// <see cref="Glaze.Menu.LitFillOpacity"/>, with the lit frame; what is pointed at is the fainter
+        /// <see cref="Glaze.Menu.LitFillOpacity"/> (exact coated lift only for a spatial frame's
+        /// real chosen section), with the same lit frame; what is pointed at is the fainter
         /// frame alone; no shape is filled with the accent but the main action's cap; and no shape
         /// thinner than 0.2 degrees is drawn over 20 percent opaque, which rules out bars and underlines
         /// marking anything.
@@ -469,9 +470,17 @@ namespace Halcyonic.XR.UI.Editor
                 {
                     case SurfaceSelection.Lit:
                         if (!framed || shape.Fill.a <= 0f) yield return what + ": " + name + " is chosen without its lit fill and frame; there is one selection treatment.";
-                        else if (!Same(shape.Fill, lit) || !Same(shape.Edge, litEdge))
+                        else
                         {
-                            yield return what + ": " + name + " is lit otherwise than the lit fill and frame; there is one selection treatment.";
+                            var coated = shape.GetComponentInParent<MenuFrameView>()?.UsesCoatedSectionSelection(shape) == true;
+                            var expected = coated ? new Color(1f, 1f, 1f, GlazeButton.CoatedSelectionOpacity) : lit;
+                            // Only a real chosen section owned by a spatial frame has the lower
+                            // contrast-bounded lift. A flag on an arbitrary button cannot opt in.
+                            if (!Same(shape.Fill, expected) || !Same(shape.Edge, litEdge)
+                                || coated && Mathf.Abs(shape.Fill.a - GlazeButton.CoatedSelectionOpacity) > 0.0001f)
+                            {
+                                yield return what + ": " + name + " is lit otherwise than the lit fill and frame; there is one selection treatment.";
+                            }
                         }
                         break;
                     case SurfaceSelection.Pointed:
