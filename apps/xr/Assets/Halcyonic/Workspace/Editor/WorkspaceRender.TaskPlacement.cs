@@ -143,7 +143,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     CharacterOf = id => workspace.Targets.FirstOrDefault(target => target.View.WorkstreamId == id && target.gameObject.activeInHierarchy),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, workspace.Targets.Where(target => target.gameObject.activeInHierarchy).ToList(), null, false),
                 };
-                PlacementField(typeof(MenuDirector.Setup), "SpatialWorkspace").SetValue(setup, true); // Candidate API is required, never silently test another layout.
+                setup.SpatialWorkspace = true; // Require the actual candidate layout at compile time.
                 var menu = MenuDirector.Create(host.transform, setup);
                 PlacementField(typeof(WorkspaceDirector), "menu").SetValue(workspace, menu);
                 void Draw()
