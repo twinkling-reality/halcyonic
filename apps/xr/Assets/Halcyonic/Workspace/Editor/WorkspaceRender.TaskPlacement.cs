@@ -163,14 +163,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     camera.transform.rotation = PlaneLayout.Facing(menu.Plane.Direction);
                     var image = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
                 }
+                var openStep = 0; string openingTask = "";
                 void Press(string action)
                 {
                     Draw(); var shown = menu.Plane.Shown.Single();
                     if (!(shown.View.Frame?.Lines.Any(line => line.Action == action && line.Available) == true || shown.View.Footer.Showing?.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available) == true)
-                        || !menu.PressForRender(shown.Kind, action, null, shown.View.Frame, null)) failures.Add("actual placement refused visible " + action);
+                        || !menu.PressForRender(shown.Kind, action, null, shown.View.Frame, null)) failures.Add("actual placement refused visible " + action + "; Open #" + openStep + " task=" + openingTask + "; frame=" + shown.View.Frame?.Subject + "; actions=" + string.Join(",", shown.View.Frame?.Lines.Where(line => line.Action != null).Select(line => line.Action + ":" + line.Available) ?? Enumerable.Empty<string>()));
                     Draw();
                 }
-                void Open(string id) { menu.OpenFile(id); Draw(); Press(FileScreens.ShowTaskHere); }
+                void Open(string id) { openStep++; openingTask = id; menu.OpenFile(id); Draw(); Press(FileScreens.ShowTaskHere); }
                 bool SamePose(Pose? a, Pose? b) => a.HasValue == b.HasValue && (!a.HasValue || Vector3.Distance(a.Value.position, b!.Value.position) < 0.00001f && Quaternion.Angle(a.Value.rotation, b.Value.rotation) < 0.001f);
                 var originalSelection = stage.ShelfPage.Title;
                 Open(work.Workstream.WorkstreamId); Shot("task-placement-first-preview");
