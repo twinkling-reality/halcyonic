@@ -44,6 +44,7 @@ namespace Halcyonic.XR.Workspace
         {
             GlazeText.SetScale(comfort.TextScale);
             StateBadgeView.Still = comfort.Still;
+            AndroidPanelBridge.SetMotionStill(comfort.Still);
             // Halcyonic's sounds are the only sounds the app plays.
             AudioListener.volume = comfort.Volume;
         }

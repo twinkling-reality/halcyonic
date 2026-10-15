@@ -39,6 +39,27 @@ public final class PanelSelfTest {
         }
         String result;
         switch (command) {
+            case "wait_state": {
+                PanelWait wait = new PanelWait();
+                if (wait.waiting() || wait.moves(false, true, true)) throw new AssertionError("Idle wait moved");
+                wait.start();
+                if (!wait.moves(false, true, true) || wait.moves(true, true, true)
+                    || wait.moves(false, false, true) || wait.moves(false, true, false)) throw new AssertionError("Wait motion ignored lifecycle/preferences");
+                double early = PanelWait.lift(0.2, 0.3), late = PanelWait.lift(0.2, 0.7);
+                if (early <= late || PanelWait.lift(0.5, 0.5) != PanelWait.DEPTH
+                    || PanelWait.lift(0, 0) != 0 || PanelWait.lift(1, 1) != 0) throw new AssertionError("Wait band did not travel through text");
+                wait.stop();
+                if (wait.waiting() || wait.moves(false, true, true)) throw new AssertionError("Completed/canceled wait kept moving");
+                wait.start(); wait.stop(); // A later replacement/error and a detach use the same stop path.
+                if (wait.moves(false, true, true)) throw new AssertionError("Replacement kept loading");
+                if (!PanelWait.still(null) || !PanelWait.still("corrupt") || !PanelWait.still("{\"version\":2,\"still\":false}")
+                    || !PanelWait.still(PanelWait.motion(true)) || PanelWait.still(PanelWait.motion(false))) throw new AssertionError("Unknown preference animated");
+                for (int x=0;x<=100;x++) for (int t=0;t<=100;t++) {
+                    double lift=PanelWait.lift(x/100.0,t/100.0);
+                    if (!Double.isFinite(lift) || lift<0 || lift>PanelWait.DEPTH) throw new AssertionError("Unbounded wait colour");
+                }
+                result="true";break;
+            }
             case "voice_state": {
                 PanelIdentity target=PanelIdentity.pairing(args[0]); Object editor=new Object();
                 PanelUiState.Context context=new PanelUiState.Context(target.key,"journal","project","work","run");

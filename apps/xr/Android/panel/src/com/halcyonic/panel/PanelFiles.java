@@ -23,6 +23,7 @@ final class PanelFiles {
     static final String STATE = "halcyonic-workspace-panel.json";
     static final String INCOMING = "halcyonic-workspace-to-panel.json";
     static final String RETURN = "halcyonic-workspace-return.json";
+    static final String MOTION = "halcyonic-panel-motion.json";
     static final String MODE = "halcyonic-panel-mode.json";
     static final String DRAFTS = "halcyonic-workspace-drafts.json";
     static final String UNITY_VIEWS = "halcyonic-unity-workspace-views.json";
@@ -77,6 +78,7 @@ final class PanelFiles {
     }
     private void writeLocked(String name, String json) throws IOException {
         if (name.equals(MODE)) { Map<String, Object> v = PanelJson.object(PanelJson.parse(json)); PanelJson.keys(v, "version", "development_usb"); PanelJson.integer(v.get("version"), 1, 1); PanelJson.bool(v.get("development_usb")); }
+        else if (name.equals(MOTION)) PanelWait.validateMotion(json);
         else if (name.equals(DRAFTS)) PanelDrafts.parse(json);
         else if (name.equals(UNITY_VIEWS)) PanelViewStore.validate(json);
         else if (name.equals(REQUEST_SENDS)) PanelRequestSends.parse(json);

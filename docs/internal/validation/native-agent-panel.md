@@ -344,3 +344,39 @@ protocol checks remain intact; no model, live host or device journey was run for
 These source/API checks do not establish Android view pixels or Horizon behavior. Native synthetic
 480/640 layout proof and actual secure Horizon foreground/paused/recreated journeys remain
 required, along with the final integrated gate and packaging.
+
+
+## 2026-10-15: Native restoration text shimmer
+
+The actual pending-restoration poll now calls an explicit loading-text method after the network
+read is admitted, not from the mere presence of Checking copy. Its Android TextView draws a
+translated LinearGradient through the letters using Glaze's 1.6-second period, 0.35 band and
+0.55 cosine lift toward white. The pure `PanelWait` math is consumed by the gradient colour/offset
+path. The text, layout and command authority do not change. Every ordinary setText clears the
+shader, including current success/failure messages; current poll completion also clears it before
+retention branches. Cancel network, focus/top loss, pause and detach stop animation. The existing
+bounded transport supplies the real timeout/error, without a fake percentage or completion event.
+
+A still wait uses Glaze's active foreground colour. Keep things still is mirrored from the actual
+Unity ComfortControls.Apply path through a dedicated JNI method into an exact versioned boolean
+record, `halcyonic-panel-motion.json`, at most32bytes. The existing no-follow app-private atomic
+writer performs file sync, rename and directory sync. It uses no credential file, permission or
+continuation. Unknown/corrupt/failed reads default to still. Movement additionally needs a successful
+mirror in this process; a direct native process launch never trusts a previous motion value alone.
+A failed write withdraws that process permission and attempts to remove the stale record. A later
+still choice withdraws permission before IO. Disabled system animations also keep the wait still.
+
+Official Android reference verified on2026-10-15:
+[ValueAnimator.areAnimatorsEnabled](https://developer.android.com/reference/android/animation/ValueAnimator#areAnimatorsEnabled())
+reports system-wide animator availability (API26), including duration-scale zero and battery saving;
+[LinearGradient](https://developer.android.com/reference/android/graphics/LinearGradient)
+documents the colour-stop shader and local matrix used here. Production and development sources
+compile against Android API36. Focused consumed JVM checks cover active versus idle wait, still/
+system-off/hidden suppression, motion through distinct phases, bounded lift, unknown preference
+fallback, and stop/restart/stop. A negative mutation removing stop fails that regression, then the
+restored source passes. The existing native suite passed90/90 with zero skips at the first source
+checkpoint; final focused wait/API compilation checks pass after the colour and fail-safe follow-up.
+Unity Editor and Android-symbol source compilation also pass. These checks establish source and
+lifecycle policy, not visible native pixels, real JNI preference storage or wearer acceptance.
+The native wait still needs an actual device observation while a permitted restoration read runs,
+including failure exit and the still preference.

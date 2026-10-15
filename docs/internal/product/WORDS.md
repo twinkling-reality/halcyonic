@@ -376,3 +376,9 @@ scope says Read this task and send instructions to this run. Assistant reply is 
 recorded action receipts show recorded outcomes separately. Cancel request stops the planner;
 the task may keep running. Back to task retains both local drafts. Unavailable assistant or
 connection state keeps the words and gives a concrete Refresh or reconnect route.
+
+
+The native panel says Checking your computer before restoring this view only for its restoration
+check. During the actual in-flight read its words shimmer, or stand highlighted under Keep things
+still or disabled system animations. Connection failure replaces that wait with the existing
+recovery message; the animation never changes a checking state into a success claim.

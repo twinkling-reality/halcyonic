@@ -482,3 +482,20 @@ and input focus before taking its first anchor. An unworn or untracked camera po
 placement. Later ordinary head/focus changes preserve the established composition and Move offset;
 this is not head-following UI. The source and remaining device checks are recorded in
 [initial workspace placement](../validation/initial-workspace-placement.md).
+
+
+### Native restoration wait
+
+The native panel's actual pending-restore connection check shimmers through its words, using the
+same 1.6-second sweep, 0.35 relative band and 0.55 lift toward white as Glaze. It changes no text,
+position or progress value. Ordinary status/error text stops the sweep and restores its normal
+colour; cancellation, focus/top loss, pause and detach stop it too. A finished or failed check
+cannot keep presenting an animated wait. This treatment marks a pending connection read, never
+agent execution or successful restoration.
+
+Keep things still, disabled system animations and unknown motion preferences show a steady active
+highlight instead. The Unity comfort setting mirrors only its motion choice into one tiny private
+native record; no credentials or continuation authority cross through that record. Native motion
+also requires a successful preference mirror in the current process, so a direct native launch
+with unknown settings remains still. No native loading shimmer hardware acceptance is claimed by
+source or JVM tests; evidence is in [native agent panel](../validation/native-agent-panel.md).
