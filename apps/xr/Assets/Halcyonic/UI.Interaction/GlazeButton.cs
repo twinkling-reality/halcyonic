@@ -69,7 +69,17 @@ namespace Halcyonic.XR.UI
     public sealed class GlazeButton : MonoBehaviour
     {
         /// <summary>The whole task action is a bounded control, instead of a separate icon cap.</summary>
-        public bool BoundedPrompt { get; set; }
+        private bool boundedPrompt;
+        public bool BoundedPrompt
+        {
+            get => boundedPrompt;
+            set
+            {
+                if (boundedPrompt == value) return;
+                boundedPrompt = value;
+                paintedState = -1;
+            }
+        }
 
         public const float HeightDegrees = Glaze.TargetDegrees;
 
