@@ -27,6 +27,8 @@ namespace UnityEngine
 namespace UnityEditor
 {
     public sealed class InitializeOnLoadAttribute : Attribute { }
+    // Unity also defines this legacy name; keep it present to catch ambiguous imports.
+    public sealed class PackageInfo { }
     public static class EditorApplication
     {
         public static event Action? quitting;

@@ -2,7 +2,6 @@
 using System;
 using System.Reflection;
 using UnityEditor;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace Halcyonic.XR.Editor
@@ -27,7 +26,7 @@ namespace Halcyonic.XR.Editor
                 if (wrapper == null) continue;
                 try
                 {
-                    var package = PackageInfo.FindForAssembly(assembly);
+                    var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(assembly);
                     var version = wrapper.GetField("ExpectedNativeVersion", BindingFlags.Public | BindingFlags.Static);
                     if (package?.name != "com.meta.xr.sdk.interaction" || package.version != "207.0.0"
                         || version?.IsLiteral != true || !Equals(version.GetRawConstantValue(), "1.207.0"))

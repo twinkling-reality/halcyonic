@@ -52,3 +52,13 @@ The next required proof is a single affected fixture in Unity with both assertio
 process exit 0, the shutdown-request marker, and absence of the matching native crash.
 Because the crash is intermittent, a clean exit alone cannot establish that the workaround caused it. Until that proof,
 the missing editor lifecycle shutdown is a grounded explanation and the remedy remains a hypothesis.
+
+## First Unity attempt
+
+The first actual Unity attempt stopped during script compilation before the fixture ran:
+`PackageInfo` was ambiguous between `UnityEditor.PackageInfo` and
+`UnityEditor.PackageManager.PackageInfo`. The initial stub test surface omitted the legacy
+`UnityEditor.PackageInfo`, so its successful compile did not catch this real editor API collision.
+The hook now fully qualifies the Package Manager type, and the test surface includes both names
+to prevent that regression. This correction has passed the managed tests; a corrected Unity run
+and native shutdown proof are still pending.
