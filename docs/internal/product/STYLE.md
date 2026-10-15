@@ -40,7 +40,9 @@ When the exact task's expanded main file shows its name, its character keeps the
 provenance marks without repeating the name on a second plaque. The title returns on Projects,
 minimize, focus loss, details without that identity, or another task. The full label's conservative
 placement envelope stays reserved, so this presentation change does not move the shelf or reduce
-clearance. Zero-character use remains complete.
+clearance. With the duplicated title plaque absent, the task connector leaves the character's
+body top and joins its named heading; both the drag predictor and rendered line use that same
+rule. It must cross no body or label. Zero-character use remains complete.
 
 ## The plane
 

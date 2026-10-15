@@ -233,6 +233,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         || !shown.View.Label.Badge.gameObject.activeInHierarchy || !shown.View.Label.Tags.All(tag => tag.gameObject.activeInHierarchy))
                         failures.Add("spatial: expanded exact task must share its title while retaining character state/provenance");
                     if (director.Plane.LightLine == null) failures.Add("spatial: selected real character has no actual work-file connection");
+                    if (director.Plane.LightLine is (Vector3 fromCharacter, Vector3 _) && Vector3.Distance(fromCharacter,
+                        shown.Target.BodyPosition + Vector3.up * (CharacterView.BodyExtent * shown.Target.Scale)) > 0.0001f)
+                        failures.Add("spatial: shared task identity connector did not start at the actual character body");
                     var retainedFile = selectedFile;
                     var staleFrame = director.Plane.Showing(MenuColumn.File);
                     void Click(GlazeButton button, int pointer)
@@ -365,6 +368,25 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var obstacle in new[] { label, bodyExtent })
                     if (GlazeChecks.OutlineApart(chrome, eyes, obstacle) < GlazeChecks.GapDegrees - 0.01f)
                         failures.Add(name + ": work object or controls overlap the actual character");
+            }
+            if (plane.LightLine is (Vector3 from, Vector3 to))
+            {
+                foreach (var character in characters.Where(character => character.View.gameObject.activeInHierarchy))
+                {
+                    var label = MenuPlane.LabelOutline(character.View);
+                    var bodyExtent = BodyExtent(character.View, eyes);
+                    for (var step = 1; step < 40; step++)
+                    {
+                        var at = Vector3.Lerp(from, to, step / 40f);
+                        var point = at - eyes;
+                        var across = Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg;
+                        var up = Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg;
+                        var onBody = across >= bodyExtent.Left && across <= bodyExtent.Right && up >= bodyExtent.Bottom && up <= bodyExtent.Top;
+                        if (!onBody && !MenuPlane.OnLabel(label, eyes, at)) continue;
+                        failures.Add(name + ": task connector crosses a character or its label");
+                        break;
+                    }
+                }
             }
             if (!view.Footer.Fits) failures.Add(name + ": current frame actions do not fit");
             if (ViewField.Current is ViewField field) {
