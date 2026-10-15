@@ -240,13 +240,14 @@ namespace Halcyonic.Client
             }
 
             var lines = new List<PageLine>();
-            if (screen.ShowTaskHereOffered) lines.Add(new PageLine("Show this task here", icon: GlazeIcon.Next, action: ShowTaskHere, opens: true, rows: screen.ShowTaskHereRows));
+            var utilityLines = new List<PageLine>();
+            if (screen.ShowTaskHereOffered) utilityLines.Add(new PageLine("Show this task here", icon: GlazeIcon.Next, action: ShowTaskHere, opens: true, rows: screen.ShowTaskHereRows));
             if (screen.WorkspaceRequestOffered && workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true)
-                lines.Add(new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true, rows: screen.WorkspaceRequestRows));
+                utilityLines.Add(new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true, rows: screen.WorkspaceRequestRows));
             if (screen.ResultsOffered && workspace.Execution != null)
-                lines.Add(ReadResultsLine(screen.ResultsRows));
+                utilityLines.Add(ReadResultsLine(screen.ResultsRows));
             if (screen.CharacterColourOffered)
-                lines.Add(new PageLine("Character colour", icon: GlazeIcon.Next, action: OpenCharacterColour, opens: true, rows: screen.CharacterColourRows));
+                utilityLines.Add(new PageLine("Character colour", icon: GlazeIcon.Next, action: OpenCharacterColour, opens: true, rows: screen.CharacterColourRows));
             var waiting = WorkspaceText.SomethingWaits(workspace);
             var tone = waiting ? LineTone.Waiting : workspace.Character.AttentionNotes.Count > 0 ? LineTone.Problem : LineTone.Primary;
             lines.AddRange(Doing(workspace, tone));
@@ -255,6 +256,11 @@ namespace Halcyonic.Client
                 lines.Add(new PageLine(why, tone: LineTone.Secondary, rows: 2));
             }
             if (workspace.Commands.FirstOrDefault() is { } sent) lines.Add(new PageLine(sent.Text, wordsAreData: true, tone: LineTone.Secondary, waits: sent.Waits));
+            // Utility routes are not activity. A task with no recorded events still says so,
+            // before its optional routes, instead of silently presenting an action directory.
+            if (lines.Count == 0 && workspace.Activity.Count == 0 && string.IsNullOrWhiteSpace(screen.ActivityNote))
+                lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
+            lines.AddRange(utilityLines);
             var used = lines.Sum(line => line.Rows);
             var activity = workspace.Activity;
             var fits = Math.Max(0, room.Rows - used);
@@ -288,7 +294,7 @@ namespace Halcyonic.Client
                     : new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary));
             }
             if (lines.Count == 0) lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
-            return new Page(lines, source, normal);
+            return new Page(lines.Where(line => !utilityLines.Contains(line)).Concat(utilityLines).ToArray(), source, normal);
         }
 
         /// <summary>

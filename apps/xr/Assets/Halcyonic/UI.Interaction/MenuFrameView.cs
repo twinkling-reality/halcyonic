@@ -998,8 +998,9 @@ namespace Halcyonic.XR.UI
             var footerMiddle = -top + U(1f) + FooterView.Height / 2f;
             // Hold to talk shows where the voice stands, the same in every column (Footer.Voiced).
             var prompts = frame?.Footer ?? carried ?? SidePanel.Footer;
-            footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle);
+            footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle, unboxedIcons: SpatialWorkspace);
             // A faint line between the page and its footer, too faint to mark anything.
+            footerLine.gameObject.SetActive(!SpatialWorkspace);
             footerLine.Draw(new Vector2(width - 2f * U(1f), U(0.05f)), 0f, new Color(1f, 1f, 1f, 0.09f));
             footerLine.transform.localPosition = new Vector3(0f, footerMiddle + FooterView.Height / 2f + TargetGap / 2f, -U(0.02f));
             // The light ends within the top padding, above the first row: a row looks lit only when chosen.
@@ -1344,10 +1345,10 @@ namespace Halcyonic.XR.UI
             subjectPlate.gameObject.SetActive(false);
             content.gameObject.SetActive(false);
             foreach (var sectionView in sections) sectionView.Shape.gameObject.SetActive(false);
-            // One uninterrupted reading plane: identity, sections and content belong to the
-            // same work. The chrome owns the translucent carrier behind this opaque region.
+            // Chrome's one coated face includes this task and its context. No opaque poster
+            // or independent title/tab surface sits on a second clear carrier.
             subjectPlate.gameObject.SetActive(false);
-            unifiedPlate.Draw(new Vector2(width - 0.008f, total), U(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
+            unifiedPlate.Draw(Vector2.zero, 0f, Color.clear);
             unifiedPlate.transform.localPosition = Vector3.zero;
             unifiedBacking.gameObject.SetActive(false);
         }

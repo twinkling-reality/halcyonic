@@ -21,6 +21,7 @@ namespace Halcyonic.XR.UI
         private readonly Prompt?[] shown = new Prompt?[Slots];
         private readonly GlazeShimmer?[] shimmers = new GlazeShimmer?[Slots];
         private int order;
+        private bool unboxedIcons;
 
         /// <summary>A prompt was pressed: its id says what to do.</summary>
         public event Action<Prompt>? Pressed;
@@ -74,9 +75,10 @@ namespace Halcyonic.XR.UI
         /// Shows <paramref name="footer"/> on the row at <paramref name="middle"/>, between the content
         /// lines at <paramref name="left"/> and <paramref name="right"/>, in its parent's units.
         /// </summary>
-        public void Show(Footer footer, float left, float right, float middle)
+        public void Show(Footer footer, float left, float right, float middle, bool unboxedIcons = false)
         {
             Showing = footer;
+            this.unboxedIcons = unboxedIcons;
             var margin = GlazeTokens.Units(Glaze.Menu.PromptMarginDegrees);
             var gap = Glaze.TargetGapMeters / Glaze.Menu.PlaneMeters;
             var widths = new float[Slots];
@@ -151,7 +153,7 @@ namespace Halcyonic.XR.UI
         private void Stand(PromptSlot slot, float center, float middle, float width)
         {
             var prompt = shown[(int)slot]!;
-            Button((int)slot).ShowPrompt(prompt.Words, prompt.Icon, new Vector2(center, middle), width, prompt.DrawnAsMain);
+            Button((int)slot).ShowPrompt(prompt.Words, prompt.Icon, new Vector2(center, middle), width, prompt.DrawnAsMain, framedIcon: !unboxedIcons || prompt.DrawnAsMain || prompt.Listens);
         }
 
         private GlazeButton Button(int index)

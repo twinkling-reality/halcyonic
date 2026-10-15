@@ -12,7 +12,7 @@ Shader "Halcyonic/Glaze Surface"
         _Edge ("Edge, straight alpha", Color) = (0, 0, 0, 0)
         _Shape ("Width, height, corner radius and edge width", Vector) = (1, 1, 0.1, 0)
         _Pattern ("Dash period and duty, halftone pitch and dot radius", Vector) = (0, 0, 0, 0)
-        _Physical ("Optical carrier enabled, reserved, reflection strength, rim", Vector) = (0, 0, 0, 0)
+        _Physical ("Coated instrument enabled, reserved, reflection strength, rim", Vector) = (0, 0, 0, 0)
         _Glass ("Glow opacity and reach, sheen opacity and width", Vector) = (0, 0, 0, 0)
     }
 
@@ -190,14 +190,11 @@ Shader "Halcyonic/Glaze Surface"
                     // Strong reflection belongs to the curved mesh, never a uniformly lit outline.
                     // An analytic near-frontal softbox reflected in the face, not a screen-attached
                     // gradient. Reflected eye rays vary across this fixed world surface and with lean.
-                    // This light is visible only where an opaque foreground reading region is absent.
+                    // The same opaque material carries reading and reflected light. At .025
+                    // maximum linear lift, ordinary secondary words retain their authored budget.
                     float softbox = instrumentSoftbox(view, normal);
-                    float faceSheen = saturate(physical.z / 0.10) * softbox;
-                    // The carrier genuinely transmits empty gutters. Reflection raises opacity
-                    // with its light; the foreground reading regions occlude this whole path.
-                    float reflected = faceSheen * 0.22;
-                    color = lerp(color, float3(0.78, 0.80, 0.78), reflected);
-                    alpha = lerp(alpha, 1.0, reflected);
+                    float faceSheen = saturate(physical.z / 0.10) * softbox * 0.025;
+                    color += float3(0.98, 1.0, 0.98) * faceSheen;
                 }
                 return float4(color, alpha) * cover;
             }

@@ -46,22 +46,27 @@ rule. It must cross no body or label. Zero-character use remains complete.
 
 ## Instrument material candidate — 2026-10-15
 
-The fourth comparison's repeated bevelled rectangles was rejected. The spatial candidate now
-places one quiet, translucent smoked carrier behind the existing composition footprint. It adds
-no surrounding window controls or visible outer frame. A task's identity, sections and reading
-body share one continuous opaque reading region slightly in front of that carrier. Context and
-global controls have subordinate opaque supports fitted to their complete semantic word groups.
-They have no independent physical edges or outlines. The legacy rule below that each part owns
-its own rounded shape does not apply to this spatial composition.
+The separate bevelled cards and the later clear carrier/opaque-poster comparison were both
+rejected. The spatial candidate now gives context, named identity, sections and reading body
+one continuous opaque coated face. Its own thin inward edge has real bounded thickness; a neutral
+virtual studio source reflects across the actual reading face as the eye moves. Its peak lift
+is0.025 linear luminance, with every visible task/chrome word and icon still subject to actual
+whole-bounds and resolved-ink4.5:1 checks. This is an opaque optical coating, without room
+reflection, refraction, blur or transmitted-passthrough claims. There is no clear surrounding
+carrier, bright empty band, periodic face texture or independent internal material rim.
 
-The carrier's bounded thickness and reflected-eye studio light are visible in empty margins and
-gutters. Those areas genuinely transmit the background; no full opaque rear plate defeats them.
-Opaque foreground reading supports shield words from that light and environmental contrast loss.
-This is an alpha-transmission/analytic-reflection model, without scene blur, refraction or captured
-room lighting. The selected Task/Project caption uses primary strong text after an actual resolved
-ink contrast failure; all words retain the4.5:1 check. The focused task's Projects icon remains
-beside its words without a circular cap; its target and layout stay fixed. Other prompt caps keep
-their semantics. The neutral palette remains fixture-only, without a saved-key or default change.
+The global utility dock is separate, quiet and fitted to its complete semantic group. The full
+existing geometry/input allocation, character pose and connector ownership remain intact. The
+legacy rule below that each part owns its own rounded shape does not apply to this spatial
+composition. Activity records or its truthful "No recorded activity yet." state precede utility
+routes such as Ask workspace and Read results. A utility route does not count as recorded activity;
+an agent's event keeps its existing provenance and styling. No progress is invented to fill space.
+
+The selected Task/Project caption uses primary strong text after an actual resolved-ink contrast
+failure. The focused task's Projects icon and ordinary spatial footer prompts retain their icon/text
+layout and target without a circular cap. Main filled and listening caps retain their meanings;
+the spatial footer has no subpixel decorative divider.
+The neutral palette comparison and saved-preset adoption are separate from this material change.
 Actual negative controls, selected-character context and acceptance requirements are recorded in
 [instrument material validation](../validation/instrument-material-study.md).
 
