@@ -106,6 +106,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!director.PressForRender(MenuColumn.File, FileScreens.TellIt, null, frame, null) || typed == null)
                     throw new InvalidOperationException("actual task instruction input did not open");
                 const string draft = "Keep this synthetic local draft through head movement.";
+                void Retained(string transition)
+                {
+                    if (sends != 0) failures.Add(transition + ": synthetic submission count is " + sends);
+                    if (file!.Steering.Armed != null) failures.Add(transition + ": steering is armed");
+                    if (file.Screen.Instruction.Words != draft) failures.Add(transition + ": exact synthetic draft differs (length " + file.Screen.Instruction.Words.Length + ")");
+                }
                 var keyboardAnchor = director.Plane.Chrome.transform.position;
                 looking = Quaternion.Euler(0, 80, 0) * Vector3.forward; Rest();
                 if (director.FollowingForRender || Vector3.Distance(keyboardAnchor, director.Plane.Chrome.transform.position) > 0.0001f)
@@ -123,15 +129,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     || Quaternion.Angle(initialRotation, director.Plane.Chrome.transform.rotation) > 0.01f)
                     failures.Add("ordinary small head turns/leans chased the reading object");
                 var stale = director.Plane.Showing(MenuColumn.File)!;
+                Retained("before pointer selection");
                 var send = director.Plane.GetComponentsInChildren<GlazeButton>(false).Single(button => button.Label.text == "Send instruction");
                 send.SettleForRender(); send.Target.PointerForRender(612, Oculus.Interaction.PointerEventType.Select, send.transform.position);
+                Retained("immediately after pointer selection, before head movement");
                 for (var step = 1; step <= 8; step++) { looking = Quaternion.Euler(0, step * 10, 0) * Vector3.forward; Tick(); }
-                var began = false;
+                var began = false; var recoveryDiagnosed = false;
                 for (var step = 0; step < 40; step++)
                 {
                     Tick(redraw: true); // Identical passive redraws must not keep restarting the slide.
                     if (!director.FollowingForRender) continue;
                     began = true;
+                    if (!recoveryDiagnosed) { Retained("first recovery frame"); recoveryDiagnosed = true; }
                     if (director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, stale, null)
                         || director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, director.Plane.Showing(MenuColumn.File), null)
                         || director.Plane.Shown.Any(shown => shown.View.Targets.Any(button => button.Accepting()))
@@ -141,15 +150,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!began || director.FollowingForRender || director.Plane.Repositioning || director.Plane.Sliding)
                     failures.Add("yaw recovery never began or failed to settle under repeated passive redraws");
                 send.Target.PointerForRender(612, Oculus.Interaction.PointerEventType.Unselect, send.transform.position);
-                if (sends != 0 || file!.Steering.Armed != null || file.Screen.Instruction.Words != draft)
-                    failures.Add("a stale press survived movement, or the exact retained draft was lost");
+                Retained("after settled stale release");
                 Shot("02-yaw-recovered");
                 var beforeTranslation = director.Plane.Eyes;
                 for (var step = 1; step <= 8; step++) { eyes = new Vector3(0.03f + step * 0.05f, EyeHeight, 0); Tick(); }
                 Rest();
                 if (Vector3.Distance(director.Plane.Eyes, beforeTranslation) < 0.15f || Vector3.Distance(director.Plane.Eyes, eyes) > 0.001f
                     || director.FollowingForRender) failures.Add("translation recovery did not establish and settle at the current head position");
-                if (file.Screen.Instruction.Words != draft || sends != 0) failures.Add("translation recovery changed the retained draft or submitted work");
+                Retained("after translation recovery");
                 Shot("03-translation-recovered");
                 var settled = director.Plane.Chrome.transform.position;
                 ready = false; looking = Quaternion.Euler(0, 160, 0) * Vector3.forward; Rest();
@@ -183,8 +191,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     || fixedTarget.BodyPosition != placedBody || fixedView.transform.position != placedRoot)
                     failures.Add("blocked recovery moved content into a character or changed the explicit character placement");
                 presentation.SetAgentsEnabled(false); fixedView.gameObject.SetActive(false); Rest(); Shot("07-clear-anchor-after-character-hidden");
-                if (fixedView.transform.position != placedRoot || file.Screen.Instruction.Words != draft || sends != 0)
-                    failures.Add("safe recovery changed the placed character or retained draft, or sent work");
+                if (fixedView.transform.position != placedRoot) failures.Add("safe recovery changed the placed character");
+                Retained("after safe recovery");
                 // Deliberately place the selected task's real character safely beside the next anchor.
                 fixedView.gameObject.SetActive(true); fixedView.Grounded = true;
                 fixedView.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
