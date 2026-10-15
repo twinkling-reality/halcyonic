@@ -404,6 +404,7 @@ namespace Halcyonic.XR.Workspace
 
         private void ReflowFiles()
         {
+            if (navigator.Shown is ProjectsColumn projects) projects.Reflow();
             foreach (var pair in memory.Files.ToList())
                 if (memory.Files.TryGetValue(pair.Key, out var kept) && kept == pair.Value && kept is FileColumn file) file.Reflow();
         }
