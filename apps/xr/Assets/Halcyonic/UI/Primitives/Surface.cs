@@ -73,7 +73,7 @@ namespace Halcyonic.XR.UI
         private float rimDepth;
         private const float Thickness = 0.006f; // In distance units: 2.8 mm at the normal 0.46 m plane.
         public float MaterialDepth => physical ? Thickness : 0f;
-        public bool OpticalCarrier => physical;
+        public bool CoatedInstrument => physical;
         public MeshRenderer? MaterialRim => physical ? rim : null;
 #if UNITY_EDITOR
         /// <summary>Same face and geometry allocation, without physical edge, for a negative render control.</summary>
@@ -128,12 +128,11 @@ namespace Halcyonic.XR.UI
         public void Draw(Vector2 size, float radius, Color fill, Color edge = default, float edgeWidth = 0f, float dash = 0f, float halftone = 0f)
         { physical = false; Shape(size, radius, fill, edge, edgeWidth, dash, halftone, Vector4.zero); }
 
-        /// <summary>A single translucent carrier behind independently opaque reading regions.
-        /// Empty margins really transmit the background; no opaque rear plate is added here.</summary>
-        public void DrawOpticalCarrier(Vector2 size, float radius, Color fill)
+        /// <summary>One opaque coated reading face with bounded reflected light and real inward thickness.</summary>
+        public void DrawCoatedInstrument(Vector2 size, float radius, Color fill)
         {
             physical = true;
-            fill.a = 0.26f;
+            fill.a = 1f;
             Shape(size, radius, fill, Color.clear, 0f, 0f, 0f, Vector4.zero);
         }
 
@@ -225,7 +224,7 @@ namespace Halcyonic.XR.UI
                 rim.GetComponent<MeshFilter>().sharedMesh = rimMesh;
             }
             var properties = rimBlock ??= new MaterialPropertyBlock();
-            properties.SetVector(FillId, Linear(GlazeTokens.ColorOf(Glaze.Raised, 0.45f), opacity));
+            properties.SetVector(FillId, Linear(GlazeTokens.ColorOf(Glaze.Raised), opacity));
             properties.SetVector(PhysicalId, new Vector4(1f, 0f, 0.10f * opacity, 1f));
             rim.SetPropertyBlock(properties);
         }
