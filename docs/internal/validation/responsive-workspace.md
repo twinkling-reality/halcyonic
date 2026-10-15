@@ -29,6 +29,18 @@ redraws, still/slide preferences, current-head front-field corners, target/text 
 draft text and pending keyboard callback, stale press release and not-ready input negatives. It restores static renderer state,
 destroys its synthetic scene, and starts no transport or real command. It has not yet executed.
 
+The first actual editor run failed twelve composite draft/submission assertions and exited 134
+during native shutdown; it is not a clean process result. Source review found the fixture selected
+the ordinary Send instruction button before movement. Ordinary buttons activate on Select, so that
+reachable action submitted the synthetic draft before recovery began. This is a fixture error,
+not evidence that production recovery lost words. Diagnostic checks now name submission count,
+armed steering and exact synthetic draft mismatch separately at each transition. The corrected
+trace begins recovery without selecting Send, selects the retained old button while repositioning
+has revoked authority, and releases only after settling. It requires no submission and unchanged
+words both after denied selection and after release. It does not manufacture a held ordinary
+button or claim that a permitted Send selection should be cancelled retroactively. The corrected
+actual run remains pending; device and wearer outcomes remain unverified.
+
 ## Required actual acceptance
 
 Run both reading sizes and both motion preferences. Confirm recovery enters the current front field,
