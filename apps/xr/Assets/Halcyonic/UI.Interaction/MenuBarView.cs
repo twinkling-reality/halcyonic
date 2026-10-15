@@ -27,6 +27,7 @@ namespace Halcyonic.XR.UI
         private StateBadgeView badge = null!;
         public StateBadgeView Badge => badge;
         public TextMeshPro WaitingCount => state;
+        public TextMeshPro RetainedIdentity => line;
         private readonly List<Surface> identityGrounds = new List<Surface>();
         private Vector2 size;
         private float shown = 1f;
@@ -92,42 +93,50 @@ namespace Halcyonic.XR.UI
         {
             controls.Bind(compactBinding ?? (object)bar);
             gameObject.SetActive(true);
-            size = new Vector2(PlaneComposition.Units(columnDegrees), Height);
+            var width = PlaneComposition.Units(columnDegrees);
+            var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
+            var portraitWidth = taskPortrait != null ? MenuFrameView.PortraitWidth : 0f;
+            var left = -width / 2f + padding + (taskPortrait != null ? portraitWidth + MenuPage.TargetGap : 0f);
+            var right = width / 2f - padding;
+            var identityRoom = right - left - OrganizationControlsView.Width(compact: true) - MenuPage.TargetGap;
+            badge.gameObject.SetActive(status != null);
+            if (status != null) badge.Show(status);
+            state.gameObject.SetActive(waitingCount > 0);
+            if (waitingCount > 0) GlazeText.SetLiteral(state, waitingCount + " waiting");
+            var countWidth = waitingCount > 0 ? state.GetPreferredValues().x : 0f;
+            var statusWidth = status != null ? badge.Width : 0f;
+            var statusRoom = right - left;
+            var countBelow = status != null && waitingCount > 0 && statusWidth + MenuPage.Grid + countWidth > statusRoom;
+            var statusHeight = Mathf.Max(MenuPage.Words(1), status != null ? StateBadgeView.PillHeight : 0f);
+            var extra = status != null || waitingCount > 0
+                ? statusHeight + 2f * MenuPage.Grid + (countBelow ? MenuPage.Words(1) + MenuPage.Grid : 0f) : 0f;
+            size = new Vector2(width, Height + extra);
             shape.DrawCoatedInstrument(size, GlazeTokens.Units(0.6f), GlazeTokens.ColorOf(Glaze.Panel));
             var edgeWidth = GlazeTokens.Units(0.4f);
             identityEdge.DrawCoatedInstrument(new Vector2(edgeWidth, size.y - MenuPage.Grid), edgeWidth / 3f, GlazeTokens.ColorOf(Glaze.Palette.Raised));
             identityEdge.transform.localPosition = new Vector3(-size.x / 2f + edgeWidth / 2f, 0f, -0.0005f);
-            var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
-            var portraitWidth = taskPortrait != null ? MenuFrameView.PortraitWidth : 0f;
+            var identityY = size.y / 2f - Height / 2f;
             if (taskPortrait != null)
-                portrait.Show(taskPortrait, portraitHue, new Vector2(-size.x / 2f + padding + portraitWidth / 2f, 0f),
-                    new Vector2(portraitWidth, size.y - 2f * MenuPage.Grid));
+                portrait.Show(taskPortrait, portraitHue, new Vector2(-width / 2f + padding + portraitWidth / 2f, identityY),
+                    new Vector2(portraitWidth, Height - 2f * MenuPage.Grid));
             else portrait.Hide();
-            var left = -size.x / 2f + padding + (taskPortrait != null ? portraitWidth + MenuPage.TargetGap : 0f);
-            var right = size.x / 2f - padding;
-            controls.Show(right, 0f, compact: true);
-            var room = right - left - OrganizationControlsView.Width(compact: true) - MenuPage.TargetGap;
+            controls.Show(right, identityY, compact: true);
             var words = identity ?? LineWords.Ours(bar.ClosedLine);
-            var theirs = GlazeRuns.Of(line).Set(words, _ => true);
-            GlazeText.Lay(line, room, 1);
-            line.transform.localPosition = new Vector3(left, status == null && waitingCount == 0 ? 0f : -GlazeText.LineHeight(line) / 2f, -GlazeTokens.Units(0.05f));
+            var theirs = GlazeRuns.Of(line).Set(words, tried => line.GetPreferredValues(tried).x <= identityRoom);
+            GlazeText.Lay(line, identityRoom, 1);
+            line.transform.localPosition = new Vector3(left, identityY, -GlazeTokens.Units(0.05f));
             GlazeRuns.TokenGrounds(line, theirs, identityGrounds, transform, Order + 1);
-            badge.gameObject.SetActive(status != null);
-            var statusY = GlazeText.LineHeight(line) / 2f;
-            var countLeft = left;
-            if (status != null)
-            {
-                badge.Show(status);
-                badge.transform.localPosition = new Vector3(left + badge.Width / 2f, statusY, -GlazeTokens.Units(0.05f));
-                countLeft += badge.Width + GlazeTokens.Units(Glaze.Menu.GridDegrees);
-            }
-            state.gameObject.SetActive(waitingCount > 0);
+            var statusY = size.y / 2f - Height - MenuPage.Grid - statusHeight / 2f;
+            if (status != null) badge.transform.localPosition = new Vector3(left + badge.Width / 2f, statusY, -GlazeTokens.Units(0.05f));
             if (waitingCount > 0)
             {
                 state.color = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground);
-                GlazeText.SetLiteral(state, waitingCount + " waiting");
-                GlazeText.Lay(state, left + room - countLeft, 1);
-                state.transform.localPosition = new Vector3(countLeft, statusY, -GlazeTokens.Units(0.05f));
+                // Status owns the full lower band, including the space below Open workspace.
+                // A count takes another readable line only when their actual widths require it.
+                var countLeft = countBelow || status == null ? left : left + statusWidth + MenuPage.Grid;
+                GlazeText.Lay(state, right - countLeft, 1);
+                state.transform.localPosition = new Vector3(countLeft, countBelow ? statusY - statusHeight / 2f - MenuPage.Grid - MenuPage.Words(1) / 2f : statusY,
+                    -GlazeTokens.Units(0.05f));
             }
         }
 
