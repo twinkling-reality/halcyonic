@@ -777,7 +777,7 @@ namespace Halcyonic.XR.Workspace
                 if (character != null && character.View != null && character.gameObject.activeInHierarchy)
                     seen.Add((WorkspaceLayout.InView(character, viewer), LabelOutline(character.View), character == fileOf));
             if (!WorkspacePlacement.Clears(at, seen.Select(item => item.Body).ToList(), Composition.Size)) return false;
-            return !(LineAt(Composition, at, viewer) is (Vector3 from, Vector3 to)) || !CrossesAt(from, to, viewer, seen, includeOwn: true);
+            return !(LineAt(Composition, at, viewer, seen, includeOwn: true) is (Vector3 from, Vector3 to)) || !CrossesAt(from, to, viewer, seen, includeOwn: true);
         }
 
         /// <summary>A part at its place at once, any slide it had dropped, allocating nothing: a drag moves it every frame.</summary>
@@ -849,7 +849,8 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>The light line as it would run with <paramref name="composition"/> centred at <paramref name="at"/>, as <see cref="UpdateLightLine"/> draws it; null with none.</summary>
-        private (Vector3 From, Vector3 To)? LineAt(PlaneComposition composition, PanelDirection at, Vector3? viewer = null)
+        private (Vector3 From, Vector3 To)? LineAt(PlaneComposition composition, PanelDirection at, Vector3? viewer = null,
+            IReadOnlyList<(BodyInView Body, (Transform Plate, Rect Covered) Label, bool Own)>? obstacles = null, bool includeOwn = false)
         {
             if (fileOf == null || lineTo == null || lineColumn < 0) return null;
             PlanePart? first = null;
@@ -869,17 +870,17 @@ namespace Halcyonic.XR.Workspace
             if (fileOf.View.Label.IdentityInWorkspace)
             {
                 var top = fileOf.RestPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
-                return ClearJoin(top, top, Point(subject, -half, lineTo.PlateTop), Point(subject, half, lineTo.PlateTop));
+                return ClearJoin(top, top, Point(subject, -half, lineTo.PlateTop), Point(subject, half, lineTo.PlateTop), viewer, obstacles, includeOwn);
             }
             if (at.Above)
             {
                 var top = fileOf.RestPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
                 var bottom = -lineTo.Content.Size.y / 2f;
-                return ClearJoin(top, top, Point(content, -half, bottom), Point(content, half, bottom));
+                return ClearJoin(top, top, Point(content, -half, bottom), Point(content, half, bottom), viewer, obstacles, includeOwn);
             }
             var (plate, covered) = OwnLabel();
             return ClearJoin(plate.TransformPoint(new Vector3(-0.5f, covered.yMin, 0f)), plate.TransformPoint(new Vector3(0.5f, covered.yMin, 0f)),
-                Point(subject, -half, lineTo.PlateTop), Point(subject, half, lineTo.PlateTop));
+                Point(subject, -half, lineTo.PlateTop), Point(subject, half, lineTo.PlateTop), viewer, obstacles, includeOwn);
         }
 
         /// <summary>The file's own character's label, as seen when the plane was laid.</summary>
@@ -908,9 +909,11 @@ namespace Halcyonic.XR.Workspace
                 {
                     var (body, label, own) = obstacles[index];
                     if (OnLabel(label, viewer, point)) return true;
-                    // The file's own body is where the line starts over a desk, so only the others count.
-                    if ((includeOwn || !own) && Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees
-                        && Mathf.Abs(up - body.Elevation) <= body.Radius + LineMarginDegrees) return true;
+                    // The own-body connector attaches at its silhouette; apply no extra halo there.
+                    // Actual own-body penetration still fails, while other bodies retain their margin.
+                    var margin = own && includeOwn ? 0f : LineMarginDegrees;
+                    if ((includeOwn || !own) && Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + margin
+                        && Mathf.Abs(up - body.Elevation) <= body.Radius + margin) return true;
                 }
             }
             return false;
@@ -1183,7 +1186,7 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void Join(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight)
         {
-            var (from, to) = ClearJoin(labelLeft, labelRight, plateLeft, plateRight);
+            var (from, to) = ClearJoin(labelLeft, labelRight, plateLeft, plateRight, includeOwn: true);
             line.gameObject.SetActive(true);
             line.SetPosition(0, from);
             // Drawn from the character's end as far as it has come.
@@ -1191,17 +1194,20 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Choose measured edge endpoints that clear every current label and body, without moving the workspace.</summary>
-        private (Vector3 From, Vector3 To) ClearJoin(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight)
+        private (Vector3 From, Vector3 To) ClearJoin(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight,
+            Vector3? viewer = null, IReadOnlyList<(BodyInView Body, (Transform Plate, Rect Covered) Label, bool Own)>? obstacles = null, bool includeOwn = false)
         {
-            var nearest = Joined(labelLeft, labelRight, plateLeft, plateRight);
-            if (!Crosses(nearest.From, nearest.To)) return nearest;
+            var eye = viewer ?? eyes; var occupied = obstacles ?? standing;
+            bool Hits(Vector3 from, Vector3 to) => CrossesAt(from, to, eye, occupied, includeOwn);
+            var nearest = Joined(labelLeft, labelRight, plateLeft, plateRight, eye);
+            if (!Hits(nearest.From, nearest.To)) return nearest;
             for (var start = 0; start <= 4; start++)
             {
                 var from = Vector3.Lerp(labelLeft, labelRight, start / 4f);
                 for (var end = 0; end <= 4; end++)
                 {
                     var to = Vector3.Lerp(plateLeft, plateRight, end / 4f);
-                    if (!Crosses(from, to)) return (from, to);
+                    if (!Hits(from, to)) return (from, to);
                 }
             }
             // Preserve the visible failing geometry if there is no valid straight path; do not conceal it.
@@ -1209,9 +1215,10 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>The light line's two ends between the label's edge and the plate's: straight across from the middle of their overlap, as the eyes see them, else their nearer ends.</summary>
-        private (Vector3 From, Vector3 To) Joined(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight)
+        private (Vector3 From, Vector3 To) Joined(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight, Vector3? viewer = null)
         {
-            float Across(Vector3 point) => Mathf.Atan2(point.x - eyes.x, point.z - eyes.z) * Mathf.Rad2Deg;
+            var eye = viewer ?? eyes;
+            float Across(Vector3 point) => Mathf.Atan2(point.x - eye.x, point.z - eye.z) * Mathf.Rad2Deg;
             Vector3 At(Vector3 left, Vector3 right, float across) => Vector3.Lerp(left, right, Mathf.InverseLerp(Across(left), Across(right), across));
             var overlapLeft = Mathf.Max(Across(labelLeft), Across(plateLeft));
             var overlapRight = Mathf.Min(Across(labelRight), Across(plateRight));
