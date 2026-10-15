@@ -3227,3 +3227,15 @@ name, fully wrapped summary and target spacing, rather than spending the legacy 
 budget per project. Typical projects can share a page; taller summaries consume their actual
 height. Core-only/legacy callers retain the conservative logical-row fallback. The renderer
 retains target, text and field checks at both reading sizes.
+
+When Projects has a physical line-height provider, a missing/zero/negative/non-finite page budget,
+invalid row metric, or complete row/heading-and-first-folder group larger than that budget fails
+closed to the literal local explanation **Move the workspace to make room for projects.** Only
+Close remains in that frame. No project, folder, creation, paging or selected-detail action is
+exposed or accepted from the recovery view. The existing global Move route is unchanged. Projects
+retains the full outside names, remembered choice and page in local state; reflow after moving the
+workspace can restore the exact selected project's normal details. It never shortens a source name
+or drops an oversized row merely to make pagination pass. Logical row fallback remains only when
+no physical provider was supplied. Focused screen/column regressions cover invalid and tiny
+budgets/costs, indivisible groups, stale actions during recovery, and selection-preserving reflow;
+these source/core checks do not claim headset visual acceptance.
