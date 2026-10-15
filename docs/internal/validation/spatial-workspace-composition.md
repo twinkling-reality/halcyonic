@@ -198,3 +198,26 @@ limits are detailed in [material validation](instrument-material-study.md#final-
 These are controlled composition and interaction-geometry results, not a new APK/device result or
 wearer approval. The compact header visibly reduces the context gap, while the perceived flatness,
 selected character's contextual relationship and comfort remain experience questions.
+
+
+## Development artifact and installation checkpoint — 2026-10-15
+
+The development build of warm source `a6268310dd5172a47dc747997c5bfc4271d1a7f4` completed with
+clean exit0 (coated-final-development-build.log). Its production code and fixtures are the
+source-equivalent integration candidate `1e02c11897d120352cbf66f1829a16575146b478`; the later
+`cef8e9a9` change adds validation documentation only. The archived Halcyonic.apk under
+apks-1e02c118 is117,733,103 bytes, with SHA-256:
+
+`067c1518b4e34e565a8f88309e02ed75ffe4ad27d52a616184e36f22997a4552`
+
+The development APK audit passed its manifest, native-class, signature and bundled font-license
+checks. The device accepted the replacement install, and an independent hash of the installed
+base APK exactly matched the archived artifact above. These observations establish build,
+specified artifact checks and installation of that exact binary; they do not establish a live
+connection, preference behavior or task/runtime execution.
+
+The launch command was accepted, but at this checkpoint the headset was asleep and no running
+process had yet been observed. Successful startup, first frame, live-stage readiness and wearer
+review therefore remain unproven in this record. The prior installed revision's wearer rejection
+and the final editor gates remain separate evidence. Installation is not aesthetic, material,
+readability or motion-comfort acceptance.
