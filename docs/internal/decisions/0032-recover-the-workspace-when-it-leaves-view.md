@@ -17,6 +17,7 @@ still. After the full reading object leaves the current head-relative field, or 
 a bounded reading band, recovery waits for the wearer to rest, samples one new content anchor,
 and uses the existing content slide. It does not continuously attach UI to every head movement.
 
+Pending voice or keyboard capture defers recovery until its input returns, preserving unaccepted words.
 Task/frame input and held presses are revoked during motion and settling. Retained column compact/
 expand semantics preserve local draft text and pages while revoking prior authorization; only a
 fresh settled draw grants it again. Repeated passive redraws retain an identical slide destination's
