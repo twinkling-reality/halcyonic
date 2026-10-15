@@ -199,7 +199,16 @@ namespace Halcyonic.XR.Workspace
             var record = viewBindings.Captured(file) ?? RecordFor(file);
             if (record?.WorkstreamId == null || record.ExecutionId == null || !IsCurrent(record) || file.Now?.Execution == null || placement != null || Away)
             { ReportLocal("Reconnect to this task before reading its results."); return; }
-            if (resultViews.TryGetValue(file, out var previous)) previous.FocusLeft();
+            if (resultViews.TryGetValue(file, out var previous))
+            {
+                previous.FocusLeft();
+                if (previous.CanReuse(record, file.Now.Execution.Runtime.RuntimeId, setup.Api()))
+                {
+                    navigator.ShowBeside(previous, record.WorkstreamId);
+                    ViewsChanged();
+                    return;
+                }
+            }
             var original = Copy(record);
             var session = setup.Session(); var api = setup.Api();
             TaskResultsColumn? view = null;

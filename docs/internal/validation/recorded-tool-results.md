@@ -55,3 +55,26 @@ only sixteen retained summaries; exact accepted-event reads remain available aft
 Main workspace presentation has its own client/render evidence. Actual Quest readability, focus/
 pause/return, pairing lifetime and full live edit→build→installed-app correspondence remain device
 or workflow acceptance gates; these checks do not claim them.
+
+## Explicit workspace reader reopening — 2026-10-15
+
+The workspace now reuses a retained results reader on explicit Read results navigation only
+when its copied connection/journal/project/task/execution/runtime and API match. It preserves
+navigation metadata while cancelling old reads and requiring fresh visible reads. The original
+session/visibility/action guards remain in force. This adds no persistence schema and does not
+automatically restore a task's last surface.
+
+Focused C# tests passed 54/54, including eight changed-scope/API rejection cases, copied-context
+isolation, and compatibility inspection granting no read authority. `pnpm check` passed with
+1,195 tests and one optional skip. The actual Unity `ResultsCheck` journey now leaves a paged
+output for its original task, explicitly reopens results and checks the same reader, same page
+and additional reads. Those assertions passed in all eight Standard/Larger, desk/far and
+shelf/no-shelf scenarios. The full render check exited 1: sixteen project-list type hierarchy
+failures remain (project identity larger than its section label). No visual pass, headset
+acceptance, automatic cross-task surface restoration or process recovery is claimed.
+
+A comparison run restored both the director and Results fixture to `655cf959` while leaving the
+unused compatibility method in place. It also exited 1, with all sixteen failure messages
+identical in order and content. The legacy Results renderer applies a global descending-type
+check to project identity titles below section labels; the spatial renderer already checks
+these as separate semantic groups. No hierarchy assertion was removed or weakened here.

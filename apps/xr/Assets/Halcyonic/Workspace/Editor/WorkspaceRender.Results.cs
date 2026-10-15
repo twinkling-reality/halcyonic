@@ -210,6 +210,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.Plane.Bar is MenuBarView dock) Chrome(dock.Target, 882); else failures.Add(name + ": global Results restore target missing");
                 Shot("restored exact part");
                 if (director.Plane.Showing(MenuColumn.File)?.Lines.Single().FromRow != finalRow) failures.Add(name + ": Minimize lost exact result page");
+                var retainedReader = director.Navigator.Beside;
+                director.OpenFile(ResultsTask); Draw();
+                var readsBeforeReopen = handler.Reads.Count;
+                Press(FileScreens.OpenResults); Shot("explicitly reopened exact part");
+                if (!ReferenceEquals(director.Navigator.Beside, retainedReader)
+                    || director.Plane.Showing(MenuColumn.File)?.Lines.Single().FromRow != finalRow
+                    || handler.Reads.Count <= readsBeforeReopen)
+                    failures.Add(name + ": explicit results reopening lost its reader/page or skipped fresh reads");
                 Press(Footer.Close); handler.Availability = ToolResultsAvailability.Unavailable; Press(TaskResultsColumn.Refresh); Shot("saved results offline app");
                 handler.Patch = ResultsPatchWitness(); Press(TaskResultsColumn.Refresh); Shot("recorded file change list");
                 Press(TaskResultsColumn.Read, ResultsPatchEvent); Shot("recorded file choices");
