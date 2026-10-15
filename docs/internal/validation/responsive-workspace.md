@@ -27,7 +27,7 @@ The editor ResponsiveWorkspaceCheck uses production MenuDirector/MenuPlane/UI an
 current session that is never started. It drives yaw and translation traces, repeated passive
 redraws, still/slide preferences, current-head front-field corners, target/text thresholds, retained
 draft text and pending keyboard callback, stale press release and not-ready input negatives. It restores static renderer state,
-destroys its synthetic scene, and starts no transport or real command. It has not yet executed.
+destroys its synthetic scene, and starts no transport or real command.
 
 The first actual editor run failed twelve composite draft/submission assertions and exited 134
 during native shutdown; it is not a clean process result. Source review found the fixture selected
@@ -39,7 +39,12 @@ trace begins recovery without selecting Send, selects the retained old button wh
 has revoked authority, and releases only after settling. It requires no submission and unchanged
 words both after denied selection and after release. It does not manufacture a held ordinary
 button or claim that a permitted Send selection should be cancelled retroactively. The corrected
-actual run remains pending; device and wearer outcomes remain unverified.
+actual run passed every assertion at both reading sizes with Still and sliding movement. Its
+32 captures show settled reading composition, retained draft text and the separate selected
+character/connector. The process still exited 134 during native shutdown, so this is an assertion
+pass with a process failure, not a clean run. Two matching macOS crash reports identify the
+Interaction SDK 207 telemetry worker throwing from a native mutex during static destruction;
+this is separate from the fixture assertions. Device and wearer outcomes remain unverified.
 
 ## Required actual acceptance
 
@@ -70,7 +75,7 @@ The unchanged-destination SlideTo guard retains only an existing non-closing sli
 new arrival or immediate request and position/rotation/scale match. Explicit immediate placement,
 arrivals and manual Stand remain distinct. Frame/target settling and frame ownership still apply;
 only a phantom animation restart is removed. The actual repeated-redraw trace is its regression
-witness; actual execution remains pending.
+witness; it passed in the corrected actual run.
 
 The prospective connector chooser now receives the prospective viewer and obstacles throughout
 endpoint selection and intersection checks; it does not choose against the old view first. A line
