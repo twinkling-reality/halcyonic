@@ -62,6 +62,12 @@ own rounded shape does not apply to this spatial composition. Activity records a
 "No recorded activity yet." state lead utility routes such as Ask workspace and Read results;
 a utility route is not recorded activity, and reported agent text keeps its provenance.
 
+Header state icons use the same nominal em as their readable state word, centred in the existing
+wider icon slot. Their rotating glyph rectangle stays inside the pill's fill, clear of its bright
+border; the badge's outer size and stage icons are unchanged. Host-owned, nonpending plain reading
+facts use primary ink on the spatial coated face. Outside text, provenance and semantic state tones
+retain their treatments; unavailable words keep their declared unavailable treatment.
+
 The Task/Project caption uses primary strong text. Small navigation/context, reached sections,
 utility labels and chevrons use primary ink; size and position retain their hierarchy. Unreached
 sections remain unavailable in the quiet secondary role. Selection on the coated face uses a

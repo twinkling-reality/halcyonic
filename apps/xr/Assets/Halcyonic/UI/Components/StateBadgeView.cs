@@ -132,7 +132,10 @@ namespace Halcyonic.XR.UI
             badge.word.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             badge.word.textWrappingMode = TextWrappingModes.NoWrap;
             badge.word.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
-            badge.icon = GlazeIcons.Create(go.transform, "Icon", GlazeIcons.BadgeDegrees, GlazeTokens.Text, order + 1);
+            // Header icons use the same em as their readable word, inside the existing wider
+            // icon slot. The stage keeps its larger icon. Rotating header glyphs must stay clear
+            // of the pill's bright curved border at every angle, without resizing the badge.
+            badge.icon = GlazeIcons.Create(go.transform, "Icon", pill ? Glaze.BadgeDegrees : GlazeIcons.BadgeDegrees, GlazeTokens.Text, order + 1);
             return badge;
         }
 
