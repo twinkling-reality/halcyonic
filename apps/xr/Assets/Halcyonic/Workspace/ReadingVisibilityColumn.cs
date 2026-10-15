@@ -54,7 +54,10 @@ namespace Halcyonic.XR.Workspace
             var view = plane.Shown.FirstOrDefault(item => item.View.Frame == frame).View;
             if (FocusGuard.InputSuspended || view == null || plane.Opening(plane.Shown.First(item => item.View == view).Kind)) { HidePatches(); return; }
             if (patches != null) return;
-            patches = new GameObject("Synthetic reading comparison patches"); patches.transform.SetParent(view.transform, false);
+            // Labels are owned by the actual positioned content part, not the MenuFrameView
+            // controller root. Inherit the same recovery/slide transform after initial placement.
+            var contentPart = view.ShownLines.First(row => row.Model.Key == "reading-face").Words.transform.parent;
+            patches = new GameObject("Synthetic reading comparison patches"); patches.transform.SetParent(contentPart, false);
             opaque = new Material(opaqueShader) { hideFlags = HideFlags.DontSave };
             mask = new Material(maskShader) { hideFlags = HideFlags.DontSave, renderQueue = 5000 };
             mesh = new Mesh { name = "Diagnostic unit quad", vertices = new[] { new Vector3(-.5f,-.5f,0), new Vector3(-.5f,.5f,0), new Vector3(.5f,.5f,0), new Vector3(.5f,-.5f,0) }, triangles = new[] { 0,1,2,0,2,3 } };
