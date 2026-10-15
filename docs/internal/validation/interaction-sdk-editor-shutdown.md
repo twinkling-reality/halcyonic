@@ -39,6 +39,8 @@ name and version 207.0.0 and the literal expected native version 1.207.0, then i
 existing public guarded `ShutDown()`. Reflection is necessary because the declaring SDK type is
 internal. No SDK package cache, telemetry consent, persistent settings or process exit code is
 changed. A package mismatch produces a review warning instead of guessing compatibility.
+A fixed `Halcyonic: Interaction SDK editor telemetry shutdown requested.` marker records that
+the hook found the wrapper and returned from its managed call; it does not claim native success.
 Invocation failure produces an error with fixed text. The SDK itself suppresses native shutdown
 exceptions, so this hook cannot establish native success from its managed return value.
 
@@ -47,5 +49,6 @@ SDK wrapper with the verified ownership guard. They cover editor quit, repeated 
 shutdown before editor quit, rejected package/version and invocation failure. They do not prove
 native thread teardown, actual Unity callback ordering or assembly discovery in the editor.
 The next required proof is a single affected fixture in Unity with both assertions passed and
-process exit 0, followed by checking the absence of the matching native crash. Until that proof,
+process exit 0, the shutdown-request marker, and absence of the matching native crash.
+Because the crash is intermittent, a clean exit alone cannot establish that the workaround caused it. Until that proof,
 the missing editor lifecycle shutdown is a grounded explanation and the remedy remains a hypothesis.

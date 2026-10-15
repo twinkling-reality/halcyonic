@@ -42,6 +42,7 @@ namespace Halcyonic.XR.Editor
                     // The SDK checks and clears its own _initialized flag. Calling this after
                     // its play-mode quit handler is therefore a no-op; never bypass that guard.
                     shutdown.Invoke(null, null);
+                    Debug.Log("Halcyonic: Interaction SDK editor telemetry shutdown requested.");
                 }
                 catch (Exception)
                 {
