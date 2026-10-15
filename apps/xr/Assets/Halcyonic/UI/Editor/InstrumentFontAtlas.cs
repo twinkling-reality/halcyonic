@@ -46,9 +46,46 @@ namespace Halcyonic.XR.UI.Editor
                 var title = GlazeText.Create(root.transform, "Selected work", GlazeType.Hero, Color.white, TextAlignmentOptions.TopLeft, 1);
                 if (title.font != saved || title.richText || title.fontSize != GlazeTokens.FontSize(GlazeTokens.Units(Halcyonic.Client.Glaze.HeroDegrees)))
                     throw new InvalidOperationException("The production title does not consume the bundled face and literal text policy.");
+                ValidateIdentity(title);
             }
             finally { UnityEngine.Object.DestroyImmediate(root); }
             Debug.Log("Halcyonic: instrument type: static atlas, required glyphs, fallback and production title passed.");
+        }
+
+        private static void ValidateIdentity(TMP_Text title)
+        {
+            const string name = "<b>Approved</b>\\nTask";
+            var runs = GlazeRuns.Of(title);
+            var expected = Halcyonic.Client.LineWords.TheirName(name).ForTextMeshPro();
+            runs.SetIdentity(name);
+            if (title.richText || !title.parseCtrlCharacters || title.text != expected.Text
+                || !runs.Theirs.SequenceEqual(expected.Item2) || runs.Theirs.Count == 0)
+                throw new InvalidOperationException("Named identity lost its literal text or outside provenance.");
+            CheckSlant(false);
+            runs.Set(Halcyonic.Client.LineWords.TheirName(name));
+            CheckSlant(true);
+            runs.SetIdentity(name);
+            CheckSlant(false);
+
+            void CheckSlant(bool italic)
+            {
+                title.ForceMeshUpdate(true);
+                var checkedLetters = 0;
+                foreach (var character in title.textInfo.characterInfo.Take(title.textInfo.characterCount))
+                {
+                    if (!character.isVisible) continue;
+                    var vertices = title.textInfo.meshInfo[character.materialReferenceIndex].vertices;
+                    var bottom = vertices[character.vertexIndex];
+                    var top = vertices[character.vertexIndex + 1];
+                    if (top.y <= bottom.y) continue;
+                    var actual = (top.x - bottom.x) / (top.y - bottom.y);
+                    var wanted = italic ? character.fontAsset.italicStyle * 0.01f : 0f;
+                    if (Mathf.Abs(actual - wanted) > 0.02f)
+                        throw new InvalidOperationException("Identity/prose reuse did not restore the correct mesh treatment.");
+                    checkedLetters++;
+                }
+                if (checkedLetters == 0) throw new InvalidOperationException("Identity check drew no letters.");
+            }
         }
 
         private static void Build()

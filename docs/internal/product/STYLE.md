@@ -135,6 +135,11 @@ Three sizes on the plane (`Glaze.Menu`):
   secondary colour, where no icon of ours stands; a title in its plate leans with the plate as its
   ground. Theirs comes after our words where we can word it so, and is cut first, inside its ground.
   Pills, the light line, prompts, places and sections hold our words alone.
+- **Named spatial identity:** a project or task heading may stand upright beneath a separate,
+  host-owned `Project` or `Task` caption. This narrow presentation uses explicit identity metadata,
+  retains outside-text ranges and literal escaping, and never applies to agent prose, approval
+  questions, tool output or action labels. Reusing the label for prose restores the italic treatment.
+  The caption establishes what the name identifies; the name cannot supply or alter that caption.
 - **Last on a page**: an unavailable prompt's reason, then the source line, one a page, at 18 dp in
   the secondary colour. A detail under a part, as a Seorak part's coverage or freshness, is its own
   18 dp line in the secondary colour.

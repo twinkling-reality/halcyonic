@@ -18,6 +18,7 @@ namespace Halcyonic.XR.UI
     public sealed class GlazeRuns : MonoBehaviour
     {
         private TMP_Text label = null!;
+        private bool identity;
         private IReadOnlyList<(int Start, int End)> theirs = Array.Empty<(int, int)>();
 
         /// <summary>The runs a label leans, made the first time a label needs it.</summary>
@@ -41,6 +42,30 @@ namespace Halcyonic.XR.UI
         /// Returns where outside text stands in the label's text as shown.
         /// </summary>
         public IReadOnlyList<(int Start, int End)> Set(LineWords words, Func<string, bool>? fits = null)
+        {
+            SetIdentityMode(false);
+            return SetWords(words, fits);
+        }
+
+        /// <summary>
+        /// A named task or project beneath a separate, host-owned identity caption. The name remains
+        /// outside text with literal escaping and tracked ranges; only its italic mesh shear differs.
+        /// Never use this for agent prose, decisions, tool output or action labels.
+        /// </summary>
+        public IReadOnlyList<(int Start, int End)> SetIdentity(string name, Func<string, bool>? fits = null)
+        {
+            SetIdentityMode(true);
+            return SetWords(LineWords.TheirName(name), fits);
+        }
+
+        private void SetIdentityMode(bool value)
+        {
+            if (identity == value) return;
+            identity = value;
+            label.havePropertiesChanged = true;
+        }
+
+        private IReadOnlyList<(int Start, int End)> SetWords(LineWords words, Func<string, bool>? fits)
         {
             label.richText = false;
             label.parseCtrlCharacters = true;
@@ -88,7 +113,7 @@ namespace Halcyonic.XR.UI
         private void LeanTheirs(TMP_TextInfo info)
         {
             if (theirs.Count == 0) return;
-            GlazeText.Lean(info, theirs);
+            if (!identity) GlazeText.Lean(info, theirs);
             if (!(grounded is Color32 colour)) return;
             for (var index = 0; index < info.characterCount; index++)
             {
