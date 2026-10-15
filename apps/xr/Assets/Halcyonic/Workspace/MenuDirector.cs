@@ -1088,8 +1088,33 @@ namespace Halcyonic.XR.Workspace
                 if (character != null) occupied.Add(WorkspaceLayout.InView(character, at));
             var looking = anchor?.Looking ?? stage.Looking;
             var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
-            return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, plane.SpatialWorkspace ? WorkspaceChromeView.SpatialTop + WorkspaceChromeView.SpatialBase + Mathf.Max(0f, MenuFrameView.SpatialSubjectHeightOfRows(subjectRows, true) - MenuPage.Subject(subjectRows, true)) : WorkspaceChromeView.Height,
-                centered: true, placement: direction, occupied: occupied, readable: focused || plane.SpatialWorkspace);
+            if (!plane.SpatialWorkspace)
+                return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height,
+                    centered: true, placement: direction, occupied: occupied, readable: focused);
+            if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows));
+            // Spatial chooser navigation is a narrow rail, never a second legacy reading column.
+            // A standalone wizard retains its actual sections; a focused task omits them.
+            var zoom = TextSize == TextSize.Larger ? Comfort.LargerTextScale : 1f;
+            var sections = !besideMenu && !focused ? GlazeButton.HeightOf(true) : 0f;
+            var gap = PlaneComposition.Units(0.35f);
+            var subject = MenuFrameView.SpatialSubjectHeightOfRows(subjectRows, true);
+            bool HoldsSpatial(float page)
+            {
+                var body = subject + sections + MenuPage.Content(page) + gap * (sections > 0f ? 2f : 1f);
+                var reading = new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), body, WorkspaceChromeView.SpatialBase);
+                var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);
+                var composition = new PlaneComposition(besideMenu ? new[] { rail, reading } : new[] { reading }, zoom, WorkspaceChromeView.SpatialTop);
+                return MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
+                    && MenuPage.Readable(composition) && WorkspacePlacement.Clears(direction, occupied, composition.Size);
+            }
+            float low = 0f, high = 2f;
+            if (!HoldsSpatial(low)) return 0f;
+            for (var step = 0; step < 40; step++)
+            {
+                var middle = (low + high) / 2f;
+                if (HoldsSpatial(middle)) low = middle; else high = middle;
+            }
+            return low;
 
         }
 

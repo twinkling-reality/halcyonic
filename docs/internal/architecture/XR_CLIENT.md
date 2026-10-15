@@ -3209,3 +3209,9 @@ This applies to every spatial caller, including creation-wizard and mandatory-re
 whose host request is not marked focused. Such reviews paginate before their peripheral
 connection, navigation or movement text becomes too oblique; field fit alone is insufficient.
 The legacy composition retains its existing focused-page policy.
+
+Spatial page sizing uses the actual narrow chooser rail plus its single reading body, or a
+standalone reading body for tasks and creation flows. It includes the measured Hero subject,
+standalone flow sections, unified gaps and complete top/base controls. Legacy two-column sizing
+is not used as a proxy for the spatial chooser. Full field, minimum apparent text and retained
+character clearance constrain the resulting page budget.

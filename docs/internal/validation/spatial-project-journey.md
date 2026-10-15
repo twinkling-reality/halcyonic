@@ -23,6 +23,14 @@ The first actual execution found a production sizing defect: nonfocused wizard r
 used only field fit, allowing peripheral chrome below the existing 14 dp threshold. Spatial
 MenuDirector page budgets now enforce the same apparent-text readable limit for every caller,
 including wizard/review callers that do not pass focused:true. Legacy layout behavior is unchanged.
-The fixture independently compares a nonfocused spatial page budget with the readable bound and
-requires the field-only bound to be larger, so the former caller behavior fails this regression.
-Actual rendered multi-page review and unchanged text thresholds remain required.
+The actual rendered multi-page review and unchanged apparent-text thresholds reject the former
+field-only behavior; no duplicate budget calculation substitutes for those scene checks.
+
+The next actual run exposed a separate sizing error: Standard selected-project Tasks hid its
+New task row because its budget modeled two full legacy columns. Spatial PageHeight now models
+the actual narrow chooser rail and one reading body, or one standalone body for wizard/task
+views, retaining sections only on standalone nonfocused pages. SpatialTop, SpatialBase, actual
+Hero subject height and unified gaps are included. The same complete-field, readable-text and
+occupied-character predicates still constrain the binary search. The visible Standard New task
+route is the behavioral negative regression (the prior production caller failed it); no hidden
+control dispatch or threshold change substitutes for the actual route and images.
