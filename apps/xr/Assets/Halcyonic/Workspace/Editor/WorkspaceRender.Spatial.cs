@@ -68,8 +68,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var commands = new CommandFactory(client);
                 Action<string>? done = null;
                 var sends = 0;
+                FileColumn? selectedFile = null;
+                var presentation = new WorkspacePresentationState();
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup {
-                    SpatialWorkspace = true, Commands = commands, Presentation = new WorkspacePresentationState(),
+                    SpatialWorkspace = true, Commands = commands, Presentation = presentation,
                     Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
                     ConnectionTarget = () => ControlPlaneTarget.Local(new Uri("ws://127.0.0.1:9/realtime"), "render"),
                     State = () => session.State, Session = () => session, Connected = () => true,
@@ -77,7 +79,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     ReadLocations = _ => Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => done = accept,
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
-                    File = (host, _) => new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
+                    File = (host, _) => selectedFile = new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                 });
                 // Production host pagination must count the actual title face, not the previous
@@ -132,6 +134,42 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!waiting) { Press(FileScreens.TellIt); done?.Invoke("Add a regression test for the rate limit."); }
                 Shot(waiting ? "spatial-waiting-approval" : "spatial-working-direction");
                 if (!director.Plane.SelectedMarks.Any(mark => mark.Word == StateLanguage.Practice)) failures.Add("spatial: synthetic work lost Practice provenance");
+                if (!waiting)
+                {
+                    var retainedFile = selectedFile;
+                    var staleFrame = director.Plane.Showing(MenuColumn.File);
+                    void Click(GlazeButton button, int pointer)
+                    {
+                        button.SettleForRender();
+                        button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Select, button.transform.position);
+                        button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, button.transform.position);
+                        Draw();
+                    }
+                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
+                    if (director.Navigator.Place != MenuPlace.Projects || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
+                        failures.Add("spatial: peripheral Projects navigation discarded the local draft");
+                    if (staleFrame != null && director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, staleFrame, null))
+                        failures.Add("spatial: hidden task retained input authority after place navigation");
+                    Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
+                    Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
+                    if (!ReferenceEquals(retainedFile, selectedFile) || selectedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
+                        failures.Add("spatial: reopening the actual task replaced its retained draft");
+                    var move = director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace);
+                    var point = move.transform.position;
+                    director.HoldSubjectForRender(point);
+                    if (!director.Dragging) failures.Add("spatial: named Move did not begin its real hand drag");
+                    director.DragSubjectForRender(eyes + Quaternion.Euler(0f, 4f, 0f) * (point - eyes));
+                    director.LetGoForRender(); Draw();
+                    var moved = director.Plane.Moved;
+                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.Minimize), 952);
+                    if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible)
+                        failures.Add("spatial: Minimize left the reading object or peripheral controls active");
+                    if (director.Plane.Bar is MenuBarView dock) Click(dock.Target, 953);
+                    else failures.Add("spatial: minimized workspace has no actual restore target");
+                    if (presentation.Minimized || director.Plane.Moved != moved || !ReferenceEquals(retainedFile, selectedFile)
+                        || selectedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
+                        failures.Add("spatial: restore lost hand placement, selected task or draft");
+                }
                 if (sends != 0) failures.Add("spatial: navigation or drafting submitted a command");
             }
             finally { UnityEngine.Object.DestroyImmediate(texture); UnityEngine.Object.DestroyImmediate(root); }
