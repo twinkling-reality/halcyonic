@@ -24,6 +24,11 @@ namespace Halcyonic.XR.UI
         private GlazeButton apps = null!;
         private GlazeButton minimize = null!;
         private GlazeButton projects = null!;
+        private GlazeButton tasks = null!, usage = null!, settings = null!;
+        public event Action<MenuPlace>? PlacePressed;
+        public static float SpatialTop => MenuPage.Words(1) + 2f * MenuPage.TargetGap;
+        public static float SpatialBase => MenuPage.Target() + 2f * MenuPage.TargetGap;
+        public static float SpatialRail => PlaneComposition.Units(12f);
         public Func<bool> Accepting { get; set; } = () => false;
         public event Action? OtherAppsPressed;
         public event Action? MinimizePressed;
@@ -59,7 +64,10 @@ namespace Halcyonic.XR.UI
             view.apps = GlazeButton.Create(go.transform, "Other apps", ButtonRole.Navigation, order: 23);
             view.minimize = GlazeButton.Create(go.transform, "Minimize workspace", ButtonRole.Navigation, order: 23);
             view.projects = GlazeButton.Create(go.transform, "Projects navigation", ButtonRole.Navigation, order: 23);
-            view.Targets = new[] { view.move, view.apps, view.minimize, view.projects };
+            view.tasks = GlazeButton.Create(go.transform, "Tasks navigation", ButtonRole.Navigation, order: 23);
+            view.usage = GlazeButton.Create(go.transform, "Usage navigation", ButtonRole.Navigation, order: 23);
+            view.settings = GlazeButton.Create(go.transform, "Settings navigation", ButtonRole.Navigation, order: 23);
+            view.Targets = new[] { view.move, view.apps, view.minimize, view.projects, view.tasks, view.usage, view.settings };
             foreach (var button in view.Targets) button.Accepting = () => view.Accepting();
             view.move.Holds = true;
             view.move.Target.EnableDrag();
@@ -71,12 +79,16 @@ namespace Halcyonic.XR.UI
             view.apps.Pressed += () => view.OtherAppsPressed?.Invoke();
             view.minimize.Pressed += () => view.MinimizePressed?.Invoke();
             view.projects.Pressed += () => view.ProjectsPressed?.Invoke();
+            view.tasks.Pressed += () => view.PlacePressed?.Invoke(MenuPlace.Tasks);
+            view.usage.Pressed += () => view.PlacePressed?.Invoke(MenuPlace.Usage);
+            view.settings.Pressed += () => view.PlacePressed?.Invoke(MenuPlace.Settings);
             go.SetActive(false);
             return view;
         }
 
         public void Show(float width, float totalHeight, string connectionState, LineWords selection, bool appsAvailable, StateBadge? selectedState, IReadOnlyList<WorkMark> marks, bool preserveMovePress = false)
         {
+            tasks.gameObject.SetActive(false); usage.gameObject.SetActive(false); settings.gameObject.SetActive(false);
             preserveMovePress &= gameObject.activeSelf && connection.text == connectionState;
             gameObject.SetActive(true);
             var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
@@ -134,6 +146,57 @@ namespace Halcyonic.XR.UI
             rule.transform.localPosition = new Vector3(0f, -Height / 2f, -0.001f);
             // A stable redraw must not restart a deliberate Move hold. The plane proves the
             // same frame, owner and physical hit area; all other controls require a fresh press.
+            foreach (var button in Targets)
+                if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
+        }
+
+        public void ShowSpatial(float width, float totalHeight, float contentLeft, float contentWidth, string connectionState,
+            LineWords selection, bool appsAvailable, IReadOnlyList<WorkMark> marks, MenuPlace place, bool preserveMovePress = false)
+        {
+            preserveMovePress &= gameObject.activeSelf && connection.text == connectionState;
+            gameObject.SetActive(true);
+            Size = new Vector2(width, totalHeight);
+            frame.gameObject.SetActive(true);
+            frame.Draw(new Vector2(width, totalHeight), GlazeTokens.Units(0.6f), Color.clear,
+                GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, 0.10f), GlazeTokens.Units(0.04f));
+            frame.transform.localPosition = Vector3.zero;
+            heading.gameObject.SetActive(false); rule.gameObject.SetActive(false);
+            status.gameObject.SetActive(false);
+            var gap = MenuPage.TargetGap;
+            var top = totalHeight / 2f;
+            var left = -width / 2f;
+            var labelY = top - MenuPage.Words(1) / 2f;
+            GlazeText.SetLiteral(product, WorkspaceText.Product);
+            GlazeText.Lay(product, SpatialRail, 1);
+            product.transform.localPosition = new Vector3(left, labelY, -0.001f);
+            GlazeText.SetLiteral(connection, connectionState);
+            GlazeText.Lay(connection, contentWidth / 2f, 1);
+            connection.transform.localPosition = new Vector3(contentLeft + contentWidth, labelY, -0.001f);
+            var contextRoom = contentWidth / 2f - gap;
+            GlazeRuns.Of(context).Set(selection, _ => true);
+            GlazeText.Lay(context, contextRoom, 1);
+            context.transform.localPosition = new Vector3(contentLeft, labelY, -0.001f);
+            provenance.gameObject.SetActive(marks.Count > 0);
+            if (marks.Count > 0)
+            {
+                GlazeText.SetLiteral(provenance, string.Join(" · ", marks.Select(mark => mark.Word)));
+                GlazeText.Lay(provenance, SpatialRail, 1);
+                provenance.transform.localPosition = new Vector3(left + SpatialRail, -totalHeight / 2f + MenuPage.Words(1), -0.001f);
+            }
+            var entries = new[] { (projects, MenuPlace.Projects, "Projects"), (tasks, MenuPlace.Tasks, "Tasks"), (usage, MenuPlace.Usage, "Usage"), (settings, MenuPlace.Settings, "Settings") };
+            var y = top - SpatialTop - MenuPage.Target() / 2f;
+            foreach (var (button, destination, words) in entries)
+            {
+                button.gameObject.SetActive(true); button.On = destination == place;
+                button.Show(words, new Vector2(left + SpatialRail / 2f, y), SpatialRail);
+                y -= MenuPage.Target() + gap;
+            }
+            var buttonWidth = (contentWidth - 2f * gap) / 3f;
+            var baseY = -totalHeight / 2f + SpatialBase / 2f;
+            move.Show(WorkspaceText.MoveWorkspace, new Vector2(contentLeft + buttonWidth / 2f, baseY), buttonWidth);
+            apps.Available = appsAvailable;
+            apps.Show(WorkspaceText.OtherApps, new Vector2(contentLeft + contentWidth / 2f, baseY), buttonWidth);
+            minimize.Show(WorkspaceText.Minimize, new Vector2(contentLeft + contentWidth - buttonWidth / 2f, baseY), buttonWidth);
             foreach (var button in Targets)
                 if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
         }
