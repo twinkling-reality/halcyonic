@@ -98,3 +98,11 @@ captures and validates each newly drawn project Tasks page before checking its c
 supplies the same NewProjectFlow factory as production; this factory is not the New task visibility
 gate (that gate checks live source, selected project and measured room). Existing simultaneous-row,
 exact-project/task and zero-send assertions remain unchanged. A new actual run is still required.
+
+The second actual multi-project run passed project/task selection but exposed the legacy whole-
+content hierarchy check treating later project names as continuations of prior summaries. The
+fixture now groups each explicit known project's actual name and summary labels independently,
+applying the unchanged measured hierarchy algorithm to each group and to all remaining ordinary
+content. A negative witness temporarily makes one actual name smaller than its summary and must
+be rejected, then restores its exact font size. Text, target, field and selection checks are retained.
+This corrected fixture still requires a new actual run.
