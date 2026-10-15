@@ -121,6 +121,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Overview = () => WorkOverview.Of(session.State, new StageVisibility(), _ => true), Bar = place => TasksColumn.Bar(place, session.State),
                     ReadLocations = _ => Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => done = accept,
+                    MakeNewProject = host => new NewProjectFlow(host, commands, new KeptInMemory()),
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
                     File = (host, _) => selectedFile = new FileColumn(host, () => work.Present(live: connected), commands, () => null, _ => null, () => ""),
                     CharacterOf = id => targets.FirstOrDefault(target => target.View.WorkstreamId == id),
@@ -193,8 +194,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var key in keys)
                     {
                         Press(ProjectsScreens.ChooseProject, key);
+                        // Dispatch dirties the navigator; inspect only its newly drawn Tasks frame.
+                        Shot("spatial-selected-project-" + key);
                         var tasks = director.Plane.Shown.Select(shown => shown.View.Frame).Where(frame => frame != null).ToList();
-                        if (!tasks.Any(frame => frame!.Lines.Any(line => line.Action == TasksColumn.NewTask && line.Key == key && line.Available))
+                        if (director.Navigator.Place != MenuPlace.Tasks
+                            || !tasks.Any(frame => frame!.Lines.Any(line => line.Action == TasksColumn.NewTask && line.Key == key && line.Available))
                             || tasks.SelectMany(frame => frame!.Lines).Any(line => line.Action == TasksColumn.OpenTask
                                 && session.State.Workstreams.TryGetValue(line.Key!, out var shownTask) && shownTask.ProjectId != key))
                             failures.Add("spatial: visible project selection opened task controls belonging to a different project");

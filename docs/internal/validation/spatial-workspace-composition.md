@@ -77,3 +77,10 @@ exact existing task without sending work. It retains the shared actual text/targ
 both reading sizes. The earlier two-row arithmetic capacity assertion remains additional evidence
 only. Images are written beneath `SpatialWorkspaceRenders/multiple-projects` (and the Larger
 variant). This added fixture has not yet been executed; its source is not a completed render proof.
+
+The first actual multi-project run failed the selection assertions because the fixture inspected
+`Plane.Shown` immediately after dispatch, before drawing the new Tasks frame. The corrected source
+captures and validates each newly drawn project Tasks page before checking its controls. It also
+supplies the same NewProjectFlow factory as production; this factory is not the New task visibility
+gate (that gate checks live source, selected project and measured room). Existing simultaneous-row,
+exact-project/task and zero-send assertions remain unchanged. A new actual run is still required.
