@@ -130,6 +130,27 @@ namespace Halcyonic.XR.Workspace.Editor
                         var caption = view.GetComponentsInChildren<TMPro.TMP_Text>(false).SingleOrDefault(label => label.name == "Identity kind");
                         if (caption == null || caption.text != (named == MenuIdentityKind.Task ? "Task" : "Project"))
                             failures.Add(name + ": named work identity lacks its fixed host caption");
+                        var title = view.SubjectShown.Title;
+                        if (caption != null)
+                        {
+                            var titleSeen = GlazeChecks.Of("named title", eyes, title.gameObject);
+                            var captionSeen = GlazeChecks.Of("identity caption", eyes, caption.gameObject);
+                            if (captionSeen.Bottom < titleSeen.Top - 0.01f) failures.Add(name + ": identity caption overlaps its name");
+                            var titleSize = title.fontSize * title.transform.lossyScale.y / Vector3.Distance(eyes, title.transform.position);
+                            var captionSize = caption.fontSize * caption.transform.lossyScale.y / Vector3.Distance(eyes, caption.transform.position);
+                            if (titleSize <= captionSize) failures.Add(name + ": named work title does not lead its subordinate caption");
+                            foreach (var label in new TMPro.TMP_Text[] { caption, title })
+                            {
+                                var bounds = label.textBounds;
+                                foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                                foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                                {
+                                    var point = view.Subject.InverseTransformPoint(label.transform.TransformPoint(new Vector3(x, y, 0f)));
+                                    if (Mathf.Abs(point.x) > view.SubjectSize.x / 2f + 0.0001f || Mathf.Abs(point.y) > view.SubjectSize.y / 2f + 0.0001f)
+                                        failures.Add(name + ": named header text exceeds its allocated subject bounds");
+                                }
+                            }
+                        }
                         if (GlazeRuns.Of(view.SubjectShown.Title).Theirs.Count == 0)
                             failures.Add(name + ": named identity lost outside-text provenance");
                     }
