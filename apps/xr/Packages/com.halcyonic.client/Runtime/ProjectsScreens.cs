@@ -58,6 +58,8 @@ namespace Halcyonic.Client
 
             /// <summary>Explicitly expanded folder discovery while known projects stay first.</summary>
             public bool FoldersOpen { get; set; }
+            public Func<PageLine, double>? LineHeight { get; set; }
+            public double AvailableHeight { get; set; }
 
             /// <summary>The chosen project's id, or null.</summary>
             public string? ChosenProject { get; set; }
@@ -205,7 +207,7 @@ namespace Halcyonic.Client
             var problemChosen = target.Problem;
             var lines = Lines(state, projects, offers, project, folder, problemChosen);
 
-            var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize, sourceLine: false));
+            var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize, sourceLine: false), state.LineHeight, state.AvailableHeight);
             var page = Math.Max(0, state.Page) % pages.Count;
             // A chosen row shows on its own page, so its side panel slides out beside it.
             var chosenAt = pages.FindIndex(each => each.Any(line => line.Chosen));
@@ -283,8 +285,8 @@ namespace Halcyonic.Client
             if (state.Overview == null) lines.Add(Say(EntryText.WaitingForMac));
             foreach (var project in projects)
             {
-                lines.Add(new PageLine(LineWords.TheirName(project.Name), fact: LineWords.Ours(ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers, state))),
-                    action: ChooseProject, key: project.ProjectId, opens: true, chosen: project == chosenProject));
+                lines.Add(PageLine.KnownProject(project.Name, ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers, state)),
+                    project.ProjectId, chosen: project == chosenProject));
             }
             // The demonstration connects nothing, so it lists no folders.
             if (state.Demonstration || !FoldersVisible(state)) return lines;
@@ -344,22 +346,25 @@ namespace Halcyonic.Client
         /// Pages of at most <paramref name="rows"/> rows, in order; a heading never ends a page, so it
         /// stays with the first row under it. Always at least one page.
         /// </summary>
-        private static List<List<PageLine>> Paginate(List<PageLine> lines, int rows)
+        private static List<List<PageLine>> Paginate(List<PageLine> lines, int rows, Func<PageLine, double>? measured, double available)
         {
             var pages = new List<List<PageLine>> { new List<PageLine>() };
-            var used = 0;
+            var physical = measured != null && available > 0 && !double.IsNaN(available) && !double.IsInfinity(available);
+            var limit = physical ? available : rows;
+            double Cost(PageLine line) => physical ? Math.Max(0.0001, measured!(line)) : line.Rows;
+            var used = 0.0;
             for (var index = 0; index < lines.Count; index++)
             {
                 var line = lines[index];
                 var heading = line.Words == ProjectsText.FoldersHeading && line.Action == null && index + 1 < lines.Count;
-                var needs = line.Rows + (heading ? lines[index + 1].Rows : 0);
-                if (used > 0 && used + needs > rows)
+                var needs = Cost(line) + (heading ? Cost(lines[index + 1]) : 0);
+                if (used > 0 && used + needs > limit)
                 {
                     pages.Add(new List<PageLine>());
                     used = 0;
                 }
                 pages[pages.Count - 1].Add(line);
-                used += line.Rows;
+                used += Cost(line);
             }
             return pages;
         }
