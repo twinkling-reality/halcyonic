@@ -141,16 +141,32 @@ namespace Halcyonic.XR.Workspace.Editor
                         var right = Mathf.Clamp(Mathf.CeilToInt(corners.Max(point => point.x)), 0, image.width - 1);
                         var bottom = Mathf.Clamp(Mathf.FloorToInt(corners.Min(point => point.y)), 0, image.height - 1);
                         var top = Mathf.Clamp(Mathf.CeilToInt(corners.Max(point => point.y)), 0, image.height - 1);
+                        var authored = (Color32)word.color;
+                        var authoredColor = GlazeColor.Hex((uint)(authored.r << 16 | authored.g << 8 | authored.b));
+                        double leastBacking = double.PositiveInfinity;
                         double bestInk = 1; var ink = 0;
                         for (var x = left; x <= right; x++) for (var y = bottom; y <= top; y++)
                         {
+                            // Sample the projected text quadrilateral, not the empty wedges of
+                            // its axis-aligned rectangle when the real camera leans.
+                            var polygon = new[] { corners[0], corners[2], corners[3], corners[1] };
+                            var signs = polygon.Select((point, index) => {
+                                var next = polygon[(index + 1) % polygon.Length];
+                                return (next.x - point.x) * (y + 0.5f - point.y) - (next.y - point.y) * (x + 0.5f - point.x);
+                            }).ToArray();
+                            if (signs.Any(sign => sign < 0f) && signs.Any(sign => sign > 0f)) continue;
                             var foreground = image.GetPixel(x, y); var backing = withoutWords.GetPixel(x, y);
+                            var supportPixel = (Color32)backing;
+                            var supportColor = GlazeColor.Hex((uint)(supportPixel.r << 16 | supportPixel.g << 8 | supportPixel.b));
+                            leastBacking = Math.Min(leastBacking, GlazeColor.Contrast(authoredColor, supportColor));
                             if (Mathf.Abs(foreground.r - backing.r) + Mathf.Abs(foreground.g - backing.g) + Mathf.Abs(foreground.b - backing.b) < 0.08f) continue;
                             ink++;
                             var a = GlazeColor.Hex((uint)(Mathf.RoundToInt(foreground.r * 255) << 16 | Mathf.RoundToInt(foreground.g * 255) << 8 | Mathf.RoundToInt(foreground.b * 255)));
                             var b = GlazeColor.Hex((uint)(Mathf.RoundToInt(backing.r * 255) << 16 | Mathf.RoundToInt(backing.g * 255) << 8 | Mathf.RoundToInt(backing.b * 255)));
                             bestInk = Math.Max(bestInk, GlazeColor.Contrast(a, b));
                         }
+                        if (authored.a != 255 || leastBacking < 4.5)
+                            failures.Add("actual image backing does not support the whole text bounds at4.5:1 for " + word.name + ": minimum=" + leastBacking.ToString("0.00") + ", source alpha=" + authored.a);
                         if (ink < 2 || bestInk < 4.5) failures.Add("actual image lacks4.5:1 resolved ink against its rendered backing for " + word.name + ": pixels=" + ink + ", best=" + bestInk.ToString("0.00"));
                     }
                     UnityEngine.Object.DestroyImmediate(withoutWords);
