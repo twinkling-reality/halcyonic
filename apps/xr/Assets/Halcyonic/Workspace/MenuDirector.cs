@@ -170,6 +170,8 @@ namespace Halcyonic.XR.Workspace
         private (Vector3 Eyes, Vector3 Looking)? anchor;
         private readonly WorkspaceFollow workspaceFollow = new WorkspaceFollow();
         private bool followSnap;
+        private bool keyboardPending;
+        private int keyboardGeneration;
         private (bool Open, IMenuColumn? Beside) anchoredFor;
 
         /// <summary>The stage's arrangement as the plane was last laid against it: beside a window or not, and the surface under the characters.</summary>
@@ -311,6 +313,7 @@ namespace Halcyonic.XR.Workspace
 
         private void SuspendWorkspace()
         {
+            keyboardPending = false; keyboardGeneration++;
             ShareCharacterIdentity(null);
             EndDrag();
             voice?.FocusLeft();
@@ -597,7 +600,7 @@ namespace Halcyonic.XR.Workspace
             if (setup.Presentation.Minimized || !navigator.ShowsAnything) workspaceFollow.Reset();
             var poseReady = setup.InitialPlacementReady();
             var blocked = Away || drag != null || setup.Presentation.Minimized || !navigator.ShowsAnything
-                || !poseReady || Voiced() != null;
+                || !poseReady || keyboardPending || Voiced() != null;
             var headPosition = new System.Numerics.Vector3(stage.Eyes.x, stage.Eyes.y, stage.Eyes.z);
             var headForward = new System.Numerics.Vector3(stage.Looking.x, stage.Looking.y, stage.Looking.z);
             bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
@@ -834,6 +837,7 @@ namespace Halcyonic.XR.Workspace
 
         private void OnFocusLeft()
         {
+            keyboardPending = false; keyboardGeneration++;
             ShareCharacterIdentity(null);
             EndDrag();
             voice?.FocusLeft();
@@ -1138,7 +1142,23 @@ namespace Halcyonic.XR.Workspace
 
         public bool KeyboardOffered => setup.KeyboardOffered();
 
-        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) => setup.Keyboard(text, prompt, done, dismissed);
+        public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null)
+        {
+            var generation = ++keyboardGeneration; keyboardPending = true;
+            try
+            {
+                setup.Keyboard(text, prompt, words =>
+                {
+                    if (generation == keyboardGeneration) keyboardPending = false;
+                    done(words);
+                }, () =>
+                {
+                    if (generation == keyboardGeneration) keyboardPending = false;
+                    dismissed?.Invoke();
+                });
+            }
+            catch { if (generation == keyboardGeneration) keyboardPending = false; throw; }
+        }
 
         public int RowsOf(string words, float columnDegrees) => MenuFrameView.RowsOf(words, columnDegrees);
 

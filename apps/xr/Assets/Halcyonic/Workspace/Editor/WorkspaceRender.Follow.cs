@@ -104,7 +104,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!director.PressForRender(MenuColumn.File, FileScreens.TellIt, null, frame, null) || typed == null)
                     throw new InvalidOperationException("actual task instruction input did not open");
                 const string draft = "Keep this synthetic local draft through head movement.";
-                typed(draft); typed = null; Rest(); Shot("01-reading");
+                var keyboardAnchor = director.Plane.Chrome.transform.position;
+                looking = Quaternion.Euler(0, 80, 0) * Vector3.forward; Rest();
+                if (director.FollowingForRender || Vector3.Distance(keyboardAnchor, director.Plane.Chrome.transform.position) > 0.0001f)
+                    failures.Add("pending keyboard input was interrupted by automatic recovery");
+                typed(draft); typed = null; Rest();
+                if (file!.Screen.Instruction.Words != draft) failures.Add("the exact pending keyboard words were lost");
+                looking = Vector3.forward; eyes = new Vector3(0, EyeHeight, 0); director.ResetPosition(); Rest(); Shot("01-reading");
                 var initial = director.Plane.Chrome.transform.position; var initialRotation = director.Plane.Chrome.transform.rotation;
                 for (var step = 0; step < 20; step++)
                 {
