@@ -54,6 +54,7 @@ public class AgentPanelActivity extends Activity {
     private TextView productHeading;
     private Button presentationButton;
     private LinearLayout developmentControls;
+    private LinearLayout navigationControls;
     private boolean compactPanel;
     private long checkedAt;
     private LinearLayout requestActions;
@@ -218,7 +219,7 @@ public class AgentPanelActivity extends Activity {
         connection = new PanelLoadingText(this); connection.setTextSize(16); connection.setPadding(0, dp(6), 0, dp(8));
         root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
         connection.setText("Connecting to your computer…");
-        LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav);
+        LinearLayout nav = navigationControls = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav);
         for (String name : new String[] {"Projects", "Workspace", "Other apps"}) {
             Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, false); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
@@ -760,6 +761,7 @@ public class AgentPanelActivity extends Activity {
         presentationButton.setVisibility(workId == null ? View.GONE : View.VISIBLE);
         presentationButton.setText(compactPanel ? "Open task" : "Keep a small view");
         productHeading.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
+        navigationControls.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
         presentationButton.setContentDescription(presentationButton.getText());
         developmentControls.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
         if (snapshot == null) return;

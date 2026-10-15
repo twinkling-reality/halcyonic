@@ -383,8 +383,9 @@ including failure exit and the still preference.
 
 ## Compact hierarchy and explicit control roles — October 15, 2026 candidate
 
-The selected compact view omits the repeated product heading and duplicate project heading, and
-omits the zero-permissions/zero-questions line. It retains task identity, actual state, source,
+The selected compact view omits the repeated product heading, duplicate project heading, global
+navigation row and zero-permissions/zero-questions line. **Open task** is its single local control;
+expanding restores Projects, Workspace and Other apps navigation. It retains task identity, actual state, source,
 nonzero attention counts, pending-send uncertainty and the last-read freshness message. **Open task**
 uses the same local expansion path and fresh-projection guard; **Keep a small view** uses the same
 save-before-hide path. This reduces content density; it does not resize or position the OS window.
