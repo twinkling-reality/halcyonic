@@ -9,6 +9,14 @@ Text from outside (titles, agent messages, tool output, server errors) is not ou
 written, by `LabelText`'s rule, and only where a person needs it, and it leans, on a ground only
 Halcyonic draws where it meets our words (the owner, 2026-10-08; ADR 0026).
 
+## Named identities in the spatial composition
+
+A named task or project heading may be upright beneath a separate fixed **Task** or **Project**
+caption. Its name still uses outside-text escaping and tracked provenance. This narrow exception
+supersedes the older blanket italic-title wording below; it does not change agent prose, questions,
+approvals, tool output or action labels. The caption comes from known task/project identity, never
+from the supplied name. Ordinary prose on a reused label restores the standard treatment.
+
 ## The voice
 
 Calm and plain, like a capable colleague who says what is true now, how sure it is, and what you

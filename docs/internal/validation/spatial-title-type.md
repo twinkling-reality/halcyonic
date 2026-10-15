@@ -30,3 +30,8 @@ exited cleanly with code 0. Its appearance was rejected during visual review; pa
 font checks does not establish design acceptance. A later narrow named-identity check preserves
 literal markup/backslash handling and outside ranges while checking upright identity → italic prose
 → upright identity reuse against actual mesh vertices. That new check awaits its next Unity run.
+
+The actual later composition runs passed the identity/prose mesh reuse check at both text sizes.
+The expanded question fixture exposed a close caption/name mesh envelope at larger text; the
+candidate now reserves two grid steps in both title budgeting and layout. That spacing correction
+requires the repeated interaction render; it is not treated as passed by source compilation alone.
