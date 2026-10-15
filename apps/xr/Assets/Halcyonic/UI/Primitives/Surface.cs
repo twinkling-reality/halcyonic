@@ -46,6 +46,7 @@ namespace Halcyonic.XR.UI
         private static readonly int EdgeId = Shader.PropertyToID("_Edge");
         private static readonly int ShapeId = Shader.PropertyToID("_Shape");
         private static readonly int PatternId = Shader.PropertyToID("_Pattern");
+        private static readonly int PhysicalId = Shader.PropertyToID("_Physical");
         private static readonly int GlassId = Shader.PropertyToID("_Glass");
 
         private static Material? material;
@@ -63,6 +64,19 @@ namespace Halcyonic.XR.UI
         private Vector4 glass;
         private float opacity = 1f;
         private float shown = 1f;
+        private bool physical;
+        private MeshRenderer? rim;
+        private Mesh? rimMesh;
+        private MaterialPropertyBlock? rimBlock;
+        private Vector2 rimSize;
+        private float rimRadius;
+        private const float Thickness = 0.012f; // In distance units: 5.5 mm at the normal 0.46 m plane.
+        public float MaterialDepth => physical ? Thickness : 0f;
+        public MeshRenderer? MaterialRim => physical ? rim : null;
+#if UNITY_EDITOR
+        /// <summary>Same face and geometry allocation, without physical edge, for a negative render control.</summary>
+        public void FlattenMaterialForRender() { physical = false; Apply(); }
+#endif
 
         /// <summary>The shape's size, in its parent's units.</summary>
         public Vector2 Size => size;
@@ -109,8 +123,18 @@ namespace Halcyonic.XR.UI
         /// outline, <paramref name="edgeWidth"/> wide, in dashes about <paramref name="dash"/> apart
         /// when that is not zero. A <paramref name="halftone"/> pitch above zero draws the fill as dots.
         /// </summary>
-        public void Draw(Vector2 size, float radius, Color fill, Color edge = default, float edgeWidth = 0f, float dash = 0f, float halftone = 0f) =>
-            Shape(size, radius, fill, edge, edgeWidth, dash, halftone, Vector4.zero);
+        public void Draw(Vector2 size, float radius, Color fill, Color edge = default, float edgeWidth = 0f, float dash = 0f, float halftone = 0f)
+        { physical = false; Shape(size, radius, fill, edge, edgeWidth, dash, halftone, Vector4.zero); }
+
+        /// <summary>A controlled reading substrate with a real inset bevel and rear edge. Its entire
+        /// mesh stays within the allocated face footprint and behind its reading face.</summary>
+        public void DrawInstrument(Vector2 size, float radius, Color fill)
+        {
+            physical = true;
+            // Reading opacity is deliberate; glass is expressed at the edge, not through washed-out words.
+            fill.a = Mathf.Max(0.98f, fill.a);
+            Shape(size, radius, fill, Color.clear, 0f, 0f, 0f, Vector4.zero);
+        }
 
         private void Shape(Vector2 size, float radius, Color fill, Color edge, float edgeWidth, float dash, float halftone, Vector4 glass)
         {
@@ -132,10 +156,10 @@ namespace Halcyonic.XR.UI
         /// height unless given (a content surface's ends within its top padding, so no row under it
         /// looks lit), and a sheen just inside its top edge, all in one draw.
         /// </summary>
-        public void DrawGlass(Vector2 size, float? glowReach = null, float? radius = null) =>
-            Shape(size, radius ?? GlazeTokens.Units(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.Menu.GlassOpacity),
+        public void DrawGlass(Vector2 size, float? glowReach = null, float? radius = null)
+        { physical = false; Shape(size, radius ?? GlazeTokens.Units(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.Menu.GlassOpacity),
                 GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees), 0f, 0f,
-                new Vector4(Glaze.Menu.GlowOpacity, glowReach ?? size.y * Glaze.Menu.GlowReach, Glaze.Menu.SheenOpacity, GlazeTokens.Units(Glaze.Menu.SheenDegrees)));
+                new Vector4(Glaze.Menu.GlowOpacity, glowReach ?? size.y * Glaze.Menu.GlowReach, Glaze.Menu.SheenOpacity, GlazeTokens.Units(Glaze.Menu.SheenDegrees))); }
 
         /// <summary>How far down from its top edge the glass's light reaches, in the parent's units; 0 for a shape that isn't glass.</summary>
         public float GlowReach => glass.x > 0f ? glass.y : 0f;
@@ -175,8 +199,67 @@ namespace Halcyonic.XR.UI
             block.SetVector(PatternId, new Vector4(dash, dash > 0f ? 0.5f : 0f, halftone, halftone * 0.3f));
             // The glass's light and sheen fade with the shape.
             block.SetVector(GlassId, new Vector4(glass.x * opacity, glass.y, glass.z * opacity, glass.w));
+            block.SetVector(PhysicalId, new Vector4(physical ? 1f : 0f, 0.004f, 0.18f * opacity, 0f));
             shapeRenderer.SetPropertyBlock(block);
+            UpdateRim(opacity);
         }
+
+        private void UpdateRim(float opacity)
+        {
+            if (!physical || size.x <= 0f || size.y <= 0f) { if (rim != null) rim.gameObject.SetActive(false); return; }
+            if (rim == null)
+            {
+                var go = new GameObject("Inset material bevel and thickness"); go.transform.SetParent(transform, false);
+                go.AddComponent<MeshFilter>(); rim = go.AddComponent<MeshRenderer>(); rim.sharedMaterial = Material;
+                rim.shadowCastingMode = ShadowCastingMode.Off; rim.receiveShadows = false;
+                rim.lightProbeUsage = LightProbeUsage.Off; rim.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                rim.sortingOrder = shapeRenderer.sortingOrder + 1;
+            }
+            rim.gameObject.SetActive(true);
+            if (rimMesh == null || rimSize != size || rimRadius != radius)
+            {
+                if (rimMesh != null) { if (Application.isPlaying) Destroy(rimMesh); else DestroyImmediate(rimMesh); }
+                rimSize = size; rimRadius = radius;
+                rimMesh = MakeRim(size, Mathf.Clamp(radius, 0f, Mathf.Min(size.x, size.y) / 2f));
+                rim.GetComponent<MeshFilter>().sharedMesh = rimMesh;
+            }
+            var properties = rimBlock ??= new MaterialPropertyBlock();
+            properties.SetVector(FillId, Linear(GlazeTokens.ColorOf(Glaze.Raised), opacity));
+            properties.SetVector(PhysicalId, new Vector4(1f, 0.004f, 0.18f * opacity, 1f));
+            rim.SetPropertyBlock(properties);
+        }
+
+        private static Mesh MakeRim(Vector2 size, float radius)
+        {
+            const int steps = 8, count = 4 * (steps + 1);
+            var vertices = new Vector3[count * 3]; var triangles = new int[count * 12];
+            var inset = Mathf.Min(0.0025f, Mathf.Min(size.x, size.y) / 8f);
+            for (var corner = 0; corner < 4; corner++)
+            for (var step = 0; step <= steps; step++)
+            {
+                var index = corner * (steps + 1) + step;
+                var angle = (corner * 90f + step * 90f / steps) * Mathf.Deg2Rad;
+                var direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                var sign = new Vector2(corner == 0 || corner == 3 ? 1f : -1f, corner < 2 ? 1f : -1f);
+                var centre = Vector2.Scale(sign, size / 2f - Vector2.one * radius);
+                var outer = centre + direction * radius;
+                var inner = centre + direction * Mathf.Max(0f, radius - inset) - Vector2.Scale(sign, Vector2.one * Mathf.Max(0f, inset - radius));
+                vertices[index] = new Vector3(inner.x / size.x, inner.y / size.y, 0f);
+                vertices[count + index] = new Vector3(outer.x / size.x, outer.y / size.y, Thickness * 0.2f);
+                vertices[2 * count + index] = new Vector3(outer.x / size.x, outer.y / size.y, Thickness);
+                var next = (index + 1) % count;
+                for (var strip = 0; strip < 2; strip++)
+                {
+                    var at = index * 12 + strip * 6; var a = strip * count + index; var b = strip * count + next;
+                    triangles[at] = a; triangles[at + 1] = b; triangles[at + 2] = a + count;
+                    triangles[at + 3] = b; triangles[at + 4] = b + count; triangles[at + 5] = a + count;
+                }
+            }
+            var mesh = new Mesh { name = "Measured instrument bevel" }; mesh.vertices = vertices; mesh.triangles = triangles;
+            mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
+        }
+        private void OnDestroy()
+        { if (rimMesh != null) { if (Application.isPlaying) Destroy(rimMesh); else DestroyImmediate(rimMesh); } }
 
         /// <summary>
         /// A colour as the shader takes it: linear in a linear project, its alpha faded. The block's
