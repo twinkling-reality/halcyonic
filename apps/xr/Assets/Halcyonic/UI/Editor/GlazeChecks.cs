@@ -402,38 +402,45 @@ namespace Halcyonic.XR.UI.Editor
             {
                 if (column.Count == 0) continue;
                 var plane = column[0].Root;
-                var labels = new List<(string Name, float Top, float Bottom, float Size)>();
-                foreach (var label in column.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false)))
+                var text = column.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false))
+                    .Where(label => label.GetComponentInParent<StateBadgeView>() == null || !label.transform.IsChildOf(plane)).ToList();
+                foreach (var failure in TypeStepsDownLabels(text, plane, eyes, what)) yield return failure;
+            }
+        }
+
+        /// <summary>The same measured hierarchy rule for an explicitly bounded semantic group of actual labels.</summary>
+        public static IEnumerable<string> TypeStepsDownLabels(IReadOnlyList<TMP_Text> text, Transform plane, Vector3 eyes, string what)
+        {
+            var labels = new List<(string Name, float Top, float Bottom, float Size)>();
+            foreach (var label in text)
+            {
+                if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label)) continue;
+                if (label.textInfo == null || label.textInfo.characterCount == 0) label.ForceMeshUpdate();
+                if (label.textInfo == null || label.textInfo.characterCount == 0) continue;
+                var bounds = label.textBounds;
+                float Up(float y) => Vector3.Dot(label.transform.TransformPoint(new Vector3(bounds.center.x, y, 0f)) - plane.position, plane.up);
+                var size = Glaze.DegreesOf(label.fontSize * 0.1f * label.transform.lossyScale.y, PlaneDistance(eyes, label.transform));
+                labels.Add((PathOf(label.transform), Up(bounds.max.y), Up(bounds.min.y), size));
+            }
+            var rows = new List<(string Name, float Top, float Bottom, float Size)>();
+            foreach (var label in labels.OrderByDescending(label => label.Top))
+            {
+                var row = rows.FindIndex(existing => label.Top > existing.Bottom && label.Bottom < existing.Top);
+                if (row < 0)
                 {
-                    if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label)) continue;
-                    if (label.GetComponentInParent<StateBadgeView>() != null && label.transform.IsChildOf(column[0].Root)) continue;
-                    if (label.textInfo == null || label.textInfo.characterCount == 0) label.ForceMeshUpdate();
-                    if (label.textInfo == null || label.textInfo.characterCount == 0) continue;
-                    var bounds = label.textBounds;
-                    float Up(float y) => Vector3.Dot(label.transform.TransformPoint(new Vector3(bounds.center.x, y, 0f)) - plane.position, plane.up);
-                    var size = Glaze.DegreesOf(label.fontSize * 0.1f * label.transform.lossyScale.y, PlaneDistance(eyes, label.transform));
-                    labels.Add((PathOf(label.transform), Up(bounds.max.y), Up(bounds.min.y), size));
+                    rows.Add(label);
+                    continue;
                 }
-                var rows = new List<(string Name, float Top, float Bottom, float Size)>();
-                foreach (var label in labels.OrderByDescending(label => label.Top))
+                var was = rows[row];
+                rows[row] = (was.Size >= label.Size ? was.Name : label.Name, Mathf.Max(was.Top, label.Top), Mathf.Min(was.Bottom, label.Bottom), Mathf.Max(was.Size, label.Size));
+            }
+            rows.Sort((a, b) => b.Top.CompareTo(a.Top));
+            for (var index = 1; index < rows.Count; index++)
+            {
+                if (rows[index].Size > rows[index - 1].Size + 0.01f)
                 {
-                    var row = rows.FindIndex(existing => label.Top > existing.Bottom && label.Bottom < existing.Top);
-                    if (row < 0)
-                    {
-                        rows.Add(label);
-                        continue;
-                    }
-                    var was = rows[row];
-                    rows[row] = (was.Size >= label.Size ? was.Name : label.Name, Mathf.Max(was.Top, label.Top), Mathf.Min(was.Bottom, label.Bottom), Mathf.Max(was.Size, label.Size));
-                }
-                rows.Sort((a, b) => b.Top.CompareTo(a.Top));
-                for (var index = 1; index < rows.Count; index++)
-                {
-                    if (rows[index].Size > rows[index - 1].Size + 0.01f)
-                    {
-                        yield return what + ": " + rows[index].Name + " (" + rows[index].Size.ToString("0.000", CultureInfo.InvariantCulture) + " degrees) stands under the smaller "
-                            + rows[index - 1].Name + " (" + rows[index - 1].Size.ToString("0.000", CultureInfo.InvariantCulture) + "); type only steps down.";
-                    }
+                    yield return what + ": " + rows[index].Name + " (" + rows[index].Size.ToString("0.000", CultureInfo.InvariantCulture) + " degrees) stands under the smaller "
+                        + rows[index - 1].Name + " (" + rows[index - 1].Size.ToString("0.000", CultureInfo.InvariantCulture) + "); type only steps down.";
                 }
             }
         }

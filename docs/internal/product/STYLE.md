@@ -563,3 +563,8 @@ name; pagination and actual layout use the same inset, including larger-text SDF
 The named heading and the reading body retain contrast surfaces without a surrounding window or
 folder tab. The rear contact is dark, so translucent surfaces retain the palette's reading contrast.
 This composition remains a candidate until actual full-context and wearer validation pass.
+
+The type hierarchy resets for each independent known-project entry: its name leads its own
+supporting task summary. A later project's name may therefore be larger than the preceding
+project's summary. This is not a blanket exception to descending type: ordinary reading content
+retains that rule, and each project's actual name-to-summary group must satisfy it independently.

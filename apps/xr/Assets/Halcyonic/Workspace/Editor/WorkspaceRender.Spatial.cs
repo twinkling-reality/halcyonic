@@ -379,7 +379,29 @@ namespace Halcyonic.XR.Workspace.Editor
             // A fixed kind caption above the actual name is an intentional header hierarchy.
             // Retain the existing descending type check inside the actual reading content.
             var contentShape = new GlazeChecks.PlaneShape("reading content", view.Content.transform.parent, shape.Size);
-            failures.AddRange(GlazeChecks.TypeStepsDown(new[] { (IReadOnlyList<GlazeChecks.PlaneShape>)new[] { contentShape } }, eyes, name));
+            var projectGroups = view.ShownLines.Where(row => row.Model.ProjectIdentity && row.Fact != null).ToList();
+            var grouped = new HashSet<TMPro.TMP_Text>();
+            foreach (var row in projectGroups)
+            {
+                var labels = new TMPro.TMP_Text[] { row.Words, row.Fact! };
+                foreach (var label in labels) grouped.Add(label);
+                failures.AddRange(GlazeChecks.TypeStepsDownLabels(labels, contentShape.Root, eyes, name + " project " + row.Model.Key));
+            }
+            var ordinary = contentShape.Root.GetComponentsInChildren<TMPro.TMP_Text>(false)
+                .Where(label => !grouped.Contains(label) && label.GetComponentInParent<StateBadgeView>() == null).ToList();
+            failures.AddRange(GlazeChecks.TypeStepsDownLabels(ordinary, contentShape.Root, eyes, name));
+            if (projectGroups.Count > 0)
+            {
+                // A real-label negative witness: reversing one row's hierarchy must still fail.
+                var row = projectGroups[0]; var before = row.Words.fontSize;
+                try
+                {
+                    row.Words.fontSize = row.Fact!.fontSize * 0.8f; row.Words.ForceMeshUpdate();
+                    if (!GlazeChecks.TypeStepsDownLabels(new TMPro.TMP_Text[] { row.Words, row.Fact }, contentShape.Root, eyes, "reversed project row").Any())
+                        failures.Add(name + ": project-row hierarchy checker accepted a title smaller than its own summary");
+                }
+                finally { row.Words.fontSize = before; row.Words.ForceMeshUpdate(); }
+            }
             failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
             failures.AddRange(GlazeChecks.TargetsLargeEnough(view.Targets.Concat(plane.Chrome.Targets), eyes, name));
             failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
