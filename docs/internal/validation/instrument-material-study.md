@@ -92,3 +92,8 @@ required per label. This image probe does not treat antialias fringe pixels as a
 source contrast checks remain separate. The former white floating labels on white fail this test.
 Support geometry itself retains the complete strict field checks. Actual second shader/render
 execution and motion/aesthetic judgment remain pending.
+
+The analytic studio softbox is authored in the instrument's normalized frame, not fixed to the
+world horizon or camera. Reflected world-eye rays are projected into that frame; normalizing each
+basis avoids nonuniform plate dimensions distorting reflection angles. This keeps the comparison
+meaningful on the actual pitched reading surface while the highlight still responds to real lean.
