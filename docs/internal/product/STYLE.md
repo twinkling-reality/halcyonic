@@ -201,12 +201,18 @@ Three sizes on the plane (`Glaze.Menu`):
 ## Colour
 
 The interface's colour roles are immutable `GlazePalette` presets, read by `Glaze` separately from
-type, sizes and motion. Glaze preserves the original colours; Graphite uses neutral graphite
-surfaces and a blue action accent. State colours retain their meanings in both. Settings' Appearance
+type, sizes and motion. Neutral is the candidate default, using low-chroma surfaces and neutral
+actions to reserve colour for work states and characters. Glaze preserves the original colours;
+Graphite retains its graphite surfaces and blue action accent. Saved `glaze` and `graphite` choices
+retain their exact meanings; there is no preference migration. State colours retain their meanings
+in all three presets. Actual three-palette Appearance and character review is still required
+before aesthetic acceptance. Settings' Appearance
 chooses locally, then shows a labelled Preview with actual navigation, choice, input, status and
 outside-word treatments. Preview controls send nothing to an agent. Apply theme keeps the preset;
 Cancel or leaving restores the applied colours. Restore default appearance opens its own explanation
-and restores only Glaze, without changing comfort, space, projects or the paired computer.
+and names and restores only the current default (Neutral), without changing comfort, space,
+projects or the paired computer. Missing or invalid appearance values also select the current
+default; loading and previewing never save it.
 
 Settings opens a category index for Appearance, Comfort, Your space and Your computer only where
 that build supports it. Categories and setting rows navigate; their current value stays beside the

@@ -12,7 +12,7 @@ namespace Halcyonic.Client
 
         public string Save() => "version=1;theme=" + Applied.Key;
 
-        /// <summary>An unknown version, incomplete value or damaged choice returns the original appearance.</summary>
+        /// <summary>An unknown version, incomplete value or damaged choice returns the current default appearance.</summary>
         public static AppearanceSettings Load(string? saved)
         {
             var appearance = new AppearanceSettings();

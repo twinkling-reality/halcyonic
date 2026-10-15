@@ -86,15 +86,17 @@ namespace Halcyonic.Client
                 tones[GlazeTone.Neutral] = new GlazeToneColors(TextSecondary, Raised, Control, Text);
                 tones[GlazeTone.Accent] = new GlazeToneColors(GlazeColor.Hex(0xE4E2DB), GlazeColor.Hex(0x343B36), GlazeColor.Hex(0xD6DBD4), GlazeColor.Hex(0x202722));
             }
-            return new GlazePalette(instrument ? "instrument-study" : graphite ? "graphite" : "glaze", instrument ? "Instrument study" : graphite ? "Graphite" : "Glaze",
+            return new GlazePalette(instrument ? "neutral" : graphite ? "graphite" : "glaze", instrument ? "Neutral" : graphite ? "Graphite" : "Glaze",
                 Panel, Raised, Control, ControlHover, ControlPressed, Well, Text, TextSecondary, TextDisabled, Outline, tones);
         }
 
-        /// <summary>Consumed only by the explicit material comparison fixture; not a saved user preset.</summary>
-        public static GlazePalette InstrumentStudy { get; } = Make(false, true);
-        public static GlazePalette Default { get; } = Make(false);
+        public static GlazePalette Glaze { get; } = Make(false);
         public static GlazePalette Graphite { get; } = Make(true);
-        public static IReadOnlyList<GlazePalette> Presets { get; } = Array.AsReadOnly(new[] { Default, Graphite });
-        public static GlazePalette? Find(string key) => key == Default.Key ? Default : key == Graphite.Key ? Graphite : null;
+        public static GlazePalette Neutral { get; } = Make(false, true);
+        public static GlazePalette Default => Neutral;
+        /// <summary>Compatibility alias for the comparison fixture; never a separate saved preset.</summary>
+        public static GlazePalette InstrumentStudy => Neutral;
+        public static IReadOnlyList<GlazePalette> Presets { get; } = Array.AsReadOnly(new[] { Neutral, Glaze, Graphite });
+        public static GlazePalette? Find(string key) => key == Neutral.Key ? Neutral : key == Glaze.Key ? Glaze : key == Graphite.Key ? Graphite : null;
     }
 }
