@@ -234,8 +234,9 @@ namespace Halcyonic.Client
             switch (id)
             {
                 case FileScreens.ShowTaskHere:
-                    if (drawnShowTaskFrame == Frame && Frame?.Lines.Any(line => line.Action == id && line.Available) == true && CanShowTaskHere())
-                    { drawnShowTaskFrame = null; showTask?.Invoke(); }
+                    var taskWasDrawn = drawnShowTaskFrame == Frame;
+                    drawnShowTaskFrame = null; // Failed authority cannot revive an old draw after reconnect.
+                    if (taskWasDrawn && Frame?.Lines.Any(line => line.Action == id && line.Available) == true && CanShowTaskHere()) showTask?.Invoke();
                     return;
                 case FileScreens.OpenResults:
                     if (drawnResultsFrame == Frame && Frame?.Lines.Any(line => line.Action == id && line.Available) == true) openResults?.Invoke();

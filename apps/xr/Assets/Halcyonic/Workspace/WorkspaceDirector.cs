@@ -366,7 +366,7 @@ namespace Halcyonic.XR.Workspace
             var journal = ownedSession?.State.Journal?.JournalId;
             bool Current() => Room != null && !FocusGuard.InputSuspended && !Presentation.Minimized
                 && ReferenceEquals(connection.Session, ownedSession)
-                && connection.Session?.Status.IsLive == true && connection.DemonstrationLine == null
+                && ownedSession?.SnapshotCurrent == true && connection.DemonstrationLine == null
                 && journal != null && connection.Session.State.Journal?.JournalId == journal
                 && connection.Session.State.Workstreams.ContainsKey(workstreamId);
             file.OfferShowTaskHere(Current, () =>
