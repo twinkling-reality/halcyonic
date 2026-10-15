@@ -59,6 +59,9 @@ namespace Halcyonic.XR.UI
                 GetComponentsInChildren(true, words);
                 for (var index = 0; index < words.Count; index++) if (!words[index].transform.IsChildOf(badge.transform)) GlazeText.Show(words[index], shown);
                 badge.Fade(shown);
+                // CharacterBody has no UI opacity contract. Reveal only with the complete
+                // compact object, and hide immediately when it begins leaving.
+                if (portrait != null) portrait.gameObject.SetActive(shown >= 1f && portrait.WorkstreamId != null);
             }
         }
 

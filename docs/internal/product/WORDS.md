@@ -393,3 +393,11 @@ The native panel says Checking your computer before restoring this view only for
 check. During the actual in-flight read its words shimmer, or stand highlighted under Keep things
 still or disabled system animations. Connection failure replaces that wait with the existing
 recovery message; the animation never changes a checking state into a success claim.
+
+Workspace opens local organization and navigation. Move workspace enters placement; its header
+target says Move and its return says Done moving. Minimize workspace preserves work and drafts.
+Open other apps retains the platform's existing availability rule. Show task portraits and Hide
+task portraits name a device-wide local preference, separate from per-task colour. The Projects
+root omits Close; a task retains Close because that action removes its context and does not
+always navigate to a task list. Blue marks the main action, while amber still means waiting for
+you. These words describe the isolated candidate; wearer acceptance remains open.

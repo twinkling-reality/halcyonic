@@ -28,12 +28,12 @@ namespace Halcyonic.XR.UI
         private GlazeButton projects = null!;
         private GlazeButton tasks = null!, usage = null!, settings = null!;
         public event Action<MenuPlace>? PlacePressed;
-        public static float SpatialTop => MenuPage.Words(1) + MenuPage.Target() + 3f * MenuPage.TargetGap;
-        // Focused work has one Projects target in its context row. The composition adds
-        // its normal part gap below this complete target; no second empty band is needed.
-        public static float SpatialHeader(bool focusedWork) => focusedWork ? GlazeButton.HeightOf(false) : SpatialTop;
-        public static float SpatialBase => MenuPage.Target() + MenuPage.Words(1) + 3f * MenuPage.TargetGap;
-        public static float SpatialRail => PlaneComposition.Units(12f);
+        public static float SpatialTop => GlazeButton.HeightOf(false);
+        public static float SpatialHeader(bool focusedWork) => SpatialTop;
+        public static float SpatialBase => 0f;
+        public static float SpatialFooter(int marks) => marks > 0 ? MenuPage.Words(1) + 2f * MenuPage.TargetGap : 0f;
+        public static float SpatialRail => PlaneComposition.Units(8f);
+        public bool MoveMode { get; set; }
         public Func<bool> Accepting { get; set; } = () => false;
         public event Action? OtherAppsPressed;
         public event Action? MinimizePressed;
@@ -187,63 +187,54 @@ namespace Halcyonic.XR.UI
             var gap = MenuPage.TargetGap;
             var top = totalHeight / 2f;
             var left = -width / 2f;
-            var labelY = focusedWork ? top - SpatialHeader(true) / 2f : top - MenuPage.Words(1) / 2f - gap / 2f;
+            var labelY = top - SpatialHeader(focusedWork) / 2f;
+            var workspaceWidth = PlaneComposition.Units(9f);
+            var returnWidth = SpatialRail;
+            tasks.gameObject.SetActive(false); usage.gameObject.SetActive(false); settings.gameObject.SetActive(false);
+            apps.gameObject.SetActive(false); minimize.gameObject.SetActive(false);
+            projects.gameObject.SetActive(focusedWork);
             product.gameObject.SetActive(!focusedWork);
-            GlazeText.SetLiteral(product, WorkspaceText.Product);
-            GlazeText.Lay(product, SpatialRail, 1);
-            product.transform.localPosition = new Vector3(left + gap, labelY, -0.001f);
-            connection.color = context.color = GlazeTokens.Text;
-            GlazeText.SetLiteral(connection, connectionState);
-            var connectionRoom = contentWidth * (focusedWork ? 0.28f : 0.5f);
-            GlazeText.Lay(connection, connectionRoom, 1);
-            connection.transform.localPosition = new Vector3(contentLeft + contentWidth - gap, labelY, -0.001f);
-            var contextStart = focusedWork ? left + SpatialRail + gap : contentLeft;
-            var contextRoom = focusedWork ? Mathf.Max(0f, width - SpatialRail - 2f * gap - connectionRoom) : contentWidth * 0.62f;
-            var hasIdentity = selection.Text != "Projects" && !string.IsNullOrWhiteSpace(selection.Text);
-            context.gameObject.SetActive(hasIdentity && focusedWork);
-            if (hasIdentity && focusedWork)
+            if (focusedWork)
             {
-                GlazeRuns.Of(context).Set(selection, tried => context.GetPreferredValues(tried).x <= contextRoom - 2f * gap);
-                GlazeText.Lay(context, contextRoom - 2f * gap, 1);
-                context.transform.localPosition = new Vector3(contextStart + gap, labelY, -0.001f);
+                projects.Role = ButtonRole.Navigation;
+                projects.On = false;
+                projects.Show("Projects", new Vector2(left + gap + returnWidth / 2f, labelY), returnWidth);
             }
+            else
+            {
+                GlazeText.SetLiteral(product, WorkspaceText.Product);
+                GlazeText.Lay(product, returnWidth, 1);
+                product.transform.localPosition = new Vector3(left + gap, labelY, -0.001f);
+            }
+            var contextLeft = left + returnWidth + 2f * gap;
+            var contextRight = width / 2f - workspaceWidth - 2f * gap;
+            var contextRoom = Mathf.Max(0f, contextRight - contextLeft);
+            var hasIdentity = focusedWork && selection.Text != "Projects" && !string.IsNullOrWhiteSpace(selection.Text);
+            context.gameObject.SetActive(hasIdentity);
+            if (hasIdentity)
+            {
+                GlazeRuns.Of(context).Set(selection, tried => context.GetPreferredValues(tried).x <= contextRoom);
+                GlazeText.Lay(context, contextRoom, 1);
+                context.transform.localPosition = new Vector3(contextLeft, labelY + MenuPage.Words(1) / 2f, -0.001f);
+            }
+            connection.rectTransform.pivot = new Vector2(0f, 0.5f);
+            GlazeText.SetLiteral(connection, connectionState);
+            GlazeText.Lay(connection, contextRoom, 1);
+            connection.transform.localPosition = new Vector3(contextLeft, labelY - (hasIdentity ? MenuPage.Words(1) / 2f : 0f), -0.001f);
+            connection.color = GlazeTokens.TextSecondary;
+            move.Role = ButtonRole.Navigation;
+            move.Holds = MoveMode;
+            move.Show(MoveMode ? WorkspaceText.MoveWorkspace : "Workspace", new Vector2(width / 2f - gap - workspaceWidth / 2f, labelY), workspaceWidth);
+            move.Label.color = GlazeTokens.Text;
             provenance.gameObject.SetActive(marks.Count > 0);
             if (marks.Count > 0)
             {
                 GlazeText.SetLiteral(provenance, string.Join(" · ", marks.Select(mark => mark.Word)));
-                GlazeText.Lay(provenance, SpatialRail, 1);
-                provenance.transform.localPosition = new Vector3(contentLeft + contentWidth - gap, -totalHeight / 2f + MenuPage.Words(1) / 2f + gap / 2f, -0.001f);
+                GlazeText.Lay(provenance, contentWidth - 2f * gap, 1);
+                provenance.transform.localPosition = new Vector3(contentLeft + contentWidth - gap,
+                    -totalHeight / 2f + MenuPage.Words(1) / 2f + gap, -0.001f);
             }
-            var entries = new[] { (projects, MenuPlace.Projects, "Projects", GlazeIcon.Folder), (tasks, MenuPlace.Tasks, "Tasks", GlazeIcon.ShowAll), (usage, MenuPlace.Usage, "Usage", GlazeIcon.UsageLeft), (settings, MenuPlace.Settings, "Settings", GlazeIcon.Settings) };
-            var navigationWidth = (width - 2f * gap - 3f * MenuPage.TargetGap) / 4f;
-            var navigationY = top - SpatialTop + gap + MenuPage.Target() / 2f;
-            var navigationIndex = 0;
-            foreach (var (button, destination, words, icon) in entries)
-            {
-                var visible = !focusedWork || destination == MenuPlace.Projects;
-                button.gameObject.SetActive(visible);
-                if (!visible) continue;
-                button.Role = ButtonRole.Navigation;
-                button.Label.alignment = TextAlignmentOptions.Center;
-                button.Show(words, new Vector2(focusedWork ? left + SpatialRail / 2f : left + gap + navigationWidth / 2f + navigationIndex * (navigationWidth + gap),
-                    focusedWork ? top - SpatialHeader(true) / 2f : navigationY), focusedWork ? SpatialRail : navigationWidth);
-                button.On = !focusedWork && destination == place;
-                button.Label.color = GlazeTokens.Text;
-                navigationIndex++;
-            }
-            move.Role = apps.Role = minimize.Role = ButtonRole.Navigation;
-            var buttonWidth = (contentWidth - 2f * gap) / 3f;
-            var baseY = -totalHeight / 2f + SpatialBase - gap - MenuPage.Target() / 2f;
-            move.Show(WorkspaceText.MoveWorkspace, new Vector2(contentLeft + buttonWidth / 2f, baseY), buttonWidth);
-            apps.Available = appsAvailable;
-            apps.Show(WorkspaceText.OtherApps, new Vector2(contentLeft + contentWidth / 2f, baseY), buttonWidth);
-            minimize.Show(WorkspaceText.Minimize, new Vector2(contentLeft + contentWidth - buttonWidth / 2f, baseY), buttonWidth);
-            move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.Text;
-            // The organization controls are recessed into the same object at its near edge.
-            // No detached fitted rectangle follows individual word bounds.
-            heading.gameObject.SetActive(true);
-            heading.Draw(new Vector2(width - 2f * MenuPage.Grid, SpatialBase - gap), GlazeTokens.Units(0.3f), GlazeTokens.ColorOf(Glaze.Palette.Well));
-            heading.transform.localPosition = new Vector3(0f, -totalHeight / 2f + (SpatialBase - gap) / 2f, -0.0002f);
+            heading.gameObject.SetActive(false);
             foreach (var button in Targets)
                 if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
         }

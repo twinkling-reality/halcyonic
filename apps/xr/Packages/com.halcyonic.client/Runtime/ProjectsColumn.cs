@@ -41,6 +41,7 @@ namespace Halcyonic.Client
         private string? drawnFoldersJournal;
         private int page;
         private bool closed;
+        private readonly bool workspaceControls;
         private MenuFrame? frame;
         private (long Position, bool Connected, bool Demonstration, TextSize Text, long Minute, WorkOverview? Overview) seen;
 
@@ -58,7 +59,7 @@ namespace Halcyonic.Client
         /// <param name="show">Shows (true) or hides (false) a project's work on the stage, kept on this device.</param>
         /// <param name="readLocations">Reads the host's folders; the host's API when null, as on the headset.</param>
         public ProjectsColumn(IMenuHost host, CommandFactory commands, ProjectsMemory memory, Func<WorkOverview?> overview, Action<string, bool> show,
-            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null, Action<string>? openTasks = null, Func<PageLine, double>? lineHeight = null, Func<double>? pageHeight = null)
+            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null, Action<string>? openTasks = null, Func<PageLine, double>? lineHeight = null, Func<double>? pageHeight = null, bool workspaceControls = false)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
@@ -68,6 +69,7 @@ namespace Halcyonic.Client
             this.readLocations = readLocations;
             this.openTasks = openTasks;
             this.lineHeight = lineHeight; this.pageHeight = pageHeight;
+            this.workspaceControls = workspaceControls;
             Read();
         }
 
@@ -81,6 +83,7 @@ namespace Halcyonic.Client
         /// <summary>The state the frame is built from now, as <see cref="ProjectsScreens"/> takes it.</summary>
         public ProjectsScreens.State State() => new ProjectsScreens.State
         {
+            WorkspaceControls = workspaceControls,
             Overview = overview(),
             Listing = listing,
             ListingProblem = listingProblem,

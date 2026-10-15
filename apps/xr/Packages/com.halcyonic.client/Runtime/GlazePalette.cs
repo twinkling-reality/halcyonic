@@ -84,7 +84,7 @@ namespace Halcyonic.Client
                 Well = GlazeColor.Hex(0x1D211F); Text = GlazeColor.Hex(0xE9E7E0); TextSecondary = GlazeColor.Hex(0xB9BEB9);
                 TextDisabled = GlazeColor.Hex(0x949D96); Outline = GlazeColor.Hex(0x78887C);
                 tones[GlazeTone.Neutral] = new GlazeToneColors(TextSecondary, Raised, Control, Text);
-                tones[GlazeTone.Accent] = new GlazeToneColors(GlazeColor.Hex(0xE4E2DB), GlazeColor.Hex(0x343B36), GlazeColor.Hex(0xD6DBD4), GlazeColor.Hex(0x202722));
+                tones[GlazeTone.Accent] = new GlazeToneColors(GlazeColor.Hex(0xA3C3FF), GlazeColor.Hex(0x22324F), GlazeColor.Hex(0x7FA9F8), GlazeColor.Hex(0x0B1422));
             }
             return new GlazePalette(instrument ? "neutral" : graphite ? "graphite" : "glaze", instrument ? "Neutral" : graphite ? "Graphite" : "Glaze",
                 Panel, Raised, Control, ControlHover, ControlPressed, Well, Text, TextSecondary, TextDisabled, Outline, tones);

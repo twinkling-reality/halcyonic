@@ -126,8 +126,8 @@ namespace Halcyonic.XR.UI
         public double? TaskPortraitHue { get; set; }
         private TaskIdentityAvatarView portrait = null!;
         public TaskIdentityAvatarView TaskIdentity => portrait;
-        public static float PortraitWidth => U(4.5f);
-        public static float PortraitHeight => U(5f);
+        public static float PortraitWidth => U(5.5f);
+        public static float PortraitHeight => U(6.5f);
         private bool HasPortrait => SpatialWorkspace && TaskPortrait != null;
         public bool ExternalPlaces { get; set; }
         private Transform unifiedPart = null!;
@@ -566,6 +566,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Every shape and every label as far into view as its part is now; whole at rest, every label's fade dropped.</summary>
         private void Paint()
         {
+            // Mesh bodies do not inherit Surface/TMP fades. A local identity arrives with
+            // the complete subject and leaves as soon as the subject starts closing.
+            if (portrait != null) portrait.gameObject.SetActive(motion == Motion.Still && HasPortrait && portrait.WorkstreamId != null);
             for (var index = 0; index < fadingShapes.Count; index++)
             {
                 var (shape, part) = fadingShapes[index];
@@ -827,7 +830,7 @@ namespace Halcyonic.XR.UI
             var room = width - 2f * padding - portraitRoom - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
             if (HasPortrait)
-                portrait.Show(TaskPortrait!, TaskPortraitHue, new Vector2(-width / 2f + padding + PortraitWidth / 2f, 0f), new Vector2(PortraitWidth, PortraitHeight));
+                portrait.Show(TaskPortrait!, TaskPortraitHue, new Vector2(-width / 2f + PortraitWidth / 2f, 0f), new Vector2(PortraitWidth, PortraitHeight));
             else portrait.Hide();
             var namedIdentity = SpatialWorkspace && identityKind != null;
             if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));

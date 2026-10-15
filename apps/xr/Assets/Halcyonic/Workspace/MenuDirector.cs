@@ -190,6 +190,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The plane held by a file's subject, while it is (ADR 0026).</summary>
         private MenuDrag? drag;
         private IMenuColumn? placement;
+        private bool moveMode;
         private MenuFrame? placementFrame;
         private MenuFrame? placementDrawn;
         public bool IsCompact => navigator.IsCompact;
@@ -247,7 +248,7 @@ namespace Halcyonic.XR.Workspace
                 [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations, director.OpenProjectTasks,
                     setup.SpatialWorkspace ? line => MenuFrameView.ProjectListLineHeight(line, Glaze.Menu.FileColumnDegrees) : null,
-                    setup.SpatialWorkspace ? () => director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true) : null),
+                    setup.SpatialWorkspace ? () => director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true) : null, workspaceControls: setup.SpatialWorkspace),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
                 [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
             });
@@ -747,6 +748,7 @@ namespace Halcyonic.XR.Workspace
                 : setup.Session()?.Status.Phase is ConnectionPhase.Connecting or ConnectionPhase.Synchronizing ? WorkspaceText.Connecting : WorkspaceText.Disconnected;
             plane.SelectionContext = WorkspaceContext();
             plane.OtherAppsAvailable = CanOpenOtherApps;
+            plane.Chrome.MoveMode = moveMode;
             void ShowComposition() => plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
                 navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,
                 navigator.IsCompact ? (object?)navigator.Beside ?? navigator.Shown ?? (object)navigator : null);
@@ -988,7 +990,13 @@ namespace Halcyonic.XR.Workspace
 
         private void OpenPlacement()
         {
-            OpenLocal(new PlacementColumn(this, ResetPosition, navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null, () => showTaskPortraits, SetTaskPortraits));
+            OpenLocal(new PlacementColumn(this, ResetPosition,
+                navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true ? work.Title : null,
+                () => showTaskPortraits, SetTaskPortraits,
+                moving => { moveMode = moving; dirty = true; },
+                () => { LocalClosed(); MinimizeWorkspace(); },
+                OpenOtherApps, () => CanOpenOtherApps,
+                destination => { LocalClosed(); navigator.CloseBeside(); Open(destination); }));
         }
 
         /// <summary>An explicitly requested local overlay that preserves retained work and owns no runtime authority.</summary>
@@ -1011,6 +1019,7 @@ namespace Halcyonic.XR.Workspace
         private void LocalClosed()
         {
             var closing = placement;
+            moveMode = false;
             placement = null;
             placementFrame = null;
             placementDrawn = null;
@@ -1049,9 +1058,10 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private bool MayDrag(MenuColumn from, MenuFrame? frame)
         {
-            if (Away || drag != null || placement != null) return false;
-            if (frame == null && plane.Chrome.Visible) return OrganizationStanding(from, frame, null) && plane.Composition != null && plane.Front?.Footer.Confirming != true;
+            if (Away || drag != null || placement != null && !moveMode) return false;
+            if (frame == null && plane.Chrome.Visible && (!plane.SpatialWorkspace || moveMode)) return OrganizationStanding(from, frame, null) && plane.Composition != null && plane.Front?.Footer.Confirming != true;
             if (navigator.IsCompact) return !dirty && !plane.Sliding && plane.Bar != null && plane.Bar.Shown >= 1f;
+            if (plane.SpatialWorkspace && !moveMode) return false;
             var drawnView = plane.Shown.FirstOrDefault(item => item.Kind == from).View;
             if (drawnView == null || drawnView.Frame != frame || plane.Opening(from) || dirty || plane.Sliding) return false;
             if (navigator.Standing(from, frame, drawnView.Side) == null) return false;
@@ -1235,7 +1245,9 @@ namespace Halcyonic.XR.Workspace
             bool HoldsSpatial(float page)
             {
                 var body = subject + sections + MenuPage.Content(page) + gap * (sections > 0f ? 2f : 1f);
-                var reading = new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), body, WorkspaceChromeView.SpatialBase);
+                var marks = navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var selectedWork) == true
+                    ? StateLanguage.MarksOf(CharacterPresenter.Present(selectedWork, State, Connected && !Demonstration)).Count : 0;
+                var reading = new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), body, WorkspaceChromeView.SpatialFooter(marks));
                 var composition = new PlaneComposition(new[] { reading }, zoom, WorkspaceChromeView.SpatialHeader(!besideMenu));
                 return MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
                     && MenuPage.Readable(composition) && WorkspacePlacement.Clears(direction, occupied, composition.Size);

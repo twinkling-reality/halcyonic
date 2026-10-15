@@ -41,6 +41,9 @@ namespace Halcyonic.Client
             /// <summary>Every project and its work, or null before the computer answered.</summary>
             public WorkOverview? Overview { get; set; }
 
+            /// <summary>Minimize is available through the spatial workspace controls, so root has no redundant Close.</summary>
+            public bool WorkspaceControls { get; set; }
+
             /// <summary>The host's folders, or null while they are read.</summary>
             public LocationsResponse? Listing { get; set; }
 
@@ -209,14 +212,15 @@ namespace Halcyonic.Client
 
             var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize, sourceLine: false), state.LineHeight, state.AvailableHeight);
             if (pages == null)
-                return new MenuFrame(subject, new Footer(new Prompt(Footer.Close, ProjectsText.Close, GlazeIcon.Close, PromptKind.Close)),
+                return new MenuFrame(subject, new Footer(state.WorkspaceControls ? null : new Prompt(Footer.Close, ProjectsText.Close, GlazeIcon.Close, PromptKind.Close)),
                     lines: new[] { new PageLine(ProjectsText.MoreRoom, rows: 2, tone: LineTone.Secondary) });
             var page = Math.Max(0, state.Page) % pages.Count;
             // A chosen row shows on its own page, so its side panel slides out beside it.
             var chosenAt = pages.FindIndex(each => each.Any(line => line.Chosen));
             if (chosenAt >= 0) page = chosenAt;
 
-            var close = new Prompt(Footer.Close, ProjectsText.Close, GlazeIcon.Close, PromptKind.Close);
+            Prompt? close = state.WorkspaceControls && project == null && folder == null && !problemChosen
+                ? null : new Prompt(Footer.Close, ProjectsText.Close, GlazeIcon.Close, PromptKind.Close);
             Footer footer;
             SidePanel? side = null;
             if (project != null)
