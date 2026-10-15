@@ -1042,7 +1042,9 @@ launch/return, process recreation and current-frame action behavior need separat
   discovery remains visible immediately. Paging retains this navigation. A navigation press requires
   the current drawn frame and journal, and loses authority on focus leave or redraw. Hiding and
   reopening discovery retains the existing unknown connection outcome and never permits a retry
-  that `FolderConnection` forbids. The connection sent last lives in `ProjectsMemory`,
+  that `FolderConnection` forbids. Selecting an offered folder or its read problem keeps discovery
+  expanded, so the first connected project does not hide the chosen folder or its confirmed receipt.
+  Reopening Projects still begins with known work. The connection sent last lives in `ProjectsMemory`,
   which the director keeps for the app's run (one journal), across reconnects, and gives every Projects
   column, so an unknown outcome
   holds Connect back across a close and a reopen. Every press goes through `ProjectsScreens.Allows`
