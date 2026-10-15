@@ -614,6 +614,15 @@ namespace Halcyonic.XR.Workspace
                     || !Finite(stage.Looking.x) || !Finite(stage.Looking.y) || !Finite(stage.Looking.z) || stage.Looking.sqrMagnitude < 0.5f;
                 return;
             }
+            var eligible = WorkspaceFollow.EligibleHead(headForward);
+            if (!eligible)
+            {
+                // A bounded candidate that cannot fit must not repeatedly move, settle and revoke input.
+                workspaceFollow.Update(now, headPosition, headForward, false, false, plane.Sliding, eligible: false);
+                plane.Repositioning = workspaceFollow.Moving;
+                if (wasMoving && !workspaceFollow.Moving) { navigator.Moved(); dirty = true; }
+                return;
+            }
             var forward = stage.Looking.normalized;
             var rotation = Quaternion.LookRotation(forward, Vector3.up);
             var field = ViewField.Current ?? MenuPage.Quest3S;
@@ -630,6 +639,11 @@ namespace Halcyonic.XR.Workspace
             outside |= distance < PlaneComposition.Distance * 0.65f || distance > PlaneComposition.Distance * 1.5f;
             var recover = workspaceFollow.Update(now,
                 headPosition, headForward, outside, blocked, plane.Sliding);
+            if (recover && !plane.CanRecoverAt(stage.Eyes, stage.Looking, stage.Characters))
+            {
+                // Rejected before any content/input mutation. Reconsider only after a fresh calm dwell.
+                workspaceFollow.Reset(); plane.Repositioning = false; return;
+            }
             plane.Repositioning = workspaceFollow.Moving;
             if (recover)
             {

@@ -10,6 +10,7 @@ namespace Halcyonic.Client
         public const double OutsideSeconds = PeekChoice.DwellSeconds;
         public const double SettleSeconds = 0.35; // Existing button settling interval.
         public const float CalmDegreesPerSecond = PeekChoice.TurningDegreesPerSecond;
+        public const float MaximumPitchDegrees = 25f;
         public const float CalmMetersPerSecond = 0.2f; // Candidate, requires wearer validation.
         private double? last, outsideSince, settledSince;
         private double began;
@@ -17,7 +18,7 @@ namespace Halcyonic.Client
         public bool Moving { get; private set; }
 
         /// <summary>True once requests a new content anchor. Moving stays true through animation and fresh settling.</summary>
-        public bool Update(double now, Vector3 headPosition, Vector3 headForward, bool outside, bool blocked, bool animating)
+        public bool Update(double now, Vector3 headPosition, Vector3 headForward, bool outside, bool blocked, bool animating, bool eligible = true)
         {
             var valid = Finite(now) && Finite(headPosition.X) && Finite(headPosition.Y) && Finite(headPosition.Z)
                 && Finite(headForward.X) && Finite(headForward.Y) && Finite(headForward.Z) && headForward.LengthSquared() > 0.5f;
@@ -36,12 +37,14 @@ namespace Halcyonic.Client
                 else if (now - settledSince.Value >= SettleSeconds) { Moving = false; settledSince = null; }
                 return false;
             }
-            if (!outside || !calm) { outsideSince = null; return false; }
+            if (!eligible || !outside || !calm) { outsideSince = null; return false; }
             if (!outsideSince.HasValue) outsideSince = now;
             if (now - outsideSince.Value < OutsideSeconds) return false;
             outsideSince = null; settledSince = null; began = now; Moving = true;
             return true;
         }
+        public static bool EligibleHead(Vector3 forward) => Finite(forward.X) && Finite(forward.Y) && Finite(forward.Z)
+            && forward.LengthSquared() > 0.5f && Math.Abs(Math.Atan2(forward.Y, Math.Sqrt(forward.X * forward.X + forward.Z * forward.Z)) * 180 / Math.PI) <= MaximumPitchDegrees;
         public void Reset() { last = outsideSince = settledSince = null; Moving = false; }
         private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
     }
