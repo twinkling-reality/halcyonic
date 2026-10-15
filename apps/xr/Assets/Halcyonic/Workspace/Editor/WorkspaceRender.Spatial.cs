@@ -80,6 +80,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     File = (host, _) => new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                 });
+                // Production host pagination must count the actual title face, not the previous
+                // title role; a font whose width changes the wrap must not silently overfill a page.
+                var titleWitnesses = Enumerable.Range(1, 12).Select(count => string.Join(" ", Enumerable.Repeat("Build rate limiting", count))).ToList();
+                foreach (var title in titleWitnesses)
+                {
+                    var actualRows = MenuFrameView.SpatialTitleRows(title, Glaze.Menu.FileColumnDegrees);
+                    if (director.TitleRows(title, Glaze.Menu.FileColumnDegrees) != actualRows)
+                        failures.Add("spatial: host title row budget differs from the actual reading title");
+                }
                 void Draw()
                 { for (var turn = 0; turn < 4; turn++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); } }
                 void Press(string action, string? key = null)
