@@ -578,3 +578,13 @@ The type hierarchy resets for each independent known-project entry: its name lea
 supporting task summary. A later project's name may therefore be larger than the preceding
 project's summary. This is not a blanket exception to descending type: ordinary reading content
 retains that rule, and each project's actual name-to-summary group must satisfy it independently.
+
+## Out-of-view workspace recovery, 2026-10-15 candidate
+
+The owner rejected the fixed workspace staying behind when they turned. Reading content now stays
+still through ordinary small head movement, then recovers to the resting wearer after it leaves
+view. It never changes XR tracking or the camera, never moves room-placed characters, and does not
+control native Android panel placement. A moving or settling reading object accepts no task or
+frame input; its exact local drafts/pages survive and require a fresh physical draw. Keep things
+still uses an immediate content reposition with the same input settling. Candidate timings and
+translation tolerances require an actual wearer check; renderer success alone is not comfort.

@@ -213,6 +213,12 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The eyes the plane was placed from, which a drag turns it round.</summary>
         public Vector3 Eyes => eyes;
+        private bool repositioning;
+        public bool Repositioning
+        {
+            get => repositioning;
+            set { repositioning = value; foreach (var view in frameViews) view.InputSuspended = value; }
+        }
 
         /// <summary>
         /// A file's subject was held long enough to drag the plane by, from a view on the plane: its
@@ -303,7 +309,7 @@ namespace Halcyonic.XR.Workspace
             plane.bar.Acted += _ => plane.Opened?.Invoke();
             plane.bar.Hide();
             plane.Chrome = WorkspaceChromeView.Create(go.transform);
-            plane.Chrome.Accepting = () => !FocusGuard.InputSuspended && !plane.Sliding && plane.shown.Count > 0 && plane.shown.TrueForAll(each => !each.View.Opening && !each.View.Closing);
+            plane.Chrome.Accepting = () => !FocusGuard.InputSuspended && !plane.Repositioning && !plane.Sliding && plane.shown.Count > 0 && plane.shown.TrueForAll(each => !each.View.Opening && !each.View.Closing);
             plane.Chrome.PlacePressed += place => plane.PlacePressed?.Invoke(place);
             plane.Chrome.OtherAppsPressed += () => plane.OtherAppsPressed?.Invoke();
             plane.Chrome.MinimizePressed += () => plane.MinimizePressed?.Invoke();
@@ -355,7 +361,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>A column takes a press, a hold or a subject press only while it stands on the plane and has opened.</summary>
-        private bool Takes(MenuFrameView view) => Contains(shown, view) && !view.Opening;
+        private bool Takes(MenuFrameView view) => !Repositioning && Contains(shown, view) && !view.Opening;
 
         /// <summary>
         /// Shows the menu open on <paramref name="menuFrame"/>, or closed to <paramref name="menuBar"/>
@@ -742,7 +748,8 @@ namespace Halcyonic.XR.Workspace
 
         private PanelDirection PlaceWorkspace(IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, PanelSize size)
         {
-            var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg, 0f, true, false);
+            var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg,
+                Mathf.Clamp(Mathf.Atan2(looking.y, new Vector2(looking.x, looking.z).magnitude) * Mathf.Rad2Deg, -25f, 25f), true, false);
             return new PanelDirection(direction.Yaw, direction.Elevation, WorkspacePlacement.Clears(direction, bodies, size), false);
         }
 
@@ -975,6 +982,10 @@ namespace Halcyonic.XR.Workspace
             var position = PlaneLayout.PointOf(eyes, Direction, placed.Right, placed.Up);
             var rotation = PlaneLayout.Facing(Direction);
             var scale = PlaneComposition.Distance * zoom;
+            // Passive redraws to an identical destination must not restart motion or its input block.
+            if (!immediately && from == null && slides.TryGetValue(part, out var kept) && !kept.HideAtEnd
+                && Vector3.Distance(kept.To, position) < 0.000001f && Quaternion.Angle(kept.ToRotation, rotation) < 0.0001f
+                && Mathf.Abs(kept.ToScale - scale) < 0.000001f) return;
             if (from is Vector3 start)
             {
                 part.SetPositionAndRotation(start, rotation);

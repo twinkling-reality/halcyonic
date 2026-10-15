@@ -3163,12 +3163,15 @@ an unworn headset or camera fallback cannot become the permanent workspace origi
 its selected views and retries drawing each frame, so late tracking alone can reveal the workspace
 without a control-plane event. No hidden initial frame grants input or read authority.
 
-Once anchored, ordinary head motion, focus changes, redraws, minimize and restore preserve the
-workspace pose and deliberate Move offset. This change does not automatically recover an established
-workspace after a tracking-origin reset or movement during pause; that remains an explicit open
-question. Reset position keeps its existing deliberate meaning. Source, API and regression evidence
-is recorded in [initial workspace placement](../validation/initial-workspace-placement.md); actual
-headset startup acceptance remains separate from the source correction.
+The first-pose readiness correction remains. On 2026-10-15 the owner rejected the installed
+fixed-anchor behavior because the workspace stayed behind and left view. The production initializer
+now enables responsive recovery: ordinary in-view reading remains still, but an out-of-view workspace
+recovers after the wearer rests, then settles before accepting fresh input. This supersedes the
+prior policy of preserving an established anchor indefinitely. Minimize does not summon hidden work;
+explicit agent/shelf/room placements and native OS panel placement remain unchanged. Reset position
+still deliberately places the console afresh. Source and candidate values are recorded in
+[responsive workspace](../validation/responsive-workspace.md) and [ADR 0032](../decisions/0032-recover-the-workspace-when-it-leaves-view.md).
+Actual wearer acceptance remains required.
 
 
 ### Starting another task in an existing project
