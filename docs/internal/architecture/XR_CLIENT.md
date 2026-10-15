@@ -3226,6 +3226,13 @@ clearance envelope remains reserved, preserving shelf position and fit. The lega
 remains available to component fixtures; actual application activation is explicit. Renderer and
 wearer evidence is tracked in [the composition validation](../validation/spatial-workspace-composition.md).
 
+The editor's `WorkspaceRender.DrawLifecycleCheck` covers actual plane opening, cancellation,
+closing, hidden views and fresh redraws at both text sizes in both composition modes. A plane
+layout report is not itself reading authority: the director separately rejects it while away or
+repositioning. [Draw lifecycle validation](../validation/workspace-draw-lifecycle.md) records the
+passing fixture and the limits of that coverage; it does not validate independent spatial regions
+or the rejected visual composition.
+
 Spatial page budgets preserve the minimum apparent text size as well as the complete field.
 This applies to every spatial caller, including creation-wizard and mandatory-review pages
 whose host request is not marked focused. Such reviews paginate before their peripheral
