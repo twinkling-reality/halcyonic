@@ -66,8 +66,10 @@ The Task/Project caption uses primary strong text. Small navigation/context, rea
 utility labels and chevrons use primary ink; size and position retain their hierarchy. Unreached
 sections remain unavailable in the quiet secondary role. Selection on the coated face uses a
 6-percent white lift with the existing selected frame. Spatial filled/listening prompt caps are
-rounded squares within the original cap bounds, shielding their complete icon rectangle. The
-focused task's Projects icon and ordinary spatial footer prompts keep their icon/text layout
+rounded squares within the original cap bounds, shielding their complete icon rectangle. Presses
+keep that coverage fixed and brighten the cap; spatial listening pulses the cap light while its
+microphone keeps its normal size. Keep things still leaves a steady active cap. Legacy round
+prompts retain their existing shrink/glyph-pulse feedback. The focused task's Projects icon and ordinary spatial footer prompts keep their icon/text layout
 and target without circular caps. The spatial footer has no subpixel decorative divider.
 
 Material rendering does not redefine historical preset values or saved appearance keys. Palette
