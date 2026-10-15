@@ -86,8 +86,21 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 // Explicit synthetic transport; production Pump establishes the real current-watermark guard.
-                var journal = new JournalInfo { JournalId = "render-journal", Origin = JournalOrigin.Live };
-                var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = work.State.Projects.Values.ToList(),
+                var projects = work.State.Projects.Values.ToList();
+                // The working route exercises the real continuation parser. Its synthetic entity
+                // identities must satisfy that contract, just as Results fixtures do.
+                if (!waiting)
+                {
+                    const string projectId = "0192f1b0-0000-7000-8000-000000000101";
+                    const string taskId = "0192f1b0-0000-7000-8000-000000000102";
+                    const string executionId = "0192f1b0-0000-7000-8000-000000000103";
+                    projects.Single(project => project.ProjectId == work.Workstream.ProjectId).ProjectId = projectId;
+                    work.Workstream.WorkstreamId = taskId; work.Workstream.ProjectId = projectId;
+                    work.Workstream.CurrentExecutionId = executionId; work.Workstream.ExecutionIds = new List<string> { executionId };
+                    work.Execution.ExecutionId = executionId; work.Execution.WorkstreamId = taskId; work.Execution.ProjectId = projectId;
+                }
+                var journal = new JournalInfo { JournalId = waiting ? "render-journal" : "0192f1b0-0000-7000-8000-000000000001", Origin = JournalOrigin.Live };
+                var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = projects,
                     Workstreams = new List<WorkstreamView> { work.Workstream }, Executions = new List<ExecutionView> { work.Execution },
                     Runtimes = work.State.Runtimes.ToList() };
                 if (multipleProjects)
@@ -95,6 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         new ProjectView { ProjectId = "0192a7a0-0000-7000-8000-0000000000b2", Name = "Search service", CreatedAt = Time, UpdatedAt = Time },
                         new ProjectView { ProjectId = "0192a7a0-0000-7000-8000-0000000000b3", Name = "Mobile client", CreatedAt = Time, UpdatedAt = Time }
                     });
+                if (!waiting) work.State.ApplySnapshot(snapshot, new StateChanges());
                 var inbox = (ConcurrentQueue<object>)typeof(RealtimeSession).GetField("inbox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(session)!;
                 inbox.Enqueue(new WelcomeMessage { Journal = journal, Head = 1, ServerTime = Time,
                     CommandPolicies = new List<CommandPolicy> {
@@ -347,18 +361,21 @@ namespace Halcyonic.XR.Workspace.Editor
                     Press(Footer.NextPage); // Moving away revokes the previously drawn page.
                     if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null) || syntheticLaunches != 0)
                         failures.Add("spatial: page-stale Workspace controls authorized app dispatch");
+                    Draw(); // NextPage changed the column; inspect its newly drawn page, not the old Front.
                     for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.OtherApps);
                     Draw();
                     if (syntheticLaunches != 1 || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
-                        failures.Add("spatial: actual Workspace app route failed final synthetic dispatch or lost its draft");
+                        failures.Add("spatial: actual Workspace app route failed final synthetic dispatch or lost its draft; launches=" + syntheticLaunches
+                            + ", draft-retained=" + (retainedFile?.Screen.Instruction.Words == "Add a regression test for the rate limit.") + ", text-scale=" + GlazeText.Scale);
                     if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null))
                         failures.Add("spatial: closed local controls kept app-switch authority");
                     director.Expand(); Draw();
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 955);
+                    for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.BeginMove); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.BeginMove);
                     if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null) || syntheticLaunches != 1)
-                        failures.Add("spatial: explicit Move mode accepted app-switch authority");
+                        failures.Add("spatial: explicit Move mode accepted app-switch authority or prior dispatch count differs; launches=" + syntheticLaunches);
                     Draw();
                     if (!director.Plane.Chrome.Targets.Any(button => button.gameObject.activeInHierarchy && button.Label.text == WorkspaceText.MoveWorkspace))
                         Debug.LogError("Halcyonic: spatial expected Move after BeginMove; " + director.WorkspaceControlsStateForRender);
@@ -371,12 +388,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DragSubjectForRender(eyes + Quaternion.Euler(0f, 4f, 0f) * (point - eyes));
                     director.LetGoForRender(); Draw();
                     if (director.Plane.Front?.Subject != "Move workspace" || syntheticLaunches != 1)
-                        failures.Add("spatial: drag release fired a local tap or app action");
+                        failures.Add("spatial: drag release changed local mode or dispatch count; launches=" + syntheticLaunches);
                     var moved = director.Plane.Moved;
                     Press(Footer.Close); // Done moving returns to the retained task.
+                    Draw(); // Observe the returned task's controls after the local mode closes.
                     Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 952);
                     for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.Minimize); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.Minimize);
+                    Draw(); // Visibility is a rendered result of minimizing, not the prior frame.
                     if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
                         failures.Add("spatial: minimizing retained a hidden character title");
                     if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible)
