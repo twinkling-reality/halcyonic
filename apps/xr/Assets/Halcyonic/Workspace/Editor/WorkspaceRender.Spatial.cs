@@ -237,6 +237,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw(); Press(ProjectsScreens.ChooseProject, work.Workstream.ProjectId);
                 }
                 Press(TasksColumn.OpenTask, work.Workstream.WorkstreamId);
+                if (!waiting) Shot("spatial-working-activity");
                 if (!waiting) { Press(FileScreens.TellIt); done?.Invoke("Add a regression test for the rate limit."); }
                 Shot(question ? "spatial-question-first-part" : waiting ? "spatial-waiting-approval" : "spatial-working-direction");
                 if (question && selectedFile != null)
