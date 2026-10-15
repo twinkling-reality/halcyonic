@@ -20,6 +20,7 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         public static void SpatialProjectJourneyCheck()
         {
+            var previousField = ViewField.Current;
             var failures = GlazeChecks.AtEachTextSize(variant =>
             {
                 var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "SpatialProjectJourneyRenders", variant));
@@ -29,7 +30,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var found = new List<string>();
                 try { found.AddRange(RenderSpatialProjectJourney(folder)); }
                 catch (Exception error) { found.Add("project journey threw " + error.GetBaseException().Message); }
-                finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                finally { ViewField.Current = previousField; KeepFontAssetsAsCommitted(); }
                 foreach (var failure in found) Debug.LogError("Halcyonic: spatial project journey: " + failure);
                 if (found.Count == 0) Debug.Log("Halcyonic: spatial project journey: every check passed; " + folder);
                 return found;
