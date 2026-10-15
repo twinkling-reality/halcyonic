@@ -12,19 +12,24 @@ namespace Halcyonic.Client
         public const string Subject = "Move";
         public const string ReadTitle = "placement-read-title";
         public const string Back = "placement-back";
+        public const string TogglePortraits = "placement-task-portraits";
         public const string HoldInstruction = "Hold Move in the workspace header and drag to reposition it. Reset position brings it back in front of you.";
         private readonly IMenuHost host;
         private readonly Action reset;
         private readonly string? title;
+        private readonly Func<bool>? portraits;
+        private readonly Action<bool>? setPortraits;
         private bool readingTitle;
         private int titlePage;
         private MenuFrame? given;
         private MenuFrame? drawn;
-        public PlacementColumn(IMenuHost host, Action reset, string? title = null)
+        public PlacementColumn(IMenuHost host, Action reset, string? title = null, Func<bool>? portraits = null, Action<bool>? setPortraits = null)
         {
             this.host = host;
             this.reset = reset;
             this.title = title;
+            this.portraits = portraits;
+            this.setPortraits = setPortraits;
         }
         public bool IsDrawn(MenuFrame? frame) => frame != null && frame == drawn && frame == given;
         public event Action? Changed;
@@ -46,6 +51,8 @@ namespace Halcyonic.Client
                     return given = new MenuFrame("Task title", readFooter, lines: new[] { new PageLine(LineWords.Theirs(title), rows: Math.Min(rows, total - titlePage * rows), fromRow: titlePage * rows) }).Focus();
                 }
                 if (title != null) context.Add(new PageLine("Read task title", action: ReadTitle, opens: true, control: LineControl.Action));
+                if (portraits != null && setPortraits != null)
+                    context.Add(new PageLine(portraits() ? "Hide task portraits" : "Show task portraits", action: TogglePortraits, opens: true, control: LineControl.Action));
                 var footer = new Footer(new Prompt(Footer.Close, "Close details", GlazeIcon.Close, PromptKind.Close),
                     farRight: new Prompt(Reset, "Reset position", GlazeIcon.ResetPosition));
                 return given = new MenuFrame(Subject, footer, lines: context).Focus();
@@ -59,6 +66,7 @@ namespace Halcyonic.Client
             if (id == Back && readingTitle) { readingTitle = false; Refresh(); return; }
             if (id == Footer.NextPage && readingTitle) { titlePage++; Refresh(); return; }
             if (readingTitle) return;
+            if (id == TogglePortraits && portraits != null && setPortraits != null) { setPortraits(!portraits()); Refresh(); return; }
             if (id == Reset) { reset(); Refresh(); return; }
         }
         private void Refresh() { drawn = null; given = null; Changed?.Invoke(); }
