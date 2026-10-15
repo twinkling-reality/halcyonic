@@ -230,6 +230,9 @@ namespace Halcyonic.XR.Workspace
             director.viewBindings = new WorkspaceViewBindings(director.RecordFor, director.ViewsChanged);
             director.plane = MenuPlane.Create(go.transform, director.OpenAs);
             director.plane.SpatialWorkspace = setup.SpatialWorkspace;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            director.plane.DevelopmentAdvanced += director.PaintReadingVisibility;
+#endif
             director.plane.PlacePressed += place =>
             {
                 if (!director.OrganizationStanding(MenuColumn.Menu, null, null)) return;
@@ -250,7 +253,7 @@ namespace Halcyonic.XR.Workspace
                     setup.SpatialWorkspace ? line => MenuFrameView.ProjectListLineHeight(line, Glaze.Menu.FileColumnDegrees) : null,
                     setup.SpatialWorkspace ? () => director.PageHeight(director.TitleRows("Projects", Glaze.Menu.FileColumnDegrees), besideMenu: true) : null, workspaceControls: setup.SpatialWorkspace),
                 [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
-                [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList(), setup.Appearance, setup.AppearanceSaved),
+                [MenuPlace.Settings] = () => new SettingsHubColumn(director.Bound(), director.MenuSettings(), setup.Appearance, setup.AppearanceSaved),
             });
             director.navigator.OpenMenu(MenuPlace.Projects);
             director.navigator.Changed += () => { director.dirty = true; director.viewsDirty = true; };
@@ -498,6 +501,9 @@ namespace Halcyonic.XR.Workspace
         private void OnDestroy()
         {
             ShareCharacterIdentity(null);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (plane != null) plane.DevelopmentAdvanced -= PaintReadingVisibility;
+#endif
             FocusGuard.Left -= OnFocusLeft;
             Glaze.PaletteChanged -= OnPaletteChanged;
             GlazeText.ScaleChanged -= OnTextScaleChanged;
@@ -987,6 +993,35 @@ namespace Halcyonic.XR.Workspace
                 setup.SaveCharacterColours);
             if (!OpenLocal(column)) column.FocusLeft();
         }
+
+        private IReadOnlyList<MenuSetting> MenuSettings()
+        {
+            var settings = setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (ReadingVisibilityAssets.Current is ReadingVisibilityAssets assets && assets.Opaque != null && assets.Mask != null)
+                settings.Add(new MenuSetting("reading-visibility-check", SettingsText.YourSpace, "Reading visibility check",
+                    () => new SettingNow("Temporary test", "Temporary synthetic test; no work is sent.", "Open comparison",
+                        "Compare labelled reading patches in this workspace.", "Open check",
+                        reason: ReadingVisibilityAssets.Current == null ? "This development check is unavailable." : null),
+                    OpenReadingVisibility));
+#endif
+            return settings;
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private void OpenReadingVisibility()
+        {
+            if (Away || FocusGuard.InputSuspended || drag != null || placement != null
+                || ReadingVisibilityAssets.Current is not ReadingVisibilityAssets assets || assets.Opaque == null || assets.Mask == null) return;
+            OpenLocal(new ReadingVisibilityColumn(assets.Opaque, assets.Mask));
+        }
+        private void PaintReadingVisibility(MenuPlane advanced)
+        {
+            if (placement is not ReadingVisibilityColumn comparison) return;
+            if (Away || FocusGuard.InputSuspended) { comparison.FocusLeft(); return; }
+            comparison.Paint(advanced);
+        }
+#endif
 
         private void OpenPlacement()
         {

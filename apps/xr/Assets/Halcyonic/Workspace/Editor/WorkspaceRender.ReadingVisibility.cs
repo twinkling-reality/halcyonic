@@ -80,11 +80,67 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (closed != 1) failures.Add("explicit Return did not close drawn local diagnostic");
                 column.FocusLeft();
                 if (root.GetComponentsInChildren<Transform>(true).Any(part => part.name == "Synthetic reading comparison patches")) failures.Add("leaving retained diagnostic patches");
+                plane.gameObject.SetActive(false);
+                failures.AddRange(ReadingVisibilityRoute(root, eyes));
                 if (root.GetComponentsInChildren<Camera>(true).Length != 1) failures.Add("diagnostic changed normal camera ownership");
                 UnityEngine.Object.DestroyImmediate(assets.gameObject);
             }
             finally { column?.FocusLeft(); UnityEngine.Object.DestroyImmediate(root); target.Release(); UnityEngine.Object.DestroyImmediate(target); }
             return failures;
         }
+        private static IEnumerable<string> ReadingVisibilityRoute(GameObject root, Vector3 eyes)
+        {
+            var failures = new List<string>();
+            var sends = 0;
+            var director = MenuDirector.Create(root.transform, new MenuDirector.Setup {
+                SpatialWorkspace = true,
+                StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
+                Submit = (_, _) => { sends++; throw new InvalidOperationException("The local comparison has no command authority."); }
+            });
+            void Draw()
+            { for (var i = 0; i < 4; i++) { director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds + Glaze.SlideSeconds); } }
+            bool Press(string action, string? key = null)
+            {
+                for (var page = 0; page < 20; page++)
+                {
+                    Draw();
+                    foreach (var shown in director.Plane.Shown.Reverse())
+                    {
+                        var view = shown.View;
+                        if (!view.ShownLines.Any(line => line.Model.Action == action && line.Model.Key == key)
+                            && view.Footer.Showing?.All.Any(item => item.Prompt.Id == action && item.Prompt.Available) != true) continue;
+                        if (director.PressForRender(shown.Kind, action, key, view.Frame ?? view.InPlaceOf, view.Side)) return true;
+                    }
+                    var pager = director.Plane.Shown.LastOrDefault(shown => shown.View.Footer.Showing?.All.Any(item => item.Prompt.Id == Footer.NextPage && item.Prompt.Available) == true);
+                    if (pager.View == null || !director.PressForRender(pager.Kind, Footer.NextPage, null, pager.View.Frame ?? pager.View.InPlaceOf, pager.View.Side)) break;
+                }
+                failures.Add("development route refused visible local action: " + action);
+                return false;
+            }
+            director.Open(MenuPlace.Settings); Draw();
+            if (!Press(SettingsHubColumn.OpenCategory, SettingsText.YourSpace)
+                || !Press(SettingsColumn.OpenSetting, "reading-visibility-check")
+                || !Press(SettingsColumn.ChangeSetting)) return failures;
+            Draw();
+            var check = director.Plane.Front;
+            if (check?.Subject != "Reading visibility check" || check.Source != "Temporary synthetic test; no work is sent.")
+                failures.Add("Settings route did not open the literal local diagnostic");
+            if (!root.GetComponentsInChildren<Transform>(false).Any(part => part.name == "Synthetic reading comparison patches"))
+                failures.Add("post-advance production hook did not display comparison patches");
+            Press(Footer.Close); Draw();
+            if (root.GetComponentsInChildren<Transform>(true).Any(part => part.name == "Synthetic reading comparison patches"))
+                failures.Add("Return through the production local overlay retained patches");
+            if (director.PressForRender(MenuColumn.File, Footer.Close, null, check, null))
+                failures.Add("closed diagnostic retained drawn-action authority");
+            if (Press(SettingsColumn.ChangeSetting))
+            {
+                Draw(); director.FocusLeftForRender();
+                if (root.GetComponentsInChildren<Transform>(true).Any(part => part.name == "Synthetic reading comparison patches"))
+                    failures.Add("focus loss retained comparison patches");
+            }
+            if (sends != 0) failures.Add("local comparison sent a runtime command");
+            return failures;
+        }
+
     }
 }

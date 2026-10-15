@@ -65,3 +65,13 @@ scenes can skip it. Source guards check the boundary and absence of fallback sha
 readback. Final release artifact exclusion remains unproven until its actual build is inspected;
 it is not inferred from unused-shader stripping. Host patch RGBA, entry/return retention, production
 packaging and device comparison must each be validated separately.
+
+The development entry is Settings > Your space > Reading visibility check, then Open check.
+It is offered only when the transient development scene owns both explicit shader references.
+The setting and runtime entry compile only for editor/development builds; no unavailable shader
+fallback is attempted. The comparison uses the existing local-overlay lifecycle and a callback
+at the end of the production plane's normal advancement. Return and focus loss release patches
+through that lifecycle; no camera, rig, passthrough, preference or transport is changed. The host
+fixture now also traverses that actual Settings entry, explicit Open check and Return, checks a
+stale closed action, then checks focus-loss cleanup and zero runtime submissions. Its execution
+remains pending; source wiring and source guard passes are not device or JNI evidence.

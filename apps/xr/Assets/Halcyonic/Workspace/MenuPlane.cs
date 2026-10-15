@@ -84,6 +84,10 @@ namespace Halcyonic.XR.Workspace
         public event Action? Opened;
         public event Action<MenuPlace>? PlacePressed;
         public bool SpatialWorkspace { get; set; }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// <summary>Development comparison patches follow the already advanced production plane.</summary>
+        public event Action<MenuPlane>? DevelopmentAdvanced;
+#endif
 
         /// <summary>A column's words are laid as the plane has them; the director passes it on to the screen that counts what was read.</summary>
         public event Action<MenuColumn, MenuFrameView>? Drawn;
@@ -982,6 +986,9 @@ namespace Halcyonic.XR.Workspace
                 if (slide.Progress >= 1f && slide.HideAtEnd) part.parent.gameObject.SetActive(false);
             }
             UpdateLightLine();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            DevelopmentAdvanced?.Invoke(this);
+#endif
         }
 
         private void LateUpdate() => Step(Time.unscaledDeltaTime, frame: true);
