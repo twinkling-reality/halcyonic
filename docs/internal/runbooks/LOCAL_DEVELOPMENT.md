@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node.js 24.15 or newer: `node --version`.
-- pnpm 10 or newer. It switches to the pinned version (see `packageManager` in `package.json`).
+- pnpm. The repository pins 11.27.1 in `package.json` (`packageManager`). pnpm 10 switches to that pin. pnpm 12 cannot be installed by that switcher ([ADR 0004](../decisions/0004-control-plane-stack.md)).
 - `pnpm install` from the repository root.
 - For `pnpm check`: a JDK and Android's platform jar, which the glance's tests (`tooling/glance`)
   compile against. Unity 6000.3.25f1 with Android Build Support brings both; otherwise set

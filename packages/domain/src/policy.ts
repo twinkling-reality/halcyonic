@@ -3,9 +3,10 @@ import type { CommandType, PolicyCategory } from '@halcyonic/contracts';
 /**
  * The consequence category of every command, recorded with each accepted command for audit.
  *
- * Authorization today is a single local principal (see docs/internal/architecture/SECURITY.md),
- * so the category does not yet gate who may act. It tells clients which commands need an
- * explicit, deliberate confirmation, and it is where per-device policy will attach.
+ * Categories tell clients which commands need an explicit confirmation (`review_required`,
+ * `high_consequence`). They do not restrict which authenticated principal may act. Local and
+ * device principals are admitted alike, except device-management routes that stay on loopback.
+ * No `high_consequence` command exists (see docs/internal/architecture/SECURITY.md).
  */
 export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.create': 'low_consequence',

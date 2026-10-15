@@ -7,7 +7,10 @@
    (`packageManager`) on first use. The pin is pnpm 11: pnpm 12 ships as a native binary that
    pnpm 10's version switching cannot install (see ADR 0004).
 3. `pnpm install`
-4. For C# work (contracts or `apps/xr`): the .NET 10 SDK on `PATH`.
+4. For `pnpm check`: a JDK and Android's platform jar (`JAVA_HOME` and `ANDROID_JAR`).
+   Unity 6000.3.25f1 with Android Build Support supplies both. See the
+   [local development runbook](docs/internal/runbooks/LOCAL_DEVELOPMENT.md).
+5. For C# work (contracts or `apps/xr`): the .NET 10 SDK on `PATH`.
 
 There is no build step. Node runs the TypeScript sources directly using type stripping, and
 `pnpm typecheck` runs the TypeScript compiler for checking only. Code must therefore use only
@@ -61,5 +64,8 @@ section 5 of the license describes. New dependencies must be compatible with it.
 ## Documentation
 
 Canonical documents describe how the system works now. Plans, status notes and research diaries
-do not belong in the repository; put scratch material in `/.private/`, which git ignores. See the
-[documentation map](docs/internal/README.md) for what goes where.
+do not belong in the repository; put scratch material in `/.private/`, which git ignores.
+
+Tracked `docs/internal/` is public. `docs/private/` is git-ignored and must not be quoted. The
+standard lives in the [documentation map](docs/internal/README.md) under Documentation standard.
+One fact has one home.

@@ -40,66 +40,52 @@ meaningful unit of work (for example "Fix the authentication regression") and is
 represents. An **Execution** is one attempt by one runtime toward a Workstream, and a Workstream
 keeps its identity across executions and runtimes. Details: [DOMAIN_MODEL.md](../architecture/DOMAIN_MODEL.md).
 
-## Entry paths
-
-The intended first choice is simple: **Connect projects** or **Create a project**. These are
-product goals, not a description of the current headset build.
-
-- **Connect projects.** Choose existing projects, which active work to show and how to show it.
-  The chosen work appears as characters.
-- **Create a project.** Make a project in the headset with an AI companion. Bring an idea and any
-  parameters already in mind, or work them out together through conversation and simple choices.
-  Start building on the spot when ready. This creates an ordinary Project and its first Workstream;
-  there is no separate "idea" object.
-
-Both paths lead to the same place: the person's projects and their work, represented by characters
-that can be opened and directed. Creation should ask for the details needed to start real work in
-ordinary language, with technical controls available to people who want them. It does not require
-a separate "shared vision" screen or artifact. Which settings can safely default remains open.
-
 ## Intended experience
 
-The first live visit needs a short greeting after the Mac host is connected. **Connect projects**
-chooses which existing projects and work to show. **Create a project** lets a person describe a
-specific idea or work it out with a companion, edit a short recap, then start its first real task.
-The companion is a guide, not a Workstream character. These actions share one living space:
-existing work stays visible and continues while a project is being created. On return visits the
-space resumes selected projects without replaying onboarding.
+This section states intent.
 
-The person's next move is usually to open a character and ask **What is it doing?**, **Help me
-understand**, **What was checked?**, or **What do you need from me?** One clear next action follows
-the answer. Salidium and Seorak remain named as sources of evidence inside the answer; they are
-not the first navigation choices. Opening and closing keep the same Workstream identity. A turn
-ending is not a claim that the project is complete or correct.
+Halcyonic explores VR as a working environment for agentic software development. A person should be
+able to see and move among multiple projects and repositories, work with actual native VR or
+desktop outputs, direct agents, and understand changes and performance without repeatedly losing
+context. Salidium contributes understanding and evidence. Seorak contributes performance
+measurements. Those belong in the same working experience. Context should hold when focus changes.
 
-The primary ambient setting is passthrough with Halcyonic's full 3D characters in the room beside
-an ordinary 2D media or Mac window. The person can watch or work in that window while the Mac's
-agent work continues. When the window has input focus, Halcyonic's controls do not take hand
-input. The person deliberately returns focus to open a character and act. The exact video-window
-composition and hand focus return still need a Quest test. Another immersive app replaces
-Halcyonic's 3D scene; a small 2D companion there is a later, separately validated capability.
+**Connect projects** and **Create a project** remain the intended entry. Connect projects chooses
+existing projects and which work to show. Create a project makes an ordinary Project and its first
+Workstream, from an idea the person brings or works out with a companion, and it does not add a
+separate idea object or a separate shared-vision screen. The companion is a guide, not a
+Workstream. A turn ending is not a claim that the project is correct. Which creation settings can
+safely default remains open ([OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)).
 
-An optional **Usage left** glance can show provider-reported limits through Seorak with the
-window, reset and observation time. It is neither a Workstream status nor a required creation
-step. A selected account's limit cannot be claimed until Seorak can identify that account.
-Project architecture exploration is not yet connected in Halcyonic. Salidium's consumer contract
-covers an execution; its separate experimental project-map v0 covers committed files, declared
-modules and imports, with C# at assembly/project membership level. It does not describe component
-purpose or data flow ([source validation](../validation/salidium-project-map.md)). Its existing
-Why and How explanation may support a navigable execution flow when one was generated, clearly
-labeled as an explanation.
+## This checkout
 
-These paragraphs are target behavior. The detailed screen states, current implementation gaps,
-and acceptance checks are in the owner's private experience blueprint. The headset now has a
-first version of this entry: a low project rail, a welcome, Connect projects over the projects
-Halcyonic's journal knows, More work, Create a project from a typed idea or a few fixed guided
-questions with an editable recap, choosing where its files live from the folders the Mac allows,
-and the four questions in an opened workspace ([XR_CLIENT.md](../architecture/XR_CLIENT.md)). It is
-checked in editor renders and tests, not yet on a headset, and it has no discovery or attach. The
-companion runs on a local model on the computer and keeps its exchange on the headset
-([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md));
-the control plane and the client core have it, and its headset screens wait for the redesign of
-the headset's interface.
+[SYSTEM.md](../architecture/SYSTEM.md) and [XR_CLIENT.md](../architecture/XR_CLIENT.md) inventory
+what this checkout's control plane and headset client do.
+
+Projects are records in the journal. The Connect projects and Create a project entry has been
+checked in editor renders and tests. A project binds to one folder the host approves
+([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). An opened workspace
+asks four questions: What is it doing?, Help me understand, What was checked?, and What do you need
+from me?
+
+The companion asks a local model on the computer and keeps the exchange on the headset
+([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)).
+[XR_CLIENT.md](../architecture/XR_CLIENT.md) describes the New project screens that show it.
+
+Cross-repository navigation is not implemented. Salidium's experimental project-map v0 is not
+consumed ([salidium-project-map.md](../validation/salidium-project-map.md)).
+
+Usage left reads provider limits through Seorak. That read was live once, on 2026-09-30, from an
+unreleased build, and does not establish a current daemon or headset rendering
+([seorak-integration-api.md](../validation/seorak-integration-api.md#provider-usage-limits-2026-09-30)).
+The fifth session in [quest-3-device.md](../validation/quest-3-device.md) read a limit and did not
+confirm the headset's rendering with the wearer. A selected account's limit cannot be claimed until
+Seorak can identify that account.
+
+Whether a person can return hand focus from a desktop or media window without also triggering an
+action remains open ([OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)). On 2026-09-29 the second Quest
+session saw Virtual Display take focus, and Halcyonic stayed unfocused until it was brought forward
+([quest-3-device.md](../validation/quest-3-device.md)).
 
 ## Collaboration policies (future)
 
@@ -138,13 +124,18 @@ provider-neutral backend.
 2. **XR shell (built, device refinement ongoing).** A Unity client consumes the realtime stream
    and renders workstream characters that react to status and attention, hands first.
 3. **The defining interaction (built, device refinement ongoing).** Open a character into its
-   workspace, act, collapse it back. A real approval has been observed on Quest.
+   workspace, act, collapse it back. On 2026-09-29 a Quest session opened a workspace and completed
+   an approval through the control plane
+   ([quest-3-device.md](../validation/quest-3-device.md), second session). Later interface revisions
+   have their own notes in that record. That session is dated evidence, and it is not proof the
+   current build is finished.
 4. **Real work (partly built).** OpenCode, Claude Code and Codex adapters exist; Salidium and
-   Seorak read-through exists. A real Codex execution was read through both local daemons. Each
-   project binds to one folder the host approves, and a client that never names a path has started
-   real OpenCode and Codex work on a local model in a new folder through the control plane
-   ([project-location.md](../validation/project-location.md)). The headset still needs to choose a
-   folder and a complete live-start walkthrough.
+   Seorak read-through exists. A real Codex execution was read through both local daemons. The
+   control plane can bind a project to one folder the host approves, and tests have started
+   OpenCode and Codex on a local model in a new folder
+   ([project-location.md](../validation/project-location.md)). A complete live start on a headset is
+   not closed by the fifth session in [quest-3-device.md](../validation/quest-3-device.md), which
+   that record calls partly.
 
 The minimum viable product needs three characters, hands-only interaction, the compressed to
 expanded transition, one real runtime, one real safe action with a runtime-confirmed result, and

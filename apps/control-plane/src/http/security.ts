@@ -5,9 +5,10 @@ import { join } from 'node:path';
 export const ACCESS_TOKEN_FILE = 'access-token';
 
 /**
- * The single local credential, stored in the data directory with owner-only permissions.
- * Anyone who can read it can act as the owner, so it is never logged. It is an interim
- * mechanism until device pairing exists (see docs/internal/architecture/SECURITY.md).
+ * The loopback credential, stored in the data directory with owner-only permissions.
+ * Anyone who can read it can act as the local principal, so it is never logged. The network
+ * listener never accepts it; a paired device uses its own credential
+ * (see docs/internal/architecture/SECURITY.md).
  */
 export async function loadOrCreateAccessToken(
   dataDir: string,

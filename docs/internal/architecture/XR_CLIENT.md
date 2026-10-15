@@ -7,12 +7,12 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
-        │                             workspace: gaze and hand peek, panel,           the workspace, the
-        │                             question tabs, the menu's plane,               menu's plane, the
-        │                             transition, first-time hint;                    room, the sound and
-        │                             Meta's rig; room: passthrough, MRUK, stage      pairing are not
-        │                             anchor; sound: the characters' voices;          verified on a
-        │                             pairing: panel, development builds              headset
+        │                             workspace: gaze and hand peek, panel,           device evidence is the
+        │                             question tabs, the menu's plane,               dated sessions in
+        │                             transition, first-time hint;                    quest-3-device.md;
+        │                             Meta's rig; room: passthrough, MRUK, stage      Wi-Fi pairing has not
+        │                             anchor; sound: the characters' voices;          been run on a headset
+        │                             pairing: panel, development builds              (network-pairing.md)
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,

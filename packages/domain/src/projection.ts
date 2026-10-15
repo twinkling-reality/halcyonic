@@ -105,10 +105,6 @@ class ChangeSet {
   readonly commands = new Set<CommandId>();
 }
 
-/**
- * Current state, rebuilt by applying journaled events in position order. Applying the same
- * journal always produces the same state; that is what makes the journal the source of truth.
- */
 export interface ProjectionOptions {
   /**
    * Whether the runtime with this id reports every tool call it makes (its descriptor's
@@ -118,6 +114,10 @@ export interface ProjectionOptions {
   readonly reportsToolActivity?: (runtimeId: string) => boolean;
 }
 
+/**
+ * Current state, rebuilt by applying journaled events in position order. Applying the same
+ * journal always produces the same state; that is what makes the journal the source of truth.
+ */
 export class Projection {
   #position = 0;
   readonly #reportsToolActivity: (runtimeId: string) => boolean;
