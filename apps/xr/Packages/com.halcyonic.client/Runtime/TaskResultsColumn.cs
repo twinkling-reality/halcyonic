@@ -50,6 +50,16 @@ namespace Halcyonic.Client
             this.read = read ?? ((id, token) => api?.GetToolResultAsync(this.context.ExecutionId!, id, query, token)
                 ?? Task.FromException<ToolResultResponse>(new InvalidOperationException()));
         }
+        /// <summary>
+        /// Whether an explicit reopen may retain this reader's local selection. This compares the
+        /// original copied scope and API only; visibility, fresh reads and action authority still
+        /// depend on Current and the actual focused draw.
+        /// </summary>
+        public bool CanReuse(WorkspaceContinuation candidate, string candidateRuntimeId, ControlPlaneApi? candidateApi) =>
+            candidate != null && candidate.ConnectionKey == context.ConnectionKey
+            && Scope(candidate.JournalId!, candidate.ProjectId!, candidate.WorkstreamId!, candidate.ExecutionId!)
+            && candidateRuntimeId == runtimeId && ReferenceEquals(candidateApi, api) && ReferenceEquals(candidateApi, host.Api);
+
         public event Action? Changed;
         public event Action? Closed;
         public Action? BackToTask { get; set; }

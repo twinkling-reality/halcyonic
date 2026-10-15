@@ -71,6 +71,38 @@ public class TaskResultsColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    [TestCase("connection")]
+    [TestCase("journal")]
+    [TestCase("project")]
+    [TestCase("task")]
+    [TestCase("execution")]
+    [TestCase("runtime")]
+    [TestCase("api")]
+    [TestCase("host-api")]
+    public void ExplicitReaderReuseRequiresTheOriginalCopiedScopeRuntimeAndApi(string changed)
+    {
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token");
+        using var otherApi = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token");
+        var host = new FileMenuHost { Api = api }; var original = Context();
+        var column = new TaskResultsColumn(host, original, "mock", "Mock runtime", () => false);
+        original.ExecutionId = "caller-mutated";
+        var candidate = Context(); var runtime = "mock"; var candidateApi = api;
+        Assert.That(column.CanReuse(candidate, runtime, candidateApi), Is.True, "handoff identity is not the reader's scope");
+        switch (changed)
+        {
+            case "connection": candidate.ConnectionKey = new string('b', 64); break;
+            case "journal": candidate.JournalId = "foreign"; break;
+            case "project": candidate.ProjectId = "foreign"; break;
+            case "task": candidate.WorkstreamId = "foreign"; break;
+            case "execution": candidate.ExecutionId = "foreign"; break;
+            case "runtime": runtime = "other"; break;
+            case "api": candidateApi = otherApi; break;
+            case "host-api": host.Api = otherApi; break;
+        }
+        Assert.That(column.CanReuse(candidate, runtime, candidateApi), Is.False);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     [Test]
     public void DefaultReadsUseTheCopiedOriginalContextAfterCallerMutation()
     {
@@ -186,6 +218,8 @@ public class TaskResultsColumnTests
         var oldFrame = column.Frame;
         shown = false; column.Compact(); _ = column.Frame;
         Assert.That(Words(column), Does.Not.Contain("recorded line"));
+        Assert.That(column.CanReuse(Context(), "mock", host.Api), Is.True);
+        Assert.That(readIds, Has.Count.EqualTo(1), "compatibility inspection neither reads nor restores authority");
         shown = true; _ = column.Frame; column.Tick();
         Assert.That(readIds, Is.EqualTo(new[] { EventId, EventId }), "recent eviction never retargets the retained event");
         Assert.That(freshToken.IsCancellationRequested, Is.False);
