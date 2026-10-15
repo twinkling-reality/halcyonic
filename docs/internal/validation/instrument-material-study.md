@@ -112,3 +112,9 @@ projected text bounds against its opaque authored foreground, using the matching
 render. The minimum must meet4.5:1 across those bounds, and authored alpha must be255. This tests
 actual backing coverage and luminance without misclassifying antialias fringes as authored color.
 It remains a controlled image test, not an optical calibration or wearer readability measurement.
+
+Source cost review: reflected-eye normalization, pow/specular, basis and grain calculations are
+inside UNITY_BRANCH guards on the per-surface physical flag, so ordinary UI controls do not
+request that shading path. The additional vertex interpolators remain shared. Installed Unity
+HLSLSupport.cginc:723–729 verifies the platform macro. This is source specialization, not a
+measured GPU/frame-time improvement; actual shader compilation and device profiling still apply.

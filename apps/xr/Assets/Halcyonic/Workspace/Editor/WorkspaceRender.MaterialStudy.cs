@@ -145,16 +145,19 @@ namespace Halcyonic.XR.Workspace.Editor
                         var authoredColor = GlazeColor.Hex((uint)(authored.r << 16 | authored.g << 8 | authored.b));
                         double leastBacking = double.PositiveInfinity;
                         double bestInk = 1; var ink = 0;
+                        var polygon = new[] { corners[0], corners[2], corners[3], corners[1] };
                         for (var x = left; x <= right; x++) for (var y = bottom; y <= top; y++)
                         {
                             // Sample the projected text quadrilateral, not the empty wedges of
                             // its axis-aligned rectangle when the real camera leans.
-                            var polygon = new[] { corners[0], corners[2], corners[3], corners[1] };
-                            var signs = polygon.Select((point, index) => {
-                                var next = polygon[(index + 1) % polygon.Length];
-                                return (next.x - point.x) * (y + 0.5f - point.y) - (next.y - point.y) * (x + 0.5f - point.x);
-                            }).ToArray();
-                            if (signs.Any(sign => sign < 0f) && signs.Any(sign => sign > 0f)) continue;
+                            var negative = false; var positive = false;
+                            for (var edgeIndex = 0; edgeIndex < polygon.Length; edgeIndex++)
+                            {
+                                var point = polygon[edgeIndex]; var next = polygon[(edgeIndex + 1) % polygon.Length];
+                                var sign = (next.x - point.x) * (y + 0.5f - point.y) - (next.y - point.y) * (x + 0.5f - point.x);
+                                negative |= sign < 0f; positive |= sign > 0f;
+                            }
+                            if (negative && positive) continue;
                             var foreground = image.GetPixel(x, y); var backing = withoutWords.GetPixel(x, y);
                             var supportPixel = (Color32)backing;
                             var supportColor = GlazeColor.Hex((uint)(supportPixel.r << 16 | supportPixel.g << 8 | supportPixel.b));
