@@ -201,7 +201,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 foreach (var row in shown.ShownLines.Where(row => row.Model.Tone == LineTone.Secondary
-                    && !row.Model.Runs.AnyTheirs && !row.Model.Waits && row.Model.Available))
+                    && !row.Model.Runs.AnyTheirs && !row.Model.WordsAreData && !row.Model.Claim
+                    && !row.Model.Waits && row.Model.Available))
                     if (!((Color32)row.Words.color).Equals((Color32)GlazeTokens.Text))
                         failures.Add("host-owned spatial reading fact lacks its primary optical contrast margin");
                 foreach (var state in shown.GetComponentsInChildren<StateBadgeView>(false).Where(state => state.ShowsIcon))
