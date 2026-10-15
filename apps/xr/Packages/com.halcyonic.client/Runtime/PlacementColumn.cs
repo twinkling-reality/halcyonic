@@ -87,7 +87,7 @@ namespace Halcyonic.Client
             if (setMoving != null) actions.Add(Control("Move workspace", BeginMove));
             actions.Add(Control("Reset position", Reset));
             if (minimize != null) actions.Add(Control("Minimize workspace", Minimize));
-            if (otherApps != null) actions.Add(Control("Open other apps", OtherApps, available: canOpenApps?.Invoke() == true));
+            if (otherApps != null) actions.Add(Control("Open work window", OtherApps, available: canOpenApps?.Invoke() == true));
             if (portraits != null && setPortraits != null) actions.Add(Control(portraits() ? "Hide task portraits" : "Show task portraits", TogglePortraits));
             if (title != null) actions.Add(Control("Read task title", ReadTitle));
             if (navigate != null)
