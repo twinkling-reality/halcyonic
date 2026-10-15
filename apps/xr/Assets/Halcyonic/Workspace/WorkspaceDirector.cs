@@ -29,6 +29,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Farther than a character's own motion, in its units: the stage moved it.</summary>
         private const float MovedFar = 1.5f * CharacterView.BodyRadius;
         private readonly InitialWorkspacePlacement initialPlacement = new InitialWorkspacePlacement();
+        private CharacterColourSettings? characterColours;
+        private Func<string, bool>? saveCharacterColours;
 
         private const float RefreshSeconds = 0.5f;
 
@@ -158,10 +160,14 @@ namespace Halcyonic.XR.Workspace
         {
             var comfort = GetComponent<ComfortControls>() ?? gameObject.AddComponent<ComfortControls>();
             var appearance = GetComponent<AppearanceControls>() ?? gameObject.AddComponent<AppearanceControls>();
+            characterColours = appearance.CharacterColours;
+            saveCharacterColours = appearance.KeepCharacterColours;
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
                 Presentation = Presentation,
                 InitialPlacementReady = InitialPlacementReady,
+                CharacterColours = characterColours,
+                SaveCharacterColours = appearance.KeepCharacterColours,
                 ConnectionTarget = () => ControlPlaneSettings.Target(),
                 State = () => connection.Session?.State,
                 Connected = () => connection.Session?.Status.IsLive == true,
@@ -286,6 +292,10 @@ namespace Halcyonic.XR.Workspace
                 // A snapshot carries state but no history: read the open workstream's history again.
                 if (OpenWorkstream is string open) ReadHistory(open);
             }
+            if (changes.Resynchronized && session.SnapshotCurrent && connection.DemonstrationLine == null && characterColours != null && saveCharacterColours != null
+                && session.State.Journal != null && ControlPlaneSettings.Target() is ControlPlaneTarget colourTarget)
+                characterColours.Prune(WorkspaceContinuity.ConnectionKey(colourTarget), session.State.Journal.JournalId,
+                    session.State.Workstreams.Keys.ToList(), saveCharacterColours);
             activity.Record(changes.Events);
             Refresh();
         }

@@ -26,6 +26,7 @@ namespace Halcyonic.Client
         public const string Stop = WorkspaceScreens.Stop;
         public const string OpenWorkspaceRequest = "file-workspace-request";
         public const string ShowTaskHere = "file-show-task-here";
+        public const string OpenCharacterColour = "file-character-colour";
         public const string OpenResults = "file-results";
         public const string TellIt = WorkspaceScreens.TellIt;
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
@@ -244,6 +245,8 @@ namespace Halcyonic.Client
                 lines.Add(new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true, rows: screen.WorkspaceRequestRows));
             if (screen.ResultsOffered && workspace.Execution != null)
                 lines.Add(ReadResultsLine(screen.ResultsRows));
+            if (screen.CharacterColourOffered)
+                lines.Add(new PageLine("Character colour", icon: GlazeIcon.Next, action: OpenCharacterColour, opens: true, rows: screen.CharacterColourRows));
             var waiting = WorkspaceText.SomethingWaits(workspace);
             var tone = waiting ? LineTone.Waiting : workspace.Character.AttentionNotes.Count > 0 ? LineTone.Problem : LineTone.Primary;
             lines.AddRange(Doing(workspace, tone));

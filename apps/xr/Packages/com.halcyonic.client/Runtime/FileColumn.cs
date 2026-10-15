@@ -69,6 +69,9 @@ namespace Halcyonic.Client
         private Action? showTask;
         private string? showTaskJournal;
         private string? showTaskId;
+        private MenuFrame? drawnColourFrame;
+        private Func<bool>? colourAvailable;
+        private Action? openCharacterColour;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -123,6 +126,8 @@ namespace Halcyonic.Client
             && showTaskJournal != null && showTaskJournal == host.State?.Journal?.JournalId && showTaskId == Now?.Character.WorkstreamId;
         public void OfferResults(Action open)
         { if (openResults != null) return; openResults = open; Screen.ResultsOffered = true; Rebuild(); }
+        public void OfferCharacterColours(Func<bool> available, Action open)
+        { if (colourAvailable != null) return; colourAvailable = available; openCharacterColour = open; Rebuild(); }
         public WorkspaceRequestContinuation? ContinuationRequest() => RequestView?.ExecutionId == Now?.Execution?.ExecutionId
             ? RequestView?.Draft : requestExecution == Now?.Execution?.ExecutionId && retainedRequest != null ? new WorkspaceRequestContinuation
             { RequestId = retainedRequest.RequestId, PendingCommandId = retainedRequest.PendingCommandId, Text = retainedRequest.Text, Spoken = retainedRequest.Spoken, Part = retainedRequest.Part } : null;
@@ -237,6 +242,9 @@ namespace Halcyonic.Client
                     var taskWasDrawn = drawnShowTaskFrame == Frame;
                     drawnShowTaskFrame = null; // Failed authority cannot revive an old draw after reconnect.
                     if (taskWasDrawn && Frame?.Lines.Any(line => line.Action == id && line.Available) == true && CanShowTaskHere()) showTask?.Invoke();
+                    return;
+                case FileScreens.OpenCharacterColour:
+                    if (drawnColourFrame == Frame && colourAvailable?.Invoke() == true && Frame?.Lines.Any(line => line.Action == id) == true) openCharacterColour?.Invoke();
                     return;
                 case FileScreens.OpenResults:
                     if (drawnResultsFrame == Frame && Frame?.Lines.Any(line => line.Action == id && line.Available) == true) openResults?.Invoke();
@@ -583,6 +591,7 @@ namespace Halcyonic.Client
             }
             if (drawn.Lines.Any(line => line.Action == FileScreens.ShowTaskHere && line.Available)) drawnShowTaskFrame = drawn;
             if (drawn.Lines.Any(line => line.Action == FileScreens.OpenResults && line.Available)) drawnResultsFrame = drawn;
+            if (drawn.Lines.Any(line => line.Action == FileScreens.OpenCharacterColour && line.Available)) drawnColourFrame = drawn;
             if (Steering.ToRead(Now) is string request)
             {
                 var from = Screen.RequestPart * Screen.RequestPartRows;
@@ -710,6 +719,7 @@ namespace Halcyonic.Client
         /// <summary>Retains the exact local page and buffer while dropping every interaction authorization.</summary>
         public void Compact()
         {
+            drawnColourFrame = null;
             drawnResultsFrame = null;
             drawnShowTaskFrame = null;
             RequestView?.Compact();
@@ -763,6 +773,8 @@ namespace Halcyonic.Client
         /// </summary>
         private void Rebuild()
         {
+            drawnColourFrame = null;
+            Screen.CharacterColourOffered = colourAvailable?.Invoke() == true;
             drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;
             drawnResultsFrame = null;
@@ -838,6 +850,7 @@ namespace Halcyonic.Client
             if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine("Show this task here", rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.WorkspaceRequestOffered) Screen.WorkspaceRequestRows = Math.Max(1, host.RowsOf(new PageLine("Ask workspace", icon: GlazeIcon.Next,
                 action: FileScreens.OpenWorkspaceRequest, opens: true, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+            if (Screen.CharacterColourOffered) Screen.CharacterColourRows = Math.Max(1, host.RowsOf(new PageLine("Character colour", rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.ResultsOffered) Screen.ResultsRows = Math.Max(1, host.RowsOf(FileScreens.ReadResultsLine(rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             Screen.InstructionResultsOffered = Screen.ResultsOffered && presentation.Execution != null && Steering.Armed == null
                 && WorkspaceText.NeedFromYou(presentation) == null && asked == null && presentation.ApprovalToAnswer == null && notice == null;

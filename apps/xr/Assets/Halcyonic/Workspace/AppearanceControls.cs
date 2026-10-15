@@ -10,11 +10,25 @@ namespace Halcyonic.XR.Workspace
         private const string Preference = "halcyonic.appearance";
         private AppearanceSettings settings = new AppearanceSettings();
         public AppearanceSettings Settings => settings;
+        private const string CharacterPreference = "halcyonic.character-colours";
+        public CharacterColourSettings CharacterColours { get; private set; } = new CharacterColourSettings();
 
         private void Awake()
         {
+            CharacterColours = CharacterColourSettings.Load(PlayerPrefs.GetString(CharacterPreference, ""));
             settings = AppearanceSettings.Load(PlayerPrefs.GetString(Preference, ""));
             Glaze.SetPalette(settings.Applied);
+        }
+
+        public bool KeepCharacterColours(string encoded)
+        {
+            var previous = PlayerPrefs.GetString(CharacterPreference, "");
+            try { PlayerPrefs.SetString(CharacterPreference, encoded); PlayerPrefs.Save(); return true; }
+            catch (System.Exception)
+            {
+                try { PlayerPrefs.SetString(CharacterPreference, previous); } catch (System.Exception) { }
+                return false;
+            }
         }
 
         public void Keep()

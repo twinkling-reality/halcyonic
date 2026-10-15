@@ -102,6 +102,8 @@ namespace Halcyonic.Client
         public int WorkspaceRequestRows { get; set; } = 1;
         public bool ShowTaskHereOffered { get; set; }
         public int ShowTaskHereRows { get; set; } = 1;
+        public bool CharacterColourOffered { get; set; }
+        public int CharacterColourRows { get; set; } = 1;
         public bool ResultsOffered { get; set; }
         public bool InstructionResultsOffered { get; set; }
         public int ResultsRows { get; set; } = 1;

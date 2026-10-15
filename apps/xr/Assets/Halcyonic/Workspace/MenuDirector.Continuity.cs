@@ -55,6 +55,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (column is not FileColumn file) return;
             file.OfferWorkspaceRequests(() => OpenWorkspaceRequest(file));
+            file.OfferCharacterColours(() => ColourTarget(file, out _, out _), () => OpenCharacterColour(file));
             if (!Demonstration) file.OfferResults(() => OpenResults(file));
             if (viewBindings.ContainsKey(file)) return;
             var record = origin ?? RecordFor(file);

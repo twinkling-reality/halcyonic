@@ -54,6 +54,8 @@ namespace Halcyonic.XR.Workspace
             public bool SpatialWorkspace { get; set; }
             /// <summary>Only the first anchor waits for valid wearer tracking; an established workspace never follows ordinary head or focus changes.</summary>
             public Func<bool> InitialPlacementReady { get; set; } = () => true;
+            public CharacterColourSettings CharacterColours { get; set; } = new CharacterColourSettings();
+            public Func<string, bool> SaveCharacterColours { get; set; } = _ => false;
             public Func<ControlPlaneTarget?> ConnectionTarget { get; set; } = () => null;
             /// <summary>Makes the commands Projects' Connect sends.</summary>
             public CommandFactory? Commands { get; set; }
@@ -216,6 +218,7 @@ namespace Halcyonic.XR.Workspace
             go.transform.SetParent(parent, false);
             var director = go.AddComponent<MenuDirector>();
             director.setup = setup;
+            setup.CharacterColours.Changed += director.ApplyCharacterColours;
             director.viewBindings = new WorkspaceViewBindings(director.RecordFor, director.ViewsChanged);
             director.plane = MenuPlane.Create(go.transform, director.OpenAs);
             director.plane.SpatialWorkspace = setup.SpatialWorkspace;
@@ -481,6 +484,7 @@ namespace Halcyonic.XR.Workspace
         private void OnDestroy()
         {
             FocusGuard.Left -= OnFocusLeft;
+            setup.CharacterColours.Changed -= ApplyCharacterColours;
             Glaze.PaletteChanged -= OnPaletteChanged;
             GlazeText.ScaleChanged -= OnTextScaleChanged;
             if (setup != null)
@@ -528,6 +532,7 @@ namespace Halcyonic.XR.Workspace
             KeepViews();
             Follow();
             RecoverViews();
+            placement?.Tick();
             navigator.Tick();
             memory.TickFiles(navigator.Beside);
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
@@ -614,6 +619,7 @@ namespace Halcyonic.XR.Workspace
             if (navigator.Shown is TasksColumn tasks) tasks.Showing(navigator.BesideTask);
             var (menu, beside) = navigator.Frames(bar);
             var stage = setup.StageNow();
+            ApplyCharacterColours();
             if (placement != null) { menu = null; beside = placementFrame = placement.Frame; }
             var standing = (navigator.IsOpen, navigator.Beside);
             if (anchor == null)
@@ -784,6 +790,34 @@ namespace Halcyonic.XR.Workspace
             if (frame == null && side == null) return plane.Chrome.Visible || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
             if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
+        }
+
+        private void ApplyCharacterColours()
+        {
+            if (this == null || setup == null || State?.Journal == null || !TryKey(out var key)) return;
+            foreach (var target in setup.StageNow().Characters)
+                if (target != null && target.View != null && State.Workstreams.ContainsKey(target.View.WorkstreamId))
+                    target.View.SetIdentityHue(setup.CharacterColours.DisplayedHue(new CharacterColourScope(key, State.Journal.JournalId, target.View.WorkstreamId)));
+        }
+
+        private bool ColourTarget(FileColumn file, out CharacterColourScope? scope, out CharacterTarget? target)
+        {
+            scope = null; target = null;
+            var task = file.Now?.Character.WorkstreamId;
+            if (task == null || !CurrentSnapshot || !TryKey(out var key) || State?.Journal == null || !State.Workstreams.ContainsKey(task)) return false;
+            target = setup.CharacterOf(task);
+            if (target == null || target.View == null || !target.gameObject.activeInHierarchy) return false;
+            scope = new CharacterColourScope(key, State.Journal.JournalId, task);
+            return true;
+        }
+
+        private void OpenCharacterColour(FileColumn file)
+        {
+            if (!ColourTarget(file, out var scope, out var target) || scope == null || target == null) return;
+            var column = new CharacterColourColumn(setup.CharacterColours, scope,
+                () => ColourTarget(file, out var current, out var shown) && scope.Equals(current) && shown == target,
+                setup.SaveCharacterColours);
+            OpenLocal(column);
         }
 
         private void OpenPlacement()
