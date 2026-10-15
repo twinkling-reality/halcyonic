@@ -551,3 +551,11 @@ full task title remains reachable through Read title. Manual compaction preserve
 reading/draft state while revoking callbacks, armed confirmation and old draw/action authority;
 expansion and the matching character resume that same instance. This amendment does not settle a
 multiple-reader architecture, a retained-file count limit or disk draft persistence.
+
+## Placement-policy amendment, 2026-10-15
+
+The established workspace's indefinite fixed anchor is superseded for the main application by
+[ADR 0032](0032-recover-the-workspace-when-it-leaves-view.md), after the owner confirmed it stayed
+behind and left view. Stable in-view reading, the first-pose readiness gate, deliberate room/agent
+placement and native OS panel ownership remain. Legacy fixed-anchor renderer setups are comparison
+fixtures; they no longer define production head-movement acceptance.
