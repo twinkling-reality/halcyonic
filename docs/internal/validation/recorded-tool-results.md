@@ -55,3 +55,48 @@ only sixteen retained summaries; exact accepted-event reads remain available aft
 Main workspace presentation has its own client/render evidence. Actual Quest readability, focus/
 pause/return, pairing lifetime and full live edit→build→installed-app correspondence remain device
 or workflow acceptance gates; these checks do not claim them.
+
+## Owner-approved local Unity workflow — 2026-10-15
+
+This follow-up exercised an owner-approved private Unity project through the live control plane,
+Codex app-server 0.157.0 and an existing local Ollama model, `qwen3.6:35b-a3b-nvfp4`. The project,
+source, journal identities and artifact hashes remain in private evidence. No hosted inference or
+model download was used. The following observations constrain the earlier synthetic witness;
+they do not establish full workflow or wearer acceptance.
+
+- An initial task read completed and produced actual recorded command results. A subsequent
+  scoped workspace request confirmed relevant native turns, but its first two continuations only
+  read the source. A later turn used a global command replacement and changed four occurrences
+  when the requested source boundary permitted one. The command exited successfully and the
+  runtime reported completion. Independent exact-byte comparison detected the excess changes.
+  The request subsequently interrupted at its existing coordinator budget. None of these
+  confirmations proved that the requested edit was correct.
+- The command edits produced native command results, not native file-change results. This is
+  consistent with the adapter's declaration: support for final file-change items does not promise
+  that a runtime uses that item type for every file write. An absent patch is not evidence of an
+  unchanged working tree, and exit zero does not establish a permitted write set.
+- After identifying the known effect, a bounded corrective instruction was dispatched through
+  Halcyonic under the owner-approved reversible scope, using the same real execution. The operation required exact before and
+  after source hashes, changed only the three excess occurrences, and aborted on mismatch.
+  Independent comparison then verified the intended single-byte change. A later explicit inverse
+  instruction restored the exact original source. Both operations produced accepted observed
+  command results with exit zero. These were command results plus independent file evidence;
+  they were not native patch results or an automatically verified correction mechanism.
+- The intermediate changed APK was built, installed and opened by owner tooling. That establishes
+  those individual actions, not a runtime build or wearer confirmation of the rendered output.
+  A separate actual Halcyonic runtime build started Unity with the approved project and both
+  isolated ADB environment settings. It failed with exit one: Unity's package manager could not
+  create its local socket under the existing `workspace-write` sandbox (`EPERM`). The failed
+  command was recorded as failed, even though its containing native turn completed. No permission
+  approval was raised, no retry ran, and the sandbox was not widened.
+- A later owner-tooling build stalled during licensing reconnection and was stopped by the coordinating agent.
+  Once Unity had exited, only the build-generated scene was restored from its separately saved
+  exact baseline using a current-hash check. All selected source/settings files then matched that
+  baseline; independent work was preserved. This did not restore or validate the installed APK.
+
+The exercise demonstrates real runtime dispatch, durable command-result evidence, independent
+source verification, and detection of two concrete failures: an overbroad edit and an unsupported
+build environment. It does not demonstrate a reliable general editing agent, complete source
+capture, native patch coverage for command writes, successful runtime Unity builds, restored
+installed-app correspondence, headset submission, or wearer approval. The existing distinction
+between delivery, native turn outcome, tool outcome, and software correctness remains necessary.
