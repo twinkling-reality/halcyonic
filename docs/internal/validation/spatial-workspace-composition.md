@@ -130,3 +130,12 @@ Reset position resamples the pose. Passing static renders do not validate this m
 The owner requested a material treatment with glass/gloss and perceptible depth. Palette and
 typography changes alone have not met the requested experience. This installed revision remains
 a failed experience gate while a new motion/material candidate is developed.
+
+Two subsequent isolated material comparisons have not passed the experience gate. The first
+passed its geometry checks but still looked like outlined opaque cards; a bright backdrop exposed
+unreadable floating controls. The second added face reflection and text supports, but its actual
+whole-label contrast checks failed and visual review rejected periodic stripes and fragmented
+word backings. Neither candidate was installed. Full-interface bright-background contrast and
+actual moving-view material judgment are required; source color ratios and static dark renders
+are insufficient. The motion candidate also requires pitch and placed-character cases, in addition
+to yaw and translation, before its current-head recovery claim can be accepted.
