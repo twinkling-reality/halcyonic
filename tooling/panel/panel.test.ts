@@ -770,6 +770,19 @@ describe('production native agent panel', () => {
     assert.match(activity, /generation == offeredGeneration/);
     assert.match(activity, /putBoolean\("halcyonic\.panel\.compact", compactPanel\)/);
   });
+  test('disconnected connection recovery retains local focus authority without enabling commands', () => {
+    assert.equal(run('connection_recovery'), 'true');
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    assert.match(activity, /!authority\.connectionInteract\(0\) \|\| !saveState\(\)/);
+    for (const label of [
+      'Use paired computer',
+      'Use USB connection (development)',
+      'Preview synthetic panel (screenshots allowed)',
+    ]) {
+      assert.ok(activity.includes(`connectionButton(choices, "${label}"`));
+    }
+    assert.match(activity, /localConnection \? !busy && authority\.connectionInteract\(id\)/);
+  });
   test('Activity-used navigation continuation restarts fresh reads and pauses them without granting actions', () => {
     assert.equal(run('navigation_refresh'), 'true');
     const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');

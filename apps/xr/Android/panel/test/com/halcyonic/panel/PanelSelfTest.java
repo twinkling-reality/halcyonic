@@ -215,6 +215,24 @@ public final class PanelSelfTest {
                 try { result = PanelJson.encode(new PanelModel(args[0]).monitor(args[1], args[2])); }
                 catch (Exception error) { result = "refused"; } break;
             }
+            case "connection_recovery": {
+                PanelUiState state = new PanelUiState(); state.resumed(true); state.top(true); state.activityFocus(true);
+                state.awaitingProjection();
+                if (!state.connectionInteract(0) || state.interact(0) || state.commandsAllowed()) throw new AssertionError("Disconnected connection recovery unavailable or granted actions.");
+                long owner = state.open(); state.activityFocus(false); state.dialogFocus(owner, true);
+                if (!state.connectionInteract(owner) || state.connectionInteract(0) || state.interact(owner) || state.commandsAllowed()) throw new AssertionError("Connection dialog lost local authority or gained command authority.");
+                state.dialogFocus(owner, false);
+                if (state.connectionInteract(owner)) throw new AssertionError("Unfocused connection dialog acted.");
+                state.dialogFocus(owner, true); state.top(false);
+                if (state.connectionInteract(owner)) throw new AssertionError("Non-top connection dialog acted.");
+                state.top(true); state.resumed(false);
+                if (state.connectionInteract(owner)) throw new AssertionError("Paused connection dialog acted.");
+                state.resumed(true); state.close(owner); long next = state.open(); state.dialogFocus(next, true);
+                if (state.connectionInteract(owner) || !state.connectionInteract(next)) throw new AssertionError("Stale connection dialog retained authority.");
+                state.compact(true);
+                if (state.connectionInteract(next)) throw new AssertionError("Compact monitor gained connection actions.");
+                result = "true"; break;
+            }
             case "navigation_refresh": {
                 PanelUiState state = new PanelUiState(); state.resumed(true); state.top(true); state.activityFocus(true);
                 final int[] polls = {0}; Runnable actualContinuation = () -> polls[0]++;
