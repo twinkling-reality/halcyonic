@@ -32,7 +32,9 @@ round-trip all three values, and exercise Neutral preview/rollback/apply from sa
 Glaze. Existing contrast and navigator lifetime checks remain in force. These are source and
 managed-behavior results, not actual three-palette Unity composition, character harmony, headset
 legibility or wearer acceptance. October 12's two-palette evidence below does not validate this
-new candidate. The material aesthetic is a separate review question.
+new candidate. The spatial Appearance entrypoint now iterates the same three-preset list as
+the full Appearance and cache entrypoints. The material aesthetic remains independently rejected;
+this palette candidate does not approve the current material composition.
 
 ## Current integrated evidence, October 12
 
