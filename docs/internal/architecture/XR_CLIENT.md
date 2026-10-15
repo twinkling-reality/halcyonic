@@ -3242,3 +3242,9 @@ or drops an oversized row merely to make pagination pass. Logical row fallback r
 no physical provider was supplied. Focused screen/column regressions cover invalid and tiny
 budgets/costs, indivisible groups, stale actions during recovery, and selection-preserving reflow;
 these source/core checks do not claim headset visual acceptance.
+
+Responsive recovery considers only an eligible ±25-degree pitch and a prospective complete reading
+footprint that clears the current front field, placed character bodies/labels and connector. Extreme
+pitch or an unsafe proposed anchor leaves the existing workspace still; no repeated move/settle/input
+revocation loop pretends to solve an unsatisfiable pose. The owner may return to an eligible view or
+adjust placement explicitly. These are candidate safety bounds, not completed wearer acceptance.

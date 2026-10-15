@@ -29,7 +29,10 @@ explicitly available.
 
 Recovery reuses the existing 0.4 s dwell and 20 degrees/s calm-turn threshold from PeekChoice,
 0.25 s content slide and 0.35 s button settling. New calm translation is 0.2 m/s; the distance band
-is 0.65–1.5 times the existing reading distance. Pitch is bounded to ±25 degrees. These are design
+is 0.65–1.5 times the existing reading distance. Pitch eligibility and placement are both bounded to ±25 degrees. Unsupported pitch leaves the
+existing object still and does not repeatedly recover; it does not claim to fit. A prospective
+anchor must clear actual placed character bodies/labels and its connector without moving them;
+an unsafe candidate is deferred before input or content mutation. These are design
 choices requiring wearer validation, not Meta specifications. Keep things still uses a direct
 content reposition but retains the same input barrier. Fast continuous turns/walking defer recovery
 until the wearer rests, avoiding a reading object that continually chases motion.

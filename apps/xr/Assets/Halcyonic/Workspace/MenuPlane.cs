@@ -748,9 +748,36 @@ namespace Halcyonic.XR.Workspace
 
         private PanelDirection PlaceWorkspace(IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, PanelSize size)
         {
-            var direction = new PanelDirection(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg,
-                Mathf.Clamp(Mathf.Atan2(looking.y, new Vector2(looking.x, looking.z).magnitude) * Mathf.Rad2Deg, -25f, 25f), true, false);
+            var direction = RecoveryDirection(looking);
             return new PanelDirection(direction.Yaw, direction.Elevation, WorkspacePlacement.Clears(direction, bodies, size), false);
+        }
+
+        private static PanelDirection RecoveryDirection(Vector3 looking) => new PanelDirection(
+            Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg,
+            Mathf.Clamp(Mathf.Atan2(looking.y, new Vector2(looking.x, looking.z).magnitude) * Mathf.Rad2Deg,
+                -WorkspaceFollow.MaximumPitchDegrees, WorkspaceFollow.MaximumPitchDegrees), true, false);
+
+        /// <summary>One bounded prospective anchor: actual front field, body/label and connector clearance; never moves the scene.</summary>
+        public bool CanRecoverAt(Vector3 viewer, Vector3 looking, IReadOnlyList<CharacterTarget> characters)
+        {
+            if (Composition == null || !WorkspaceFollow.EligibleHead(new System.Numerics.Vector3(looking.x, looking.y, looking.z))) return false;
+            var at = RecoveryDirection(looking);
+            var rotation = PlaneLayout.Facing(at);
+            var head = Quaternion.Inverse(Quaternion.LookRotation(looking, Vector3.up));
+            var center = PlaneLayout.PointOf(viewer, at, 0, 0);
+            var field = ViewField.Current ?? MenuPage.Quest3S;
+            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2)
+            {
+                var point = head * (center + rotation * new Vector3(Composition.Size.HalfWidth * x, Composition.Size.HalfHeight * y, 0) - viewer);
+                if (point.z <= 0 || !field.Shows(Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
+                    Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg)) return false;
+            }
+            var seen = new List<(BodyInView Body, (Transform Plate, Rect Covered) Label, bool Own)>();
+            foreach (var character in characters)
+                if (character != null && character.View != null && character.gameObject.activeInHierarchy)
+                    seen.Add((WorkspaceLayout.InView(character, viewer), LabelOutline(character.View), character == fileOf));
+            if (!WorkspacePlacement.Clears(at, seen.Select(item => item.Body).ToList(), Composition.Size)) return false;
+            return !(LineAt(Composition, at, viewer) is (Vector3 from, Vector3 to)) || !CrossesAt(from, to, viewer, seen, includeOwn: true);
         }
 
         /// <summary>A part at its place at once, any slide it had dropped, allocating nothing: a drag moves it every frame.</summary>
@@ -822,7 +849,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>The light line as it would run with <paramref name="composition"/> centred at <paramref name="at"/>, as <see cref="UpdateLightLine"/> draws it; null with none.</summary>
-        private (Vector3 From, Vector3 To)? LineAt(PlaneComposition composition, PanelDirection at)
+        private (Vector3 From, Vector3 To)? LineAt(PlaneComposition composition, PanelDirection at, Vector3? viewer = null)
         {
             if (fileOf == null || lineTo == null || lineColumn < 0) return null;
             PlanePart? first = null;
@@ -837,7 +864,7 @@ namespace Halcyonic.XR.Workspace
             if (!(first is PlanePart subject) || !(last is PlanePart content)) return null;
             var rotation = PlaneLayout.Facing(at);
             var scale = PlaneComposition.Distance * composition.Zoom;
-            Vector3 Point(PlanePart part, float x, float y) => PlaneLayout.PointOf(eyes, at, part.Right, part.Up) + rotation * (new Vector3(x, y, 0f) * scale);
+            Vector3 Point(PlanePart part, float x, float y) => PlaneLayout.PointOf(viewer ?? eyes, at, part.Right, part.Up) + rotation * (new Vector3(x, y, 0f) * scale);
             var half = lineTo.Width / 2f;
             if (fileOf.View.Label.IdentityInWorkspace)
             {
@@ -866,20 +893,23 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Whether a light line from <paramref name="from"/> to <paramref name="to"/> passes a character's label or body as the eyes see them, as the renders check it.</summary>
-        private bool Crosses(Vector3 from, Vector3 to)
+        private bool Crosses(Vector3 from, Vector3 to) => CrossesAt(from, to, eyes, standing);
+
+        private static bool CrossesAt(Vector3 from, Vector3 to, Vector3 viewer,
+            IReadOnlyList<(BodyInView Body, (Transform Plate, Rect Covered) Label, bool Own)> obstacles, bool includeOwn = false)
         {
             for (var step = 1; step < 40; step++)
             {
                 var point = Vector3.Lerp(from, to, step / 40f);
-                var toward = point - eyes;
+                var toward = point - viewer;
                 var yaw = Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg;
                 var up = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
-                for (var index = 0; index < standing.Count; index++)
+                for (var index = 0; index < obstacles.Count; index++)
                 {
-                    var (body, label, own) = standing[index];
-                    if (OnLabel(label, eyes, point)) return true;
+                    var (body, label, own) = obstacles[index];
+                    if (OnLabel(label, viewer, point)) return true;
                     // The file's own body is where the line starts over a desk, so only the others count.
-                    if (!own && Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees
+                    if ((includeOwn || !own) && Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees
                         && Mathf.Abs(up - body.Elevation) <= body.Radius + LineMarginDegrees) return true;
                 }
             }

@@ -64,8 +64,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var eyes = new Vector3(0, EyeHeight, 0); var looking = Vector3.forward; var ready = true;
                 var camera = MakeCamera(root.transform, eyes, texture); camera.transform.rotation = Quaternion.identity;
                 var commands = new CommandFactory(client); FileColumn? file = null; Action<string>? typed = null; var sends = 0;
+                var targets = new List<CharacterTarget>(); var presentation = new WorkspacePresentationState();
                 director = MenuDirector.Create(root.transform, new MenuDirector.Setup {
-                    SpatialWorkspace = true, ResponsiveWorkspace = true, InitialPlacementReady = () => ready,
+                    SpatialWorkspace = true, ResponsiveWorkspace = true, InitialPlacementReady = () => ready, Presentation = presentation,
                     Commands = commands, Comfort = new Comfort { Text = GlazeText.Scale > 1 ? TextSize.Larger : TextSize.Standard, Still = still },
                     Session = () => session, State = () => session.State, Connected = () => true,
                     Overview = () => WorkOverview.Of(session.State, new StageVisibility(), _ => true), Bar = place => TasksColumn.Bar(place, session.State),
@@ -73,7 +74,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => typed = accept,
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
                     File = (host, _) => file = new FileColumn(host, () => work.Present(live: true), commands, () => null, _ => null, () => ""),
-                    StageNow = () => new MenuDirector.Stage(eyes, looking, Array.Empty<CharacterTarget>(), null, false),
+                    CharacterOf = id => presentation.AgentsVisible ? targets.FirstOrDefault(target => target.WorkstreamId == id) : null,
+                    StageNow = () => new MenuDirector.Stage(eyes, looking, presentation.AgentsVisible ? targets : new List<CharacterTarget>(), null, false),
                 });
                 double now = 0;
                 void Tick(bool redraw = false)
@@ -155,6 +157,34 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("not-ready head pose accepted task input");
                 if (Vector3.Distance(settled, director.Plane.Chrome.transform.position) > 0.0001f) failures.Add("untracked/not-ready pose moved the content anchor");
                 ready = true; Rest(); Shot("04-tracking-restored");
+                looking = Quaternion.Euler(20, 220, 0) * Vector3.forward; Rest(); Shot("05-moderate-pitch-recovered");
+                if (Mathf.Abs(director.Plane.Direction.Elevation + 20) > 0.1f || director.FollowingForRender)
+                    failures.Add("moderate pitch recovery failed to settle at its eligible head-relative pose");
+                var beforeExtreme = director.Plane.Chrome.transform.position;
+                looking = Quaternion.Euler(80, 220, 0) * Vector3.forward;
+                var extremeMoved = false;
+                for (var frameIndex = 0; frameIndex < 80; frameIndex++) { Tick(redraw: true); extremeMoved |= director.FollowingForRender; }
+                if (extremeMoved || Vector3.Distance(beforeExtreme, director.Plane.Chrome.transform.position) > 0.0001f)
+                    failures.Add("unsatisfiable extreme pitch repeatedly recovered or moved the reading object");
+                // This pose intentionally cannot fit: do not call Shot's front-field assertion or claim it does.
+                var extremeImage = Render(camera, texture); File.WriteAllBytes(Path.Combine(folder, "06-extreme-pitch-deferred.png"), extremeImage.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(extremeImage);
+                looking = Quaternion.Euler(20, 220, 0) * Vector3.forward; Rest();
+                var future = Quaternion.Euler(0, 280, 0) * Vector3.forward;
+                var fixedView = CharacterView.Create(root.transform, work.Workstream.WorkstreamId); fixedView.Show(work.Present(live: true).Character);
+                var fixedTarget = CharacterTarget.Attach(fixedView, work.Workstream.WorkstreamId);
+                fixedView.transform.position += eyes + future * PlaneComposition.Distance - fixedTarget.BodyPosition;
+                targets.Add(fixedTarget); presentation.SetAgentsEnabled(true); Rest();
+                var placedBody = fixedTarget.BodyPosition; var placedRoot = fixedView.transform.position;
+                var beforeBlocked = director.Plane.Chrome.transform.position;
+                if (director.Plane.CanRecoverAt(eyes, future, targets)) failures.Add("prospective recovery ignored a deliberately placed real character at its destination");
+                looking = future; var collisionMoved = false;
+                for (var frameIndex = 0; frameIndex < 80; frameIndex++) { Tick(); collisionMoved |= director.FollowingForRender; }
+                if (collisionMoved || Vector3.Distance(beforeBlocked, director.Plane.Chrome.transform.position) > 0.0001f
+                    || fixedTarget.BodyPosition != placedBody || fixedView.transform.position != placedRoot)
+                    failures.Add("blocked recovery moved content into a character or changed the explicit character placement");
+                presentation.SetAgentsEnabled(false); fixedView.gameObject.SetActive(false); Rest(); Shot("07-clear-anchor-after-character-hidden");
+                if (fixedView.transform.position != placedRoot || file.Screen.Instruction.Words != draft || sends != 0)
+                    failures.Add("safe recovery changed the placed character or retained draft, or sent work");
                 if (!director.PressForRender(MenuColumn.File, FileScreens.Cancel, null, director.Plane.Showing(MenuColumn.File), null))
                     failures.Add("fresh settled workspace never returned ordinary task input authority");
             }
