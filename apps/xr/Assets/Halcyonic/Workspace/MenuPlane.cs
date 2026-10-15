@@ -406,7 +406,7 @@ namespace Halcyonic.XR.Workspace
             var frontDegrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
             if (SpatialWorkspace && Front != null)
             {
-                ShowSpatial(menuBar, menuFrame, fileFrame, panel, fileColumn, all, looking, surfaceHeight, moved, immediately);
+                ShowSpatial(menuBar, menuFrame, fileFrame, panel, fileColumn, all, looking, surfaceHeight, moved, immediately, previousFront);
                 return;
             }
             var pill = fileFrame?.Pill != null && SelectedState == null;
@@ -616,7 +616,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         private void ShowSpatial(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, SidePanel? panel, object? fileColumn,
-            IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, (float Yaw, float Elevation) moved, bool immediately)
+            IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, (float Yaw, float Elevation) moved, bool immediately, MenuFrame? previousFront)
         {
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;
@@ -645,7 +645,7 @@ namespace Halcyonic.XR.Workspace
             bar.Hide(); cover.SetActive(true);
             var bodyPart = Composition.Parts.First(part => part.Column == 1 && part.Index == 0);
             var nextHeader = new PlanePart(0, 0, Composition.Width, Composition.Height, 0f, 0f);
-            var preserveMove = was && Chrome.Visible && headerPart.Width == nextHeader.Width && headerPart.Height == nextHeader.Height
+            var preserveMove = was && ReferenceEquals(previousFront, Front) && Chrome.Visible && headerPart.Width == nextHeader.Width && headerPart.Height == nextHeader.Height
                 && Vector3.Distance(Chrome.transform.position, PlaneLayout.PointOf(eyes, Direction, 0f, 0f)) < 0.000001f
                 && Quaternion.Angle(Chrome.transform.rotation, PlaneLayout.Facing(Direction)) < 0.0001f;
             headerPart = nextHeader;
