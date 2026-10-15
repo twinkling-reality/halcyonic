@@ -88,20 +88,26 @@ Shader "Halcyonic/Glaze Surface"
                 float4 pattern = UNITY_ACCESS_INSTANCED_PROP(Props, _Pattern);
                 float4 glass = UNITY_ACCESS_INSTANCED_PROP(Props, _Glass);
                 float4 physical = UNITY_ACCESS_INSTANCED_PROP(Props, _Physical);
-                float3 view = normalize(_WorldSpaceCameraPos.xyz - i.world);
-                float3 normal = normalize(i.normal);
-                // A fixed studio key on the material, not a claim to reflect the user's room.
-                float3 key = normalize(float3(-0.45, 0.75, -0.55));
-                float facing = saturate(abs(dot(normal, view)));
-                float fresnel = pow(1.0 - facing, 4.0);
-                float reflection = pow(saturate(dot(reflect(-key, normal), view)), 36.0);
-                if (physical.w > 0.5)
+                float3 view = 0, normal = 0;
+                float fresnel = 0, reflection = 0;
+                // Per-surface property: ordinary controls skip all optical shading work.
+                UNITY_BRANCH if (physical.x > 0.5)
                 {
-                    float grainPhase = dot(i.local, float3(920.0, 37.0, 1200.0));
-                    float grain = cos(grainPhase) * saturate(1.0 - fwidth(grainPhase)) * 0.025;
-                    float light = 0.36 + 0.64 * saturate(dot(normal, key)) + grain;
-                    float lift = saturate(physical.z * (0.15 + 1.5 * reflection + fresnel));
-                    return float4(lerp(fill.rgb * light, float3(0.72, 0.76, 0.72), lift) * fill.a, fill.a);
+                    view = normalize(_WorldSpaceCameraPos.xyz - i.world);
+                    normal = normalize(i.normal);
+                    // A fixed studio key on the material, not a claim to reflect the user's room.
+                    float3 key = normalize(float3(-0.45, 0.75, -0.55));
+                    float facing = saturate(abs(dot(normal, view)));
+                    fresnel = pow(1.0 - facing, 4.0);
+                    reflection = pow(saturate(dot(reflect(-key, normal), view)), 36.0);
+                    if (physical.w > 0.5)
+                    {
+                        float grainPhase = dot(i.local, float3(920.0, 37.0, 1200.0));
+                        float grain = cos(grainPhase) * saturate(1.0 - fwidth(grainPhase)) * 0.025;
+                        float light = 0.36 + 0.64 * saturate(dot(normal, key)) + grain;
+                        float lift = saturate(physical.z * (0.15 + 1.5 * reflection + fresnel));
+                        return float4(lerp(fill.rgb * light, float3(0.72, 0.76, 0.72), lift) * fill.a, fill.a);
+                    }
                 }
 
                 // The signed distance to the outline in the shape's own units, negative inside.
@@ -164,28 +170,31 @@ Shader "Halcyonic/Glaze Surface"
                 alpha = alpha * (1.0 - edgeAlpha) + edgeAlpha;
                 color = color * (1.0 - sheen) + sheen;
                 alpha = alpha * (1.0 - sheen) + sheen;
-                // A narrow optical edge changes with the real camera. The reading centre is untouched.
-                float opticalBand = physical.x * saturate(1.0 + d / max(physical.y, 1e-5));
-                float optical = physical.z * opticalBand * (0.8 * fresnel + 0.5 * reflection);
-                color = color * (1.0 - optical) + float3(0.72, 0.76, 0.72) * optical;
-                alpha = alpha * (1.0 - optical) + optical;
-                // An analytic near-frontal softbox reflected in the face, not a screen-attached
-                // gradient. Reflected eye rays vary across this fixed world surface and with lean.
-                // Peak additive linear light stays below .018, preserving the reading contrast budget.
-                float3 reflectedEye = reflect(-view, normal);
-                // The authored studio softbox belongs to this instrument's frame. Normalize its
-                // basis so nonuniform face dimensions do not distort reflection angles.
-                float3 materialRight = normalize(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0)));
-                float3 materialUp = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
-                float3 materialForward = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
-                float3 materialRay = float3(dot(reflectedEye, materialRight), dot(reflectedEye, materialUp), dot(reflectedEye, materialForward));
-                float2 boxRay = materialRay.xy / max(0.1, -materialRay.z);
-                float2 boxAxes = float2(0.94 * boxRay.x + 0.34 * boxRay.y, -0.34 * boxRay.x + 0.94 * boxRay.y);
-                float softbox = smoothstep(0.0, 0.14, min(0.72 - abs(boxAxes.x + 0.12), 0.22 - abs(boxAxes.y - 0.18)));
-                float coatingPhase = dot(i.local.xy, float2(173.0, 17.0));
-                float coating = cos(coatingPhase) * saturate(1.0 - fwidth(coatingPhase) / 3.14159) * 0.22;
-                float faceSheen = physical.x * saturate(physical.z / 0.10) * 0.0145 * softbox * (1.0 + coating);
-                color += float3(0.98, 1.0, 0.98) * faceSheen;
+                UNITY_BRANCH if (physical.x > 0.5)
+                {
+                    // A narrow optical edge changes with the real camera. The reading centre is untouched.
+                    float opticalBand = physical.x * saturate(1.0 + d / max(physical.y, 1e-5));
+                    float optical = physical.z * opticalBand * (0.8 * fresnel + 0.5 * reflection);
+                    color = color * (1.0 - optical) + float3(0.72, 0.76, 0.72) * optical;
+                    alpha = alpha * (1.0 - optical) + optical;
+                    // An analytic near-frontal softbox reflected in the face, not a screen-attached
+                    // gradient. Reflected eye rays vary across this fixed world surface and with lean.
+                    // Peak additive linear light stays below .018, preserving the reading contrast budget.
+                    float3 reflectedEye = reflect(-view, normal);
+                    // The authored studio softbox belongs to this instrument's frame. Normalize its
+                    // basis so nonuniform face dimensions do not distort reflection angles.
+                    float3 materialRight = normalize(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0)));
+                    float3 materialUp = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
+                    float3 materialForward = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
+                    float3 materialRay = float3(dot(reflectedEye, materialRight), dot(reflectedEye, materialUp), dot(reflectedEye, materialForward));
+                    float2 boxRay = materialRay.xy / max(0.1, -materialRay.z);
+                    float2 boxAxes = float2(0.94 * boxRay.x + 0.34 * boxRay.y, -0.34 * boxRay.x + 0.94 * boxRay.y);
+                    float softbox = smoothstep(0.0, 0.14, min(0.72 - abs(boxAxes.x + 0.12), 0.22 - abs(boxAxes.y - 0.18)));
+                    float coatingPhase = dot(i.local.xy, float2(173.0, 17.0));
+                    float coating = cos(coatingPhase) * saturate(1.0 - fwidth(coatingPhase) / 3.14159) * 0.22;
+                    float faceSheen = physical.x * saturate(physical.z / 0.10) * 0.0145 * softbox * (1.0 + coating);
+                    color += float3(0.98, 1.0, 0.98) * faceSheen;
+                }
                 return float4(color, alpha) * cover;
             }
             ENDCG
