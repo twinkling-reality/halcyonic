@@ -733,4 +733,16 @@ public class ProjectsScreensTests
         Assert.That(seen.Count, Is.EqualTo(20), "all known work remains reachable across actual pages");
     }
 
+    [Test]
+    public void SpatialRootUsesWorkspaceMinimizeAndCannotAcceptAQueuedClose()
+    {
+        var state = new ProjectsScreens.State { Overview = Overview(), WorkspaceControls = true };
+        Assert.That(ProjectsScreens.Projects(state).Footer[PromptSlot.Close], Is.Null);
+        Assert.That(ProjectsScreens.Allows(state, Footer.Close), Is.False);
+        Assert.That(ProjectsScreens.Projects(state).Footer.All.Any(slot => slot.Prompt.Id == ProjectsScreens.NewProject), Is.True);
+        state.ChosenProject = "a";
+        Assert.That(ProjectsScreens.Projects(state).Side, Is.Not.Null);
+        Assert.That(ProjectsScreens.Allows(state, SidePanel.Close), Is.True);
+    }
+
 }

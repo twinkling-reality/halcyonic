@@ -240,12 +240,23 @@ namespace Halcyonic.XR.Workspace
             ViewsChanged();
         }
 
+#if UNITY_EDITOR
+        private Func<string, AndroidPanelBridge.LaunchResult>? panelLaunchForRender;
+        /// <summary>Exercises real source/draft/serialization guards with an explicit in-memory store and synthetic final dispatch.</summary>
+        public void ConfigurePanelLaunchForRender(WorkspaceViewRecovery storage, Func<string, AndroidPanelBridge.LaunchResult> dispatch)
+        { recovery = storage; panelLaunchForRender = dispatch; viewsDirty = true; }
+#endif
+
         private bool CanOpenOtherApps
         {
             get
             {
-#if UNITY_ANDROID && !UNITY_EDITOR
-                return CurrentSnapshot && recovery?.Available == true && !storageFailed && !nativeReturnPending && placement == null;
+#if UNITY_ANDROID || UNITY_EDITOR
+#if UNITY_EDITOR
+                if (panelLaunchForRender == null) return false;
+#endif
+                return CurrentSnapshot && recovery?.Available == true && !storageFailed && !nativeReturnPending
+                    && (placement == null || placement is PlacementColumn { Moving: false });
 #else
                 return false;
 #endif
@@ -255,13 +266,22 @@ namespace Halcyonic.XR.Workspace
         private void OpenOtherApps()
         {
             if (!OrganizationStanding(MenuColumn.Menu, null, null) || !CanOpenOtherApps) return;
+            // Workspace controls may offer the existing platform switch, but only their exact
+            // current drawn page can authorize it. Movement and stale pages never do.
+            if (placement != null && (placement is not PlacementColumn controls || controls.Moving
+                || placementFrame == null || placementDrawn != placementFrame || !controls.IsDrawn(placementFrame))) return;
             KeepViews();
             if (storageFailed) { ReportLocal("Save your workspace drafts before switching apps."); return; }
             var record = SelectedFile() is FileColumn file && viewBindings.TryGetValue(file, out var origin) ? Captured(file, origin) : RecordFor(null);
             if (record == null || !IsCurrent(record)) { ReportLocal("Wait for the current workspace to reconnect before switching apps."); return; }
             // This UUID is persisted in Unity only after return application, making it a durable idempotency receipt.
             record.HandoffId = Guid.NewGuid().ToString("D");
-            var result = AndroidPanelBridge.OpenPanel(HalcyonicJson.Serialize(record), inHome: false);
+            var serialized = HalcyonicJson.Serialize(record);
+#if UNITY_EDITOR
+            var result = panelLaunchForRender != null ? panelLaunchForRender(serialized) : AndroidPanelBridge.OpenPanel(serialized, inHome: false);
+#else
+            var result = AndroidPanelBridge.OpenPanel(serialized, inHome: false);
+#endif
             if (!result.Succeeded) { ReportLocal(result.Reason); return; }
             SuspendWorkspace();
         }

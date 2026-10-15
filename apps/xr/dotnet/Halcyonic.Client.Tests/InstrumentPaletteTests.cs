@@ -31,4 +31,16 @@ public class InstrumentPaletteTests
         var former = GlazePalette.Glaze.Panel.Luminance * 0.94 + 0.06;
         Assert.That((GlazePalette.Glaze.TextSecondary.Luminance + 0.05) / (former + 0.05), Is.LessThan(4.5));
     }
+    [Test]
+    public void NeutralMainActionUsesTheVerifiedBlueFamilyWithReadableWholeControlInk()
+    {
+        var accent = GlazePalette.Neutral.Tone(GlazeTone.Accent);
+        var reference = GlazePalette.Glaze.Tone(GlazeTone.Accent);
+        Assert.That((accent.Foreground, accent.Container, accent.Strong, accent.OnStrong),
+            Is.EqualTo((reference.Foreground, reference.Container, reference.Strong, reference.OnStrong)));
+        Assert.That((accent.Foreground.Luminance + .05) / (accent.Container.Luminance + .05), Is.GreaterThanOrEqualTo(4.5));
+        Assert.That(accent.Container, Is.Not.EqualTo(GlazePalette.Neutral.Control));
+        Assert.That(accent.Strong, Is.Not.EqualTo(GlazePalette.Neutral.Tone(GlazeTone.Attention).Strong));
+    }
+
 }
