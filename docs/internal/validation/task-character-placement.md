@@ -25,5 +25,9 @@ so production FileFor's history read cannot reach user pairing/token storage or 
 The fixture never starts passthrough, requests room access or changes appearance preferences.
 
 Client core build and aggregate Editor source compilation against installed Unity/SDK assemblies
-passed before execution. This is not an asmdef/runtime PASS: root-owned actual Unity execution,
-resulting images and any remaining scene failures must be recorded after the fixture runs.
+passed before execution. The corrected actual Unity run now passes at both reading sizes with
+a clean process exit. The earlier stale-offer failure came from reading before the production
+FileColumn refresh interval after a new snapshot; the fixture now waits for that refresh and
+requires current state while retaining its stale-source negative cases. The preview shows the
+shelf envelope and identity; the real character appears after Apply. Wearer comfort and live
+placement remain separate checks.

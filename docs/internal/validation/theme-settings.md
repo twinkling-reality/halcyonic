@@ -263,5 +263,8 @@ receive the play-mode destruction callback, so the witness explicitly invokes pr
 before destroying the menu and checks the surviving body before and after destruction. That verifies
 cleanup effects, not play-mode event delivery. The first host run failed: the fixture used the legacy
 separated-header checker, fitted against the wider chooser and continued with the helper's invalid
-fallback, and assumed edit-mode callback delivery. The corrected entry point still needs a new host run;
-none of this establishes wearer acceptance.
+fallback, and assumed edit-mode callback delivery. A subsequent run passed the colour assertions
+but encountered a native Editor shutdown failure and an inactive-target geometry fixture error.
+After restricting geometry to active characters, matching the existing legacy checker, the actual
+run passes every colour/material/pixel/persistence assertion at both reading sizes and exits cleanly.
+None of this establishes wearer acceptance or actual connection-key capture.
