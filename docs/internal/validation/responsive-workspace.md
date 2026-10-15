@@ -86,3 +86,13 @@ offset beside the next anchor, requires its prospective heading connector to be 
 requires actual recovery with unchanged character pose, shared task identity and a real connector.
 Thirty-nine actual connector samples must clear that body and label. This prevents a blanket
 selected-character follow disable from passing the collision-negative case.
+
+## Clean repeat with editor shutdown lifecycle hook
+
+A subsequent actual repeat passed every responsive assertion at both reading sizes and both
+motion preferences, emitted the guarded SDK shutdown-request marker, and exited 0. Its 32
+captures retain the same scoped evidence: synthetic settled composition, exact drafts, input
+barriers and preserved character placement. The earlier assertion failures and exit134 remain
+failed attempts. See [editor shutdown validation](interaction-sdk-editor-shutdown.md) for the
+separate SDK lifecycle correction and its intermittent-crash limits. No wearer comfort, physical
+headset input or installed-build acceptance is inferred from this clean editor run.

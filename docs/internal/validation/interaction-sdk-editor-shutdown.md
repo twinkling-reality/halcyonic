@@ -6,8 +6,9 @@
   (`com.meta.xr.sdk.interaction`) 207.0.0, bundled native telemetry 1.207.0.
 - **Method:** Read the two matching macOS crash reports and editor logs; inspect the installed
   package's C# lifecycle code. Compile and exercise the Halcyonic hook with a stub editor lifecycle.
-- **Status:** Crash attribution and managed lifecycle behavior verified. The workaround has not
-  yet been run in Unity; whether it prevents the native crash remains unverified.
+- **Status:** Crash attribution and managed lifecycle behavior verified. A corrected actual Unity
+  run passed all fixture assertions, emitted the shutdown-request marker and exited 0. This
+  single clean run does not establish prevention of every intermittent native crash.
 
 ## Observed failure
 
@@ -48,10 +49,11 @@ Managed tests compile the production hook unchanged against minimal editor stubs
 SDK wrapper with the verified ownership guard. They cover editor quit, repeated quit, runtime
 shutdown before editor quit, rejected package/version and invocation failure. They do not prove
 native thread teardown, actual Unity callback ordering or assembly discovery in the editor.
-The next required proof is a single affected fixture in Unity with both assertions passed and
-process exit 0, the shutdown-request marker, and absence of the matching native crash.
-Because the crash is intermittent, a clean exit alone cannot establish that the workaround caused it. Until that proof,
-the missing editor lifecycle shutdown is a grounded explanation and the remedy remains a hypothesis.
+The corrected actual Unity run provides discovery and callback evidence: all responsive workspace
+assertions passed at both reading sizes and motion preferences, the shutdown-request marker
+appeared, and the process exited 0 without the matching native abort. Because the crash is
+intermittent, one clean exit cannot establish that the workaround caused it or that it prevents
+every recurrence. Keep checking process exit alongside fixture assertions on subsequent jobs.
 
 ## First Unity attempt
 
@@ -60,5 +62,5 @@ The first actual Unity attempt stopped during script compilation before the fixt
 `UnityEditor.PackageManager.PackageInfo`. The initial stub test surface omitted the legacy
 `UnityEditor.PackageInfo`, so its successful compile did not catch this real editor API collision.
 The hook now fully qualifies the Package Manager type, and the test surface includes both names
-to prevent that regression. This correction has passed the managed tests; a corrected Unity run
-and native shutdown proof are still pending.
+to prevent that regression. This correction passed the managed tests and the actual Unity compilation/run described above.
+The initial failed attempt remains part of the evidence; it is not counted as a fixture run.

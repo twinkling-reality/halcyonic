@@ -310,8 +310,8 @@ Batch runs can end with exit status 134 after their fixture verdict: macOS crash
 an Interaction SDK telemetry worker aborting on a mutex during native shutdown. Treat the fixture
 verdict and the process result separately; completed captures do not make the command successful.
 The macOS batch editor installs a version-guarded call to the SDK's existing telemetry shutdown
-on editor quit. This workaround's managed lifecycle tests pass, but native prevention still needs
-a Unity run. Evidence and limits: [interaction-sdk-editor-shutdown.md](../validation/interaction-sdk-editor-shutdown.md).
+on editor quit. Its managed lifecycle tests and one affected actual Unity run pass; prevention of
+every intermittent native crash remains unverified. Evidence and limits: [interaction-sdk-editor-shutdown.md](../validation/interaction-sdk-editor-shutdown.md).
 
 Text in the workspace is TextMeshPro. Its essential resources are committed in
 `Assets/TextMesh Pro`, imported from the builtin `com.unity.ugui` package, without the EmojiOne
