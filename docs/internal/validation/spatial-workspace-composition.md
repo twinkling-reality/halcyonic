@@ -80,7 +80,7 @@ Appearance checks subsequently exited successfully. Multi-project capacity arith
 does not establish simultaneous rendered project rows; a dedicated actual case is required.
 
 The integrated repository checks passed 1,195 tests with one optional runtime test skipped;
-C# checks passed 1,784. These checks do not clear the prior headset design rejection, invisible
+C# checks passed 1,799 after the measured-budget recovery fix. These checks do not clear the prior headset design rejection, invisible
 native-panel report, or pending live microphone and software build/open/restore acceptance.
 
 The multi-project source witness pumps a separate three-project snapshot through the actual
@@ -106,3 +106,18 @@ applying the unchanged measured hierarchy algorithm to each group and to all rem
 content. A negative witness temporarily makes one actual name smaller than its summary and must
 be rejected, then restores its exact font size. Text, target, field and selection checks are retained.
 This corrected fixture still requires a new actual run.
+
+
+Final actual `SpatialWorkspaceCheck` execution passes at both reading sizes with a clean process
+exit. It includes three simultaneous project identities, selection through each visible route,
+correct per-project task controls, the exact existing task, and zero runtime sends. The reversed
+within-entry font hierarchy negative is rejected and restored before normal geometry checks.
+The preceding failed runs remain evidence of fixture defects, not successful passes.
+
+The development APK was built successfully and audited for manifest, native classes, microphone
+permission, signature continuity, and the exact shipped font licence. Installation preserved app
+data; the installed APK SHA-256 matches the audited artifact. One cold launch measured 298 ms
+Android launch, 6,332 ms first frame, and 6,329 ms live-stage readiness. The device connection
+checks passed with both development USB routes preserved. These observations establish installation
+and live connection only. Wearer review of the revised composition and real native-panel
+visibility, microphone capture, and the complete software build/open/restore workflow remain open.
