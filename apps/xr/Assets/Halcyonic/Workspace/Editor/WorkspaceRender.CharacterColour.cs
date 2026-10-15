@@ -145,7 +145,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var rect = new RectInt(Mathf.Clamp((int)center.x - radius, 0, Size - 1), Mathf.Clamp((int)center.y - radius, 0, Size - 1), 2 * radius, 2 * radius);
                 rect.width = Math.Min(rect.width, Size - rect.x); rect.height = Math.Min(rect.height, Size - rect.y);
                 if (rect.width == 0 || rect.height == 0 || Compare(before, preview, rect).Changed == 0) failures.Add("real body preview produced no rendered pixel change in its measured body region");
-                Press(CharacterColourColumn.Cancel); Shot("cancelled"); AssertBody(original, "Cancel");
+                Press(CharacterColourColumn.Cancel); var cancelled = Shot("cancelled"); AssertBody(original, "Cancel");
+                if (Compare(before, cancelled, rect).Changed != 0) failures.Add("Cancel did not restore the rendered body region within the existing pixel tolerance");
                 if (writes != 0) failures.Add("Cancel persisted a preview");
                 Press(CharacterColourColumn.Choose, choice); Press(CharacterColourColumn.Preview); Press(CharacterColourColumn.Apply);
                 Shot("applied"); AssertBody(previewColour, "Apply");
