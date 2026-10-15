@@ -12,6 +12,22 @@ and rules.
 Every surface is reviewed from the eyes against the owner's test: one thing at a time, fixed
 controls, clean. `DirectionsRender` shows each rule below on the moments it was decided for.
 
+## Spatial composition candidate — 2026-10-15
+
+The owner's headset review rejected the stacked menu composition. The next renderer candidate
+puts one actual work view on a unified reading surface, attaches place navigation on the left,
+and keeps Move, Other apps and Minimize along its base. The selected work's literal title uses
+the larger title role. A shallow backing gives the reading object physical depth; paragraphs
+and controls still face the eyes together. This supersedes the requirement that every subject,
+section strip and content block must be a separate framed shape for this candidate.
+
+`MenuDirector.Setup.SpatialWorkspace` enables the candidate. It is off by default pending actual
+production renderer review; the older layout below remains the installed behavior. The new
+fixture uses the actual Projects, task instruction and pending approval frames and actions,
+with explicit synthetic data. It adds no work capability or automatic character arrangement.
+Readability, full decision text, action authority, local drafts, target size and measured field
+remain requirements. A quieter frame and a different font alone do not establish acceptance.
+
 ## The plane
 
 - **One plane facing the eyes.** A composition, such as the menu with a task's file beside it, is
