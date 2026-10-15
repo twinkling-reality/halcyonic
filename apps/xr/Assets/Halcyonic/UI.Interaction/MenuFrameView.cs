@@ -883,6 +883,7 @@ namespace Halcyonic.XR.UI
                 section.Shape.Draw(new Vector2(each, height), U(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.Menu.GlassOpacity),
                     new Color(1f, 1f, 1f, Glaze.Menu.HairlineOpacity), U(Glaze.Menu.HairlineDegrees));
                 section.Shape.transform.localPosition = new Vector3(x, 0f, 0f);
+                section.Button.CoatedSelection = SpatialWorkspace;
                 section.Button.On = model.Chosen;
                 section.Button.Available = model.Reached;
                 section.Button.ShowArea(new Vector2(x, 0f), new Vector2(each, height));
@@ -890,7 +891,7 @@ namespace Halcyonic.XR.UI
                 // Only the chosen section is drawn heavier; a step not reached yet is quiet, and never lit.
                 section.Words.gameObject.SetActive(true);
                 GlazeText.SetStrong(section.Words, model.Chosen);
-                section.Words.color = model.Chosen ? GlazeTokens.Text : model.Reached ? GlazeTokens.ColorOf(Glaze.Menu.QuietText) : GlazeTokens.ColorOf(Glaze.TextDisabled);
+                section.Words.color = model.Chosen || SpatialWorkspace && model.Reached ? GlazeTokens.Text : model.Reached || SpatialWorkspace ? GlazeTokens.ColorOf(Glaze.Menu.QuietText) : GlazeTokens.ColorOf(Glaze.TextDisabled);
                 GlazeText.SetLiteral(section.Words, model.Words);
                 var dot = model.Waits ? U(DotDegrees) + grid : 0f;
                 var (_, wordsWidth) = GlazeText.Lay(section.Words, each - dot - 2f * grid, 1);
@@ -1053,7 +1054,7 @@ namespace Halcyonic.XR.UI
             {
                 // The chevron's glyph ends on the content line; its em reaches past it.
                 line.Chevron.gameObject.SetActive(true);
-                line.Chevron.color = model.Chosen ? GlazeTokens.Text : GlazeTokens.TextSecondary;
+                line.Chevron.color = model.Chosen || SpatialWorkspace ? GlazeTokens.Text : GlazeTokens.TextSecondary;
                 GlazeIcons.Show(line.Chevron, GlazeIcon.OpensMore);
                 line.Chevron.transform.localPosition = new Vector3(end - ChevronGlyph * U(Glaze.Menu.BodyDegrees) / 2f, middle, -U(0.05f));
                 end -= ChevronRoom;
@@ -1161,7 +1162,7 @@ namespace Halcyonic.XR.UI
             line.Fact.alignment = TextAlignmentOptions.TopLeft;
             GlazeText.Lay(line.Fact, room, Mathf.Max(1, factRows));
             line.Fact.transform.localPosition = new Vector3(wordsLeft, top - 2f * grid - titleHeight, -U(0.05f));
-            line.Chevron.color = GlazeTokens.TextSecondary;
+            line.Chevron.color = SpatialWorkspace ? GlazeTokens.Text : GlazeTokens.TextSecondary;
             line.Chevron.gameObject.SetActive(true);
             GlazeIcons.Show(line.Chevron, GlazeIcon.OpensMore);
             line.Chevron.transform.localPosition = new Vector3(right - ChevronGlyph * U(Glaze.Menu.BodyDegrees) / 2f, middle, -U(0.05f));
