@@ -34,5 +34,23 @@ The scoped fixture repair isolates motion and Still captures to the actual chara
 using the same camera, body meshes, materials and animation calls. It preserves and restores every
 excluded renderer's prior enablement in `finally`; final whole-fixture state images retain their
 other contributors. The synthetic label pivots are explicitly left aligned. This changes test
-quality only, not production appearance or shader behaviour. The isolated raster repair still
-requires an actual run before its motion/Still pixel assertions can be treated as evidence.
+quality only, not production appearance or shader behaviour.
+
+The repaired gate ran against warm 85b8cc50 with Metal and exited 0. Direct inspection of the
+Working, WaitingForHuman and Unknown strips confirms only the actual body against a fixed black
+background. Four unscaled camera crops sample actual frames at ticks 30, 60, 90 and 120; no
+interpolated frames or recreated animation are used. Per-channel raster differences above 2/255
+produce these totals across the three comparisons with the first frame:
+
+| Text size | Idle | Working | WaitingForHuman | Unknown |
+| --- | ---: | ---: | ---: | ---: |
+| Standard | 422 | 949 | 1,075 | 1,046 |
+| Larger | 549 | 1,271 | 1,422 | 1,399 |
+
+After the actual Still pose settled, all eight isolated comparisons had zero pixels changed above
+1/255 after another 120 actual animation steps. The same run passed mesh bounds, supported hue,
+identity swap, explicit Hide and restore checks. These establish actual component raster motion
+and Still stability in the host fixture; they do not establish the production header's layout,
+headset compositor behaviour, performance on device, or wearer acceptance. The complete synthetic
+24-image output and matching log were archived privately with a SHA-256 manifest so later editor
+runs cannot silently replace this evidence.
