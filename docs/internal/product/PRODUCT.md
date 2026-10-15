@@ -30,6 +30,20 @@ characters, a 3D diagram nor a futuristic appearance establishes that advantage 
 [ADR 0029](../decisions/0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md)
 records the presentation and continuity decision. Device usability is a separate acceptance test.
 
+## Spatial experience quality
+
+The expanded workspace must use spatial composition to make work easier to understand and direct.
+A small floating form containing navigation, activity, evidence, input and identity does not meet
+that requirement. Neither does a collection of equal floating windows. Give the current work a
+clear focus, reveal relevant context deliberately, and keep navigation and controls consistent
+through selection, reading, decisions and compaction. Living task characters need an intentional
+role and explicit visibility choices; they are not decoration added after layout.
+
+The usability benchmark is the clarity and consistency of a polished desktop agent application,
+with an interaction model that benefits from space. Judge it using actual work and adverse states,
+not a single empty or idealized screen. A successful build, layout check or installation is technical
+evidence, not evidence that the experience meets this bar. Wearer review remains required.
+
 ## What Halcyonic is not
 
 VS Code in VR; a floating terminal; virtual monitors; a mascot for Claude, Codex or any vendor; a

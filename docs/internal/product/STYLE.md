@@ -12,6 +12,25 @@ and rules.
 Every surface is reviewed from the eyes against the owner's test: one thing at a time, fixed
 controls, clean. `DirectionsRender` shows each rule below on the moments it was decided for.
 
+## Design acceptance status — 2026-10-15
+
+The installed interface and the subsequent floating-panel composition were rejected in product
+review. The sections below describe preserved implementation, not an accepted visual direction.
+Improved spacing, controls, materials or an attached character do not resolve that rejection.
+
+The required replacement is a coherent spatial composition with distinct roles for the current
+work, task selection, contextual evidence, deliberate input and compact presence. It must not
+confine every flow to one universal panel or scatter identical panels across the field. Regions
+need not all be visible: their presence follows the activity, and substantial reading must remain
+comfortable. Exact placement, depth, movement and region ownership are unresolved; no replacement
+architecture is adopted here. See [open questions](OPEN_QUESTIONS.md).
+
+Evaluate complete compositions and transitions with realistic working, permission, failed,
+disconnected and long-content states. Preserve task identity, drafts, source attribution and exact
+rendered-action authority. Geometry checks and editor images cannot establish design acceptance,
+headset readability or comfort. The existing plane rules below must not prevent replacing the
+rejected composition once a better whole interaction has been demonstrated.
+
 ## Spatial composition candidate — 2026-10-15
 
 The owner's headset review rejected the stacked menu composition. The candidate gives an open
