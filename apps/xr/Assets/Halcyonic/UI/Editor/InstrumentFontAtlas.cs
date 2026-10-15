@@ -22,6 +22,9 @@ namespace Halcyonic.XR.UI.Editor
         {
             try
             {
+                if (!File.ReadAllBytes("Assets/Halcyonic/UI/Fonts/Rajdhani/OFL.txt").SequenceEqual(
+                    File.ReadAllBytes("Assets/StreamingAssets/Halcyonic-Licenses/Rajdhani-OFL.txt")))
+                    throw new InvalidOperationException("The shipped title-font license differs from its source license.");
                 Build();
                 var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
                 if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null
