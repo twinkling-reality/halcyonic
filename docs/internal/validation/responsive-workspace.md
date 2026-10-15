@@ -22,7 +22,7 @@ request; calm dwell captures one anchor. Existing navigation compact/expand reta
 pages while removing authorization. Director, actual content buttons and chrome reject input during
 motion/settling; old presses are cancelled. An unchanged slide target preserves its timeline.
 
-12 focused pure policy/initial-placement tests passed. This is not actual rendering or comfort proof.
+14 focused pure policy/initial-placement tests passed. This is not actual rendering or comfort proof.
 The editor ResponsiveWorkspaceCheck uses production MenuDirector/MenuPlane/UI and a synthetic
 current session that is never started. It drives yaw and translation traces, repeated passive
 redraws, still/slide preferences, current-head front-field corners, target/text thresholds, retained
@@ -36,3 +36,26 @@ settles under redraw, preserves drafts, cancels stale presses and does not move 
 Then check the device with the wearer: slow reading movements remain still; a deliberate head turn
 or translation recovers promptly after rest; no nausea, chasing, lag, accidental activation or draft
 loss. None of these device/wearer outcomes is established by source tests or the old static captures.
+
+## Source-review corrections before the first actual run
+
+The pitch eligibility now matches the ±25 degree placement bound. A resting 80-degree pose is
+explicitly unsupported; it leaves the existing object still rather than repeatedly moving,
+settling and revoking input. An already-running move can still settle if the wearer enters that
+unsupported pitch. No camera change or false front-field-fit assertion conceals the limitation.
+The actual fixture includes a 20-degree pitch/yaw recovery and an 80-degree non-looping trace.
+
+Before committing a requested anchor, MenuPlane.CanRecoverAt checks its complete prospective
+footprint against the current head-relative field, actual character body/label clearance and the
+predicted connector against prospective-viewer body/label geometry. It deliberately does not reuse
+manual drag's legacy elevation band. Rejection occurs before pose/input mutation; it may reconsider
+after a fresh calm dwell but must not visibly move or revoke input. It tests the one head-relative
+candidate, not an exhaustive search for another free location. The actual fixture places a real
+character at that proposed destination, requires refusal with unchanged character and UI poses,
+then deliberately hides it and requires safe recovery. No stored room placement is changed.
+
+The unchanged-destination SlideTo guard retains only an existing non-closing slide when there is no
+new arrival or immediate request and position/rotation/scale match. Explicit immediate placement,
+arrivals and manual Stand remain distinct. Frame/target settling and frame ownership still apply;
+only a phantom animation restart is removed. The actual repeated-redraw trace is its regression
+witness; actual execution remains pending.

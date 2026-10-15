@@ -74,4 +74,31 @@ public class WorkspaceFollowTests
         follow.Reset(); Assert.That(follow.Moving, Is.False);
         Assert.That(follow.Update(3, Vector3.Zero, Vector3.UnitZ, true, false, false), Is.False);
     }
+    [Test]
+    public void ExtremePitchIsIneligibleAndNeverRepeatedlyMovesOrRevokesInput()
+    {
+        var follow = new WorkspaceFollow();
+        var extreme = new Vector3(0, (float)Math.Sin(80 * Math.PI / 180), (float)Math.Cos(80 * Math.PI / 180));
+        Assert.That(WorkspaceFollow.EligibleHead(extreme), Is.False);
+        for (var frame = 0; frame < 200; frame++)
+            Assert.That(follow.Update(frame * 0.05, Vector3.Zero, extreme, true, false, false,
+                eligible: WorkspaceFollow.EligibleHead(extreme)), Is.False);
+        Assert.That(follow.Moving, Is.False);
+    }
+    [Test]
+    public void ModeratePitchRecoversAndAnExtremePoseDuringMotionCanSettleWithoutRetry()
+    {
+        var follow = new WorkspaceFollow();
+        var moderate = new Vector3(0, (float)Math.Sin(20 * Math.PI / 180), (float)Math.Cos(20 * Math.PI / 180));
+        Assert.That(WorkspaceFollow.EligibleHead(moderate), Is.True);
+        var began = false;
+        for (var frame = 0; frame <= 12; frame++)
+            began |= follow.Update(frame * 0.05, Vector3.Zero, moderate, true, false, false, true);
+        Assert.That(began, Is.True);
+        var extreme = Vector3.UnitY;
+        for (var frame = 13; frame <= 60; frame++)
+            Assert.That(follow.Update(frame * 0.05, Vector3.Zero, extreme, true, false, frame < 20, false), Is.False);
+        Assert.That(follow.Moving, Is.False, "unsupported pitch must not create a recurring settle/recovery loop");
+    }
+
 }
