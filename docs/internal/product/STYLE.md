@@ -23,9 +23,10 @@ Dark reading surfaces and a restrained contrasting heading replace repeated brig
 The selected work's literal name uses the larger title role. Paragraphs and controls still face
 the eyes together. There is no decorative folder shoulder or surrounding window frame.
 
-`MenuDirector.Setup.SpatialWorkspace` enables the candidate. It is off by default pending actual
-production renderer review; the older layout below remains the installed behavior. The new
-fixture uses the actual Projects, task instruction and pending approval frames and actions,
+`WorkspaceDirector` enables `MenuDirector.Setup.SpatialWorkspace` for the main application.
+The setup option defaults off for explicitly retained legacy component/geometry fixtures; the
+older layout below describes that legacy system. The actual spatial fixtures use Projects,
+task instruction, pending approval, question, Results and Appearance frames and actions,
 with explicit synthetic data. It adds no work capability or automatic character arrangement.
 Known task titles and project-detail names carry explicit `MenuIdentityKind` metadata. In this
 candidate only, the header has a separate host-owned Task or Project caption and an upright
