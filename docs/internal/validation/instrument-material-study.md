@@ -105,3 +105,10 @@ limit. Peak sheen is0.0145×1.22=0.01769 linear before attenuation, still below 
 This aims for a subtle directional finish under the reflected softbox, not noise over paragraphs.
 Whether that finish is visible and convincing, or instead distracts from text, is an actual motion
 review question; no source calculation establishes aesthetic acceptance.
+
+The resolved-ink maximum alone only establishes that a rendered core exists; it does not prove
+every stroke's contrast. A separate backing probe now checks every pixel in each critical label's
+projected text bounds against its opaque authored foreground, using the matching glyph-disabled
+render. The minimum must meet4.5:1 across those bounds, and authored alpha must be255. This tests
+actual backing coverage and luminance without misclassifying antialias fringes as authored color.
+It remains a controlled image test, not an optical calibration or wearer readability measurement.
