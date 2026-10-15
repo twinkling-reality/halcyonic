@@ -401,6 +401,7 @@ public class ProjectsColumnTests
         var (column, _, _, _) = Open(Listing("shop", "notes"), known, existing: host, memory: memory);
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Alpha" }));
         column.Drawn(column.Frame, null); column.Act(ProjectsScreens.FolderNavigation, null);
+        for (var page = 0; page < 4 && !column.Frame!.Lines.Any(line => line.Words == "notes"); page++) column.Act(Footer.NextPage, null);
         column.Act(ProjectsScreens.ChooseFolder, KeyOf(column, "notes")); column.Act(ProjectsScreens.Connect, null);
         Assert.That(host.Sent.Count, Is.EqualTo(1), "expanding discovery never retries or replaces an unknown command");
         Assert.That(memory.Connection!.Unresolved, Is.Not.Null);

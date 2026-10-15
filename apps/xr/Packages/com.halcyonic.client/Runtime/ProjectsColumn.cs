@@ -35,6 +35,8 @@ namespace Halcyonic.Client
         private string? chosenFolder;
         private bool chosenProblem;
         private bool foldersOpen;
+        private readonly Func<PageLine, double>? lineHeight;
+        private readonly Func<double>? pageHeight;
         private MenuFrame? drawnFoldersFrame;
         private string? drawnFoldersJournal;
         private int page;
@@ -56,7 +58,7 @@ namespace Halcyonic.Client
         /// <param name="show">Shows (true) or hides (false) a project's work on the stage, kept on this device.</param>
         /// <param name="readLocations">Reads the host's folders; the host's API when null, as on the headset.</param>
         public ProjectsColumn(IMenuHost host, CommandFactory commands, ProjectsMemory memory, Func<WorkOverview?> overview, Action<string, bool> show,
-            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null, Action<string>? openTasks = null)
+            Func<CancellationToken, Task<LocationsResponse>>? readLocations = null, Action<string>? openTasks = null, Func<PageLine, double>? lineHeight = null, Func<double>? pageHeight = null)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
@@ -65,6 +67,7 @@ namespace Halcyonic.Client
             this.show = show ?? throw new ArgumentNullException(nameof(show));
             this.readLocations = readLocations;
             this.openTasks = openTasks;
+            this.lineHeight = lineHeight; this.pageHeight = pageHeight;
             Read();
         }
 
@@ -87,6 +90,7 @@ namespace Halcyonic.Client
             ChosenFolder = chosenFolder,
             ChosenProblem = chosenProblem,
             FoldersOpen = foldersOpen,
+            LineHeight = lineHeight, AvailableHeight = pageHeight?.Invoke() ?? 0,
             TextSize = host.TextSize,
             Connection = memory.Connection,
             BoundPaths = BoundPaths(host.State),

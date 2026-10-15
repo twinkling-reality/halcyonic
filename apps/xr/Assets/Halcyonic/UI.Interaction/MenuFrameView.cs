@@ -723,6 +723,7 @@ namespace Halcyonic.XR.UI
         /// <summary>How many rows a line's words wrap to in <paramref name="room"/>, from the very text its label draws: its runs, with the room beside each ground.</summary>
         private static int CountLine(PageLine line, float room)
         {
+            if (line.ProjectIdentity) return 3;
             var label = Measuring(Glaze.Menu.BodyDegrees);
             label.richText = false;
             label.parseCtrlCharacters = true;
@@ -816,6 +817,9 @@ namespace Halcyonic.XR.UI
             var room = width - 2f * padding - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
             var namedIdentity = SpatialWorkspace && identityKind != null;
+            var projectList = SpatialWorkspace && frame?.Side == null && frame?.Subject == "Projects"
+                && frame.Lines.Any(line => line.ProjectIdentity);
+            if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(projectList ? Glaze.CaptionDegrees : Glaze.HeroDegrees));
             var theirs = namedIdentity
                 ? GlazeRuns.Of(subjectTitle).SetIdentity(words.Text, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows)
                 : GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
@@ -1017,6 +1021,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private float LayLine(Line line, PageLine model, float left, float right, float top, Vector2 center, float zoom)
         {
+            if (model.ProjectIdentity) return LayProjectIdentity(line, model, left, right, top);
             var grid = U(Glaze.Menu.GridDegrees);
             var role = model.Action == null ? (ButtonRole?)null : model.Control == LineControl.Input ? ButtonRole.Input
                 : model.Control == LineControl.Action ? ButtonRole.Navigation : model.Choice ? ButtonRole.Answer : ButtonRole.Row;
@@ -1098,6 +1103,68 @@ namespace Halcyonic.XR.UI
             line.Words.transform.localPosition = new Vector3(wordsLeft, middle + rows * lineHeight / 2f, -U(0.05f));
             LayGrounds(line, model, role != null, theirs, left, right, middle, height);
             if (model.Control == LineControl.Input && model.InputFocused && !model.Runs.AnyTheirs) line.ShowCaret(wordsLeft, end, middle, rows * lineHeight);
+            return top - height;
+        }
+
+        /// <summary>Actual project-list typography plus conservative inter-target spacing, in plane units.</summary>
+        public static float ProjectListLineHeight(PageLine line, float columnDegrees)
+        {
+            var grid = U(Glaze.Menu.GridDegrees);
+            if (!line.ProjectIdentity)
+            {
+                var rows = Mathf.Min(line.Rows, CountLine(line, WordsRoom(line, ContentWidth(columnDegrees))));
+                var text = rows * GlazeText.LineHeight(Measuring(Glaze.Menu.BodyDegrees));
+                return (line.Action == null ? text : Mathf.Max(GlazeButton.HeightOf(true), text + 2f * grid)) + TargetGap;
+            }
+            var room = ContentWidth(columnDegrees) - U(Glaze.Menu.IconColumnDegrees) - grid - ChevronRoom;
+            var fact = Measuring(Glaze.Menu.BodyDegrees);
+            GlazeRuns.Of(fact).Set(line.FactRuns!);
+            var factRows = GlazeText.Lay(fact, room, Unlimited).Lines;
+            var summaryHeight = Mathf.Max(1, factRows) * GlazeText.LineHeight(fact);
+            return Mathf.Max(GlazeButton.HeightOf(true), GlazeText.LineHeight(Measuring(Glaze.TitleDegrees))
+                + summaryHeight + 3f * grid) + TargetGap;
+        }
+
+        private float LayProjectIdentity(Line line, PageLine model, float left, float right, float top)
+        {
+            var grid = U(Glaze.Menu.GridDegrees);
+            line.Show(model, ButtonRole.Row);
+            line.Shimmer.Waits = false;
+            var title = line.ProjectTitle;
+            title.gameObject.SetActive(true);
+            var titleHeight = GlazeText.LineHeight(title);
+            line.Fact.fontSize = GlazeTokens.FontSize(U(GlazeText.ScaledDegreesOf(GlazeType.Body)));
+            var wordsLeft = left + U(Glaze.Menu.IconColumnDegrees) + grid;
+            var room = right - wordsLeft - ChevronRoom;
+            line.Fact.textWrappingMode = TextWrappingModes.Normal;
+            GlazeRuns.Of(line.Fact).Set(model.FactRuns!);
+            var factRows = GlazeText.Lay(line.Fact, room, Unlimited).Lines;
+            var factHeight = Mathf.Max(1, factRows) * GlazeText.LineHeight(line.Fact);
+            var height = Mathf.Max(GlazeButton.HeightOf(true), titleHeight + factHeight + 3f * grid);
+            var middle = top - height / 2f;
+            var runs = GlazeRuns.Of(title);
+            runs.SetIdentity(model.Words, words => GlazeText.Lay(title, room, Unlimited).Lines <= 1);
+            GlazeText.Lay(title, room, 1);
+            title.color = ColourOf(LineTone.Primary, model.Available);
+            title.transform.localPosition = new Vector3(wordsLeft, top - grid, -U(0.05f));
+            line.Icon.gameObject.SetActive(true);
+            GlazeIcons.Show(line.Icon, GlazeIcon.Quote);
+            line.Icon.color = GlazeTokens.TextSecondary;
+            line.Icon.transform.localPosition = new Vector3(left + U(Glaze.Menu.IconColumnDegrees) / 2f, top - grid - titleHeight / 2f, -U(0.05f));
+            line.Fact.gameObject.SetActive(true);
+            GlazeRuns.Of(line.Fact).Set(model.FactRuns!);
+            line.Fact.color = ColourOf(LineTone.Secondary, model.Available);
+            line.Fact.alignment = TextAlignmentOptions.TopLeft;
+            GlazeText.Lay(line.Fact, room, Mathf.Max(1, factRows));
+            line.Fact.transform.localPosition = new Vector3(wordsLeft, top - 2f * grid - titleHeight, -U(0.05f));
+            line.Chevron.color = GlazeTokens.TextSecondary;
+            line.Chevron.gameObject.SetActive(true);
+            GlazeIcons.Show(line.Chevron, GlazeIcon.OpensMore);
+            line.Chevron.transform.localPosition = new Vector3(right - ChevronGlyph * U(Glaze.Menu.BodyDegrees) / 2f, middle, -U(0.05f));
+            line.Button!.On = model.Chosen;
+            line.Button.Available = model.Available;
+            line.Button.ShowArea(new Vector2((left + right) / 2f, middle), new Vector2(right - left + 2f * Inset, height));
+            line.MayCut = true;
             return top - height;
         }
 
@@ -1373,7 +1440,8 @@ namespace Halcyonic.XR.UI
                 this.parent = parent;
                 this.name = name;
                 Icon = GlazeIcons.Create(parent, name + " icon", Glaze.Menu.BodyDegrees, GlazeTokens.Text, Order + 3);
-                Words = Label(name + " words", GlazeTokens.Text);
+                ordinaryWords = Label(name + " words", GlazeTokens.Text);
+                ProjectTitle = GlazeText.Create(parent, name + " project identity", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.TopLeft, Order + 3, scaled: true);
                 Shimmer = GlazeShimmer.On(Words);
                 Name = Label(name + " name", GlazeTokens.TextSecondary);
                 Fact = Label(name + " fact", GlazeTokens.TextSecondary);
@@ -1392,7 +1460,9 @@ namespace Halcyonic.XR.UI
             /// <summary>Its words' shimmer, while the line says what is under way.</summary>
             public GlazeShimmer Shimmer { get; }
 
-            public TextMeshPro Words { get; }
+            private readonly TextMeshPro ordinaryWords;
+            public TextMeshPro Words => model?.ProjectIdentity == true ? ProjectTitle : ordinaryWords;
+            public TextMeshPro ProjectTitle { get; }
 
             public TextMeshPro Name { get; }
 
@@ -1517,6 +1587,7 @@ namespace Halcyonic.XR.UI
                 MayCut = false;
                 FactMayCut = false;
                 Words.gameObject.SetActive(false);
+                ProjectTitle.gameObject.SetActive(false);
                 Name.gameObject.SetActive(false);
                 Icon.gameObject.SetActive(false);
                 Fact.gameObject.SetActive(false);
