@@ -597,6 +597,8 @@ namespace Halcyonic.XR.Workspace
         public string WorkspaceControlsStateForRender => "local-controls=" + (placement is PlacementColumn)
             + ", column-moving=" + (placement is PlacementColumn controls && controls.Moving)
             + ", move-mode=" + moveMode + ", dirty=" + dirty + ", compact=" + navigator.IsCompact + ", sliding=" + plane.Sliding
+            + ", local-frame=" + (placementFrame != null) + ", draw-ack=" + (placementFrame != null && placementDrawn == placementFrame)
+            + ", column-ack=" + (placement is PlacementColumn local && placementFrame != null && local.IsDrawn(placementFrame))
             + ", chrome=" + string.Join("/", plane.Chrome.Targets.Where(button => button.gameObject.activeInHierarchy).Select(button => button.Label.text))
             + ", actions=" + string.Join("/", plane.Front?.Lines.Select(line => line.Action ?? "none") ?? Array.Empty<string>());
 #endif
