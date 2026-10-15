@@ -485,7 +485,6 @@ namespace Halcyonic.XR.Workspace
         private void OnDestroy()
         {
             FocusGuard.Left -= OnFocusLeft;
-            setup.CharacterColours.Changed -= ApplyCharacterColours;
             Glaze.PaletteChanged -= OnPaletteChanged;
             GlazeText.ScaleChanged -= OnTextScaleChanged;
             if (setup != null)
@@ -494,6 +493,13 @@ namespace Halcyonic.XR.Workspace
                 setup.Presentation.Changed -= PresentationChanged;
             }
             if (placement != null) LocalClosed();
+            if (setup != null)
+            {
+                foreach (var pair in colourOrigins)
+                    if (pair.Key != null && pair.Key.View != null) pair.Key.View.SetIdentityHue(CharacterColourSettings.Hue(setup.CharacterColours.Applied(pair.Value)));
+                colourOrigins.Clear();
+                setup.CharacterColours.Changed -= ApplyCharacterColours;
+            }
             navigator?.FocusLeft();
         }
 
