@@ -68,3 +68,12 @@ disconnected use; the setup default is retained for legacy fixtures. Character i
 is presentation-only and keeps the full label's conservative clearance envelope. Final task
 creation and colour-flow checks, build/install evidence, and wearer judgment remain required;
 source activation is not evidence of their completion.
+
+The multi-project source witness pumps a separate three-project snapshot through the actual
+session and production ProjectsColumn. It requires at least two distinct known project identities
+simultaneously drawn, then selects each shown row through the current production action route,
+checks its New task key and task ownership, returns to Projects, and opens the original project's
+exact existing task without sending work. It retains the shared actual text/target/field checks at
+both reading sizes. The earlier two-row arithmetic capacity assertion remains additional evidence
+only. Images are written beneath `SpatialWorkspaceRenders/multiple-projects` (and the Larger
+variant). This added fixture has not yet been executed; its source is not a completed render proof.
