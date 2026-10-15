@@ -1035,7 +1035,14 @@ launch/return, process recreation and current-frame action behavior need separat
   client still receives all work.
 - **`ProjectsColumn`** is the menu's Projects place as an `IMenuColumn`: it keeps the host's folders
   (read when it opens and when the person asks again, never on a timer), the chosen row and the page,
-  and builds its frame with `ProjectsScreens`. The connection sent last lives in `ProjectsMemory`,
+  and builds its frame with `ProjectsScreens`. When the journal already has projects, its first
+  view lists only those projects: folder listings, missing folders and folder-read errors appear
+  after the explicit secondary **Connect a folder** action. Expanded discovery keeps projects first
+  and offers **Back to projects**; neither action sends a command. With no known projects, folder
+  discovery remains visible immediately. Paging retains this navigation. A navigation press requires
+  the current drawn frame and journal, and loses authority on focus leave or redraw. Hiding and
+  reopening discovery retains the existing unknown connection outcome and never permits a retry
+  that `FolderConnection` forbids. The connection sent last lives in `ProjectsMemory`,
   which the director keeps for the app's run (one journal), across reconnects, and gives every Projects
   column, so an unknown outcome
   holds Connect back across a close and a reopen. Every press goes through `ProjectsScreens.Allows`

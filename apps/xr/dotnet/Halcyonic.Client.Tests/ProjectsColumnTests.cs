@@ -338,4 +338,49 @@ public class ProjectsColumnTests
         Assert.That(changes, Is.EqualTo(2));
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Does.Not.Contain("shop"), "away, no folder is offered");
     }
+    [TestCase("focus")]
+    [TestCase("journal")]
+    public void FolderNavigationRequiresItsCurrentDrawnFrameAndJournal(string loss)
+    {
+        var state = new Portfolio().Project("p", "Alpha").Apply();
+        var host = new Host { State = state };
+        var column = new ProjectsColumn(host, Commands, new ProjectsMemory(),
+            () => WorkOverview.Of(state, new StageVisibility(), _ => false), (_, _) => { }, _ => Task.FromResult(Listing("shop")));
+        column.Tick();
+        column.Act(ProjectsScreens.FolderNavigation, null);
+        Assert.That(column.State().FoldersOpen, Is.False, "unseen navigation cannot act");
+        column.Drawn(column.Frame!, null);
+        if (loss == "focus") column.FocusLeft();
+        else host.State!.Journal!.JournalId = "replacement-journal";
+        column.Act(ProjectsScreens.FolderNavigation, null);
+        Assert.That(column.State().FoldersOpen, Is.False);
+        column.Drawn(column.Frame!, null);
+        column.Act(ProjectsScreens.FolderNavigation, null);
+        Assert.That(column.State().FoldersOpen, Is.True);
+        Assert.That(host.Sent, Is.Empty);
+        column.Drawn(column.Frame!, null);
+        column.Act(ProjectsScreens.FolderNavigation, null);
+        Assert.That(column.State().FoldersOpen, Is.False);
+    }
+
+    [Test]
+    public void FolderNavigationKeepsAnUnknownConnectionAcrossReturnToKnownProjects()
+    {
+        var memory = new ProjectsMemory();
+        var (first, host, _, _) = Open(Listing("shop", "notes"), memory: memory);
+        first.Act(ProjectsScreens.ChooseFolder, KeyOf(first, "shop")); first.Act(ProjectsScreens.Connect, null);
+        host.Ack!.SetException(new CommandOutcomeUnknownException(host.Sent[0].CommandId, "The socket closed."));
+        first.Tick(); first.Act(Footer.Close, null);
+        var state = new Portfolio().Project("p", "Alpha").Apply();
+        host.State = state;
+        var known = WorkOverview.Of(state, new StageVisibility(), _ => false);
+        var (column, _, _, _) = Open(Listing("shop", "notes"), known, existing: host, memory: memory);
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Alpha" }));
+        column.Drawn(column.Frame, null); column.Act(ProjectsScreens.FolderNavigation, null);
+        column.Act(ProjectsScreens.ChooseFolder, KeyOf(column, "notes")); column.Act(ProjectsScreens.Connect, null);
+        Assert.That(host.Sent.Count, Is.EqualTo(1), "expanding discovery never retries or replaces an unknown command");
+        Assert.That(memory.Connection!.Unresolved, Is.Not.Null);
+        Assert.That(column.Frame!.Reason, Does.StartWith("Not sure whether"));
+    }
+
 }
