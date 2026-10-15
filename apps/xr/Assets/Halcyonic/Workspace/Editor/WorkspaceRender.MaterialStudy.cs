@@ -151,6 +151,31 @@ namespace Halcyonic.XR.Workspace.Editor
                 var selections = shown.GetComponentsInChildren<Surface>(false).Where(surface => surface.Selection == SurfaceSelection.Lit).ToArray();
                 if (selections.Length != 1 || selections[0].Fill.a > 0.0601f)
                     failures.Add("coated spatial section must use its contrast-bounded selection lift");
+                if (selections.Length == 1)
+                {
+                    var selected = selections[0]; var originalFill = selected.Fill;
+                    try
+                    {
+                        if (GlazeChecks.OneSelectionTreatment(new[] { selected }, eyes, "coated selection positive").Any())
+                            failures.Add("selection checker rejected the exact real coated section");
+                        foreach (var wrongOpacity in new[] { Glaze.Menu.LitFillOpacity, 0.065f })
+                        {
+                            selected.Draw(selected.Size, selected.CornerRadius, new Color(1f, 1f, 1f, wrongOpacity), selected.Edge, selected.EdgeWidth);
+                            if (!GlazeChecks.OneSelectionTreatment(new[] { selected }, eyes, "coated selection negative").Any(failure => failure.Contains("lit otherwise than the lit fill")))
+                                failures.Add("selection checker accepted wrong opacity on the real coated section");
+                        }
+                    }
+                    finally { selected.Draw(selected.Size, selected.CornerRadius, originalFill, selected.Edge, selected.EdgeWidth); }
+                    var impostor = GlazeButton.Create(root.transform, "Non-section coated flag negative", ButtonRole.Navigation);
+                    try
+                    {
+                        impostor.CoatedSelection = true; impostor.On = true;
+                        impostor.ShowArea(Vector2.zero, new Vector2(0.1f, 0.06f));
+                        if (!GlazeChecks.OneSelectionTreatment(new[] { impostor.SelectionSurface }, eyes, "non-section negative").Any(failure => failure.Contains("lit otherwise than the lit fill")))
+                            failures.Add("selection checker let an arbitrary coated flag bypass the legacy contract");
+                    }
+                    finally { UnityEngine.Object.DestroyImmediate(impostor.gameObject); }
+                }
                 failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, "instrument centre"));
                 failures.AddRange(GlazeChecks.TargetsLargeEnough(shown.Targets.Concat(director.Plane.Chrome.Targets), eyes, "instrument centre"));
                 var positions = new[] { new Vector3(-0.09f, 0.02f, 0f), Vector3.zero, new Vector3(0.09f, -0.02f, 0f) };
