@@ -1106,7 +1106,8 @@ namespace Halcyonic.XR.UI
             var wordsTone = carried && model.Tone != LineTone.Secondary ? LineTone.Primary : model.Tone;
             // Thin host-owned reading facts need primary ink on the coated face. Outside text,
             // semantic state tones and animated pending words keep their existing treatments.
-            if (SpatialWorkspace && wordsTone == LineTone.Secondary && !model.Runs.AnyTheirs && !model.Waits)
+            if (SpatialWorkspace && wordsTone == LineTone.Secondary && !model.Runs.AnyTheirs
+                && !model.WordsAreData && !model.Claim && !model.Waits)
                 wordsTone = LineTone.Primary;
             line.Words.color = ColourOf(wordsTone, model.Available);
             GlazeRuns.Of(line.Words).Lean(theirs);
