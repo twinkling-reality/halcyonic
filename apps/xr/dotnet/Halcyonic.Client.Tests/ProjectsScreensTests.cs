@@ -606,6 +606,74 @@ public class ProjectsScreensTests
         Assert.That(ProjectsScreens.Projects(state).Lines.Count, Is.EqualTo(3));
     }
 
+    private static void AssertRoomRecovery(ProjectsScreens.State state)
+    {
+        var frame = ProjectsScreens.Projects(state);
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { ProjectsText.MoreRoom }));
+        Assert.That(frame.Lines.Any(line => line.Action != null), Is.False);
+        Assert.That(frame.Side, Is.Null);
+        Assert.That(frame.Footer.All.Select(slot => slot.Prompt.Id), Is.EqualTo(new[] { Footer.Close }));
+        Assert.That(ProjectsScreens.Allows(state, Footer.Close), Is.True);
+        foreach (var action in new[] { ProjectsScreens.ChooseProject, ProjectsScreens.FolderNavigation, ProjectsScreens.NewProject,
+            ProjectsScreens.AddTask, ProjectsScreens.HideProject, ProjectsScreens.ShowProject, ProjectsScreens.Connect, ProjectsScreens.TryAgain,
+            ProjectsScreens.ChooseFolder, ProjectsScreens.ChooseProblem, ProjectsScreens.ReadAgain, Footer.NextPage })
+            Assert.That(ProjectsScreens.Allows(state, action, "a"), Is.False, action);
+    }
+
+    [TestCase(0.0)]
+    [TestCase(-1.0)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    [TestCase(0.1)]
+    public void SuppliedUnavailableOrTinyPhysicalBudgetOffersOnlyRoomRecovery(double available)
+    {
+        var state = State(); state.LineHeight = _ => 0.2; state.AvailableHeight = available; state.ChosenProject = "a";
+        AssertRoomRecovery(state);
+        Assert.That(state.ChosenProject, Is.EqualTo("a"), "an unavailable reading surface must not clear the remembered choice");
+    }
+
+    [TestCase(0.0)]
+    [TestCase(-0.1)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    [TestCase(0.7)]
+    public void InvalidOrOversizedMeasuredRowCannotBecomeAnActiveProject(double cost)
+    {
+        var state = State(); state.LineHeight = _ => cost; state.AvailableHeight = 0.6;
+        AssertRoomRecovery(state);
+    }
+
+    [Test]
+    public void RoomRecoveryPreservesFullOutsideNameAndRestoresExactChosenProjectWhenBudgetReturns()
+    {
+        var name = "<b>" + string.Join(" ", Enumerable.Repeat("Complete outside project identity", 20)) + "</b>";
+        var projection = new Portfolio().Project("a", "Alpha").Project("b", name).Apply();
+        var state = State(overview: WorkOverview.Of(projection, new StageVisibility(), _ => false));
+        state.FoldersOpen = false; state.ChosenProject = "b"; state.Page = 9;
+        state.LineHeight = line => line.Key == "b" ? 0.7 : 0.2; state.AvailableHeight = 0.6;
+        AssertRoomRecovery(state);
+        Assert.That(state.Overview!.Projects.Single(project => project.ProjectId == "b").Name, Is.EqualTo(name));
+        state.AvailableHeight = 0.8;
+        var recovered = ProjectsScreens.Projects(state);
+        Assert.That(recovered.Side!.Subject, Is.EqualTo(name));
+        Assert.That(recovered.Lines.Single(line => line.Chosen).Key, Is.EqualTo("b"));
+        Assert.That(recovered.Lines.Single(line => line.Chosen).Runs.AllTheirs, Is.True);
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.AddTask), Is.True);
+        Assert.That(state.Page, Is.EqualTo(9));
+    }
+
+    [Test]
+    public void HeadingCannotBeOfferedWithoutRoomForItsFirstFolderAndAbsentProviderKeepsLegacyPages()
+    {
+        var state = State(); state.LineHeight = _ => 0.2; state.AvailableHeight = 0.3;
+        AssertRoomRecovery(state); // Heading + its first folder need 0.4, even though each row fits alone.
+        state.LineHeight = null; state.AvailableHeight = double.NaN;
+        Assert.That(AllLines(state).Any(line => line.Action == ProjectsScreens.ChooseProject), Is.True);
+        Assert.That(AllLines(state).Any(line => line.Action == ProjectsScreens.ChooseFolder), Is.True);
+    }
+
     [Test]
     public void OnlyKnownProjectsOptIntoThePrimaryIdentityRow()
     {
