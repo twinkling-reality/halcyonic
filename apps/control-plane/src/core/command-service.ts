@@ -71,17 +71,17 @@ interface ActionOutcome {
   failed(failure: CommandFailure): void;
 }
 
+/** How many refused answers' digests are kept to tell a resent answer from another one. */
+const REFUSED_ANSWERS_KEPT = 1000;
+/** How many resends of refused answers one principal may have compared in each fixed minute. */
+const REFUSED_RESENDS_PER_MINUTE = 6;
+
 /**
  * Carries a command from submission to a recorded outcome. Every command is journaled as
  * accepted or rejected before anything happens. Completion is recorded only when the runtime
  * confirms the action, and a timeout is recorded as a failure whose effect is unknown, because
  * the runtime may still have acted.
  */
-/** How many refused answers' digests are kept to tell a resent answer from another one. */
-const REFUSED_ANSWERS_KEPT = 1000;
-/** How many resends of refused answers one principal may have compared in each fixed minute. */
-const REFUSED_RESENDS_PER_MINUTE = 6;
-
 export class CommandService {
   readonly #deps: CommandServiceDeps;
   /**
