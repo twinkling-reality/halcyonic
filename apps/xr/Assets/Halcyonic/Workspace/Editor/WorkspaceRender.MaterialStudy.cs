@@ -110,7 +110,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (ViewField.Current is ViewField field)
                             failures.AddRange(GlazeChecks.InsideField("actual material rim " + frame, points, camera.transform.position, center, WorkspacePlacement.ReadingPitch(director.Plane.Composition!.Size, director.Plane.Direction.Elevation, field), field));
                     }
-                    foreach (var support in root.GetComponentsInChildren<Surface>(false).Where(surface => surface.name == "Semantic text contrast support"))
+                    foreach (var support in root.GetComponentsInChildren<Surface>(false).Where(surface => surface.name == "Grouped chrome material" || surface.name == "Grouped task tab material"))
                     {
                         var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }.Select(y => support.transform.TransformPoint(new Vector3(x, y, 0f))));
                         if (ViewField.Current is ViewField supportField)
@@ -129,10 +129,25 @@ namespace Halcyonic.XR.Workspace.Editor
                     var critical = director.Plane.Chrome.GetComponentsInChildren<TMP_Text>(false)
                         .Concat(shown.GetComponentsInChildren<TMP_Text>(false).Where(word => word.name == "Identity kind" || word.name.StartsWith("Section ") && word.name.EndsWith(" words")))
                         .Where(word => !string.IsNullOrWhiteSpace(word.text)).Distinct().ToArray();
-                    var renderers = critical.Select(word => word.GetComponent<MeshRenderer>()).Where(renderer => renderer != null && renderer.enabled).ToArray();
+                    foreach (var word in critical)
+                    {
+                        var bounds = word.textBounds;
+                        var worldCorners = new[] { bounds.min.x, bounds.max.x }.SelectMany(x => new[] { bounds.min.y, bounds.max.y }.Select(y => word.transform.TransformPoint(new Vector3(x, y, 0f)))).ToArray();
+                        // Evidence required before any optical lip can reduce perimeter opacity.
+                        // No lip is enabled in this revision: test the proposed 0.004 inset now.
+                        var insideReading = physical.Any(surface => worldCorners.All(point => {
+                            var local = surface.transform.InverseTransformPoint(point);
+                            return (0.5f - Mathf.Abs(local.x)) * surface.Size.x >= 0.004f
+                                && (0.5f - Mathf.Abs(local.y)) * surface.Size.y >= 0.004f;
+                        }));
+                        if (!insideReading) failures.Add("critical text lacks proposed optical-lip inset (lip remains disabled): " + word.transform.parent.name + "/" + word.name + "; frame=" + frame);
+                    }
+                    var textObjects = critical.Select(word => word.gameObject).Where(text => text.activeSelf).ToArray();
                     Texture2D withoutWords;
-                    try { foreach (var renderer in renderers) renderer.enabled = false; withoutWords = Render(camera, texture); }
-                    finally { foreach (var renderer in renderers) renderer.enabled = true; }
+                    // Hide the complete TMP text object, including fallback submesh renderers.
+                    // Its separately owned group material remains exactly as captured.
+                    try { foreach (var text in textObjects) text.SetActive(false); withoutWords = Render(camera, texture); }
+                    finally { foreach (var text in textObjects) text.SetActive(true); }
                     foreach (var word in critical)
                     {
                         var bounds = word.textBounds;
@@ -143,7 +158,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var top = Mathf.Clamp(Mathf.CeilToInt(corners.Max(point => point.y)), 0, image.height - 1);
                         var authored = (Color32)word.color;
                         var authoredColor = GlazeColor.Hex((uint)(authored.r << 16 | authored.g << 8 | authored.b));
-                        double leastBacking = double.PositiveInfinity;
+                        double leastBacking = double.PositiveInfinity; var worstBacking = Color.clear; var worstPoint = Vector2.zero;
                         double bestInk = 1; var ink = 0;
                         var polygon = new[] { corners[0], corners[2], corners[3], corners[1] };
                         for (var x = left; x <= right; x++) for (var y = bottom; y <= top; y++)
@@ -161,7 +176,8 @@ namespace Halcyonic.XR.Workspace.Editor
                             var foreground = image.GetPixel(x, y); var backing = withoutWords.GetPixel(x, y);
                             var supportPixel = (Color32)backing;
                             var supportColor = GlazeColor.Hex((uint)(supportPixel.r << 16 | supportPixel.g << 8 | supportPixel.b));
-                            leastBacking = Math.Min(leastBacking, GlazeColor.Contrast(authoredColor, supportColor));
+                            var backingContrast = GlazeColor.Contrast(authoredColor, supportColor);
+                            if (backingContrast < leastBacking) { leastBacking = backingContrast; worstBacking = backing; worstPoint = new Vector2(x, y); }
                             if (Mathf.Abs(foreground.r - backing.r) + Mathf.Abs(foreground.g - backing.g) + Mathf.Abs(foreground.b - backing.b) < 0.08f) continue;
                             ink++;
                             var a = GlazeColor.Hex((uint)(Mathf.RoundToInt(foreground.r * 255) << 16 | Mathf.RoundToInt(foreground.g * 255) << 8 | Mathf.RoundToInt(foreground.b * 255)));
@@ -169,7 +185,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             bestInk = Math.Max(bestInk, GlazeColor.Contrast(a, b));
                         }
                         if (authored.a != 255 || leastBacking < 4.5)
-                            failures.Add("actual image backing does not support the whole text bounds at4.5:1 for " + word.name + ": minimum=" + leastBacking.ToString("0.00") + ", source alpha=" + authored.a);
+                            failures.Add("actual image backing does not support the whole text bounds at4.5:1 for " + word.transform.parent.name + "/" + word.name + ": minimum=" + leastBacking.ToString("0.00") + ", source=" + authored + ", backing=" + worstBacking + ", pixel=" + worstPoint + ", frame=" + frame);
                         if (ink < 2 || bestInk < 4.5) failures.Add("actual image lacks4.5:1 resolved ink against its rendered backing for " + word.name + ": pixels=" + ink + ", best=" + bestInk.ToString("0.00"));
                     }
                     UnityEngine.Object.DestroyImmediate(withoutWords);

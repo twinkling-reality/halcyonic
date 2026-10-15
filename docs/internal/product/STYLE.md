@@ -612,3 +612,9 @@ their own tight contrast support over bright passthrough; font size alone does n
 legibility. Their supports stay unoutlined and inside measured owner bounds, preserving actual
 targets and the existing source/selection treatment. Actual image contrast and motion evidence
 must accompany the material study before acceptance.
+
+The second material proof was also rejected: visible periodic coating and word-sized dark boxes
+fragmented the interface. The next candidate removes face stripes, groups system information into
+one header and one footer grip, groups tabs into a strip, and includes the kind caption in the
+heading material. Its edge insets must protect actual text against bright surroundings. A more
+transparent optical lip remains disabled until actual glyph-to-edge margins and contrast pass.
