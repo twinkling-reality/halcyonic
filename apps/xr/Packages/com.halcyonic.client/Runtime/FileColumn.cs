@@ -775,6 +775,8 @@ namespace Halcyonic.Client
         {
             notice = words;
             noticeUntil = host.Now + NoticeSeconds;
+            // This is a new feedback event even when its words match the previous failure.
+            if (Screen.Section == FileSection.Activity) Screen.Page = 0;
         }
 
         /// <summary>

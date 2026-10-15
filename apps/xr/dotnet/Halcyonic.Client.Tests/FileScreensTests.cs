@@ -403,7 +403,7 @@ public class FileScreensTests
         var steering = new WorkspaceSteering(factory);
         var refused = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(3), new RowBudget(3));
         Assert.That(refused.Lines.Single().Words, Is.EqualTo("Move the workspace to make room for Activity."));
-        Assert.That(refused.Footer.All.Select(entry => entry.Prompt.Id), Is.EqualTo(new[] { Footer.Close }));
+        Assert.That(refused.Footer.All.Select(entry => entry.Prompt.Id), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, FileScreens.HoldToTalk, FileScreens.TellIt }));
         Assert.That(screen.ResultsOffered && screen.WorkspaceRequestOffered, Is.True);
         var actions = new List<string>();
         FileScreens.Screen(workspace, steering, screen, new AnswerRoom(5), new RowBudget(5));

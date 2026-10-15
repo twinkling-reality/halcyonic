@@ -3096,7 +3096,8 @@ Activity notices lead the first measured page in full. A newly arriving non-null
 to that page before its existing lifetime expires; unchanged words and expiry do not reset paging.
 Confirmation, instruction and preset notice paths retain their own rules. An allocation unable
 to hold one complete line and its required pager uses the existing chooser-style explicit
-move-for-room refusal, keeping offered routes and drafts for a later reflow.
+move-for-room refusal, preserving Stop, voice and instruction controls as well as offered routes
+and drafts for a later reflow.
 
 The selected task's Activity page additionally offers **Character colour** only while its actual
 character is deliberately shown, with a current live snapshot and matching source identity. The
