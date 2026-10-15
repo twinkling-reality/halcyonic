@@ -1213,7 +1213,7 @@ namespace Halcyonic.XR.Workspace
                 var body = subject + sections + MenuPage.Content(page) + gap * (sections > 0f ? 2f : 1f);
                 var reading = new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), body, WorkspaceChromeView.SpatialBase);
                 var rail = new PlaneColumn(WorkspaceChromeView.SpatialRail, MenuPage.Target() * 4f + MenuPage.TargetGap * 5f);
-                var composition = new PlaneComposition(besideMenu ? new[] { rail, reading } : new[] { reading }, zoom, WorkspaceChromeView.SpatialTop);
+                var composition = new PlaneComposition(besideMenu ? new[] { rail, reading } : new[] { reading }, zoom, WorkspaceChromeView.SpatialHeader(!besideMenu));
                 return MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
                     && MenuPage.Readable(composition) && WorkspacePlacement.Clears(direction, occupied, composition.Size);
             }

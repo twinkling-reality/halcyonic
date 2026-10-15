@@ -636,3 +636,9 @@ translation tolerances require an actual wearer check; renderer success alone is
 [Coated reading material](#coated-reading-material) defines the current implementation. Superseded
 card, coating and carrier comparisons are retained only in the [validation history](../validation/instrument-material-study.md),
 not as alternative authoring rules.
+
+The focused work object's context row reserves one full Projects target in height. Project and
+connection words align with that target; the composition's ordinary part gap follows it before
+task identity. The chooser retains its larger navigation header. This removes unused focused
+context space without reducing a hit target or type size. The same allocation drives the actual
+composition and available page-height calculation; actual paired captures remain the design gate.
