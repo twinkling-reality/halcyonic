@@ -60,6 +60,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [seorak-integration-api.md](validation/seorak-integration-api.md) | Seorak integration API v1, checked against the running plane |
 | [interaction-sdk-editor-shutdown.md](validation/interaction-sdk-editor-shutdown.md) | macOS batch editor telemetry abort, verified SDK lifecycle gap and version-guarded workaround with native validation pending |
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
+| [transparent-reading-target.md](validation/transparent-reading-target.md) | Actual Projects, task list and file on transparent RGBA targets: opaque interior, transparent exterior, title-core contrast and a failing opacity control; host evidence only |
 | [quest-3-device.md](validation/quest-3-device.md) | The XR client on a Meta Quest 3: build, install, WebSocket under IL2CPP, milestone 2 checks |
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, background limits |
 | [native-panel-voice.md](validation/native-panel-voice.md) | Development-only native held dictation, consent/editor lifetime, bounded audio disposal and source/API evidence versus device acceptance |
