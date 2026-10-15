@@ -172,6 +172,9 @@ namespace Halcyonic.Client
         /// <summary>Panel titles (24 dp).</summary>
         public const float DisplayDegrees = 1.5f;
 
+        /// <summary>The selected work's principal title (34 dp), used once in the spatial work field.</summary>
+        public const float HeroDegrees = 2.125f;
+
         /// <summary>A question heading its answer; a task's title on the stage (20 dp).</summary>
         public const float TitleDegrees = 1.25f;
 
@@ -415,13 +418,13 @@ namespace Halcyonic.Client
             /// <summary>The glass: the panel colour this opaque, with no blur.</summary>
             public const float GlassOpacity = PlateOpacity;
 
-            /// <summary>The light from the glass's top edge at its brightest, white at this opacity, fading out by <see cref="GlowReach"/> of its height.</summary>
-            public const float GlowOpacity = 0.06f;
+            /// <summary>Reading plates have no broad white gloss; selection and focus carry emphasis.</summary>
+            public const float GlowOpacity = 0f;
 
             public const float GlowReach = 1f / 3f;
 
-            /// <summary>The sheen along the glass's top edge, white at this opacity and this thin.</summary>
-            public const float SheenOpacity = 0.2f;
+            /// <summary>No bright top stripe on each content part.</summary>
+            public const float SheenOpacity = 0f;
 
             public const float SheenDegrees = 0.06f;
 
