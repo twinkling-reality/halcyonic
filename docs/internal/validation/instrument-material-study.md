@@ -347,3 +347,13 @@ separate real button with only the coated flag must also be rejected as an ineli
 Existing generic selection-negative fixtures are unchanged. Aggregate editor C# compile passed;
 actual execution of these added negatives and the repaired full spatial comparison remain pending.
 No actual4.5:1 threshold, palette, rendering coefficient, target or input behavior changed here.
+## Pressed filled-cap geometry witness
+
+The bounded fixture additionally paints each actual filled footer prompt both at rest and
+pressed, checking its real TMP glyph bounds against the renderer's actual cap allocation and
+radius after the pressed shrink. A temporary production FooterView supplies the otherwise absent
+listening microphone, at its maximum motion pulse and at rest/pressed cap sizes. It is destroyed
+before any normal capture, restores the global Still value, opens no voice path and submits
+nothing. The existing all-visible-TMP 4.5:1 pixel probes and 48 normal controlled images remain
+unchanged. This addition checks actual engine-owned glyph geometry when run in Unity; preparing
+or source-compiling it is not a passed Unity observation, nor pressed-state pixel contrast proof.
