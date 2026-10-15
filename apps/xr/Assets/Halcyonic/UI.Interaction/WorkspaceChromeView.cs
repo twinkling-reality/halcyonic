@@ -29,7 +29,7 @@ namespace Halcyonic.XR.UI
         private GlazeButton projects = null!;
         private GlazeButton tasks = null!, usage = null!, settings = null!;
         public event Action<MenuPlace>? PlacePressed;
-        public static float SpatialTop => MenuPage.Target() + 2f * MenuPage.TargetGap;
+        public static float SpatialTop => MenuPage.Words(1) + MenuPage.Target() + 3f * MenuPage.TargetGap;
         // Focused work has one Projects target in its context row. The composition adds
         // its normal part gap below this complete target; no second empty band is needed.
         public static float SpatialHeader(bool focusedWork) => focusedWork ? GlazeButton.HeightOf(false) : SpatialTop;
@@ -173,12 +173,17 @@ namespace Halcyonic.XR.UI
             Size = new Vector2(width, totalHeight);
             frame.gameObject.SetActive(true);
             // The frame remains the exact complete geometry/input allocation. Its one reading
-            // object covers context, identity, sections and page; the utility dock stays separate.
+            // object covers context, identity, sections, page and its organization edge.
             frame.Draw(new Vector2(width, totalHeight), 0f, Color.clear);
             frame.transform.localPosition = Vector3.zero;
             workFace.gameObject.SetActive(true);
-            workFace.DrawCoatedInstrument(new Vector2(width, totalHeight - SpatialBase), GlazeTokens.Units(0.6f), GlazeTokens.ColorOf(Glaze.Panel));
-            workFace.transform.localPosition = new Vector3(0f, SpatialBase / 2f, 0.0001f);
+            workFace.DrawCoatedInstrument(new Vector2(width, totalHeight), GlazeTokens.Units(0.6f), GlazeTokens.ColorOf(Glaze.Panel));
+            workFace.transform.localPosition = new Vector3(0f, 0f, 0.0001f);
+            // A structural edge belongs to this one object; it is not another content column.
+            identityShoulder.gameObject.SetActive(true);
+            var edgeWidth = GlazeTokens.Units(0.4f);
+            identityShoulder.DrawCoatedInstrument(new Vector2(edgeWidth, totalHeight - 2f * MenuPage.Grid), edgeWidth / 3f, GlazeTokens.ColorOf(Glaze.Palette.Raised));
+            identityShoulder.transform.localPosition = new Vector3(-width / 2f + edgeWidth / 2f, 0f, -0.0005f);
             heading.gameObject.SetActive(false); rule.gameObject.SetActive(false);
             status.gameObject.SetActive(false);
             var gap = MenuPage.TargetGap;
@@ -197,9 +202,8 @@ namespace Halcyonic.XR.UI
             var contextStart = focusedWork ? left + SpatialRail + gap : contentLeft;
             var contextRoom = focusedWork ? Mathf.Max(0f, width - SpatialRail - 2f * gap - connectionRoom) : contentWidth * 0.62f;
             var hasIdentity = selection.Text != "Projects" && !string.IsNullOrWhiteSpace(selection.Text);
-            context.gameObject.SetActive(hasIdentity);
-            identityShoulder.gameObject.SetActive(false);
-            if (hasIdentity)
+            context.gameObject.SetActive(hasIdentity && focusedWork);
+            if (hasIdentity && focusedWork)
             {
                 GlazeRuns.Of(context).Set(selection, tried => context.GetPreferredValues(tried).x <= contextRoom - 2f * gap);
                 GlazeText.Lay(context, contextRoom - 2f * gap, 1);
@@ -213,18 +217,23 @@ namespace Halcyonic.XR.UI
                 provenance.transform.localPosition = new Vector3(contentLeft + contentWidth - gap, -totalHeight / 2f + MenuPage.Words(1) / 2f + gap / 2f, -0.001f);
             }
             var entries = new[] { (projects, MenuPlace.Projects, "Projects", GlazeIcon.Folder), (tasks, MenuPlace.Tasks, "Tasks", GlazeIcon.ShowAll), (usage, MenuPlace.Usage, "Usage", GlazeIcon.UsageLeft), (settings, MenuPlace.Settings, "Settings", GlazeIcon.Settings) };
-            var y = top - SpatialTop - MenuPage.Target() / 2f;
+            var navigationWidth = (width - 2f * gap - 3f * MenuPage.TargetGap) / 4f;
+            var navigationY = top - SpatialTop + gap + MenuPage.Target() / 2f;
+            var navigationIndex = 0;
             foreach (var (button, destination, words, icon) in entries)
             {
                 var visible = !focusedWork || destination == MenuPlace.Projects;
                 button.gameObject.SetActive(visible);
                 if (!visible) continue;
-                var at = focusedWork ? top - SpatialHeader(true) / 2f : y;
-                button.ShowPrompt(words, icon, new Vector2(left + SpatialRail / 2f, at), SpatialRail, !focusedWork && destination == place, framedIcon: !focusedWork);
-                if (!button.On) button.Label.color = GlazeTokens.Text;
-                y -= MenuPage.Target() + gap;
+                button.Role = ButtonRole.Navigation;
+                button.Label.alignment = TextAlignmentOptions.Center;
+                button.Show(words, new Vector2(focusedWork ? left + SpatialRail / 2f : left + gap + navigationWidth / 2f + navigationIndex * (navigationWidth + gap),
+                    focusedWork ? top - SpatialHeader(true) / 2f : navigationY), focusedWork ? SpatialRail : navigationWidth);
+                button.On = !focusedWork && destination == place;
+                button.Label.color = GlazeTokens.Text;
+                navigationIndex++;
             }
-            move.Role = apps.Role = minimize.Role = ButtonRole.Prompt;
+            move.Role = apps.Role = minimize.Role = ButtonRole.Navigation;
             var buttonWidth = (contentWidth - 2f * gap) / 3f;
             var baseY = -totalHeight / 2f + SpatialBase - gap - MenuPage.Target() / 2f;
             move.Show(WorkspaceText.MoveWorkspace, new Vector2(contentLeft + buttonWidth / 2f, baseY), buttonWidth);
@@ -232,16 +241,12 @@ namespace Halcyonic.XR.UI
             apps.Show(WorkspaceText.OtherApps, new Vector2(contentLeft + contentWidth / 2f, baseY), buttonWidth);
             minimize.Show(WorkspaceText.Minimize, new Vector2(contentLeft + contentWidth - buttonWidth / 2f, baseY), buttonWidth);
             move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.Text;
-            // One quiet material for each semantic cluster, not an individual word sticker.
-            while (contrastSupports.Count < 3) contrastSupports.Add(Surface.Create(transform, "Grouped chrome material", 21));
-            contrastSupports[0].gameObject.SetActive(false);
-            contrastSupports[2].gameObject.SetActive(false);
-            contrastSupports[1].gameObject.SetActive(true);
-            contrastSupports[1].Draw(new Vector2(contentWidth - 0.008f, SpatialBase - gap), GlazeTokens.Units(0.25f), GlazeTokens.ColorOf(Glaze.Panel));
-            contrastSupports[1].transform.localPosition = new Vector3(contentLeft + contentWidth / 2f, -totalHeight / 2f + (SpatialBase - gap) / 2f, 0.0001f);
-            var footerWords = new List<TMP_Text> { move.Label, apps.Label, minimize.Label };
-            if (provenance.gameObject.activeSelf) footerWords.Add(provenance);
-            FitReadingGroup(contrastSupports[1], footerWords);
+            // The organization controls are recessed into the same object at its near edge.
+            // No detached fitted rectangle follows individual word bounds.
+            foreach (var support in contrastSupports) support.gameObject.SetActive(false);
+            heading.gameObject.SetActive(true);
+            heading.Draw(new Vector2(width - 2f * MenuPage.Grid, SpatialBase - gap), GlazeTokens.Units(0.3f), GlazeTokens.ColorOf(Glaze.Palette.Well));
+            heading.transform.localPosition = new Vector3(0f, -totalHeight / 2f + (SpatialBase - gap) / 2f, -0.0002f);
             foreach (var button in Targets)
                 if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
         }

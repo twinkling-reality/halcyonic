@@ -818,13 +818,11 @@ namespace Halcyonic.XR.UI
             var room = width - 2f * padding - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
             var namedIdentity = SpatialWorkspace && identityKind != null;
-            var projectList = SpatialWorkspace && frame?.Side == null && frame?.Subject == "Projects"
-                && frame.Lines.Any(line => line.ProjectIdentity);
-            if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(projectList ? Glaze.CaptionDegrees : Glaze.HeroDegrees));
+            if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
             var theirs = namedIdentity
                 ? GlazeRuns.Of(subjectTitle).SetIdentity(words.Text, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows)
                 : GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
-            identityCaption.gameObject.SetActive(namedIdentity);
+            identityCaption.gameObject.SetActive(false);
             if (namedIdentity)
             {
                 identityCaption.color = GlazeTokens.Text;
@@ -1004,7 +1002,7 @@ namespace Halcyonic.XR.UI
             var footerMiddle = -top + U(1f) + FooterView.Height / 2f;
             // Hold to talk shows where the voice stands, the same in every column (Footer.Voiced).
             var prompts = frame?.Footer ?? carried ?? SidePanel.Footer;
-            footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle, unboxedIcons: SpatialWorkspace);
+            footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle, boundedControls: SpatialWorkspace);
             // A faint line between the page and its footer, too faint to mark anything.
             footerLine.gameObject.SetActive(!SpatialWorkspace);
             footerLine.Draw(new Vector2(width - 2f * U(1f), U(0.05f)), 0f, new Color(1f, 1f, 1f, 0.09f));

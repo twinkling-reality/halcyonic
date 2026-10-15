@@ -68,6 +68,9 @@ namespace Halcyonic.XR.UI
     /// </remarks>
     public sealed class GlazeButton : MonoBehaviour
     {
+        /// <summary>The whole task action is a bounded control, instead of a separate icon cap.</summary>
+        public bool BoundedPrompt { get; set; }
+
         public const float HeightDegrees = Glaze.TargetDegrees;
 
         public const float CompactHeightDegrees = Glaze.MinimumTargetDegrees;
@@ -747,7 +750,16 @@ namespace Halcyonic.XR.UI
             var pointedFrame = GlazeTokens.ColorOf(Glaze.Palette.Focus, Glaze.Menu.PointedFrameOpacity);
             var opacity = away ? AwayOpacity : 1f;
             var lit = on && role != ButtonRole.Prompt;
-            if (lit)
+            if (role == ButtonRole.Prompt && BoundedPrompt)
+            {
+                var promptTone = Glaze.Tone(listens && available ? GlazeTone.Active : GlazeTone.Accent);
+                var fill = on && available || listens && available ? GlazeTokens.ColorOf(promptTone.Container) : GlazeTokens.ColorOf(Glaze.Palette.Control);
+                var edge = hovered || pressed ? pointedFrame : on && available ? GlazeTokens.ColorOf(promptTone.Strong) : GlazeTokens.ColorOf(Glaze.Palette.Outline);
+                plate.Draw(pressed ? size * PressedScale : size, GlazeTokens.Units(0.35f), fill, edge,
+                    GlazeTokens.Units(hovered || pressed ? Glaze.Menu.PointedFrameDegrees : Glaze.Menu.HairlineDegrees));
+                plate.Selection = hovered ? SurfaceSelection.Pointed : SurfaceSelection.None;
+            }
+            else if (lit)
             {
                 plate.Draw(size, radius, litFill, litFrame, GlazeTokens.Units(Glaze.Menu.LitFrameDegrees));
                 plate.Selection = SurfaceSelection.Lit;
@@ -786,7 +798,7 @@ namespace Halcyonic.XR.UI
             var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed && !squarePromptCap ? 0.92f : 1f);
             var capRadius = capSize * (squarePromptCap ? 0.22f : 0.5f);
             var feedback = squarePromptCap ? Mathf.Clamp01((pressed ? 0.16f : 0f) + capPulse * 0.12f) : 0f;
-            if (!promptCap) cap.Draw(Vector2.zero, 0f, Color.clear);
+            if (BoundedPrompt || !promptCap) cap.Draw(Vector2.zero, 0f, Color.clear);
             else if (main) cap.Draw(Vector2.one * capSize, capRadius, Color.Lerp(GlazeTokens.ColorOf(accent.Strong), Color.white, feedback));
             else if (listening) cap.Draw(Vector2.one * capSize, capRadius, Color.Lerp(GlazeTokens.ColorOf(active.Strong), Color.white, feedback));
             else cap.Draw(Vector2.one * capSize, capRadius, Color.clear, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
@@ -798,7 +810,7 @@ namespace Halcyonic.XR.UI
             label.color = new Color(words.r, words.g, words.b, opacity);
             if (icon != null)
             {
-                var glyph = main ? GlazeTokens.ColorOf(accent.OnStrong) : listening ? GlazeTokens.ColorOf(active.OnStrong) : available ? white : GlazeTokens.ColorOf(Glaze.Menu.QuietText);
+                var glyph = BoundedPrompt ? words : main ? GlazeTokens.ColorOf(accent.OnStrong) : listening ? GlazeTokens.ColorOf(active.OnStrong) : available ? white : GlazeTokens.ColorOf(Glaze.Menu.QuietText);
                 icon.color = new Color(glyph.r, glyph.g, glyph.b, opacity);
             }
         }
