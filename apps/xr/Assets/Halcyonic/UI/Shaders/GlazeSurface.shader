@@ -173,7 +173,13 @@ Shader "Halcyonic/Glaze Surface"
                 // gradient. Reflected eye rays vary across this fixed world surface and with lean.
                 // Peak additive linear light stays below .018, preserving the reading contrast budget.
                 float3 reflectedEye = reflect(-view, normal);
-                float2 boxRay = reflectedEye.xy / max(0.1, -reflectedEye.z);
+                // The authored studio softbox belongs to this instrument's frame. Normalize its
+                // basis so nonuniform face dimensions do not distort reflection angles.
+                float3 materialRight = normalize(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0)));
+                float3 materialUp = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
+                float3 materialForward = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
+                float3 materialRay = float3(dot(reflectedEye, materialRight), dot(reflectedEye, materialUp), dot(reflectedEye, materialForward));
+                float2 boxRay = materialRay.xy / max(0.1, -materialRay.z);
                 float2 boxAxes = float2(0.94 * boxRay.x + 0.34 * boxRay.y, -0.34 * boxRay.x + 0.94 * boxRay.y);
                 float softbox = smoothstep(0.0, 0.14, min(0.72 - abs(boxAxes.x + 0.12), 0.22 - abs(boxAxes.y - 0.18)));
                 float coatingPhase = dot(i.local.xy, float2(631.0, 41.0));
