@@ -106,6 +106,8 @@ namespace Halcyonic.XR.UI
         private ButtonRole role;
         private bool compact;
         private bool promptCap = true;
+        private bool squarePromptCap;
+        private bool coatedSelection;
         private bool row;
         private bool on;
         private bool available = true;
@@ -148,6 +150,13 @@ namespace Halcyonic.XR.UI
         /// moment after it returns, or within the settle time, which reached nothing.
         /// </summary>
         public static event Action<GlazeButton>? AnyRefused;
+
+        /// <summary>Selection on the reflective spatial reading face needs a lower white lift.</summary>
+        public bool CoatedSelection
+        {
+            get => coatedSelection;
+            set { if (coatedSelection == value) return; coatedSelection = value; paintedState = -1; }
+        }
 
         /// <summary>A hold button: it starts something while held, as hold to talk does, instead of acting on a press.</summary>
         public bool Holds { get; set; }
@@ -304,9 +313,11 @@ namespace Halcyonic.XR.UI
         /// holding <paramref name="withIcon"/>, then <paramref name="words"/>, the main action's when
         /// <paramref name="main"/>.
         /// </summary>
-        public void ShowPrompt(string words, GlazeIcon withIcon, Vector2 center, float width, bool main, bool framedIcon = true)
+        public void ShowPrompt(string words, GlazeIcon withIcon, Vector2 center, float width, bool main, bool framedIcon = true, bool squareCap = false)
         {
             promptCap = framedIcon;
+            squarePromptCap = squareCap;
+            paintedState = -1;
             var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(words);
             role = ButtonRole.Prompt;
             On = main;
@@ -723,7 +734,7 @@ namespace Halcyonic.XR.UI
         {
             var white = Color.white;
             var radius = GlazeTokens.Units(Glaze.Menu.RadiusDegrees);
-            var litFill = GlazeTokens.ColorOf(Glaze.Palette.Selection, Glaze.Menu.LitFillOpacity);
+            var litFill = GlazeTokens.ColorOf(Glaze.Palette.Selection, coatedSelection ? 0.06f : Glaze.Menu.LitFillOpacity);
             var litFrame = GlazeTokens.ColorOf(Glaze.Palette.Selection, Glaze.Menu.LitFrameOpacity);
             var pointedFrame = GlazeTokens.ColorOf(Glaze.Palette.Focus, Glaze.Menu.PointedFrameOpacity);
             var opacity = away ? AwayOpacity : 1f;
@@ -765,10 +776,11 @@ namespace Halcyonic.XR.UI
             var main = on && available;
             var listening = listens && available;
             var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed ? 0.92f : 1f);
+            var capRadius = capSize * (squarePromptCap ? 0.22f : 0.5f);
             if (!promptCap) cap.Draw(Vector2.zero, 0f, Color.clear);
-            else if (main) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(accent.Strong));
-            else if (listening) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(active.Strong));
-            else cap.Draw(Vector2.one * capSize, capSize / 2f, Color.clear, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
+            else if (main) cap.Draw(Vector2.one * capSize, capRadius, GlazeTokens.ColorOf(accent.Strong));
+            else if (listening) cap.Draw(Vector2.one * capSize, capRadius, GlazeTokens.ColorOf(active.Strong));
+            else cap.Draw(Vector2.one * capSize, capRadius, Color.clear, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
             cap.Selection = main ? SurfaceSelection.MainCap : SurfaceSelection.None;
             cap.Fade(opacity);
             // A wait's words in the secondary tone, so its shimmer's lift toward white shows even on Hold to talk's.

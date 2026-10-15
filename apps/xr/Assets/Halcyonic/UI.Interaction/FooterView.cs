@@ -153,7 +153,7 @@ namespace Halcyonic.XR.UI
         private void Stand(PromptSlot slot, float center, float middle, float width)
         {
             var prompt = shown[(int)slot]!;
-            Button((int)slot).ShowPrompt(prompt.Words, prompt.Icon, new Vector2(center, middle), width, prompt.DrawnAsMain, framedIcon: !unboxedIcons || prompt.DrawnAsMain || prompt.Listens);
+            Button((int)slot).ShowPrompt(prompt.Words, prompt.Icon, new Vector2(center, middle), width, prompt.DrawnAsMain, framedIcon: !unboxedIcons || prompt.DrawnAsMain || prompt.Listens, squareCap: unboxedIcons && (prompt.DrawnAsMain || prompt.Listens));
         }
 
         private GlazeButton Button(int index)

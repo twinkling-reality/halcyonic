@@ -274,3 +274,32 @@ asserts retained icons/zero-sized ordinary caps before its all-TMP contrast chec
 footer's0.05-degree, low-opacity divider is suppressed: at the actual image scale it rendered as
 broken subpixel dashes rather than a useful separator. Its geometry never carried input authority.
 Aggregate editor compilation passed again after this scoped consistency change.
+
+
+## Actual coated-face contrast repair
+
+The first actual coated run failed its expanded text checks. The selected neutral section's
+measured backing produced4.46:1: a0.10 white selection over the reflected face reaches about0.140
+linear luminance. Coated spatial section buttons now use0.06 white lift, preserving their frame,
+selected state and input geometry while bringing peak authored neutral contrast to about5.58.
+Historical palette bytes and legacy selection treatment are unchanged. The fixture asserts the
+actual selected surface uses the bounded lift before retaining its full4.5:1 image tests.
+
+The main prompt's dark icon also had actual glyph-bounds contrast failures down to2.98:1 at its
+round cap's partially covered corners. Spatial filled/listening caps now use a rounded square
+with the same outer dimensions and icon/text/target layout. Their authored corner radius is0.22
+of width instead of0.5. The fixture applies the actual rounded-rectangle signed-distance formula
+to every icon-bounds corner and requires0.001-unit interior coverage, then still measures every
+pixel against the actual cap. Ordinary spatial icons remain unboxed; unrelated legacy caps retain
+their exact circle. This repairs coverage rather than excluding the cap from the probe.
+
+Other actual failures were thin secondary ink cores between4.32 and4.48 despite sufficient authored
+backing contrast. Spatial context/connection, navigation/global utility words, reached tab labels
+and navigation chevrons now use primary foreground, retaining the type size, positions, target and
+selected-state hierarchy. Unreached sections remain unavailable with the quiet secondary role in
+the spatial candidate, consistent with unavailable menu prompts. No palette identity or capability
+changes. The actual all-visible-TMP checks include them whenever present. The face peak remains
+0.025: stronger glare was not added to compensate for an aesthetic limitation. The actual images
+are more coherent than the carrier but still show a large reserved context gap and subtle gloss;
+no visual/wearer acceptance is inferred from this source repair. Aggregate editor C# compile passed
+with the same existing warnings; actual new contrast images remain pending.
