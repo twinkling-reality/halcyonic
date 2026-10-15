@@ -22,3 +22,8 @@ Agreement as the project's other Meta XR packages are, and with it third-party c
 licences (Kiss FFT, OOURA FFT, Pretty Fast Fourier Transform, sfft, tinythread++ and zlib), whose
 notices are in:
 apps/xr/Licenses/MetaXRAudio-THIRD_PARTY_NOTICES.txt
+
+Rajdhani Medium, Copyright (c) 2014 Indian Type Foundry, is used for workspace
+headings and the selected work title. Licensed under the SIL Open Font License 1.1;
+full license: apps/xr/Assets/Halcyonic/UI/Fonts/Rajdhani/OFL.txt.
+Source: https://github.com/google/fonts/tree/main/ofl/rajdhani
