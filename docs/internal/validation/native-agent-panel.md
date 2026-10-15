@@ -389,6 +389,13 @@ expanding restores Projects, Workspace and Other apps navigation. It retains tas
 nonzero attention counts, pending-send uncertainty and the last-read freshness message. **Open task**
 uses the same local expansion path and fresh-projection guard; **Keep a small view** uses the same
 save-before-hide path. This reduces content density; it does not resize or position the OS window.
+The manifest still declares a 640 by 720 dp initial window and a 480 by 480 dp minimum.
+Meta's current [panel sizing guidance](https://developers.meta.com/vr/essentials/horizon-os-panel-sizing/)
+and [AOSP panel contract](https://developers.meta.com/vr/documentation/android-apps/features-overview/)
+were rechecked on October 15: the manifest declares initial dimensions and the OS manages user
+placement/resizing. The compact content change does not establish a smaller physical window or a
+comfortable placement beside video. Those dimensions and the actual resize interaction still need
+wearer validation; no dynamic resize API is claimed or invoked by this change.
 
 Button emphasis is assigned by its action site, never inferred from label text. In particular,
 outside project/task names cannot become primary buttons by starting with “Send”. Final reviewed
