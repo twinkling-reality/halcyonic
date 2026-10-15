@@ -405,6 +405,7 @@ namespace Halcyonic.XR.UI
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Reset()
         {
+            instrumentFont = null;
             strongMaterials.Clear();
             lightMaterials.Clear();
             made.Clear();
