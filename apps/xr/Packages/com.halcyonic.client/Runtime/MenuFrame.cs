@@ -329,14 +329,14 @@ namespace Halcyonic.Client
         public bool ValueIsData { get; }
     }
 
+    /// <summary>A known named work object, never inferred from generic outside text.</summary>
+    public enum MenuIdentityKind { Task, Project }
+
     /// <summary>
     /// What a line opened, slid out to the right of its page on the same plane (ADR 0026): a subject,
     /// then facts or lines, its source line last, in parts where it pages. It holds nothing to press
     /// but its own Close, so its lines only say something.
     /// </summary>
-    /// <summary>A known named work object, never inferred from generic outside text.</summary>
-    public enum MenuIdentityKind { Task, Project }
-
     public sealed class SidePanel
     {
         /// <summary>What the side panel's Close raises.</summary>

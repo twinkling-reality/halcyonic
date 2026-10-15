@@ -212,6 +212,8 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>The subject's title and the grounds under outside text in it, for the renders' checks.</summary>
+        public Vector2 SubjectSize => new Vector2(width, subjectHeight);
+
         public (TextMeshPro Title, IReadOnlyList<Surface> Grounds) SubjectShown => (subjectTitle, subjectGrounds.Where(ground => ground.gameObject.activeSelf).ToList());
 
         /// <summary>The source line's label while it shows, for the renders' checks.</summary>
