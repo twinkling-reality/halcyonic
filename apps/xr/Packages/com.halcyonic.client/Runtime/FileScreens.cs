@@ -280,7 +280,7 @@ namespace Halcyonic.Client
             lines.AddRange(utilityLines);
             // Activity notices join the same paging allocation, rather than being appended
             // after packing on every page. Keep their complete words and normal two-row size.
-            if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
+            if (screen.Notice != null) lines.Insert(0, new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
             var measured = budget ?? new RowBudget(room.Rows);
             float Height(PageLine line) => line.Action == null ? measured.Words(line.Rows) : measured.Target(line.Rows);
             float Gap(PageLine before, PageLine after) => before.Action != null && after.Action != null ? measured.TargetGap : measured.LineGap;
@@ -306,6 +306,15 @@ namespace Halcyonic.Client
                 var withPager = bodyPager ? proposed.Concat(new[] { pager }).ToArray() : proposed.ToArray();
                 if (page.Count > 0 && (withPager.Sum(item => item.Rows) > availableRows || Used(withPager) > availableHeight + 1e-6f))
                 { page = new List<PageLine>(); pages.Add(page); }
+                var alone = bodyPager ? new[] { line, pager } : new[] { line };
+                if (alone.Sum(item => item.Rows) > availableRows || Used(alone) > availableHeight + 1e-6f)
+                {
+                    // Like the project chooser, refuse an impossible allocation explicitly.
+                    // The offered routes and draft state remain intact for a later reflow.
+                    screen.Page = 0; screen.Pages = 1;
+                    return new Page(new[] { new PageLine("Move the workspace to make room for Activity.", tone: LineTone.Secondary, rows: 2) },
+                        source, new Footer(CloseFile));
+                }
                 page.Add(line);
             }
             screen.Pages = pages.Count;

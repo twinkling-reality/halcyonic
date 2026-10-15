@@ -340,7 +340,7 @@ public class FileScreensTests
         var notices = 0;
         var seen = new List<string>();
         var first = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), budget);
-        Assert.That(first.Lines.First().Words, Is.EqualTo("No recorded activity yet."));
+        Assert.That(first.Lines.First().Words, Is.EqualTo(notice ? screen.Notice : "No recorded activity yet."));
         Assert.That(screen.Pages, Is.GreaterThan(1));
         var count = screen.Pages;
         for (var page = 0; page < count; page++)
@@ -372,6 +372,49 @@ public class FileScreensTests
         Assert.That(notices, Is.EqualTo(notice ? 1 : 0), "the complete notice belongs to one measured page");
         Assert.That(screen.Page, Is.Zero, "the existing pager cycles back to the truthful first page");
         Assert.That(seen, Is.EqualTo(new[] { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults, FileScreens.OpenCharacterColour }));
+    }
+
+    [Test]
+    public void NewActivityNoticeReturnsToVisibleFeedbackWithoutResettingPassivePaging()
+    {
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true, ResultsOffered = true, WorkspaceRequestOffered = true, CharacterColourOffered = true, ShowTaskHereOffered = true };
+        var workspace = Offering(Running().Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = new WorkspaceSteering(factory);
+        MenuFrame Draw() => FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
+        Draw(); screen.NextPage();
+        Assert.That(screen.Page, Is.GreaterThan(0));
+        screen.Notice = "Nothing was sent. Check the connection before trying again.";
+        var feedback = Draw();
+        Assert.That(screen.Page, Is.Zero);
+        Assert.That(feedback.Lines.First().Words, Is.EqualTo(screen.Notice));
+        screen.NextPage(); var reached = screen.Page;
+        screen.Notice = screen.Notice;
+        Draw();
+        Assert.That(screen.Page, Is.EqualTo(reached), "same notice does not trap the person on its page");
+        screen.Notice = null; Draw();
+        Assert.That(screen.Page, Is.EqualTo(reached), "existing notice expiry does not restart navigation");
+    }
+
+    [Test]
+    public void ImpossibleActivityAllocationRefusesOverflowAndRecoversRoutesAfterReflow()
+    {
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true, ResultsOffered = true, ResultsRows = 3, WorkspaceRequestOffered = true };
+        var workspace = Offering(Running().Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = new WorkspaceSteering(factory);
+        var refused = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(3), new RowBudget(3));
+        Assert.That(refused.Lines.Single().Words, Is.EqualTo("Move the workspace to make room for Activity."));
+        Assert.That(refused.Footer.All.Select(entry => entry.Prompt.Id), Is.EqualTo(new[] { Footer.Close }));
+        Assert.That(screen.ResultsOffered && screen.WorkspaceRequestOffered, Is.True);
+        var actions = new List<string>();
+        FileScreens.Screen(workspace, steering, screen, new AnswerRoom(5), new RowBudget(5));
+        var count = screen.Pages;
+        for (var page = 0; page < count; page++)
+        {
+            var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(5), new RowBudget(5));
+            actions.AddRange(frame.Lines.Where(line => line.Action != null).Select(line => line.Action!));
+            screen.NextPage();
+        }
+        Assert.That(actions, Does.Contain(FileScreens.OpenResults).And.Contain(FileScreens.OpenWorkspaceRequest));
     }
 
     [Test]

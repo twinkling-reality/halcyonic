@@ -91,7 +91,19 @@ namespace Halcyonic.Client
         }
 
         /// <summary>What something the person just did came to, for a few seconds; null when nothing.</summary>
-        public string? Notice { get; set; }
+        private string? notice;
+        public string? Notice
+        {
+            get => notice;
+            set
+            {
+                if (value == notice) return;
+                notice = value;
+                // New feedback must be visible before its existing lifetime expires. Passive
+                // rebuilds with the same words and expiry do not repeatedly reset navigation.
+                if (value != null && Section == FileSection.Activity) Page = 0;
+            }
+        }
 
         /// <summary>The system keyboard can open here; where it can't, no row whose only job is to open it shows.</summary>
         public bool KeyboardOffered { get; set; } = true;

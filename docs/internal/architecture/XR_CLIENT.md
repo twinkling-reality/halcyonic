@@ -3092,8 +3092,11 @@ file Page/Pages/NextPage state when its measured row or physical height budget i
 route is dropped to fit. The usual footer pager is used unless Hold to talk owns that slot, in
 which case a measured body pager preserves the voice and instruction controls. Reflow clamps the
 current page, and changing sections resets it through the existing file navigation rules. Ordinary
-Activity notices also occupy one measured page in full, rather than being appended after packing
-on every page; confirmation, instruction and preset notice paths retain their own rules.
+Activity notices lead the first measured page in full. A newly arriving non-null notice returns
+to that page before its existing lifetime expires; unchanged words and expiry do not reset paging.
+Confirmation, instruction and preset notice paths retain their own rules. An allocation unable
+to hold one complete line and its required pager uses the existing chooser-style explicit
+move-for-room refusal, keeping offered routes and drafts for a later reflow.
 
 The selected task's Activity page additionally offers **Character colour** only while its actual
 character is deliberately shown, with a current live snapshot and matching source identity. The

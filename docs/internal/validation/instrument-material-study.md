@@ -376,3 +376,12 @@ content; the regression covers this exact combination in both row and physical b
 route reachability, complete final-page cost including the body pager, unchanged Stop/instruction/
 voice controls, unarmed steering, recent-record provenance and page clamping after routes leave.
 Actual Unity field/target checks and wearer acceptance remain separate and pending.
+
+Independent review also found that paging a short-lived failure notice only on the last page
+could conceal it until expiry. The full notice now leads page zero and newly arriving feedback
+returns there; repeated words, passive redraw and expiry do not repeatedly reset navigation.
+A regression starts on another page before delivering a notice and requires it to be immediately
+visible. A complete row plus pager that cannot fit the supplied allocation explicitly refuses
+with a move-for-room explanation and Close, following the project chooser's refusal pattern.
+No route flags or drafts are discarded; another regression restores room and reaches the same
+routes. These checks do not claim that arbitrary zero or tiny allocations can display content.
