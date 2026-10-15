@@ -47,4 +47,34 @@ public class PlacementColumnTests
         column.Act(PlacementColumn.Back, null);
         Assert.That(column.Frame!.Subject, Is.EqualTo(PlacementColumn.Subject));
     }
+    [Test]
+    public void TaskPortraitChoiceIsLocalReversibleAndRequiresItsCurrentDraw()
+    {
+        var host = new FakeMenuHost();
+        var visible = true;
+        var writes = 0;
+        var column = new PlacementColumn(host, () => { }, "A task", () => visible,
+            value => { visible = value; writes++; });
+        var original = column.Frame!;
+        Assert.That(original.Lines.Single(line => line.Action == PlacementColumn.TogglePortraits).Words,
+            Is.EqualTo("Hide task portraits"));
+        column.Act(PlacementColumn.TogglePortraits, null);
+        Assert.That(writes, Is.Zero);
+        column.Drawn(original, null);
+        column.Act(PlacementColumn.TogglePortraits, null);
+        Assert.That(visible, Is.False);
+        Assert.That(writes, Is.EqualTo(1));
+        var hidden = column.Frame!;
+        Assert.That(hidden.Lines.Single(line => line.Action == PlacementColumn.TogglePortraits).Words,
+            Is.EqualTo("Show task portraits"));
+        column.Drawn(original, null);
+        column.Act(PlacementColumn.TogglePortraits, null);
+        Assert.That(writes, Is.EqualTo(1), "old controls cannot toggle a new preference state");
+        column.Drawn(hidden, null);
+        column.Act(PlacementColumn.TogglePortraits, null);
+        Assert.That(visible, Is.True);
+        Assert.That(writes, Is.EqualTo(2));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
 }

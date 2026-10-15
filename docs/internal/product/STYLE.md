@@ -652,3 +652,20 @@ full title provenance/bounds and whole-action rest backing, including an icon-on
 This candidate has not yet passed actual Unity rendering or wearer review; earlier coating
 evidence does not establish these new compositions. No character is enabled or moved by this
 change, and the existing character-placement and connector guarantees remain unchanged.
+
+Selected tasks now also have a local body-only character portrait at their title's leading edge.
+It uses the actual Workstream presentation and identity hue; the title measure reserves its
+4.5-degree-wide slot plus the normal target gap, and the subject reserves its full5-degree-high
+animated envelope. Its own labels, halo and ring are absent because the adjacent title/state
+already identify the task. The portrait has no runtime command target. It is a local illustration
+of the selected task, independent of whether a character has deliberately been placed in the room.
+Opening work never enables or moves a room character.
+
+Move's local details offer Show task portraits or Hide task portraits. This device preference
+applies to all tasks and survives app restart. A hidden portrait restores the full title width.
+Per-task colour still binds to the current connection, journal and Workstream. Its existing
+preview/apply/cancel route may now use a selected source-bound portrait without requiring a room
+character; preview never grants runtime or approval authority. Source loss still revokes editing.
+The spatial proof checks real Workstream binding, body-only presentation, title separation and
+absence of command targets. These new portrait compositions remain unvalidated until actual
+rendering and wearer review; the separate body component's implementation is not that evidence.

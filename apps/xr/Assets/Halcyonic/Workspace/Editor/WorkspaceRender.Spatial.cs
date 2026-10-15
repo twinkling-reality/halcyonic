@@ -470,6 +470,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 var connectionSeen = GlazeChecks.Of("connection", eyes, connectionText.gameObject);
                 if (contextSeen.Right > connectionSeen.Left - 0.01f) failures.Add(name + ": actual project and connection header text overlap");
             }
+            if (view.TaskPortrait != null)
+            {
+                var portrait = view.TaskIdentity;
+                if (!portrait.gameObject.activeInHierarchy || portrait.WorkstreamId != view.TaskPortrait.WorkstreamId
+                    || portrait.Character == null || !portrait.Character.BodyOnlyPresentation)
+                    failures.Add(name + ": selected task portrait lost its real workstream/body-only binding");
+                if (portrait.GetComponentsInChildren<PointerTarget>(true).Length != 0)
+                    failures.Add(name + ": decorative portrait acquired task command input authority");
+                if (portrait.Character != null)
+                {
+                    var portraitSeen = BodyExtent(portrait.Character, eyes);
+                    var titleSeen = GlazeChecks.Of("task title", eyes, view.SubjectShown.Title.gameObject);
+                    if (portraitSeen.Right >= titleSeen.Left)
+                        failures.Add(name + ": actual miniature character overlaps the task title");
+                }
+            }
             var named = view.Side?.IdentityKind ?? view.Frame?.IdentityKind;
             if (named != null)
             {
