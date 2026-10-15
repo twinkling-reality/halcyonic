@@ -27,7 +27,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
                 {
                     var found = new List<string>();
-                    foreach (var palette in new[] { GlazePalette.Glaze, GlazePalette.Neutral })
+                    foreach (var palette in GlazePalette.Presets)
                     foreach (var bright in new[] { false, true })
                     {
                         Glaze.SetPalette(palette);

@@ -33,7 +33,11 @@ Glaze. Existing contrast and navigator lifetime checks remain in force. These ar
 managed-behavior results, not actual three-palette Unity composition, character harmony, headset
 legibility or wearer acceptance. October 12's two-palette evidence below does not validate this
 new candidate. The spatial Appearance entrypoint now iterates the same three-preset list as
-the full Appearance and cache entrypoints. The material aesthetic remains independently rejected;
+the full Appearance and cache entrypoints. The material comparison also iterates all three
+presets without changing its camera, backdrop, text-size or motion/flat-control sequence. Its
+expected output is 48 controlled images: three palettes, two backdrops, two text sizes and four
+shots (three motion positions plus the same-camera flat control). This retains distinct Glaze,
+Neutral and Graphite evidence. The material aesthetic remains independently rejected;
 this palette candidate does not approve the current material composition.
 
 ## Current integrated evidence, October 12
