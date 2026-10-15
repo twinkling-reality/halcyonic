@@ -303,3 +303,14 @@ changes. The actual all-visible-TMP checks include them whenever present. The fa
 are more coherent than the carrier but still show a large reserved context gap and subtle gloss;
 no visual/wearer acceptance is inferred from this source repair. Aggregate editor C# compile passed
 with the same existing warnings; actual new contrast images remain pending.
+
+## Pressed filled-cap geometry witness
+
+The bounded fixture additionally paints each actual filled footer prompt both at rest and
+pressed, checking its real TMP glyph bounds against the renderer's actual cap allocation and
+radius after the pressed shrink. A temporary production FooterView supplies the otherwise absent
+listening microphone, at its maximum motion pulse and at rest/pressed cap sizes. It is destroyed
+before any normal capture, restores the global Still value, opens no voice path and submits
+nothing. The existing all-visible-TMP 4.5:1 pixel probes and 48 normal controlled images remain
+unchanged. This addition checks actual engine-owned glyph geometry when run in Unity; preparing
+or source-compiling it is not a passed Unity observation, nor pressed-state pixel contrast proof.

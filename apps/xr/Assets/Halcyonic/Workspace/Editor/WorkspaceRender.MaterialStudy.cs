@@ -134,19 +134,52 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (prompt.DrawnAsMain || prompt.Listens)
                     {
                         if (entry.Button.Icon == null) { failures.Add("filled spatial prompt lost its icon"); continue; }
-                        var bounds = entry.Button.Icon.textBounds;
-                        foreach (var x in new[] { bounds.min.x, bounds.max.x })
-                        foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                        CheckCap(entry.Button, "main/rest");
+                        try
                         {
-                            var local = promptCap.transform.InverseTransformPoint(entry.Button.Icon.transform.TransformPoint(new Vector3(x, y, 0f)));
-                            var p = Vector2.Scale(new Vector2(Mathf.Abs(local.x), Mathf.Abs(local.y)), promptCap.Size);
-                            var q = p - promptCap.Size / 2f + Vector2.one * promptCap.CornerRadius;
-                            var distance = Vector2.Max(q, Vector2.zero).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - promptCap.CornerRadius;
-                            if (distance > -0.001f) failures.Add("filled prompt cap does not shield its complete glyph quad with inset");
+                            entry.Button.PaintForRender(false, true);
+                            CheckCap(entry.Button, "main/pressed");
                         }
+                        finally { entry.Button.PaintForRender(false, false); }
                     }
                     else if (promptCap.Size != Vector2.zero || entry.Button.Icon == null)
                         failures.Add("spatial ordinary footer prompt must retain its icon without an intersecting cap ring");
+                }
+                // Exercise the production listening footer and real microphone mesh too. Its
+                // pulse can grow the glyph while a press shrinks the cap; it is not present in
+                // the task page above. This bounded geometry witness owns no voice or input.
+                var wasStill = GlazeMotion.Still;
+                var listening = FooterView.Create(shown.transform, "Listening cap coverage witness", 31);
+                try
+                {
+                    GlazeMotion.Still = false;
+                    listening.Show(new Footer(secondary: new Prompt("coverage-only", VoiceText.HoldToTalk,
+                        GlazeIcon.HoldToTalk, holds: true, listens: true)), -0.6f, 0.6f, 0f, unboxedIcons: true);
+                    var button = listening.Shown.Single().Button;
+                    button.Pulse(Glaze.ListeningPulseSeconds / 2f);
+                    ForceMeshes(listening.gameObject);
+                    foreach (var pressed in new[] { false, true })
+                    {
+                        button.PaintForRender(false, pressed);
+                        CheckCap(button, pressed ? "listening/peak/pressed" : "listening/peak/rest");
+                    }
+                }
+                finally { GlazeMotion.Still = wasStill; UnityEngine.Object.DestroyImmediate(listening.gameObject); }
+
+                void CheckCap(GlazeButton button, string state)
+                {
+                    if (button.Icon == null) { failures.Add(state + ": filled prompt lost its icon"); return; }
+                    var capSurface = button.GetComponentsInChildren<Surface>(false).Single(surface => surface.name == "Cap");
+                    var bounds = button.Icon.textBounds;
+                    foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                    foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                    {
+                        var local = capSurface.transform.InverseTransformPoint(button.Icon.transform.TransformPoint(new Vector3(x, y, 0f)));
+                        var p = Vector2.Scale(new Vector2(Mathf.Abs(local.x), Mathf.Abs(local.y)), capSurface.Size);
+                        var q = p - capSurface.Size / 2f + Vector2.one * capSurface.CornerRadius;
+                        var distance = Vector2.Max(q, Vector2.zero).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - capSurface.CornerRadius;
+                        if (distance > -0.001f) failures.Add(state + ": filled prompt cap does not shield its complete glyph quad with inset");
+                    }
                 }
                 var selections = shown.GetComponentsInChildren<Surface>(false).Where(surface => surface.Selection == SurfaceSelection.Lit).ToArray();
                 if (selections.Length != 1 || selections[0].Fill.a > 0.0601f)
