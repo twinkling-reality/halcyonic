@@ -9,6 +9,8 @@ A spatial (XR) interface for directing autonomous software work. The durable ide
 work is the object; agent runtimes are interchangeable executors.** A character in XR represents a
 Workstream, never a vendor session.
 
+The intended experience is a VR working environment for several projects and repositories, actual native VR or desktop output, agent direction, and Salidium and Seorak evidence in one place. [PRODUCT.md](docs/internal/product/PRODUCT.md) states that intent. [SYSTEM.md](docs/internal/architecture/SYSTEM.md) states what this checkout implements. A sentence in PRODUCT.md is intent unless SYSTEM.md or the code says the behavior exists.
+
 ## Architecture rules
 
 - The core packages (`contracts`, `domain`, `runtime-core`) never depend on a runtime vendor

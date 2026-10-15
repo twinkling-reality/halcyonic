@@ -20,6 +20,12 @@ namespace Halcyonic.Client
         /// <summary>The realtime endpoint, for example ws://127.0.0.1:47800/realtime.</summary>
         public Uri Endpoint { get; }
 
+        /// <summary>
+        /// Bearer credential passed to the transport. <see cref="LoopbackWebSocketTransport"/> asks
+        /// the control plane to prove it holds this value before sending it (<see cref="LoopbackProof"/>).
+        /// <see cref="PinnedWebSocketTransport"/> sends a paired device credential under the pinned
+        /// certificate instead (<see cref="ControlPlaneTarget"/>).
+        /// </summary>
         public string AccessToken { get; }
 
         public ClientInfo Client { get; }
