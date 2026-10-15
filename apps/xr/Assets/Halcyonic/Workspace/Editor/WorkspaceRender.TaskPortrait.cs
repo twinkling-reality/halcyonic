@@ -34,6 +34,16 @@ namespace Halcyonic.XR.Workspace.Editor
         private static float RasterDifference(Color left, Color right) =>
             Mathf.Max(Mathf.Abs(left.r - right.r), Mathf.Max(Mathf.Abs(left.g - right.g), Mathf.Abs(left.b - right.b)));
 
+        // Keep the same camera, body geometry, materials and animation. Exclude unrelated heading
+        // contributors only for raster-motion/Still comparisons, preserving every enabled renderer.
+        private static Texture2D RenderPortraitOnly(Camera camera, RenderTexture target, GameObject root, CharacterView character)
+        {
+            var excluded = root.GetComponentsInChildren<Renderer>(false)
+                .Where(renderer => renderer.enabled && !renderer.transform.IsChildOf(character.transform)).ToArray();
+            try { foreach (var renderer in excluded) renderer.enabled = false; return Render(camera, target); }
+            finally { foreach (var renderer in excluded) renderer.enabled = true; }
+        }
+
         private static List<string> RenderTaskPortrait(string folder)
         {
             var failures = new List<string>(); var root = new GameObject("Actual task portrait state witnesses");
@@ -52,6 +62,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var slot = new Vector2(GlazeTokens.Units(3.5f), GlazeTokens.Units(5f));
                 var title = GlazeText.Create(panel.transform, "Literal real task name", GlazeType.Body, GlazeTokens.Text, TMPro.TextAlignmentOptions.Left, 23);
                 var status = GlazeText.Create(panel.transform, "Written task state", GlazeType.Caption, GlazeTokens.TextSecondary, TMPro.TextAlignmentOptions.Left, 23);
+                title.rectTransform.pivot = new Vector2(0f, .5f);
+                status.rectTransform.pivot = new Vector2(0f, .5f);
                 title.transform.localPosition = new Vector3(-.12f, .02f, -.001f);
                 status.transform.localPosition = new Vector3(-.12f, -.025f, -.001f);
                 var centre = new Vector2(-.22f, 0f);
@@ -83,7 +95,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         movingPositions.Add(character.Body.localPosition);
                         if (tick == 30 || tick == 60 || tick == 90 || tick == 120)
                         {
-                            var rendered = Render(camera, target);
+                            var rendered = RenderPortraitOnly(camera, target, root, character);
                             try
                             {
                                 var pixels = rendered.GetPixels(sampleRect.x, sampleRect.y, 128, 128);
@@ -124,7 +136,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var tick = 0; tick < 240; tick++) character.AdvanceForRender(1f / 60f);
                     var stillPosition = character.Body.localPosition; var stillRotation = character.Body.localRotation; var stillScale = character.Body.localScale;
                     var stillPose = character.PoseForRender;
-                    var heldBefore = Render(camera, target);
+                    var heldBefore = RenderPortraitOnly(camera, target, root, character);
                     var heldPixels = heldBefore.GetPixels(sampleRect.x, sampleRect.y, 128, 128);
                     UnityEngine.Object.DestroyImmediate(heldBefore);
                     for (var tick = 0; tick < 120; tick++) character.AdvanceForRender(1f / 60f);
@@ -132,7 +144,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         || Quaternion.Angle(stillRotation, character.Body.localRotation) > .001f || stillScale != character.Body.localScale
                         || stillPose != character.PoseForRender)
                         failures.Add(activity + ": Still portrait visibly changed after settling");
-                    var still = Render(camera, target);
+                    var still = RenderPortraitOnly(camera, target, root, character);
                     try
                     {
                         var afterPixels = still.GetPixels(sampleRect.x, sampleRect.y, 128, 128);
