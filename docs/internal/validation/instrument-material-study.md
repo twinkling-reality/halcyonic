@@ -142,3 +142,31 @@ A possible lower-opacity optical lip is deliberately NOT enabled. The fixture fi
 critical projected text corners to have at least0.004 distance-unit inset inside a real material
 face. Only actual passing inset/contrast evidence could justify a narrow transparent perimeter;
 a source padding constant alone does not prove caption, icon and provenance placement safety.
+
+
+## Fourth source iteration after actual third comparison
+
+The third actual render retained correct grouped supports and no periodic face coating, but its
+material still read as flat opaque cards. All reported contrast failures were the Projects icon:
+the retained prompt cap's bright circular outline crossed the icon's projected bounding rectangle.
+The source cap diameter was1.45 degrees with a0.07-degree outline around a1-degree icon. The
+spatial focused-task header now retains exactly that icon/text layout and input target while
+suppressing the cap. Other prompt caps and the project chooser's place rail retain their behavior.
+The actual material fixture asserts that this header has its icon and a zero-sized cap, then keeps
+the same whole-bounds4.5:1 backing check. No icon exclusion or contrast threshold change is made.
+
+The third actual images passed the proposed0.004 inset check for critical text. The real inward
+bevel grows from0.0025 to0.0035 distance units, remaining inside that measured perimeter reserve.
+Its smoothly varying mesh normals now sample a broad neutral studio source in the material frame,
+with stronger reflected light confined to the actual bevel and side mesh. The previous additive
+flat-face optical outline and rim grain are removed. The reading face keeps its existing bounded
+smooth sheen and opaque fill. There is no transparent lip: the full rear backing therefore remains
+valid. This is a polished opaque material hypothesis, not scene refraction or transparent glass.
+Actual fourth shader compilation, whole-image contrast, paired motion/flat comparison and wearer
+acceptance remain required; stronger source coefficients establish none of those outcomes.
+
+The fourth candidate's aggregate editor C# compile passed with the installed Unity6000.3.25f1
+NetCoreRuntime/DotNetSdkRoslyn compiler and existing Unity assembly references. Existing nullable
+and Newtonsoft/netstandard compatibility warnings remain; no shader or actual render result is
+implied by this compile. The older Mono compiler was unsuitable for the existing target-typed
+source, so its language errors were not treated as product defects.

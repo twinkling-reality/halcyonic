@@ -233,7 +233,7 @@ namespace Halcyonic.XR.UI
         {
             const int steps = 8, count = 4 * (steps + 1);
             var vertices = new Vector3[count * 3]; var triangles = new int[count * 12];
-            var inset = Mathf.Min(0.0025f, Mathf.Min(size.x, size.y) / 8f);
+            var inset = Mathf.Min(0.0035f, Mathf.Min(size.x, size.y) / 8f);
             for (var corner = 0; corner < 4; corner++)
             for (var step = 0; step <= steps; step++)
             {

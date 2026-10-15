@@ -105,6 +105,7 @@ namespace Halcyonic.XR.UI
         private PointerTarget target = null!;
         private ButtonRole role;
         private bool compact;
+        private bool promptCap = true;
         private bool row;
         private bool on;
         private bool available = true;
@@ -303,8 +304,9 @@ namespace Halcyonic.XR.UI
         /// holding <paramref name="withIcon"/>, then <paramref name="words"/>, the main action's when
         /// <paramref name="main"/>.
         /// </summary>
-        public void ShowPrompt(string words, GlazeIcon withIcon, Vector2 center, float width, bool main)
+        public void ShowPrompt(string words, GlazeIcon withIcon, Vector2 center, float width, bool main, bool framedIcon = true)
         {
+            promptCap = framedIcon;
             var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(words);
             role = ButtonRole.Prompt;
             On = main;
@@ -763,7 +765,8 @@ namespace Halcyonic.XR.UI
             var main = on && available;
             var listening = listens && available;
             var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed ? 0.92f : 1f);
-            if (main) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(accent.Strong));
+            if (!promptCap) cap.Draw(Vector2.zero, 0f, Color.clear);
+            else if (main) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(accent.Strong));
             else if (listening) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(active.Strong));
             else cap.Draw(Vector2.one * capSize, capSize / 2f, Color.clear, GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
             cap.Selection = main ? SurfaceSelection.MainCap : SurfaceSelection.None;

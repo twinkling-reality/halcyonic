@@ -78,6 +78,19 @@ Shader "Halcyonic/Glaze Surface"
                 return o;
             }
 
+            // A fixed neutral studio source in the object's frame. Real reflected eye rays
+            // reveal different portions on the face and the curved bevel as the viewer leans.
+            float instrumentSoftbox(float3 eye, float3 normal)
+            {
+                float3 ray = reflect(-eye, normal);
+                float3 right = normalize(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0)));
+                float3 up = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
+                float3 forward = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
+                float2 projected = float2(dot(ray, right), dot(ray, up)) / max(0.18, abs(dot(ray, forward)));
+                float2 axes = float2(0.94 * projected.x + 0.34 * projected.y, -0.34 * projected.x + 0.94 * projected.y);
+                return smoothstep(0.0, 0.22, min(1.1 - abs(axes.x + 0.18), 0.48 - abs(axes.y - 0.24)));
+            }
+
             float4 frag(v2f i) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(i);
@@ -102,11 +115,13 @@ Shader "Halcyonic/Glaze Surface"
                     reflection = pow(saturate(dot(reflect(-key, normal), view)), 36.0);
                     if (physical.w > 0.5)
                     {
-                        float grainPhase = dot(i.local, float3(920.0, 37.0, 1200.0));
-                        float grain = cos(grainPhase) * saturate(1.0 - fwidth(grainPhase)) * 0.025;
-                        float light = 0.36 + 0.64 * saturate(dot(normal, key)) + grain;
-                        float lift = saturate(physical.z * (0.15 + 1.5 * reflection + fresnel));
-                        return float4(lerp(fill.rgb * light, float3(0.72, 0.76, 0.72), lift) * fill.a, fill.a);
+                        // No periodic coating. A polished, genuinely curved edge reflects the
+                        // studio source strongly; its normal, rather than an outline mask, selects it.
+                        float studio = instrumentSoftbox(view, normal);
+                        float reflectance = saturate(0.045 + 0.72 * studio + 0.18 * fresnel);
+                        float3 substrate = fill.rgb * (0.42 + 0.32 * saturate(dot(normal, key)));
+                        float3 reflected = lerp(substrate, float3(0.78, 0.80, 0.78) * fill.a, reflectance);
+                        return float4(reflected, fill.a);
                     }
                 }
 
@@ -172,24 +187,11 @@ Shader "Halcyonic/Glaze Surface"
                 alpha = alpha * (1.0 - sheen) + sheen;
                 UNITY_BRANCH if (physical.x > 0.5)
                 {
-                    // A narrow optical edge changes with the real camera. The reading centre is untouched.
-                    float opticalBand = physical.x * saturate(1.0 + d / max(physical.y, 1e-5));
-                    float optical = physical.z * opticalBand * (0.8 * fresnel + 0.5 * reflection);
-                    color = color * (1.0 - optical) + float3(0.72, 0.76, 0.72) * optical;
-                    alpha = alpha * (1.0 - optical) + optical;
+                    // Strong reflection belongs to the curved mesh, never a uniformly lit outline.
                     // An analytic near-frontal softbox reflected in the face, not a screen-attached
                     // gradient. Reflected eye rays vary across this fixed world surface and with lean.
                     // Peak additive linear light stays below .018, preserving the reading contrast budget.
-                    float3 reflectedEye = reflect(-view, normal);
-                    // The authored studio softbox belongs to this instrument's frame. Normalize its
-                    // basis so nonuniform face dimensions do not distort reflection angles.
-                    float3 materialRight = normalize(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0)));
-                    float3 materialUp = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
-                    float3 materialForward = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
-                    float3 materialRay = float3(dot(reflectedEye, materialRight), dot(reflectedEye, materialUp), dot(reflectedEye, materialForward));
-                    float2 boxRay = materialRay.xy / max(0.1, -materialRay.z);
-                    float2 boxAxes = float2(0.94 * boxRay.x + 0.34 * boxRay.y, -0.34 * boxRay.x + 0.94 * boxRay.y);
-                    float softbox = smoothstep(0.0, 0.14, min(0.72 - abs(boxAxes.x + 0.12), 0.22 - abs(boxAxes.y - 0.18)));
+                    float softbox = instrumentSoftbox(view, normal);
                     float faceSheen = physical.x * saturate(physical.z / 0.10) * 0.016 * softbox;
                     color += float3(0.98, 1.0, 0.98) * faceSheen;
                 }

@@ -44,6 +44,18 @@ clearance. With the duplicated title plaque absent, the task connector leaves th
 body top and joins its named heading; both the drag predictor and rendered line use that same
 rule. It must cross no body or label. Zero-character use remains complete.
 
+## Instrument material candidate — 2026-10-15
+
+The spatial candidate uses one physical reading material per subject, page and semantic chrome
+cluster, rather than supports behind individual words. Its inward rounded bevel and side mesh
+reflect an analytic neutral studio source from the actual eye direction. The reading centre stays
+opaque with a bounded smooth sheen; it does not blur or refract the room. There is no periodic
+face texture, glowing continuous outline or transparent-glass claim. The focused task's Projects
+icon remains beside its words without a circular prompt cap; its target and layout stay fixed.
+Other prompt caps keep their existing semantics. The study palette remains fixture-only, without
+changing any saved appearance key or default. Actual comparison and acceptance requirements are
+recorded in [instrument material validation](../validation/instrument-material-study.md).
+
 ## The plane
 
 - **One plane facing the eyes.** A composition, such as the menu with a task's file beside it, is

@@ -207,7 +207,7 @@ namespace Halcyonic.XR.UI
                 button.gameObject.SetActive(visible);
                 if (!visible) continue;
                 var at = focusedWork ? top - MenuPage.Target() / 2f : y;
-                button.ShowPrompt(words, icon, new Vector2(left + SpatialRail / 2f, at), SpatialRail, !focusedWork && destination == place);
+                button.ShowPrompt(words, icon, new Vector2(left + SpatialRail / 2f, at), SpatialRail, !focusedWork && destination == place, framedIcon: !focusedWork);
                 if (!button.On) button.Label.color = GlazeTokens.TextSecondary;
                 y -= MenuPage.Target() + gap;
             }
