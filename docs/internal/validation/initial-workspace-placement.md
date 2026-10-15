@@ -3,7 +3,7 @@
 - Date: 2026-10-15.
 - Question: Can startup take an untracked or unworn camera pose as its permanent workspace anchor?
 - Source: Unity 6000.3.25f1, Meta XR Core 207.0.0 and Unity OpenXR 1.18.0, using the installed package source and Unity API reference XML.
-- Status: Source/API verification and focused .NET regression with a negative control passed. Editor and Android-symbol source compilation passed. Actual production-director renderer and headset acceptance are pending.
+- Status: Source/API verification, focused .NET regression and actual production-director rendering passed, including negative controls. Full workspace rendering passed at both text sizes. The first Android APK build exposed a missing assembly reference that the standalone compilation did not cover; the reference is corrected. The replacement APK build and headset acceptance are pending.
 
 ## Verified defect and bounded correction
 
@@ -37,6 +37,11 @@ facts verify the consumed API and its initialization behavior; they are not a re
 measurement. `Application.isFocused` and the existing FocusGuard suspension both gate initial
 readiness; resume alone never manufactures focus authority.
 
+`OVRManager` belongs to the installed SDK's `Oculus.VR` assembly. Workspace declares that direct
+reference, as the Room presentation assembly already does. Assembly references are not transitive.
+An actual Android player build caught the omitted reference with CS0103; a standalone compiler
+given all SDK assemblies cannot verify Unity's assembly-definition dependency graph.
+
 ## Regression evidence and limits
 
 Six focused .NET cases passed: tracked-but-unworn startup, each missing readiness condition
@@ -51,8 +56,9 @@ while readiness is false and requires no visible/composed first frame. It then s
 actual eyes/forward pose and readiness without a host/session change, requiring a visible correctly
 oriented first workspace. A subsequent false gate and changed head pose must not hide or move an
 established workspace. Existing complete composition, view/draft, Move, minimize and optional-shelf
-checks remain. This exact renderer regression and its guard-removal negative still require the
-root-owned Unity run; source compilation alone is not that result.
+checks remain. The actual Unity dedicated check passed at both text sizes. Removing the initial
+guard failed the unworn fallback and late-tracking assertions at both sizes; the source was
+restored. The combined Workspace check subsequently passed both sizes on the integrated source.
 
 A real unworn cold start followed by wearing the headset must verify sensor availability, first
 placement and interaction. Established workspace origin changes and the cause of the reported
