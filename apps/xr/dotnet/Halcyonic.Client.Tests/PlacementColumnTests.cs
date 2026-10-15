@@ -63,6 +63,8 @@ public class PlacementColumnTests
             var frame = column.Frame!;
             Assert.That(MenuPage.Rows(frame.Lines.Count), Is.LessThanOrEqualTo(host.Height + .0001));
             foreach (var line in frame.Lines) seen.Add(line.Action + ":" + line.Key);
+            foreach (var line in frame.Lines.Where(line => line.Action == PlacementColumn.OtherApps))
+                Assert.That(line.Words, Is.EqualTo("Open work window"));
             column.Drawn(frame, null);
             if (frame.Footer[PromptSlot.FarRight]?.Words == "First page") break;
             column.Act(Footer.NextPage, null);
