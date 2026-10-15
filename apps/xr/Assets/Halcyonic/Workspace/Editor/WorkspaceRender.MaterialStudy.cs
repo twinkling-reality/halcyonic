@@ -12,6 +12,7 @@ using Halcyonic.XR.UI.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using TMPro;
 
 namespace Halcyonic.XR.Workspace.Editor
 {
@@ -109,6 +110,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (ViewField.Current is ViewField field)
                             failures.AddRange(GlazeChecks.InsideField("actual material rim " + frame, points, camera.transform.position, center, WorkspacePlacement.ReadingPitch(director.Plane.Composition!.Size, director.Plane.Direction.Elevation, field), field));
                     }
+                    foreach (var support in root.GetComponentsInChildren<Surface>(false).Where(surface => surface.name == "Semantic text contrast support"))
+                    {
+                        var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }.Select(y => support.transform.TransformPoint(new Vector3(x, y, 0f))));
+                        if (ViewField.Current is ViewField supportField)
+                            failures.AddRange(GlazeChecks.InsideField("semantic text support " + frame, corners, camera.transform.position, center, WorkspacePlacement.ReadingPitch(director.Plane.Composition!.Size, director.Plane.Direction.Elevation, supportField), supportField));
+                    }
                     failures.AddRange(GlazeChecks.TextAsSeen(root, camera.transform.position, "instrument motion " + frame));
                     var projected = camera.WorldToViewportPoint(readingCenter);
                     if (projected.z <= 0f || projected.x <= 0f || projected.x >= 1f || projected.y <= 0f || projected.y >= 1f)
@@ -119,6 +126,34 @@ namespace Halcyonic.XR.Workspace.Editor
                     var background = image.GetPixel(0, 0); // Same rendered color pipeline, known empty corner.
                     if (Mathf.Abs(centrePixel.r - background.r) + Mathf.Abs(centrePixel.g - background.g) + Mathf.Abs(centrePixel.b - background.b) < 0.05f)
                         failures.Add("camera aimed at the reading part but captured only its background");
+                    var critical = director.Plane.Chrome.GetComponentsInChildren<TMP_Text>(false)
+                        .Concat(shown.GetComponentsInChildren<TMP_Text>(false).Where(word => word.name == "Identity kind" || word.name.StartsWith("Section ") && word.name.EndsWith(" words")))
+                        .Where(word => !string.IsNullOrWhiteSpace(word.text)).Distinct().ToArray();
+                    var renderers = critical.Select(word => word.GetComponent<MeshRenderer>()).Where(renderer => renderer != null && renderer.enabled).ToArray();
+                    Texture2D withoutWords;
+                    try { foreach (var renderer in renderers) renderer.enabled = false; withoutWords = Render(camera, texture); }
+                    finally { foreach (var renderer in renderers) renderer.enabled = true; }
+                    foreach (var word in critical)
+                    {
+                        var bounds = word.textBounds;
+                        var corners = new[] { bounds.min.x, bounds.max.x }.SelectMany(x => new[] { bounds.min.y, bounds.max.y }.Select(y => camera.WorldToScreenPoint(word.transform.TransformPoint(new Vector3(x, y, 0f))))).ToArray();
+                        var left = Mathf.Clamp(Mathf.FloorToInt(corners.Min(point => point.x)), 0, image.width - 1);
+                        var right = Mathf.Clamp(Mathf.CeilToInt(corners.Max(point => point.x)), 0, image.width - 1);
+                        var bottom = Mathf.Clamp(Mathf.FloorToInt(corners.Min(point => point.y)), 0, image.height - 1);
+                        var top = Mathf.Clamp(Mathf.CeilToInt(corners.Max(point => point.y)), 0, image.height - 1);
+                        double bestInk = 1; var ink = 0;
+                        for (var x = left; x <= right; x++) for (var y = bottom; y <= top; y++)
+                        {
+                            var foreground = image.GetPixel(x, y); var backing = withoutWords.GetPixel(x, y);
+                            if (Mathf.Abs(foreground.r - backing.r) + Mathf.Abs(foreground.g - backing.g) + Mathf.Abs(foreground.b - backing.b) < 0.08f) continue;
+                            ink++;
+                            var a = GlazeColor.Hex((uint)(Mathf.RoundToInt(foreground.r * 255) << 16 | Mathf.RoundToInt(foreground.g * 255) << 8 | Mathf.RoundToInt(foreground.b * 255)));
+                            var b = GlazeColor.Hex((uint)(Mathf.RoundToInt(backing.r * 255) << 16 | Mathf.RoundToInt(backing.g * 255) << 8 | Mathf.RoundToInt(backing.b * 255)));
+                            bestInk = Math.Max(bestInk, GlazeColor.Contrast(a, b));
+                        }
+                        if (ink < 2 || bestInk < 4.5) failures.Add("actual image lacks4.5:1 resolved ink against its rendered backing for " + word.name + ": pixels=" + ink + ", best=" + bestInk.ToString("0.00"));
+                    }
+                    UnityEngine.Object.DestroyImmediate(withoutWords);
                     lastMaterialPixels = image.GetPixels32(); File.WriteAllBytes(Path.Combine(folder, "motion-" + frame + ".png"), image.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(image);
                     for (var index = 0; index < physical.Length; index++) if (physical[index].transform.localToWorldMatrix != rigid[index]) failures.Add("camera motion moved the material instead of revealing its real depth");
                 }
@@ -132,7 +167,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 File.WriteAllBytes(Path.Combine(folder, "flat-control.png"), flat.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(flat);
                 if (GlazeColor.Contrast(Glaze.TextSecondary, Glaze.Panel) < 4.5) failures.Add("candidate secondary text lacks opaque source contrast");
                 // Linear compositor worst-case: the .98 substrate over ideal white. Do not use encoded byte interpolation.
-                var composite = Glaze.Panel.Luminance * 0.98 + 0.02;
+                var composite = Glaze.Panel.Luminance * 0.98 + 0.02 + 0.018;
                 if ((Glaze.TextSecondary.Luminance + 0.05) / (composite + 0.05) < 4.5) failures.Add("candidate secondary text lacks bright-background linear-composite contrast");
             }
             finally { UnityEngine.Object.DestroyImmediate(root); texture.Release(); UnityEngine.Object.DestroyImmediate(texture); }

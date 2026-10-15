@@ -604,3 +604,11 @@ preset or silently changed default. Characters and semantic state colors keep th
 identity/meaning. Physical material and a new color field do not establish that the flat-form
 interaction has been solved. Actual angled/moving production scene evidence and wearer judgment
 remain required; see [material comparison](../validation/instrument-material-study.md).
+
+The first physical-material render passed geometry but remained aesthetically rejected. The next
+candidate uses a reflected-eye analytic softbox with a bounded face luminance contribution,
+rather than a constant bright perimeter. Floating system words, task captions and tabs require
+their own tight contrast support over bright passthrough; font size alone does not establish
+legibility. Their supports stay unoutlined and inside measured owner bounds, preserving actual
+targets and the existing source/selection treatment. Actual image contrast and motion evidence
+must accompany the material study before acceptance.

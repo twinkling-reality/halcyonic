@@ -20,6 +20,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro context = null!;
         private TextMeshPro provenance = null!;
         private StateBadgeView status = null!;
+        private readonly List<Surface> contrastSupports = new List<Surface>();
         private readonly List<Surface> grounds = new List<Surface>();
         private GlazeButton move = null!;
         private GlazeButton apps = null!;
@@ -101,6 +102,7 @@ namespace Halcyonic.XR.UI
             var left = -width / 2f + padding;
             var right = width / 2f - padding;
             Size = new Vector2(width, Height);
+            foreach (var support in contrastSupports) support.gameObject.SetActive(false);
             frame.Draw(new Vector2(width, totalHeight), 0f, Color.clear,
                 GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees));
             frame.transform.localPosition = new Vector3(0f, -(totalHeight - Height) / 2f, 0.001f);
@@ -217,6 +219,14 @@ namespace Halcyonic.XR.UI
             apps.Show(WorkspaceText.OtherApps, new Vector2(contentLeft + contentWidth / 2f, baseY), buttonWidth);
             minimize.Show(WorkspaceText.Minimize, new Vector2(contentLeft + contentWidth - buttonWidth / 2f, baseY), buttonWidth);
             move.Label.color = apps.Label.color = minimize.Label.color = GlazeTokens.TextSecondary;
+            var within = new Rect(-width / 2f, -totalHeight / 2f, width, totalHeight);
+            var groups = new List<IReadOnlyList<TMP_Text>> { new TMP_Text[] { product }, new TMP_Text[] { connection }, new TMP_Text[] { context }, new TMP_Text[] { provenance } };
+            foreach (var button in Targets)
+                if (button.gameObject.activeSelf) groups.Add(button.Icon != null ? new TMP_Text[] { button.Label, button.Icon } : new TMP_Text[] { button.Label });
+            while (contrastSupports.Count < groups.Count) contrastSupports.Add(Surface.Create(transform, "Semantic text contrast support", 21));
+            for (var index = 0; index < contrastSupports.Count; index++)
+                if (index < groups.Count) Surface.SupportText(groups[index], contrastSupports[index], transform, within);
+                else contrastSupports[index].gameObject.SetActive(false);
             foreach (var button in Targets)
                 if (button != move || !preserveMovePress) { button.EndPressSince(float.MinValue); button.Unsettle(); }
         }
