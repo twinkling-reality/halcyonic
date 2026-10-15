@@ -31,6 +31,9 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        private static float RasterDifference(Color left, Color right) =>
+            Mathf.Max(Mathf.Abs(left.r - right.r), Mathf.Max(Mathf.Abs(left.g - right.g), Mathf.Abs(left.b - right.b)));
+
         private static List<string> RenderTaskPortrait(string folder)
         {
             var failures = new List<string>(); var root = new GameObject("Actual task portrait state witnesses");
@@ -70,10 +73,25 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add(activity + ": portrait acquired duplicate labels or stage interaction");
                     GlazeMotion.Still = false;
                     var movingPositions = new List<Vector3>();
+                    var motionStrip = new Texture2D(128 * 4, 128, TextureFormat.RGBA32, false);
+                    var samplePoint = camera.WorldToScreenPoint(avatar.transform.position);
+                    var sampleRect = new RectInt(Mathf.Clamp((int)samplePoint.x - 64, 0, Size - 128), Mathf.Clamp((int)samplePoint.y - 64, 0, Size - 128), 128, 128);
+                    var rasterFrames = new List<Color[]>();
                     for (var tick = 0; tick < 180; tick++)
                     {
                         character.AdvanceForRender(1f / 60f);
                         movingPositions.Add(character.Body.localPosition);
+                        if (tick == 30 || tick == 60 || tick == 90 || tick == 120)
+                        {
+                            var rendered = Render(camera, target);
+                            try
+                            {
+                                var pixels = rendered.GetPixels(sampleRect.x, sampleRect.y, 128, 128);
+                                motionStrip.SetPixels(rasterFrames.Count * 128, 0, 128, 128, pixels);
+                                rasterFrames.Add(pixels);
+                            }
+                            finally { UnityEngine.Object.DestroyImmediate(rendered); }
+                        }
                         foreach (var mesh in character.GetComponentsInChildren<MeshFilter>(false))
                         {
                             if (mesh.GetComponent<Renderer>() is not Renderer renderer || !renderer.enabled) continue;
@@ -88,6 +106,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     if ((activity == CharacterActivity.Idle || activity == CharacterActivity.Working)
                         && movingPositions.All(p => Vector3.Distance(p, movingPositions[0]) < .00001f))
                         failures.Add(activity + ": actual live portrait motion never advanced");
+                    motionStrip.Apply();
+                    try { File.WriteAllBytes(Path.Combine(folder, activity + "-actual-motion-frames.png"), motionStrip.EncodeToPNG()); }
+                    finally { UnityEngine.Object.DestroyImmediate(motionStrip); }
+                    var changedPixels = rasterFrames.Skip(1).Sum(frame => frame.Where((pixel, index) => RasterDifference(pixel, rasterFrames[0][index]) > 2f / 255f).Count());
+                    Debug.Log("Halcyonic: task portrait actual raster motion " + activity + ": changed-pixels=" + changedPixels + ", frames=" + rasterFrames.Count);
+                    if ((activity == CharacterActivity.Idle || activity == CharacterActivity.Working) && changedPixels == 0)
+                        failures.Add(activity + ": actual rendered live frames never changed");
                     var beforeHue = character.BodyColourForRender;
                     avatar.Show(presentation, CharacterColourSettings.Hue("violet"), centre, slot);
                     if (character.BodyColourForRender == beforeHue || avatar.Character != character)
