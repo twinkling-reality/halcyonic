@@ -89,7 +89,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         && movingPositions.All(p => Vector3.Distance(p, movingPositions[0]) < .00001f))
                         failures.Add(activity + ": actual live portrait motion never advanced");
                     var beforeHue = character.BodyColourForRender;
-                    avatar.Show(presentation, 210d, centre, slot);
+                    avatar.Show(presentation, CharacterColourSettings.Hue("violet"), centre, slot);
                     if (character.BodyColourForRender == beforeHue || avatar.Character != character)
                         failures.Add(activity + ": local colour failed to update same identity in place");
                     var image = Render(camera, target);
