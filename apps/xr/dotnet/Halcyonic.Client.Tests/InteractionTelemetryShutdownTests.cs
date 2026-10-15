@@ -16,6 +16,8 @@ namespace UnityEngine
     }
     public static class Debug
     {
+        public static readonly List<string> Messages = new();
+        public static void Log(string message) => Messages.Add(message);
         public static readonly List<string> Warnings = new();
         public static readonly List<string> Errors = new();
         public static void LogWarning(string message) => Warnings.Add(message);
@@ -74,7 +76,7 @@ namespace Halcyonic.Client.Tests
             RuntimeHelpers.RunClassConstructor(typeof(XR.Editor.InteractionTelemetryShutdown).TypeHandle);
             Package.Current = new Package();
             Wrapper.Initialized = true; Wrapper.NativeShutdownCalls = 0; Wrapper.Throw = false;
-            Log.Warnings.Clear(); Log.Errors.Clear();
+            Log.Messages.Clear(); Log.Warnings.Clear(); Log.Errors.Clear();
         }
         [Test]
         public void EditorQuitShutsDownInitializedTelemetryExactlyOnce()
@@ -82,6 +84,8 @@ namespace Halcyonic.Client.Tests
             Editor.Quit(); Editor.Quit();
             Assert.That(Wrapper.NativeShutdownCalls, Is.EqualTo(1));
             Assert.That(Wrapper.Initialized, Is.False);
+            Assert.That(Log.Messages, Has.All.EqualTo("Halcyonic: Interaction SDK editor telemetry shutdown requested."));
+            Assert.That(Log.Messages, Has.Count.EqualTo(2));
             Assert.That(Log.Errors, Is.Empty);
         }
         [Test]
@@ -98,11 +102,13 @@ namespace Halcyonic.Client.Tests
             Editor.Quit();
             Assert.That(Wrapper.NativeShutdownCalls, Is.Zero);
             Assert.That(Log.Warnings, Has.Count.EqualTo(1));
+            Assert.That(Log.Messages, Is.Empty);
         }
         [Test]
         public void InvocationFailureIsReportedWithoutExceptionText()
         {
             Wrapper.Throw = true; Editor.Quit();
+            Assert.That(Log.Messages, Is.Empty);
             Assert.That(Log.Errors, Is.EqualTo(new[] { "Halcyonic: Interaction SDK editor telemetry shutdown failed." }));
         }
     }
