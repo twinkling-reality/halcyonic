@@ -130,7 +130,10 @@ and device lifecycle consistency remain unverified.
 Remaining literal colours: CharacterView state lights and testing ring; CharacterIdentity hue,
 saturation and value; CharacterBody shader fog, ink, gloss/glint and ghosting material values;
 WorkspaceVisuals legacy text/connector colours and WorkspaceDirector's reticle; shader-internal
-white glass sheen. The UI palette does not customize body identity or these material treatments.
+white glass sheen. The UI palette does not customize body identity or these material treatments. The separate selected-task
+Character colour control offers bounded headset-local identity hues, as documented in
+[XR_CLIENT.md](../architecture/XR_CLIENT.md#optional-character-identity-and-animation-2026-10-13);
+it changes no interface palette or task-state colour and has no headset acceptance claim.
 
 ## Checks exercised and remaining device observations
 

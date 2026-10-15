@@ -48,8 +48,12 @@ public class CharacterColourTests
         var column = new CharacterColourColumn(settings, scope, () => current, _ => throw new Exception("Must not save"));
         column.Closed += () => closed++;
         Press(column, CharacterColourColumn.Choose, "cyan"); Press(column, CharacterColourColumn.Preview);
-        current = false; column.Tick(); column.Act(CharacterColourColumn.Apply, null);
-        Assert.That(settings.DisplayedHue(scope), Is.Null); Assert.That(closed, Is.GreaterThan(0));
+        var old = column.Frame!; current = false; column.Tick(); column.Act(CharacterColourColumn.Apply, null);
+        Assert.That(settings.DisplayedHue(scope), Is.Null); Assert.That(closed, Is.EqualTo(1));
+        current = true; column.Tick(); column.Drawn(old, null);
+        column.Act(CharacterColourColumn.Preview, null); column.Act(CharacterColourColumn.Apply, null);
+        Assert.That(column.Frame, Is.Null, "a lost target cannot resurrect its old colour editor");
+        Assert.That(closed, Is.EqualTo(1));
     }
 
     [Test]
@@ -74,6 +78,66 @@ public class CharacterColourTests
         Assert.That(settings.Applied(scope), Is.EqualTo("violet")); Assert.That(settings.DisplayedHue(scope), Is.EqualTo(197));
         Assert.That(column.Frame!.Lines.Any(line => line.Words.Contains("could not be saved")), Is.True);
         Press(column, CharacterColourColumn.Cancel); Assert.That(settings.DisplayedHue(scope), Is.EqualTo(285));
+    }
+
+    [TestCase("connection")]
+    [TestCase("journal")]
+    [TestCase("task")]
+    [TestCase("session")]
+    [TestCase("snapshot")]
+    [TestCase("focus")]
+    [TestCase("minimized")]
+    public void ExactPreviewContextLossRestoresAppliedColourWithoutSaving(string lost)
+    {
+        var settings = new CharacterColourSettings(); var scope = Scope(); Save(settings, scope, "violet");
+        var session = new object(); var shownSession = session; var currentScope = scope;
+        var fresh = true; var focused = true; var minimized = false; var writes = 0;
+        var column = new CharacterColourColumn(settings, scope,
+            () => ReferenceEquals(session, shownSession) && scope.Equals(currentScope) && fresh && focused && !minimized,
+            _ => { writes++; return true; });
+        Press(column, CharacterColourColumn.Choose, "cyan"); Press(column, CharacterColourColumn.Preview);
+        Assert.That(settings.DisplayedHue(scope), Is.EqualTo(197));
+        switch (lost)
+        {
+            case "connection": currentScope = Scope(connection: "other"); break;
+            case "journal": currentScope = Scope(journal: "other"); break;
+            case "task": currentScope = Scope("other"); break;
+            case "session": shownSession = new object(); break;
+            case "snapshot": fresh = false; break;
+            case "focus": focused = false; break;
+            case "minimized": minimized = true; break;
+        }
+        column.Tick();
+        Assert.That(settings.DisplayedHue(scope), Is.EqualTo(285));
+        Assert.That(settings.DisplayedHue(Scope(connection: "other")), Is.Null);
+        Assert.That(column.Frame, Is.Null); Assert.That(writes, Is.Zero);
+    }
+
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void FileColourRouteRequiresAnAvailableCurrentDrawAndCannotRetargetAnotherJournal(TextSize size)
+    {
+        const string task = "550e8400-e29b-41d4-a716-446655440001";
+        var state = new ClientProjection(); state.ApplySnapshot(Samples.Snapshot(1, new[] { Samples.Workstream(task) }), new StateChanges());
+        var host = new FileMenuHost { Projection = state, TextSize = size };
+        var available = true; var opens = 0;
+        var file = new FileColumn(host, () => WorkspacePresenter.Present(state.Workstreams[task], state, new ActivityLog(), host.Live),
+            new CommandFactory(Samples.Client), () => null, _ => null, () => "");
+        Assert.That(file.Frame!.Lines.Any(line => line.Action == FileScreens.OpenCharacterColour), Is.False);
+        file.OfferCharacterColours(() => available, () => opens++);
+        file.Act(FileScreens.OpenCharacterColour, null); Assert.That(opens, Is.Zero);
+        file.Drawn(file.Frame!, null); available = false;
+        file.Act(FileScreens.OpenCharacterColour, null); available = true;
+        file.Act(FileScreens.OpenCharacterColour, null); Assert.That(opens, Is.Zero, "restored support cannot revive the consumed row");
+        file.Drawn(file.Frame!, null); file.Act(FileScreens.OpenCharacterColour, null);
+        Assert.That(opens, Is.EqualTo(1));
+        file.Act(FileScreens.OpenCharacterColour, null); Assert.That(opens, Is.EqualTo(1));
+        file.Drawn(file.Frame!, null); file.FocusLeft(); file.Act(FileScreens.OpenCharacterColour, null);
+        Assert.That(opens, Is.EqualTo(1));
+        file.Drawn(file.Frame!, null);
+        state.ApplySnapshot(Samples.Snapshot(1, new[] { Samples.Workstream(task) }, journal: Samples.Journal("550e8400-e29b-41d4-a716-446655440099")), new StateChanges());
+        file.Act(FileScreens.OpenCharacterColour, null); Assert.That(opens, Is.EqualTo(1));
+        Assert.That(host.Sent, Is.Empty);
     }
 
     [Test]
