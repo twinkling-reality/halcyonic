@@ -139,6 +139,8 @@ word backings. Neither candidate was installed. Full-interface bright-background
 actual moving-view material judgment are required; source color ratios and static dark renders
 are insufficient. The motion candidate also requires pitch and placed-character cases, in addition
 to yaw and translation, before its current-head recovery claim can be accepted.
+
+
 ## Focused context allocation candidate, October 15
 
 Actual coated-face captures still showed a large context-to-task gap. Source inspection found

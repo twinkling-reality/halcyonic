@@ -622,6 +622,12 @@ Context, named heading, sections and reading body share the opaque coated face, 
 tab, clear rear carrier or independently backed internal plates. The quiet utility dock is separate.
 This composition remains a candidate until actual full-context and wearer validation pass.
 
+The focused work object's context row reserves one full Projects target in height. Project and
+connection words align with that target; the composition's ordinary part gap follows it before
+task identity. The chooser retains its larger navigation header. This removes unused focused
+context space without reducing a hit target or type size. The same allocation drives the actual
+composition and available page-height calculation; actual paired captures remain the design gate.
+
 The type hierarchy resets for each independent known-project entry: its name leads its own
 supporting task summary. A later project's name may therefore be larger than the preceding
 project's summary. This is not a blanket exception to descending type: ordinary reading content
@@ -636,15 +642,3 @@ control native Android panel placement. A moving or settling reading object acce
 frame input; its exact local drafts/pages survive and require a fresh physical draw. Keep things
 still uses an immediate content reposition with the same input settling. Candidate timings and
 translation tolerances require an actual wearer check; renderer success alone is not comfort.
-
-### Material evidence
-
-[Coated reading material](#coated-reading-material) defines the current implementation. Superseded
-card, coating and carrier comparisons are retained only in the [validation history](../validation/instrument-material-study.md),
-not as alternative authoring rules.
-
-The focused work object's context row reserves one full Projects target in height. Project and
-connection words align with that target; the composition's ordinary part gap follows it before
-task identity. The chooser retains its larger navigation header. This removes unused focused
-context space without reducing a hit target or type size. The same allocation drives the actual
-composition and available page-height calculation; actual paired captures remain the design gate.
