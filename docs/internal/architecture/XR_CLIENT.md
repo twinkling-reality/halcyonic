@@ -2195,6 +2195,17 @@ exists. Passthrough remains independent of whether optional characters are prese
   input-focus loss or global minimization discards the preview. The previous confirmed shelf stays
   unchanged during preview, and work/drafts remain in the workspace. Manual placement is for this
   tracking session only, with no asserted furniture support or durable anchor.
+- **A selected task, here.** A live task's Activity page offers **Show this task here** when the
+  local room-placement controls are available. This local presentation action sends no runtime
+  command and needs no runtime capability. Its current drawn row is bound to the exact task and
+  journal; disconnected, demonstration and unsupported contexts do not offer it. It opens the
+  existing measured shelf preview, with that task's title marked as outside data. Apply is still
+  required. Until Apply succeeds, the existing shelf pose, selected character and enabled state
+  remain unchanged; Cancel preserves them. Apply selects exactly that task and enables its real
+  character. A removed task, changed journal or lost live/focus authority cancels this preview
+  rather than selecting another task. Existing project, task, direction and review flows remain
+  fully available without characters. This is discoverability, not an automatic startup character
+  or persistent placement; source/tests do not establish headset visual acceptance.
 - **Authority and limits.** The shelf column keeps its exact offered frame until Changed. Only a
   current drawn, offered movement, room-read or Apply can act. `AgentShelfDraft` bounds candidates
   to 0.4–2 m horizontally from the placement-time eyes and 0.15–0.9 m below them, rejects non-finite

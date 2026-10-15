@@ -211,7 +211,10 @@ namespace Halcyonic.XR
         /// </summary>
         public void Request(string? workstreamId)
         {
-            if (workstreamId == null || !shelfPages.Select(workstreamId)) return;
+            if (workstreamId == null || connection.Session is not RealtimeSession session) return;
+            // Explicit task selection also works before this optional stage is enabled.
+            shelfPages.Update(session.State.Journal?.JournalId, session.State.Workstreams.Values);
+            if (!shelfPages.Select(workstreamId)) return;
             Refresh();
         }
 

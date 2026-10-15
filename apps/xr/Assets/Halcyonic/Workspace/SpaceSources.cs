@@ -19,6 +19,9 @@ namespace Halcyonic.XR.Workspace
         void ToggleAgents();
         void PlaceAgents();
 
+        /// <summary>Explicit preview for one still-current task; selection changes only after Apply.</summary>
+        void PlaceTask(string workstreamId, string title, System.Func<bool> current);
+
         /// <summary>Shows the real room where a virtual space shows, and the other way round.</summary>
         void SwitchSpace();
 

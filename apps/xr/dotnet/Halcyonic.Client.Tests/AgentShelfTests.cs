@@ -93,6 +93,34 @@ public class AgentShelfTests
         column.Drawn(current, null); column.Act(AgentShelfColumn.Apply, null);
         Assert.That(calls, Is.EqualTo(1)); Assert.That(draft.Candidate, Is.Null);
     }
+    [TestCase("apply")]
+    [TestCase("expired")]
+    [TestCase("cancel")]
+    [TestCase("tick")]
+    public void TaskPlacementKeepsSelectionUntilApplyAndExpiredContextCancels(string outcome)
+    {
+        var host = new FakeMenuHost(); var draft = Draft();
+        var selected = "previous-task"; var current = true; var cancelled = 0;
+        var column = new AgentShelfColumn(host, draft, _ => { },
+            () => draft.Apply(_ => { selected = "exact-opened-task"; return true; }),
+            () => { cancelled++; draft.Cancel(); }, () => { }, "<task title>", () => current);
+        Assert.That(selected, Is.EqualTo("previous-task"));
+        var frame = column.Frame!;
+        Assert.That(frame.SubjectIsData, Is.True);
+        Assert.That(frame.Subject, Is.EqualTo("<task title>"));
+        column.Drawn(frame, null);
+        if (outcome == "expired" || outcome == "tick") current = false;
+        if (outcome == "tick") { Assert.That(column.CurrentDraw, Is.False); column.Tick(); }
+        else column.Act(outcome == "cancel" ? Footer.Close : AgentShelfColumn.Apply, null);
+        var applied = outcome == "apply";
+        Assert.That(selected, Is.EqualTo(applied ? "exact-opened-task" : "previous-task"));
+        Assert.That(cancelled, Is.EqualTo(applied ? 0 : 1));
+        Assert.That(draft.Candidate, Is.Null);
+        column.Act(AgentShelfColumn.Apply, null);
+        Assert.That(cancelled, Is.EqualTo(applied ? 0 : 1));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     [Test]
     public void ARealSurfaceSuggestionChecksTheWholeShelfAndObstaclesRatherThanTheOldArcAlone()
     {

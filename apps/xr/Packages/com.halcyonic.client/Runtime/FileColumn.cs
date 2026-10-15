@@ -64,6 +64,11 @@ namespace Halcyonic.Client
         private MenuFrame? drawnInstructionFrame;
         private MenuFrame? drawnInstructionNoticeFrame;
         private MenuFrame? drawnResultsFrame;
+        private MenuFrame? drawnShowTaskFrame;
+        private Func<bool>? canShowTask;
+        private Action? showTask;
+        private string? showTaskJournal;
+        private string? showTaskId;
 
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
@@ -107,6 +112,15 @@ namespace Halcyonic.Client
         public WorkspaceSurface Surface { get; set; } = WorkspaceSurface.Task;
         public void OfferWorkspaceRequests(Action open)
         { if (openWorkspaceRequest != null) return; openWorkspaceRequest = open; Screen.WorkspaceRequestOffered = true; Rebuild(); }
+        /// <summary>Offers only an available local presentation action; it grants no runtime capability.</summary>
+        public void OfferShowTaskHere(Func<bool> available, Action show)
+        {
+            if (showTask != null) return;
+            canShowTask = available; showTask = show;
+            showTaskJournal = host.State?.Journal?.JournalId; showTaskId = Now?.Character.WorkstreamId; Rebuild();
+        }
+        private bool CanShowTaskHere() => showTask != null && canShowTask?.Invoke() == true && host.Connected && !host.Demonstration
+            && showTaskJournal != null && showTaskJournal == host.State?.Journal?.JournalId && showTaskId == Now?.Character.WorkstreamId;
         public void OfferResults(Action open)
         { if (openResults != null) return; openResults = open; Screen.ResultsOffered = true; Rebuild(); }
         public WorkspaceRequestContinuation? ContinuationRequest() => RequestView?.ExecutionId == Now?.Execution?.ExecutionId
@@ -219,6 +233,10 @@ namespace Halcyonic.Client
             var clock = host.Clock;
             switch (id)
             {
+                case FileScreens.ShowTaskHere:
+                    if (drawnShowTaskFrame == Frame && Frame?.Lines.Any(line => line.Action == id && line.Available) == true && CanShowTaskHere())
+                    { drawnShowTaskFrame = null; showTask?.Invoke(); }
+                    return;
                 case FileScreens.OpenResults:
                     if (drawnResultsFrame == Frame && Frame?.Lines.Any(line => line.Action == id && line.Available) == true) openResults?.Invoke();
                     return;
@@ -562,6 +580,7 @@ namespace Halcyonic.Client
                 if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.SideOption != null) Screen.Question.SideDrawn(clock);
                 return;
             }
+            if (drawn.Lines.Any(line => line.Action == FileScreens.ShowTaskHere && line.Available)) drawnShowTaskFrame = drawn;
             if (drawn.Lines.Any(line => line.Action == FileScreens.OpenResults && line.Available)) drawnResultsFrame = drawn;
             if (Steering.ToRead(Now) is string request)
             {
@@ -691,6 +710,7 @@ namespace Halcyonic.Client
         public void Compact()
         {
             drawnResultsFrame = null;
+            drawnShowTaskFrame = null;
             RequestView?.Compact();
             drawnPresetFrame = null;
             Screen.SuspendPresets();
@@ -710,6 +730,7 @@ namespace Halcyonic.Client
         public void FocusLeft()
         {
             drawnResultsFrame = null;
+            drawnShowTaskFrame = null;
             RequestView?.FocusLeft();
             drawnPresetFrame = null;
             Screen.SuspendPresets();
@@ -744,6 +765,7 @@ namespace Halcyonic.Client
             drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;
             drawnResultsFrame = null;
+            drawnShowTaskFrame = null;
             var presentation = present();
             if (presentation == null)
             {
@@ -811,6 +833,8 @@ namespace Halcyonic.Client
                     notice == null ? 0 : host.RowsOf(new PageLine(notice, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             }
             if (draft != null) ReadQuestion(draft, budget);
+            Screen.ShowTaskHereOffered = CanShowTaskHere();
+            if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine("Show this task here", rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.WorkspaceRequestOffered) Screen.WorkspaceRequestRows = Math.Max(1, host.RowsOf(new PageLine("Ask workspace", icon: GlazeIcon.Next,
                 action: FileScreens.OpenWorkspaceRequest, opens: true, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.ResultsOffered) Screen.ResultsRows = Math.Max(1, host.RowsOf(FileScreens.ReadResultsLine(rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));

@@ -359,9 +359,22 @@ namespace Halcyonic.XR.Workspace
             hint.Hide();
             Acted?.Invoke(workstreamId, WorkspaceAct.Open);
             ReadHistory(workstreamId);
-            return new FileColumn(host, () => Present(workstreamId), commands, IntelligenceReader,
+            var file = new FileColumn(host, () => Present(workstreamId), commands, IntelligenceReader,
                 execution => connection.DemonstrationInstructions(execution), () => Clock.Note + historyNote,
                 act => Acted?.Invoke(workstreamId, act));
+            var ownedSession = connection.Session;
+            var journal = ownedSession?.State.Journal?.JournalId;
+            bool Current() => Room != null && !FocusGuard.InputSuspended && !Presentation.Minimized
+                && ReferenceEquals(connection.Session, ownedSession)
+                && connection.Session?.Status.IsLive == true && connection.DemonstrationLine == null
+                && journal != null && connection.Session.State.Journal?.JournalId == journal
+                && connection.Session.State.Workstreams.ContainsKey(workstreamId);
+            file.OfferShowTaskHere(Current, () =>
+            {
+                if (!Current() || Present(workstreamId) is not WorkspacePresentation selected) return;
+                Room!.PlaceTask(workstreamId, selected.Character.Title, Current);
+            });
+            return file;
         }
 
         /// <summary>
