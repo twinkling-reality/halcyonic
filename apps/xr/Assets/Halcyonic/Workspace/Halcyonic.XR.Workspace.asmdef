@@ -8,6 +8,7 @@
     "Halcyonic.Client",
     "Halcyonic.Contracts",
     "Oculus.Interaction",
+    "Oculus.VR",
     "Unity.TextMeshPro",
     "UnityEngine.UI"
   ],
