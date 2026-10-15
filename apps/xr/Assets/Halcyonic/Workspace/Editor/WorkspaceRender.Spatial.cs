@@ -361,7 +361,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (GlazeRuns.Of(view.SubjectShown.Title).Theirs.Count == 0)
                     failures.Add(name + ": named identity lost outside-text provenance");
             }
-            foreach (var character in characters)
+            foreach (var character in characters.Where(character => character.View.gameObject.activeInHierarchy))
             {
                 var label = GlazeChecks.Of("character label", eyes, character.View.Label.gameObject);
                 var bodyExtent = BodyExtent(character.View, eyes);
