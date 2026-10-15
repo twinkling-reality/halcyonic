@@ -342,4 +342,35 @@ public class WorkspaceRequestColumnTests
         Assert.That(words, Does.Not.Contain("position").And.Not.Contain("receipt").And.Not.Contain("987654"));
     }
 
+    [TestCase(TextSize.Standard)]
+    [TestCase(TextSize.Larger)]
+    public void ActionsDistinguishTurnReadAndPersonDirectionWithoutClaimingVerifiedChanges(TextSize size)
+    {
+        var context = Context(); context.Request = new WorkspaceRequestContinuation { RequestId = RequestId, Text = "Retained words" };
+        var response = Result(context);
+        response.Steps.Add(new WorkspaceRequestStep { ToolName = "continue_task", Status = new JValue("confirmed"), CommandId = Guid.NewGuid().ToString("D"), RuntimeStatus = ExecutionStatus.Completed, Summary = "A relevant native turn ended; software correctness remains unverified." });
+        response.Steps.Add(new WorkspaceRequestStep { ToolName = "read_results", Status = new JValue("confirmed"), Summary = "Only command results were read; patch coverage remains unknown." });
+        response.Steps.Add(new WorkspaceRequestStep { ToolName = "person_response", Status = new JValue("confirmed"), CommandId = Guid.NewGuid().ToString("D"), Summary = "The person supplied additional direction." });
+        var host = new FileMenuHost { TextSize = size };
+        var column = Open(host, context, read: (_, _) => Task.FromResult(new WorkspaceRequestResponse { Request = response }));
+        Draw(host, column); column.Act(MenuFrame.ChooseSection, "receipts");
+        var words = column.Frame!.Lines.Single().Words;
+        Assert.That(words, Does.Contain("Turn finished").And.Contain("Software changes remain unverified.").And.Contain("Read confirmed").And.Contain("Direction recorded"));
+        Assert.That(words, Does.Not.Contain("\nConfirmed\n"));
+        Assert.That(host.Sent, Is.Empty);
+        var starts = new System.Collections.Generic.HashSet<int>();
+        for (var page = 0; page < 32; page++)
+        {
+            var frame = column.Frame!;
+            var line = frame.Lines.Single();
+            Assert.That(line.Rows, Is.GreaterThan(0));
+            Assert.That(line.Words, Is.EqualTo(words), "paging never shortens the source-verification caveat or summaries");
+            var start = line.FromRow ?? 0;
+            if (!starts.Add(start)) { Assert.That(start, Is.Zero); break; }
+            if (!frame.Footer.All.Any(prompt => prompt.Prompt.Id == WorkspaceRequestColumn.Next && prompt.Prompt.Available)) break;
+            Draw(host, column); column.Act(WorkspaceRequestColumn.Next, null);
+            Assert.That(page, Is.LessThan(31), "the size-specific measured pager must wrap finitely");
+        }
+    }
+
 }
