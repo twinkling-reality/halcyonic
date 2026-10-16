@@ -124,11 +124,26 @@ public class SpatialKitTests
     }
 
     [Test]
-    public void TheColumnsLetTheRoomThrough()
+    public void TheCurveKeepsTheSmallestWordAtTheFloorAcrossItsWholeSpread()
     {
-        // The slate and the regions beside it stand STYLE's 15 mm apart: more than a degree, as between any two parts.
-        Assert.That(SpatialKit.ColumnGapUnits * PlaneComposition.Distance, Is.EqualTo(PlaneComposition.ColumnGapMeters).Within(1e-6));
-        Assert.That(SpatialKit.DegreesTo(SpatialKit.ColumnGapUnits), Is.GreaterThanOrEqualTo(PlaneComposition.PartGapDegrees));
+        // On one curve centred on the eyes every column faces them, so text shrinks only with its height: Body at the
+        // tallest slate's far corners reads at the floor at either text size, however far across the corner stands.
+        var padding = PlaneComposition.Units(SpatialKit.PaddingDegrees);
+        foreach (var scale in new[] { 1f, Comfort.LargerTextScale })
+        {
+            var up = SpatialKit.MostHalfHeight(scale) - padding;
+            Assert.That(SpatialKit.Reads(SpatialKit.BodyDp * scale, 0f, up), Is.True,
+                $"Body x{scale} at height {up:0.000} reads {SpatialKit.SeenDegrees(SpatialKit.BodyDp * scale, 0f, up):0.000} degrees");
+        }
+    }
+
+    [Test]
+    public void TheCurveStaysInsideAQuest3SField()
+    {
+        // Bent round the eyes, the laid-out half-width becomes the half-spread in radians; it must stay inside
+        // Meta's 96 degrees across less 1.5 at each edge, with the head turned to the instrument's centre.
+        foreach (var half in new[] { SpatialKit.WorkHalfWidth, SpatialKit.OverviewHalfWidth })
+            Assert.That(half * 180f / MathF.PI, Is.LessThan(48f - 1.5f));
     }
 
     [Test]
