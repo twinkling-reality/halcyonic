@@ -374,7 +374,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add("spatial: Larger shelf refusal did not come from the actual field and console predicates");
                         else
                         {
-                            var gap = "at the larger text size production offers no supported one-agent shelf beside the workspace ("
+                            var gap = "at the larger text size, with the head level and forward, production offers no supported one-agent shelf beside the workspace ("
                                 + search.Candidates + " candidates, field refusals " + search.FieldRefusals + ", console refusals " + search.WorkspaceRefusals
                                 + "), so no character context is staged (OPEN_QUESTIONS.md)";
                             spatialProductGaps.Add(gap);
