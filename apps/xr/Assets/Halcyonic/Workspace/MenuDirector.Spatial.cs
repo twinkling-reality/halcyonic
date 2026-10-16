@@ -12,7 +12,8 @@ namespace Halcyonic.XR.Workspace
     {
         private readonly Dictionary<FileColumn, (float ContextHeight, bool Portrait, int TitleRows, int ProvenanceRows)> composerLayouts
             = new Dictionary<FileColumn, (float, bool, int, int)>();
-        private void DropSpatialComposer(FileColumn file) => composerLayouts.Remove(file);
+        private readonly Dictionary<FileColumn, bool> composerFocus = new Dictionary<FileColumn, bool>();
+        private void DropSpatialComposer(FileColumn file) { composerLayouts.Remove(file); composerFocus.Remove(file); }
         private object? contextOwner;
         private RealtimeSession? contextSession;
         private ClientProjection? contextState;
@@ -48,7 +49,9 @@ namespace Halcyonic.XR.Workspace
 
         private void PrepareSpatialContext()
         {
-            plane.ActivityFrame = SeparateWorkspace && !navigator.IsCompact && navigator.Beside is FileColumn file ? file.ActivityContextFrame : null;
+            var activeFile = SeparateWorkspace && !navigator.IsCompact ? navigator.Beside as FileColumn : null;
+            plane.ComposerFocused = activeFile?.ActivityContextFrame != null && composerFocus.TryGetValue(activeFile, out var focused) && focused;
+            plane.ActivityFrame = plane.ComposerFocused ? null : activeFile?.ActivityContextFrame;
             var choices = State?.Projects.Values.OrderBy(project => project.Name, StringComparer.Ordinal).ThenBy(project => project.ProjectId, StringComparer.Ordinal).ToList()
                 ?? new List<ProjectView>();
             // The selected project remains among the bounded choices even when it sorts after them.
@@ -125,21 +128,51 @@ namespace Halcyonic.XR.Workspace
                 MenuFrameView.IndependentProvenanceRows(marks, Glaze.Menu.FileColumnDegrees));
             var leftHeight = plane.Context.HeightFor(State?.Projects.Count ?? 0);
             var section = GlazeButton.HeightOf(true);
-            bool Fits(float total)
+            bool Fits(float activity, float instruction, bool focused = false)
             {
-                var heights = split
-                    ? new[] { header + MenuPage.Content(total * 0.55f) - FooterView.Height - MenuPage.TargetGap, FooterView.Height + MenuPage.TargetGap + MenuPage.Content(total * 0.45f) }
-                    : new[] { header + section + FooterView.Height + MenuPage.TargetGap + MenuPage.Content(total) };
+                var heights = split && !focused
+                    ? new[] { header + MenuPage.Content(activity) - FooterView.Height - MenuPage.TargetGap,
+                        FooterView.Height + MenuPage.TargetGap + MenuPage.Content(instruction) }
+                    : new[] { header + (focused ? MenuPage.Words(1) : section) + FooterView.Height + MenuPage.TargetGap + MenuPage.Content(instruction) };
                 var stacked = heights.Sum() + (heights.Length - 1) * PlaneComposition.Units(PlaneComposition.PartGapDegrees);
-                var envelope = MenuPlane.IndependentEnvelope(UnityEngine.Mathf.Max(leftHeight, stacked));
+                var envelope = MenuPlane.IndependentEnvelope(UnityEngine.Mathf.Max(leftHeight, stacked), header, portrait);
                 var composition = new PlaneComposition(new[] { new PlaneColumn(PlaneComposition.Units(WorkspaceContextView.WidthDegrees) + MenuPlane.PortraitClearance, envelope), new PlaneColumn(width, heights) }, zoom);
                 return MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
                     && MenuPage.Readable(composition) && WorkspacePlacement.Clears(direction, occupied, composition.Size);
             }
-            float low = 0f, high = 2f;
-            if (!Fits(0f)) return 0f;
-            for (var step = 0; step < 40; step++) { var middle = (low + high) / 2f; if (Fits(middle)) low = middle; else high = middle; }
-            return split ? low * (composer ? 0.45f : 0.55f) : low;
+            if (!split)
+            {
+                float low = 0f, high = 2f;
+                if (!Fits(0f, 0f)) return 0f;
+                for (var step = 0; step < 40; step++) { var middle = (low + high) / 2f; if (Fits(0f, middle)) low = middle; else high = middle; }
+                return low;
+            }
+            // FileInstruction.Measure removes these exact host lines/reason/pager terms before
+            // allocating its input target. Reserve three rows up front, independent of typed length.
+            var terms = new HeightBudget(0f);
+            var paired = FitsHalf(FileScreens.InstructionPager(previous: true), Glaze.Menu.FileColumnDegrees)
+                && FitsHalf(FileScreens.InstructionPager(), Glaze.Menu.FileColumnDegrees);
+            var pager = paired ? terms.Target() : terms.Targets(1, 1);
+            var minimumComposer = MenuPage.SourceLine + terms.Words(1) + terms.LineGap + terms.Reason
+                + terms.Target(3) + pager + terms.TargetGap;
+            var minimumActivity = MenuPage.SourceLine + terms.Words(2) + terms.LineGap;
+            var together = Fits(minimumActivity, minimumComposer);
+#if UNITY_EDITOR
+            UnityEngine.Debug.Log($"Halcyonic: independent measured allocation minActivity={minimumActivity:R}; minComposer={minimumComposer:R}; titleHeader={header:R}; pairFits={together}; pairedPager={paired}; textScale={zoom:R}.");
+#endif
+            if (owner != null) composerFocus[owner] = !together;
+            if (!together)
+            {
+                // Same authoritative file/draft, explicitly labelled Editing instruction. Hide
+                // composer is its return to Activity; passive context grants no draw credit.
+                float low = 0f, high = 2f;
+                if (!Fits(0f, 0f, focused: true)) return 0f;
+                for (var step = 0; step < 40; step++) { var middle = (low + high) / 2f; if (Fits(0f, middle, focused: true)) low = middle; else high = middle; }
+                return composer ? low : 0f;
+            }
+            var activityLow = minimumActivity; var activityHigh = 2f;
+            for (var step = 0; step < 40; step++) { var middle = (activityLow + activityHigh) / 2f; if (Fits(middle, minimumComposer)) activityLow = middle; else activityHigh = middle; }
+            return composer ? minimumComposer : activityLow;
         }
     }
 }
