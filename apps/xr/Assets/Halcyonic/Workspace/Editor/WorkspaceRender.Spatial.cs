@@ -173,6 +173,27 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         failures.Add("spatial: actual visible route refused " + action);
                         Debug.LogError("Halcyonic: spatial route refused action=" + action + "; " + director.WorkspaceControlsStateForRender);
+                        var actualPlane = director.Plane;
+                        var occupied = targets.Select(target => WorkspaceLayout.InView(target, actualPlane.Eyes)).ToArray();
+                        var direction = actualPlane.Direction;
+                        var composition = actualPlane.Composition;
+                        var budget = director.PageHeight(1, false, true);
+                        Debug.LogError("Halcyonic: spatial first-route geometry; page-height=" + budget
+                            + ", direction=" + direction.Yaw + "/" + direction.Elevation
+                            + ", occupied-count=" + occupied.Length
+                            + (composition == null ? ", composition=none" : ", composition=" + composition.Width + "/" + composition.Height
+                                + ", size=" + composition.Size.Distance + "/" + composition.Size.HalfWidth + "/" + composition.Size.HalfHeight
+                                + ", inside=" + MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
+                                + ", readable=" + MenuPage.Readable(composition)
+                                + ", clears=" + WorkspacePlacement.Clears(direction, occupied, composition.Size)));
+                        // Fixture stage is bounded. Numeric geometry only: never task or instruction text.
+                        for (var body = 0; body < Math.Min(occupied.Length, 8); body++)
+                        {
+                            var measured = occupied[body];
+                            Debug.LogError("Halcyonic: spatial first-route body=" + body + ", yaw=" + measured.Yaw
+                                + ", elevation=" + measured.Elevation + ", radius=" + measured.Radius
+                                + ", lowest=" + measured.Lowest + ", half-width=" + measured.HalfWidth);
+                        }
                         // A required positive route is a prerequisite, not an expected refusal.
                         // Stop here so unavailable pages cannot conceal the first failure behind
                         // a later missing Move target. Negative authority checks invoke directly.
