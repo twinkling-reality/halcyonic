@@ -107,6 +107,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var mark in director.Plane.SelectedMarks)
                         Require(views.Count(view => view.ProvenanceLabel.gameObject.activeInHierarchy && view.ProvenanceLabel.text.Contains(mark.Word)) == 1,
                             name + ": actual selected provenance is missing or duplicated: " + mark.Word);
+                    foreach (var view in views.Where(view => !view.PassiveActivity))
+                    {
+                        Require(view.Footer.Fits, name + ": complete composer/reader actions do not fit their actual row");
+                        foreach (var (_, button) in view.Footer.Shown)
+                        foreach (var x in new[] { -.5f, .5f }) foreach (var y in new[] { -.5f, .5f })
+                        {
+                            var world = button.transform.TransformPoint(new Vector3(button.Size.x * x, button.Size.y * y, 0f));
+                            var within = view.ReadingSurface.transform.InverseTransformPoint(world);
+                            Require(Mathf.Abs(within.x) <= .5001f && Mathf.Abs(within.y) <= .5001f, name + ": actual action escaped its allocated opaque reading object");
+                        }
+                    }
                     failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
                     failures.AddRange(GlazeChecks.TargetsLargeEnough(views.SelectMany(view => view.Targets).Concat(director.Plane.Context.Targets), eyes, name));
                     var image = Render(camera, target);
