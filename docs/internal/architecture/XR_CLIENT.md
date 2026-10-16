@@ -1477,6 +1477,13 @@ launch/return, process recreation and current-frame action behavior need separat
     the person has not chosen the virtual space), what is offered (room access again, or space
     setup where it would help and the headset can run it), and one short line that says where
     the agents are and why.
+  - `RoomPassthrough` starts, follows and stops passthrough through the room view's device side
+    (`PassthroughView`), and owns the boundary (2026-10-16). In a development build the person may
+    hide the boundary in Settings, Your space, for the session; it is asked hidden only while
+    passthrough runs, its layer shows and the app has focus and is not paused. Stop, every
+    unavailable path, pause, focus loss, quit and Show boundary each ask for it back directly, and
+    only then does passthrough go off; stopping clears the choice. The Boundary row says Hidden only
+    after the headset reported it ([boundary-visibility.md](../validation/boundary-visibility.md)).
 - **The sound's decisions** (under "Sound" below): `GlazeSynthesizer` renders every cue of the
   Glaze direction to mono samples, the soundbook page's synthesis ported line by line, and
   `SoundCueSelector` chooses which cue plays, on whose note, from where and when, from what each

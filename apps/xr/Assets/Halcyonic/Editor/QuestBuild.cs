@@ -36,6 +36,17 @@ namespace Halcyonic.XR.Editor
                     Fail($"Halcyonic: the release build's glance check finds none of {string.Join("; ", missing)} in {DevelopmentApkPath}, which carries the glance, so it could miss them in a release.");
                     return;
                 }
+                // The same positive control for the boundary: the development build asks for it, never as a boundaryless app.
+                if (!MetaDevelopmentTools.ManifestAsks(DevelopmentApkPath, BoundaryInDevelopmentBuilds.Permission))
+                {
+                    Fail($"Halcyonic: {DevelopmentApkPath} doesn't ask for {BoundaryInDevelopmentBuilds.Permission}, so it can't hide the boundary and the release check could miss it.");
+                    return;
+                }
+                if (MetaDevelopmentTools.ManifestAsks(DevelopmentApkPath, BoundaryInDevelopmentBuilds.BoundarylessFeature))
+                {
+                    Fail($"Halcyonic: {DevelopmentApkPath} declares {BoundaryInDevelopmentBuilds.BoundarylessFeature}; Halcyonic has an immersive part and never declares it.");
+                    return;
+                }
             }
             Finish(report.summary);
         }
@@ -56,8 +67,8 @@ namespace Halcyonic.XR.Editor
         /// <summary>
         /// Builds without the development option, with DevAgentSettings.asset moved out of Resources
         /// and the version code from <see cref="ReleaseVersionCode.Variable"/> when it is set, then
-        /// checks the APK for Meta's development tools, the microphone permission, the glance spike and
-        /// the Glasses device identifier, and deletes it if any remains.
+        /// checks the APK for Meta's development tools, the microphone permission, the glance spike, the
+        /// boundary permission and the Glasses device identifier, and deletes it if any remains.
         /// </summary>
         [MenuItem("Halcyonic/Build Quest Release APK")]
         public static void BuildReleaseApk()
@@ -103,6 +114,13 @@ namespace Halcyonic.XR.Editor
                     Fail($"Halcyonic: deleted {ReleaseApkPath}, which carries the glance spike, for development builds only: {string.Join("; ", glance)}.");
                     return;
                 }
+                foreach (var boundary in new[] { BoundaryInDevelopmentBuilds.Permission, BoundaryInDevelopmentBuilds.BoundarylessFeature })
+                {
+                    if (!MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, boundary)) continue;
+                    File.Delete(ReleaseApkPath);
+                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which asks for {boundary}: only development builds may hide the boundary.");
+                    return;
+                }
                 if (MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, GlassesDevice))
                 {
                     File.Delete(ReleaseApkPath);
@@ -119,6 +137,8 @@ namespace Halcyonic.XR.Editor
             EditorUserBuildSettings.buildAppBundle = false;
             // The glance spike goes only into development builds made here (GlanceInDevelopmentBuilds).
             GlanceInDevelopmentBuilds.Include = (options & BuildOptions.Development) != 0;
+            // So may hiding the boundary while the room shows (BoundaryInDevelopmentBuilds).
+            BoundaryInDevelopmentBuilds.Include = GlanceInDevelopmentBuilds.Include;
             try
             {
                 return BuildPipeline.BuildPlayer(new BuildPlayerOptions
@@ -133,6 +153,7 @@ namespace Halcyonic.XR.Editor
             finally
             {
                 GlanceInDevelopmentBuilds.Include = false;
+                BoundaryInDevelopmentBuilds.Include = false;
             }
         }
 

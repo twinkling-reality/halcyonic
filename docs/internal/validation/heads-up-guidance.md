@@ -66,6 +66,11 @@
 - Halcyonic keeps the boundary on: `boundaryVisibilitySupport` is off in
   `OculusProjectConfig.asset`, and the stage scene does not suppress it. Walking with Halcyonic
   therefore needs a Roomscale boundary.
+- Amended 2026-10-16: a development build may hide the boundary while the room shows, only when the
+  person chooses it in Settings for that session, and asks for it back before passthrough stops, on
+  pause, focus loss and quit ([boundary-visibility.md](boundary-visibility.md)). The setting stays
+  off in `OculusProjectConfig.asset`; release builds keep the boundary on, and walking still needs a
+  Roomscale boundary.
 
 ### Outdoors
 

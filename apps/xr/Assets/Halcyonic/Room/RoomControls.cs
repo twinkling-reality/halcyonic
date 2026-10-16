@@ -30,6 +30,8 @@ namespace Halcyonic.XR.Room
         public RoomOffer Offer => placement.Offer;
         public bool AgentsEnabled => director != null && director.Presentation.AgentsEnabled;
         public bool ShelfPlaced => placement.Preferred.HasValue;
+        public BoundaryNow? Boundary => placement.Boundary;
+        public void ToggleBoundary() { if (!FocusGuard.InputSuspended) placement.ToggleBoundary(); }
         public void Present() { }
         public void SwitchSpace()
         {
