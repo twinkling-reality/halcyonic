@@ -228,14 +228,35 @@ namespace Halcyonic.XR.Workspace.Editor
                     JournalId = ResultsJournal, ProjectId = ResultsProject, WorkstreamId = ResultsTask, ExecutionId = ResultsRun, Section = WorkspaceSection.Activity,
                     Request = new WorkspaceRequestContinuation { Text = "Keep the exact request words", Spoken = true, Part = 2,
                         RequestId = "0192f1a0-0000-7000-8000-000000000105", PendingCommandId = "550e8400-e29b-41d4-a716-446655440000" } };
-                if (retained == null || !retained.RestoreContinuation(context)) failures.Add(name + ": retained request fixture could not restore its exact draft");
+                if (retained == null || !retained.RestoreContinuation(context))
+                { failures.Add(name + ": retained request fixture could not restore its exact draft"); return failures; }
                 context.Instruction = new WorkspaceInstructionDraft { Text = string.Join(" ", Enumerable.Repeat("Preserve these ordinary instruction words while reading the recorded output.", 20)), Spoken = true, Part = 2 };
-                if (retained == null || !retained.RestoreContinuation(context)) failures.Add(name + ": ordinary instruction fixture could not restore its exact draft");
+                if (!retained.RestoreContinuation(context))
+                { failures.Add(name + ": ordinary instruction fixture could not restore its exact draft"); return failures; }
                 Shot("retained ordinary instruction");
-                var instructionBefore = retained?.ContinuationDraft();
-                Press(FileScreens.OpenResults); Shot("list");
-                if (director.Navigator.Beside is not TaskResultsColumn) failures.Add(name + ": Activity did not open the production Results column");
-                Press(TaskResultsColumn.Read, ResultsEvent); Shot("output first part");
+                var instructionBefore = retained.ContinuationDraft();
+                if (instructionBefore == null)
+                { failures.Add(name + ": restored ordinary instruction had no retained draft"); return failures; }
+                // The spatial composer deliberately has no duplicate Results route. Hide preserves
+                // its scoped words/page; only the full Activity route opens the actual reader.
+                if (spatialWorkspace)
+                {
+                    if (!Press(FileScreens.HideInstruction)) return failures;
+                    Shot("hidden ordinary instruction before results");
+                    var hidden = retained.ContinuationDraft();
+                    if (!retained.Screen.Instruction.Hidden || hidden == null || hidden.Text != instructionBefore.Text
+                        || hidden.Spoken != instructionBefore.Spoken || hidden.Part != instructionBefore.Part)
+                    { failures.Add(name + ": Hide composer changed its exact ordinary draft"); return failures; }
+                }
+                if (!TaskRoute(FileScreens.OpenResults)) return failures;
+                Shot("list");
+                if (director.Navigator.Beside is not TaskResultsColumn)
+                { failures.Add(name + ": Activity did not open the production Results column"); return failures; }
+                if (!Press(TaskResultsColumn.Read, ResultsEvent)) return failures;
+                Shot("output first part");
+                if (director.Navigator.Beside is not TaskResultsColumn drawingReader
+                    || !ReferenceEquals(director.Plane.Showing(MenuColumn.File), drawingReader.Frame))
+                { failures.Add(name + ": drawn output did not belong to the active Results reader"); return failures; }
                 string DrawnBody()
                 {
                     var labels = director.Plane.GetComponentsInChildren<TMP_Text>(false).Where(label => label.name == "Line 0 words").ToList();
@@ -349,8 +370,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     || retained.ContinuationDraft()?.Part != instructionBefore?.Part) failures.Add(name + ": Results changed its original file, either draft or pending identity");
                 director.OpenFile(OtherResultsTask); Draw(); director.OpenFile(ResultsTask); Draw();
                 if (!ReferenceEquals(director.Navigator.Beside, retained)) failures.Add(name + ": explicit Back to task was undone by reselection");
-                Press(FileScreens.CancelInstruction);
-                TaskRoute(FileScreens.OpenWorkspaceRequest); Shot("request before task switch");
+                // The spatial return is still a hidden ordinary draft. Reopen deliberately before
+                // its explicit Discard draft action; a stale hidden Cancel must do nothing.
+                if (retained?.Screen.Instruction.Hidden == true && !Press(FileScreens.TellIt)) return failures;
+                if (!Press(FileScreens.CancelInstruction)) return failures;
+                if (!TaskRoute(FileScreens.OpenWorkspaceRequest)) return failures;
+                Shot("request before task switch");
                 var retainedRequest = director.Navigator.Beside as WorkspaceRequestColumn;
                 var requestDraft = retainedRequest?.Draft;
                 director.OpenFile(OtherResultsTask); Draw(); director.OpenFile(ResultsTask); Shot("task switch restored request");
