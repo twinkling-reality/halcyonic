@@ -327,3 +327,47 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   (`failed`, `declined`, `interrupted`, or an image generation's other values), it failed.
 - **Not reported:** a spawned agent's own items, which come on a thread of its own that the adapter
   drops, so the adapter does not declare `reports_tool_activity` (EVENTS.md).
+
+## Sandbox builds, process control and approvals (2026-10-16)
+
+- **Method:** the pinned binary (`ad0be20d…3714`) four ways, with no model turn:
+  `codex sandbox --permission-profile :workspace`, the CLI's runner for the seatbelt a
+  `workspace-write` thread gets, on disposable repositories, processes and a loopback listener; the
+  adapter with the fake provider (`testing/fake-provider.ts`) and its defaults, `workspace-write`
+  and `on-request`; a bare app-server client recording every JSON-RPC message of the same scripted
+  turns; and the journal of an isolated local rehearsal in which `ollama/qwen3.6:35b-a3b-nvfp4` ran
+  .NET builds under `workspace-write`. Checked on Darwin 25.6.0.
+- **.NET builds.** MSBuild cannot bind its out-of-process node pipe, a Unix domain socket:
+  `SocketException (13): Permission denied` (MSB1025). A build that needs another node then waits
+  about five minutes and prints `Build FAILED` with 0 errors, and behind a pipe such as `| tail` the
+  command still exits 0. In-process MSBuild works:
+  `dotnet build <project> --no-restore -m:1 -nodeReuse:false -p:UseSharedCompilation=false --disable-build-servers`
+  built `apps/xr/dotnet/Halcyonic.Client.Tests` in about 6 s, after a restore outside the sandbox.
+- **Tests do not run.** vstest binds a loopback TCP listener, which the sandbox refuses
+  (`TcpListener.Start`, `SocketException (13)`), so `dotnet test` aborts. Running tests takes an
+  approved escalation.
+- **Process control.** `kill`, with signal 0 or TERM, is refused for a process outside the sandbox
+  (`operation not permitted`), and `ps`, `pgrep` and `pkill` cannot list processes. `lsof` still
+  resolves a listener's pid outside the sandbox, so a command like `kill -9 $(lsof -ti tcp:<port>)`
+  finds its target and is refused at `kill`.
+- **Git in a linked worktree.** The worktree's Git directory sits in the main repository's `.git`,
+  outside the writable roots, so commands that write the index fail:
+  `git restore --source=<rev> --worktree -- <path>` and `git checkout <rev> -- <path>` exit 128 with
+  `index.lock: Operation not permitted`. `git cat-file blob <rev>:<path> > <path>` and
+  `git diff <rev> -- <path> | git apply -R` write only the working file, and work.
+- **Approvals.** An escalated command (`exec_command` with
+  `sandbox_permissions: "require_escalated"`) asks with `item/commandExecution/requestApproval` and,
+  once accepted, runs outside the sandbox: it wrote outside the workspace. A plain command that Codex
+  judges dangerous (`rm -rf`) asks the same way and, once accepted, still runs inside the sandbox: it
+  could not delete outside. The two requests carry the same fields except `reason`, the model's
+  justification, which only the escalation sent; both offered `accept`,
+  `acceptWithExecpolicyAmendment` and `cancel`, and no `decline`. Halcyonic shows both as the command
+  and its folder, so the person cannot tell which approval lifts the sandbox.
+- **Commands Codex does not report.** A plain command the sandbox refused produced no
+  `commandExecution` item at all, and an accepted dangerous command that the sandbox then refused
+  produced `item/started` and never `item/completed`; the model still received the output.
+  Halcyonic cannot journal what Codex does not send, so a missing tool event does not mean that
+  nothing ran.
+- **Not verified:** whether a sandboxed command can signal another sandboxed process; whether a real
+  model always sends `reason` with an escalation and never with a plain command; other macOS
+  versions.
