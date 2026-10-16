@@ -125,7 +125,7 @@ namespace Halcyonic.XR.Workspace
             bool Fits(float total)
             {
                 var heights = split
-                    ? new[] { header + MenuPage.Content(total * 0.55f), MenuFrameView.IndependentSubjectHeightOfRows(1, false) + MenuPage.Content(total * 0.45f) }
+                    ? new[] { header + MenuPage.Content(total * 0.55f), FooterView.Height + MenuPage.TargetGap + MenuPage.Content(total * 0.45f) }
                     : new[] { header + section + MenuPage.Content(total) };
                 var stacked = heights.Sum() + (heights.Length - 1) * PlaneComposition.Units(PlaneComposition.PartGapDegrees);
                 var envelope = MenuPlane.IndependentEnvelope(UnityEngine.Mathf.Max(leftHeight, stacked));
