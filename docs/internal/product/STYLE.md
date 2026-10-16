@@ -268,11 +268,14 @@ Three sizes on the plane (`Glaze.Menu`):
   questions, tool output or action labels. Reusing the label resets identity mode; its explicit prose
   treatment below, where eligible, is separate from identity.
   Host-owned context establishes what the name identifies; the name cannot supply or alter it.
-- **Independent workspace prose candidate:** the ordinary instruction input and agent prose already
-  carrying an `Agent says` or `Subagent says` chip use upright Liberation Sans body text. They retain
+- **Independent workspace prose candidate:** the ordinary instruction input and agent prose attributed
+  whole, every run theirs beside an `Agent says` or `Subagent says` chip and Halcyonic's quote mark,
+  use upright Liberation Sans body text. They retain
   literal escaping, rich-text parsing disabled, exact outside-text ranges and their source chip;
   upright never means observed or host-authored. Their decorative token/block grounds are omitted
   because the input label or reported-source chip supplies the context on an opaque reading face.
+  A mixed line, Halcyonic's words leading into theirs, keeps its lean, ground and grounded colour
+  beside the chip, so the chip is never the only mark.
   Tool output, decisions, names and unattributed data retain their existing treatment. This is an
   explicit rendering mode, not named identity; every pooled ordinary/identity Set resets it, and each
   page line reapplies eligibility. Legacy consumers are unchanged. Focused-editor mode is a separate

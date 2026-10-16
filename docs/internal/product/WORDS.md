@@ -7,7 +7,10 @@ tests hold them to these rules and the Unity layer only lays them out
 ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
 Text from outside (titles, agent messages, tool output, server errors) is not ours: it shows as
 written, by `LabelText`'s rule, and only where a person needs it, and it leans, on a ground only
-Halcyonic draws where it meets our words (the owner, 2026-10-08; ADR 0026).
+Halcyonic draws where it meets our words (the owner, 2026-10-08; ADR 0026). Amended 2026-10-16 for
+the independent workspace candidate (ADR 0026): agent prose attributed whole, by its chip and
+Halcyonic's quote mark, and the person's instruction in its input stand upright; a line mixing our
+words with theirs keeps the lean and the ground.
 
 ## Starting a task
 
@@ -50,6 +53,11 @@ can do next.
    Halcyonic didn't write, a title, a name, a label, a source's sentence and the person's own typed or
    heard words included (lane V's ruling, 2026-10-08): it leans, never quoted, and where we can word it
    so it comes after our words. Applied by lane W's batch B (the table "Words from outside" below).
+   Amended 2026-10-16 for the independent workspace candidate (ADR 0026): an agent's words attributed
+   whole, every run theirs beside the chip and Halcyonic's quote mark, stand upright, and so does the
+   person's ordinary instruction in its input, whose label says whose words they are. A line where
+   Halcyonic's words lead into theirs, as "Failing: {x}", keeps its lean and ground beside the chip,
+   so the chip is never the only mark.
 9. **No exclamation marks, emoji, em dashes or capitals for emphasis.** Numerals for numbers.
 10. **Practice, Demo, Recorded and Last known** are said wherever they apply, beside a state and
     never inside its word.
@@ -109,7 +117,7 @@ Halcyonic's own words go without one. The words below were settled by the coordi
 
 | The line is | Chip | Instead of |
 | --- | --- | --- |
-| The agent's own words, whatever the source tagged them, and what it says is left: beside the chip, "Still to do: {x}", "Failing: {x}", "In progress: {x}", "To do: {x}", its words leaning, never quoted (2026-10-08); where no chip shows, "Failing, the agent says: “…”" and the like (2026-10-07) | Agent says | |
+| The agent's own words, whatever the source tagged them, and what it says is left: beside the chip, "Still to do: {x}", "Failing: {x}", "In progress: {x}", "To do: {x}", its words leaning, never quoted (2026-10-08; these mixed lines keep the lean on the independent candidate too, 2026-10-16); where no chip shows, "Failing, the agent says: “…”" and the like (2026-10-07) | Agent says | |
 | A subagent's own words | Subagent says | |
 | Words whose author the source does not know | Author unknown | Quoted |
 | A model's account of the work, after it | Model explains | Explanation |
