@@ -13,7 +13,7 @@ namespace Halcyonic.XR.UI
     public sealed class WorkspaceContextView : MonoBehaviour
     {
         public const float WidthDegrees = 18f;
-        private Surface face = null!;
+        private Surface face = null!, navigationRule = null!;
         private TextMeshPro heading = null!, connection = null!;
         private readonly List<GlazeButton> projects = new List<GlazeButton>();
         private readonly List<string> projectIds = new List<string>();
@@ -39,6 +39,7 @@ namespace Halcyonic.XR.UI
             var root = new GameObject("Project and work context"); root.transform.SetParent(parent, false);
             var view = root.AddComponent<WorkspaceContextView>();
             view.face = Surface.Create(root.transform, "Context reading surface", 16);
+            view.navigationRule = Surface.Create(root.transform, "Project navigation boundary", 17);
             view.heading = GlazeText.Create(root.transform, "Projects heading", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 23);
             view.connection = GlazeText.Create(root.transform, "Current connection state", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 23);
             view.more = view.Button("More projects"); view.tasks = view.Button("Tasks"); view.workspace = view.Button("Workspace");
@@ -50,9 +51,11 @@ namespace Halcyonic.XR.UI
 
         private GlazeButton Button(string name)
         {
-            var button = GlazeButton.Create(transform, name, ButtonRole.Navigation, order: 23);
+            var button = GlazeButton.Create(transform, name, ButtonRole.Row, order: 23);
             button.Accepting = () => Accepting();
-            button.BoundedPrompt = true;
+            // Quiet rows retain the full measured target; only the actual selected project
+            // and pointer interaction draw a boundary on the opaque shared reading face.
+            button.CoatedSelection = true;
             return button;
         }
 
@@ -95,7 +98,7 @@ namespace Halcyonic.XR.UI
                 var project = shown[index]; projectIds[index] = project.ProjectId; button.On = project.ProjectId == selectedProject;
                 var height = Mathf.Max(U(Glaze.TargetDegrees), 2f * GlazeText.LineHeight(button.Label) + U(0.75f));
                 button.ShowArea(new Vector2(0f, y - height / 2f), new Vector2(inner, height));
-                button.Label.gameObject.SetActive(true); button.Label.rectTransform.pivot = new Vector2(0f, 1f);
+                button.Label.gameObject.SetActive(true); button.Label.alignment = TextAlignmentOptions.TopLeft; button.Label.rectTransform.pivot = new Vector2(0f, 1f);
                 GlazeRuns.Of(button.Label).SetIdentity(project.Name, text => GlazeText.Lay(button.Label, inner - U(1f), int.MaxValue).Lines <= 2);
                 GlazeText.Lay(button.Label, inner - U(1f), 2);
                 button.Label.transform.localPosition = new Vector3(-inner / 2f + U(0.5f), GlazeText.LineHeight(button.Label), -0.001f);
@@ -103,11 +106,23 @@ namespace Halcyonic.XR.UI
             }
             void Control(GlazeButton button, string text)
             {
-                button.Show(text, new Vector2(0f, y - GlazeButton.HeightOf(false) / 2f), inner);
+                button.ShowArea(new Vector2(0f, y - GlazeButton.HeightOf(false) / 2f), new Vector2(inner, GlazeButton.HeightOf(false)));
+                button.Label.gameObject.SetActive(true);
+                button.Label.alignment = TextAlignmentOptions.Left;
+                button.Label.rectTransform.pivot = new Vector2(0f, 0.5f);
+                button.Label.color = GlazeTokens.TextSecondary;
+                GlazeText.SetLiteral(button.Label, text);
+                GlazeText.Lay(button.Label, inner - U(1f), 1);
+                button.Label.transform.localPosition = new Vector3(-inner / 2f + U(0.5f), 0f, -0.001f);
                 y -= GlazeButton.HeightOf(false) + gap;
             }
             more.gameObject.SetActive(choices.Count > 3);
             if (choices.Count > 3) Control(more, "More projects");
+            // Separate local navigation from the project selection without adding another
+            // card, changing target dimensions, or consuming another control row.
+            navigationRule.Draw(new Vector2(inner - U(1f), U(Glaze.Menu.HairlineDegrees)), 0f,
+                GlazeTokens.ColorOf(Glaze.Palette.EdgeLight, Glaze.Menu.HairlineOpacity));
+            navigationRule.transform.localPosition = new Vector3(0f, y + gap / 2f, -0.0005f);
             Control(tasks, "Tasks"); Control(workspace, "Workspace");
             Size = new Vector2(width, -y + padding);
             var offset = new Vector3(0f, Size.y / 2f - padding, 0f);
