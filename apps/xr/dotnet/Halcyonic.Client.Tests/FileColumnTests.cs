@@ -337,6 +337,39 @@ public class FileColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    [Test]
+    public void PassiveActivityKeepsTheActualTaskBadgeAndRefreshesLastKnownState()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(live: host.Live), WorkspaceAction.Instruct));
+        column.ConfigureActivityComposer(() => new RowBudget(8), () => new RowBudget(8));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Keep working carefully");
+        static object Badge(StateBadge badge) => (badge.State, badge.Word, badge.Tone, badge.Icon, badge.Fill, badge.Edge,
+            badge.Turns, badge.Breathes, badge.Count, badge.LastKnown);
+        var live = column.ActivityContextFrame!;
+        Assert.That(Badge(live.Pill!), Is.EqualTo(Badge(StateLanguage.BadgeOf(column.Now!.Character))));
+        Assert.That(live.Pill!.LastKnown, Is.False);
+        host.Live = false;
+        host.Wait(1);
+        column.Tick();
+        var disconnected = column.ActivityContextFrame!;
+        Assert.That(disconnected, Is.Not.SameAs(live), "badge-only changes replace the passive frame");
+        Assert.That(Badge(disconnected.Pill!), Is.EqualTo(Badge(StateLanguage.BadgeOf(column.Now!.Character))));
+        Assert.That((disconnected.Pill!.LastKnown, disconnected.Pill.Turns, disconnected.Pill.Breathes), Is.EqualTo((true, false, false)));
+        host.Live = true;
+        work.Change(execution => execution.Status = ExecutionStatus.Completed, WorkstreamStatus.Completed);
+        host.Wait(1);
+        column.Tick();
+        Assert.That(column.ActivityContextFrame, Is.Not.SameAs(disconnected));
+        Assert.That(Badge(column.ActivityContextFrame!.Pill!), Is.EqualTo(Badge(StateLanguage.BadgeOf(column.Now!.Character))));
+        Assert.That(column.ActivityContextFrame.Pill!.State, Is.Not.EqualTo(live.Pill.State));
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Keep working carefully"));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     private FileColumn Column(FileMenuHost host, Func<WorkspacePresentation?> present, IReadOnlyList<PresetInstruction>? recorded = null) =>
         new(host, present, factory, () => null, _ => recorded, () => "");
 

@@ -960,7 +960,10 @@ namespace Halcyonic.Client
             if (before == null || after == null) return before == after;
             bool Words(LineWords? left, LineWords? right) => left == null || right == null ? left == right
                 : left.Runs.Select(run => (run.Text, run.Theirs)).SequenceEqual(right.Runs.Select(run => (run.Text, run.Theirs)));
-            return Words(before.SubjectRuns, after.SubjectRuns) && before.Source == after.Source
+            bool Badge(StateBadge? left, StateBadge? right) => left == null || right == null ? left == right
+                : (left.State, left.Word, left.Tone, left.Icon, left.Fill, left.Edge, left.Turns, left.Breathes, left.Count, left.LastKnown)
+                    == (right.State, right.Word, right.Tone, right.Icon, right.Fill, right.Edge, right.Turns, right.Breathes, right.Count, right.LastKnown);
+            return Words(before.SubjectRuns, after.SubjectRuns) && before.Source == after.Source && Badge(before.Pill, after.Pill)
                 && before.Lines.Count == after.Lines.Count && before.Lines.Zip(after.Lines, (left, right) =>
                     Words(left.Runs, right.Runs) && Words(left.FactRuns, right.FactRuns)
                     && (left.Icon, left.Tone, left.Chip, left.Rows, left.FromRow, left.Waits, left.WordsAreData, left.Claim, left.FactIsData)
