@@ -2755,7 +2755,13 @@ opens its existing task picker without retargeting retained drafts.
 `MenuPlane` draws an optional passive Activity view separately from the current ordinary editor.
 The passive context chooses the newest recorded entries that fit its measured budget, preserves
 their chronological order and source attribution, and labels the result Recent activity. It does
-not alter the selected page of the full Activity history. The independent ordinary editor omits
+not alter the selected page of the full Activity history. An agent's report wraps to the rows the
+file measured for it (`FileScreen.ActivityRows`, beside its time and Agent says chip), up to four,
+as far as the budget and the page's row count allow, but never takes the row the entry before it
+needs, so the newest observed outcome is not pushed out; observed command outcomes stay single
+lines of their own. On the full Activity page a report takes its measured rows, and a longer one
+continues in parts (`fromRow`, exactly those rows of its words wrapped whole) across the page's own
+pager, every part beside the same chip and time so the parts wrap alike. The independent ordinary editor omits
 its duplicate results route and, when passive Activity is shown, its repeated subject heading.
 The budget first reserves the exact instruction labels, reason, pager and three input rows, plus
 two recent Activity entries. Remaining capacity goes to Activity. If that pair cannot fit the

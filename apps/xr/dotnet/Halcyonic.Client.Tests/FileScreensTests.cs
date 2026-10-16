@@ -521,4 +521,72 @@ public class FileScreensTests
         var frame = Screen(new FileScreen { Section = FileSection.Checks, Notice = "Nothing was sent: you didn't confirm in time. Press it again." });
         Assert.That(frame.Lines.Last().Words, Does.StartWith("Nothing was sent"));
     }
+
+    /// <summary>
+    /// A long agent report reads whole on the Activity page: in parts a page holds, each exactly its rows of
+    /// the words wrapped whole beside the same chip and time, so the parts wrap alike; an observed outcome
+    /// keeps its own line.
+    /// </summary>
+    [Test]
+    public void ActivityCarriesALongReportWholeInParts()
+    {
+        var present = Running().Present();
+        var report = string.Join(" ", Enumerable.Repeat("The rate limiter shares one counter per address.", 6));
+        var entries = new[]
+        {
+            new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Message, report, true),
+            new ActivityEntry(2, "2026-09-26T09:00:02.000Z", ActivityKind.Tool, "Command failed: node --test (exit 1)", false),
+        };
+        var workspace = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime,
+            present.Actions, present.Actions.Where(present.RequiresConfirmation).ToList(), present.Commands, entries);
+        var screen = new FileScreen { Section = FileSection.Activity, ActivityRows = new Dictionary<long, int> { [1] = 7 } };
+        var steering = new WorkspaceSteering(factory);
+        var parts = new List<PageLine>();
+        var outcomes = new List<PageLine>();
+        FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
+        var pages = screen.Pages;
+        for (var page = 0; page < pages; page++)
+        {
+            var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
+            parts.AddRange(frame.Lines.Where(line => line.Chip == "Agent says"));
+            outcomes.AddRange(frame.Lines.Where(line => line.Words.StartsWith("Command failed")));
+            if (page + 1 < pages) screen.NextPage();
+        }
+        Assert.That(parts.Select(line => (line.FromRow, line.Rows)), Is.EqualTo(new (int?, int)[] { (0, 3), (3, 3), (6, 1) }),
+            "every measured row of the report, in parts a 4-row page holds beside its pager");
+        Assert.That(parts.All(line => line.Words == report && line.Runs.AllTheirs && line.Fact == "09:00"), Is.True,
+            "each part keeps the whole words, its chip and its time, so the parts wrap alike");
+        Assert.That(outcomes.Select(line => (line.Rows, line.Chip)), Is.EqualTo(new[] { (1, (string?)null) }), "the observed outcome keeps its own line");
+    }
+
+    /// <summary>
+    /// Beside the composer, an agent's report wraps to its measured rows where the room allows, up to four,
+    /// and never pushes out the observed outcome beside it; with a row apiece, both stay single lines.
+    /// </summary>
+    [Test]
+    public void PassiveActivityWrapsAReportBesideItsObservedOutcome()
+    {
+        var report = string.Join(" ", Enumerable.Repeat("The rate limiter shares one counter per address.", 3));
+        FileColumn Composing(int activityRows, params ActivityEntry[] entries)
+        {
+            var present = Offering(Running().Present(), WorkspaceAction.Instruct);
+            var current = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime, present.Actions,
+                present.Actions.Where(present.RequiresConfirmation).ToList(), present.Commands, entries);
+            var column = new FileColumn(new FileMenuHost(), () => current, factory, () => null, _ => null, () => "");
+            column.ConfigureActivityComposer(() => new RowBudget(activityRows), () => new RowBudget(8));
+            column.HoldStarted(FileScreens.HoldToTalk);
+            column.Heard("Carry on carefully");
+            return column;
+        }
+        var reported = new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Message, report, true);
+        var failed = new ActivityEntry(2, "2026-09-26T09:00:02.000Z", ActivityKind.Tool, "Command failed: node --test (exit 1)", false);
+        var lines = Composing(8, reported, failed).ActivityContextFrame!.Lines;
+        Assert.That(lines.Select(line => (line.Words, line.Rows, line.Chip)), Is.EqualTo(new[]
+            { (report, 3, (string?)"Agent says"), ("Command failed: node --test (exit 1)", 1, (string?)null) }),
+            "the report takes the rows the room leaves after the newer outcome");
+        var newest = Composing(8, failed, new ActivityEntry(3, "2026-09-26T09:00:03.000Z", ActivityKind.Message, report, true)).ActivityContextFrame!.Lines;
+        Assert.That(newest.Select(line => line.Rows), Is.EqualTo(new[] { 1, 3 }), "a newest report leaves a row for the outcome before it");
+        var tight = Composing(2, reported, failed).ActivityContextFrame!.Lines;
+        Assert.That(tight.Select(line => line.Rows), Is.EqualTo(new[] { 1, 1 }), "with a row apiece both stay, the report cut to its first row");
+    }
 }
