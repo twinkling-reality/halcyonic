@@ -1578,29 +1578,58 @@ namespace Halcyonic.XR.Workspace.Editor
             var measured = ViewField.Current ?? MenuPage.Quest3S;
             var field = new ViewField(measured.Left - ViewField.EdgeMarginDegrees, measured.Right - ViewField.EdgeMarginDegrees,
                 measured.Up - ViewField.EdgeMarginDegrees, measured.Down - ViewField.EdgeMarginDegrees);
-            foreach (var turn in new[] { -35f, 35f, -20f, 20f, 0f })
-            foreach (var distance in new[] { 2f, 1.8f, 1.5f, 1.2f })
-            foreach (var drop in additionalFrame.HasValue ? new[] { 0.45f, 0.6f, 0.75f, 0.9f, 1.05f, 1.2f } : new[] { 0.45f, 0.6f, 0.75f, 0.9f })
+            var attempts = 0; var fieldFailures = 0; var workspaceFailures = 0; var additionalFailures = 0;
+            var rejectedKinds = new HashSet<(bool Field, bool Workspace, bool Additional)>();
+            var draft = new AgentShelfDraft
             {
-                var rotation = Quaternion.Euler(0f, turn, 0f);
-                var candidate = new Pose(eyes + rotation * Vector3.forward * distance - Vector3.up * drop, rotation);
-                CharacterStage.WriteShelfCorners(candidate, AgentShelfDraft.Width(1), eyes, corners);
-                var fits = corners.All(corner =>
+                Allows = proposed =>
                 {
-                    var point = corner - eyes;
-                    return field.Shows(Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
-                        Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg);
-                });
-                var directions = corners.Select(corner => corner - eyes).Select(point => new Vector2(
-                    Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
-                    Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg)).ToArray();
-                var candidateExtent = new GlazeChecks.Extent("candidate shelf", directions.Min(point => point.x), directions.Max(point => point.x),
-                    directions.Min(point => point.y), directions.Max(point => point.y));
-                var additionalClear = !additionalFrame.HasValue || candidateExtent.Apart(additionalFrame.Value) >= WorkspacePlacement.ClearanceDegrees;
-                if (!accepted.HasValue && fits && plane.ClearsShelf(corners, eyes) && additionalClear) accepted = candidate;
+                    var candidate = new Pose(new Vector3(proposed.Position.X, proposed.Position.Y, proposed.Position.Z), Quaternion.Euler(0f, proposed.Yaw, 0f));
+                    CharacterStage.WriteShelfCorners(candidate, AgentShelfDraft.Width(1), eyes, corners);
+                    var directions = corners.Select(corner => corner - eyes).Select(point => new Vector2(
+                        Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg,
+                        Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg)).ToArray();
+                    var fits = directions.All(point => field.Shows(point.x, point.y));
+                    var candidateExtent = new GlazeChecks.Extent("candidate shelf", directions.Min(point => point.x), directions.Max(point => point.x),
+                        directions.Min(point => point.y), directions.Max(point => point.y));
+                    var workspaceClear = plane.ClearsShelf(corners, eyes);
+                    var additionalClear = !additionalFrame.HasValue || candidateExtent.Apart(additionalFrame.Value) >= WorkspacePlacement.ClearanceDegrees;
+                    if (!fits) fieldFailures++;
+                    if (!workspaceClear) workspaceFailures++;
+                    if (!additionalClear) additionalFailures++;
+                    if ((!fits || !workspaceClear || !additionalClear) && rejectedKinds.Add((fits, workspaceClear, additionalClear)))
+                        Debug.Log($"Halcyonic: {name} candidate rejected yaw={proposed.Yaw:R}; position={proposed.Position}; field={fits}; workspace={workspaceClear}; additional={additionalClear}.");
+                    return fits && workspaceClear && additionalClear;
+                },
+            };
+            // Search only the production draft's supported 0.4–2 m / 0.15–0.9 m-drop region.
+            // The old four-distance grid missed narrow legal gaps, then fabricated a fallback.
+            foreach (var turn in new[] { -40f, 40f, -38f, 38f, -35f, 35f, -32f, 32f, -30f, 30f, -25f, 25f, -20f, 20f, 0f })
+            {
+                if (accepted.HasValue) break;
+                foreach (var distance in new[] { 2f, 1.8f, 1.5f, 1.2f, 1.1f, 1f, 0.9f, 0.8f, 0.6f, 0.4f })
+                {
+                    if (accepted.HasValue) break;
+                    foreach (var drop in new[] { 0.9f, 0.8f, 0.75f, 0.6f, 0.45f, 0.3f, 0.15f })
+                    {
+                        attempts++;
+                        var candidate = eyes + Quaternion.Euler(0f, turn, 0f) * Vector3.forward * distance - Vector3.up * drop;
+                        draft.Begin(new AgentShelfPose(new System.Numerics.Vector3(candidate.x, candidate.y, candidate.z), turn),
+                            new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z));
+                        if (draft.Candidate == null) continue;
+                        if (draft.Apply(proposed =>
+                        {
+                            accepted = new Pose(new Vector3(proposed.Position.X, proposed.Position.Y, proposed.Position.Z), Quaternion.Euler(0f, proposed.Yaw, 0f));
+                            return true;
+                        })) break;
+                    }
+                }
             }
-            if (!accepted.HasValue) failures.Add(name + ": no supported one-agent shelf cleared the actual console and field.");
-            var pose = accepted ?? new Pose(eyes + Vector3.forward * 2f - Vector3.up * 0.45f, Quaternion.identity);
+            Debug.Log($"Halcyonic: {name} measured placement candidates={attempts}; field refusals={fieldFailures}; workspace refusals={workspaceFailures}; additional refusals={additionalFailures}; accepted={accepted.HasValue}.");
+            if (!accepted.HasValue)
+                throw new InvalidOperationException(name + ": no supported one-agent shelf cleared the actual console and field; no character was created.");
+            var pose = accepted.Value;
+            Debug.Log($"Halcyonic: {name} production draft accepted synthetic shelf position={pose.position}; rotation={pose.rotation.eulerAngles}.");
             var holder = new GameObject("Explicitly confirmed optional agent shelf").transform;
             holder.SetParent(root, false);
             holder.SetPositionAndRotation(pose.position, pose.rotation);

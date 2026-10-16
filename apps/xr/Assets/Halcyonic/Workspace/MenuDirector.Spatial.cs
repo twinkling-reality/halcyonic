@@ -128,6 +128,7 @@ namespace Halcyonic.XR.Workspace
                 MenuFrameView.IndependentProvenanceRows(marks, Glaze.Menu.FileColumnDegrees));
             var leftHeight = plane.Context.HeightFor(State?.Projects.Count ?? 0);
             var section = GlazeButton.HeightOf(true);
+            (bool Inside, bool Readable, bool Clear, float Width, float Height) lastFit = default;
             bool Fits(float activity, float instruction, bool focused = false)
             {
                 var heights = split && !focused
@@ -137,8 +138,11 @@ namespace Halcyonic.XR.Workspace
                 var stacked = heights.Sum() + (heights.Length - 1) * PlaneComposition.Units(PlaneComposition.PartGapDegrees);
                 var envelope = MenuPlane.IndependentEnvelope(UnityEngine.Mathf.Max(leftHeight, stacked), header, portrait);
                 var composition = new PlaneComposition(new[] { new PlaneColumn(PlaneComposition.Units(WorkspaceContextView.WidthDegrees) + MenuPlane.PortraitClearance, envelope), new PlaneColumn(width, heights) }, zoom);
-                return MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S)
-                    && MenuPage.Readable(composition) && WorkspacePlacement.Clears(direction, occupied, composition.Size);
+                var inside = MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S);
+                var readable = MenuPage.Readable(composition);
+                var clear = WorkspacePlacement.Clears(direction, occupied, composition.Size);
+                lastFit = (inside, readable, clear, composition.Width, composition.Height);
+                return inside && readable && clear;
             }
             if (!split)
             {
@@ -158,7 +162,7 @@ namespace Halcyonic.XR.Workspace
             var minimumActivity = MenuPage.SourceLine + terms.Words(2) + terms.LineGap;
             var together = Fits(minimumActivity, minimumComposer);
 #if UNITY_EDITOR
-            UnityEngine.Debug.Log($"Halcyonic: independent measured allocation minActivity={minimumActivity:R}; minComposer={minimumComposer:R}; titleHeader={header:R}; pairFits={together}; pairedPager={paired}; textScale={zoom:R}.");
+            UnityEngine.Debug.Log($"Halcyonic: independent measured allocation minActivity={minimumActivity:R}; minComposer={minimumComposer:R}; titleHeader={header:R}; pairFits={together}; inside={lastFit.Inside}; readable={lastFit.Readable}; clear={lastFit.Clear}; width={lastFit.Width:R}; height={lastFit.Height:R}; pairedPager={paired}; textScale={zoom:R}.");
 #endif
             if (owner != null) composerFocus[owner] = !together;
             if (!together)
