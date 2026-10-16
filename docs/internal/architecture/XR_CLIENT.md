@@ -2750,6 +2750,23 @@ are budgeted. Paging keeps the existing 0.4 second drawn-age TurnGuard. Send ins
 whole read-through and the exact current editor frame to draw. Cancel is the same local Close-slot
 exception as the answer editor; it discards this instruction without closing its file.
 
+The spatial consumer can opt into separately measured Activity and ordinary-composer budgets
+through `FileColumn.ConfigureActivityComposer`. While that editor or its instruction review owns
+the authoritative `Frame`, `ActivityContextFrame` carries a passive copy of actual task activity.
+It has no sections, footer actions, input controls or hold targets. Drawing it cannot count as
+reading the editor, a question or an approval. Building its shorter page does not mutate the
+retained Activity page. A change of task, execution or measured geometry invalidates that cached
+context; unrelated confirmations keep the existing single authoritative frame.
+
+In this consumer, **Hide composer** keeps the exact unsent words, spoken origin and part on the
+same execution, revokes keyboard/voice callbacks and ordered reading proof, and returns to the
+task. **Tell it** reopens that draft without automatically opening the keyboard. **Discard draft**
+explicitly clears it. Hidden drafts remain available to the existing continuation exporter, but hidden visibility is
+not serialized: native recovery restores an editor with fresh proof. An execution change retires
+the old draft rather than attaching it to the new run. Consumers that do
+not configure this composition keep the existing focused editor and Cancel behavior. These are
+local editing/navigation changes; they do not change the runtime's send or review policy.
+
 WorkspaceSteering.SendInstruction is the only production instruction entry. It validates the exact
 draft execution before dispatching the existing Typed/Spoken policy helpers. Those older APIs keep
 tested compatibility semantics but have no keyboard/transcription/preset caller in current
@@ -3049,7 +3066,13 @@ Explicit Read results reopening reuses the retained reader only while its copied
 journal, project, task, execution, runtime and API still match. Session/journal renewal drops
 the owning file and reader. Reopening preserves the selected event/file and bounded page, but
 still performs fresh visible reads; compatibility alone grants no read or action authority.
-Selecting a task still opens its task surface, not its last results surface automatically.
+Selecting another task and returning restores that task's last compatible results or workspace
+request surface from retained local instances. Explicit Back to task changes this remembered
+surface. Results navigation remains memory-only; process restoration has no result bookmark.
+Changed scope opens the task afresh, and forgetting its owning file closes its visible reader.
+A disconnected or synchronizing return may retain the last-known navigation selection. It grants
+no read or command authority: the original reader still requires a current matching snapshot,
+session and API, and freshly reads the selected event after reconnection.
 
 Every read binds the original copied connection/journal/project/task/execution, session and API,
 and requires the exact selected visible view, focus, no overlay/drag and no global Minimize or hidden

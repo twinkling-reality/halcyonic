@@ -23,6 +23,7 @@ namespace Halcyonic.XR.Workspace
         private bool renewingViews;
         private bool storageFailed;
         private readonly Dictionary<FileColumn, TaskResultsColumn> resultViews = new Dictionary<FileColumn, TaskResultsColumn>();
+        private readonly HashSet<FileColumn> selectedResults = new HashSet<FileColumn>();
         private int SavedViewCount => (recovery?.Views.Count ?? 0) + viewBindings.Count + (pendingReturn == null ? 0 : 1);
         private bool CurrentSnapshot => !Demonstration && Connected && setup.Session() is RealtimeSession session
             && session.SnapshotCurrent && ReferenceEquals(State, session.State);
@@ -111,8 +112,13 @@ namespace Halcyonic.XR.Workspace
 
         private void ViewDropped(IMenuColumn column)
         {
+            if (column is FileColumn forgotten) selectedResults.Remove(forgotten);
             if (column is FileColumn dropped && resultViews.TryGetValue(dropped, out var results))
-            { results.FocusLeft(); resultViews.Remove(dropped); }
+            {
+                results.FocusLeft();
+                if (ReferenceEquals(navigator.Beside, results)) navigator.CloseBeside();
+                resultViews.Remove(dropped);
+            }
             if (column is not FileColumn file || !viewBindings.TryGetValue(file, out var origin)) return;
             var discard = !renewingViews && CurrentSnapshot && TryKey(out var key) && State?.Journal != null
                 && origin.ConnectionKey == key && origin.JournalId == State.Journal.JournalId && origin.WorkstreamId != null
@@ -133,6 +139,7 @@ namespace Halcyonic.XR.Workspace
             if (record.WorkstreamId == null) { if (select) navigator.RecoverMenu(MenuPlace.Projects, setup.Presentation, reopen); return true; }
             var column = memory.FileFor(record.JournalId, record.WorkstreamId, () => setup.File(Bound(), record.WorkstreamId));
             if (column is not FileColumn file || !file.RestoreContinuation(record)) return false;
+            selectedResults.Remove(file);
             if (viewBindings.ContainsKey(file)) viewBindings.Set(file, Copy(record)); else BindView(file, Copy(record));
             if (select)
             {
@@ -194,6 +201,33 @@ namespace Halcyonic.XR.Workspace
                 && memory.Files.TryGetValue(navigator.BesideTask, out var column) && column is FileColumn file && file.RequestView == request ? file : null)
             ?? resultViews.FirstOrDefault(pair => ReferenceEquals(pair.Value, navigator.Beside) && pair.Key.Now?.Character.WorkstreamId == navigator.BesideTask).Key;
 
+        // Selection is local navigation memory, never persisted read or action authority.
+        private bool RestoreSelectedSurface(FileColumn file, string task)
+        {
+            var record = viewBindings.Captured(file) ?? RecordFor(file);
+            // Last-known scope can retain a place while offline. The reader's original current()
+            // guard still requires a current snapshot before it can read or authorize an action.
+            if (record == null || !TryKey(out var key) || State == null || !WorkspaceContinuity.MatchesCurrent(record, key, State)
+                || record.WorkstreamId != task || record.ExecutionId == null)
+            { selectedResults.Remove(file); return false; }
+            if (selectedResults.Contains(file) && resultViews.TryGetValue(file, out var results))
+            {
+                if (file.Now?.Execution != null && results.CanReuse(record, file.Now.Execution.Runtime.RuntimeId, setup.Api()))
+                {
+                    if (!ReferenceEquals(navigator.Beside, results) || !navigator.TryExpandTask(task)) navigator.ShowBeside(results, task);
+                    ViewsChanged();
+                    return true;
+                }
+                results.FocusLeft();
+                selectedResults.Remove(file);
+            }
+            if (file.Surface != WorkspaceSurface.Request) return false;
+            var request = RequestViewFor(file, record);
+            if (!ReferenceEquals(navigator.Beside, request) || !navigator.TryExpandTask(task)) navigator.ShowBeside(request, task);
+            ViewsChanged();
+            return true;
+        }
+
         private void OpenResults(FileColumn file)
         {
             var record = viewBindings.Captured(file) ?? RecordFor(file);
@@ -204,6 +238,7 @@ namespace Halcyonic.XR.Workspace
                 previous.FocusLeft();
                 if (previous.CanReuse(record, file.Now.Execution.Runtime.RuntimeId, setup.Api()))
                 {
+                    selectedResults.Add(file);
                     navigator.ShowBeside(previous, record.WorkstreamId);
                     ViewsChanged();
                     return;
@@ -217,8 +252,9 @@ namespace Halcyonic.XR.Workspace
                     && navigator.BesideTask == original.WorkstreamId && navigator.ShowsAnything && !navigator.IsCompact && !navigator.BesideAside
                     && !setup.Presentation.Minimized && placement == null && !Away && drag == null
                     && ReferenceEquals(setup.Session(), session) && ReferenceEquals(setup.Api(), api) && IsCurrent(original));
-            view.BackToTask = () => { navigator.ShowBeside(file, original.WorkstreamId); ViewsChanged(); };
+            view.BackToTask = () => { selectedResults.Remove(file); file.Surface = WorkspaceSurface.Task; navigator.ShowBeside(file, original.WorkstreamId); ViewsChanged(); };
             resultViews[file] = view;
+            selectedResults.Add(file);
             navigator.ShowBeside(view, original.WorkstreamId);
             ViewsChanged();
         }
@@ -243,6 +279,7 @@ namespace Halcyonic.XR.Workspace
             var record = viewBindings.Captured(file) ?? RecordFor(file);
             if (record == null || record.WorkstreamId == null || record.ExecutionId == null)
             { ReportLocal("Reconnect to this task before opening its workspace request."); return; }
+            selectedResults.Remove(file);
             file.Surface = WorkspaceSurface.Request;
             record.Surface = WorkspaceSurface.Request;
             navigator.ShowBeside(RequestViewFor(file, record), record.WorkstreamId);
