@@ -74,11 +74,11 @@ namespace Halcyonic.XR.Workspace
             Context.Show(ContextProjects, ContextSelectedProject, ContextBinding!, ConnectionState);
             primary.SpatialWorkspace = true; primary.IndependentSurface = true; primary.PassiveActivity = false;
             primary.OrganizationControls = false; primary.ExternalPlaces = kind == MenuColumn.Menu;
-            primary.HeadingOverride = hasActivity ? "Direction" : null;
+            primary.HeadingOverride = hasActivity ? "" : null;
             primary.TaskPortrait = hasActivity ? null : SelectedPortrait; primary.TaskPortraitHue = SelectedPortraitHue;
             primary.IdentityMarks = hasActivity ? Array.Empty<WorkMark>() : SelectedMarks;
             var degrees = Glaze.Menu.FileColumnDegrees;
-            var subject = hasActivity ? MenuFrameView.IndependentSubjectHeightOfRows(1, false) : primary.SpatialSubjectHeight(panel?.Subject ?? Front!.Subject, degrees, Front!.Pill != null);
+            var subject = hasActivity ? 0f : primary.SpatialSubjectHeight(panel?.Subject ?? Front!.Subject, degrees, Front!.Pill != null);
             if (panel != null) primary.Show(panel, degrees, subject, Front!.Pill != null, Front.Pill, Front);
             else primary.Show(Front!, degrees, subject, !hasActivity && Front!.Pill != null, stateInHeader: hasActivity);
             var primaryHeight = primary.Heights[0];

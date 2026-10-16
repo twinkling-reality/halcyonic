@@ -118,6 +118,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var mark in director.Plane.SelectedMarks)
                         Require(views.Count(view => view.ProvenanceLabel.gameObject.activeInHierarchy && view.ProvenanceLabel.text.Contains(mark.Word)) == 1,
                             name + ": actual selected provenance is missing or duplicated: " + mark.Word);
+                    foreach (var view in views.Where(view => view.HeadingOverride == null && view.Frame?.IdentityKind != null))
+                    {
+                        var title = view.SubjectShown.Title;
+                        Require(GlazeRuns.Of(title).IsNamedIdentity, name + ": named task title acquired outside-prose mesh shear");
+                        Debug.Log($"Halcyonic: {name} actual identity={view.Frame!.IdentityKind}; font={title.font.name}; style={title.fontStyle}; named={GlazeRuns.Of(title).IsNamedIdentity}.");
+                        if (view.ProvenanceLabel.gameObject.activeInHierarchy)
+                        {
+                            var titleBounds = title.GetComponent<Renderer>().bounds;
+                            var marksBounds = view.ProvenanceLabel.GetComponent<Renderer>().bounds;
+                            Require(titleBounds.min.y > marksBounds.max.y, name + ": actual title and provenance overlap");
+                        }
+                    }
                     foreach (var view in views.Where(view => !view.PassiveActivity))
                     {
                         Require(view.Footer.Fits, name + ": complete composer/reader actions do not fit their actual row");

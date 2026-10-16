@@ -42,6 +42,8 @@ namespace Halcyonic.XR.UI
         /// <summary>A footer's height: a target's.</summary>
         public static float Height => GlazeButton.HeightOf(false);
 
+        public float HeightUsed { get; private set; } = Height;
+
         /// <summary>The button showing the prompt in <paramref name="slot"/>, or null.</summary>
         public GlazeButton? this[PromptSlot slot] => shown[(int)slot] != null ? buttons[(int)slot] : null;
 
@@ -76,7 +78,7 @@ namespace Halcyonic.XR.UI
         /// Shows <paramref name="footer"/> on the row at <paramref name="middle"/>, between the content
         /// lines at <paramref name="left"/> and <paramref name="right"/>, in its parent's units.
         /// </summary>
-        public void Show(Footer footer, float left, float right, float middle, bool unboxedIcons = false, bool boundedControls = false)
+        public void Show(Footer footer, float left, float right, float middle, bool unboxedIcons = false, bool boundedControls = false, bool wrap = false)
         {
             Showing = footer;
             this.unboxedIcons = unboxedIcons;
@@ -95,6 +97,8 @@ namespace Halcyonic.XR.UI
                     continue;
                 }
                 var button = Button(index);
+                // Independent action labels retain margin above the angular floor at the reader edge.
+                button.Label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(wrap ? 1f : GlazeText.DegreesOf(GlazeType.Body)));
                 // A prompt whose words say what is under way, as Sent… or Hold to talk writing down, shimmers in the
                 // secondary tone; Hold to talk listening takes the active tone, its microphone pulsing (ADR 0027).
                 shimmers[index]!.Waits = prompt.Waits;
@@ -105,6 +109,30 @@ namespace Halcyonic.XR.UI
                 // As wide as the widest words it may show, so a hold that changes them never moves its cap.
                 widths[index] = button.MeasurePrompt(prompt.Words, prompt.DrawnAsMain);
                 foreach (var words in prompt.AlsoReads) widths[index] = Mathf.Max(widths[index], button.MeasurePrompt(words, prompt.DrawnAsMain));
+            }
+
+            var all = EnumerableWidth(widths, gap);
+            HeightUsed = Height;
+            if (wrap && all > right - left + 2f * margin + 1e-5f)
+            {
+                // Local exit/discard are subordinate above the deliberate submit/voice row.
+                var upper = new[] { PromptSlot.Close, PromptSlot.Rare };
+                var lower = new[] { PromptSlot.Secondary, PromptSlot.Free, PromptSlot.FarRight };
+                float Row(PromptSlot[] slots, float y)
+                {
+                    var offered = new List<PromptSlot>();
+                    foreach (var slot in slots) if (shown[(int)slot] != null) offered.Add(slot);
+                    var needed = 0f; foreach (var slot in offered) needed += widths[(int)slot];
+                    needed += gap * Mathf.Max(0, offered.Count - 1);
+                    var x = left - margin;
+                    foreach (var slot in offered) { Stand(slot, x + widths[(int)slot] / 2f, y, widths[(int)slot]); x += widths[(int)slot] + gap; }
+                    return needed;
+                }
+                var needed = Mathf.Max(Row(upper, middle + (Height + gap) / 2f), Row(lower, middle - (Height + gap) / 2f));
+                HeightUsed = 2f * Height + gap;
+                Measure = (needed, right - left + 2f * margin);
+                Fits = needed <= Measure.Room + 1e-5f;
+                return;
             }
 
             // From the left: Close, then the rare action. From the right: the far right, then the secondary.
@@ -140,6 +168,13 @@ namespace Halcyonic.XR.UI
             needed += gap * Mathf.Max(0, count - 1);
             Measure = (needed, end - start);
             Fits = needed <= end - start + 1e-5f;
+        }
+
+        private static float EnumerableWidth(float[] widths, float gap)
+        {
+            var total = 0f; var count = 0;
+            foreach (var width in widths) if (width > 0f) { total += width; count++; }
+            return total + gap * Mathf.Max(0, count - 1);
         }
 
         public void Hide()

@@ -850,6 +850,8 @@ namespace Halcyonic.XR.UI
 
         private void LaySubject(LineWords words, StateBadge? badge, MenuIdentityKind? identityKind)
         {
+            subjectPart.gameObject.SetActive(HeadingOverride != "");
+            if (HeadingOverride == "") { portrait.Hide(); identityMarks.gameObject.SetActive(false); return; }
             var padding = U(Glaze.Menu.PaddingDegrees);
             var portraitRoom = HasPortrait && !IndependentSurface ? PortraitWidth + MenuPage.TargetGap : 0f;
             var left = -width / 2f + padding + portraitRoom;
@@ -892,10 +894,11 @@ namespace Halcyonic.XR.UI
             if (provenanceRows > 0)
             {
                 var marksHeight = provenanceRows * GlazeText.LineHeight(identityMarks) + MenuPage.Grid;
-                subjectTitle.transform.localPosition += Vector3.up * marksHeight / 2f;
+                // Independent identity is a measured vertical sequence, never centred across provenance.
+                subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - U(Glaze.Menu.SubjectPaddingDegrees), -U(0.05f));
                 GlazeText.SetLiteral(identityMarks, string.Join(" · ", IdentityMarks.Select(mark => mark.Word)));
                 GlazeText.Lay(identityMarks, width - 2f * padding, provenanceRows);
-                identityMarks.transform.localPosition = new Vector3(-width / 2f + padding, -subjectHeight / 2f + padding + marksHeight, -U(0.05f));
+                identityMarks.transform.localPosition = new Vector3(left, subjectTitle.transform.localPosition.y - titleHeight - MenuPage.Grid, -U(0.05f));
             }
             GlazeRuns.TokenGrounds(subjectTitle, words.AllTheirs ? Array.Empty<(int, int)>() : theirs, subjectGrounds, subjectPart, Order + 1);
             pill.gameObject.SetActive(badge != null);
@@ -995,7 +998,11 @@ namespace Halcyonic.XR.UI
 
             // How tall it needs to be first, from a top at 0, then laid from its own top.
             // The last target and the prompts stand 12 mm apart, the footer's line between them.
-            var needed = -LayFrom(0f) + (PassiveActivity ? U(1f) : TargetGap + FooterView.Height + U(1f));
+            var prompts = frame?.Footer ?? carried ?? SidePanel.Footer;
+            var drawnPrompts = Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts;
+            if (!PassiveActivity) footer.Show(drawnPrompts, left, right, 0f, boundedControls: SpatialWorkspace, wrap: IndependentSurface);
+            var footerHeight = footer.HeightUsed;
+            var needed = -LayFrom(0f) + (PassiveActivity ? U(1f) : TargetGap + footerHeight + U(1f));
             var tall = Mathf.Max(height, needed);
             var top = tall / 2f;
             LayFrom(top);
@@ -1053,11 +1060,10 @@ namespace Halcyonic.XR.UI
                 return y;
             }
 
-            var footerMiddle = -top + U(1f) + FooterView.Height / 2f;
+            var footerMiddle = -top + U(1f) + footerHeight / 2f;
             // Hold to talk shows where the voice stands, the same in every column (Footer.Voiced).
-            var prompts = frame?.Footer ?? carried ?? SidePanel.Footer;
             footer.gameObject.SetActive(!PassiveActivity);
-            if (!PassiveActivity) footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle, boundedControls: SpatialWorkspace);
+            if (!PassiveActivity) footer.Show(drawnPrompts, left, right, footerMiddle, boundedControls: SpatialWorkspace, wrap: IndependentSurface);
             // A faint line between the page and its footer, too faint to mark anything.
             footerLine.gameObject.SetActive(!SpatialWorkspace && !PassiveActivity);
             footerLine.Draw(new Vector2(width - 2f * U(1f), U(0.05f)), 0f, new Color(1f, 1f, 1f, 0.09f));

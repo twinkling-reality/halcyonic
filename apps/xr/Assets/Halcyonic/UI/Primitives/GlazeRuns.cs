@@ -35,6 +35,8 @@ namespace Halcyonic.XR.UI
         /// <summary>Where outside text stands in the label's text as shown, as its first character and the one past its last.</summary>
         public IReadOnlyList<(int Start, int End)> Theirs => theirs;
 
+        public bool IsNamedIdentity => identity;
+
         /// <summary>
         /// Sets <paramref name="words"/> on the label with rich text off and escape parsing on, cut
         /// inside outside text where Halcyonic's words follow it and the whole doesn't
