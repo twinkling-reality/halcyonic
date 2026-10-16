@@ -365,6 +365,43 @@ public class WorkspacePresenterTests
     }
 
     [Test]
+    public void AnApprovedCommandSaysWhereItRunsOnlyAsItsAgentAppDeclares()
+    {
+        const string mayLeave = "If you approve, it may run outside its sandbox, with your access to your computer.";
+        const string staysInside = "If you approve, it still runs inside a sandbox.";
+        var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");
+        NeedAnswer Asking(bool? declared, string tool = "commandExecution", bool approvable = true)
+        {
+            var execution = Samples.Execution("e1", "w1", ExecutionStatus.WaitingForHuman);
+            execution.PendingApprovals.Add(new ApprovalView
+            {
+                ApprovalId = "approval-1",
+                Subject = new ToolUseSubject { ToolName = tool, Summary = "/bin/zsh -lc 'make build'\nin /project" },
+                Approvable = approvable,
+                RequestedAt = Samples.Time,
+            });
+            var snapshot = Samples.Snapshot(1, new[] { workstream }, new[] { execution });
+            snapshot.Runtimes[0].ApprovalMayLeaveSandbox = declared;
+            var state = new ClientProjection();
+            state.ApplySnapshot(snapshot, new StateChanges());
+            return WorkspaceText.NeedFromYou(WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true))!;
+        }
+
+        Assert.That(Asking(true).Notes, Does.Contain(mayLeave));
+        Assert.That(Asking(false).Notes, Does.Contain(staysInside));
+        var ordered = Asking(true).Notes.ToList();
+        Assert.That(ordered.IndexOf(mayLeave), Is.LessThan(ordered.IndexOf("Approve lets it go ahead. Deny refuses; it may try another way.")),
+            "where it runs is read before what Approve does");
+        // Undeclared: nothing either way. Not a command, or only deniable: no word about approving it.
+        Assert.That(Asking(null).Notes, Has.None.Contains("sandbox"));
+        Assert.That(Asking(true, tool: "webfetch").Notes, Has.None.Contains("sandbox"));
+        Assert.That(Asking(true, approvable: false).Notes, Has.None.Contains("sandbox"));
+        // The note is Halcyonic's line; the request stays exactly the agent app's.
+        Assert.That(Asking(true).Request, Is.EqualTo("/bin/zsh -lc 'make build'‹U+000A›in /project"));
+        Assert.That(WorkspaceText.ApprovedCommandNote(null), Is.Null);
+    }
+
+    [Test]
     public void NothingIsOfferedWhileNotLiveOrWithoutTheRuntime()
     {
         var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");

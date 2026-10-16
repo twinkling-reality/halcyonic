@@ -346,6 +346,17 @@ namespace Halcyonic.Client
         public static bool RunsCommand(string toolName) => CommandTools.Any(tool => string.Equals(tool, toolName, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
+        /// Where a command runs once approved, from what its agent app declares (ADR 0033): it may leave
+        /// the sandbox, or it stays inside one. Null when the agent app declares nothing, so nothing is said.
+        /// </summary>
+        public static string? ApprovedCommandNote(RuntimeDescriptor? runtime) => runtime?.ApprovalMayLeaveSandbox switch
+        {
+            true => "If you approve, it may run outside its sandbox, with your access to your computer.",
+            false => "If you approve, it still runs inside a sandbox.",
+            _ => null,
+        };
+
+        /// <summary>
         /// The answer to What do you need from me?: the request the work waits on, as the runtime
         /// reported it, and what each answer does; null while no request is pending. The whole
         /// request, never shortened, shows again when Approve or Deny is chosen, before either is sent.
@@ -366,6 +377,8 @@ namespace Halcyonic.Client
             }
             else
             {
+                // Where an approved command runs, as its agent app declares it, never read from the request (ADR 0033).
+                if (tool != null && RunsCommand(tool.ToolName) && ApprovedCommandNote(workspace.Runtime) is string where) notes.Add(where);
                 notes.Add("Approve lets it go ahead. Deny refuses; it may try another way.");
                 notes.Add("Your answer counts once the agent confirms it.");
                 notes.Add("Approve and Deny both show the whole request before you confirm.");

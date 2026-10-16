@@ -269,6 +269,9 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       // does not mean none runs (OPEN_QUESTIONS.md).
       reports_tool_activity: false,
       reports_tool_results: true,
+      // An approved escalation runs outside Codex's sandbox, and the request does not say whether
+      // it is one (codex-capabilities.md, 2026-10-16; ADR 0033).
+      approval_may_leave_sandbox: true,
     };
   }
 

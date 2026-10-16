@@ -45,3 +45,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0031](0031-record-bounded-native-tool-results-in-the-owner-journal.md) | Record bounded final native tool results as owner-journal evidence, with scoped read-only consumers | Accepted design; device acceptance unverified |
 
 | [0032](0032-recover-the-workspace-when-it-leaves-view.md) | Recover the workspace when it leaves view | Accepted direction; candidate thresholds require wearer validation |
+| [0033](0033-approvals-declare-whether-commands-leave-the-sandbox.md) | An agent app declares whether approving a command can let it leave the sandbox | Accepted |

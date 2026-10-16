@@ -154,6 +154,8 @@ describe('Codex runtime descriptor', () => {
     assert.equal(runtime.descriptor.kind, 'codex');
     assert.equal(runtime.descriptor.display_name, 'Codex 0.157.0');
     assert.equal(runtime.descriptor.synthetic, false);
+    // Approving can lift the sandbox (ADR 0033), pinned end to end in codex-runtime.e2e.test.ts.
+    assert.equal(runtime.descriptor.approval_may_leave_sandbox, true);
     assert.deepEqual(runtime.descriptor.capabilities, CODEX_CAPABILITIES);
     assert.deepEqual(CODEX_CAPABILITIES, {
       start_execution: true,

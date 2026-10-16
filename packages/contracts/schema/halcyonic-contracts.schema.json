@@ -5865,6 +5865,9 @@
         },
         "reports_tool_results": {
           "type": "boolean"
+        },
+        "approval_may_leave_sandbox": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

@@ -61,6 +61,8 @@ describe('OpenCode runtime descriptor', () => {
     assert.equal(runtime.descriptor.kind, 'opencode');
     assert.equal(runtime.descriptor.synthetic, false);
     assert.equal(runtime.descriptor.model_choice, 'listed');
+    // Without Halcyonic's sandbox nothing is declared about where an approved command runs.
+    assert.equal(runtime.descriptor.approval_may_leave_sandbox, undefined);
     assert.equal(typeof runtime.listModels, 'function');
     assert.deepEqual(runtime.descriptor.capabilities, OPENCODE_CAPABILITIES);
     assert.deepEqual(OPENCODE_CAPABILITIES, {
@@ -71,6 +73,19 @@ describe('OpenCode runtime descriptor', () => {
       answer_question: true,
       interrupt: true,
     });
+  });
+
+  test("inside Halcyonic's sandbox, declares that an approved command stays contained", (t) => {
+    const directory = temporary(t);
+    const runtime = new OpenCodeRuntimeAdapter({
+      binaryPath: '/nonexistent/opencode',
+      serverRecordFile: join(directory, 'server.json'),
+      directoryPolicy: allowOnly(directory),
+      sandbox: { loopbackPorts: [], projectRoots: [directory], unreadable: [] },
+    });
+    t.after(() => runtime.close());
+    assert.equal(runtime.descriptor.approval_may_leave_sandbox, false);
+    assert.ok(compileValidator(RuntimeDescriptor)(runtime.descriptor).ok);
   });
 });
 

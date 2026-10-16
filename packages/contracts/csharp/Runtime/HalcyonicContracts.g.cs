@@ -1090,6 +1090,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("reports_tool_results", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? ReportsToolResults { get; set; }
+
+        [JsonProperty("approval_may_leave_sandbox", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ApprovalMayLeaveSandbox { get; set; }
     }
 
     public sealed class Snapshot

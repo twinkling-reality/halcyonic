@@ -61,6 +61,14 @@ export const RuntimeDescriptor = Type.Object(
     reports_tool_activity: Type.Boolean(),
     /** Supported final command/file-change evidence, not complete all-tool/subagent coverage. Absent in legacy descriptors. */
     reports_tool_results: Type.Optional(Type.Boolean()),
+    /**
+     * Whether approving a command can let it run outside any sandbox, with the person's own access,
+     * declared for a runtime only once verified (ADR 0033). True for Codex, where an approved
+     * escalation runs outside its sandbox and the request does not say whether it is one; false
+     * where an approved command still runs inside a sandbox, as OpenCode's does inside Halcyonic's.
+     * Absent when not verified, which means unknown, never false: never shown as staying inside.
+     */
+    approval_may_leave_sandbox: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );

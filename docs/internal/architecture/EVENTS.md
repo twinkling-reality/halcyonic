@@ -147,6 +147,16 @@ cuts the summary. The projection copies it to `ApprovalView.approvable`,
 and admission answers an approve of a request that is not approvable with `approval_not_whole`
 ("This request was never shown whole, so it can only be denied."); a deny is admitted.
 
+Where an approved command runs is declared by the runtime, never read from a request
+([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)). A
+descriptor's optional `approval_may_leave_sandbox` is true when approving a command can let it run
+outside any sandbox with the person's own access: Codex, whose approved escalation runs outside its
+sandbox while an approved dangerous plain command stays inside, with nothing in the request to tell
+them apart. It is false when an approved command still runs inside a sandbox: OpenCode inside
+Halcyonic's ([ADR 0028](../decisions/0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md)). It
+is absent when not verified: Claude Code, the mock, and OpenCode without the sandbox. Absent means
+unknown, never false, and a client must never show it as the command staying inside a sandbox.
+
 ## Contracts: one source of truth
 
 Native tool results ([ADR 0031](../decisions/0031-record-bounded-native-tool-results-in-the-owner-journal.md))

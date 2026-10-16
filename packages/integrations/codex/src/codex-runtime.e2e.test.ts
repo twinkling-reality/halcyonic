@@ -513,6 +513,48 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
   });
 
   test(
+    'an approved escalation runs outside the sandbox, an approved plain command does not, and both ask alike',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      // The sandbox's root holds the project and Codex's TMPDIR but is writable by neither; under
+      // /tmp Codex may write anyway, so nothing here would be shown.
+      if (/^\/(private\/)?tmp\//.test(sandbox.root)) {
+        t.skip('the sandbox lives under /tmp, which a workspace-write thread can write');
+        return;
+      }
+      assert.equal(runtime.descriptor.approval_may_leave_sandbox, true);
+      const approveAndFinish = async (instruction: string): Promise<string> => {
+        const execution = await start(instruction);
+        const requested = await execution.next('runtime.approval.requested');
+        assert.ok(requested.type === 'runtime.approval.requested');
+        await runtime.respondToApproval({
+          execution: execution.context,
+          approval_id: approvalId(requested),
+          decision: 'approve',
+          message: null,
+        });
+        await execution.next('runtime.turn.completed');
+        return requested.payload.subject.summary;
+      };
+      const outside = join(sandbox.root, 'outside-escalated.txt');
+      const escalated = await approveAndFinish(`CMD_ESC:touch ${outside} && echo wrote-outside`);
+      assert.ok(existsSync(outside), 'the approved escalation wrote outside the workspace');
+      const kept = join(sandbox.root, 'outside-kept');
+      await mkdir(kept);
+      await writeFile(join(kept, 'keep.txt'), 'keep\n');
+      // Codex asks before a command it judges dangerous even without an escalation.
+      const plain = await approveAndFinish(`CMD:rm -rf ${kept} && echo removed-outside`);
+      assert.ok(
+        existsSync(join(kept, 'keep.txt')),
+        'the approved plain command stayed in the sandbox',
+      );
+      // The two requests read alike: nothing in a summary tells them apart.
+      for (const summary of [escalated, plain]) assert.match(summary, /\nin \S+project$/);
+    },
+  );
+
+  test(
     'a declined command does not run; the model is told and the turn completes',
     SLOW_TEST,
     async (t) => {
