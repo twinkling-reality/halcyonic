@@ -191,6 +191,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(footer.Showing?[PromptSlot.Secondary]?.Id == FileScreens.HoldToTalk, "voice-offered composer omitted the actual Hold to talk action");
                     Debug.Log($"Halcyonic: voice-offered composer footer measured {footer.Measure.Needed:R} needed / {footer.Measure.Room:R} available; fits={footer.Fits}.");
                 }
+                Debug.Log($"Halcyonic: actual composer partRows={file?.Screen.Instruction.PartRows}; parts={file?.Screen.Instruction.Parts}; allocated height={director.Plane.ComposerAllocation.Height:R}; voice offered={offerVoice}.");
+                Require(file != null && file.Screen.Instruction.PartRows >= 3, "actual composer allocates fewer than three readable draft rows; inspect measured field limits before changing the split");
                 var context = director.Plane.ActivityContext;
                 Require(context?.Frame != null && file?.ActivityContextFrame == context.Frame, "actual Activity was not rendered beside its own composer");
                 Require(context == null || !context.Targets.Any(), "passive Activity acquired action targets");

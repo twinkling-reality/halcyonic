@@ -39,9 +39,12 @@ namespace Halcyonic.XR.Workspace
             composerLayouts[file] = geometry;
             // Each retained file keeps its own callbacks and geometry lifetime. Background rebuilds
             // must never borrow another selected task's provenance or portrait allocation.
-            file.ConfigureActivityComposer(() => new HeightBudget(IndependentPageHeight(2, true, false, file)),
-                () => new HeightBudget(IndependentPageHeight(2, true, true, file)));
+            file.ConfigureActivityComposer(() => new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, false, file)),
+                () => new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, true, file)));
         }
+
+        private static int OwnerTitleRows(FileColumn owner) => owner.Now?.Character is CharacterPresentation character
+            ? MenuFrameView.IndependentTitleRows(character.Title, Glaze.Menu.FileColumnDegrees) : 2;
 
         private void PrepareSpatialContext()
         {

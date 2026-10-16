@@ -343,13 +343,13 @@ namespace Halcyonic.XR.UI
         }
 
         public static int IndependentTitleRows(string subject, float columnDegrees) =>
-            Mathf.Clamp(Count(Measuring(Glaze.HeroDegrees), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
+            Mathf.Clamp(Count(Measuring(Glaze.DisplayDegrees), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
 
         public static float IndependentSubjectHeightOfRows(int rows, bool pillRoom, bool portrait = false, int provenanceRows = 0)
         {
             var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
             return Mathf.Max(portrait ? PortraitHeight + 2f * U(Glaze.Menu.SubjectPaddingDegrees) : 0f,
-                room + Mathf.Max(U(Glaze.TargetDegrees), SpatialInner(room) + rows * GlazeText.LineHeight(Measuring(Glaze.HeroDegrees)) + 2f * U(Glaze.Menu.SubjectPaddingDegrees)))
+                room + Mathf.Max(U(Glaze.TargetDegrees), SpatialInner(room) + rows * GlazeText.LineHeight(Measuring(Glaze.DisplayDegrees)) + 2f * U(Glaze.Menu.SubjectPaddingDegrees)))
                 + (provenanceRows > 0 ? provenanceRows * GlazeText.LineHeight(Measuring(Glaze.BodyDegrees)) + MenuPage.Grid : 0f);
         }
 
@@ -365,7 +365,7 @@ namespace Halcyonic.XR.UI
 
         public float SpatialSubjectHeight(string subject, float columnDegrees, bool pillRoom)
         {
-            subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
+            subjectTitle.fontSize = GlazeTokens.FontSize(U(IndependentSurface ? Glaze.DisplayDegrees : Glaze.HeroDegrees));
             if (IndependentSurface) return IndependentSubjectHeightOfRows(IndependentTitleRows(subject, columnDegrees), pillRoom, HasPortrait, IndependentProvenanceRows(IdentityMarks, columnDegrees));
             return SpatialSubjectHeightOfRows(SpatialTitleRows(subject, columnDegrees, HasPortrait), pillRoom, HasPortrait);
         }
@@ -861,8 +861,8 @@ namespace Halcyonic.XR.UI
                 portrait.Show(TaskPortrait!, TaskPortraitHue, new Vector2(-width / 2f + (IndependentSurface ? -PortraitWidth / 4f : PortraitWidth / 2f), 0f), new Vector2(PortraitWidth, PortraitHeight));
             else portrait.Hide();
             var namedIdentity = SpatialWorkspace && identityKind != null;
-            if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
-            subjectTitle.font = IndependentSurface ? Measuring(Glaze.HeroDegrees).font : HeroMeasure().font;
+            if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(IndependentSurface ? Glaze.DisplayDegrees : Glaze.HeroDegrees));
+            subjectTitle.font = IndependentSurface ? Measuring(Glaze.DisplayDegrees).font : HeroMeasure().font;
             GlazeText.SetStrong(subjectTitle, false);
             subjectTitle.fontStyle = FontStyles.Normal;
             var theirs = namedIdentity
