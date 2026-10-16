@@ -47,9 +47,16 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 var work = Work.Running();
+                var otherWork = Work.Running();
+                otherWork.Workstream.WorkstreamId = "second-synthetic-task"; otherWork.Workstream.ProjectId = "second-synthetic-project";
+                otherWork.Workstream.Title = "Check search indexing"; otherWork.Workstream.CurrentExecutionId = "second-synthetic-execution";
+                otherWork.Workstream.ExecutionIds = new List<string> { "second-synthetic-execution" };
+                otherWork.Execution.ExecutionId = "second-synthetic-execution"; otherWork.Execution.WorkstreamId = otherWork.Workstream.WorkstreamId;
+                otherWork.Execution.ProjectId = otherWork.Workstream.ProjectId;
                 var snapshot = new Snapshot { Journal = new JournalInfo { JournalId = "activity-composer-synthetic", Origin = JournalOrigin.Live }, Position = 1,
                     Projects = work.State.Projects.Values.Concat(new[] { new ProjectView { ProjectId = "second-synthetic-project", Name = "Search service", CreatedAt = Time, UpdatedAt = Time } }).ToList(),
-                    Workstreams = new List<WorkstreamView> { work.Workstream }, Executions = new List<ExecutionView> { work.Execution }, Runtimes = work.State.Runtimes.ToList() };
+                    Workstreams = new List<WorkstreamView> { work.Workstream, otherWork.Workstream }, Executions = new List<ExecutionView> { work.Execution, otherWork.Execution }, Runtimes = work.State.Runtimes.ToList() };
+                work.State.ApplySnapshot(snapshot, new StateChanges()); otherWork.State.ApplySnapshot(snapshot, new StateChanges());
                 var inbox = (ConcurrentQueue<object>)typeof(RealtimeSession).GetField("inbox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(session)!;
                 inbox.Enqueue(new WelcomeMessage { Journal = snapshot.Journal, Head = 1, ServerTime = Time }); inbox.Enqueue(new SnapshotMessage { Snapshot = snapshot });
                 inbox.Enqueue(new ConnectionStatus(ConnectionPhase.Live)); session.Pump();
@@ -63,12 +70,19 @@ namespace Halcyonic.XR.Workspace.Editor
                     ReadLocations = _ => Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => typed = accept,
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
-                    File = (host, _) => file = new FileColumn(host, () => With(work.Present(live: true), activity: new[] {
-                        new ActivityEntry(1, "2026-10-01T09:00:01.000Z", ActivityKind.Turn, "Round started", false),
-                        new ActivityEntry(2, "2026-10-01T09:00:02.000Z", ActivityKind.Tool, "read: src/auth/sign-in.ts", false),
-                        new ActivityEntry(3, "2026-10-01T09:00:03.000Z", ActivityKind.Message, "I found that sign-in attempts share one address counter. I am separating the account limit and checking the regression.", true),
-                        new ActivityEntry(4, "2026-10-01T09:00:04.000Z", ActivityKind.Tool, "Command failed: node --test test/sign-in.test.ts (exit 1)", false),
-                    }), commands, () => null, _ => null, () => ""),
+                    File = (host, id) =>
+                    {
+                        var chosen = id == work.Workstream.WorkstreamId ? work : otherWork;
+                        var column = new FileColumn(host, () => With(chosen.Present(live: true), activity: new[] {
+                            new ActivityEntry(1, "2026-10-01T09:00:01.000Z", ActivityKind.Turn, "Round started", false),
+                            new ActivityEntry(2, "2026-10-01T09:00:02.000Z", ActivityKind.Tool, id == work.Workstream.WorkstreamId ? "read: src/auth/sign-in.ts" : "read: src/search/index.ts", false),
+                            new ActivityEntry(3, "2026-10-01T09:00:03.000Z", ActivityKind.Message,
+                                id == work.Workstream.WorkstreamId ? "I found that sign-in attempts share one address counter. I am separating the account limit and checking the regression." : "I am checking the search index boundary.", true),
+                            new ActivityEntry(4, "2026-10-01T09:00:04.000Z", ActivityKind.Tool, id == work.Workstream.WorkstreamId ? "Command failed: node --test test/sign-in.test.ts (exit 1)" : "Command failed: node --test test/search.test.ts (exit 1)", false),
+                        }), commands, () => null, _ => null, () => "");
+                        if (id == work.Workstream.WorkstreamId) file = column;
+                        return column;
+                    },
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                 });
                 void Require(bool value, string message) { if (!value) failures.Add(message); }
@@ -173,6 +187,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 { Thread.Sleep(450); Press(FileScreens.NextInstructionPart); }
                 Require(loops < 64 && file?.Screen.Instruction.Read == true, "actual bounded draft review never completed");
                 Shot("04-draft-reviewed"); Require(sends == 0, "reading/reopening sent work without an explicit Send");
+                // Returning to the same retained file must not lose its part merely because B
+                // was selected, but a real allocation change while B is active must invalidate A.
+                var retainedPart = file!.Screen.Instruction.Part;
+                director.OpenFile(otherWork.Workstream.WorkstreamId); Draw();
+                var hiddenEpoch = file.Screen.Instruction.Epoch;
+                director.OpenFile(work.Workstream.WorkstreamId); Draw();
+                Require(file.Screen.Instruction.Part == retainedPart && file.Screen.Instruction.Epoch == hiddenEpoch,
+                    "same-geometry A/B/A unnecessarily repacked the retained ordinary draft");
+                director.OpenFile(otherWork.Workstream.WorkstreamId); Draw();
+                hiddenEpoch = file.Screen.Instruction.Epoch;
+                var extraProjects = new[] {
+                    new ProjectView { ProjectId = "layout-project-three", Name = "A bounded third project", CreatedAt = Time, UpdatedAt = Time },
+                    new ProjectView { ProjectId = "layout-project-four", Name = "A deliberately long fourth project name that wraps", CreatedAt = Time, UpdatedAt = Time },
+                };
+                foreach (var project in extraProjects) session.State.Projects.Add(project.ProjectId, project);
+                Draw(); director.OpenFile(work.Workstream.WorkstreamId); Draw();
+                Require(file.Screen.Instruction.Epoch > hiddenEpoch && file.Screen.Instruction.Words == draft,
+                    "A returned with a stale allocation after context geometry changed while B was active");
+                Require(director.Plane.Context.MoreProjectsTarget.gameObject.activeInHierarchy
+                    && director.Plane.Context.ProjectChoices.Any(choice => choice.ProjectId == work.Workstream.ProjectId && choice.Button.On),
+                    "bounded project choices lost the actual selected project when more projects arrived");
+                foreach (var project in extraProjects) session.State.Projects.Remove(project.ProjectId);
+                Draw();
                 director.FocusLeftForRender(); Draw();
                 Require(file?.Steering.Armed == null && file?.Screen.Instruction.Words == draft, "focus loss lost draft or retained confirmation");
                 // A pointer denied under old placement cannot fire a newly bound project on release.
