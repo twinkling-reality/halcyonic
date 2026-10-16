@@ -71,7 +71,7 @@ namespace Halcyonic.XR.UI
             if (glyph.HasValue) icon.transform.localPosition = new Vector3(left + iconEm / 2f, size.y / 2f - rise - KitType.LinePitch(words) / 2f, -0.0005f);
             words.transform.localPosition = new Vector3(left + iconRoom, size.y / 2f - rise, -0.0005f);
             var radius = lines > 1 ? KitType.Units(SpatialKit.ControlRadiusDegrees) : size.y / 2f;
-            plate.Draw(size, radius, KitType.Colour(SpatialKit.Raised), KitType.Colour(SpatialKit.Edge), KitType.Units(SpatialKit.HairlineDegrees));
+            plate.Draw(size, radius, KitType.Colour(SpatialKit.Raised));
             return size;
         }
     }

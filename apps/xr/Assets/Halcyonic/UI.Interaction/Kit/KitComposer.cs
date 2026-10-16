@@ -116,8 +116,8 @@ namespace Halcyonic.XR.UI
             KitType.Lay(draft, inner, ShownDraftLines);
             var pitch = KitType.LinePitch(draft);
             var wellHeight = 2f * pad + Mathf.Max(ShownDraftLines, Mathf.Min(rows, 2)) * pitch;
-            well.Draw(new Vector2(width, wellHeight), KitType.Units(SpatialKit.ControlRadiusDegrees), KitType.Colour(SpatialKit.Well),
-                KitType.Colour(SpatialKit.Edge), KitType.Units(SpatialKit.HairlineDegrees));
+            // Sunk into the slate by its darker tone alone.
+            well.Draw(new Vector2(width, wellHeight), KitType.Units(SpatialKit.ControlRadiusDegrees), KitType.Colour(SpatialKit.Well));
             well.transform.localPosition = new Vector3(width / 2f, -y - wellHeight / 2f, 0f);
             draft.transform.localPosition = new Vector3(pad, -y - pad, -0.0005f);
             field.Resize(new Vector2(width, Mathf.Max(wellHeight, KitType.Units(SpatialKit.TargetDegrees))));

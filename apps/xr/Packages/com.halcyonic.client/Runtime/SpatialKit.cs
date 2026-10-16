@@ -25,10 +25,10 @@ namespace Halcyonic.Client
         public const float BoardDegrees = 44f;
 
         /// <summary>The context spine: the switch, the places, and the selected project's tasks.</summary>
-        public const float SpineDegrees = 16f;
+        public const float SpineDegrees = 15f;
 
         /// <summary>The evidence rail: what the agent app was recorded doing, newest last.</summary>
-        public const float RailDegrees = 16f;
+        public const float RailDegrees = 15f;
 
         /// <summary>The compact presence: the switch, the retained task, its state and what waits.</summary>
         public const float PresenceDegrees = 30f;
@@ -38,13 +38,19 @@ namespace Halcyonic.Client
         /// where it was placed and its height follows its content up to this; reading beyond it pages
         /// instead of shrinking.
         /// </summary>
-        public const float SlateMostDegrees = 44f;
+        public const float SlateMostDegrees = 43f;
 
         /// <summary>The tallest the slate may grow when reading text is drawn <paramref name="textScale"/> times as large.</summary>
         public static float SlateMostAt(float textScale) => SlateMostDegrees * textScale;
 
-        /// <summary>How far the spine and the rail stand behind the slate, in metres: one object at two depths.</summary>
+        /// <summary>How far the spine and the rail stand behind the slate, in metres, parallel to it: one instrument at two depths.</summary>
         public const float RecessMeters = 0.010f;
+
+        /// <summary>
+        /// Between the slate and each region beside it, in units of the plane's distance: STYLE's 15 mm between
+        /// columns (<see cref="PlaneComposition.ColumnGapMeters"/>), where the room shows through.
+        /// </summary>
+        public static float ColumnGapUnits => PlaneComposition.ColumnGapMeters / PlaneComposition.Distance;
 
         /// <summary>Where the instrument rests: the top of its slate this far above eye level.</summary>
         public const float RestingTopDegrees = 4f;
@@ -97,8 +103,6 @@ namespace Halcyonic.Client
         /// <summary>A thin edge: a region's outline and a control's rest boundary.</summary>
         public const float HairlineDegrees = 0.06f;
 
-        /// <summary>Where the slate meets a recessed region, the slate's edge shades it this far.</summary>
-        public const float RecessShadeDegrees = 0.9f;
 
         /// <summary>
         /// How far the slate stands past its recessed neighbours above and below: it covers their outline where it
@@ -135,13 +139,13 @@ namespace Halcyonic.Client
         // Carriers. Every surface that carries words is opaque: nothing of the room shows through a word.
 
         /// <summary>The reading slate, nearest the person.</summary>
-        public static GlazeColor Slate => GlazeColor.Hex(0x1D2530);
+        public static GlazeColor Slate => GlazeColor.Hex(0x202936);
 
         /// <summary>The recessed spine and rail.</summary>
-        public static GlazeColor Side => GlazeColor.Hex(0x181E27);
+        public static GlazeColor Side => GlazeColor.Hex(0x171C23);
 
         /// <summary>A chip, a secondary control, and the lift under what is chosen.</summary>
-        public static GlazeColor Raised => GlazeColor.Hex(0x2A3340);
+        public static GlazeColor Raised => GlazeColor.Hex(0x2D3746);
 
         /// <summary>The person's own words, sunk into the slate.</summary>
         public static GlazeColor Well => GlazeColor.Hex(0x171D25);
@@ -149,8 +153,11 @@ namespace Halcyonic.Client
         /// <summary>The switch's thumb, raised above its track.</summary>
         public static GlazeColor Thumb => GlazeColor.Hex(0x3D4859);
 
-        /// <summary>A region's outline and a control's rest boundary, drawn opaque so it blends the same in any colour space.</summary>
-        public static GlazeColor Edge => GlazeColor.Hex(0x3A4555);
+        /// <summary>
+        /// A quiet control's outline, an unavailable control's, and the trail's line: drawn opaque so it blends the same
+        /// in any colour space. Regions carry no outline: tone, depth and the slate's shade on its neighbours separate them.
+        /// </summary>
+        public static GlazeColor Edge => GlazeColor.Hex(0x3D4858);
 
         /// <summary>The slate's lit top edge: the one light the instrument carries.</summary>
         public static GlazeColor EdgeLight => GlazeColor.Hex(0x6B7889);
@@ -174,12 +181,12 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The working instrument's half-width on its plane, in units of the plane's distance: the spine,
-        /// the slate and the rail side by side, joined, centred on the eyes' line.
+        /// the slate and the rail side by side, a column's gap between each, centred on the eyes' line.
         /// </summary>
-        public static float WorkHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(SlateDegrees) + PlaneComposition.Units(RailDegrees)) / 2f;
+        public static float WorkHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(SlateDegrees) + PlaneComposition.Units(RailDegrees)) / 2f + ColumnGapUnits;
 
-        /// <summary>The overview's half-width on its plane: the spine and the board, joined.</summary>
-        public static float OverviewHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(BoardDegrees)) / 2f;
+        /// <summary>The overview's half-width on its plane: the spine and the board, a column's gap between them.</summary>
+        public static float OverviewHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(BoardDegrees) + ColumnGapUnits) / 2f;
 
         /// <summary>The tallest instrument's half-height on its plane at a text scale.</summary>
         public static float MostHalfHeight(float textScale) => PlaneComposition.Units(SlateMostAt(textScale)) / 2f;

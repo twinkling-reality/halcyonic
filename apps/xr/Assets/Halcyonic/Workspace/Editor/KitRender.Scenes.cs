@@ -247,7 +247,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 lineHeight = Mathf.Max(lineHeight, size.y);
             }
             var height = -(y - lineHeight) + pad;
-            carrier.Draw(new Vector2(width, height), KitType.Units(SpatialKit.InstrumentRadiusDegrees), SpatialKit.Slate, SpatialKit.Edge, lit: true);
+            carrier.Draw(new Vector2(width, height), KitType.Units(SpatialKit.InstrumentRadiusDegrees), SpatialKit.Slate, lit: true);
             // Everything above was laid from the sheet's top; the sheet is centred on its own transform.
             foreach (Transform child in carrier.transform)
                 if (child.name != "Opaque face" && child.name != "Lit top edge") child.localPosition += new Vector3(0f, height / 2f, 0f);

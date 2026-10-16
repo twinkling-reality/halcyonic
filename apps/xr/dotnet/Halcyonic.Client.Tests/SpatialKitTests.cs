@@ -124,6 +124,14 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void TheColumnsLetTheRoomThrough()
+    {
+        // The slate and the regions beside it stand STYLE's 15 mm apart: more than a degree, as between any two parts.
+        Assert.That(SpatialKit.ColumnGapUnits * PlaneComposition.Distance, Is.EqualTo(PlaneComposition.ColumnGapMeters).Within(1e-6));
+        Assert.That(SpatialKit.DegreesTo(SpatialKit.ColumnGapUnits), Is.GreaterThanOrEqualTo(PlaneComposition.PartGapDegrees));
+    }
+
+    [Test]
     public void TheRecessIsADepthNotAGap()
     {
         Assert.That(SpatialKit.RecessMeters, Is.GreaterThan(0f));

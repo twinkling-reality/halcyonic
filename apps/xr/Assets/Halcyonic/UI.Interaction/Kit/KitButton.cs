@@ -171,8 +171,9 @@ namespace Halcyonic.XR.UI
                         text = KitType.Colour(accent.OnStrong);
                         break;
                     case KitButtonRole.Secondary:
+                        // Its raised fill is its boundary; only a pointed one is framed.
                         fill = pressed ? KitType.Mix(SpatialKit.Raised, GlazeColor.Hex(0xFFFFFF), 0.12f) : KitType.Colour(SpatialKit.Raised);
-                        edge = hovered ? Color.white : KitType.Colour(SpatialKit.Edge);
+                        edge = hovered ? Color.white : fill;
                         text = KitType.Text;
                         break;
                     default:
