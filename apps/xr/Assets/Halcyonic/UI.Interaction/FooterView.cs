@@ -42,6 +42,13 @@ namespace Halcyonic.XR.UI
         /// <summary>A footer's height: a target's.</summary>
         public static float Height => GlazeButton.HeightOf(false);
 
+        /// <summary>
+        /// The least size of an independent surface's wrapped action words, 19 dp: the 18 dp body em
+        /// and another sixteenth of a degree for the measured edge loss. The reading model's footer
+        /// band and the renders' footer role check take it from here.
+        /// </summary>
+        public const float WrappedActionDegrees = 1.1875f;
+
         public float HeightUsed { get; private set; } = Height;
 
         /// <summary>The button showing the prompt in <paramref name="slot"/>, or null.</summary>
@@ -99,7 +106,7 @@ namespace Halcyonic.XR.UI
                 var button = Button(index);
                 // Existing body em is 1.125°; reserve another 1/16° for the measured edge loss.
                 // Actual glyph-angle checks remain authoritative; never reduce text to fit actions.
-                button.Label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(wrap ? Mathf.Max(1.1875f, GlazeText.DegreesOf(GlazeType.Body)) : GlazeText.DegreesOf(GlazeType.Body)));
+                button.Label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(wrap ? Mathf.Max(WrappedActionDegrees, GlazeText.DegreesOf(GlazeType.Body)) : GlazeText.DegreesOf(GlazeType.Body)));
                 // A prompt whose words say what is under way, as Sent… or Hold to talk writing down, shimmers in the
                 // secondary tone; Hold to talk listening takes the active tone, its microphone pulsing (ADR 0027).
                 shimmers[index]!.Waits = prompt.Waits;

@@ -2755,10 +2755,24 @@ not alter the selected page of the full Activity history. The independent ordina
 its duplicate results route and, when passive Activity is shown, its repeated subject heading.
 The budget first reserves the exact instruction labels, reason, pager and three input rows, plus
 two recent Activity entries. Remaining capacity goes to Activity. If that pair cannot fit the
-measured field and occupied space, the same FileColumn becomes a focused editor with the actual
-task identity, provenance and Editing instruction label; Hide composer returns to Activity. This
-local presentation fallback does not create another draft or command authority. Footer measurement
-reserves one or two actual rows when the available actions require them.
+measured field, read at the 14 dp floor where its text stands, or clear occupied space, the same
+FileColumn becomes a focused editor with the actual task identity, provenance and Editing
+instruction label; Hide composer returns to Activity. This local presentation fallback does not
+create another draft or command authority. Footer measurement reserves one or two actual rows when
+the available actions require them.
+Readability is measured on text bands at the parts' actual offsets (`MenuPlane.IndependentParts`,
+`MenuPlane.IndependentTextBands`, `MenuPage.LeastEm`), not on the whole envelope: the context
+column whole; each reading part within its content padding, down to its foot or to the 12 mm over
+its footer's lowest row; and that row's action words at their own 19 dp
+(`FooterView.WrappedActionDegrees`), out to the prompt margin. Bands reach a little past their
+words' boxes for ink: a twentieth of an em at either side, a tenth under the action row for
+descenders. Each band's em stands at its edge farthest from the centre's row and is seen at the
+row's nearest and farthest points. The envelope's empty and portrait corners stay in the field, clearance and
+recovery checks but are never taken for text. The same model sizes the independent reader's pages;
+`MenuPage.Readable(PlaneComposition)` still serves the other layouts. The solver measures the
+context column at the width the view lays it. The renders hold every actual glyph inside its own
+region's band at no smaller em, except small text that keeps 15 dp only where it reads by itself,
+and witness a label moved into an empty corner and an action word shrunk below the floor.
 The passive view's draw callback is never forwarded as an authoritative file draw. Deferred
 editor draws recheck identity and settlement after movement. Context, reading and composer have
 separate opaque surfaces and transforms, while placement, turning and recovery account for their

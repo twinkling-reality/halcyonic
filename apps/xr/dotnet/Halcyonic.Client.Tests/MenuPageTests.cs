@@ -212,4 +212,85 @@ public class MenuPageTests
         Assert.That(MenuColumns.Arrange(menuOpen: false, fileOpen: false, sidePanel: false, fitsBeside: true), Is.Empty, "closed, the menu is its bar");
         Assert.That(MenuColumns.MenuAside(menuOpen: false, fileOpen: true, sidePanel: true, fitsBeside: true), Is.False, "a closed menu is not aside");
     }
+
+    /// <summary>A band over the whole composition, its rows straddling the edges, reads exactly as the composition does.</summary>
+    [Test]
+    public void ABandOverTheWholeCompositionReadsAsTheComposition()
+    {
+        var readable = 0;
+        var unreadable = 0;
+        foreach (var zoom in new[] { 1f, Comfort.LargerTextScale })
+        for (var width = 0.6f; width <= 1.401f; width += 0.05f)
+        for (var height = 0.4f; height <= 1.301f; height += 0.025f)
+        {
+            var composition = new PlaneComposition(new[] { new PlaneColumn(width, height) }, zoom);
+            var halfEm = U(Glaze.Menu.BodyDegrees) * zoom / 2f;
+            var band = new TextBand(-composition.Width / 2f, composition.Width / 2f,
+                -composition.Height / 2f - halfEm, composition.Height / 2f + halfEm, Glaze.Menu.BodyDegrees);
+            // Either side of the floor within float rounding says nothing about the model.
+            if (MathF.Abs(MenuPage.LeastEm(new[] { band }, zoom) - Glaze.MinimumTextDegrees) < 1e-3f) continue;
+            var expected = MenuPage.Readable(composition);
+            Assert.That(MenuPage.Readable(new[] { band }, zoom), Is.EqualTo(expected), width + " by " + height + " at " + zoom);
+            if (expected) readable++; else unreadable++;
+        }
+        Assert.That(readable, Is.GreaterThan(20), "the sweep holds readable compositions");
+        Assert.That(unreadable, Is.GreaterThan(20), "and unreadable ones");
+    }
+
+    /// <summary>
+    /// Text set in from the envelope's empty corner reads where the corner would not, so only where
+    /// text stands is measured; the same text pushed to the corner fails the unchanged floor.
+    /// </summary>
+    [Test]
+    public void OnlyWhereTextStandsIsMeasured()
+    {
+        // The Standard minimum pair's envelope as the spatial solver measured it on 2026-10-16.
+        var composition = new PlaneComposition(new[] { new PlaneColumn(1.0714338f, 0.94188964f) });
+        Assert.That(MenuPage.Readable(composition), Is.False, "the empty corner is under the floor");
+        var halfWidth = composition.Width / 2f;
+        var halfHeight = composition.Height / 2f;
+        var inset = new TextBand(-halfWidth + 0.03f, halfWidth - 0.03f, -halfHeight + 0.08f, 0.32f, Glaze.Menu.BodyDegrees);
+        Assert.That(MenuPage.Readable(new[] { inset }, 1f), Is.True, "text inset from the corner reads");
+        var corner = new TextBand(-halfWidth, halfWidth, -halfHeight, 0.32f, Glaze.Menu.BodyDegrees);
+        Assert.That(MenuPage.Readable(new[] { inset, corner }, 1f), Is.False, "any band reaching the corner decides");
+        Assert.That(MenuPage.LeastEm(new[] { inset, corner }, 1f), Is.EqualTo(MathF.Min(MenuPage.LeastEm(new[] { inset }, 1f), MenuPage.LeastEm(new[] { corner }, 1f))));
+    }
+
+    /// <summary>A band is measured at its row farthest from the centre's and at the nearest and farthest points of that row.</summary>
+    [Test]
+    public void ABandIsMeasuredAtItsWorstRowAndEnds()
+    {
+        float Least(float left, float right, float bottom, float top, float zoom = 1f) =>
+            MenuPage.LeastEm(new[] { new TextBand(left, right, bottom, top, Glaze.Menu.BodyDegrees) }, zoom);
+        var em = U(Glaze.Menu.BodyDegrees);
+        // A band reaching over the centre's row is measured at its farther edge, top or bottom.
+        Assert.That(Least(-0.4f, 0.4f, -0.1f, 0.5f), Is.EqualTo(Least(-0.4f, 0.4f, 0.5f - em, 0.5f)).Within(1e-5f));
+        Assert.That(Least(-0.4f, 0.4f, -0.6f, 0.1f), Is.EqualTo(Least(-0.4f, 0.4f, -0.6f, -0.6f + em)).Within(1e-5f));
+        // Mirrored bands read the same.
+        Assert.That(Least(0.1f, 0.5f, 0.2f, 0.4f), Is.EqualTo(Least(-0.5f, -0.1f, -0.4f, -0.2f)).Within(1e-5f));
+        // Across a row the least em is at the near end or the far end: never between them.
+        foreach (var top in new[] { 0.2f, 0.6f, 1.4f, 2.5f })
+        {
+            var whole = Least(0.2f, 0.9f, top - em, top);
+            var ends = MathF.Min(Least(0.2f, 0.2f, top - em, top), Least(0.9f, 0.9f, top - em, top));
+            Assert.That(whole, Is.EqualTo(ends).Within(1e-5f), "row at " + top);
+            for (var x = 0.2f; x <= 0.9f; x += 0.05f)
+                Assert.That(Least(x, x, top - em, top), Is.GreaterThanOrEqualTo(whole - 1e-5f), "inside the row at " + x + ", " + top);
+        }
+        // Farther out reads smaller, and larger text reads larger.
+        Assert.That(Least(-0.4f, 0.4f, 0.3f, 0.5f), Is.LessThan(Least(-0.4f, 0.4f, 0.2f, 0.4f)));
+        Assert.That(Least(-0.5f, 0.5f, 0.2f, 0.4f), Is.LessThan(Least(-0.4f, 0.4f, 0.2f, 0.4f)));
+        Assert.That(Least(-0.4f, 0.4f, 0.2f, 0.4f, Comfort.LargerTextScale), Is.GreaterThan(Least(-0.4f, 0.4f, 0.2f, 0.4f)));
+    }
+
+    /// <summary>A band is a real rectangle with a real em, and the model needs at least one.</summary>
+    [Test]
+    public void TextBandsRefuseImpossibleBounds()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new TextBand(0.2f, 0.1f, 0f, 0.1f, 1f), "left past right");
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new TextBand(0f, 0.1f, 0.2f, 0.1f, 1f), "bottom over top");
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new TextBand(0f, 0.1f, 0f, 0.1f, 0f), "no em");
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new TextBand(float.NaN, 0.1f, 0f, 0.1f, 1f), "not a number");
+        Assert.Throws<ArgumentException>(() => MenuPage.LeastEm(Array.Empty<TextBand>(), 1f), "no text measures nothing");
+    }
 }

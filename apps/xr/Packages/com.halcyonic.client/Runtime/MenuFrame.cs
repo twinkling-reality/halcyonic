@@ -899,6 +899,37 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
+    /// Where text can stand on a composition (ADR 0026): a rectangle from the composition's centre,
+    /// in units of the plane's distance and already grown by its zoom, as <see cref="PlanePart"/>
+    /// offsets are, and the least em the renderer lays in it, in degrees at the designed size.
+    /// </summary>
+    public readonly struct TextBand
+    {
+        public TextBand(float left, float right, float bottom, float top, float emDegrees)
+        {
+            if (!(left <= right) || float.IsInfinity(left) || float.IsInfinity(right)) throw new ArgumentOutOfRangeException(nameof(left), left, "A band's left stands at or before its right.");
+            if (!(bottom <= top) || float.IsInfinity(bottom) || float.IsInfinity(top)) throw new ArgumentOutOfRangeException(nameof(bottom), bottom, "A band's bottom stands at or under its top.");
+            if (!(emDegrees > 0f) || float.IsInfinity(emDegrees)) throw new ArgumentOutOfRangeException(nameof(emDegrees), emDegrees, "Text in a band has an em.");
+            Left = left;
+            Right = right;
+            Bottom = bottom;
+            Top = top;
+            EmDegrees = emDegrees;
+        }
+
+        public float Left { get; }
+
+        public float Right { get; }
+
+        public float Bottom { get; }
+
+        public float Top { get; }
+
+        /// <summary>The least em of text laid in the band, in degrees at the designed size.</summary>
+        public float EmDegrees { get; }
+    }
+
+    /// <summary>
     /// A page's measures (ADR 0026), engine-free, in units of the plane's distance at the designed size,
     /// so a screen can pack a page before the view lays it: how wide its words run, how tall each kind
     /// of line stands and the gaps between them, and how much height a page holds inside a Quest 3S's
@@ -1072,6 +1103,43 @@ namespace Halcyonic.Client
             // Across a row, the angular em's minimum is at the centre or an outer edge.
             return MathF.Min(Em(0f), Em(composition.Width / 2f)) >= Glaze.MinimumTextDegrees;
         }
+
+        /// <summary>
+        /// The least em of any text in <paramref name="bands"/> as the eyes see it, in degrees, on a
+        /// plane facing them at its centre (ADR 0026). In each band an em box stands at the band's
+        /// top or bottom, whichever lies farther from the centre's row, and is seen at the row's point
+        /// nearest the centre and at its far end, where the angular em's least along a row falls.
+        /// <paramref name="zoom"/> grows each band's em as the composition grows; the bands are
+        /// already grown. Unlike <see cref="Readable(PlaneComposition)"/>, it measures only where text
+        /// can stand, so a composition's empty envelope corners are not taken for text.
+        /// </summary>
+        public static float LeastEm(IReadOnlyList<TextBand> bands, float zoom)
+        {
+            if (bands.Count == 0) throw new ArgumentException("Text stands in at least one band.", nameof(bands));
+            if (!(zoom > 0f)) throw new ArgumentOutOfRangeException(nameof(zoom), zoom, "A zoom is above nothing.");
+            const float DegreesPerRadian = 180f / MathF.PI;
+            static float Seen(float from, float to, float across) => (MathF.Atan2(to, across) - MathF.Atan2(from, across)) * DegreesPerRadian;
+            var least = float.PositiveInfinity;
+            foreach (var band in bands)
+            {
+                var em = U(band.EmDegrees) * zoom;
+                var near = band.Left <= 0f && band.Right >= 0f ? 0f : MathF.Min(MathF.Abs(band.Left), MathF.Abs(band.Right));
+                var far = MathF.Max(MathF.Abs(band.Left), MathF.Abs(band.Right));
+                foreach (var right in new[] { near, far })
+                {
+                    var across = MathF.Sqrt(1f + right * right);
+                    least = MathF.Min(least, MathF.Min(Seen(band.Top - em, band.Top, across), Seen(band.Bottom, band.Bottom + em, across)));
+                }
+            }
+            return least;
+        }
+
+        /// <summary>
+        /// Every band of text holds the minimum apparent em (<see cref="Glaze.MinimumTextDegrees"/>),
+        /// measured where text can stand (<see cref="LeastEm"/>). Field fit and clearance still take
+        /// the whole composition.
+        /// </summary>
+        public static bool Readable(IReadOnlyList<TextBand> bands, float zoom) => LeastEm(bands, zoom) >= Glaze.MinimumTextDegrees;
 
         /// <summary>The height <paramref name="rows"/> rows of a list take, 12 mm apart, as a page of Tasks lays them.</summary>
         public static float Rows(int rows) => rows <= 0 ? 0f : rows * Target() + (rows - 1) * TargetGap;
