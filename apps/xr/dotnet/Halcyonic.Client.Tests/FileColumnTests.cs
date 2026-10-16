@@ -89,6 +89,229 @@ public class FileColumnTests
 {
     private readonly CommandFactory factory = new(Samples.Client);
 
+    private (FileMenuHost Host, WaitingWork Work, FileColumn Column) ComposingTask()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct));
+        column.ConfigureActivityComposer(() => new RowBudget(8), () => new RowBudget(8));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Carry on carefully");
+        return (host, work, column);
+    }
+
+    [Test]
+    public void PassiveActivityNeverReadsTheEditorOrItsFrozenReview()
+    {
+        var (host, _, column) = ComposingTask();
+        var context = column.ActivityContextFrame!;
+        Assert.That(context, Is.Not.Null.And.Not.SameAs(column.Frame));
+        Assert.That(context.Source, Is.EqualTo("Activity"));
+        Assert.That(context.Sections, Is.Empty);
+        Assert.That(context.Footer.All, Is.Empty);
+        Assert.That(context.Side, Is.Null);
+        Assert.That(context.Lines.All(line => line.Action == null && line.Control == LineControl.None), Is.True);
+        column.Drawn(context, null);
+        host.Wait(1);
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(column.Screen.Instruction.Read, Is.False);
+        Assert.That(column.Steering.Armed, Is.Null);
+        Assert.That(host.Sent, Is.Empty);
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
+        column.Drawn(column.ActivityContextFrame!, null);
+        host.Wait(1);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "context drawing is not the frozen review drawing");
+        Draw(host, column);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on carefully"));
+    }
+
+    [Test]
+    public void HidingKeepsOneScopedDraftButDropsAuthorityAndLateKeyboardInput()
+    {
+        var (host, _, column) = ComposingTask();
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.EditInstruction, null);
+        var late = host.Keyboard!.Value.Done;
+        Draw(host, column);
+        Assert.That(column.Frame!.Footer[PromptSlot.Close]?.Words, Is.EqualTo("Hide composer"));
+        column.Act(FileScreens.HideInstruction, null);
+        Assert.That(column.Screen.Instruction.Hidden, Is.True);
+        Assert.That(column.Screen.Instruction.Read, Is.False);
+        Assert.That(column.ActivityContextFrame, Is.Null);
+        Assert.That(column.ContinuationDraft()!.Text, Is.EqualTo("Carry on carefully"));
+        late("Outdated keyboard words");
+        column.Act(FileScreens.CancelInstruction, null);
+        Assert.That(column.ContinuationDraft()!.Text, Is.EqualTo("Carry on carefully"), "a stale discard is not offered while hidden");
+        var keyboard = host.Keyboard;
+        column.Compact();
+        column.FocusLeft();
+        column.Act(FileScreens.TellIt, null);
+        Assert.That(host.Keyboard, Is.EqualTo(keyboard), "reopening does not summon a keyboard");
+        Assert.That((column.Screen.Instruction.Open, column.Screen.Instruction.InputFocused, column.Screen.Instruction.Words), Is.EqualTo((true, false, "Carry on carefully")));
+        Assert.That(column.Screen.Instruction.Read, Is.False);
+        Assert.That(host.Sent, Is.Empty);
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.CancelInstruction, null);
+        Assert.That(column.ContinuationDraft(), Is.Null, "explicit discard clears the same buffer");
+    }
+
+    [Test]
+    public void ContextConfigurationIsOptInAndStableUntilContentOrBudgetChanges()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var current = FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct);
+        var column = Column(host, () => current);
+        Assert.That(column.ActivityContextFrame, Is.Null);
+        Func<PageBudget> activity = () => new RowBudget(8);
+        Func<PageBudget> composer = () => new RowBudget(8);
+        column.ConfigureActivityComposer(activity, composer);
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Keep these words");
+        var context = column.ActivityContextFrame;
+        column.ConfigureActivityComposer(activity, composer);
+        Assert.That(column.ActivityContextFrame, Is.SameAs(context));
+        host.Wait(1);
+        column.Tick();
+        Assert.That(column.ActivityContextFrame, Is.SameAs(context));
+        var entry = new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Message, "I checked the tests", true);
+        current = new WorkspacePresentation(current.Character, current.Objective, current.Execution, current.Runtime, current.Actions,
+            current.Actions.Where(current.RequiresConfirmation).ToList(), current.Commands, new[] { entry });
+        host.Wait(1);
+        column.Tick();
+        Assert.That(column.ActivityContextFrame, Is.Not.SameAs(context));
+        var reported = column.ActivityContextFrame!.Lines.Single(line => line.Words == "I checked the tests");
+        Assert.That((reported.Chip, reported.Runs.AllTheirs), Is.EqualTo(("Agent says", true)));
+        column.ConfigureActivityComposer(() => new HeightBudget(0), () => new RowBudget(3));
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Keep these words"));
+        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Has.Some.Contains("make room for Activity"));
+        Assert.That(column.ActivityContextFrame.Footer.All, Is.Empty);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void HiddenDraftCannotRetargetAnExecutionChange()
+    {
+        var (host, work, column) = ComposingTask();
+        Draw(host, column);
+        column.Act(FileScreens.HideInstruction, null);
+        var previous = column.Screen.Instruction.ExecutionId;
+        WorkspaceInstructionDraft? retired = null;
+        column.OrdinaryDraftLeaving += (execution, draft) => { Assert.That(execution, Is.EqualTo(previous)); retired = draft; };
+        work.Change(execution => execution.ExecutionId = "next-execution");
+        host.Wait(1);
+        column.Tick();
+        Assert.That(retired!.Text, Is.EqualTo("Carry on carefully"));
+        Assert.That(column.ContinuationDraft(), Is.Null);
+        Assert.That(column.Screen.Instruction.ExecutionId, Is.Null);
+        Assert.That(column.ActivityContextFrame, Is.Null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void PassiveContextKeepsActivityPageAndCannotTurnItOrAuthorizeAfterCompact()
+    {
+        var (host, _, column) = ComposingTask();
+        Assert.That(column.RestoreContinuation(new WorkspaceContinuation
+        {
+            WorkstreamId = column.Now!.Character.WorkstreamId, ExecutionId = column.Now.Execution!.ExecutionId,
+            Section = WorkspaceSection.Activity, Page = 2,
+            Instruction = new WorkspaceInstructionDraft { Text = new string('a', 600), Spoken = true, Part = 0 },
+        }), Is.True);
+        column.Reflow();
+        Assert.That(column.Screen.Page, Is.EqualTo(2), "context packing never mutates the underlying Activity page");
+        var context = column.ActivityContextFrame!;
+        column.Compact();
+        column.Drawn(context, null);
+        column.Act(FileScreens.SendInstruction, null);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo(new string('a', 600)));
+        Assert.That(column.Screen.Instruction.Read, Is.False);
+        Assert.That(column.Steering.Armed, Is.Null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void HideRetainsExactPartButRequiresOrderedReadingAgain()
+    {
+        var instruction = new FileInstruction();
+        var now = DateTimeOffset.UtcNow;
+        instruction.Begin("run-a");
+        instruction.Changed(new string('x', 200), spoken: true);
+        instruction.Measure(20, new RowBudget(8), TextSize.Standard, pairedPager: false);
+        Assert.That(instruction.Parts, Is.GreaterThan(1));
+        instruction.Drawn(now);
+        instruction.Next(now.AddSeconds(1));
+        Assert.That(instruction.Part, Is.EqualTo(1));
+        instruction.Hide();
+        instruction.Begin("run-a");
+        instruction.Measure(20, new RowBudget(8), TextSize.Standard, pairedPager: false);
+        Assert.That((instruction.Part, instruction.Words, instruction.Spoken, instruction.InputFocused), Is.EqualTo((1, new string('x', 200), true, false)));
+        instruction.Drawn(now.AddSeconds(2));
+        Assert.That(instruction.Read, Is.False, "the retained part does not inherit its old read prefix");
+        instruction.Begin("run-b");
+        Assert.That((instruction.Part, instruction.Words, instruction.Spoken), Is.EqualTo((0, "", false)));
+    }
+
+    [Test]
+    public void SameExecutionIdOnAnotherTaskCannotReceiveAnOldEditorsInputOrAction()
+    {
+        var host = new FileMenuHost();
+        var first = new WaitingWork();
+        first.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var current = FileScreensTests.Offering(first.Present(), WorkspaceAction.Instruct);
+        var column = Column(host, () => current);
+        column.ConfigureActivityComposer(() => new RowBudget(8), () => new RowBudget(8));
+        column.Act(FileScreens.TellIt, null);
+        var oldInput = host.Keyboard!.Value.Done;
+        var second = new WaitingWork();
+        second.Workstream.WorkstreamId = "different-task";
+        second.Change(execution => { execution.WorkstreamId = "different-task"; execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        current = FileScreensTests.Offering(second.Present(), WorkspaceAction.Instruct);
+        oldInput("Words for the old task");
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(column.Screen.Instruction.ExecutionId, Is.Null);
+        Assert.That(column.ActivityContextFrame, Is.Null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void ApprovalReviewDoesNotBorrowTheOrdinaryComposerContextOrBudget()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var column = Column(host, () =>
+        {
+            var current = work.Present();
+            return new WorkspacePresentation(current.Character, current.Objective, current.Execution, current.Runtime,
+                new[] { WorkspaceAction.Instruct, WorkspaceAction.Approve, WorkspaceAction.Deny }, new[] { WorkspaceAction.Approve }, current.Commands, current.Activity);
+        });
+        var composerMeasures = 0;
+        column.ConfigureActivityComposer(() => new RowBudget(8), () => { composerMeasures++; return new RowBudget(8); });
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Retain ordinary words");
+        work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("new-approval", "Run a check", Samples.Time)));
+        host.Wait(1);
+        column.Tick();
+        column.Steering.StopTyping();
+        column.Steering.Press(WorkspaceAction.Approve, column.Now!);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Approve));
+        var measured = composerMeasures;
+        host.Wait(1);
+        column.Tick();
+        Assert.That(column.ActivityContextFrame, Is.Null);
+        Assert.That(composerMeasures, Is.EqualTo(measured));
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Retain ordinary words"));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     private FileColumn Column(FileMenuHost host, Func<WorkspacePresentation?> present, IReadOnlyList<PresetInstruction>? recorded = null) =>
         new(host, present, factory, () => null, _ => recorded, () => "");
 

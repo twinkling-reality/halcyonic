@@ -7,6 +7,7 @@ namespace Halcyonic.Client
     public sealed class FileInstruction
     {
         public bool Open { get; private set; }
+        public bool Hidden => !Open && ExecutionId != null;
         public string? ExecutionId { get; private set; }
         public string Words { get; private set; } = "";
         public bool Spoken { get; private set; }
@@ -122,6 +123,12 @@ namespace Halcyonic.Client
         }
         public void BackFromNotice() { ExplainingNotice = false; Notice = null; noticeDrawnAt = null; }
         public void Suspend() { Epoch++; InputFocused = false; partDrawnAt = null; noticeDrawnAt = null; }
+        public void Hide()
+        {
+            Suspend();
+            Open = false;
+            readThrough = -1;
+        }
         public void Close()
         {
             Suspend();
