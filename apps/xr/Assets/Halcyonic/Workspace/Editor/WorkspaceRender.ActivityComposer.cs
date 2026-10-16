@@ -187,6 +187,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 { Thread.Sleep(450); Press(FileScreens.NextInstructionPart); }
                 Require(loops < 64 && file?.Screen.Instruction.Read == true, "actual bounded draft review never completed");
                 Shot("04-draft-reviewed"); Require(sends == 0, "reading/reopening sent work without an explicit Send");
+                var pickerPart = file!.Screen.Instruction.Part;
+                Pointer(director.Plane.Context.TasksTarget, 219); Draw();
+                Require(director.Navigator.Place == MenuPlace.Tasks && director.Navigator.BesideTask == null && file.Screen.Instruction.Words == draft,
+                    "actual Tasks context control failed to promote the picker or discarded its retained draft");
+                director.OpenFile(work.Workstream.WorkstreamId); Draw();
+                Require(file.Screen.Instruction.Part == pickerPart, "same-project picker return unnecessarily lost the retained draft part");
                 // Returning to the same retained file must not lose its part merely because B
                 // was selected, but a real allocation change while B is active must invalidate A.
                 var retainedPart = file!.Screen.Instruction.Part;
