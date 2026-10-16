@@ -6,109 +6,79 @@ using UnityEngine;
 namespace Halcyonic.XR.Room
 {
     /// <summary>
-    /// The person's real room behind the scene: the Meta XR Core SDK's passthrough, started through
-    /// <see cref="OVRManager.isInsightPassthroughEnabled"/>, drawn by an <see cref="OVRPassthroughLayer"/>
-    /// underlay, with the rig's cameras cleared to transparent black while it runs so the room shows
-    /// wherever nothing is drawn. Off, the cameras get their own background back.
+    /// The headset's side of the person's real room (<see cref="RoomPassthrough"/>): the Meta XR Core
+    /// SDK's passthrough, started through <see cref="OVRManager.isInsightPassthroughEnabled"/>, drawn by
+    /// an <see cref="OVRPassthroughLayer"/> underlay, with the rig's cameras cleared to transparent black
+    /// while it runs so the room shows wherever nothing is drawn. Off, the cameras get their own
+    /// background back. It asks for the boundary hidden or shown only in development builds and the
+    /// editor, and keeps <see cref="OVRManager.shouldBoundaryVisibilityBeSuppressed"/> in step, since
+    /// OVRManager otherwise asks the other way on its next frame.
     /// </summary>
     /// <remarks>
-    /// Passthrough is unavailable when the headset does not support it, when it fails to start, or
-    /// when it has not started within <see cref="StartSeconds"/>; the room placement then shows the
-    /// virtual space. The project declares passthrough supported, not required
-    /// (<c>OculusProjectConfig</c>), so the app also installs where it is missing.
+    /// The project declares passthrough supported, not required (<c>OculusProjectConfig</c>), so the app
+    /// also installs where it is missing. It declares no boundary visibility support: only development
+    /// APKs carry the permission, added by <c>BoundaryInDevelopmentBuilds</c>.
     /// </remarks>
-    internal sealed class PassthroughView
+    internal sealed class PassthroughView : IPassthroughDevice
     {
-        private const float StartSeconds = 6f;
-
         private readonly GameObject host;
         private readonly List<(Camera Camera, CameraClearFlags Flags, Color Background)> cleared =
             new List<(Camera, CameraClearFlags, Color)>();
 
         private OVRPassthroughLayer? layer;
-        private float startedAt;
 
         public PassthroughView(GameObject host)
         {
             this.host = host;
         }
 
-        public PassthroughState State { get; private set; } = PassthroughState.Off;
+        public bool Initialized => OVRManager.IsInsightPassthroughInitialized();
 
-        /// <summary>Why passthrough is unavailable, for the log.</summary>
-        public string? Problem { get; private set; }
+        public bool InitFailed => OVRManager.HasInsightPassthroughInitFailed();
 
-        /// <summary>Starts passthrough, unless it is unavailable.</summary>
-        public void Start(float now)
+        public bool LayerShown => layer != null && layer.enabled && !layer.hidden;
+
+        public string? CannotStart()
         {
-            if (State is PassthroughState.Starting or PassthroughState.Running or PassthroughState.Unavailable) return;
-            var manager = OVRManager.instance;
-            if (manager == null)
-            {
-                MarkUnavailable("the scene has no OVRManager");
-                return;
-            }
-            if (!OVRManager.IsInsightPassthroughSupported())
-            {
-                MarkUnavailable("this headset does not support it");
-                return;
-            }
-            if (OVRManager.HasInsightPassthroughInitFailed())
-            {
-                MarkUnavailable("it failed to start");
-                return;
-            }
-            manager.isInsightPassthroughEnabled = true;
+            if (OVRManager.instance == null) return "the scene has no OVRManager";
+            if (!OVRManager.IsInsightPassthroughSupported()) return "this headset does not support it";
+            if (OVRManager.HasInsightPassthroughInitFailed()) return "it failed to start";
+            return null;
+        }
+
+        public void TurnOn()
+        {
+            OVRManager.instance.isInsightPassthroughEnabled = true;
             if (layer == null) layer = host.AddComponent<OVRPassthroughLayer>();
             layer.hidden = false;
             layer.enabled = true;
             ClearCameras();
-            startedAt = now;
-            State = PassthroughState.Starting;
         }
 
-        /// <summary>Stops passthrough and gives the cameras their background back.</summary>
-        public void Stop()
-        {
-            if (State is PassthroughState.Off or PassthroughState.Unavailable) return;
-            Shutdown();
-            State = PassthroughState.Off;
-        }
-
-        /// <summary>Follows passthrough's start once a frame; returns the state.</summary>
-        public PassthroughState Poll(float now)
-        {
-            switch (State)
-            {
-                case PassthroughState.Starting when OVRManager.IsInsightPassthroughInitialized():
-                    State = PassthroughState.Running;
-                    break;
-                case PassthroughState.Starting when OVRManager.HasInsightPassthroughInitFailed():
-                    MarkUnavailable("it failed to start");
-                    break;
-                case PassthroughState.Starting when now - startedAt > StartSeconds:
-                    MarkUnavailable("it did not start within " + StartSeconds + " seconds");
-                    break;
-                case PassthroughState.Running when OVRManager.HasInsightPassthroughInitFailed():
-                    MarkUnavailable("it stopped working");
-                    break;
-            }
-            return State;
-        }
-
-        private void MarkUnavailable(string problem)
-        {
-            Shutdown();
-            Problem = problem;
-            State = PassthroughState.Unavailable;
-        }
-
-        private void Shutdown()
+        public void TurnOff()
         {
             var manager = OVRManager.instance;
             if (manager != null) manager.isInsightPassthroughEnabled = false;
             if (layer != null) layer.hidden = true;
             RestoreCameras();
+        }
+
+        public BoundaryAnswer AskBoundary(bool hidden)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            var manager = OVRManager.instance;
+            if (manager != null) manager.shouldBoundaryVisibilityBeSuppressed = hidden;
+            var result = OVRPlugin.RequestBoundaryVisibility(hidden ? OVRPlugin.BoundaryVisibility.Suppressed : OVRPlugin.BoundaryVisibility.NotSuppressed);
+            return result switch
+            {
+                OVRPlugin.Result.Success => BoundaryAnswer.Done,
+                OVRPlugin.Result.Warning_BoundaryVisibilitySuppressionNotAllowed => BoundaryAnswer.NotAllowed,
+                OVRPlugin.Result.Failure_Unsupported or OVRPlugin.Result.Failure_NotYetImplemented => BoundaryAnswer.Unsupported,
+                _ => BoundaryAnswer.Failed,
+            };
+#else
+            return BoundaryAnswer.Unsupported;
+#endif
         }
 
         /// <summary>

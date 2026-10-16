@@ -47,7 +47,7 @@ namespace Halcyonic.XR.Room
         private const float StillDegrees = 0.5f;
 
         private GameObject root = null!;
-        private PassthroughView passthrough = null!;
+        private RoomPassthrough passthrough = null!;
         private RoomControls? controls;
         private PlacementMemory memory = new PlacementMemory();
         private MRUK? mruk;
@@ -171,6 +171,12 @@ namespace Halcyonic.XR.Room
 
         public RoomStatus Status { get; private set; } = RoomStatus.Initial;
 
+        /// <summary>The headset's boundary for Settings, or null where the build doesn't offer hiding it.</summary>
+        public BoundaryNow? Boundary => passthrough.Boundary;
+
+        /// <summary>Hides the boundary while the room shows, or shows it again, for this session only.</summary>
+        public void ToggleBoundary() => passthrough.ChooseBoundaryHidden(!passthrough.BoundaryChosen);
+
         /// <summary>Whether the headset can run its space setup from the app: on a headset, not over a link or in the editor.</summary>
         public bool CanSetUpRoom => Application.platform == RuntimePlatform.Android;
 
@@ -205,7 +211,8 @@ namespace Halcyonic.XR.Room
         private void Awake()
         {
             root = new GameObject("Halcyonic room");
-            passthrough = new PassthroughView(root);
+            passthrough = new RoomPassthrough(new PassthroughView(root), Log, Debug.isDebugBuild);
+            OVRManager.BoundaryVisibilityChanged += BoundaryChanged;
             memory = PlacementMemory.Load(PlayerPrefs.GetString(MemoryKey, ""));
             accessDeclined = PlayerPrefs.GetInt(DeclinedKey, 0) == 1;
             var preferred = PlayerPrefs.GetString(SpaceKey, nameof(RoomSpace.Room)) == nameof(RoomSpace.Virtual) ? RoomSpace.Virtual : RoomSpace.Room;
@@ -222,6 +229,7 @@ namespace Halcyonic.XR.Room
         {
             run++;
             passthrough.Stop();
+            OVRManager.BoundaryVisibilityChanged -= BoundaryChanged;
             if (root != null) Destroy(root);
             if (Preferred.HasValue)
             {
@@ -232,6 +240,7 @@ namespace Halcyonic.XR.Room
 
         private void OnApplicationPause(bool paused)
         {
+            passthrough.Paused(paused);
             if (paused) return;
             // Room access may have been allowed in the headset's settings meanwhile.
             if (Status.Shown == RoomSpace.Room && (Status.Scan is RoomScan.NoAccess or RoomScan.AccessOff) && HasRoomAccess())
@@ -254,9 +263,20 @@ namespace Halcyonic.XR.Room
         /// </summary>
         private void OnApplicationFocus(bool hasFocus)
         {
+            passthrough.Focused(hasFocus);
             focused = hasFocus;
             untrackedFor = 0f;
             moving = null;
+        }
+
+        /// <summary>The boundary is asked back before the app goes; no source promises the headset restores it alone.</summary>
+        private void OnApplicationQuit() => passthrough.Quitting();
+
+        /// <summary>What the headset reports of its boundary; the first report of it hidden in a session is said in the workspace.</summary>
+        private void BoundaryChanged(OVRPlugin.BoundaryVisibility visibility)
+        {
+            if (passthrough.HeardBoundary(visibility == OVRPlugin.BoundaryVisibility.Suppressed))
+                GetComponent<WorkspaceDirector>()?.ReportLocal(RoomPassthrough.HiddenNotice);
         }
 
         /// <summary>Starts over for the space the person prefers, abandoning anything in progress.</summary>

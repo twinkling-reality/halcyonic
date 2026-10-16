@@ -276,4 +276,43 @@ public class SpaceSettingsTests
             }
         }
     }
+
+    [Test]
+    public void TheBoundaryRowShowsOnlyWhereOfferedAndSaysWhatTheHeadsetReported()
+    {
+        var boundary = new BoundaryNow(BoundaryStep.Off, roomShows: true);
+        var raised = new List<string>();
+        var plain = SpaceSettings.Of(() => new SpaceNow(Room, RoomOffer.None, null, null, boundary: boundary), raised.Add, _ => { });
+        Assert.That(plain.Any(row => row.Key == SpaceSettings.ToggleBoundary), Is.False, "only builds that offer it show the row");
+
+        var rows = SpaceSettings.Of(() => new SpaceNow(Room, RoomOffer.None, null, null, boundary: boundary), raised.Add, _ => { }, boundary: true);
+        Assert.That(rows.Select(row => row.Name).TakeLast(2), Is.EqualTo(new[] { "Boundary", "The menu" }));
+        Assert.That(rows.Single(row => row.Key == SpaceSettings.ToggleBoundary).Group, Is.EqualTo("Your space"));
+
+        var off = Read(rows, SpaceSettings.ToggleBoundary);
+        Assert.That((off.Value, off.Now, off.Next, off.Prompt, off.Reason), Is.EqualTo(("Shown", "The headset draws its boundary as you set it up",
+            "Hidden while your room shows", "Hide boundary", (string?)null)));
+        Assert.That(off.Does, Is.EqualTo("The headset stops drawing its boundary while your room shows. It comes back when your room stops showing, "
+            + "when Halcyonic pauses or loses focus, or when you choose Show boundary"));
+        boundary = new BoundaryNow(BoundaryStep.Off, roomShows: false);
+        Assert.That(Read(rows, SpaceSettings.ToggleBoundary).Reason, Is.EqualTo("Only while your room shows."));
+
+        boundary = new BoundaryNow(BoundaryStep.Asked, roomShows: true);
+        var asked = Read(rows, SpaceSettings.ToggleBoundary);
+        Assert.That((asked.Value, asked.Now, asked.Prompt), Is.EqualTo(("Asked to hide", "The headset hasn't said it hid its boundary yet", "Show boundary")));
+        boundary = new BoundaryNow(BoundaryStep.Hidden, roomShows: true);
+        var hidden = Read(rows, SpaceSettings.ToggleBoundary);
+        Assert.That((hidden.Value, hidden.Now, hidden.Next, hidden.Does, hidden.Prompt), Is.EqualTo(("Hidden", "Your boundary is hidden while your room shows",
+            "Shown", "The headset draws its boundary again", "Show boundary")));
+        boundary = new BoundaryNow(BoundaryStep.KeptOn, roomShows: true);
+        var kept = Read(rows, SpaceSettings.ToggleBoundary);
+        Assert.That((kept.Value, kept.Now, kept.Next, kept.Does, kept.Prompt), Is.EqualTo(("Kept on",
+            "The headset kept its boundary on. Halcyonic asks again while your room shows", "Shown", "Halcyonic stops asking", "Stop asking")));
+
+        rows.Single(row => row.Key == SpaceSettings.ToggleBoundary).Change();
+        Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.ToggleBoundary }));
+
+        var unread = SpaceSettings.Of(() => new SpaceNow(null, RoomOffer.None, null, null), _ => { }, _ => { }, boundary: true);
+        Assert.That(Read(unread, SpaceSettings.ToggleBoundary).Reason, Is.EqualTo(SpaceSettings.RoomUnread));
+    }
 }

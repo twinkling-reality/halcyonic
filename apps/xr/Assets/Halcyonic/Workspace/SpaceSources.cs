@@ -28,6 +28,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Does what <see cref="Offer"/> offers.</summary>
         void TakeOffer();
 
+        /// <summary>The headset's boundary, or null where the build doesn't offer hiding it.</summary>
+        BoundaryNow? Boundary { get; }
+
+        /// <summary>Hides the boundary while the room shows, or shows it again.</summary>
+        void ToggleBoundary();
+
     }
 
     /// <summary>

@@ -191,7 +191,7 @@ namespace Halcyonic.XR.Workspace
                 AppearanceSaved = appearance.Keep,
                 // Your space always, so Reset position is always there; Your computer where the build
                 // offers pairing (PairingBootstrap's gate), each row reading whatever stands now.
-                Space = () => SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address), pairing: Debug.isDebugBuild),
+                Space = () => SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address), pairing: Debug.isDebugBuild, boundary: Debug.isDebugBuild),
                 Commands = commands,
                 Overview = Overview,
                 ShowProject = ShowProject,
@@ -454,7 +454,7 @@ namespace Halcyonic.XR.Workspace
         private SpaceNow SpaceNow()
         {
             var room = Room;
-            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, null, Pairing?.Now, menu.MovedByHand, Presentation.AgentsEnabled, Room?.ShelfPlaced == true, stage?.ShelfPage);
+            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, null, Pairing?.Now, menu.MovedByHand, Presentation.AgentsEnabled, Room?.ShelfPlaced == true, stage?.ShelfPage, room?.Boundary);
         }
 
         /// <summary>Does what a row of Your space or Your computer raised, through what owns it.</summary>
@@ -467,6 +467,9 @@ namespace Halcyonic.XR.Workspace
                     break;
                 case SpaceSettings.TakeOffer:
                     Room?.TakeOffer();
+                    break;
+                case SpaceSettings.ToggleBoundary:
+                    Room?.ToggleBoundary();
                     break;
                 case SpaceSettings.ToggleAgents:
                     Room?.ToggleAgents();

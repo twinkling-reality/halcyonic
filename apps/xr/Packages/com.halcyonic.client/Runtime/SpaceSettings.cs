@@ -50,7 +50,8 @@ namespace Halcyonic.Client
         /// <param name="arrangement">Where the characters stand, or null on a desk, where the room places them.</param>
         /// <param name="pairing">Pairing with the person's computer, or null where it isn't ready or offered.</param>
         /// <param name="menuMoved">The person dragged the menu from where it stands by itself, until Reset position puts it back.</param>
-        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing, bool menuMoved = false, bool agentsEnabled = false, bool shelfPlaced = false, AgentShelfPageInfo? shelfPage = null)
+        /// <param name="boundary">The headset's boundary as the room's passthrough gives it, or null while no room controls do.</param>
+        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing, bool menuMoved = false, bool agentsEnabled = false, bool shelfPlaced = false, AgentShelfPageInfo? shelfPage = null, BoundaryNow? boundary = null)
         {
             Room = room;
             Offer = offer;
@@ -60,6 +61,7 @@ namespace Halcyonic.Client
             AgentsEnabled = agentsEnabled;
             ShelfPlaced = shelfPlaced;
             ShelfPage = shelfPage;
+            Boundary = boundary;
         }
 
         public RoomStatus? Room { get; }
@@ -74,6 +76,7 @@ namespace Halcyonic.Client
         public bool AgentsEnabled { get; }
         public bool ShelfPlaced { get; }
         public AgentShelfPageInfo? ShelfPage { get; }
+        public BoundaryNow? Boundary { get; }
     }
 
     /// <summary>
@@ -96,6 +99,9 @@ namespace Halcyonic.Client
 
         public const string ResetPosition = "reset-position";
 
+        /// <summary>Hides the headset's boundary while the room shows, or shows it again: development builds only.</summary>
+        public const string ToggleBoundary = "boundary-toggle";
+
         public const string Pairing = "pairing";
 
         /// <summary>Why the room's rows take no change while no room is given (proposed by lane W, 2026-10-03).</summary>
@@ -111,7 +117,8 @@ namespace Halcyonic.Client
         /// under way (<see cref="PairingNow.Forgets"/>). A bare change of the row never forgets.
         /// </param>
         /// <param name="pairing">The build offers pairing, a development build: Your computer's row shows, read as the pairing stands.</param>
-        public static IReadOnlyList<MenuSetting> Of(Func<SpaceNow> now, Action<string> act, Action<string> forget, bool pairing = false)
+        /// <param name="boundary">The build may hide the headset's boundary while the room shows, a development build: the Boundary row shows.</param>
+        public static IReadOnlyList<MenuSetting> Of(Func<SpaceNow> now, Action<string> act, Action<string> forget, bool pairing = false, bool boundary = false)
         {
             // Every row stands whatever is there now: each reads afresh, so a room or a pairing that
             // comes or goes while Settings shows changes what a row says, never which rows there are.
@@ -129,6 +136,11 @@ namespace Halcyonic.Client
                     () => AgentPage(now(), previous: true), () => act(PreviousAgent)));
                 rows.Insert(rows.Count - 1, new MenuSetting(NextAgent, SettingsText.YourSpace, "Next agent",
                     () => AgentPage(now(), previous: false), () => act(NextAgent)));
+            }
+            if (boundary)
+            {
+                rows.Insert(rows.Count - 1, new MenuSetting(ToggleBoundary, SettingsText.YourSpace, "Boundary",
+                    () => Boundary(now().Boundary), () => act(ToggleBoundary)));
             }
             if (pairing)
             {
@@ -185,6 +197,27 @@ namespace Halcyonic.Client
                 previous ? "Previous agent" : "Next agent", "Show one complete agent label; all tasks remain in the workspace",
                 previous ? "Previous agent" : "Next agent", available ? null : "No " + (previous ? "previous" : "next") + " agent is available on the placed shelf.",
                 nowRuns: page?.Title != null ? LineWords.TheirName(page.Title) : null);
+        }
+
+        /// <summary>
+        /// The headset's boundary, in a development build: hidden only while the room shows, and said to be
+        /// hidden only once the headset reported it (2026-10-16, boundary-visibility.md).
+        /// </summary>
+        private static SettingNow Boundary(BoundaryNow? boundary)
+        {
+            const string Again = "The headset draws its boundary again";
+            if (boundary == null) return new SettingNow("Not known", RoomUnread, "Hidden while your room shows", RoomUnread, "Hide boundary", RoomUnread);
+            return boundary.Step switch
+            {
+                BoundaryStep.Asked => new SettingNow("Asked to hide", "The headset hasn't said it hid its boundary yet", "Shown", Again, "Show boundary"),
+                BoundaryStep.Hidden => new SettingNow("Hidden", "Your boundary is hidden while your room shows", "Shown", Again, "Show boundary"),
+                BoundaryStep.KeptOn => new SettingNow("Kept on", "The headset kept its boundary on. Halcyonic asks again while your room shows", "Shown",
+                    "Halcyonic stops asking", "Stop asking"),
+                _ => new SettingNow("Shown", "The headset draws its boundary as you set it up", "Hidden while your room shows",
+                    "The headset stops drawing its boundary while your room shows. It comes back when your room stops showing, "
+                    + "when Halcyonic pauses or loses focus, or when you choose Show boundary", "Hide boundary",
+                    boundary.RoomShows ? null : "Only while your room shows."),
+            };
         }
 
         private static SettingNow Shelf(SpaceNow now) => new SettingNow(now.ShelfPlaced ? "Placed" : "Not placed",
