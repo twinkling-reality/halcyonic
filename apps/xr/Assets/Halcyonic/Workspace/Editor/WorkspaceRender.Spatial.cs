@@ -157,7 +157,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var titleWitnesses = Enumerable.Range(1, 12).Select(count => string.Join(" ", Enumerable.Repeat("Build rate limiting", count))).ToList();
                 foreach (var title in titleWitnesses)
                 {
-                    var actualRows = MenuFrameView.SpatialTitleRows(title, Glaze.Menu.FileColumnDegrees);
+                    var actualRows = MenuFrameView.IndependentTitleRows(title, Glaze.Menu.FileColumnDegrees);
                     if (director.TitleRows(title, Glaze.Menu.FileColumnDegrees) != actualRows)
                         failures.Add("spatial: host title row budget differs from the actual reading title");
                 }
@@ -174,6 +174,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: actual visible route refused " + action);
                         Debug.LogError("Halcyonic: spatial route refused action=" + action + "; " + director.WorkspaceControlsStateForRender);
                     }
+                }
+                void Click(GlazeButton button, int pointer)
+                {
+                    button.SettleForRender();
+                    button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Select, button.transform.position);
+                    button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, button.transform.position);
+                    Draw();
                 }
                 void Shot(string name)
                 {
@@ -221,7 +228,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: multiple-project snapshot did not render at least two distinct current selectable project identities together");
                     foreach (var key in keys)
                     {
-                        Press(ProjectsScreens.ChooseProject, key);
+                        var contextChoice = director.Plane.Context.gameObject.activeInHierarchy
+                            ? director.Plane.Context.ProjectChoices.FirstOrDefault(choice => choice.ProjectId == key).Button : null;
+                        if (contextChoice != null) Click(contextChoice, 948);
+                        else Press(ProjectsScreens.ChooseProject, key);
                         // Dispatch dirties the navigator; inspect only its newly drawn Tasks frame.
                         Shot("spatial-selected-project-" + key);
                         var tasks = director.Plane.Shown.Select(shown => shown.View.Frame).Where(frame => frame != null).ToList();
@@ -334,18 +344,28 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: shared task identity connector did not start at the actual character body");
                     var retainedFile = selectedFile;
                     var staleFrame = director.Plane.Showing(MenuColumn.File);
-                    void Click(GlazeButton button, int pointer)
+                    GlazeButton WorkspaceTarget() => director.Plane.Context.gameObject.activeInHierarchy
+                        ? director.Plane.Context.WorkspaceTarget
+                        : director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace");
+                    if (director.Plane.Context.gameObject.activeInHierarchy)
                     {
-                        button.SettleForRender();
-                        button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Select, button.transform.position);
-                        button.Target.PointerForRender(pointer, Oculus.Interaction.PointerEventType.Unselect, button.transform.position);
-                        Draw();
+                        if (director.Plane.Context.MoreProjectsTarget.gameObject.activeInHierarchy)
+                            Click(director.Plane.Context.MoreProjectsTarget, 951);
+                        else
+                        {
+                            Click(WorkspaceTarget(), 951);
+                            for (var page = 0; page < 24 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.Navigate && line.Key == MenuPlace.Projects.ToString()); page++)
+                            { Press(Footer.NextPage); Draw(); }
+                            Press(PlacementColumn.Navigate, MenuPlace.Projects.ToString()); Draw();
+                        }
                     }
-                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
+                    else Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
                     if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
                         failures.Add("spatial: character title did not return when Projects replaced its task");
-                    if (director.Plane.Composition?.Columns.Count != 1 || !director.Plane.Chrome.Targets.Any(button => button.Label.text == "Workspace" && button.gameObject.activeInHierarchy))
-                        failures.Add("spatial: actual Projects target did not return the complete chooser navigation");
+                    if (director.Plane.Context.gameObject.activeInHierarchy
+                        ? director.Plane.Composition?.Columns.Count != 2 || !director.Plane.Context.WorkspaceTarget.gameObject.activeInHierarchy
+                        : director.Plane.Composition?.Columns.Count != 1 || !director.Plane.Chrome.Targets.Any(button => button.Label.text == "Workspace" && button.gameObject.activeInHierarchy))
+                        failures.Add("spatial: actual Projects route did not return its complete current navigation");
                     if (director.Navigator.Place != MenuPlace.Projects || retainedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                         failures.Add("spatial: peripheral Projects navigation discarded the local draft");
                     if (staleFrame != null && director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, staleFrame, null))
@@ -355,7 +375,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (!ReferenceEquals(retainedFile, selectedFile) || selectedFile?.Screen.Instruction.Words != "Add a regression test for the rate limit.")
                         failures.Add("spatial: reopening the actual task replaced its retained draft");
                     Draw();
-                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 954);
+                    Click(WorkspaceTarget(), 954);
                     for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.OtherApps); page++) { Press(Footer.NextPage); Draw(); }
                     var staleControls = director.Plane.Front;
                     Press(Footer.NextPage); // Moving away revokes the previously drawn page.
@@ -371,7 +391,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null))
                         failures.Add("spatial: closed local controls kept app-switch authority");
                     director.Expand(); Draw();
-                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 955);
+                    Click(WorkspaceTarget(), 955);
                     for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.BeginMove); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.BeginMove);
                     if (director.PressForRender(MenuColumn.File, PlacementColumn.OtherApps, null, staleControls, null) || syntheticLaunches != 1)
@@ -392,13 +412,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     var moved = director.Plane.Moved;
                     Press(Footer.Close); // Done moving returns to the retained task.
                     Draw(); // Observe the returned task's controls after the local mode closes.
-                    Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 952);
+                    Click(WorkspaceTarget(), 952);
                     for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.Minimize); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.Minimize);
                     Draw(); // Visibility is a rendered result of minimizing, not the prior frame.
                     if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
                         failures.Add("spatial: minimizing retained a hidden character title");
-                    if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible)
+                    if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible
+                        || director.Plane.Context.gameObject.activeInHierarchy || director.Plane.ActivityContext != null)
                         failures.Add("spatial: Minimize left the reading object or peripheral controls active");
                     if (director.Plane.Bar is MenuBarView dock)
                     {
@@ -466,7 +487,10 @@ namespace Halcyonic.XR.Workspace.Editor
             var plane = director.Plane; ForceMeshes(root);
             if (plane.Composition == null || plane.Shown.Count != 1) { failures.Add(name + ": expected one focused reading surface"); return failures; }
             var view = plane.Shown[0].View;
-            if (plane.Shown[0].Kind == MenuColumn.File || view.InPlaceOf?.IdentityKind == MenuIdentityKind.Task)
+            var independent = plane.SeparateWorkspace && plane.Context.gameObject.activeInHierarchy;
+            var readingViews = new List<MenuFrameView> { view };
+            if (plane.ActivityContext is MenuFrameView passive) readingViews.Add(passive);
+            if (!independent && (plane.Shown[0].Kind == MenuColumn.File || view.InPlaceOf?.IdentityKind == MenuIdentityKind.Task))
             {
                 if (plane.Composition.Columns.Count != 1) failures.Add(name + ": focused work retained the chooser rail column");
                 var header = WorkspaceChromeView.SpatialHeader(true);
@@ -499,45 +523,120 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": focused work must expose only Projects return and Workspace controls");
             }
             var bodyColumn = plane.Composition.Columns.Count - 1;
-            var body = plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
+            var body = independent ? plane.ComposerAllocation ?? plane.ReaderAllocation
+                ?? plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0)
+                : plane.Composition.Parts.First(part => part.Column == bodyColumn && part.Index == 0);
             var shape = new GlazeChecks.PlaneShape("work reading surface", view.Parts[0], new Vector2(body.Width, body.Height) * PlaneComposition.Distance);
             var chrome = new GlazeChecks.PlaneShape("peripheral controls", plane.Chrome.transform, plane.Chrome.Size * plane.Chrome.transform.localScale.x);
-            // The chrome bounds deliberately enclose the work, so the old separated-rectangle
-            // gap invariant is inapplicable. Text, targets, field and reading orientation retain their thresholds.
-            if (Quaternion.Angle(shape.Root.rotation, chrome.Root.rotation) > 0.05f || Mathf.Abs(Vector3.Dot(shape.Root.position - chrome.Root.position, chrome.Root.forward)) > 0.0005f)
-                failures.Add(name + ": peripheral controls and reading face do not share their physical plane");
-            // A fixed kind caption above the actual name is an intentional header hierarchy.
-            // Retain the existing descending type check inside the actual reading content.
-            var contentShape = new GlazeChecks.PlaneShape("reading content", view.Content.transform.parent, shape.Size);
-            var projectGroups = view.ShownLines.Where(row => row.Model.ProjectIdentity && row.Fact != null).ToList();
-            var grouped = new HashSet<TMPro.TMP_Text>();
-            foreach (var row in projectGroups)
+            var regions = new List<GlazeChecks.PlaneShape>();
+            if (independent)
             {
-                var labels = new TMPro.TMP_Text[] { row.Words, row.Fact! };
-                foreach (var label in labels) grouped.Add(label);
-                failures.AddRange(GlazeChecks.TypeStepsDownLabels(labels, contentShape.Root, eyes, name + " project " + row.Model.Key));
-            }
-            var ordinary = contentShape.Root.GetComponentsInChildren<TMPro.TMP_Text>(false)
-                .Where(label => !grouped.Contains(label) && label.GetComponentInParent<StateBadgeView>() == null).ToList();
-            failures.AddRange(GlazeChecks.TypeStepsDownLabels(ordinary, contentShape.Root, eyes, name));
-            if (projectGroups.Count > 0)
-            {
-                // A real-label negative witness: reversing one row's hierarchy must still fail.
-                var row = projectGroups[0]; var before = row.Words.fontSize;
+                if (plane.Chrome.Visible || plane.Composition.Columns.Count != 2 || plane.Composition.Header != 0f)
+                    failures.Add(name + ": independent work must have contextual selection and a reading column, without the enclosing Chrome header");
+                // Surface already scales its unit quad to Size; lossyScale is the complete physical extent.
+                GlazeChecks.PlaneShape SurfaceShape(string label, Surface surface) => new GlazeChecks.PlaneShape(label, surface.transform,
+                    new Vector2(surface.transform.lossyScale.x, surface.transform.lossyScale.y));
+                regions.Add(SurfaceShape("actual project context", plane.Context.ReadingSurface));
+                foreach (var reading in readingViews) regions.Add(SurfaceShape(reading.name, reading.ReadingSurface));
+                if (plane.ActivityContext is MenuFrameView activity)
+                {
+                    if (!activity.PassiveActivity || plane.Shown.Any(shown => ReferenceEquals(shown.View, activity))
+                        || activity.Targets.Any(target => target.gameObject.activeInHierarchy)
+                        || activity.Frame?.Lines.Any(line => line.Action != null) == true)
+                        failures.Add(name + ": passive Activity acquired an authoritative slot or action target");
+                    if (plane.ReaderAllocation is not PlanePart reader || plane.ComposerAllocation is not PlanePart composer
+                        || reader.Bottom <= composer.Top)
+                        failures.Add(name + ": actual independent Activity and composer allocations overlap or are missing");
+                }
+                else if (plane.ComposerAllocation != null)
+                    failures.Add(name + ": an uninvoked composer retained a physical allocation");
+                foreach (var region in regions)
+                    if (Quaternion.Angle(region.Root.rotation, shape.Root.rotation) > .05f
+                        || Mathf.Abs(Vector3.Dot(region.Root.position - shape.Root.position, shape.Root.forward)) > .0005f)
+                        failures.Add(name + ": independent reading/selection objects do not share their intended physical plane");
+                if (plane.Context.ConnectionLabel.text != plane.ConnectionState)
+                    failures.Add(name + ": independent context lost the actual connection state");
+                foreach (var choice in plane.Context.ProjectChoices)
+                {
+                    if (director.State?.Projects.ContainsKey(choice.ProjectId) != true
+                        || GlazeRuns.Of(choice.Button.Label).Theirs.Count == 0 || choice.Button.Label.richText)
+                        failures.Add(name + ": contextual project target lost its current identity or literal outside-text provenance");
+                    var label = choice.Button.Label; label.ForceMeshUpdate();
+                    foreach (var x in new[] { label.textBounds.min.x, label.textBounds.max.x })
+                    foreach (var y in new[] { label.textBounds.min.y, label.textBounds.max.y })
+                    {
+                        var point = choice.Button.transform.InverseTransformPoint(label.transform.TransformPoint(new Vector3(x, y, 0f)));
+                        if (Mathf.Abs(point.x) > choice.Button.Size.x / 2f + .0001f || Mathf.Abs(point.y) > choice.Button.Size.y / 2f + .0001f)
+                            failures.Add(name + ": actual project text escaped its complete contextual target");
+                    }
+                }
+                var selectedChoices = plane.Context.ProjectChoices.Where(choice => choice.Button.On).ToList();
+                var expectedSelected = plane.Context.ProjectChoices.Any(choice => choice.ProjectId == plane.ContextSelectedProject);
+                if (selectedChoices.Count != (expectedSelected ? 1 : 0)
+                    || selectedChoices.Any(choice => choice.ProjectId != plane.ContextSelectedProject))
+                    failures.Add(name + ": contextual selection does not match its actual selected project");
+                if (director.Navigator.BesideTask is string taskId && director.State?.Workstreams.TryGetValue(taskId, out var selectedWork) == true
+                    && plane.ContextSelectedProject != selectedWork.ProjectId)
+                    failures.Add(name + ": task selection retained the wrong project's contextual highlight");
+                // The shared actual-target floor must reject a reduced context target, not merely inspect a constant.
+                var witness = plane.Context.ProjectChoices.FirstOrDefault().Button ?? plane.Context.WorkspaceTarget;
+                var beforeSize = witness.Size; var beforePosition = witness.transform.localPosition; var labelWasActive = witness.Label.gameObject.activeSelf;
                 try
                 {
-                    row.Words.fontSize = row.Fact!.fontSize * 0.8f; row.Words.ForceMeshUpdate();
-                    if (!GlazeChecks.TypeStepsDownLabels(new TMPro.TMP_Text[] { row.Words, row.Fact }, contentShape.Root, eyes, "reversed project row").Any())
-                        failures.Add(name + ": project-row hierarchy checker accepted a title smaller than its own summary");
+                    witness.ShowArea(new Vector2(beforePosition.x, beforePosition.y), new Vector2(beforeSize.x, GlazeTokens.Units(Glaze.MinimumTargetDegrees) * .5f));
+                    if (!GlazeChecks.TargetsLargeEnough(new[] { witness }, eyes, "undersized context negative").Any())
+                        failures.Add(name + ": actual context target checker accepted an undersized target");
                 }
-                finally { row.Words.fontSize = before; row.Words.ForceMeshUpdate(); }
+                finally
+                {
+                    witness.ShowArea(new Vector2(beforePosition.x, beforePosition.y), beforeSize);
+                    witness.Label.gameObject.SetActive(labelWasActive);
+                }
+            }
+            else
+            {
+                regions.Add(chrome);
+                if (Quaternion.Angle(shape.Root.rotation, chrome.Root.rotation) > .05f
+                    || Mathf.Abs(Vector3.Dot(shape.Root.position - chrome.Root.position, chrome.Root.forward)) > .0005f)
+                    failures.Add(name + ": peripheral controls and reading face do not share their physical plane");
+            }
+            // A fixed kind caption above the actual name is an intentional header hierarchy.
+            // Retain the existing descending type check inside the actual reading content.
+            foreach (var reading in readingViews)
+            {
+                var contentShape = new GlazeChecks.PlaneShape("reading content", reading.Content.transform.parent, shape.Size);
+                var projectGroups = reading.ShownLines.Where(row => row.Model.ProjectIdentity && row.Fact != null).ToList();
+                var grouped = new HashSet<TMPro.TMP_Text>();
+                foreach (var row in projectGroups)
+                {
+                    var labels = new TMPro.TMP_Text[] { row.Words, row.Fact! };
+                    foreach (var label in labels) grouped.Add(label);
+                    failures.AddRange(GlazeChecks.TypeStepsDownLabels(labels, contentShape.Root, eyes, name + " project " + row.Model.Key));
+                }
+                var ordinary = contentShape.Root.GetComponentsInChildren<TMPro.TMP_Text>(false)
+                    .Where(label => !grouped.Contains(label) && label.GetComponentInParent<StateBadgeView>() == null).ToList();
+                failures.AddRange(GlazeChecks.TypeStepsDownLabels(ordinary, contentShape.Root, eyes, name));
+                if (projectGroups.Count > 0)
+                {
+                    // A real-label negative witness: reversing one row's hierarchy must still fail.
+                    var row = projectGroups[0]; var before = row.Words.fontSize;
+                    try
+                    {
+                        row.Words.fontSize = row.Fact!.fontSize * 0.8f; row.Words.ForceMeshUpdate();
+                        if (!GlazeChecks.TypeStepsDownLabels(new TMPro.TMP_Text[] { row.Words, row.Fact }, contentShape.Root, eyes, "reversed project row").Any())
+                            failures.Add(name + ": project-row hierarchy checker accepted a title smaller than its own summary");
+                    }
+                    finally { row.Words.fontSize = before; row.Words.ForceMeshUpdate(); }
+                }
             }
             failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
-            failures.AddRange(GlazeChecks.TargetsLargeEnough(view.Targets.Concat(plane.Chrome.Targets), eyes, name));
+            failures.AddRange(GlazeChecks.TargetsLargeEnough(readingViews.SelectMany(reading => reading.Targets)
+                .Concat(independent ? plane.Context.Targets : plane.Chrome.Targets).Where(target => target.gameObject.activeInHierarchy), eyes, name));
             // The visible rest face must describe the full actionable region, not just its icon.
             bool Bounded(GlazeButton target) => target.SelectionSurface.Fill.a >= 0.98f
                 && Vector2.Distance(target.SelectionSurface.Size, target.Size) < 0.0001f;
-            foreach (var (_, target) in view.Footer.Shown)
+            foreach (var reading in readingViews.Where(reading => !reading.PassiveActivity))
+            foreach (var (_, target) in reading.Footer.Shown)
             {
                 target.PaintForRender(false, false);
                 if (!Bounded(target)) failures.Add(name + ": task action has no complete visible rest boundary: " + target.Label.text);
@@ -550,17 +649,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 finally { target.BoundedPrompt = true; target.PaintForRender(false, false); }
             }
-            if (plane.Shown[0].Kind == MenuColumn.Menu)
+            if (!independent && plane.Shown[0].Kind == MenuColumn.Menu)
             {
                 var navigation = plane.Chrome.Targets.Where(target => target.gameObject.activeInHierarchy).ToList();
                 if (plane.Composition.Columns.Count != 1 || navigation.Count != 1 || navigation[0].Label.text != "Workspace")
                     failures.Add(name + ": root chooser must have one stable Workspace control and no permanent utility/nav strip");
-                if (view.Frame?.Subject == "Projects" && view.Frame.Side == null && view.Frame.Footer.All.Any(slot => slot.Prompt.Id == Footer.Close))
-                    failures.Add(name + ": root chooser retained redundant Close despite local Workspace minimize");
             }
 
+            if (plane.Shown[0].Kind == MenuColumn.Menu && view.Frame?.Subject == "Projects" && view.Frame.Side == null
+                && view.Frame.Footer.All.Any(slot => slot.Prompt.Id == Footer.Close))
+                failures.Add(name + ": root chooser retained redundant Close despite local Workspace minimize");
             failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
-            var headerTexts = plane.Chrome.GetComponentsInChildren<TMPro.TMP_Text>(false);
+            var headerTexts = independent ? Array.Empty<TMPro.TMP_Text>() : plane.Chrome.GetComponentsInChildren<TMPro.TMP_Text>(false);
             var contextText = headerTexts.SingleOrDefault(label => label.name == "Project and task");
             var connectionText = headerTexts.SingleOrDefault(label => label.name == "Connection state");
             if (contextText != null && connectionText != null && !string.IsNullOrEmpty(contextText.text))
@@ -569,48 +669,64 @@ namespace Halcyonic.XR.Workspace.Editor
                 var connectionSeen = GlazeChecks.Of("connection", eyes, connectionText.gameObject);
                 if (contextSeen.Right > connectionSeen.Left - 0.01f && contextSeen.Bottom < connectionSeen.Top - 0.01f) failures.Add(name + ": actual project and connection header text overlap");
             }
-            if (view.TaskPortrait != null)
+            if (independent)
             {
-                var portrait = view.TaskIdentity;
-                if (!portrait.gameObject.activeInHierarchy || portrait.WorkstreamId != view.TaskPortrait.WorkstreamId
-                    || portrait.Character == null || !portrait.Character.BodyOnlyPresentation)
-                    failures.Add(name + ": selected task portrait lost its real workstream/body-only binding");
-                if (portrait.GetComponentsInChildren<PointerTarget>(true).Length != 0)
-                    failures.Add(name + ": decorative portrait acquired task command input authority");
-                view.Close();
-                if (portrait.gameObject.activeSelf) failures.Add(name + ": body portrait remained opaque while its subject left");
-                view.Stop();
-                if (!portrait.gameObject.activeSelf) failures.Add(name + ": body portrait did not return with its complete subject");
-                if (portrait.Character != null)
+                if (readingViews.Any(reading => reading.Frame?.IdentityKind == MenuIdentityKind.Task)
+                    && readingViews.Count(reading => reading.HeadingOverride == null && reading.Frame?.IdentityKind == MenuIdentityKind.Task) != 1)
+                    failures.Add(name + ": selected task identity must appear once across actual reader and composer");
+                foreach (var mark in plane.SelectedMarks)
                 {
-                    var portraitSeen = BodyExtent(portrait.Character, eyes);
-                    var titleSeen = GlazeChecks.Of("task title", eyes, view.SubjectShown.Title.gameObject);
-                    if (portraitSeen.Right >= titleSeen.Left)
-                        failures.Add(name + ": actual miniature character overlaps the task title");
+                    var actual = readingViews.Where(reading => reading.ProvenanceLabel.gameObject.activeInHierarchy
+                        && reading.ProvenanceLabel.text.Split(new[] { " · " }, StringSplitOptions.None).Contains(mark.Word)).ToList();
+                    if (actual.Count != 1) failures.Add(name + ": actual selected work provenance is absent or duplicated: " + mark.Word);
                 }
             }
-            var named = view.Side?.IdentityKind ?? view.Frame?.IdentityKind;
-            if (named != null)
+            foreach (var identityView in readingViews)
             {
-                var title = view.SubjectShown.Title;
-                if (string.IsNullOrWhiteSpace(title.text)) failures.Add(name + ": work identity has no readable title");
-                var bounds = title.textBounds;
-                foreach (var x in new[] { bounds.min.x, bounds.max.x })
-                foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                if (identityView.TaskPortrait != null)
                 {
-                    var point = view.Subject.InverseTransformPoint(title.transform.TransformPoint(new Vector3(x, y, 0f)));
-                    if (Mathf.Abs(point.x) > view.SubjectSize.x / 2f + 0.0001f || Mathf.Abs(point.y) > view.SubjectSize.y / 2f + 0.0001f)
-                        failures.Add(name + ": named header text exceeds its allocated subject bounds");
+                    var portrait = identityView.TaskIdentity;
+                    if (!portrait.gameObject.activeInHierarchy || portrait.WorkstreamId != identityView.TaskPortrait.WorkstreamId
+                        || portrait.Character == null || !portrait.Character.BodyOnlyPresentation)
+                        failures.Add(name + ": selected task portrait lost its real workstream/body-only binding");
+                    if (portrait.GetComponentsInChildren<PointerTarget>(true).Length != 0)
+                        failures.Add(name + ": decorative portrait acquired task command input authority");
+                    identityView.Close();
+                    if (portrait.gameObject.activeSelf) failures.Add(name + ": body portrait remained opaque while its subject left");
+                    identityView.Stop();
+                    if (!portrait.gameObject.activeSelf) failures.Add(name + ": body portrait did not return with its complete subject");
+                    if (portrait.Character != null)
+                    {
+                        var portraitSeen = BodyExtent(portrait.Character, eyes);
+                        var titleSeen = GlazeChecks.Of("task title", eyes, identityView.SubjectShown.Title.gameObject);
+                        if (portraitSeen.Right >= titleSeen.Left)
+                            failures.Add(name + ": actual miniature character overlaps the task title");
+                    }
                 }
-                if (GlazeRuns.Of(view.SubjectShown.Title).Theirs.Count == 0)
-                    failures.Add(name + ": named identity lost outside-text provenance");
+                var named = identityView.Side?.IdentityKind ?? identityView.Frame?.IdentityKind;
+                if (named != null && identityView.HeadingOverride == null)
+                {
+                    var title = identityView.SubjectShown.Title;
+                    if (string.IsNullOrWhiteSpace(title.text)) failures.Add(name + ": work identity has no readable title");
+                    var bounds = title.textBounds;
+                    foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                    foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                    {
+                        var point = identityView.Subject.InverseTransformPoint(title.transform.TransformPoint(new Vector3(x, y, 0f)));
+                        if (Mathf.Abs(point.x) > identityView.SubjectSize.x / 2f + 0.0001f || Mathf.Abs(point.y) > identityView.SubjectSize.y / 2f + 0.0001f)
+                            failures.Add(name + ": named header text exceeds its allocated subject bounds");
+                    }
+                    if (GlazeRuns.Of(identityView.SubjectShown.Title).Theirs.Count == 0)
+                        failures.Add(name + ": named identity lost outside-text provenance");
+                }
             }
             foreach (var character in characters.Where(character => character.View.gameObject.activeInHierarchy))
             {
                 var label = GlazeChecks.Of("character label", eyes, character.View.Label.gameObject);
                 var bodyExtent = BodyExtent(character.View, eyes);
                 foreach (var obstacle in new[] { label, bodyExtent })
-                    if (GlazeChecks.OutlineApart(chrome, eyes, obstacle) < GlazeChecks.GapDegrees - 0.01f)
+                foreach (var region in regions)
+                    if (GlazeChecks.OutlineApart(region, eyes, obstacle) < GlazeChecks.GapDegrees - 0.01f)
                         failures.Add(name + ": work object or controls overlap the actual character");
             }
             if (plane.LightLine is (Vector3 from, Vector3 to))
@@ -634,8 +750,10 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             if (!view.Footer.Fits) failures.Add(name + ": current frame actions do not fit");
             if (ViewField.Current is ViewField field) {
-                var corners = new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }.Select(y => chrome.Root.position + chrome.Root.right * x * chrome.Size.x + chrome.Root.up * y * chrome.Size.y));
-                failures.AddRange(GlazeChecks.InsideField(name, corners, eyes, chrome.Root.position, WorkspacePlacement.ReadingPitch(plane.Composition.Size, plane.Direction.Elevation, field), field));
+                var corners = regions.SelectMany(region => new[] { -.5f, .5f }.SelectMany(x => new[] { -.5f, .5f }.Select(y =>
+                    region.Root.position + region.Root.right * x * region.Size.x + region.Root.up * y * region.Size.y)));
+                if (independent) corners = corners.Concat(plane.WorkspaceCorners);
+                failures.AddRange(GlazeChecks.InsideField(name, corners, eyes, independent ? plane.WorkspaceCentre : chrome.Root.position, WorkspacePlacement.ReadingPitch(plane.Composition.Size, plane.Direction.Elevation, field), field));
             }
             var drawnActions = (view.Footer.Showing?.All.Select(slot => slot.Prompt.Id) ?? Enumerable.Empty<string>()).ToHashSet();
             var carried = view.Side == null ? null : plane.Front!.Footer.InPlace(view.Side);
