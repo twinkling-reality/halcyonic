@@ -115,6 +115,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     var views = director.Plane.Shown.Select(shown => shown.View).Concat(director.Plane.ActivityContext == null ? Array.Empty<MenuFrameView>() : new[] { director.Plane.ActivityContext! }).ToList();
                     Require(director.Plane.Context.ProjectChoices.Count == 2, name + ": actual multiple project choices absent");
                     Require(!director.Plane.Chrome.Visible, name + ": legacy full-workspace face remained visible");
+                    if (ViewField.Current is ViewField field && director.Plane.Composition != null)
+                    {
+                        var faces = views.Select(view => view.ReadingSurface).Concat(new[] { director.Plane.Context.ReadingSurface });
+                        var corners = faces.SelectMany(face => new[] { -.5f, .5f }.SelectMany(x => new[] { -.5f, .5f }.Select(y =>
+                            face.transform.TransformPoint(new Vector3(x, y, 0f))))).Concat(director.Plane.WorkspaceCorners);
+                        failures.AddRange(GlazeChecks.InsideField(name + " actual full workspace union", corners, eyes, director.Plane.WorkspaceCentre,
+                            WorkspacePlacement.ReadingPitch(director.Plane.Composition.Size, director.Plane.Direction.Elevation, field), field));
+                    }
                     foreach (var mark in director.Plane.SelectedMarks)
                         Require(views.Count(view => view.ProvenanceLabel.gameObject.activeInHierarchy && view.ProvenanceLabel.text.Contains(mark.Word)) == 1,
                             name + ": actual selected provenance is missing or duplicated: " + mark.Word);

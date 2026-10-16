@@ -126,7 +126,7 @@ namespace Halcyonic.XR.Workspace
             {
                 var heights = split
                     ? new[] { header + MenuPage.Content(total * 0.55f), FooterView.Height + MenuPage.TargetGap + MenuPage.Content(total * 0.45f) }
-                    : new[] { header + section + MenuPage.Content(total) };
+                    : new[] { header + section + FooterView.Height + MenuPage.TargetGap + MenuPage.Content(total) };
                 var stacked = heights.Sum() + (heights.Length - 1) * PlaneComposition.Units(PlaneComposition.PartGapDegrees);
                 var envelope = MenuPlane.IndependentEnvelope(UnityEngine.Mathf.Max(leftHeight, stacked));
                 var composition = new PlaneComposition(new[] { new PlaneColumn(PlaneComposition.Units(WorkspaceContextView.WidthDegrees) + MenuPlane.PortraitClearance, envelope), new PlaneColumn(width, heights) }, zoom);
