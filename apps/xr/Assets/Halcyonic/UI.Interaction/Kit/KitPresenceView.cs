@@ -100,8 +100,8 @@ namespace Halcyonic.XR.UI
             var height = Mathf.Max(switchSize.y, textHeight) + 2f * pad;
             size = new Vector2(width, height);
             var tone = Glaze.Tone(model.Badge.LastKnown ? GlazeTone.Unknown : model.Badge.Tone);
-            carrier.Draw(size, KitType.Units(SpatialKit.InstrumentRadiusDegrees), SpatialKit.Slate, SpatialKit.Edge, lit: true,
-                frame: KitType.Mix(SpatialKit.Slate, tone.Strong, 0.55f), light: KitType.Mix(SpatialKit.Slate, tone.Strong, 0.92f));
+            carrier.Draw(size, KitType.Units(SpatialKit.InstrumentRadiusDegrees), SpatialKit.Slate, lit: true,
+                light: KitType.Mix(SpatialKit.Slate, tone.Strong, 0.92f));
 
             var left = -width / 2f;
             modeSwitch.transform.localPosition = new Vector3(left + pad + switchSize.x / 2f, 0f, 0f);

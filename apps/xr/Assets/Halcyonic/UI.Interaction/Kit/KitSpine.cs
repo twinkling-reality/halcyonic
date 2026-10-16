@@ -84,13 +84,8 @@ namespace Halcyonic.XR.UI
             var dividerIndex = 0;
             foreach (var section in sections)
             {
-                if (dividerIndex < 1 || section.Heading != null)
-                {
-                    var divider = Take(dividers, dividerIndex++, () => Surface.Create(transform, "Divider " + dividers.Count, KitType.Order.Plate));
-                    divider.Draw(new Vector2(width, KitType.Units(SpatialKit.HairlineDegrees)), 0f, KitType.Colour(SpatialKit.Edge));
-                    divider.transform.localPosition = new Vector3(width / 2f, -y, 0f);
-                    y += KitType.Scaled(SpatialKit.GridDegrees * 1.5f);
-                }
+                // Sections are divided by space and their headings, not by rules.
+                y += KitType.Scaled(SpatialKit.GridDegrees);
                 if (section.Heading != null)
                 {
                     // A place's heading in the instrument face; a project's own name in the reading face, upright as a named identity.

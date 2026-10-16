@@ -206,7 +206,8 @@ namespace Halcyonic.XR.UI
             var frame = KitType.Units(0.08f);
             if (model.Selected)
             {
-                plate.Draw(size, radius, KitType.Colour(SpatialKit.Raised), hovered ? Color.white : KitType.Mix(SpatialKit.Raised, GlazeColor.Hex(0xFFFFFF), 0.62f), frame);
+                // Chosen: raised toward the person on its own fill, its words heavier; framed only while pointed at.
+                plate.Draw(size, radius, KitType.Colour(SpatialKit.Raised), hovered ? Color.white : Color.clear, hovered ? frame : 0f);
                 plate.Selection = SurfaceSelection.Lit;
             }
             else if (hovered)
