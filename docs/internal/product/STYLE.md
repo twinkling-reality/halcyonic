@@ -41,11 +41,17 @@ opens its task picker; it does not relabel a retained task or its draft.
 
 The selected work owns the central reading object. Invoking ordinary instruction input keeps a
 passive view of its real Activity above a separate composer. The selected task name and state
-belong to the Activity object once; the composer has its own role heading. Hide composer removes
+belong to the Activity object once; the composer has one instruction label and no duplicate task
+or hero heading. Its passive context shows the newest bounded entries, in chronological order,
+under Recent activity. Full Activity history retains its own reading position. Hide composer removes
 that lower object while retaining the unsent draft. Results, workspace requests, questions and
 approvals own the reading position when selected. They do not acquire input or decision authority
 from the passive Activity view. Only the settled authoritative view can acknowledge reading or
-accept its current actions.
+accept its current actions. Results navigation belongs to the full task view; the independent
+ordinary composer does not repeat that route. Its footer measures the offered controls at their
+actual text size. When one row cannot fit, local Hide/Discard actions occupy the upper row and
+voice/Send the lower row, with Send at the right. This preserves the target and text floors rather
+than compressing labels to fit.
 
 Context is 18 degrees wide and the reading object uses the existing 36-degree file width. Each
 visible object owns an opaque reading backing. The task portrait is the actual task character at

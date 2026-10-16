@@ -2749,6 +2749,11 @@ cancels a held press; deleted choices and stale controls cannot navigate. Choosi
 opens its existing task picker without retargeting retained drafts.
 
 `MenuPlane` draws an optional passive Activity view separately from the current ordinary editor.
+The passive context chooses the newest recorded entries that fit its measured budget, preserves
+their chronological order and source attribution, and labels the result Recent activity. It does
+not alter the selected page of the full Activity history. The independent ordinary editor omits
+its duplicate results route and subject heading; its single instruction label remains. Footer
+measurement reserves one or two actual rows when the available actions require them.
 The passive view's draw callback is never forwarded as an authoritative file draw. Deferred
 editor draws recheck identity and settlement after movement. Context, reading and composer have
 separate opaque surfaces and transforms, while placement, turning and recovery account for their
