@@ -266,7 +266,9 @@ launch/return, process recreation and current-frame action behavior need separat
   short on their tabs (Waiting for you, Doing, Understand, Checked), the goal, one plain answer
   (what needs the person, else "Nothing is waiting for you." and the latest activity), the answer to
   What do you need from me? (`NeedAnswer`: what it wants, the oldest request as the runtime reported
-  it and what each answer does), the run's details (`RunDetails`, for Doing's details), what needs
+  it and what each answer does; for a command that can be approved, where it runs once approved, as
+  its agent app declares it, comes in our words before what Approve does: `ApprovedCommandNote`,
+  [ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)), the run's details (`RunDetails`, for Doing's details), what needs
   the person, activity lines with the local time and the agent's words
   ("It says: “…”" on the editor's old panel only; a file shows them as runs, below), action labels, a confirmation question that names exactly what would be
   sent (for approving or denying, "Approve the request above?" over the whole request, `Request`:

@@ -387,6 +387,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       uses_project_location: true,
       reports_tool_activity: true,
       reports_tool_results: false,
+      // Inside Halcyonic's sandbox an approved command stays contained (ADR 0028, 0033); without it
+      // nothing is declared.
+      ...(this.#sandbox !== null ? { approval_may_leave_sandbox: false } : {}),
     };
   }
 

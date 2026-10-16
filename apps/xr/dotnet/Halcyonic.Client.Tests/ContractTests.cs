@@ -20,6 +20,18 @@ public class ContractTests
         Assert.That(Json.AssertRoundTrips<RuntimeDescriptor>(supplied).ReportsToolResults, Is.EqualTo(supported));
     }
 
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ApprovalSandboxDeclarationRoundTripsAndStaysAbsentWhenUndeclared(bool mayLeave)
+    {
+        const string undeclared = "{\"runtime_id\":\"runtime\",\"kind\":\"codex\",\"display_name\":\"Runtime\",\"synthetic\":false,\"capabilities\":{\"interrupt\":true,\"instruct_while_running\":true,\"instruct_at_rest\":true,\"start_execution\":true,\"respond_to_approval\":true,\"answer_question\":true},\"model_choice\":\"listed\",\"uses_project_location\":true,\"reports_tool_activity\":false}";
+        var absent = Json.AssertRoundTrips<RuntimeDescriptor>(undeclared);
+        Assert.That(absent.ApprovalMayLeaveSandbox, Is.Null);
+        Assert.That(JsonConvert.SerializeObject(absent), Does.Not.Contain("approval_may_leave_sandbox"));
+        var declared = Edit(undeclared, document => document["approval_may_leave_sandbox"] = mayLeave);
+        Assert.That(Json.AssertRoundTrips<RuntimeDescriptor>(declared).ApprovalMayLeaveSandbox, Is.EqualTo(mayLeave));
+    }
+
     private static readonly string[] Trace = Repository.Trace();
 
     private static string Edit(string json, Action<JObject> edit)

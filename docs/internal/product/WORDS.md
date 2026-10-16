@@ -102,6 +102,7 @@ started").
 | your computer | The host and its control plane | control plane, server, Mac |
 | folder | Where a project's files live | location, directory, path |
 | agent app | The runtime, such as OpenCode or Codex, named as data | runtime, adapter |
+| sandbox | What keeps an agent app's commands to what it allows, said only where an approval can change that | seatbelt, permission profile |
 | practice run | Work on the simulated runtime: nothing is built | mock, simulated |
 | demo | The recorded demonstration | interactive example |
 | assistant | The AI helping shape an idea; it builds nothing until a task starts | |
@@ -209,6 +210,7 @@ surface goes back to them.
 | The work's reported request or state | Reported by agent, on Waiting and request pages; Activity identifies each reported message separately | Reported by agent |
 | Confirmation | Yes, {verb}, where no control stood a moment before; Cancel where the first press was | Yes, start building · Change; Yes, clear · Cancel |
 | Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
+| Where an approved command runs | If you approve, it {may run outside its sandbox, with your access to your computer \| still runs inside a sandbox}., only for a command that can be approved and only as its agent app declares it, before what Approve does ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)) | If you approve, it may run outside its sandbox, with your access to your computer. |
 | Locked final press | Read to part {n} first | Read to part 3 first |
 | Kept while away | Still open: {panel} | Still open: Create a project |
 | The companion's words | {line}, leaning on its ground under Halcyonic's quote mark, never in our voice; the page's source line names the companion; its view as its opinion, in our words | The companion thinks this is unclear. |

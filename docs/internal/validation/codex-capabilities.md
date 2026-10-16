@@ -362,7 +362,10 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   could not delete outside. The two requests carry the same fields except `reason`, the model's
   justification, which only the escalation sent; both offered `accept`,
   `acceptWithExecpolicyAmendment` and `cancel`, and no `decline`. Halcyonic shows both as the command
-  and its folder, so the person cannot tell which approval lifts the sandbox.
+  and its folder, so the person cannot tell which approval lifts the sandbox. The Codex adapter
+  therefore declares `approval_may_leave_sandbox`, and the headset says so under every command it
+  can approve ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md));
+  the end to end suite pins both behaviours.
 - **Commands Codex does not report.** A plain command the sandbox refused produced no
   `commandExecution` item at all, and an accepted dangerous command that the sandbox then refused
   produced `item/started` and never `item/completed`; the model still received the output.

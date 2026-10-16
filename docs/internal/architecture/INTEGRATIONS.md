@@ -9,6 +9,14 @@ registered adapter is unavailable; accepted journal evidence remains readable. C
 declares true for final command/file-change notifications; OpenCode, Claude Code and the mock
 declare false and receive no emulated results.
 
+The optional `approval_may_leave_sandbox` declaration says whether approving a command can let it
+run outside any sandbox, with the person's own access
+([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)). Absent
+means unknown, never false, and a client never shows an absent declaration as staying inside.
+Codex 0.157.0 declares true: an approved escalation runs outside its sandbox, and the approval
+request does not say whether it is one. OpenCode declares false only inside Halcyonic's sandbox.
+Claude Code, the mock and OpenCode without that sandbox leave it absent.
+
 The live adapter correlates an exact observed started item and turn before emitting
 `runtime.tool.result` and then tool completion with monotonic sequences and distinct native event
 IDs. Duplicate, foreign-turn or malformed overbound item/turn identifiers cannot fabricate a
@@ -218,3 +226,7 @@ None of these reads is a runtime capability, a journal event or a source of Work
     field by field, so a provider's settings, keys and headers never reach it, and say where a
     model is served from the address the runtime sends it to, never from its name: a local model
     may carry a hosted model's name.
+12. Declare `approval_may_leave_sandbox` only once verified, by a runtime test of an approved
+    command against the pinned version: true when an approved command can run outside any sandbox,
+    false only when every approved command still runs inside one. Leave it absent otherwise; absent
+    is unknown, and a client never shows it as staying inside.

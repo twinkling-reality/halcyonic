@@ -24,6 +24,8 @@ import {
   parseEventEnvelope,
   QuestionPrompts,
   RUNTIME_EVENT_TYPES,
+  RuntimeCapabilities,
+  RuntimeDescriptor,
   renderSchemaDocument,
 } from './index.ts';
 
@@ -362,6 +364,31 @@ describe('the companion contract', () => {
   });
 });
 
+describe('runtime descriptors', () => {
+  const capabilities = Object.fromEntries(
+    Object.keys(RuntimeCapabilities.properties).map((name) => [name, false]),
+  );
+  const descriptor = {
+    runtime_id: 'codex',
+    kind: 'codex',
+    display_name: 'Codex 0.157.0',
+    synthetic: false,
+    capabilities,
+    model_choice: 'listed',
+    uses_project_location: true,
+    reports_tool_activity: false,
+  };
+  const valid = compileValidator(RuntimeDescriptor);
+
+  test('may declare whether approving a command can let it leave the sandbox, and need not', () => {
+    assert.equal(valid(descriptor).ok, true, 'absent: not verified, says nothing');
+    assert.equal(valid({ ...descriptor, approval_may_leave_sandbox: true }).ok, true);
+    assert.equal(valid({ ...descriptor, approval_may_leave_sandbox: false }).ok, true);
+    assert.equal(valid({ ...descriptor, approval_may_leave_sandbox: 'yes' }).ok, false);
+    assert.equal(valid({ ...descriptor, approval_may_leave_sandbox: null }).ok, false);
+  });
+});
+
 describe('the language-neutral schema document', () => {
   test('the committed document is current', () => {
     const committed = readFileSync(
@@ -408,12 +435,16 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      3,
-      'only location label, completed tool turn and results support declaration are optional',
+      4,
+      'only location label, completed tool turn, results support declaration and approval sandbox declaration are optional',
     );
     assert.match(
       generated,
       /\[JsonProperty\("reports_tool_results", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public bool\? ReportsToolResults \{ get; set; \}/,
+    );
+    assert.match(
+      generated,
+      /\[JsonProperty\("approval_may_leave_sandbox", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public bool\? ApprovalMayLeaveSandbox \{ get; set; \}/,
     );
   });
 
