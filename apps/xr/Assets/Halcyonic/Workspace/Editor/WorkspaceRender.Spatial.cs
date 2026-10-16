@@ -173,6 +173,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         failures.Add("spatial: actual visible route refused " + action);
                         Debug.LogError("Halcyonic: spatial route refused action=" + action + "; " + director.WorkspaceControlsStateForRender);
+                        // A required positive route is a prerequisite, not an expected refusal.
+                        // Stop here so unavailable pages cannot conceal the first failure behind
+                        // a later missing Move target. Negative authority checks invoke directly.
+                        throw new InvalidOperationException("Required spatial route refused: " + action + "; " + director.WorkspaceControlsStateForRender);
                     }
                 }
                 void Click(GlazeButton button, int pointer)
