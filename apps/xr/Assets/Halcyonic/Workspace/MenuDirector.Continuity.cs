@@ -112,7 +112,7 @@ namespace Halcyonic.XR.Workspace
 
         private void ViewDropped(IMenuColumn column)
         {
-            if (column is FileColumn forgotten) selectedResults.Remove(forgotten);
+            if (column is FileColumn forgotten) { selectedResults.Remove(forgotten); DropSpatialComposer(forgotten); }
             if (column is FileColumn dropped && resultViews.TryGetValue(dropped, out var results))
             {
                 results.FocusLeft();

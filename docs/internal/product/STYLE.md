@@ -31,7 +31,37 @@ rendered-action authority. Geometry checks and editor images cannot establish de
 headset readability or comfort. The existing plane rules below must not prevent replacing the
 rejected composition once a better whole interaction has been demonstrated.
 
-## Spatial composition candidate — 2026-10-15
+## Independent spatial composition candidate — 2026-10-16
+
+The main spatial Projects, Tasks, task, workspace-request and results views now draw a separate
+project-context object beside the selected work. It contains up to three actual project choices,
+the selected project's Tasks route, a larger project picker when needed, Workspace controls and
+connection state. The selected task determines its project context. Choosing another project
+opens its task picker; it does not relabel a retained task or its draft.
+
+The selected work owns the central reading object. Invoking ordinary instruction input keeps a
+passive view of its real Activity above a separate composer. The selected task name and state
+belong to the Activity object once; the composer has its own role heading. Hide composer removes
+that lower object while retaining the unsent draft. Results, workspace requests, questions and
+approvals own the reading position when selected. They do not acquire input or decision authority
+from the passive Activity view. Only the settled authoritative view can acknowledge reading or
+accept its current actions.
+
+Context is 18 degrees wide and the reading object uses the existing 36-degree file width. Each
+visible object owns an opaque reading backing. The task portrait is the actual task character at
+the reading object's leading edge. Placement and recovery account for the combined conservative
+bounds, including portrait clearance; no empty right-hand region is allocated. The reading top
+is stable within that placement, with height following measured content. Normal and larger text
+use measured budgets, full target bounds and the same minimum readable text threshold. This is
+still the existing placement distance, not an accepted new comfort distance.
+
+Named identities use the bundled normal-width font with the same metrics for measurement and
+drawing. Outside-text provenance, literal rendering and the current agent-prose treatment remain
+intact. Local workspace overlays and retained legacy fixtures still use the preceding composition
+below. This replacement remains a candidate: source, editor checks and synthetic images do not
+establish visual acceptance, real-work usefulness or headset comfort.
+
+## Previous single-face composition — 2026-10-15
 
 The owner's headset review rejected the stacked menu composition. The candidate gives an open
 task one reading column; its details replace that column and return to its retained draft. Only
@@ -68,6 +98,9 @@ body top and joins its named heading; both the drag predictor and rendered line 
 rule. It must cross no body or label. Zero-character use remains complete.
 
 ## Coated reading material
+
+The independent candidate reuses this material separately on each reading object. The continuous
+face and context-header placement described here apply to the preceding single-face consumer.
 
 The spatial workspace gives project context, named identity, sections and page one continuous
 opaque coated face. A neutral virtual studio source reflects smoothly across that face from the
