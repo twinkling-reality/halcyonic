@@ -36,6 +36,18 @@ namespace Halcyonic.XR.UI
         public IReadOnlyList<(int Start, int End)> Theirs => theirs;
 
         public bool IsNamedIdentity => identity;
+        public bool IsAttributedProse => prose;
+        private bool prose;
+
+        /// <summary>Explicit candidate prose treatment; never changes literal text or outside ranges.
+        /// Every ordinary Set and identity Set resets this treatment for pooled label reuse.</summary>
+        public void SetProseMode(bool value)
+        {
+            SetIdentityMode(false);
+            if (prose == value) return;
+            prose = value;
+            label.havePropertiesChanged = true;
+        }
 
         /// <summary>
         /// Sets <paramref name="words"/> on the label with rich text off and escape parsing on, cut
@@ -45,7 +57,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public IReadOnlyList<(int Start, int End)> Set(LineWords words, Func<string, bool>? fits = null)
         {
-            SetIdentityMode(false);
+            SetProseMode(false);
             return SetWords(words, fits);
         }
 
@@ -56,6 +68,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public IReadOnlyList<(int Start, int End)> SetIdentity(string name, Func<string, bool>? fits = null)
         {
+            SetProseMode(false);
             SetIdentityMode(true);
             return SetWords(LineWords.TheirName(name), fits);
         }
@@ -115,7 +128,7 @@ namespace Halcyonic.XR.UI
         private void LeanTheirs(TMP_TextInfo info)
         {
             if (theirs.Count == 0) return;
-            if (!identity) GlazeText.Lean(info, theirs);
+            if (!identity && !prose) GlazeText.Lean(info, theirs);
             if (!(grounded is Color32 colour)) return;
             for (var index = 0; index < info.characterCount; index++)
             {

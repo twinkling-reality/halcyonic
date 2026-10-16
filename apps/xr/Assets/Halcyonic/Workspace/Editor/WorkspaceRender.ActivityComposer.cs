@@ -125,6 +125,23 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.AddRange(GlazeChecks.InsideField(name + " actual full workspace union", corners, eyes, director.Plane.WorkspaceCentre,
                             WorkspacePlacement.ReadingPitch(director.Plane.Composition.Size, director.Plane.Direction.Elevation, field), field));
                     }
+                    foreach (var view in views)
+                    foreach (var rendered in view.ShownLines)
+                    {
+                        var prose = MenuFrameView.UsesUprightProse(view.IndependentSurface, rendered.Model);
+                        var runs = GlazeRuns.Of(rendered.Words);
+                        Require(runs.IsAttributedProse == prose, name + ": pooled line retained the wrong prose treatment");
+                        if (!prose) continue;
+                        Require(!runs.IsNamedIdentity && !rendered.Words.richText && rendered.Words.parseCtrlCharacters,
+                            name + ": attributed prose changed identity or literal rendering policy");
+                        Require(!rendered.Grounds.Any(), name + ": clearly attributed prose retained decorative grounds");
+                        if (rendered.Model.Runs.AnyTheirs || rendered.Model.Claim)
+                            Require(runs.Theirs.Count > 0 && runs.Theirs.All(range => range.Start >= 0 && range.End <= rendered.Words.text.Length),
+                                name + ": upright prose lost bounded outside-text ranges");
+                        if (rendered.Model.Chip != null)
+                            Require(rendered.Chip != null && rendered.Chip.gameObject.activeInHierarchy,
+                                name + ": upright agent prose lost its reported-source chip");
+                    }
                     foreach (var mark in director.Plane.SelectedMarks)
                         Require(views.Count(view => view.ProvenanceLabel.gameObject.activeInHierarchy && view.ProvenanceLabel.text.Contains(mark.Word)) == 1,
                             name + ": actual selected provenance is missing or duplicated: " + mark.Word);
@@ -133,6 +150,15 @@ namespace Halcyonic.XR.Workspace.Editor
                         var title = view.SubjectShown.Title;
                         Require(GlazeRuns.Of(title).IsNamedIdentity, name + ": named task title acquired outside-prose mesh shear");
                         Debug.Log($"Halcyonic: {name} actual identity={view.Frame!.IdentityKind}; font={title.font.name}; style={title.fontStyle}; named={GlazeRuns.Of(title).IsNamedIdentity}.");
+                        if (view.IdentityContextLabel.gameObject.activeInHierarchy)
+                        {
+                            Require(view.IdentityContextLabel.text == view.IdentityContext,
+                                name + ": editor mode label was merged into provenance text");
+                            if (view.ProvenanceLabel.gameObject.activeInHierarchy)
+                                Require(view.ProvenanceLabel.transform.localPosition.y + view.ProvenanceLabel.textBounds.min.y
+                                    > view.IdentityContextLabel.transform.localPosition.y + view.IdentityContextLabel.textBounds.max.y,
+                                    name + ": actual provenance and editor mode label overlap");
+                        }
                         if (view.ProvenanceLabel.gameObject.activeInHierarchy)
                         {
                             // Both labels share the subject part; compare actual mesh envelopes in that
@@ -168,6 +194,31 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     finally { UnityEngine.Object.DestroyImmediate(image); }
                 }
+                // Same pooled label, same literal runs: only mesh shear changes, never trust.
+                var proseProbe = GlazeText.Create(root.transform, "Synthetic prose reuse probe", GlazeType.Body,
+                    GlazeTokens.Text, TMPro.TextAlignmentOptions.TopLeft, 25);
+                var probeRuns = GlazeRuns.Of(proseProbe);
+                var probeWords = LineWords.Theirs("<b>literal source</b> \\n text");
+                var (expectedProbeText, expectedProbeRanges) = probeWords.ForTextMeshPro();
+                probeRuns.Set(probeWords); probeRuns.SetProseMode(true);
+                GlazeText.Lay(proseProbe, 2f, 2); proseProbe.ForceMeshUpdate();
+                var uprightVertices = proseProbe.textInfo.meshInfo[0].vertices.ToArray();
+                Require(proseProbe.text == expectedProbeText && probeRuns.Theirs.SequenceEqual(expectedProbeRanges),
+                    "explicit prose treatment changed literal text or outside ranges");
+                Require(probeRuns.IsAttributedProse && !probeRuns.IsNamedIdentity, "prose treatment misused named identity");
+                probeRuns.Set(probeWords); proseProbe.ForceMeshUpdate();
+                Require(!probeRuns.IsAttributedProse && !probeRuns.IsNamedIdentity,
+                    "ordinary Set did not reset pooled prose treatment");
+                Require(proseProbe.textInfo.meshInfo[0].vertices.Where((vertex, index) => index < uprightVertices.Length
+                    && Vector3.Distance(vertex, uprightVertices[index]) > 0.000001f).Any(),
+                    "pooled prose reset failed to restore actual legacy mesh shear");
+                probeRuns.SetProseMode(true); probeRuns.SetIdentity("Synthetic identity");
+                Require(!probeRuns.IsAttributedProse && probeRuns.IsNamedIdentity, "identity reuse retained prose treatment");
+                Require(!MenuFrameView.UsesUprightProse(true, new PageLine("synthetic tool output", wordsAreData: true))
+                    && !MenuFrameView.UsesUprightProse(true, new PageLine("synthetic decision", claim: true))
+                    && !MenuFrameView.UsesUprightProse(false, new PageLine("synthetic report", chip: "Agent says")),
+                    "prose eligibility leaked into data, decisions or legacy consumers");
+                UnityEngine.Object.DestroyImmediate(proseProbe.gameObject);
                 var authoritativeDraws = 0;
                 director.Plane.Drawn += (_, view) =>
                 {

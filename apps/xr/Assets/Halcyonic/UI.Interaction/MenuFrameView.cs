@@ -130,7 +130,8 @@ namespace Halcyonic.XR.UI
         public string? HeadingOverride { get; set; }
         public IReadOnlyList<WorkMark> IdentityMarks { get; set; } = Array.Empty<WorkMark>();
         public string? IdentityContext { get; set; }
-        private TextMeshPro identityMarks = null!;
+        private TextMeshPro identityMarks = null!, identityContext = null!;
+        public TextMeshPro IdentityContextLabel => identityContext;
         public TextMeshPro ProvenanceLabel => identityMarks;
         public static int IndependentProvenanceRows(IReadOnlyList<WorkMark> marks, float degrees) => marks.Count == 0 ? 0
             : Count(Measuring(Glaze.BodyDegrees), string.Join(" · ", marks.Select(mark => mark.Word)), ContentWidth(degrees));
@@ -710,6 +711,8 @@ namespace Halcyonic.XR.UI
             subjectTitle = GlazeText.Create(subjectPart, "Subject", GlazeType.Subject, GlazeTokens.Text, TextAlignmentOptions.TopLeft, Order + 2);
             identityMarks = GlazeText.Create(subjectPart, "Actual work provenance", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, Order + 2);
             identityMarks.rectTransform.pivot = new Vector2(0f, 1f); identityMarks.gameObject.SetActive(false);
+            identityContext = GlazeText.Create(subjectPart, "Local reading mode", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, Order + 2);
+            identityContext.rectTransform.pivot = new Vector2(0f, 1f); identityContext.gameObject.SetActive(false);
             subjectTitle.rectTransform.pivot = new Vector2(0f, 1f);
             identityCaption = GlazeText.Create(subjectPart, "Identity kind", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, Order + 2);
             identityCaption.rectTransform.pivot = new Vector2(0f, 0.5f);
@@ -851,7 +854,7 @@ namespace Halcyonic.XR.UI
         private void LaySubject(LineWords words, StateBadge? badge, MenuIdentityKind? identityKind)
         {
             subjectPart.gameObject.SetActive(HeadingOverride != "");
-            if (HeadingOverride == "") { portrait.Hide(); identityMarks.gameObject.SetActive(false); return; }
+            if (HeadingOverride == "") { portrait.Hide(); identityMarks.gameObject.SetActive(false); identityContext.gameObject.SetActive(false); return; }
             var padding = U(Glaze.Menu.PaddingDegrees);
             var portraitRoom = HasPortrait && !IndependentSurface ? PortraitWidth + MenuPage.TargetGap : 0f;
             var left = -width / 2f + padding + portraitRoom;
@@ -890,16 +893,24 @@ namespace Halcyonic.XR.UI
             var inner = SpatialWorkspace ? SpatialInner(reserve) : Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));
             var provenanceRows = IndependentSurface ? IndependentProvenanceRows(IdentityMarks, Glaze.Menu.FileColumnDegrees) + (IdentityContext == null ? 0 : 1) : 0;
-            identityMarks.gameObject.SetActive(provenanceRows > 0);
+            var markRows = IndependentSurface ? IndependentProvenanceRows(IdentityMarks, Glaze.Menu.FileColumnDegrees) : 0;
+            identityMarks.gameObject.SetActive(markRows > 0);
+            identityContext.gameObject.SetActive(IndependentSurface && IdentityContext != null);
             if (provenanceRows > 0)
-            {
-                var marksHeight = provenanceRows * GlazeText.LineHeight(identityMarks) + MenuPage.Grid;
-                // Independent identity is a measured vertical sequence, never centred across provenance.
                 subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - U(Glaze.Menu.SubjectPaddingDegrees), -U(0.05f));
-                var labels = string.Join(" · ", IdentityMarks.Select(mark => mark.Word));
-                GlazeText.SetLiteral(identityMarks, IdentityContext == null ? labels : labels.Length == 0 ? IdentityContext : labels + "\n" + IdentityContext);
-                GlazeText.Lay(identityMarks, width - 2f * padding, provenanceRows);
-                identityMarks.transform.localPosition = new Vector3(left, subjectTitle.transform.localPosition.y - titleHeight - MenuPage.Grid, -U(0.05f));
+            var provenanceTop = subjectTitle.transform.localPosition.y - titleHeight - MenuPage.Grid;
+            if (markRows > 0)
+            {
+                GlazeText.SetLiteral(identityMarks, string.Join(" · ", IdentityMarks.Select(mark => mark.Word)));
+                GlazeText.Lay(identityMarks, width - 2f * padding, markRows);
+                identityMarks.transform.localPosition = new Vector3(left, provenanceTop, -U(0.05f));
+            }
+            if (IndependentSurface && IdentityContext != null)
+            {
+                GlazeText.SetLiteral(identityContext, IdentityContext);
+                GlazeText.Lay(identityContext, width - 2f * padding, 1);
+                identityContext.transform.localPosition = new Vector3(left,
+                    provenanceTop - markRows * GlazeText.LineHeight(identityMarks), -U(0.05f));
             }
             GlazeRuns.TokenGrounds(subjectTitle, words.AllTheirs ? Array.Empty<(int, int)>() : theirs, subjectGrounds, subjectPart, Order + 1);
             pill.gameObject.SetActive(badge != null);
@@ -1038,7 +1049,7 @@ namespace Halcyonic.XR.UI
                     var top = y;
                     var laid = lines[index++];
                     y = LayLine(laid, model, left, right, top, center, zoom);
-                    if (!IsBlock(model)) block = null;
+                    if (!IsBlock(model) || UsesUprightProse(IndependentSurface, model)) block = null;
                     else if (block == null) (block, blockTop) = (laid, top);
                     else JoinBlock(block, laid, left, right, blockTop, y);
                 }
@@ -1089,6 +1100,12 @@ namespace Halcyonic.XR.UI
         /// Lays a page line from <paramref name="top"/> between the content lines at
         /// <paramref name="left"/> and <paramref name="right"/>; returns its foot.
         /// </summary>
+        /// <summary>Only already-attributed agent prose and the ordinary instruction field opt in.
+        /// Outputs, names, decisions and unattributed outside text keep their existing treatment.</summary>
+        public static bool UsesUprightProse(bool independent, PageLine line) => independent
+            && (line.Control == LineControl.Input && line.Action == FileScreens.EditInstruction
+                || line.Action == null && (line.Chip == "Agent says" || line.Chip == "Subagent says"));
+
         private float LayLine(Line line, PageLine model, float left, float right, float top, Vector2 center, float zoom)
         {
             if (model.ProjectIdentity) return LayProjectIdentity(line, model, left, right, top);
@@ -1096,6 +1113,8 @@ namespace Halcyonic.XR.UI
             var role = model.Action == null ? (ButtonRole?)null : model.Control == LineControl.Input ? ButtonRole.Input
                 : model.Control == LineControl.Action ? ButtonRole.Navigation : model.Choice ? ButtonRole.Answer : ButtonRole.Row;
             line.Show(model, role);
+            var prose = UsesUprightProse(IndependentSurface, model);
+            GlazeRuns.Of(line.Words).SetProseMode(prose);
             var lineHeight = GlazeText.LineHeight(line.Words);
             var (rows, theirs) = Wrap(line.Words, model, WordsRoom(model, right - left));
             var height = role == null ? rows * lineHeight : Mathf.Max(GlazeButton.HeightOf(true), rows * lineHeight + 2f * grid);
@@ -1172,12 +1191,12 @@ namespace Halcyonic.XR.UI
             line.Words.color = ColourOf(wordsTone, model.Available);
             GlazeRuns.Of(line.Words).Lean(theirs);
             // Outside text on a ground takes the primary text colour, so it holds 4.5:1 there; a row all of it has no ground.
-            GlazeRuns.Of(line.Words).Grounded = theirs.Count > 0 && !(role != null && model.Runs.AllTheirs) ? Grounded(model.Available) : (Color32?)null;
+            GlazeRuns.Of(line.Words).Grounded = !prose && theirs.Count > 0 && !(role != null && model.Runs.AllTheirs) ? Grounded(model.Available) : (Color32?)null;
             // A line that says what is under way, as "Sending…", shimmers while it shows (ADR 0027).
             line.Shimmer.Waits = model.Waits;
             line.MayCut = model.WordsAreData;
             line.Words.transform.localPosition = new Vector3(wordsLeft, middle + rows * lineHeight / 2f, -U(0.05f));
-            LayGrounds(line, model, role != null, theirs, left, right, middle, height);
+            if (!prose) LayGrounds(line, model, role != null, theirs, left, right, middle, height);
             if (model.Control == LineControl.Input && model.InputFocused && !model.Runs.AnyTheirs) line.ShowCaret(wordsLeft, end, middle, rows * lineHeight);
             return top - height;
         }
