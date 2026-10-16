@@ -129,3 +129,23 @@ the test tolerance. The assertion now uses the actual stacking formula and repor
 expected top, gap and zoom; production stacking is unchanged. This correction does not establish
 that the entire compact candidate passes: a root-owned actual rerun remains required after the
 other chat releases Unity. No further Unity or device action occurred in this repair lane.
+
+
+### Larger text leaves no supported character shelf (2026-10-16)
+
+The statement above that `SpatialWorkspaceCheck` exits successfully at standard and larger text
+did not hold once the fixture required a measured, supported shelf. At e62150fa the check passed
+every assertion at standard text and threw at larger text: the measured shelf search over the
+region RoomPlacement previews (1050 candidates, 0.4 to 2 m away, 0.15 to 0.9 m below the eyes,
+the actual field less its margin and the actual console clearance) accepted no one-agent shelf
+beside the larger workspace, 625 candidates refused by the field and 776 by clearance, so no
+character was created. Production refuses correctly; neither rejection is relaxed.
+
+The check now asserts that refusal at larger text and prints it as a product gap, not a pass, in
+its own warning and in its final result line. It then runs the remaining larger routes without a
+character: project details, working activity and direction, long and disconnected headers, the
+workspace controls, compact restore, the multiple-project selection and the waiting approval.
+Standard text still stages the character and checks its shared title and connector. Should larger
+text ever admit a supported shelf, the check fails until the character checks are restored there.
+The gap and its resolution path are in [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md). These
+are synthetic renderer results, not headset placement or wearer acceptance.
