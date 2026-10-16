@@ -59,9 +59,9 @@ namespace Halcyonic.XR.UI
     /// in its icon and its words, and at its right end where pressing it goes, the next action of the task that has
     /// one. The board leads with what waits for the person across every project. Bands are parts of one face divided by
     /// space and their names, not cards; every next action stands at one right-hand line, so the eyes find them in one
-    /// place. The board stands in front and carries the instrument's one light; the spine stands behind it, parallel
-    /// to it on one plane facing the eyes, a column's gap away with the room between. Centred on its transform, built
-    /// in units of the plane's distance.
+    /// place. The board stands in front and carries the instrument's one light; the spine is a recessed band behind
+    /// it, reaching under it and shaded where it stands over it. Laid out on one plane and drawn on one gentle curve
+    /// round the eyes (the plane is the fallback). Centred on its transform, built in units of the plane's distance.
     /// </summary>
     public sealed class KitOverviewView : MonoBehaviour
     {
@@ -77,7 +77,7 @@ namespace Halcyonic.XR.UI
         public KitCarrier SpineCarrier => spineCarrier;
         public KitSpine Spine => spine;
         public TextMeshPro Title => title;
-        /// <summary>The instrument's extent on its plane, in units of its distance, the gap included.</summary>
+        /// <summary>The instrument's extent as laid out, in units of its distance.</summary>
         public Vector2 Size => size;
 
         public event Action<string>? RowPressed;
@@ -153,14 +153,15 @@ namespace Halcyonic.XR.UI
             board.Draw(new Vector2(boardWidth, height), radius, SpatialKit.Slate, lit: true);
             // The board stands past the spine above and below: in front of it.
             var sides = height - 2f * rise;
-            // Side by side on one plane, a column's gap apart, the whole centred on the view's line.
-            var gap = SpatialKit.ColumnGapUnits;
+            // One instrument, centred on the view's line: the board in front, the spine a recessed band reaching under it.
             var recess = SpatialKit.RecessMeters / PlaneComposition.Distance;
-            var left = -(width + gap) / 2f;
-            spineCarrier.transform.localPosition = new Vector3(left + spineWidth / 2f, 0f, recess);
-            board.transform.localPosition = new Vector3(left + spineWidth + gap + boardWidth / 2f, 0f, 0f);
-            spineCarrier.Draw(new Vector2(spineWidth, sides), radius, SpatialKit.Side);
-            size = new Vector2(width + gap, height);
+            var overlap = KitType.Units(SpatialKit.InstrumentRadiusDegrees);
+            var left = -width / 2f;
+            board.transform.localPosition = new Vector3(left + spineWidth + boardWidth / 2f, 0f, 0f);
+            spineCarrier.transform.localPosition = new Vector3(left + (spineWidth + overlap) / 2f, 0f, recess);
+            spineCarrier.Draw(new Vector2(spineWidth + overlap, sides), radius, SpatialKit.Side);
+            spineCarrier.Shade(left: false, right: true, inset: overlap);
+            size = new Vector2(width, height);
 
             var top = height / 2f;
             var boardLeft = -boardWidth / 2f + pad;
@@ -168,7 +169,7 @@ namespace Halcyonic.XR.UI
             lead.transform.localPosition = new Vector3(boardLeft, top - pad - titleHeight - KitType.Scaled(0.3f), -0.0005f);
             for (var index = 0; index < model.Projects.Count; index++)
                 bands[index].Place(model.Projects[index], new Vector2(boardLeft, top - bandTops[index]), inner);
-            spine.Show(model.Spine, model.SpineFoot, new Vector2(-spineWidth / 2f + pad, sides / 2f - pad), spineWidth - 2f * pad, sides - 2f * pad);
+            spine.Show(model.Spine, model.SpineFoot, new Vector2(-(spineWidth + overlap) / 2f + pad, sides / 2f - pad), spineWidth - 2f * pad, sides - 2f * pad);
         }
 
         public IEnumerable<Vector3> Corners() => Carriers.SelectMany(carrier => carrier.Corners());

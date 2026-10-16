@@ -18,16 +18,16 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// Renders the spatial kit, a candidate no production view draws yet, in its first three states, the focused work
-    /// and the overview of three projects, each on one plane and in the wrap (D1b), the compact presence, and a
-    /// specimen of its controls, from the eyes with a Quest 3S's field at about 22 pixels a degree at the centre, at
-    /// both text sizes, as the eye buffer and laid over a dark room and a bright synthetic room as the compositor lays
-    /// it over passthrough. It checks what a render can: every word reads at 14 dp or more as the eyes see it, every
-    /// target is a whole hand target and 12 mm from the next, each instrument stays inside the field, every face that
-    /// carries words is opaque in the pixels, every word holds 4.5 to 1 in the pixels over the bright room, the agent's
-    /// report and the person's draft show whole and keep their provenance, and the connected switch moves only after
-    /// the existing Minimize and Restore routes of a real <see cref="MenuDirector"/> confirm the presentation. Beside
-    /// the images it writes each region's measures as the eyes meet it, for comparing the arrangements. Every project,
-    /// task, message and event is synthetic, and every image says so. None of this is evidence of comfort, of
+    /// and the overview of three projects, each on one gentle curve and on its fallback plane, the compact presence,
+    /// and a specimen of its controls, from the eyes with a Quest 3S's field at about 22 pixels a degree at the centre,
+    /// at both text sizes, as the eye buffer and laid over a dark room and a bright synthetic room as the compositor
+    /// lays it over passthrough. It checks what a render can: every word reads at 14 dp or more as the eyes see it,
+    /// every target is a whole hand target and 12 mm from the next, each instrument stays inside the field, every face
+    /// that carries words is opaque in the pixels, every word holds 4.5 to 1 in the pixels over the bright room, the
+    /// agent's report and the person's draft show whole and keep their provenance, and the connected switch moves only
+    /// after the existing Minimize and Restore routes of a real <see cref="MenuDirector"/> confirm the presentation.
+    /// Beside the images it writes each region's measures as the eyes meet it, for comparing the arrangements. Every
+    /// project, task, message and event is synthetic, and every image says so. None of this is evidence of comfort, of
     /// readability through a headset's optics or passthrough, or of design acceptance.
     /// In the editor: Halcyonic > Render the Spatial Kit. In batch mode, with graphics: -executeMethod
     /// Halcyonic.XR.Workspace.Editor.KitRender.Check; it exits 1 when a check fails. Images go to
@@ -61,7 +61,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-curve", "2-overview", "2-overview-curve", "3-compact-presence", "4-control-kit" })
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" })
                     {
                         try { found.AddRange(RenderState(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
@@ -144,10 +144,11 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var shot = made = state switch
                 {
-                    "1-focused-work" => FocusedWork(root.transform, eyes, curved: false),
-                    "1-focused-work-curve" => FocusedWork(root.transform, eyes, curved: true),
-                    "2-overview" => Overview(root.transform, eyes, curved: false),
-                    "2-overview-curve" => Overview(root.transform, eyes, curved: true),
+                    // The kit is drawn on one gentle curve; its plane, the fallback, beside it.
+                    "1-focused-work" => FocusedWork(root.transform, eyes, curved: true),
+                    "1-focused-work-plane" => FocusedWork(root.transform, eyes, curved: false),
+                    "2-overview" => Overview(root.transform, eyes, curved: true),
+                    "2-overview-plane" => Overview(root.transform, eyes, curved: false),
                     "3-compact-presence" => CompactPresence(root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };
@@ -267,7 +268,7 @@ namespace Halcyonic.XR.Workspace.Editor
             new PanelSize(PlaneComposition.Distance, sizeUnits.x / 2f * PlaneComposition.Distance, sizeUnits.y / 2f * PlaneComposition.Distance), elevation, Quest3S);
 
         /// <summary>
-        /// <see cref="WorkspacePlacement.ReadingPitch"/>'s rule for an outline that is not one flat plate, as a wrap's:
+        /// <see cref="WorkspacePlacement.ReadingPitch"/>'s rule for an outline that is not one flat plate, as the curve's:
         /// the head tips as far as the lowest corners need to stand inside the field less its margin, at most
         /// <see cref="WorkspacePlacement.MostReadingPitchDegrees"/>, with the head turned toward <paramref name="toward"/>.
         /// Where no tip that far is enough it returns the most, and the field check then fails.
@@ -305,14 +306,14 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static Shot FocusedWork(Transform root, Vector3 eyes, bool curved)
         {
-            var shot = new Shot { Caption = curved ? "Focused work on one gentle curve, synthetic data" : "Focused work on one plane, synthetic data", Curved = curved };
+            var shot = new Shot { Caption = curved ? "Focused work on one gentle curve, synthetic data" : "Focused work on one plane, the fallback, synthetic data", Curved = curved };
             var view = KitWorkView.Create(root);
             var model = WorkModel();
             view.Show(model);
             shot.Elevation = CentreFor(view.Size.y);
             shot.Centre = Place(view.transform, eyes, 0f, shot.Elevation);
             Stand(shot, view.transform, eyes, view.Carriers, view.Size);
-            shot.Glance = TurnTo(shot.Seen(view.Rail.transform.position), eyes);
+            shot.Glance = TurnTo(shot.Seen(view.Rail.transform.TransformPoint(new Vector3(KitType.Units(SpatialKit.InstrumentRadiusDegrees) / 2f, 0f, 0f))), eyes);
             // The target checks hold on the curve as on the plane: each target's tangent plane stands at its plane's
             // distance, and the arcs between targets are their distances on the plane (chords shorter by under 0.01 mm).
             shot.Targets.Add(("instrument", view.transform, view.Targets));
@@ -340,7 +341,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static Shot Overview(Transform root, Vector3 eyes, bool curved)
         {
-            var shot = new Shot { Caption = curved ? "Overview of three projects on one gentle curve, synthetic data" : "Overview of three projects on one plane, synthetic data", Curved = curved };
+            var shot = new Shot { Caption = curved ? "Overview of three projects on one gentle curve, synthetic data" : "Overview of three projects on one plane, the fallback, synthetic data", Curved = curved };
             var view = KitOverviewView.Create(root);
             var model = OverviewModel();
             view.Show(model);

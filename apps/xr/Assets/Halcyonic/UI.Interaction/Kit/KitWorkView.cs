@@ -61,12 +61,12 @@ namespace Halcyonic.XR.UI
     /// The focused work: one opaque instrument of three regions, each placed by what its words are. The context spine
     /// at the left says where the person is; the reading slate in the middle, nearest the person, holds the selected
     /// task's identity and state, what its agent said in full, and the person's own draft; the evidence rail at the
-    /// right holds what was recorded. All three stand on one plane facing the eyes: the slate in front, the spine and
-    /// the rail <see cref="SpatialKit.RecessMeters"/> behind it and parallel to it, a column's gap
-    /// (<see cref="SpatialKit.ColumnGapUnits"/>) from it, so the room shows between them. The instrument's one light
-    /// runs along the slate's top in the work's state tone, which its words also say. Its top stays put and its
-    /// height follows its content up to <see cref="SpatialKit.SlateMostAt"/>. Centred on its transform, built in units
-    /// of the plane's distance.
+    /// right holds what was recorded. They are one instrument: the slate in front, the spine and the rail recessed
+    /// bands <see cref="SpatialKit.RecessMeters"/> behind it, reaching under it and shaded where it stands over them.
+    /// It is laid out on one plane facing the eyes and drawn on one gentle curve round them (the plane is the
+    /// fallback). The instrument's one light runs along the slate's top in the work's state tone, which its words
+    /// also say. Its top stays put and its height follows its content up to <see cref="SpatialKit.SlateMostAt"/>.
+    /// Centred on its transform, built in units of the plane's distance.
     /// </summary>
     public sealed class KitWorkView : MonoBehaviour
     {
@@ -103,7 +103,7 @@ namespace Halcyonic.XR.UI
         public KitTrail Trail => trail;
         public KitRow Earlier => earlier;
 
-        /// <summary>The instrument's extent on its plane, in units of its distance, the gaps included.</summary>
+        /// <summary>The instrument's extent as laid out, in units of its distance.</summary>
         public Vector2 Size => size;
 
         /// <summary>A spine row or the rail's Earlier activity was pressed.</summary>
@@ -220,16 +220,19 @@ namespace Halcyonic.XR.UI
             var tone = Glaze.Tone(model.Badge.LastKnown ? GlazeTone.Unknown : model.Badge.Tone);
             // The instrument's one light runs along the slate's top in the work's state tone; its words say the same state.
             slate.Draw(new Vector2(slateWidth, height), radius, SpatialKit.Slate, lit: true, light: KitType.Mix(SpatialKit.Slate, tone.Strong, 0.92f));
-            // Side by side on one plane, the slate in front, the others behind it and a column's gap away: the room
-            // shows between them.
-            var columnGap = SpatialKit.ColumnGapUnits;
+            // One instrument: the slate in front, the spine and the rail recessed bands behind it, reaching under it and
+            // shaded where it stands over them.
+            var left = -width / 2f;
             var recess = SpatialKit.RecessMeters / PlaneComposition.Distance;
-            slate.transform.localPosition = Vector3.zero;
-            spineCarrier.transform.localPosition = new Vector3(-(slateWidth / 2f + columnGap + spineWidth / 2f), 0f, recess);
-            rail.transform.localPosition = new Vector3(slateWidth / 2f + columnGap + railWidth / 2f, 0f, recess);
-            spineCarrier.Draw(new Vector2(spineWidth, sides), radius, SpatialKit.Side);
-            rail.Draw(new Vector2(railWidth, sides), radius, SpatialKit.Side);
-            size = new Vector2(width + 2f * columnGap, height);
+            var overlap = KitType.Units(SpatialKit.InstrumentRadiusDegrees);
+            slate.transform.localPosition = new Vector3(left + spineWidth + slateWidth / 2f, 0f, 0f);
+            spineCarrier.transform.localPosition = new Vector3(left + (spineWidth + overlap) / 2f, 0f, recess);
+            rail.transform.localPosition = new Vector3(left + spineWidth + slateWidth + (railWidth - overlap) / 2f, 0f, recess);
+            spineCarrier.Draw(new Vector2(spineWidth + overlap, sides), radius, SpatialKit.Side);
+            rail.Draw(new Vector2(railWidth + overlap, sides), radius, SpatialKit.Side);
+            spineCarrier.Shade(left: false, right: true, inset: overlap);
+            rail.Shade(left: true, right: false, inset: overlap);
+            size = new Vector2(width, height);
 
             // Slate contents, from its own top left.
             var slateLeft = -slateWidth / 2f + pad;
@@ -241,13 +244,13 @@ namespace Halcyonic.XR.UI
             nothing.transform.localPosition = new Vector3(slateLeft, top - readingTop, -0.0005f);
             composer.Show(new Vector2(slateLeft, top - composerTop), inner, model.Draft, 3, model.VoiceOffered, model.Sendable, model.WhyNotSend);
 
-            // The spine, inside its own padding.
+            // The spine, inside its own padding, the part under the slate left empty.
             var sideTop = sides / 2f;
-            spine.Show(model.Spine, model.SpineFoot, new Vector2(-spineWidth / 2f + pad, sideTop - pad), spineInner, sides - 2f * pad);
+            spine.Show(model.Spine, model.SpineFoot, new Vector2(-(spineWidth + overlap) / 2f + pad, sideTop - pad), spineInner, sides - 2f * pad);
 
             // The rail: its heading, any earlier activity that did not fit, then the newest recorded events.
             var railInner = railWidth - 2f * pad;
-            var railLeft = -railWidth / 2f + pad;
+            var railLeft = -(railWidth + overlap) / 2f + overlap + pad;
             KitType.Size(railHeading, KitRole.Heading);
             GlazeText.SetLiteral(railHeading, RailHeading);
             var (_, _, headingHeight) = KitType.Lay(railHeading, railInner, 1);

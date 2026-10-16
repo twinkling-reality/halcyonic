@@ -25,10 +25,10 @@ namespace Halcyonic.Client
         public const float BoardDegrees = 44f;
 
         /// <summary>The context spine: the switch, the places, and the selected project's tasks.</summary>
-        public const float SpineDegrees = 15f;
+        public const float SpineDegrees = 16f;
 
         /// <summary>The evidence rail: what the agent app was recorded doing, newest last.</summary>
-        public const float RailDegrees = 15f;
+        public const float RailDegrees = 16f;
 
         /// <summary>The compact presence: the switch, the retained task, its state and what waits.</summary>
         public const float PresenceDegrees = 30f;
@@ -38,19 +38,13 @@ namespace Halcyonic.Client
         /// where it was placed and its height follows its content up to this; reading beyond it pages
         /// instead of shrinking.
         /// </summary>
-        public const float SlateMostDegrees = 43f;
+        public const float SlateMostDegrees = 44f;
 
         /// <summary>The tallest the slate may grow when reading text is drawn <paramref name="textScale"/> times as large.</summary>
         public static float SlateMostAt(float textScale) => SlateMostDegrees * textScale;
 
-        /// <summary>How far the spine and the rail stand behind the slate, in metres, parallel to it: one instrument at two depths.</summary>
+        /// <summary>How far the spine and the rail stand behind the slate, in metres: recessed bands of one instrument, joined to it.</summary>
         public const float RecessMeters = 0.010f;
-
-        /// <summary>
-        /// Between the slate and each region beside it, in units of the plane's distance: STYLE's 15 mm between
-        /// columns (<see cref="PlaneComposition.ColumnGapMeters"/>), where the room shows through.
-        /// </summary>
-        public static float ColumnGapUnits => PlaneComposition.ColumnGapMeters / PlaneComposition.Distance;
 
         /// <summary>Where the instrument rests: the top of its slate this far above eye level.</summary>
         public const float RestingTopDegrees = 4f;
@@ -102,6 +96,9 @@ namespace Halcyonic.Client
 
         /// <summary>A thin edge: a region's outline and a control's rest boundary.</summary>
         public const float HairlineDegrees = 0.06f;
+
+        /// <summary>How far across a recessed band the slate's shade reaches where the slate stands over it, in degrees.</summary>
+        public const float RecessShadeDegrees = 1.4f;
 
 
         /// <summary>
@@ -180,13 +177,13 @@ namespace Halcyonic.Client
         public static bool Reads(float dp, float right, float up) => SeenDegrees(dp, right, up) >= Glaze.MinimumTextDegrees;
 
         /// <summary>
-        /// The working instrument's half-width on its plane, in units of the plane's distance: the spine,
-        /// the slate and the rail side by side, a column's gap between each, centred on the eyes' line.
+        /// The working instrument's half-width as laid out, in units of the plane's distance: the spine, the
+        /// slate and the rail joined, centred on the eyes' line. On the curve it is also the half-spread, in radians.
         /// </summary>
-        public static float WorkHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(SlateDegrees) + PlaneComposition.Units(RailDegrees)) / 2f + ColumnGapUnits;
+        public static float WorkHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(SlateDegrees) + PlaneComposition.Units(RailDegrees)) / 2f;
 
-        /// <summary>The overview's half-width on its plane: the spine and the board, a column's gap between them.</summary>
-        public static float OverviewHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(BoardDegrees) + ColumnGapUnits) / 2f;
+        /// <summary>The overview's half-width as laid out: the spine and the board, joined.</summary>
+        public static float OverviewHalfWidth => (PlaneComposition.Units(SpineDegrees) + PlaneComposition.Units(BoardDegrees)) / 2f;
 
         /// <summary>The tallest instrument's half-height on its plane at a text scale.</summary>
         public static float MostHalfHeight(float textScale) => PlaneComposition.Units(SlateMostAt(textScale)) / 2f;
