@@ -554,6 +554,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (Quaternion.Angle(region.Root.rotation, shape.Root.rotation) > .05f
                         || Mathf.Abs(Vector3.Dot(region.Root.position - shape.Root.position, shape.Root.forward)) > .0005f)
                         failures.Add(name + ": independent reading/selection objects do not share their intended physical plane");
+                float ContextGap(GlazeChecks.PlaneShape reading) => GlazeChecks.OutlineApart(regions[0], eyes,
+                    GlazeChecks.MeshOutline(reading.Name, eyes, reading.Root.GetComponentsInChildren<Renderer>(false)));
+                foreach (var reading in regions.Skip(1))
+                    if (ContextGap(reading) < GlazeChecks.GapDegrees - .01f)
+                        failures.Add(name + ": actual context and " + reading.Name + " do not retain the shared angular gap");
+                // Use the same actual-object checker against a real overlap, then restore before any draw.
+                var gapWitness = regions[1]; var gapPosition = gapWitness.Root.position;
+                try
+                {
+                    gapWitness.Root.position = regions[0].Root.position;
+                    if (ContextGap(gapWitness) >= GlazeChecks.GapDegrees - .01f)
+                        failures.Add(name + ": actual context/reader clearance checker accepted overlapping reading objects");
+                }
+                finally { gapWitness.Root.position = gapPosition; }
                 if (plane.Context.ConnectionLabel.text != plane.ConnectionState)
                     failures.Add(name + ": independent context lost the actual connection state");
                 foreach (var choice in plane.Context.ProjectChoices)
@@ -701,6 +715,35 @@ namespace Halcyonic.XR.Workspace.Editor
                         var titleSeen = GlazeChecks.Of("task title", eyes, identityView.SubjectShown.Title.gameObject);
                         if (portraitSeen.Right >= titleSeen.Left)
                             failures.Add(name + ": actual miniature character overlaps the task title");
+                        if (independent)
+                        {
+                            // BodyExtent measures the current mesh pose only. This conservative box
+                            // reserves the complete BodyRadius/HighestReach shell+feature motion envelope.
+                            var envelopeRoot = new GameObject("Complete animated portrait clearance witness");
+                            var envelopeMesh = new Mesh { name = "Full portrait motion envelope", hideFlags = HideFlags.HideAndDontSave };
+                            try
+                            {
+                                envelopeRoot.transform.SetParent(portrait.Character.transform, false);
+                                var radius = CharacterView.BodyRadius; var high = CharacterView.HighestReach;
+                                envelopeMesh.vertices = new[] {
+                                    new Vector3(-radius, -radius, -radius), new Vector3(radius, -radius, -radius),
+                                    new Vector3(radius, high, -radius), new Vector3(-radius, high, -radius),
+                                    new Vector3(-radius, -radius, radius), new Vector3(radius, -radius, radius),
+                                    new Vector3(radius, high, radius), new Vector3(-radius, high, radius) };
+                                envelopeMesh.triangles = new[] { 0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7,
+                                    0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5 };
+                                envelopeRoot.AddComponent<MeshFilter>().sharedMesh = envelopeMesh;
+                                var renderer = envelopeRoot.AddComponent<MeshRenderer>();
+                                var fullMotion = GlazeChecks.MeshOutline("complete animated selected portrait", eyes, new[] { renderer });
+                                if (GlazeChecks.OutlineApart(regions[0], eyes, fullMotion) < GlazeChecks.GapDegrees - .01f)
+                                    failures.Add(name + ": complete animated selected portrait does not clear actual project context by the shared angular gap");
+                            }
+                            finally
+                            {
+                                UnityEngine.Object.DestroyImmediate(envelopeRoot);
+                                UnityEngine.Object.DestroyImmediate(envelopeMesh);
+                            }
+                        }
                     }
                 }
                 var named = identityView.Side?.IdentityKind ?? identityView.Frame?.IdentityKind;
