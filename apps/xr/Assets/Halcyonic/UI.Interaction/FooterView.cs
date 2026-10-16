@@ -118,17 +118,17 @@ namespace Halcyonic.XR.UI
                 // Local exit/discard are subordinate above the deliberate submit/voice row.
                 var upper = new[] { PromptSlot.Close, PromptSlot.Rare };
                 var lower = new[] { PromptSlot.Secondary, PromptSlot.Free, PromptSlot.FarRight };
-                float Row(PromptSlot[] slots, float y)
+                float Row(PromptSlot[] slots, float y, bool alignRight = false)
                 {
                     var offered = new List<PromptSlot>();
                     foreach (var slot in slots) if (shown[(int)slot] != null) offered.Add(slot);
                     var needed = 0f; foreach (var slot in offered) needed += widths[(int)slot];
                     needed += gap * Mathf.Max(0, offered.Count - 1);
-                    var x = left - margin;
+                    var x = alignRight ? right + margin - needed : left - margin;
                     foreach (var slot in offered) { Stand(slot, x + widths[(int)slot] / 2f, y, widths[(int)slot]); x += widths[(int)slot] + gap; }
                     return needed;
                 }
-                var needed = Mathf.Max(Row(upper, middle + (Height + gap) / 2f), Row(lower, middle - (Height + gap) / 2f));
+                var needed = Mathf.Max(Row(upper, middle + (Height + gap) / 2f), Row(lower, middle - (Height + gap) / 2f, alignRight: true));
                 HeightUsed = 2f * Height + gap;
                 Measure = (needed, right - left + 2f * margin);
                 Fits = needed <= Measure.Room + 1e-5f;
