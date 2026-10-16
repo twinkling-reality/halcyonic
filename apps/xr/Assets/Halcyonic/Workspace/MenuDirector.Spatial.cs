@@ -10,10 +10,9 @@ namespace Halcyonic.XR.Workspace
 {
     public sealed partial class MenuDirector
     {
-        private FileColumn? configuredComposer;
-        private float configuredContextHeight;
-        private bool configuredPortrait;
-        private int configuredTitleRows, configuredProvenanceRows;
+        private readonly Dictionary<FileColumn, (float ContextHeight, bool Portrait, int TitleRows, int ProvenanceRows)> composerLayouts
+            = new Dictionary<FileColumn, (float, bool, int, int)>();
+        private void DropSpatialComposer(FileColumn file) => composerLayouts.Remove(file);
         private object? contextOwner;
         private RealtimeSession? contextSession;
         private ClientProjection? contextState;
@@ -31,14 +30,17 @@ namespace Halcyonic.XR.Workspace
             var titleRows = navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true
                 ? MenuFrameView.IndependentTitleRows(work.Title, Glaze.Menu.FileColumnDegrees) : 2;
             var provenanceRows = MenuFrameView.IndependentProvenanceRows(CurrentSpatialMarks(), Glaze.Menu.FileColumnDegrees);
-            var geometryChanged = configuredContextHeight != contextHeight || configuredPortrait != HasTaskPortrait
-                || configuredTitleRows != titleRows || configuredProvenanceRows != provenanceRows;
-            configuredProvenanceRows = provenanceRows;
-            configuredContextHeight = contextHeight; configuredPortrait = HasTaskPortrait; configuredTitleRows = titleRows;
-            if (ReferenceEquals(file, configuredComposer)) { if (geometryChanged) file.Reflow(); return; }
-            configuredComposer = file;
-            file.ConfigureActivityComposer(() => new HeightBudget(IndependentPageHeight(2, true, false)),
-                () => new HeightBudget(IndependentPageHeight(2, true, true)));
+            var geometry = (contextHeight, HasTaskPortrait, titleRows, provenanceRows);
+            if (composerLayouts.TryGetValue(file, out var previous))
+            {
+                if (previous != geometry) { composerLayouts[file] = geometry; file.Reflow(); }
+                return;
+            }
+            composerLayouts[file] = geometry;
+            // Each retained file keeps its own callbacks and geometry lifetime. Background rebuilds
+            // must never borrow another selected task's provenance or portrait allocation.
+            file.ConfigureActivityComposer(() => new HeightBudget(IndependentPageHeight(2, true, false, file)),
+                () => new HeightBudget(IndependentPageHeight(2, true, true, file)));
         }
 
         private void PrepareSpatialContext()
@@ -102,15 +104,17 @@ namespace Halcyonic.XR.Workspace
             ? StateLanguage.MarksOf(CharacterPresenter.Present(work, State, Connected && !Demonstration)) : Array.Empty<WorkMark>();
 
         /// <summary>Measured union of the actual left navigation and central reading objects.</summary>
-        private float IndependentPageHeight(int subjectRows, bool split, bool composer)
+        private float IndependentPageHeight(int subjectRows, bool split, bool composer, FileColumn? owner = null)
         {
             var stage = setup.StageNow(); var at = anchor?.Eyes ?? stage.Eyes; var looking = anchor?.Looking ?? stage.Looking;
             var occupied = stage.Characters.Where(character => character != null).Select(character => WorkspaceLayout.InView(character, at)).ToList();
             var direction = new PanelDirection(UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
             var zoom = TextSize == TextSize.Larger ? Comfort.LargerTextScale : 1f;
             var width = PlaneComposition.Units(Glaze.Menu.FileColumnDegrees);
-            var marks = CurrentSpatialMarks();
-            var header = MenuFrameView.IndependentSubjectHeightOfRows(subjectRows, true, HasTaskPortrait,
+            var marks = owner == null ? CurrentSpatialMarks()
+                : owner.Now?.Character is CharacterPresentation character ? StateLanguage.MarksOf(character) : Array.Empty<WorkMark>();
+            var portrait = owner == null ? HasTaskPortrait : showTaskPortraits && owner.Now?.Character != null;
+            var header = MenuFrameView.IndependentSubjectHeightOfRows(subjectRows, true, portrait,
                 MenuFrameView.IndependentProvenanceRows(marks, Glaze.Menu.FileColumnDegrees));
             var leftHeight = plane.Context.HeightFor(State?.Projects.Count ?? 0);
             var section = GlazeButton.HeightOf(true);
