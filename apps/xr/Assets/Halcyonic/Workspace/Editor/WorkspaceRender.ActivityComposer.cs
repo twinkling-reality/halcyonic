@@ -191,7 +191,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(footer.Showing?[PromptSlot.Secondary]?.Id == FileScreens.HoldToTalk, "voice-offered composer omitted the actual Hold to talk action");
                     Debug.Log($"Halcyonic: voice-offered composer footer measured {footer.Measure.Needed:R} needed / {footer.Measure.Room:R} available; fits={footer.Fits}.");
                 }
-                Debug.Log($"Halcyonic: actual composer partRows={file?.Screen.Instruction.PartRows}; parts={file?.Screen.Instruction.Parts}; allocated height={director.Plane.ComposerAllocation.Height:R}; voice offered={offerVoice}.");
+                Debug.Log($"Halcyonic: actual composer partRows={file?.Screen.Instruction.PartRows}; parts={file?.Screen.Instruction.Parts}; allocated height={director.Plane.ComposerAllocation?.Height:R}; voice offered={offerVoice}.");
                 Require(file != null && file.Screen.Instruction.PartRows >= 3, "actual composer allocates fewer than three readable draft rows; inspect measured field limits before changing the split");
                 var context = director.Plane.ActivityContext;
                 Require(context?.Frame != null && file?.ActivityContextFrame == context.Frame, "actual Activity was not rendered beside its own composer");
@@ -204,7 +204,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(context.Frame.Lines.Any(line => line.Words.Contains("I found that sign-in attempts"))
                         && context.Frame.Lines.Any(line => line.Words.Contains("Command failed: node --test")),
                         "actual reclaimed Activity preview omitted either of its two latest synthetic journal entries");
-                    Debug.Log($"Halcyonic: reclaimed passive Activity shows {context.Frame.Lines.Count} actual entries; allocated height={director.Plane.ReaderAllocation.Height:R}; footer visible={context.Footer.gameObject.activeInHierarchy}.");
+                    Debug.Log($"Halcyonic: reclaimed passive Activity shows {context.Frame.Lines.Count} actual entries; allocated height={director.Plane.ReaderAllocation?.Height:R}; footer visible={context.Footer.gameObject.activeInHierarchy}.");
                 }
                 var forwardedPassive = 0;
                 director.Plane.Drawn += (_, view) => { if (ReferenceEquals(view, context)) forwardedPassive++; };
