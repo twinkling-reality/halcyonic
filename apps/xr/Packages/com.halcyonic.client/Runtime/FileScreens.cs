@@ -213,7 +213,7 @@ namespace Halcyonic.Client
         {
             var context = new FileScreen { Section = FileSection.Activity, Page = screen.Section == FileSection.Activity ? screen.Page : 0, Zone = screen.Zone, ActivityNote = screen.ActivityNote };
             var page = Activity(workspace, steering, context, room, budget, passive: true);
-            return new MenuFrame(LineWords.TheirName(workspace.Character.Title), new Footer(), lines: page.Lines.Where(line => line.Action == null && line.Key == null
+            return new MenuFrame(LineWords.TheirName(workspace.Character.Title), new Footer(), pill: StateLanguage.BadgeOf(workspace.Character), lines: page.Lines.Where(line => line.Action == null && line.Key == null
                     && line.Control == LineControl.None && !line.InputFocused && !line.Opens && !line.Choice && !line.Chosen).ToArray(),
                 source: "Activity", identityKind: MenuIdentityKind.Task);
         }
