@@ -1573,6 +1573,36 @@ namespace Halcyonic.XR.Workspace.Editor
         internal static (CharacterView View, CharacterTarget Target) ConfirmedPlaneAgent(Transform root, MenuPlane plane,
             Vector3 eyes, CharacterPresentation shown, List<string> failures, string name, GlazeChecks.Extent? additionalFrame = null)
         {
+            var search = SupportedShelf(plane, eyes, name, additionalFrame);
+            if (!search.Accepted.HasValue)
+                throw new InvalidOperationException(name + ": no supported one-agent shelf cleared the actual console and field; no character was created.");
+            var pose = search.Accepted.Value;
+            Debug.Log($"Halcyonic: {name} production draft accepted synthetic shelf position={pose.position}; rotation={pose.rotation.eulerAngles}.");
+            var holder = new GameObject("Explicitly confirmed optional agent shelf").transform;
+            holder.SetParent(root, false);
+            holder.SetPositionAndRotation(pose.position, pose.rotation);
+            var shelf = Surface.Create(holder, "Placed agent shelf", 0);
+            shelf.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            shelf.Draw(new Vector2(AgentShelfDraft.Width(1), AgentShelfDraft.Depth), 0.025f, new Color(0.12f, 0.19f, 0.22f, 1f));
+            var view = CharacterView.Create(holder, shown.WorkstreamId);
+            view.Grounded = true;
+            view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
+            view.Show(shown);
+            view.PlaceShelfLabel(eyes);
+            view.AdvanceForRender(1f / 60f);
+            return (view, CharacterTarget.Attach(view, shown.WorkstreamId));
+        }
+
+        /// <summary>
+        /// The production draft's measured search for one agent's shelf over its supported region
+        /// (0.4 to 2 m away, 0.15 to 0.9 m below the eyes), refused by the measured field and the
+        /// actual console as RoomPlacement refuses a preview. Accepted is null when every candidate
+        /// is refused; the counts say which predicates refused them. Creates nothing.
+        /// </summary>
+        internal static (Pose? Accepted, int Candidates, int FieldRefusals, int WorkspaceRefusals, int AdditionalRefusals) SupportedShelf(
+            MenuPlane plane, Vector3 eyes, string name, GlazeChecks.Extent? additionalFrame = null)
+        {
             var corners = new Vector3[8];
             Pose? accepted = null;
             var measured = ViewField.Current ?? MenuPage.Quest3S;
@@ -1626,24 +1656,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             Debug.Log($"Halcyonic: {name} measured placement candidates={attempts}; field refusals={fieldFailures}; workspace refusals={workspaceFailures}; additional refusals={additionalFailures}; accepted={accepted.HasValue}.");
-            if (!accepted.HasValue)
-                throw new InvalidOperationException(name + ": no supported one-agent shelf cleared the actual console and field; no character was created.");
-            var pose = accepted.Value;
-            Debug.Log($"Halcyonic: {name} production draft accepted synthetic shelf position={pose.position}; rotation={pose.rotation.eulerAngles}.");
-            var holder = new GameObject("Explicitly confirmed optional agent shelf").transform;
-            holder.SetParent(root, false);
-            holder.SetPositionAndRotation(pose.position, pose.rotation);
-            var shelf = Surface.Create(holder, "Placed agent shelf", 0);
-            shelf.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            shelf.Draw(new Vector2(AgentShelfDraft.Width(1), AgentShelfDraft.Depth), 0.025f, new Color(0.12f, 0.19f, 0.22f, 1f));
-            var view = CharacterView.Create(holder, shown.WorkstreamId);
-            view.Grounded = true;
-            view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
-            view.Show(shown);
-            view.PlaceShelfLabel(eyes);
-            view.AdvanceForRender(1f / 60f);
-            return (view, CharacterTarget.Attach(view, shown.WorkstreamId));
+            return (accepted, attempts, fieldFailures, workspaceFailures, additionalFailures);
         }
 
         private static void ProjectsForDirectorRender(MenuDirector director, List<string> failures, string name)

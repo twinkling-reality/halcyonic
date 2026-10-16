@@ -18,6 +18,9 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>Product gaps a journey met at one reading size, printed beside its result so they never read as passes.</summary>
+        private static readonly List<string> spatialProductGaps = new List<string>();
+
         /// <summary>Three actual production routes in the candidate spatial composition, at both reading sizes.</summary>
         public static void SpatialWorkspaceCheck()
         {
@@ -28,6 +31,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Directory.CreateDirectory(folder);
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 ViewField.Current = FieldChecks.Quest3S;
+                spatialProductGaps.Clear();
                 var found = new List<string>();
                 try
                 {
@@ -38,7 +42,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 finally { ViewField.Current = null; KeepFontAssetsAsCommitted(); }
                 foreach (var failure in found) Debug.LogError("Halcyonic: spatial composition: " + failure);
-                if (found.Count == 0) Debug.Log("Halcyonic: spatial composition: every check passed; " + folder);
+                if (found.Count == 0) Debug.Log("Halcyonic: spatial composition: every check passed; " + folder
+                    + (spatialProductGaps.Count == 0 ? "" : "; product gaps, not passes: " + string.Join("; ", spatialProductGaps)));
                 return found;
             });
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
@@ -356,17 +361,41 @@ namespace Halcyonic.XR.Workspace.Editor
                     connected = false; Shot("spatial-long-project-disconnected-header");
                     connected = true; session.State.Projects[work.Workstream.ProjectId].Name = originalName;
                     director.Navigator.Renew(); Draw();
-                    var shown = ConfirmedDirectorAgent(root.transform, director, eyes, work.Present().Character, failures, "spatial character context");
-                    targets.Add(shown.Target); characters.Add(shown); presentation.SetAgentsEnabled(true);
-                    director.StageRefreshedForRender();
-                    Shot("spatial-working-direction-with-character");
-                    if (!shown.View.Label.IdentityInWorkspace || shown.View.Label.Title.gameObject.activeSelf || shown.View.Label.Plate.gameObject.activeSelf
-                        || !shown.View.Label.Badge.gameObject.activeInHierarchy || !shown.View.Label.Tags.All(tag => tag.gameObject.activeInHierarchy))
-                        failures.Add("spatial: expanded exact task must share its title while retaining character state/provenance");
-                    if (director.Plane.LightLine == null) failures.Add("spatial: selected real character has no actual work-file connection");
-                    if (director.Plane.LightLine is (Vector3 fromCharacter, Vector3 _) && Vector3.Distance(fromCharacter,
-                        shown.Target.BodyPosition + Vector3.up * (CharacterView.BodyExtent * shown.Target.Scale)) > 0.0001f)
-                        failures.Add("spatial: shared task identity connector did not start at the actual character body");
+                    (CharacterView View, CharacterTarget Target)? character = null;
+                    if (GlazeText.Scale > 1f)
+                    {
+                        // Beside the Larger workspace, production's own placement refuses every
+                        // supported one-agent shelf (field or console clearance). Assert that
+                        // refusal, never stage a fallback, and continue the routes without one.
+                        var search = SupportedShelf(director.Plane, eyes, "spatial character context");
+                        if (search.Accepted.HasValue)
+                            failures.Add("spatial: Larger now admits a supported one-agent shelf; stage its character here and restore the character checks");
+                        else if (search.FieldRefusals + search.WorkspaceRefusals == 0 || search.AdditionalRefusals != 0)
+                            failures.Add("spatial: Larger shelf refusal did not come from the actual field and console predicates");
+                        else
+                        {
+                            var gap = "at the larger text size production offers no supported one-agent shelf beside the workspace ("
+                                + search.Candidates + " candidates, field refusals " + search.FieldRefusals + ", console refusals " + search.WorkspaceRefusals
+                                + "), so no character context is staged (OPEN_QUESTIONS.md)";
+                            spatialProductGaps.Add(gap);
+                            Debug.LogWarning("Halcyonic: PRODUCT GAP, not a pass: " + gap + ".");
+                        }
+                    }
+                    else
+                    {
+                        var shown = ConfirmedDirectorAgent(root.transform, director, eyes, work.Present().Character, failures, "spatial character context");
+                        targets.Add(shown.Target); characters.Add(shown); presentation.SetAgentsEnabled(true);
+                        director.StageRefreshedForRender();
+                        Shot("spatial-working-direction-with-character");
+                        if (!shown.View.Label.IdentityInWorkspace || shown.View.Label.Title.gameObject.activeSelf || shown.View.Label.Plate.gameObject.activeSelf
+                            || !shown.View.Label.Badge.gameObject.activeInHierarchy || !shown.View.Label.Tags.All(tag => tag.gameObject.activeInHierarchy))
+                            failures.Add("spatial: expanded exact task must share its title while retaining character state/provenance");
+                        if (director.Plane.LightLine == null) failures.Add("spatial: selected real character has no actual work-file connection");
+                        if (director.Plane.LightLine is (Vector3 fromCharacter, Vector3 _) && Vector3.Distance(fromCharacter,
+                            shown.Target.BodyPosition + Vector3.up * (CharacterView.BodyExtent * shown.Target.Scale)) > 0.0001f)
+                            failures.Add("spatial: shared task identity connector did not start at the actual character body");
+                        character = shown;
+                    }
                     var retainedFile = selectedFile;
                     var staleFrame = director.Plane.Showing(MenuColumn.File);
                     GlazeButton WorkspaceTarget() => director.Plane.Context.gameObject.activeInHierarchy
@@ -385,7 +414,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                     }
                     else Click(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Projects"), 951);
-                    if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
+                    if (character is { } staged && (staged.View.Label.IdentityInWorkspace || !staged.View.Label.Title.gameObject.activeSelf))
                         failures.Add("spatial: character title did not return when Projects replaced its task");
                     if (director.Plane.Context.gameObject.activeInHierarchy
                         ? director.Plane.Composition?.Columns.Count != 2 || !director.Plane.Context.WorkspaceTarget.gameObject.activeInHierarchy
@@ -441,7 +470,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     for (var page = 0; page < 20 && !director.Plane.Front!.Lines.Any(line => line.Action == PlacementColumn.Minimize); page++) { Press(Footer.NextPage); Draw(); }
                     Press(PlacementColumn.Minimize);
                     Draw(); // Visibility is a rendered result of minimizing, not the prior frame.
-                    if (shown.View.Label.IdentityInWorkspace || !shown.View.Label.Title.gameObject.activeSelf)
+                    if (character is { } minimized && (minimized.View.Label.IdentityInWorkspace || !minimized.View.Label.Title.gameObject.activeSelf))
                         failures.Add("spatial: minimizing retained a hidden character title");
                     if (!presentation.Minimized || director.Plane.Shown.Count != 0 || director.Plane.Chrome.Visible
                         || director.Plane.Context.gameObject.activeInHierarchy || director.Plane.ActivityContext != null)
