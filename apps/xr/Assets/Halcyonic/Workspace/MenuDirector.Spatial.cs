@@ -83,12 +83,16 @@ namespace Halcyonic.XR.Workspace
         {
             if (!ContextStanding(owner) || !contextChoices.Take(3).Any(choice => choice.Id == projectId)
                 || State?.Projects.ContainsKey(projectId) != true) return;
+            // The deliberate project choice promotes its picker, even for the current project.
+            // CloseBeside suspends the retained file; it does not drop it from MenuMemory.
+            navigator.CloseBeside();
             OpenProjectTasks(projectId);
         }
 
         private void OnContextPlace(MenuPlace place, object owner)
         {
             if (!ContextStanding(owner)) return;
+            if (place == MenuPlace.Tasks) navigator.CloseBeside();
             if (place == MenuPlace.Tasks && contextProject is string project) OpenProjectTasks(project);
             else if (place == MenuPlace.Tasks) OpenAllTasks();
             else if (place == MenuPlace.Projects) { navigator.CloseBeside(); Open(MenuPlace.Projects); }
