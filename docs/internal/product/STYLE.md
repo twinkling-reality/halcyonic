@@ -247,7 +247,7 @@ Three sizes on the plane (`Glaze.Menu`):
   and finite em, including a left-column fact extending away from the center; the row has already
   reserved room for the 18 dp alternative.
 - **Heavier** are only the chosen section and the main action.
-- **Upright is ours; theirs leans** (the owner's pick, 2026-10-08). Everything Halcyonic didn't write,
+- **Legacy/default outside-text treatment** (2026-10-08; superseded for the independent prose cases below). Outside text Halcyonic did not write,
   an agent's words, a title, a name, a label, a source's sentence and the person's own words, leans by
   the font's italic amount, never quoted, on a ground only Halcyonic draws where it meets our words:
   white at 2 percent with a 5 percent hairline, in linear space as Unity blends, so it never reads as
@@ -262,8 +262,27 @@ Three sizes on the plane (`Glaze.Menu`):
 - **Named spatial identity:** a project or task heading may stand upright beneath a separate,
   host-owned `Project` or `Task` caption. This narrow presentation uses explicit identity metadata,
   retains outside-text ranges and literal escaping, and never applies to agent prose, approval
-  questions, tool output or action labels. Reusing the label for prose restores the italic treatment.
+  questions, tool output or action labels. Reusing the label resets identity mode; its explicit prose
+  treatment below, where eligible, is separate from identity.
   The caption establishes what the name identifies; the name cannot supply or alter that caption.
+- **Independent workspace prose candidate:** the ordinary instruction input and agent prose already
+  carrying an `Agent says` or `Subagent says` chip use upright Liberation Sans body text. They retain
+  literal escaping, rich-text parsing disabled, exact outside-text ranges and their source chip;
+  upright never means observed or host-authored. Their decorative token/block grounds are omitted
+  because the input label or reported-source chip supplies the context on an opaque reading face.
+  Tool output, decisions, names and unattributed data retain their existing treatment. This is an
+  explicit rendering mode, not named identity; every pooled ordinary/identity Set resets it, and each
+  page line reapplies eligibility. Legacy consumers are unchanged. Focused-editor mode is a separate
+  host-owned label beneath actual provenance, never text concatenated into a provenance mark.
+  This source change remains subject to actual native render review, not aesthetic acceptance.
+  Candidate engine checks group body/project hierarchy by semantic reading region. Footer actions
+  are a separate measured 19dp role, not a descending continuation of the body; shared angular text
+  floors and actual target bounds still apply. The real selected contextual project alone uses the
+  existing coated selection lift (6 percent white) and selected frame; arbitrary controls retain the
+  ordinary selection checks. Each exception has an actual-label/surface negative witness. Focused
+  editor fallback must retain its measured allocation and one explicit mode label; actual task
+  provenance remains exactly once in its separate label. These supersede the old universal
+  descending-type and universal selection-fill assumptions for these specific candidate regions.
 - **Last on a page**: an unavailable prompt's reason, then the source line, one a page, at 18 dp in
   the secondary colour. A detail under a part, as a Seorak part's coverage or freshness, is its own
   18 dp line in the secondary colour.

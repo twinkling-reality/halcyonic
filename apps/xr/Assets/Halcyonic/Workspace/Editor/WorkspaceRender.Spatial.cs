@@ -573,8 +573,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         || reader.Bottom <= composer.Top)
                         failures.Add(name + ": actual independent Activity and composer allocations overlap or are missing");
                 }
-                else if (plane.ComposerAllocation != null)
+                else if (plane.ComposerAllocation != null && !plane.ComposerFocused)
                     failures.Add(name + ": an uninvoked composer retained a physical allocation");
+                if (plane.ComposerFocused && (plane.ActivityContext != null || plane.ComposerAllocation == null
+                    || view.IdentityContext != "Editing instruction" || view.Frame == null))
+                    failures.Add(name + ": focused editor lost its explicit mode, owner or measured allocation");
                 foreach (var region in regions)
                     if (Quaternion.Angle(region.Root.rotation, shape.Root.rotation) > .05f
                         || Mathf.Abs(Vector3.Dot(region.Root.position - shape.Root.position, shape.Root.forward)) > .0005f)
@@ -653,8 +656,30 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(GlazeChecks.TypeStepsDownLabels(labels, contentShape.Root, eyes, name + " project " + row.Model.Key));
                 }
                 var ordinary = contentShape.Root.GetComponentsInChildren<TMPro.TMP_Text>(false)
-                    .Where(label => !grouped.Contains(label) && label.GetComponentInParent<StateBadgeView>() == null).ToList();
+                    .Where(label => !grouped.Contains(label) && label.GetComponentInParent<StateBadgeView>() == null
+                        && (!independent || label.GetComponentInParent<FooterView>() == null)).ToList();
                 failures.AddRange(GlazeChecks.TypeStepsDownLabels(ordinary, contentShape.Root, eyes, name));
+                if (independent)
+                {
+                    // Actions are a separate semantic region, not the last descending body row.
+                    // The candidate deliberately uses 19dp action text; shared TextAsSeen below
+                    // still measures every actual glyph against the angular reading floor.
+                    var minimumActionSize = GlazeTokens.FontSize(GlazeTokens.Units(1.1875f));
+                    bool ActionSized(TMPro.TMP_Text label) => label.fontSize >= minimumActionSize - .00001f;
+                    foreach (var (_, button) in reading.Footer.Shown.Where(entry => entry.Button.gameObject.activeInHierarchy))
+                        if (!ActionSized(button.Label)) failures.Add(name + ": actual independent footer action fell below its 19dp role");
+                    var action = reading.Footer.Shown.FirstOrDefault(entry => entry.Button.gameObject.activeInHierarchy).Button;
+                    if (action != null)
+                    {
+                        var before = action.Label.fontSize;
+                        try
+                        {
+                            action.Label.fontSize = minimumActionSize * .9f;
+                            if (ActionSized(action.Label)) failures.Add(name + ": action-role checker accepted undersized actual text");
+                        }
+                        finally { action.Label.fontSize = before; action.Label.ForceMeshUpdate(); }
+                    }
+                }
                 if (projectGroups.Count > 0)
                 {
                     // A real-label negative witness: reversing one row's hierarchy must still fail.
@@ -698,7 +723,29 @@ namespace Halcyonic.XR.Workspace.Editor
             if (plane.Shown[0].Kind == MenuColumn.Menu && view.Frame?.Subject == "Projects" && view.Frame.Side == null
                 && view.Frame.Footer.All.Any(slot => slot.Prompt.Id == Footer.Close))
                 failures.Add(name + ": root chooser retained redundant Close despite local Workspace minimize");
-            failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false), eyes, name));
+            var quietSelected = independent ? plane.Context.ProjectChoices.Where(choice => choice.Button.On)
+                .Select(choice => choice.Button.SelectionSurface).ToArray() : Array.Empty<Surface>();
+            // The explicit actual context selection has a contrast-bounded lift. It is not an
+            // exemption for arbitrary CoatedSelection buttons or legacy reader controls.
+            bool SameColour(Color a, Color b) => Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g)
+                + Mathf.Abs(a.b - b.b) + Mathf.Abs(a.a - b.a) < .01f;
+            bool QuietSelected(Surface surface) => surface.Selection == SurfaceSelection.Lit
+                && SameColour(surface.Fill, GlazeTokens.ColorOf(Glaze.Palette.Selection, GlazeButton.CoatedSelectionOpacity))
+                && SameColour(surface.Edge, GlazeTokens.ColorOf(Glaze.Palette.Selection, Glaze.Menu.LitFrameOpacity))
+                && Mathf.Abs(surface.EdgeWidth - GlazeTokens.Units(Glaze.Menu.LitFrameDegrees)) < .00001f;
+            foreach (var surface in quietSelected)
+            {
+                if (!QuietSelected(surface)) failures.Add(name + ": actual selected project lost its quiet fill and selected frame");
+                var fill = surface.Fill; var edge = surface.Edge; var thickness = surface.EdgeWidth;
+                try
+                {
+                    surface.Draw(surface.Size, surface.CornerRadius, Color.clear, edge, thickness);
+                    if (QuietSelected(surface)) failures.Add(name + ": context selection checker accepted a missing actual selected fill");
+                }
+                finally { surface.Draw(surface.Size, surface.CornerRadius, fill, edge, thickness); }
+            }
+            failures.AddRange(GlazeChecks.OneSelectionTreatment(plane.GetComponentsInChildren<Surface>(false)
+                .Where(surface => !quietSelected.Contains(surface)), eyes, name));
             var headerTexts = independent ? Array.Empty<TMPro.TMP_Text>() : plane.Chrome.GetComponentsInChildren<TMPro.TMP_Text>(false);
             var contextText = headerTexts.SingleOrDefault(label => label.name == "Project and task");
             var connectionText = headerTexts.SingleOrDefault(label => label.name == "Connection state");
@@ -713,6 +760,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (readingViews.Any(reading => reading.Frame?.IdentityKind == MenuIdentityKind.Task)
                     && readingViews.Count(reading => reading.HeadingOverride == null && reading.Frame?.IdentityKind == MenuIdentityKind.Task) != 1)
                     failures.Add(name + ": selected task identity must appear once across actual reader and composer");
+                var modeLabels = readingViews.Count(reading => reading.IdentityContextLabel.gameObject.activeInHierarchy);
+                if (modeLabels != (plane.ComposerFocused ? 1 : 0))
+                    failures.Add(name + ": focused editor mode label is missing, duplicated or leaked into ordinary reading");
                 foreach (var mark in plane.SelectedMarks)
                 {
                     var actual = readingViews.Where(reading => reading.ProvenanceLabel.gameObject.activeInHierarchy
