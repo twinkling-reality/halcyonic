@@ -209,21 +209,52 @@ namespace Halcyonic.Client
             new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
                 key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: chosen, rows: rows, answerMark: AnswerMark.Single);
 
-        /// <summary>A passive recent tail, never the first page of a history whose other pages have no controls here.</summary>
+        /// <summary>The most rows an agent's report takes beside the composer before the rest waits in Activity.</summary>
+        private const int ReportRows = 4;
+
+        /// <summary>
+        /// An activity entry's line as Activity draws it: its words, its time in the person's zone, and an
+        /// agent's report beside its Agent says chip, in <paramref name="rows"/> rows from
+        /// <paramref name="fromRow"/> when a long report reads in parts. The file measures reports with it.
+        /// </summary>
+        internal static PageLine ActivityLine(ActivityEntry entry, TimeZoneInfo zone, int rows = 1, int? fromRow = null)
+        {
+            var time = Clock(entry.OccurredAt, zone);
+            var fact = time == null ? null : LineWords.Ours(time);
+            return entry.Words.AnyTheirs
+                ? new PageLine(entry.Words, fact: fact, tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null, rows: rows, fromRow: fromRow)
+                : new PageLine(entry.Words, fact: fact, tone: LineTone.Secondary, rows: rows, fromRow: fromRow);
+        }
+
+        /// <summary>
+        /// A passive recent tail, never the first page of a history whose other pages have no controls here.
+        /// An agent's report wraps to its measured rows, up to <see cref="ReportRows"/>, as far as the room
+        /// allows, but never takes the row the entry before it needs, so an observed outcome is never
+        /// pushed out by a long report; what does not fit reads whole on the Activity page.
+        /// </summary>
         internal static MenuFrame ActivityContext(WorkspacePresentation workspace, FileScreen screen, AnswerRoom room, PageBudget budget)
         {
             var lines = new List<PageLine>();
             var used = 0f;
+            var usedRows = 0;
             // ActivityLog is oldest first. Choose from the newest end, then retain chronology in the preview.
-            for (var index = workspace.Activity.Count - 1; index >= 0 && lines.Count < room.Rows; index--)
+            for (var index = workspace.Activity.Count - 1; index >= 0 && usedRows < room.Rows; index--)
             {
-                var height = budget.Words(1) + (lines.Count > 0 ? budget.LineGap : 0f);
-                if (used + height > budget.Room + 1e-6f) break;
+                var gap = lines.Count > 0 ? budget.LineGap : 0f;
+                if (used + gap + budget.Words(1) > budget.Room + 1e-6f) break;
                 var entry = workspace.Activity[index];
-                var time = Clock(entry.OccurredAt, screen.Zone);
-                lines.Add(new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time),
-                    tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null));
-                used += height;
+                var rows = 1;
+                if (entry.Reported && screen.ActivityRows.TryGetValue(entry.Position, out var measured))
+                {
+                    var next = index > 0 && lines.Count == 0;
+                    var keep = next ? budget.LineGap + budget.Words(1) : 0f;
+                    var keepRows = next ? 1 : 0;
+                    while (rows < Math.Min(measured, ReportRows) && usedRows + rows + 1 + keepRows <= room.Rows
+                        && used + gap + budget.Words(rows + 1) + keep <= budget.Room + 1e-6f) rows++;
+                }
+                lines.Add(ActivityLine(entry, screen.Zone, rows));
+                used += gap + budget.Words(rows);
+                usedRows += rows;
             }
             lines.Reverse();
             if (lines.Count == 0)
@@ -301,13 +332,27 @@ namespace Halcyonic.Client
             var recent = Math.Max(1, room.Rows);
             if (activity.Count == 0 && screen.ActivityNote.Length > 0)
                 lines.Add(new PageLine(screen.ActivityNote.TrimStart(' ', '·'), wordsAreData: true, tone: LineTone.Secondary));
+            var pageBudget = budget ?? new RowBudget(room.Rows);
             for (var index = Math.Max(0, activity.Count - recent); index < activity.Count; index++)
             {
                 var entry = activity[index];
-                var time = Clock(entry.OccurredAt, screen.Zone);
-                lines.Add(entry.Words.AnyTheirs
-                    ? new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null)
-                    : new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time), tone: LineTone.Secondary));
+                if (!entry.Reported || !screen.ActivityRows.TryGetValue(entry.Position, out var reportRows) || reportRows <= 1)
+                {
+                    lines.Add(ActivityLine(entry, screen.Zone));
+                    continue;
+                }
+                // A long report reads whole here: in parts a page holds beside its pager, each exactly those
+                // rows of its words wrapped whole, so no word is lost between parts.
+                var part = 1;
+                while (part < Math.Min(reportRows, room.Rows - 1)
+                    && pageBudget.Words(part + 1) + pageBudget.LineGap + pageBudget.Target() <= pageBudget.Room + 1e-6f) part++;
+                if (reportRows <= part)
+                {
+                    lines.Add(ActivityLine(entry, screen.Zone, reportRows));
+                    continue;
+                }
+                for (var from = 0; from < reportRows; from += part)
+                    lines.Add(ActivityLine(entry, screen.Zone, Math.Min(part, reportRows - from), from));
             }
             if (lines.Count == 0) lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
             lines.AddRange(utilityLines);

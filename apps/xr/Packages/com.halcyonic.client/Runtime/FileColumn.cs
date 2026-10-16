@@ -879,6 +879,16 @@ namespace Halcyonic.Client
             Screen.KeyboardOffered = host.KeyboardOffered;
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
+            // The newest entries a page or the passive preview can show: each agent report measured as its
+            // line draws, beside its time and chip, so it wraps to its own rows.
+            var reportRows = new Dictionary<long, int>();
+            for (var index = Math.Max(0, presentation.Activity.Count - host.PageRows(sourceLine: false)); index < presentation.Activity.Count; index++)
+            {
+                var entry = presentation.Activity[index];
+                if (entry.Reported)
+                    reportRows[entry.Position] = Math.Max(1, host.RowsOf(FileScreens.ActivityLine(entry, Screen.Zone, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+            }
+            Screen.ActivityRows = reportRows;
 
             var focused = Screen.Instruction.Open || (Screen.Presets != null && Steering.Armed == null)
                 || FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting && Steering.Armed == null, Steering);

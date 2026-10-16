@@ -366,6 +366,31 @@ namespace Halcyonic.XR.Workspace.Editor
                         && context.Frame.Lines.Any(line => line.Words.Contains("Command failed: node --test")),
                         "actual reclaimed Activity preview omitted either of its two latest synthetic journal entries");
                     Debug.Log($"Halcyonic: reclaimed passive Activity shows {context.Frame.Lines.Count} actual entries; allocated height={director.Plane.ReaderAllocation?.Height:R}; footer visible={context.Footer.gameObject.activeInHierarchy}.");
+                    if (!forceMinimumPair)
+                    {
+                        // Where the room allows, the agent's report wraps beside its chip rather than ending in
+                        // an ellipsis after one row; the observed failure after it keeps its own line.
+                        var report = context.ShownLines.FirstOrDefault(shown => shown.Model.Words.Contains("I found that sign-in attempts"));
+                        var outcome = context.ShownLines.FirstOrDefault(shown => shown.Model.Words.Contains("Command failed: node --test"));
+                        var measuredRows = file != null && file.Screen.ActivityRows.TryGetValue(3, out var rowsOfReport) ? rowsOfReport : 0;
+                        Require(measuredRows >= 2, "the long synthetic report was not measured to wrap");
+                        Require(report.Model != null && report.Model.Rows >= 2 && report.Chip != null && report.Chip.gameObject.activeInHierarchy,
+                            "the agent's report did not wrap beside its chip although the room allows it");
+                        if (report.Model != null)
+                        {
+                            report.Words.ForceMeshUpdate();
+                            Require(report.Words.textInfo.lineCount == report.Model.Rows, "the drawn report's rows differ from its allotted rows");
+                            // TextMeshPro cuts in the mesh, its ellipsis standing in for a character; the
+                            // text itself stays whole, so read the drawn characters, not the string.
+                            var info = report.Words.textInfo;
+                            var cut = report.Words.isTextTruncated || Enumerable.Range(0, info.characterCount)
+                                .Any(index => info.characterInfo[index].isVisible && info.characterInfo[index].character == '…');
+                            if (report.Model.Rows >= measuredRows) Require(!cut, "a report given all its measured rows was still cut");
+                        }
+                        Require(outcome.Model != null && outcome.Model.Chip == null && outcome.Model.Rows == 1,
+                            "the observed failure lost its own line beside the wrapped report");
+                        Debug.Log($"Halcyonic: passive report rows={report.Model?.Rows}; measured={measuredRows}; outcome rows={outcome.Model?.Rows}; text scale={GlazeText.Scale:R}.");
+                    }
                 }
                 if (forceMinimumPair)
                 {

@@ -239,6 +239,13 @@ namespace Halcyonic.Client
         /// <summary>How reading the history goes, said while there is no activity to show; empty when nothing needs saying.</summary>
         public string ActivityNote { get; set; } = "";
 
+        /// <summary>
+        /// Rows an agent report's words wrap to at the file's width beside its time and chip, by the
+        /// entry's position in the log, as the file measured the newest entries a page can show; a report
+        /// not measured, and every observed event, takes one row.
+        /// </summary>
+        public IReadOnlyDictionary<long, int> ActivityRows { get; set; } = new Dictionary<long, int>();
+
         /// <summary>What changed, why and how it was built, from the understanding source; null while still being read.</summary>
         public FileAnswer? WhatChanged { get; set; }
 
