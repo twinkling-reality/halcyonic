@@ -2752,13 +2752,20 @@ opens its existing task picker without retargeting retained drafts.
 The passive context chooses the newest recorded entries that fit its measured budget, preserves
 their chronological order and source attribution, and labels the result Recent activity. It does
 not alter the selected page of the full Activity history. The independent ordinary editor omits
-its duplicate results route and subject heading; its single instruction label remains. Footer
-measurement reserves one or two actual rows when the available actions require them.
+its duplicate results route and, when passive Activity is shown, its repeated subject heading.
+The budget first reserves the exact instruction labels, reason, pager and three input rows, plus
+two recent Activity entries. Remaining capacity goes to Activity. If that pair cannot fit the
+measured field and occupied space, the same FileColumn becomes a focused editor with the actual
+task identity, provenance and Editing instruction label; Hide composer returns to Activity. This
+local presentation fallback does not create another draft or command authority. Footer measurement
+reserves one or two actual rows when the available actions require them.
 The passive view's draw callback is never forwarded as an authoritative file draw. Deferred
 editor draws recheck identity and settlement after movement. Context, reading and composer have
 separate opaque surfaces and transforms, while placement, turning and recovery account for their
 complete conservative envelope. The current widths are 18 and 36 degrees, with the actual task
-portrait at the leading edge. The measured reader top stays stable as its content height changes.
+portrait at the leading edge. Its full reserved animated volume, including depth, participates in
+field and recovery bounds without imposing a minimum text-header height. The 24 dp work title
+uses its actual measured row count. The measured reader top stays stable as content height changes.
 The current layout is a candidate; [STYLE.md](../product/STYLE.md) distinguishes implementation
 from acceptance and the preceding overlay/legacy composition.
 

@@ -39,10 +39,12 @@ the selected project's Tasks route, a larger project picker when needed, Workspa
 connection state. The selected task determines its project context. Choosing another project
 opens its task picker; it does not relabel a retained task or its draft.
 
-The selected work owns the central reading object. Invoking ordinary instruction input keeps a
-passive view of its real Activity above a separate composer. The selected task name and state
-belong to the Activity object once; the composer has one instruction label and no duplicate task
-or hero heading. Its passive context shows the newest bounded entries, in chronological order,
+The selected work owns the central reading object. Ordinary instruction input reserves at least
+three draft rows. When the measured field fits those rows and two recent Activity entries, a
+passive Activity view remains above the composer. Otherwise the same editor owns the reading
+position with an explicit Editing instruction label; Hide composer returns to Activity. The selected
+task name, state and provenance appear once, above the Activity view or the focused editor. The
+composer has one instruction label and no duplicate task or hero heading. Its passive context shows the newest bounded entries, in chronological order,
 under Recent activity. Full Activity history retains its own reading position. Hide composer removes
 that lower object while retaining the unsent draft. Results, workspace requests, questions and
 approvals own the reading position when selected. They do not acquire input or decision authority
@@ -56,7 +58,9 @@ than compressing labels to fit.
 Context is 18 degrees wide and the reading object uses the existing 36-degree file width. Each
 visible object owns an opaque reading backing. The task portrait is the actual task character at
 the reading object's leading edge. Placement and recovery account for the combined conservative
-bounds, including portrait clearance; no empty right-hand region is allocated. The reading top
+bounds, including the full reserved animated portrait volume and its depth; no empty right-hand region is
+allocated. The independent work title is 24 dp, measured at its actual row count. The external
+portrait does not impose a minimum text-header height. The reading top
 is stable within that placement, with height following measured content. Normal and larger text
 use measured budgets, full target bounds and the same minimum readable text threshold. This is
 still the existing placement distance, not an accepted new comfort distance.
