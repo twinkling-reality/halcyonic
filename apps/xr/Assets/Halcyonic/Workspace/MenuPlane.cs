@@ -743,7 +743,10 @@ namespace Halcyonic.XR.Workspace
                 var envelope = new Vector3[4];
                 for (var index = 0; index < envelope.Length; index++) envelope[index] = PlaneLayout.PointOf(eyes, Direction,
                     (index % 2 == 0 ? -0.5f : 0.5f) * Composition.Width, (index < 2 ? -0.5f : 0.5f) * Composition.Height);
-                return envelope;
+                // The independent portrait lives outside its reader. Retain its complete reserved
+                // animated volume as well as the planar composition, including its nearer depth.
+                return envelope.Concat(frameViews.Where(view => view.gameObject.activeInHierarchy)
+                    .SelectMany(view => view.TaskIdentity.MotionEnvelopeCorners)).ToArray();
             }
             var shape = Chrome.Visible ? Chrome.FrameSurface : bar.gameObject.activeInHierarchy ? bar.Shape : null;
             if (shape == null) return null;

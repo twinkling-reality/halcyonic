@@ -115,6 +115,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     var views = director.Plane.Shown.Select(shown => shown.View).Concat(director.Plane.ActivityContext == null ? Array.Empty<MenuFrameView>() : new[] { director.Plane.ActivityContext! }).ToList();
                     Require(director.Plane.Context.ProjectChoices.Count == 2, name + ": actual multiple project choices absent");
                     Require(!director.Plane.Chrome.Visible, name + ": legacy full-workspace face remained visible");
+                    if (views.Any(view => view.TaskIdentity.gameObject.activeInHierarchy))
+                        Require(director.Plane.WorkspaceCorners.Count >= 12, name + ": recovery footprint omitted external portrait motion volume");
                     if (ViewField.Current is ViewField field && director.Plane.Composition != null)
                     {
                         var faces = views.Select(view => view.ReadingSurface).Concat(new[] { director.Plane.Context.ReadingSurface });
@@ -182,7 +184,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.Plane.Advance(MenuPlane.OpeningSeconds);
                 Require(authoritativeDraws > beforeOpening, "settled composer never acknowledged its current frame");
                 Require(typed != null, "actual ordinary instruction keyboard did not open");
-                const string draft = "Keep the account and address limits separate. Add a regression test for two accounts sharing one address. Report the observed test result and explain any remaining uncertainty before changing unrelated behavior.";
+                const string draft = "Keep the account and address limits separate. Add a regression test for two accounts sharing one address. Report the observed test result and explain any remaining uncertainty before changing unrelated behavior. "
+                    + "Check the first request, the limit boundary, and the first accepted request after the window resets. Keep the account identity separate from the network address in every case. "
+                    + "Include one account moving between addresses and two accounts using the same address. Explain the expected behavior of each case before changing the implementation. "
+                    + "Compare the new tests with the existing sign-in tests and retain their assertions. Run the focused tests, record their actual exit outcome, and describe any test that could not run. "
+                    + "Keep this change limited to the rate-limit boundary. If the evidence points to a separate session or storage problem, report that evidence and leave the unrelated behavior for a separate task.";
                 typed?.Invoke(draft); typed = null; Draw(); Shot("02-activity-and-composer");
                 if (offerVoice)
                 {
@@ -191,12 +197,19 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(footer.Showing?[PromptSlot.Secondary]?.Id == FileScreens.HoldToTalk, "voice-offered composer omitted the actual Hold to talk action");
                     Debug.Log($"Halcyonic: voice-offered composer footer measured {footer.Measure.Needed:R} needed / {footer.Measure.Room:R} available; fits={footer.Fits}.");
                 }
-                Debug.Log($"Halcyonic: actual composer partRows={file?.Screen.Instruction.PartRows}; parts={file?.Screen.Instruction.Parts}; allocated height={director.Plane.ComposerAllocation?.Height:R}; voice offered={offerVoice}.");
+                Debug.Log($"Halcyonic: actual composer partRows={file?.Screen.Instruction.PartRows}; parts={file?.Screen.Instruction.Parts}; allocated height={director.Plane.ComposerAllocation?.Height:R}; voice offered={offerVoice}; focused editor={director.Plane.ComposerFocused}.");
                 Require(file != null && file.Screen.Instruction.PartRows >= 3, "actual composer allocates fewer than three readable draft rows; inspect measured field limits before changing the split");
                 var context = director.Plane.ActivityContext;
-                Require(context?.Frame != null && file?.ActivityContextFrame == context.Frame, "actual Activity was not rendered beside its own composer");
+                var focusedComposer = director.Plane.ComposerFocused;
+                if (focusedComposer)
+                {
+                    Require(context == null && director.Plane.Shown.Single().View.IdentityContext == "Editing instruction",
+                        "editor focus silently removed Activity without its contextual mode label");
+                    Require(ReferenceEquals(director.Plane.Shown.Single().View.Frame, file?.Frame), "editor focus changed the authoritative file owner");
+                }
+                else Require(context?.Frame != null && file?.ActivityContextFrame == context.Frame, "actual Activity was not rendered beside its own composer");
                 Require(context == null || !context.Targets.Any(), "passive Activity acquired action targets");
-                Require(context?.Frame != null && context.Frame.Lines.Count >= 2,
+                Require(focusedComposer || context?.Frame != null && context.Frame.Lines.Count >= 2,
                     "reclaimed passive allocation did not make room for the actual recent report and observed failure");
                 if (context?.Frame != null)
                 {
@@ -211,29 +224,30 @@ namespace Halcyonic.XR.Workspace.Editor
                 var passiveDraws = 0;
                 if (context != null) context.Drawn += _ => passiveDraws++;
                 Draw();
-                Require(passiveDraws > 0 && authoritativeDraws > 0, "actual independent draw callbacks were not exercised");
+                Require((focusedComposer ? passiveDraws == 0 : passiveDraws > 0) && authoritativeDraws > 0, "actual independent draw callbacks were not exercised");
                 Require(file != null && file.Screen.Instruction.Parts > 1, "long draft did not exercise actual whole-text paging");
-                if (context?.Frame != null && file != null)
+                if (file?.ActivityContextFrame is MenuFrame passiveFrame)
                 {
                     var wasRead = file.Screen.Instruction.Read;
-                    file.Drawn(context.Frame, null);
+                    file.Drawn(passiveFrame, null);
                     Require(file.Screen.Instruction.Read == wasRead, "passive Activity draw granted composer reading credit");
-                    Require(context.Frame.Lines.All(line => line.Action == null), "passive Activity carries an actionable line");
+                    Require(passiveFrame.Lines.All(line => line.Action == null), "passive Activity carries an actionable line");
                 }
-                var opacityFace = context?.ReadingSurface;
+                var opacityFace = context?.ReadingSurface ?? director.Plane.Shown.Single().View.ReadingSurface;
                 if (opacityFace != null)
                 {
                     opacityFace.Fade(.15f);
                     try
                     {
                         var negative = Render(camera, target);
-                        try { Require(TransparentMetrics("Activity opacity negative", camera, opacityFace, negative).Any(failure => failure.Contains("interior alpha")), "translucent Activity negative was accepted"); }
+                        try { Require(TransparentMetrics("Workspace opacity negative", camera, opacityFace, negative).Any(failure => failure.Contains("interior alpha")), "translucent Activity negative was accepted"); }
                         finally { UnityEngine.Object.DestroyImmediate(negative); }
                     }
                     finally { opacityFace.Fade(1f); }
                 }
                 Require(forwardedPassive == 0, "passive Activity draw was forwarded as authoritative File draw");
-                if (director.Plane.ReaderAllocation is PlanePart reader && director.Plane.ComposerAllocation is PlanePart composer)
+                if (focusedComposer) Require(director.Plane.ComposerAllocation != null, "focused editor lost its actual allocation");
+                else if (director.Plane.ReaderAllocation is PlanePart reader && director.Plane.ComposerAllocation is PlanePart composer)
                     Require(reader.Bottom > composer.Top, "reader and composer allocations overlap");
                 else failures.Add("independent reader/composer allocations missing");
                 var stale = director.Plane.Showing(MenuColumn.File);
@@ -242,7 +256,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!director.PressForRender(MenuColumn.File, FileScreens.SendInstruction, null, stale, null) && sends == 0, "hidden composer accepted stale Send");
                 director.Expand(); Draw(); Require(file?.Screen.Instruction.Words == draft, "compact restore lost exact ordinary draft");
                 Press(FileScreens.HideInstruction); Shot("03-composer-hidden");
-                Require(file?.Screen.Instruction.Words == draft && file.Screen.Instruction.Open == false && director.Plane.ActivityContext == null, "Hide composer lost draft or left a second passive view");
+                Require(file?.Screen.Instruction.Words == draft && file.Screen.Instruction.Open == false && director.Plane.ActivityContext == null && !director.Plane.ComposerFocused, "Hide composer lost draft or left a second passive view");
                 Press(FileScreens.TellIt); Require(typed == null, "reopening retained composer unexpectedly opened keyboard");
                 Draw();
                 var loops = 0;

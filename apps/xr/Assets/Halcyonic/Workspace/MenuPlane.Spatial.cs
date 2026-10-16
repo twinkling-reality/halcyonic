@@ -16,6 +16,7 @@ namespace Halcyonic.XR.Workspace
         public MenuFrameView? ActivityContext => activityContext.gameObject.activeSelf ? activityContext : null;
         public bool SeparateWorkspace { get; set; }
         public MenuFrame? ActivityFrame { get; set; }
+        public bool ComposerFocused { get; set; }
         public IReadOnlyList<ProjectView> ContextProjects { get; set; } = Array.Empty<ProjectView>();
         public string? ContextSelectedProject { get; set; }
         public object? ContextBinding { get; set; }
@@ -26,7 +27,11 @@ namespace Halcyonic.XR.Workspace
         public IReadOnlyList<Vector3> WorkspaceCorners => VisibleCorners() ?? Array.Empty<Vector3>();
         public Vector3 WorkspaceCentre => PlaneLayout.PointOf(eyes, Direction, 0f, 0f);
         public static float IndependentTop => PlaneComposition.Units(18f);
-        public static float IndependentEnvelope(float height) => 2f * Mathf.Max(IndependentTop, height - IndependentTop);
+        public static float IndependentEnvelope(float height, float subject = 0f, bool portrait = false)
+        {
+            var portraitOverhang = portrait ? Mathf.Max(0f, (MenuFrameView.PortraitHeight - subject) / 2f) : 0f;
+            return 2f * Mathf.Max(IndependentTop + portraitOverhang, height - IndependentTop);
+        }
         private PlanePart contextAllocation;
         public PlanePart? ReaderAllocation { get; private set; }
         public PlanePart? ComposerAllocation { get; private set; }
@@ -77,6 +82,7 @@ namespace Halcyonic.XR.Workspace
             primary.HeadingOverride = hasActivity ? "" : null;
             primary.TaskPortrait = hasActivity ? null : SelectedPortrait; primary.TaskPortraitHue = SelectedPortraitHue;
             primary.IdentityMarks = hasActivity ? Array.Empty<WorkMark>() : SelectedMarks;
+            primary.IdentityContext = ComposerFocused ? "Editing instruction" : null;
             var degrees = Glaze.Menu.FileColumnDegrees;
             var subject = hasActivity ? 0f : primary.SpatialSubjectHeight(panel?.Subject ?? Front!.Subject, degrees, Front!.Pill != null);
             if (panel != null) primary.Show(panel, degrees, subject, Front!.Pill != null, Front.Pill, Front);
@@ -88,7 +94,7 @@ namespace Halcyonic.XR.Workspace
                 activityContext.SpatialWorkspace = true; activityContext.IndependentSurface = true; activityContext.PassiveActivity = true;
                 activityContext.OrganizationControls = false; activityContext.ExternalPlaces = false;
                 activityContext.TaskPortrait = SelectedPortrait; activityContext.TaskPortraitHue = SelectedPortraitHue;
-                activityContext.IdentityMarks = SelectedMarks;
+                activityContext.IdentityMarks = SelectedMarks; activityContext.IdentityContext = null;
                 var header = activityContext.SpatialSubjectHeight(ActivityFrame!.Subject, degrees, ActivityFrame.Pill != null);
                 activityContext.Show(ActivityFrame, degrees, header, ActivityFrame.Pill != null);
                 activityHeight = activityContext.Heights[0];
@@ -96,7 +102,8 @@ namespace Halcyonic.XR.Workspace
             else activityContext.Hide();
             var heights = hasActivity ? new[] { activityHeight, primaryHeight } : new[] { primaryHeight };
             var stack = heights.Sum() + (heights.Length - 1) * PlaneComposition.Units(PlaneComposition.PartGapDegrees);
-            var envelope = IndependentEnvelope(Mathf.Max(Context.Size.y, stack));
+            var identityView = hasActivity ? activityContext : primary;
+            var envelope = IndependentEnvelope(Mathf.Max(Context.Size.y, stack), identityView.SubjectSize.y, identityView.TaskPortrait != null);
             Composition = new PlaneComposition(new[] { new PlaneColumn(Context.Size.x + PortraitClearance, envelope), new PlaneColumn(primary.Width, heights) }, zoom);
             Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size); Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
             shown.Clear(); shown.Add((kind, primary));
@@ -121,7 +128,8 @@ namespace Halcyonic.XR.Workspace
                 top -= activityHeight * zoom + gap;
             }
             var placed = new PlanePart(1, hasActivity ? 1 : 0, right.Width, primaryHeight * zoom, right.Right, top - primaryHeight * zoom / 2f);
-            if (hasActivity) ComposerAllocation = placed; else ReaderAllocation = placed;
+            if (hasActivity || ComposerFocused) ComposerAllocation = placed;
+            if (!hasActivity) ReaderAllocation = placed;
             if (!was || hasActivity != activityWas) primary.Open(false, frames);
             else if (Vector3.Distance(primary.Parts[0].position, PlaneLayout.PointOf(eyes, Direction, placed.Right, placed.Up)) > MovedMeters) primary.Unsettle();
             SlideTo(primary.Parts[0], placed, zoom, null, immediately || !was);

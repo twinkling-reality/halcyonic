@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Generic;
 using Halcyonic.Client;
 using UnityEngine;
 
@@ -14,6 +15,18 @@ namespace Halcyonic.XR.UI
         public CharacterView? Character => character;
         public string? WorkstreamId => character != null ? character.WorkstreamId : null;
         public Vector2 Size { get; private set; }
+
+        /// <summary>The complete reserved motion volume, including depth, in world coordinates.</summary>
+        public IEnumerable<Vector3> MotionEnvelopeCorners
+        {
+            get
+            {
+                if (!gameObject.activeInHierarchy || character == null) yield break;
+                var depth = CharacterView.BodyRadius * character.transform.localScale.x;
+                foreach (var x in new[] { -.5f, .5f }) foreach (var y in new[] { -.5f, .5f }) foreach (var z in new[] { -1f, 1f })
+                    yield return transform.TransformPoint(new Vector3(Size.x * x, Size.y * y, depth * z));
+            }
+        }
 
         public static TaskIdentityAvatarView Create(Transform parent)
         {
