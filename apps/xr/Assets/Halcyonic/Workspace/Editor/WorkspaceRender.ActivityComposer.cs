@@ -28,7 +28,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
                     ViewField.Current = FieldChecks.Quest3S;
                     var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "ActivityComposerRenders", variant)); Directory.CreateDirectory(folder);
-                    return RenderActivityComposer(folder);
+                    var result = RenderActivityComposer(folder);
+                    UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+                    var voiceFolder = Path.Combine(folder, "voice-offered"); Directory.CreateDirectory(voiceFolder);
+                    result.AddRange(RenderActivityComposer(voiceFolder, offerVoice: true));
+                    return result;
                 }));
             }
             catch (Exception error) { failures.Add("Activity/composer fixture threw " + error); }
@@ -38,7 +42,7 @@ namespace Halcyonic.XR.Workspace.Editor
             UnityEditor.EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> RenderActivityComposer(string folder)
+        private static List<string> RenderActivityComposer(string folder, bool offerVoice = false)
         {
             var failures = new List<string>(); var root = new GameObject("Actual Activity and optional ordinary composer");
             var target = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear) { antiAliasing = 1 };
@@ -69,6 +73,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     Overview = () => WorkOverview.Of(session.State, new StageVisibility(), _ => true), Bar = place => TasksColumn.Bar(place, session.State),
                     ReadLocations = _ => Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     KeyboardOffered = () => true, Keyboard = (_, _, accept, _) => typed = accept,
+                    // Offer the real voice control without ever beginning microphone capture.
+                    Voice = offerVoice ? root.AddComponent<HoldToTalk>() : null,
                     Submit = (_, command) => { sends++; return Task.FromResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted }); },
                     File = (host, id) =>
                     {
@@ -86,6 +92,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     StageNow = () => new MenuDirector.Stage(eyes, Vector3.forward, Array.Empty<CharacterTarget>(), null, false),
                 });
                 void Require(bool value, string message) { if (!value) failures.Add(message); }
+                void Projects(IEnumerable<ProjectView> projects)
+                {
+                    snapshot.Projects = projects.ToList(); snapshot.Position++;
+                    inbox.Enqueue(new SnapshotMessage { Snapshot = snapshot }); session.Pump();
+                }
                 void Draw() { for (var step = 0; step < 4; step++) { director.UpdateForRender(); director.DrawNow(); } ForceMeshes(root); }
                 bool Press(string action, string? key = null)
                 {
@@ -151,6 +162,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(typed != null, "actual ordinary instruction keyboard did not open");
                 const string draft = "Keep the account and address limits separate. Add a regression test for two accounts sharing one address. Report the observed test result and explain any remaining uncertainty before changing unrelated behavior.";
                 typed?.Invoke(draft); typed = null; Draw(); Shot("02-activity-and-composer");
+                if (offerVoice)
+                {
+                    var footer = director.Plane.Shown.Single(shown => !shown.View.PassiveActivity).View.Footer;
+                    Require(footer.Shown.Count() == 4, "voice-offered ordinary composer did not expose its actual four actions");
+                    Require(footer.Showing?[PromptSlot.Secondary]?.Id == FileScreens.HoldToTalk, "voice-offered composer omitted the actual Hold to talk action");
+                    Debug.Log($"Halcyonic: voice-offered composer footer measured {footer.Measure.Needed:R} needed / {footer.Measure.Room:R} available; fits={footer.Fits}.");
+                }
                 var context = director.Plane.ActivityContext;
                 Require(context?.Frame != null && file?.ActivityContextFrame == context.Frame, "actual Activity was not rendered beside its own composer");
                 Require(context == null || !context.Targets.Any(), "passive Activity acquired action targets");
@@ -218,14 +236,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     new ProjectView { ProjectId = "layout-project-three", Name = "A bounded third project", CreatedAt = Time, UpdatedAt = Time },
                     new ProjectView { ProjectId = "layout-project-four", Name = "A deliberately long fourth project name that wraps", CreatedAt = Time, UpdatedAt = Time },
                 };
-                foreach (var project in extraProjects) session.State.Projects.Add(project.ProjectId, project);
+                Projects(session.State.Projects.Values.Concat(extraProjects));
                 Draw(); director.OpenFile(work.Workstream.WorkstreamId); Draw();
                 Require(file.Screen.Instruction.Epoch > hiddenEpoch && file.Screen.Instruction.Words == draft,
                     "A returned with a stale allocation after context geometry changed while B was active");
                 Require(director.Plane.Context.MoreProjectsTarget.gameObject.activeInHierarchy
                     && director.Plane.Context.ProjectChoices.Any(choice => choice.ProjectId == work.Workstream.ProjectId && choice.Button.On),
                     "bounded project choices lost the actual selected project when more projects arrived");
-                foreach (var project in extraProjects) session.State.Projects.Remove(project.ProjectId);
+                Projects(session.State.Projects.Values.Where(project => !extraProjects.Any(extra => extra.ProjectId == project.ProjectId)));
                 Draw();
                 director.FocusLeftForRender(); Draw();
                 Require(file?.Steering.Armed == null && file?.Screen.Instruction.Words == draft, "focus loss lost draft or retained confirmation");
@@ -234,15 +252,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.Plane.Repositioning = true;
                 held.SettleForRender(); held.Target.PointerForRender(220, Oculus.Interaction.PointerEventType.Select, held.transform.position);
                 var third = new ProjectView { ProjectId = "third-synthetic-project", Name = "A new project", CreatedAt = Time, UpdatedAt = Time };
-                session.State.Projects.Add(third.ProjectId, third); Draw(); director.Plane.Repositioning = false; Draw();
+                Projects(session.State.Projects.Values.Concat(new[] { third })); Draw(); director.Plane.Repositioning = false; Draw();
                 held.Target.PointerForRender(220, Oculus.Interaction.PointerEventType.Unselect, held.transform.position);
                 Require(director.Navigator.BesideTask == work.Workstream.WorkstreamId && sends == 0, "old denied pointer fired a replacement context binding");
-                session.State.Projects.Remove(third.ProjectId); Draw();
+                Projects(session.State.Projects.Values.Where(project => project.ProjectId != third.ProjectId)); Draw();
                 // A deleted project is not selectable even before a redraw replaces its old button.
                 var second = director.Plane.Context.ProjectChoices.Single(choice => choice.ProjectId == "second-synthetic-project");
-                session.State.Projects.Remove(second.ProjectId); Pointer(second.Button, 221);
+                var removedProject = session.State.Projects[second.ProjectId];
+                Projects(session.State.Projects.Values.Where(project => project.ProjectId != second.ProjectId)); Pointer(second.Button, 221);
                 Require(director.Navigator.BesideTask == work.Workstream.WorkstreamId && sends == 0, "deleted project control changed selected work or sent a command");
-                session.State.Projects.Add(snapshot.Projects[1].ProjectId, snapshot.Projects[1]); Draw();
+                Projects(session.State.Projects.Values.Concat(new[] { removedProject })); Draw();
                 second = director.Plane.Context.ProjectChoices.Single(choice => choice.ProjectId == "second-synthetic-project");
                 Pointer(second.Button, 222); Draw();
                 Require(director.Navigator.Place == MenuPlace.Tasks && director.Navigator.BesideTask == null
