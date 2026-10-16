@@ -254,7 +254,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (finalFrame?.Lines.Single().Words.EndsWith("\n\n") != true) failures.Add(name + ": body construction lost blank/trailing LF");
                 if (spatialWorkspace)
                 {
-                    Chrome(director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 881); Draw();
+                    Chrome(director.Plane.Context.gameObject.activeInHierarchy ? director.Plane.Context.WorkspaceTarget
+                        : director.Plane.Chrome.Targets.Single(button => button.Label.text == "Workspace"), 881); Draw();
                     for (var turn = 0; turn < 20 && director.Plane.Front?.Lines.Any(line => line.Action == PlacementColumn.Minimize) != true; turn++)
                         if (!Press(Footer.NextPage)) break;
                     Press(PlacementColumn.Minimize);

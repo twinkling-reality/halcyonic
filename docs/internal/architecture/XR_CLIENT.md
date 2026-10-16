@@ -2738,6 +2738,25 @@ explicitly labelled direct Comfort-model transition then checks the retained req
 invalidation before any new draw. It does not claim a hidden Settings press can resize a lone file
 whose full measured page legitimately moves the menu aside.
 
+### Independent project context, Activity and ordinary composer
+
+The main spatial consumer has one director and one authoritative command view. Projects, Tasks,
+task files, workspace requests and results use an independently backed project-context object
+beside the current reading object. Up to three actual projects are offered, preserving the
+selected task's project among the choices; overflow opens the existing project picker. Context
+controls bind the actual session, projection, journal, connection and selected task. Rebinding
+cancels a held press; deleted choices and stale controls cannot navigate. Choosing a project
+opens its existing task picker without retargeting retained drafts.
+
+`MenuPlane` draws an optional passive Activity view separately from the current ordinary editor.
+The passive view's draw callback is never forwarded as an authoritative file draw. Deferred
+editor draws recheck identity and settlement after movement. Context, reading and composer have
+separate opaque surfaces and transforms, while placement, turning and recovery account for their
+complete conservative envelope. The current widths are 18 and 36 degrees, with the actual task
+portrait at the leading edge. The measured reader top stays stable as its content height changes.
+The current layout is a candidate; [STYLE.md](../product/STYLE.md) distinguishes implementation
+from acceptance and the preceding overlay/legacy composition.
+
 ### Instruction editor and explicit send
 
 Tell it opens a focused editor with Your instruction, the existing bounded Input role and empty
