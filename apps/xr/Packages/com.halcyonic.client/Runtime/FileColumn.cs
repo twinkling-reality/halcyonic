@@ -307,6 +307,9 @@ namespace Halcyonic.Client
                     evaluation.Refresh(execution?.UpdatedAt, clock);
                     break;
                 case Footer.NextPage:
+                    if (Screen.InstructionHideOffered && Screen.Instruction.Open
+                        && Frame?.Footer.All.Any(each => each.Prompt.Id == Footer.NextPage) != true
+                        && Frame?.Lines.Any(line => line.Action == Footer.NextPage) != true) return;
                     if (Screen.Section == FileSection.Waiting && question.SideOption != null) question.NextSidePart(clock);
                     else Screen.NextPage();
                     break;

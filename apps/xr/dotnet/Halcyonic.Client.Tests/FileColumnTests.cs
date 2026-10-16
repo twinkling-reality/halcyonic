@@ -312,6 +312,31 @@ public class FileColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    [Test]
+    public void AStaleActivityPagerCannotTurnThePageBehindTheComposer()
+    {
+        var host = new FileMenuHost { Height = _ => MenuPage.Words(4) + MenuPage.SourceLine };
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var current = FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct);
+        var activity = Enumerable.Range(1, 20).Select(index => new ActivityEntry(index, "2026-09-26T09:00:01.000Z", ActivityKind.Message, "Activity " + index, true)).ToArray();
+        current = new WorkspacePresentation(current.Character, current.Objective, current.Execution, current.Runtime, current.Actions,
+            current.Actions.Where(current.RequiresConfirmation).ToList(), current.Commands, activity);
+        var column = Column(host, () => current);
+        column.ConfigureActivityComposer(() => new RowBudget(3), () => new RowBudget(8));
+        Assert.That(column.Screen.Pages, Is.GreaterThan(1));
+        column.Act(Footer.NextPage, null);
+        var page = column.Screen.Page;
+        Assert.That(page, Is.EqualTo(1));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Keep the page");
+        column.Drawn(column.ActivityContextFrame!, null);
+        column.Act(Footer.NextPage, null);
+        Assert.That(column.Screen.Page, Is.EqualTo(page));
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Keep the page"));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     private FileColumn Column(FileMenuHost host, Func<WorkspacePresentation?> present, IReadOnlyList<PresetInstruction>? recorded = null) =>
         new(host, present, factory, () => null, _ => recorded, () => "");
 
