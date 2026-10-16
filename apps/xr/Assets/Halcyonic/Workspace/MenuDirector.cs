@@ -1277,11 +1277,15 @@ namespace Halcyonic.XR.Workspace
         {
             memory.Session(setup.Session());
             if (setup.Presentation.Minimized) setup.Presentation.Restore();
-            if (navigator.TryExpandTask(workstreamId)) return;
             if (memory.FileFor(State?.Journal?.JournalId, workstreamId, () => setup.File(Bound(), workstreamId)) is IMenuColumn file)
             {
-                if (file is FileColumn taskFile) taskFile.Surface = WorkspaceSurface.Task;
                 BindView(file);
+                if (file is FileColumn taskFile)
+                {
+                    if (RestoreSelectedSurface(taskFile, workstreamId)) return;
+                    taskFile.Surface = WorkspaceSurface.Task;
+                }
+                if (ReferenceEquals(navigator.Beside, file) && navigator.TryExpandTask(workstreamId)) return;
                 navigator.ShowBeside(file, workstreamId);
                 KeepViews();
             }

@@ -78,3 +78,22 @@ unused compatibility method in place. It also exited 1, with all sixteen failure
 identical in order and content. The legacy Results renderer applies a global descending-type
 check to project identity titles below section labels; the spatial renderer already checks
 these as separate semantic groups. No hierarchy assertion was removed or weakened here.
+
+## Retained task selection — 2026-10-16
+
+Selecting task A, then B, then A restores A's compatible in-memory results or workspace-request
+view. Explicit Back to task changes that preference. A forgotten owning file closes its visible
+reader; changing the execution falls back to the task without reading the old result. Results
+navigation is still memory-only, and compatibility never grants read or command authority.
+
+`WorkspaceRender.RetainedTaskSurfaceCheck` passed in Unity 6000.3.25f1 on macOS at Standard and
+Larger text. The synthetic fixture uses the actual director, C# session, scoped HTTP reader,
+TextMeshPro meshes and displayed actions. It checks exact output and selected-file patch paging,
+fresh reads on return, stale-frame rejection, both independent drafts and the pending request
+identity, explicit Back/close, and changed execution. Waiting-to-retry and synchronizing returns
+retain navigation without GETs or commands; a fresh current snapshot restores results with fresh
+reads and keeps the request's original pending identity. The witness submitted zero commands.
+
+This run used the preceding spatial presentation, before the independent Activity/composer
+consumer was integrated. It proves navigation behavior and those renderer checks, not acceptance
+of the new composition, real-model work, native application correspondence or headset comfort.
