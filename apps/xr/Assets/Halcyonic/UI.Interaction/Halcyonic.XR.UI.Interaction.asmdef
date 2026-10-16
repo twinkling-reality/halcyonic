@@ -5,6 +5,7 @@
     "Halcyonic.XR",
     "Halcyonic.XR.UI",
     "Halcyonic.Client",
+    "Halcyonic.Contracts",
     "Oculus.Interaction",
     "Unity.TextMeshPro"
   ],
