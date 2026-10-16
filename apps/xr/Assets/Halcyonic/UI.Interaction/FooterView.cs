@@ -129,10 +129,10 @@ namespace Halcyonic.XR.UI
                     foreach (var slot in offered) { Stand(slot, x + widths[(int)slot] / 2f, y, widths[(int)slot]); x += widths[(int)slot] + gap; }
                     return needed;
                 }
-                var needed = Mathf.Max(Row(upper, middle + (Height + gap) / 2f), Row(lower, middle - (Height + gap) / 2f, alignRight: true));
+                var wrappedNeeded = Mathf.Max(Row(upper, middle + (Height + gap) / 2f), Row(lower, middle - (Height + gap) / 2f, alignRight: true));
                 HeightUsed = 2f * Height + gap;
-                Measure = (needed, right - left + 2f * margin);
-                Fits = needed <= Measure.Room + 1e-5f;
+                Measure = (wrappedNeeded, right - left + 2f * margin);
+                Fits = wrappedNeeded <= Measure.Room + 1e-5f;
                 return;
             }
 
