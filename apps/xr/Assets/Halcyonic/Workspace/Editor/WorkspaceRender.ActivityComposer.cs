@@ -125,9 +125,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         Debug.Log($"Halcyonic: {name} actual identity={view.Frame!.IdentityKind}; font={title.font.name}; style={title.fontStyle}; named={GlazeRuns.Of(title).IsNamedIdentity}.");
                         if (view.ProvenanceLabel.gameObject.activeInHierarchy)
                         {
-                            var titleBounds = title.GetComponent<Renderer>().bounds;
-                            var marksBounds = view.ProvenanceLabel.GetComponent<Renderer>().bounds;
-                            Require(titleBounds.min.y > marksBounds.max.y, name + ": actual title and provenance overlap");
+                            // Both labels share the subject part; compare actual mesh envelopes in that
+                            // plane rather than world-axis AABBs, which grow when the workspace turns.
+                            var titleFoot = title.transform.localPosition.y + title.textBounds.min.y;
+                            var marksTop = view.ProvenanceLabel.transform.localPosition.y + view.ProvenanceLabel.textBounds.max.y;
+                            Require(titleFoot > marksTop, name + ": actual title and provenance overlap");
                         }
                     }
                     foreach (var view in views.Where(view => !view.PassiveActivity))
