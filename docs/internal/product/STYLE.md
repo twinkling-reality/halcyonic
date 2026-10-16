@@ -95,7 +95,9 @@ with explicit synthetic data. It adds no work capability or automatic character 
 Known task titles and project-detail names carry explicit `MenuIdentityKind` metadata. In this
 candidate only, the header has an upright literal name whose outside-text ranges remain intact.
 It omits the redundant Task/Project eyebrow; project context and the state badge carry that context. Generic `SubjectIsData` does not opt in;
-agent prose, questions, tool text and approvals keep their existing provenance treatment. The state badge retains its measured header allocation.
+agent prose eligible for the scoped independent treatment below keeps its explicit reported-source
+chip and literal outside ranges while becoming upright. Questions, tool text, approvals and
+unattributed data retain their existing treatment. The state badge retains its measured header allocation.
 Readability, full decision text, action authority, local drafts, target size and measured field
 remain requirements. A quieter frame and a different font alone do not establish acceptance.
 
@@ -259,12 +261,13 @@ Three sizes on the plane (`Glaze.Menu`):
   secondary colour, where no icon of ours stands; a title in its plate leans with the plate as its
   ground. Theirs comes after our words where we can word it so, and is cut first, inside its ground.
   Pills, the light line, prompts, places and sections hold our words alone.
-- **Named spatial identity:** a project or task heading may stand upright beneath a separate,
-  host-owned `Project` or `Task` caption. This narrow presentation uses explicit identity metadata,
+- **Named spatial identity:** a project or task heading may stand upright using explicit identity metadata.
+  The independent candidate omits the redundant `Project`/`Task` eyebrow; project context and the
+  actual state badge establish its role. Retained legacy consumers may keep their fixed caption. This narrow presentation uses explicit identity metadata,
   retains outside-text ranges and literal escaping, and never applies to agent prose, approval
   questions, tool output or action labels. Reusing the label resets identity mode; its explicit prose
   treatment below, where eligible, is separate from identity.
-  The caption establishes what the name identifies; the name cannot supply or alter that caption.
+  Host-owned context establishes what the name identifies; the name cannot supply or alter it.
 - **Independent workspace prose candidate:** the ordinary instruction input and agent prose already
   carrying an `Agent says` or `Subagent says` chip use upright Liberation Sans body text. They retain
   literal escaping, rich-text parsing disabled, exact outside-text ranges and their source chip;
@@ -405,7 +408,9 @@ One treatment for places, sections, rows, answers and prompts:
   opens guarded full details; the page does not shrink text or hit targets. New project's own
   question/recap flow retains its separate behavior in the client contract.
 - **A claim keeps its evidence class's chip**: "Agent says", "Subagent says", "Inferred", "Planned",
-  "Author unknown" or "Model explains", beside the claim's words, which lean. Observed and measured
+  "Author unknown" or "Model explains", beside the claim's words. Legacy/default claims lean;
+  eligible independent `Agent says`/`Subagent says` prose uses the scoped upright treatment above.
+  Its evidence class remains reported regardless of presentation. Observed and measured
   facts, and Halcyonic's own words, take none.
 
 ## The footer
