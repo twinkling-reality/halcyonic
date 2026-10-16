@@ -11,6 +11,9 @@ namespace Halcyonic.XR.Workspace
     public sealed partial class MenuDirector
     {
         private FileColumn? configuredComposer;
+        private float configuredContextHeight;
+        private bool configuredPortrait;
+        private int configuredTitleRows, configuredProvenanceRows;
         private object? contextOwner;
         private RealtimeSession? contextSession;
         private ClientProjection? contextState;
@@ -23,7 +26,16 @@ namespace Halcyonic.XR.Workspace
         private void ConfigureSpatialComposer()
         {
             plane.SeparateWorkspace = SeparateWorkspace;
-            if (!setup.SpatialWorkspace || navigator.Beside is not FileColumn file || ReferenceEquals(file, configuredComposer)) return;
+            if (!setup.SpatialWorkspace || navigator.Beside is not FileColumn file) return;
+            var contextHeight = plane.Context.HeightFor(State?.Projects.Count ?? 0);
+            var titleRows = navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true
+                ? MenuFrameView.IndependentTitleRows(work.Title, Glaze.Menu.FileColumnDegrees) : 2;
+            var provenanceRows = MenuFrameView.IndependentProvenanceRows(CurrentSpatialMarks(), Glaze.Menu.FileColumnDegrees);
+            var geometryChanged = configuredContextHeight != contextHeight || configuredPortrait != HasTaskPortrait
+                || configuredTitleRows != titleRows || configuredProvenanceRows != provenanceRows;
+            configuredProvenanceRows = provenanceRows;
+            configuredContextHeight = contextHeight; configuredPortrait = HasTaskPortrait; configuredTitleRows = titleRows;
+            if (ReferenceEquals(file, configuredComposer)) { if (geometryChanged) file.Reflow(); return; }
             configuredComposer = file;
             file.ConfigureActivityComposer(() => new HeightBudget(IndependentPageHeight(2, true, false)),
                 () => new HeightBudget(IndependentPageHeight(2, true, true)));
@@ -85,6 +97,10 @@ namespace Halcyonic.XR.Workspace
             if (ContextStanding(owner)) OpenPlacement();
         }
 
+        private IReadOnlyList<WorkMark> CurrentSpatialMarks() => navigator.BesideTask is string task
+            && State?.Workstreams.TryGetValue(task, out var work) == true
+            ? StateLanguage.MarksOf(CharacterPresenter.Present(work, State, Connected && !Demonstration)) : Array.Empty<WorkMark>();
+
         /// <summary>Measured union of the actual left navigation and central reading objects.</summary>
         private float IndependentPageHeight(int subjectRows, bool split, bool composer)
         {
@@ -93,7 +109,9 @@ namespace Halcyonic.XR.Workspace
             var direction = new PanelDirection(UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg + moved.Yaw, moved.Elevation, true, false);
             var zoom = TextSize == TextSize.Larger ? Comfort.LargerTextScale : 1f;
             var width = PlaneComposition.Units(Glaze.Menu.FileColumnDegrees);
-            var header = MenuFrameView.IndependentSubjectHeightOfRows(subjectRows, true, HasTaskPortrait);
+            var marks = CurrentSpatialMarks();
+            var header = MenuFrameView.IndependentSubjectHeightOfRows(subjectRows, true, HasTaskPortrait,
+                MenuFrameView.IndependentProvenanceRows(marks, Glaze.Menu.FileColumnDegrees));
             var leftHeight = plane.Context.HeightFor(State?.Projects.Count ?? 0);
             var section = GlazeButton.HeightOf(true);
             bool Fits(float total)

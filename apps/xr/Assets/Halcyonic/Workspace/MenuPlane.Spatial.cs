@@ -76,6 +76,7 @@ namespace Halcyonic.XR.Workspace
             primary.OrganizationControls = false; primary.ExternalPlaces = kind == MenuColumn.Menu;
             primary.HeadingOverride = hasActivity ? "Direction" : null;
             primary.TaskPortrait = hasActivity ? null : SelectedPortrait; primary.TaskPortraitHue = SelectedPortraitHue;
+            primary.IdentityMarks = hasActivity ? Array.Empty<WorkMark>() : SelectedMarks;
             var degrees = Glaze.Menu.FileColumnDegrees;
             var subject = hasActivity ? MenuFrameView.IndependentSubjectHeightOfRows(1, false) : primary.SpatialSubjectHeight(panel?.Subject ?? Front!.Subject, degrees, Front!.Pill != null);
             if (panel != null) primary.Show(panel, degrees, subject, Front!.Pill != null, Front.Pill, Front);
@@ -87,6 +88,7 @@ namespace Halcyonic.XR.Workspace
                 activityContext.SpatialWorkspace = true; activityContext.IndependentSurface = true; activityContext.PassiveActivity = true;
                 activityContext.OrganizationControls = false; activityContext.ExternalPlaces = false;
                 activityContext.TaskPortrait = SelectedPortrait; activityContext.TaskPortraitHue = SelectedPortraitHue;
+                activityContext.IdentityMarks = SelectedMarks;
                 var header = activityContext.SpatialSubjectHeight(ActivityFrame!.Subject, degrees, ActivityFrame.Pill != null);
                 activityContext.Show(ActivityFrame, degrees, header, ActivityFrame.Pill != null);
                 activityHeight = activityContext.Heights[0];
