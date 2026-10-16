@@ -191,7 +191,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(director.Navigator.Place == MenuPlace.Tasks && director.Navigator.BesideTask == null
                     && file?.Screen.Instruction.Words == draft && sends == 0, "actual other-project choice retargeted/lost the retained draft instead of opening its task picker");
                 director.OpenFile(work.Workstream.WorkstreamId); Draw();
-                Press(FileScreens.TellIt);
+                if (file?.Screen.Instruction.Open != true) Press(FileScreens.TellIt);
                 loops = 0;
                 while (file != null && file.Screen.Instruction.Part + 1 < file.Screen.Instruction.Parts && loops++ < 64)
                 { Thread.Sleep(450); Press(FileScreens.NextInstructionPart); }
