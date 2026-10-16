@@ -25,7 +25,6 @@ namespace Halcyonic.XR.UI
         private Surface track = null!;
         private Surface shadow = null!;
         private Surface thumb = null!;
-        private Surface thumbLight = null!;
         private Surface workspaceMark = null!;
         private Surface workspaceMarkBar = null!;
         private Surface compactMark = null!;
@@ -75,7 +74,6 @@ namespace Halcyonic.XR.UI
             view.hoverFrame = Surface.Create(go.transform, "Pointed position", order + 1);
             view.shadow = Surface.Create(go.transform, "Thumb shadow", order + 1);
             view.thumb = Surface.Create(go.transform, "Thumb", order + 2);
-            view.thumbLight = Surface.Create(go.transform, "Thumb light", order + 3);
             view.workspaceMark = Surface.Create(go.transform, "Workspace mark", order + 4);
             view.workspaceMarkBar = Surface.Create(go.transform, "Workspace mark bar", order + 4);
             view.compactMark = Surface.Create(go.transform, "Compact mark", order + 4);
@@ -123,7 +121,7 @@ namespace Halcyonic.XR.UI
             var inset = KitType.Units(SpatialKit.SwitchInsetDegrees);
             var cell = KitType.Units(SpatialKit.SwitchCellDegrees);
             var cellWidth = size.x - 2f * inset;
-            track.Draw(size, cell / 2f + inset, KitType.Colour(SpatialKit.Well), KitType.Colour(SpatialKit.Edge), KitType.Units(SpatialKit.HairlineDegrees));
+            track.Draw(size, cell / 2f + inset, KitType.Colour(SpatialKit.Well));
             workspaceTarget.transform.localPosition = new Vector3(0f, CellCentre(0f), -KitType.Units(0.05f));
             compactTarget.transform.localPosition = new Vector3(0f, CellCentre(1f), -KitType.Units(0.05f));
             workspaceTarget.Resize(new Vector2(cellWidth, cell));
@@ -206,12 +204,11 @@ namespace Halcyonic.XR.UI
             var accent = Glaze.Tone(GlazeTone.Accent);
             shadow.Draw(thumbSize, cell / 2f, new Color(0f, 0f, 0f, 0.42f));
             shadow.transform.localPosition = new Vector3(0f, centre - KitType.Units(0.14f), -0.0002f);
+            // Raised by its fill and shadow; its accent edge says which position is confirmed. No light of its own:
+            // the instrument carries one.
             thumb.Draw(thumbSize, cell / 2f, KitType.Colour(SpatialKit.Thumb), KitType.Mix(SpatialKit.Thumb, accent.Strong, 0.7f), KitType.Units(0.08f));
             thumb.Selection = SurfaceSelection.Lit;
             thumb.transform.localPosition = new Vector3(0f, centre, -0.0003f);
-            var lightRun = Mathf.Max(0f, cellWidth - cell);
-            thumbLight.Draw(new Vector2(lightRun, KitType.Units(SpatialKit.HairlineDegrees)), KitType.Units(0.03f), KitType.Colour(SpatialKit.EdgeLight));
-            thumbLight.transform.localPosition = new Vector3(0f, centre + thumbSize.y / 2f - KitType.Units(0.2f), -0.0004f);
             // The pointed position: its frame inside the track. The current one needs none: its thumb is lit already.
             var hoveredWorkspace = pointedForRender == 0 || workspaceTarget.Hovered;
             var hoveredCompact = pointedForRender == 1 || compactTarget.Hovered;

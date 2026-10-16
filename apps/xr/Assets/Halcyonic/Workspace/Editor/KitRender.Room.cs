@@ -128,8 +128,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// The eye buffer laid over the room as the compositor lays an app's layer over passthrough: the render's
-        /// colours are premultiplied, so each pixel adds the room's light by what of it the pixel lets through.
-        /// Blended in linear light, as the project blends.
+        /// colours are premultiplied and stored as sRGB, so each pixel, read back to linear light, adds the room's light
+        /// by what of it the pixel lets through. Blended in linear light, as the project blends.
         /// </summary>
         private static Texture2D Composite(Texture2D eye, Color[]? room, Color flat)
         {
@@ -138,7 +138,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var flatLinear = flat.linear;
             for (var index = 0; index < pixels.Length; index++)
             {
-                var pixel = pixels[index];
+                var pixel = pixels[index].linear;
                 var under = room != null ? room[index].linear : flatLinear;
                 pixels[index] = new Color(pixel.r + under.r * (1f - pixel.a), pixel.g + under.g * (1f - pixel.a), pixel.b + under.b * (1f - pixel.a), 1f).gamma;
             }

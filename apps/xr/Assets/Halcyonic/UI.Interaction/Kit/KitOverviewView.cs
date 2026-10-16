@@ -58,8 +58,10 @@ namespace Halcyonic.XR.UI
     /// as one band of its own: the project's name, a sentence of its work, then its tasks as rows, each with its state
     /// in its icon and its words, and at its right end where pressing it goes, the next action of the task that has
     /// one. The board leads with what waits for the person across every project. Bands are parts of one face divided by
-    /// hairlines, not cards; every next action stands at one right-hand line, so the eyes find them in one place.
-    /// Centred on its transform, built in units of the plane's distance.
+    /// space and their names, not cards; every next action stands at one right-hand line, so the eyes find them in one
+    /// place. The board stands in front and carries the instrument's one light; the spine stands behind it, parallel
+    /// to it on one plane facing the eyes, a column's gap away with the room between. Centred on its transform, built
+    /// in units of the plane's distance.
     /// </summary>
     public sealed class KitOverviewView : MonoBehaviour
     {
@@ -75,6 +77,7 @@ namespace Halcyonic.XR.UI
         public KitCarrier SpineCarrier => spineCarrier;
         public KitSpine Spine => spine;
         public TextMeshPro Title => title;
+        /// <summary>The instrument's extent on its plane, in units of its distance, the gap included.</summary>
         public Vector2 Size => size;
 
         public event Action<string>? RowPressed;
@@ -83,13 +86,22 @@ namespace Halcyonic.XR.UI
 
         public IEnumerable<KitRow> TaskRows => bands.Where(band => band.Root.activeSelf).SelectMany(band => band.Rows.Where(row => row.gameObject.activeSelf));
 
-        public IEnumerable<KitPress> Targets
+        public IEnumerable<KitPress> Targets => SpineTargets.Concat(BoardTargets);
+
+        public IEnumerable<KitPress> SpineTargets
         {
             get
             {
                 yield return spine.Switch.WorkspaceTarget;
                 yield return spine.Switch.CompactTarget;
                 foreach (var row in spine.Rows) yield return row.Press;
+            }
+        }
+
+        public IEnumerable<KitPress> BoardTargets
+        {
+            get
+            {
                 foreach (var row in TaskRows) yield return row.Press;
             }
         }
@@ -129,25 +141,26 @@ namespace Halcyonic.XR.UI
             for (var index = 0; index < model.Projects.Count; index++)
             {
                 bandTops[index] = y;
-                y += bands[index].Measure(model.Projects[index], inner) + KitType.Scaled(0.9f);
+                y += bands[index].Measure(model.Projects[index], inner) + KitType.Scaled(1.6f);
             }
             for (var index = model.Projects.Count; index < bands.Count; index++) bands[index].Root.SetActive(false);
             var rise = KitType.Units(SpatialKit.SlateRiseDegrees);
             var spineNeeds = spine.Show(model.Spine, model.SpineFoot, Vector2.zero, spineWidth - 2f * pad, 0f) + 2f * pad + 2f * rise;
-            var height = Mathf.Max(y - KitType.Scaled(0.9f) + pad, spineNeeds);
-            size = new Vector2(width, height);
+            var height = Mathf.Max(y - KitType.Scaled(1.6f) + pad, spineNeeds);
 
-            var left = -width / 2f;
-            var recess = SpatialKit.RecessMeters / PlaneComposition.Distance;
-            var overlap = KitType.Units(SpatialKit.InstrumentRadiusDegrees);
             var radius = KitType.Units(SpatialKit.InstrumentRadiusDegrees);
-            board.Draw(new Vector2(boardWidth, height), radius, SpatialKit.Slate, SpatialKit.Edge, lit: true);
-            board.transform.localPosition = new Vector3(left + spineWidth + boardWidth / 2f, 0f, 0f);
-            // The board stands past the spine above and below, covering its outline: in front of it.
+            // The board shows no one task's state: its light is the instrument's own, untinted.
+            board.Draw(new Vector2(boardWidth, height), radius, SpatialKit.Slate, lit: true);
+            // The board stands past the spine above and below: in front of it.
             var sides = height - 2f * rise;
-            spineCarrier.Draw(new Vector2(spineWidth + overlap, sides), radius, SpatialKit.Side, SpatialKit.Edge);
-            spineCarrier.transform.localPosition = new Vector3(left + (spineWidth + overlap) / 2f, 0f, recess);
-            spineCarrier.Shade(left: false, right: true, inset: overlap);
+            // Side by side on one plane, a column's gap apart, the whole centred on the view's line.
+            var gap = SpatialKit.ColumnGapUnits;
+            var recess = SpatialKit.RecessMeters / PlaneComposition.Distance;
+            var left = -(width + gap) / 2f;
+            spineCarrier.transform.localPosition = new Vector3(left + spineWidth / 2f, 0f, recess);
+            board.transform.localPosition = new Vector3(left + spineWidth + gap + boardWidth / 2f, 0f, 0f);
+            spineCarrier.Draw(new Vector2(spineWidth, sides), radius, SpatialKit.Side);
+            size = new Vector2(width + gap, height);
 
             var top = height / 2f;
             var boardLeft = -boardWidth / 2f + pad;
@@ -155,7 +168,7 @@ namespace Halcyonic.XR.UI
             lead.transform.localPosition = new Vector3(boardLeft, top - pad - titleHeight - KitType.Scaled(0.3f), -0.0005f);
             for (var index = 0; index < model.Projects.Count; index++)
                 bands[index].Place(model.Projects[index], new Vector2(boardLeft, top - bandTops[index]), inner);
-            spine.Show(model.Spine, model.SpineFoot, new Vector2(-(spineWidth + overlap) / 2f + pad, sides / 2f - pad), spineWidth - 2f * pad, sides - 2f * pad);
+            spine.Show(model.Spine, model.SpineFoot, new Vector2(-spineWidth / 2f + pad, sides / 2f - pad), spineWidth - 2f * pad, sides - 2f * pad);
         }
 
         public IEnumerable<Vector3> Corners() => Carriers.SelectMany(carrier => carrier.Corners());
@@ -215,8 +228,8 @@ namespace Halcyonic.XR.UI
             public void Place(KitProjectModel project, Vector2 topLeft, float width)
             {
                 Root.transform.localPosition = new Vector3(topLeft.x, topLeft.y, 0f);
-                Divider.Draw(new Vector2(width, KitType.Units(SpatialKit.HairlineDegrees)), 0f, KitType.Colour(SpatialKit.Edge));
-                Divider.transform.localPosition = new Vector3(width / 2f, 0f, -0.0002f);
+                // Bands are divided by space and their names, not by rules.
+                Divider.gameObject.SetActive(false);
                 var y = KitType.Scaled(0.9f);
                 Name.transform.localPosition = new Vector3(0f, -y, -0.0005f);
                 if (summaryBeside)
