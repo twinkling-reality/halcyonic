@@ -194,6 +194,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 var context = director.Plane.ActivityContext;
                 Require(context?.Frame != null && file?.ActivityContextFrame == context.Frame, "actual Activity was not rendered beside its own composer");
                 Require(context == null || !context.Targets.Any(), "passive Activity acquired action targets");
+                Require(context?.Frame != null && context.Frame.Lines.Count >= 2,
+                    "reclaimed passive allocation did not make room for the actual recent report and observed failure");
+                if (context?.Frame != null)
+                {
+                    Require(!context.Footer.gameObject.activeInHierarchy, "passive allocation still drew a footer");
+                    Require(context.Frame.Lines.Any(line => line.Words.Contains("I found that sign-in attempts"))
+                        && context.Frame.Lines.Any(line => line.Words.Contains("Command failed: node --test")),
+                        "actual reclaimed Activity preview omitted either of its two latest synthetic journal entries");
+                    Debug.Log($"Halcyonic: reclaimed passive Activity shows {context.Frame.Lines.Count} actual entries; allocated height={director.Plane.ReaderAllocation.Height:R}; footer visible={context.Footer.gameObject.activeInHierarchy}.");
+                }
                 var forwardedPassive = 0;
                 director.Plane.Drawn += (_, view) => { if (ReferenceEquals(view, context)) forwardedPassive++; };
                 var passiveDraws = 0;
