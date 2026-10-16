@@ -128,6 +128,11 @@ namespace Halcyonic.XR.UI
         /// <summary>Actual Activity context carries no controls and cannot report editor reading.</summary>
         public bool PassiveActivity { get; set; }
         public string? HeadingOverride { get; set; }
+        public IReadOnlyList<WorkMark> IdentityMarks { get; set; } = Array.Empty<WorkMark>();
+        private TextMeshPro identityMarks = null!;
+        public TextMeshPro ProvenanceLabel => identityMarks;
+        public static int IndependentProvenanceRows(IReadOnlyList<WorkMark> marks, float degrees) => marks.Count == 0 ? 0
+            : Count(Measuring(Glaze.BodyDegrees), string.Join(" · ", marks.Select(mark => mark.Word)), ContentWidth(degrees));
         public CharacterPresentation? TaskPortrait { get; set; }
         public double? TaskPortraitHue { get; set; }
         private TaskIdentityAvatarView portrait = null!;
@@ -340,11 +345,12 @@ namespace Halcyonic.XR.UI
         public static int IndependentTitleRows(string subject, float columnDegrees) =>
             Mathf.Clamp(Count(Measuring(Glaze.HeroDegrees), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
 
-        public static float IndependentSubjectHeightOfRows(int rows, bool pillRoom, bool portrait = false)
+        public static float IndependentSubjectHeightOfRows(int rows, bool pillRoom, bool portrait = false, int provenanceRows = 0)
         {
             var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
             return Mathf.Max(portrait ? PortraitHeight + 2f * U(Glaze.Menu.SubjectPaddingDegrees) : 0f,
-                room + Mathf.Max(U(Glaze.TargetDegrees), SpatialInner(room) + rows * GlazeText.LineHeight(Measuring(Glaze.HeroDegrees)) + 2f * U(Glaze.Menu.SubjectPaddingDegrees)));
+                room + Mathf.Max(U(Glaze.TargetDegrees), SpatialInner(room) + rows * GlazeText.LineHeight(Measuring(Glaze.HeroDegrees)) + 2f * U(Glaze.Menu.SubjectPaddingDegrees)))
+                + (provenanceRows > 0 ? provenanceRows * GlazeText.LineHeight(Measuring(Glaze.BodyDegrees)) + MenuPage.Grid : 0f);
         }
 
         public static int SpatialTitleRows(string subject, float columnDegrees, bool portrait = false) =>
@@ -360,7 +366,7 @@ namespace Halcyonic.XR.UI
         public float SpatialSubjectHeight(string subject, float columnDegrees, bool pillRoom)
         {
             subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
-            if (IndependentSurface) return IndependentSubjectHeightOfRows(IndependentTitleRows(subject, columnDegrees), pillRoom, HasPortrait);
+            if (IndependentSurface) return IndependentSubjectHeightOfRows(IndependentTitleRows(subject, columnDegrees), pillRoom, HasPortrait, IndependentProvenanceRows(IdentityMarks, columnDegrees));
             return SpatialSubjectHeightOfRows(SpatialTitleRows(subject, columnDegrees, HasPortrait), pillRoom, HasPortrait);
         }
 
@@ -702,6 +708,8 @@ namespace Halcyonic.XR.UI
             contentPart = Part("Content");
             subjectPlate = Surface.Create(subjectPart, "Plate", Order);
             subjectTitle = GlazeText.Create(subjectPart, "Subject", GlazeType.Subject, GlazeTokens.Text, TextAlignmentOptions.TopLeft, Order + 2);
+            identityMarks = GlazeText.Create(subjectPart, "Actual work provenance", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, Order + 2);
+            identityMarks.rectTransform.pivot = new Vector2(0f, 1f); identityMarks.gameObject.SetActive(false);
             subjectTitle.rectTransform.pivot = new Vector2(0f, 1f);
             identityCaption = GlazeText.Create(subjectPart, "Identity kind", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Left, Order + 2);
             identityCaption.rectTransform.pivot = new Vector2(0f, 0.5f);
@@ -879,6 +887,16 @@ namespace Halcyonic.XR.UI
             // In the plate, under the pill's lower half, centred.
             var inner = SpatialWorkspace ? SpatialInner(reserve) : Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));
+            var provenanceRows = IndependentSurface ? IndependentProvenanceRows(IdentityMarks, Glaze.Menu.FileColumnDegrees) : 0;
+            identityMarks.gameObject.SetActive(provenanceRows > 0);
+            if (provenanceRows > 0)
+            {
+                var marksHeight = provenanceRows * GlazeText.LineHeight(identityMarks) + MenuPage.Grid;
+                subjectTitle.transform.localPosition += Vector3.up * marksHeight / 2f;
+                GlazeText.SetLiteral(identityMarks, string.Join(" · ", IdentityMarks.Select(mark => mark.Word)));
+                GlazeText.Lay(identityMarks, width - 2f * padding, provenanceRows);
+                identityMarks.transform.localPosition = new Vector3(-width / 2f + padding, -subjectHeight / 2f + padding + marksHeight, -U(0.05f));
+            }
             GlazeRuns.TokenGrounds(subjectTitle, words.AllTheirs ? Array.Empty<(int, int)>() : theirs, subjectGrounds, subjectPart, Order + 1);
             pill.gameObject.SetActive(badge != null);
             if (badge != null)
