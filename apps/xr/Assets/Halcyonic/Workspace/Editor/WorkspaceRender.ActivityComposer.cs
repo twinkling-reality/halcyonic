@@ -37,6 +37,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
                     var voiceFolder = Path.Combine(folder, "voice-offered"); Directory.CreateDirectory(voiceFolder);
                     result.AddRange(RenderActivityComposer(voiceFolder, offerVoice: true, forceMinimumPair: forceMinimumPair));
+                    if (!forceMinimumPair)
+                    {
+                        UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+                        var narrowFolder = Path.Combine(folder, "insufficient-field"); Directory.CreateDirectory(narrowFolder);
+                        result.AddRange(RenderActivityComposer(narrowFolder, field: InsufficientPairField, selectionOnly: true));
+                    }
                     return result;
                 }));
             }
@@ -47,8 +53,16 @@ namespace Halcyonic.XR.Workspace.Editor
             UnityEditor.EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> RenderActivityComposer(string folder, bool offerVoice = false, bool forceMinimumPair = false)
+        /// <summary>
+        /// A field 25 degrees above and below: the minimum Activity and composer pair's envelope spans
+        /// about 50 degrees, the focused editor's about 35, so only the pair is genuinely refused.
+        /// </summary>
+        private static readonly ViewField InsufficientPairField = new ViewField(48f, 48f, 25f, 25f);
+
+        private static List<string> RenderActivityComposer(string folder, bool offerVoice = false, bool forceMinimumPair = false,
+            ViewField? field = null, bool selectionOnly = false)
         {
+            if (field is ViewField measured) ViewField.Current = measured;
             var failures = new List<string>(); var root = new GameObject("Actual Activity and optional ordinary composer");
             var target = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear) { antiAliasing = 1 };
             var client = new ClientInfo { Name = "render", Version = "render", DeviceLabel = "render" };
@@ -185,6 +199,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         }
                     }
                     failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
+                    failures.AddRange(TextInBands(director.Plane, name, witness: true));
                     failures.AddRange(GlazeChecks.TargetsLargeEnough(views.SelectMany(view => view.Targets).Concat(director.Plane.Context.Targets), eyes, name));
                     var image = Render(camera, target);
                     try
@@ -282,6 +297,26 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(ReferenceEquals(director.Plane.Shown.Single().View.Frame, file?.Frame), "editor focus changed the authoritative file owner");
                 }
                 else Require(context?.Frame != null && file?.ActivityContextFrame == context.Frame, "actual Activity was not rendered beside its own composer");
+                if (!forceMinimumPair)
+                {
+                    // The shown mode is the measured decision: the simultaneous pair exactly where its
+                    // text bands read, it stands inside the field and it clears the characters.
+                    var decision = director.PairDecisionForRender;
+                    Require(decision != null, "the measured Activity and composer pair decision was never made");
+                    if (decision is { } made)
+                    {
+                        Require((made.Inside && made.Readable && made.Clear) == !focusedComposer, "shown Activity/composer mode differs from the measured text-band decision");
+                        Debug.Log($"Halcyonic: measured pair decision inside={made.Inside}; readable={made.Readable}; clear={made.Clear}; leastEm={made.LeastEm:R}; pair shown={!focusedComposer}; text scale={GlazeText.Scale:R}.");
+                    }
+                    if (selectionOnly)
+                    {
+                        Require(focusedComposer && decision is { } refused && !refused.Inside, "a field too short for the minimum pair did not fall back to the labelled focused editor");
+                        Require(director.Plane.Showing(MenuColumn.File)?.Footer.All.Any(slot => slot.Prompt.Id == FileScreens.HideInstruction && slot.Prompt.Available) == true,
+                            "the focused fallback offered no Hide composer return to Activity");
+                        Require(file?.Screen.Instruction.Words == draft, "the focused fallback lost the exact ordinary draft");
+                        return failures;
+                    }
+                }
                 Require(context == null || !context.Targets.Any(), "passive Activity acquired action targets");
                 Require(focusedComposer || context?.Frame != null && context.Frame.Lines.Count >= 2,
                     "reclaimed passive allocation did not make room for the actual recent report and observed failure");

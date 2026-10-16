@@ -534,6 +534,124 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+        /// <summary>
+        /// The independent workspace's reading model holds as laid: every visible glyph stands inside
+        /// a text band of its own region (MenuPlane's ContextTextBands, ReaderTextBands and
+        /// ComposerTextBands) at no smaller em than that band's, unless it is small text that reads at
+        /// the floor by itself at its farthest corner; and the bands read at the floor. With
+        /// <paramref name="witness"/>, an actual label moved into the composition's empty corner and
+        /// an actual action word shrunk below the reading floor must each be caught, and are then put back.
+        /// </summary>
+        private static List<string> TextInBands(MenuPlane plane, string name, bool witness)
+        {
+            const float Tolerance = 0.0001f;
+            var failures = new List<string>();
+            if (plane.Composition == null || !plane.SeparateWorkspace) return failures;
+            var zoom = plane.Composition.Zoom;
+            var (_, rightAxis, upAxis) = PlaneComposition.Axes(plane.Direction);
+            var right = new Vector3(rightAxis.X, rightAxis.Y, rightAxis.Z);
+            var up = new Vector3(upAxis.X, upAxis.Y, upAxis.Z);
+            Vector2 OnPlane(Vector3 world)
+            {
+                var offset = world - plane.Eyes;
+                return new Vector2(Vector3.Dot(offset, right), Vector3.Dot(offset, up)) / PlaneComposition.Distance;
+            }
+            static string PathOf(Transform transform) => transform.parent == null ? transform.name : PathOf(transform.parent) + "/" + transform.name;
+            var regions = new List<(string Region, Component Root, IReadOnlyList<TextBand> Bands)> { ("context", plane.Context, plane.ContextTextBands) };
+            if (plane.ActivityContext is MenuFrameView activity) regions.Add(("Activity", activity, plane.ReaderTextBands));
+            foreach (var shown in plane.Shown)
+                regions.Add(("reading", shown.View, plane.ComposerAllocation != null ? plane.ComposerTextBands : plane.ReaderTextBands));
+            var all = regions.SelectMany(region => region.Bands).ToArray();
+            if (regions.Any(region => region.Bands.Count == 0)) { failures.Add(name + ": a laid independent region has no text bands"); return failures; }
+            var least = MenuPage.LeastEm(all, zoom);
+            if (least < Glaze.MinimumTextDegrees)
+                failures.Add(name + ": the laid text bands read under the floor, least em " + least.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+            // The least em any actual glyph reads at its own farthest corner, recorded on the main pass only.
+            var glyphLeast = float.PositiveInfinity;
+            var glyphPath = "";
+            IEnumerable<string> Misplaced(string region, Component root, IReadOnlyList<TextBand> bands, bool record = false)
+            {
+                foreach (var label in root.GetComponentsInChildren<TMPro.TMP_Text>(false))
+                {
+                    if (string.IsNullOrEmpty(label.text)) continue;
+                    label.ForceMeshUpdate();
+                    // As GlazeChecks.TextSeen measures a label's em, in units of the plane's distance.
+                    var em = label.fontSize * 0.1f * label.transform.lossyScale.y / PlaneComposition.Distance;
+                    var icon = GlazeIcons.IsIcon(label);
+                    for (var index = 0; index < label.textInfo.characterCount; index++)
+                    {
+                        var glyph = label.textInfo.characterInfo[index];
+                        if (!glyph.isVisible) continue;
+                        var corners = new[] { glyph.bottomLeft, glyph.topLeft, glyph.topRight, glyph.bottomRight }
+                            .Select(corner => OnPlane(label.transform.TransformPoint(corner))).ToArray();
+                        float left = corners.Min(corner => corner.x), rightmost = corners.Max(corner => corner.x);
+                        float bottom = corners.Min(corner => corner.y), top = corners.Max(corner => corner.y);
+                        var holding = bands.Where(band => band.Left - Tolerance <= left && rightmost <= band.Right + Tolerance
+                            && band.Bottom - Tolerance <= bottom && top <= band.Top + Tolerance).ToList();
+                        if (holding.Count == 0)
+                        {
+                            yield return name + ": " + region + " glyph of " + PathOf(label.transform) + " stands outside its text bands at "
+                                + left.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture) + ".." + rightmost.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture) + " x "
+                                + bottom.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture) + ".." + top.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
+                            break;
+                        }
+                        var seen = MenuPage.LeastEm(new[] { new TextBand(left, rightmost, bottom, top, Mathf.Atan(em / zoom) * Mathf.Rad2Deg) }, zoom);
+                        if (record && !icon && seen < glyphLeast) { glyphLeast = seen; glyphPath = PathOf(label.transform); }
+                        if (icon || holding.Any(band => em >= GlazeTokens.Units(band.EmDegrees) * zoom * 0.9999f)) continue;
+                        // Small text keeps its caption size only where it reads there by itself.
+                        if (seen < Glaze.MinimumTextDegrees)
+                        {
+                            yield return name + ": " + region + " text " + PathOf(label.transform) + " is smaller than its band's em and reads under the floor by itself";
+                            break;
+                        }
+                    }
+                }
+            }
+            static string Rect(float left, float right, float bottom, float top) =>
+                string.Join("..", new[] { left, right }.Select(value => value.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture)))
+                + " x " + string.Join("..", new[] { bottom, top }.Select(value => value.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture)));
+            foreach (var (region, root, bands) in regions)
+            {
+                var misplaced = Misplaced(region, root, bands, record: true).ToList();
+                failures.AddRange(misplaced);
+                if (misplaced.Count == 0) continue;
+                // Numeric geometry only, to tell a band model fault from a mapping fault.
+                var face = root is MenuFrameView reader ? reader.ReadingSurface.transform : root is WorkspaceContextView context ? context.ReadingSurface.transform : root.transform;
+                var faceCorners = new[] { -.5f, .5f }.SelectMany(x => new[] { -.5f, .5f }.Select(y => OnPlane(face.TransformPoint(new Vector3(x, y, 0f))))).ToArray();
+                Debug.Log("Halcyonic: " + name + " " + region + " text bands " + string.Join("; ", bands.Select(band => Rect(band.Left, band.Right, band.Bottom, band.Top)
+                    + " at " + band.EmDegrees.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture)))
+                    + " | reading face " + Rect(faceCorners.Min(c => c.x), faceCorners.Max(c => c.x), faceCorners.Min(c => c.y), faceCorners.Max(c => c.y))
+                    + " | composition " + plane.Composition.Width.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture) + " x "
+                    + plane.Composition.Height.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture));
+            }
+            Debug.Log("Halcyonic: " + name + ": least glyph em " + glyphLeast.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " degrees at its farthest corner, " + glyphPath + "; least laid band em " + least.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ".");
+            if (!witness || plane.Shown.Count == 0) return failures;
+            var reading = plane.Shown[0].View;
+            var bandsOfReading = plane.ComposerAllocation != null ? plane.ComposerTextBands : plane.ReaderTextBands;
+            var action = reading.Footer.Shown.Select(entry => entry.Button.Label).FirstOrDefault(label => label.gameObject.activeInHierarchy);
+            if (action == null) return failures;
+            var position = action.transform.position;
+            try
+            {
+                // Into the envelope's empty lower left corner, where no band may reach.
+                action.transform.position = PlaneLayout.PointOf(plane.Eyes, plane.Direction,
+                    -plane.Composition.Width / 2f + 0.01f, -plane.Composition.Height / 2f + 0.01f);
+                if (!Misplaced("reading", reading, bandsOfReading).Any())
+                    failures.Add(name + ": text-band containment accepted an actual label moved into the empty envelope corner");
+            }
+            finally { action.transform.position = position; }
+            var size = action.fontSize;
+            try
+            {
+                action.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(Glaze.MinimumTextDegrees * 0.8f));
+                if (!Misplaced("reading", reading, bandsOfReading).Any())
+                    failures.Add(name + ": text-band em check accepted an actual action word shrunk below the reading floor");
+            }
+            finally { action.fontSize = size; action.ForceMeshUpdate(); }
+            return failures;
+        }
+
         private static IEnumerable<string> SpatialState(string name, string folder, GameObject root, Camera camera,
             RenderTexture texture, MenuDirector director, List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes)
         {
@@ -607,6 +725,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (plane.ComposerFocused && (plane.ActivityContext != null || plane.ComposerAllocation == null
                     || view.IdentityContext != "Editing instruction" || view.Frame == null))
                     failures.Add(name + ": focused editor lost its explicit mode, owner or measured allocation");
+                failures.AddRange(TextInBands(plane, name, witness: true));
                 foreach (var region in regions)
                     if (Quaternion.Angle(region.Root.rotation, shape.Root.rotation) > .05f
                         || Mathf.Abs(Vector3.Dot(region.Root.position - shape.Root.position, shape.Root.forward)) > .0005f)
@@ -693,7 +812,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     // Actions are a separate semantic region, not the last descending body row.
                     // The candidate deliberately uses 19dp action text; shared TextAsSeen below
                     // still measures every actual glyph against the angular reading floor.
-                    var minimumActionSize = GlazeTokens.FontSize(GlazeTokens.Units(1.1875f));
+                    var minimumActionSize = GlazeTokens.FontSize(GlazeTokens.Units(FooterView.WrappedActionDegrees));
                     bool ActionSized(TMPro.TMP_Text label) => label.fontSize >= minimumActionSize - .00001f;
                     foreach (var (_, button) in reading.Footer.Shown.Where(entry => entry.Button.gameObject.activeInHierarchy))
                         if (!ActionSized(button.Label)) failures.Add(name + ": actual independent footer action fell below its 19dp role");

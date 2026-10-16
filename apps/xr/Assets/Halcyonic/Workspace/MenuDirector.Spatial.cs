@@ -14,6 +14,9 @@ namespace Halcyonic.XR.Workspace
             = new Dictionary<FileColumn, (float, bool, int, int)>();
         private readonly Dictionary<FileColumn, bool> composerFocus = new Dictionary<FileColumn, bool>();
         private void DropSpatialComposer(FileColumn file) { composerLayouts.Remove(file); composerFocus.Remove(file); }
+
+        /// <summary>The last measured Activity and composer pair decision, for the renders: field, readable text bands, clearance, and the bands' least em in degrees.</summary>
+        public (bool Inside, bool Readable, bool Clear, float LeastEm)? PairDecisionForRender { get; private set; }
         private object? contextOwner;
         private RealtimeSession? contextSession;
         private ClientProjection? contextState;
@@ -127,21 +130,30 @@ namespace Halcyonic.XR.Workspace
             var header = MenuFrameView.IndependentSubjectHeightOfRows(subjectRows, true, portrait,
                 MenuFrameView.IndependentProvenanceRows(marks, Glaze.Menu.FileColumnDegrees));
             var leftHeight = plane.Context.HeightFor(State?.Projects.Count ?? 0);
+            // The context column as WorkspaceContextView lays it, so the bands stand where it draws.
+            var context = new UnityEngine.Vector2(GlazeTokens.Units(WorkspaceContextView.WidthDegrees), leftHeight);
             var section = GlazeButton.HeightOf(true);
-            (bool Inside, bool Readable, bool Clear, float Width, float Height) lastFit = default;
+            (bool Inside, bool Readable, bool Clear, float Width, float Height, float LeastEm) lastFit = default;
             bool Fits(float activity, float instruction, bool focused = false)
             {
-                var heights = split && !focused
+                var pair = split && !focused;
+                var heights = pair
                     ? new[] { header + MenuPage.Content(activity) - FooterView.Height - MenuPage.TargetGap,
                         FooterView.Height + MenuPage.TargetGap + MenuPage.Content(instruction) }
                     : new[] { header + (focused ? MenuPage.Words(1) : section) + FooterView.Height + MenuPage.TargetGap + MenuPage.Content(instruction) };
                 var stacked = heights.Sum() + (heights.Length - 1) * PlaneComposition.Units(PlaneComposition.PartGapDegrees);
                 var envelope = MenuPlane.IndependentEnvelope(UnityEngine.Mathf.Max(leftHeight, stacked), header, portrait);
-                var composition = new PlaneComposition(new[] { new PlaneColumn(PlaneComposition.Units(WorkspaceContextView.WidthDegrees) + MenuPlane.PortraitClearance, envelope), new PlaneColumn(width, heights) }, zoom);
+                var composition = new PlaneComposition(new[] { new PlaneColumn(context.x + MenuPlane.PortraitClearance, envelope), new PlaneColumn(width, heights) }, zoom);
                 var inside = MenuPage.Inside(composition, direction, ViewField.Current ?? MenuPage.Quest3S);
-                var readable = MenuPage.Readable(composition);
+                // Text is measured where it can stand, at the parts' true offsets; the empty envelope
+                // corners stay in the field and clearance checks but hold no body text.
+                var parts = MenuPlane.IndependentParts(composition, context, heights);
+                var bands = MenuPlane.IndependentTextBands(parts.Context, pair
+                    ? new[] { (parts.Reading[0], false), (parts.Reading[1], true) }
+                    : new[] { (parts.Reading[0], true) }, zoom);
+                var readable = MenuPage.Readable(bands, zoom);
                 var clear = WorkspacePlacement.Clears(direction, occupied, composition.Size);
-                lastFit = (inside, readable, clear, composition.Width, composition.Height);
+                lastFit = (inside, readable, clear, composition.Width, composition.Height, MenuPage.LeastEm(bands, zoom));
                 return inside && readable && clear;
             }
             if (!split)
@@ -161,8 +173,9 @@ namespace Halcyonic.XR.Workspace
                 + terms.Target(3) + pager + terms.TargetGap;
             var minimumActivity = MenuPage.SourceLine + terms.Words(2) + terms.LineGap;
             var together = Fits(minimumActivity, minimumComposer);
+            PairDecisionForRender = (lastFit.Inside, lastFit.Readable, lastFit.Clear, lastFit.LeastEm);
 #if UNITY_EDITOR
-            UnityEngine.Debug.Log($"Halcyonic: independent measured allocation minActivity={minimumActivity:R}; minComposer={minimumComposer:R}; titleHeader={header:R}; pairFits={together}; inside={lastFit.Inside}; readable={lastFit.Readable}; clear={lastFit.Clear}; width={lastFit.Width:R}; height={lastFit.Height:R}; pairedPager={paired}; textScale={zoom:R}.");
+            UnityEngine.Debug.Log($"Halcyonic: independent measured allocation minActivity={minimumActivity:R}; minComposer={minimumComposer:R}; titleHeader={header:R}; pairFits={together}; inside={lastFit.Inside}; readable={lastFit.Readable}; leastEm={lastFit.LeastEm:R}; clear={lastFit.Clear}; width={lastFit.Width:R}; height={lastFit.Height:R}; pairedPager={paired}; textScale={zoom:R}.");
 #endif
             if (owner != null) composerFocus[owner] = !together;
             if (!together)

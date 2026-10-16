@@ -36,6 +36,77 @@ namespace Halcyonic.XR.Workspace
         public PlanePart? ReaderAllocation { get; private set; }
         public PlanePart? ComposerAllocation { get; private set; }
 
+        /// <summary>Where the context column's text can stand, as the independent workspace was last laid (<see cref="IndependentTextBands"/>).</summary>
+        public IReadOnlyList<TextBand> ContextTextBands { get; private set; } = Array.Empty<TextBand>();
+
+        /// <summary>Where the reading part's text can stand, Activity's beside a composer, as last laid.</summary>
+        public IReadOnlyList<TextBand> ReaderTextBands { get; private set; } = Array.Empty<TextBand>();
+
+        /// <summary>Where the composer's text can stand, as last laid; none when no composer was invoked.</summary>
+        public IReadOnlyList<TextBand> ComposerTextBands { get; private set; } = Array.Empty<TextBand>();
+
+        /// <summary>
+        /// The independent workspace's actual parts on <paramref name="composition"/>: the context
+        /// column at the left column's left, its top at <see cref="IndependentTop"/>, and the reading
+        /// parts down the right column from the same top, a part gap apart. The plane lays exactly
+        /// these, and the reading model measures text in them.
+        /// </summary>
+        public static (PlanePart Context, PlanePart[] Reading) IndependentParts(PlaneComposition composition, Vector2 context, IReadOnlyList<float> heights)
+        {
+            var zoom = composition.Zoom;
+            var left = composition.Parts.First(part => part.Column == 0);
+            var right = composition.Parts.First(part => part.Column == 1);
+            var contextPart = new PlanePart(0, 0, context.x * zoom, context.y * zoom, left.Right - PortraitClearance * zoom / 2f,
+                IndependentTop * zoom - context.y * zoom / 2f);
+            var top = IndependentTop * zoom;
+            var gap = PlaneComposition.Units(PlaneComposition.PartGapDegrees) * zoom;
+            var reading = new PlanePart[heights.Count];
+            for (var index = 0; index < heights.Count; index++)
+            {
+                reading[index] = new PlanePart(1, index, right.Width, heights[index] * zoom, right.Right, top - heights[index] * zoom / 2f);
+                top -= heights[index] * zoom + gap;
+            }
+            return (contextPart, reading);
+        }
+
+        /// <summary>
+        /// Where the independent workspace's text can stand, for the reading model
+        /// (<see cref="MenuPage.LeastEm"/>), at body size unless said: the context column whole;
+        /// in each reading part, within its content padding, words from the part's top down to its
+        /// foot, or, over a footer, down to the 12 mm above the footer's lowest row; and that row's
+        /// action words at <see cref="FooterView.WrappedActionDegrees"/>, from their row's middle, out
+        /// to the prompt margin. Each reaches a little past its words' boxes for ink: a twentieth of
+        /// an em at either side for side bearings, a tenth under the action row for descenders.
+        /// Empty envelope and portrait corners hold no text, so they are no band; the field and
+        /// clearance checks still take them.
+        /// </summary>
+        public static TextBand[] IndependentTextBands(PlanePart context, IReadOnlyList<(PlanePart Part, bool Footer)> reading, float zoom) =>
+            new[] { ContextTextBand(context) }.Concat(reading.SelectMany(each => PartTextBands(each.Part, each.Footer, zoom))).ToArray();
+
+        /// <summary>The context column's text, conservatively anywhere on it, at body size.</summary>
+        public static TextBand ContextTextBand(PlanePart context) =>
+            new TextBand(context.Left, context.Left + context.Width, context.Bottom, context.Top, Glaze.Menu.BodyDegrees);
+
+        /// <summary>One reading part's text bands (<see cref="IndependentTextBands"/>), with or without its footer.</summary>
+        public static TextBand[] PartTextBands(PlanePart part, bool footer, float zoom)
+        {
+            // PlanePart.Right is its centre's offset; its right edge is Left + Width.
+            var edge = part.Left + part.Width;
+            var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees) * zoom - 0.05f * GlazeTokens.Units(Glaze.Menu.BodyDegrees) * zoom;
+            if (!footer) return new[] { new TextBand(part.Left + padding, edge - padding, part.Bottom, part.Top, Glaze.Menu.BodyDegrees) };
+            var action = GlazeTokens.Units(FooterView.WrappedActionDegrees) * zoom;
+            var reach = (GlazeTokens.Units(Glaze.Menu.PaddingDegrees) - GlazeTokens.Units(Glaze.Menu.PromptMarginDegrees)) * zoom - 0.05f * action;
+            var room = GlazeTokens.Units(1f) * zoom;
+            var row = FooterView.Height * zoom;
+            var wordsFoot = Mathf.Min(part.Top, part.Bottom + room + row + MenuPage.TargetGap * zoom);
+            var actionsFoot = Mathf.Min(wordsFoot, part.Bottom + room + row / 2f - 0.6f * action);
+            return new[]
+            {
+                new TextBand(part.Left + padding, edge - padding, wordsFoot, part.Top, Glaze.Menu.BodyDegrees),
+                new TextBand(part.Left + reach, edge - reach, actionsFoot, wordsFoot, FooterView.WrappedActionDegrees),
+            };
+        }
+
         private MenuFrameView? pendingIndependentDraw;
         private MenuFrame? pendingIndependentFrame;
         private SidePanel? pendingIndependentSide;
@@ -110,26 +181,24 @@ namespace Halcyonic.XR.Workspace
             shownFileColumn = kind == MenuColumn.File ? fileColumn : null;
             MenuAside = menuFrame != null && fileFrame != null; FileAside = false;
             Chrome.Hide(); bar.Hide(); cover.SetActive(true);
-            var left = Composition.Parts.First(part => part.Column == 0);
-            contextAllocation = new PlanePart(0, 0, Context.Size.x * zoom, Context.Size.y * zoom, left.Right - PortraitClearance * zoom / 2f,
-                IndependentTop * zoom - Context.Size.y * zoom / 2f);
+            var parts = IndependentParts(Composition, Context.Size, heights);
+            contextAllocation = parts.Context;
             SlideTo(Context.transform, contextAllocation, zoom, null, immediately);
-            var top = IndependentTop * zoom;
-            var right = Composition.Parts.First(part => part.Column == 1);
-            var gap = PlaneComposition.Units(PlaneComposition.PartGapDegrees) * zoom;
             ReaderAllocation = null; ComposerAllocation = null;
             if (hasActivity)
             {
-                var reading = new PlanePart(1, 0, right.Width, activityHeight * zoom, right.Right, top - activityHeight * zoom / 2f);
+                var reading = parts.Reading[0];
                 ReaderAllocation = reading;
                 if (!activityWas || !was) activityContext.Open(false, frames);
                 SlideTo(activityContext.Parts[0], reading, zoom, null, immediately || !activityWas);
                 activityContext.Settle(reading, zoom);
-                top -= activityHeight * zoom + gap;
             }
-            var placed = new PlanePart(1, hasActivity ? 1 : 0, right.Width, primaryHeight * zoom, right.Right, top - primaryHeight * zoom / 2f);
+            var placed = parts.Reading[parts.Reading.Length - 1];
             if (hasActivity || ComposerFocused) ComposerAllocation = placed;
             if (!hasActivity) ReaderAllocation = placed;
+            ContextTextBands = new[] { ContextTextBand(contextAllocation) };
+            ReaderTextBands = ReaderAllocation is PlanePart reader ? PartTextBands(reader, !hasActivity, zoom) : Array.Empty<TextBand>();
+            ComposerTextBands = ComposerAllocation is PlanePart composer ? PartTextBands(composer, true, zoom) : Array.Empty<TextBand>();
             if (!was || hasActivity != activityWas) primary.Open(false, frames);
             else if (Vector3.Distance(primary.Parts[0].position, PlaneLayout.PointOf(eyes, Direction, placed.Right, placed.Up)) > MovedMeters) primary.Unsettle();
             SlideTo(primary.Parts[0], placed, zoom, null, immediately || !was);
