@@ -809,21 +809,24 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(GlazeChecks.TypeStepsDownLabels(ordinary, contentShape.Root, eyes, name));
                 if (independent)
                 {
-                    // Actions are a separate semantic region, not the last descending body row.
-                    // The candidate deliberately uses 19dp action text; shared TextAsSeen below
-                    // still measures every actual glyph against the angular reading floor.
-                    var minimumActionSize = GlazeTokens.FontSize(GlazeTokens.Units(FooterView.WrappedActionDegrees));
-                    bool ActionSized(TMPro.TMP_Text label) => label.fontSize >= minimumActionSize - .00001f;
+                    // Actions are a separate semantic region, not the last descending body row: exactly
+                    // the measured 19dp role (FooterView.WrappedActionDegrees), never smaller or larger.
+                    // Shared TextAsSeen below still measures every actual glyph against the reading floor.
+                    var actionRoleSize = GlazeTokens.FontSize(GlazeTokens.Units(FooterView.WrappedActionDegrees));
+                    bool ActionSized(TMPro.TMP_Text label) => Mathf.Abs(label.fontSize - actionRoleSize) <= .00001f;
                     foreach (var (_, button) in reading.Footer.Shown.Where(entry => entry.Button.gameObject.activeInHierarchy))
-                        if (!ActionSized(button.Label)) failures.Add(name + ": actual independent footer action fell below its 19dp role");
+                        if (!ActionSized(button.Label)) failures.Add(name + ": actual independent footer action is not its measured 19dp role");
                     var action = reading.Footer.Shown.FirstOrDefault(entry => entry.Button.gameObject.activeInHierarchy).Button;
                     if (action != null)
                     {
                         var before = action.Label.fontSize;
                         try
                         {
-                            action.Label.fontSize = minimumActionSize * .9f;
+                            action.Label.fontSize = actionRoleSize * .9f;
                             if (ActionSized(action.Label)) failures.Add(name + ": action-role checker accepted undersized actual text");
+                            // 24 dp, a title's size, is not an action's role either.
+                            action.Label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(Glaze.Menu.TitleDegrees));
+                            if (ActionSized(action.Label)) failures.Add(name + ": action-role checker accepted a 24dp actual action");
                         }
                         finally { action.Label.fontSize = before; action.Label.ForceMeshUpdate(); }
                     }

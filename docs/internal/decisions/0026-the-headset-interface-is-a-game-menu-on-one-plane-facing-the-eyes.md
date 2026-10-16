@@ -101,7 +101,9 @@ today and, once built, in lane U's renders of every surface:
 3. **One selection treatment (checked).** Chosen, a shape lights up, white at 10 percent, and gains a
    crisp white frame; pointed at, it gains the frame alone, fainter. Places, sections, rows, answers
    and prompts all use it. Nothing is marked by an underline or a bar, and the accent marks only the
-   main action.
+   main action. Amended 2026-10-16 (below): on the independent workspace candidate, the context's
+   selected project choice takes the coated material's quiet lift, white at 6 percent with the lit
+   frame.
 4. **Type only steps down (checked).** Three sizes on the menu's surfaces: Title, 24 dp, drawn light,
    for the subject, one a column; Body, 18 dp, for the sections, the content and the prompts; Label,
    15 dp, for small facts inside a row (below, a side panel's fact names). From the top of a
@@ -111,6 +113,8 @@ today and, once built, in lane U's renders of every surface:
    or unavailable, it stays in the secondary colour and its words say so: amber means waiting for you
    and nothing else. Only the chosen section and the main action are drawn heavier. The one
    exception: a state pill on a subject's top edge, the split header's, reads with that subject.
+   Amended 2026-10-16 (below): on the independent workspace candidate, footer actions are their own
+   measured role, exactly 19 dp, not the last step of a column's body.
 5. **One grid.** An 8 dp step: 24 dp padding, 16 dp between groups, 8 dp from a label to its value.
    Words and icons start on one left content line, small facts and chevrons end on the right one, and
    icons stand in a fixed 24 dp column. A shape round words, as an answer or a well, reaches 0.7
@@ -458,7 +462,9 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   Pills, the light line, prompts, places and sections carry Halcyonic's words only. Halcyonic adds no
   quotes and no leads such as "It says:"; a claim's chip stays as its class, never the only mark; and
   theirs is cut first, inside its ground. Lane W applies it as batch B of the outside-text audit
-  ([outside-text-audit.md](../validation/outside-text-audit.md)).
+  ([outside-text-audit.md](../validation/outside-text-audit.md)). Amended 2026-10-16 (below): on the
+  independent workspace candidate, agent prose attributed whole and the ordinary instruction input
+  stand upright; mixed lines keep their lean and ground.
 - **The stage's lines stand above the stage** (lane V and the coordinator, after lane C's render found
   the banner under the labels overlapping the closed bar by about 2 degrees). The demonstration's two
   lines and a live session's lines stand raised above the stage, never under the labels. "Connected to
@@ -559,3 +565,28 @@ The established workspace's indefinite fixed anchor is superseded for the main a
 behind and left view. Stable in-view reading, the first-pose readiness gate, deliberate room/agent
 placement and native OS panel ownership remain. Legacy fixed-anchor renderer setups are comparison
 fixtures; they no longer define production head-movement acceptance.
+
+## Independent workspace candidate amendment, 2026-10-16
+
+The independent workspace candidate (STYLE.md, XR_CLIENT.md) departs from three decisions above on
+its own surfaces only; legacy consumers keep them unchanged.
+
+- **Outside words.** Agent prose attributed whole (every run theirs, beside its Agent says or
+  Subagent says chip and Halcyonic's quote mark) and the ordinary instruction input (its label says
+  whose words they are) stand upright in an explicit prose mode, with literal escaping and exact
+  outside-text ranges kept. Two marks still attribute every upright agent line. A line where
+  Halcyonic's words lead into theirs, as "Failing: {x}" beside an Agent says chip, keeps its lean,
+  ground and grounded colour, so a claim's chip is never the only mark. The renders hold both: a
+  probe lays such a mixed line and the same report whole on a real pooled view.
+- **Decision 3.** The context's selected project choice uses the coated material's quiet lift,
+  white at 6 percent with the lit frame at its measured width, instead of the 10 percent fill; the
+  renders require exactly that treatment for that choice, with a negative witness, and hold every
+  other surface to one selection treatment.
+- **Decision 4.** Footer actions are their own measured role, exactly 19 dp
+  (`FooterView.WrappedActionDegrees`), not the last descending step of a column's body; the renders
+  reject both an undersized and a 24 dp action, and still measure every glyph against the reading
+  floor.
+
+These follow AUDIT's review of the candidate (2026-10-16), which found the chip left as the only mark
+on mixed lines and the footer bound one-sided; both are corrected here. Wearer acceptance of upright
+attributed prose remains open ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).

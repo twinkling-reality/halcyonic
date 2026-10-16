@@ -1097,15 +1097,20 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
+        /// On the independent surface, upright prose is the ordinary instruction field, its input label
+        /// supplying the context, and agent prose attributed whole: runs all theirs, beside an Agent says
+        /// or Subagent says chip and Halcyonic's quote mark. A mixed line, Halcyonic's words leading into
+        /// theirs, keeps its lean, ground and grounded colour, so the chip is never the only mark
+        /// (ADR 0026). Outputs, names, decisions and unattributed outside text keep their treatment.
+        /// </summary>
+        public static bool UsesUprightProse(bool independent, PageLine line) => independent
+            && (line.Control == LineControl.Input && line.Action == FileScreens.EditInstruction
+                || line.Action == null && line.Runs.AllTheirs && (line.Chip == "Agent says" || line.Chip == "Subagent says"));
+
+        /// <summary>
         /// Lays a page line from <paramref name="top"/> between the content lines at
         /// <paramref name="left"/> and <paramref name="right"/>; returns its foot.
         /// </summary>
-        /// <summary>Only already-attributed agent prose and the ordinary instruction field opt in.
-        /// Outputs, names, decisions and unattributed outside text keep their existing treatment.</summary>
-        public static bool UsesUprightProse(bool independent, PageLine line) => independent
-            && (line.Control == LineControl.Input && line.Action == FileScreens.EditInstruction
-                || line.Action == null && (line.Chip == "Agent says" || line.Chip == "Subagent says"));
-
         private float LayLine(Line line, PageLine model, float left, float right, float top, Vector2 center, float zoom)
         {
             if (model.ProjectIdentity) return LayProjectIdentity(line, model, left, right, top);

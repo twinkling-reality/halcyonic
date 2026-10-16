@@ -239,6 +239,45 @@ namespace Halcyonic.XR.Workspace.Editor
                     && !MenuFrameView.UsesUprightProse(false, new PageLine("synthetic report", chip: "Agent says")),
                     "prose eligibility leaked into data, decisions or legacy consumers");
                 UnityEngine.Object.DestroyImmediate(proseProbe.gameObject);
+                // A mixed line, Halcyonic's words leading into the agent's, keeps lean, ground and grounded
+                // colour beside its chip on a real pooled label: the chip is never the only mark (ADR 0026).
+                // The same report whole stays upright prose with its quote mark.
+                var mixed = new PageLine(LineWords.Ours("Failing: ") + LineWords.Theirs("synthetic remaining item"), chip: "Agent says");
+                var whole = new PageLine(LineWords.Theirs("synthetic whole report"), chip: "Agent says");
+                Require(!MenuFrameView.UsesUprightProse(true, mixed) && MenuFrameView.UsesUprightProse(true, whole),
+                    "upright prose eligibility no longer separates mixed lines from agent prose attributed whole");
+                var attributionProbe = MenuFrameView.Create(root.transform, "Mixed attribution probe");
+                try
+                {
+                    attributionProbe.SpatialWorkspace = true; attributionProbe.IndependentSurface = true; attributionProbe.PassiveActivity = true;
+                    attributionProbe.Show(new MenuFrame(LineWords.Ours("Attribution probe"), new Footer(), lines: new[] { mixed, whole }),
+                        Glaze.Menu.FileColumnDegrees, 0f, false);
+                    bool Leans(TMPro.TMP_Text label)
+                    {
+                        label.ForceMeshUpdate();
+                        var info = label.textInfo;
+                        for (var index = 0; index < info.characterCount; index++)
+                        {
+                            var glyph = info.characterInfo[index];
+                            if (!glyph.isVisible || !GlazeText.InRun(info, index, GlazeRuns.Of(label).Theirs)) continue;
+                            var vertices = info.meshInfo[glyph.materialReferenceIndex].vertices;
+                            if (vertices[glyph.vertexIndex + 1].x - vertices[glyph.vertexIndex].x > 1e-5f) return true;
+                        }
+                        return false;
+                    }
+                    foreach (var shown in attributionProbe.ShownLines)
+                    {
+                        var runs = GlazeRuns.Of(shown.Words);
+                        if (ReferenceEquals(shown.Model, mixed))
+                            Require(!runs.IsAttributedProse && runs.Theirs.Count > 0 && Leans(shown.Words) && runs.Grounded != null && shown.Grounds.Any(),
+                                "a mixed Agent says line lost its lean, ground or grounded colour beside its chip");
+                        else if (ReferenceEquals(shown.Model, whole))
+                            Require(runs.IsAttributedProse && !Leans(shown.Words) && shown.Icon != null && shown.Icon.gameObject.activeInHierarchy,
+                                "agent prose attributed whole lost its upright treatment or its quote mark");
+                    }
+                    Require(attributionProbe.ShownLines.Count() == 2, "attribution probe did not lay both lines");
+                }
+                finally { UnityEngine.Object.DestroyImmediate(attributionProbe.gameObject); }
                 var authoritativeDraws = 0;
                 director.Plane.Drawn += (_, view) =>
                 {

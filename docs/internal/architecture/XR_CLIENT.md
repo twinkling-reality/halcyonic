@@ -2139,7 +2139,11 @@ parsing on and `LabelText.ForTextMeshPro`, so it interprets no markup and no esc
 hides nothing. A line cut short ends in an ellipsis. Text from outside, a line's runs of theirs
 (`LineWords`), leans on one label: its letters sheared by the font's own italic amount after
 TextMeshPro lays them out (`GlazeText.Lean` over each run's range, the same shear as TextMeshPro's
-italic), and Halcyonic's stay upright. Where theirs meets Halcyonic's words it stands on a ground only
+italic), and Halcyonic's stay upright. On the independent workspace candidate (amended 2026-10-16,
+ADR 0026), `MenuFrameView.UsesUprightProse` sets an explicit upright prose mode only for a
+chip-attributed line whose runs are all theirs, which also carries Halcyonic's quote mark, and for
+the ordinary instruction input; a line mixing Halcyonic's words with theirs keeps its lean, ground
+and grounded colour beside the chip. Where theirs meets Halcyonic's words it stands on a ground only
 Halcyonic draws (`GlazeRuns`: white at 2 percent over the glass with a 5 percent hairline, both blended
 in linear space as Unity blends, so it lifts the glass by about a fifth of what a chosen row's fill does;
 0.32 degree corners; the full 0.25 degrees past the words each side, in the space `LineWords` adds, or
@@ -3291,7 +3295,9 @@ hit targets, type floors and measured field limits together. This retains the ex
 journal/session/command authority and draft state;
 it adds no executor capability. Explicit task/project identity metadata opts the main heading
 into a named, upright title beneath its host-owned kind caption, preserving literal escaping
-and outside-text ranges. Other prose keeps its provenance treatment.
+and outside-text ranges. Other prose keeps its provenance treatment, except chip-attributed agent
+prose whose runs are all theirs and the ordinary instruction input, which stand upright on the
+independent surface; mixed lines keep their lean and ground (amended 2026-10-16).
 
 The exact character whose expanded main task file shows that identity does not repeat its title
 plaque. State and provenance remain on the character; title visibility returns with navigation,
