@@ -39,7 +39,7 @@ public class AppearanceSettingsTests
         Assert.That(GlazePalette.Presets.Select(palette => palette.Key), Is.EqualTo(new[] { "neutral", "glaze", "graphite" }));
         Assert.That(GlazePalette.Default, Is.SameAs(GlazePalette.Neutral));
         Assert.That(GlazePalette.InstrumentStudy, Is.SameAs(GlazePalette.Neutral));
-        Assert.That(Surfaces(GlazePalette.Neutral), Is.EqualTo(new[] { "#242726", "#2E3330", "#3A423D", "#49534C", "#59645C", "#1D211F", "#E9E7E0", "#B9BEB9", "#949D96", "#78887C" }));
+        Assert.That(Surfaces(GlazePalette.Neutral), Is.EqualTo(new[] { "#242424", "#2E2E2E", "#3A3A3A", "#494949", "#595959", "#1D1D1D", "#F2F2F2", "#C4C4C4", "#A0A0A0", "#8A8A8A" }));
         Assert.That(Surfaces(AppearanceSettings.Load("version=1;theme=glaze").Applied), Is.EqualTo(new[] { "#1B222D", "#242D3A", "#303C4E", "#3B4A61", "#46566F", "#151B24", "#EEF2F6", "#AAB5C2", "#8A96A5", "#73839A" }));
         Assert.That(Surfaces(AppearanceSettings.Load("version=1;theme=graphite").Applied), Is.EqualTo(new[] { "#20242A", "#2A3038", "#363F49", "#45505D", "#526071", "#191D23", "#EEF2F6", "#AAB5C2", "#8A96A5", "#73839A" }));
         Assert.That(GlazePalette.Graphite.Tone(GlazeTone.Accent).Strong.ToString(), Is.EqualTo("#98BAF0"));
