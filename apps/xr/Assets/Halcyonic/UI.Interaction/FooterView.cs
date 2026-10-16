@@ -97,8 +97,9 @@ namespace Halcyonic.XR.UI
                     continue;
                 }
                 var button = Button(index);
-                // Independent action labels retain margin above the angular floor at the reader edge.
-                button.Label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(wrap ? 1f : GlazeText.DegreesOf(GlazeType.Body)));
+                // Existing body em is 1.125°; reserve another 1/16° for the measured edge loss.
+                // Actual glyph-angle checks remain authoritative; never reduce text to fit actions.
+                button.Label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(wrap ? Mathf.Max(1.1875f, GlazeText.DegreesOf(GlazeType.Body)) : GlazeText.DegreesOf(GlazeType.Body)));
                 // A prompt whose words say what is under way, as Sent… or Hold to talk writing down, shimmers in the
                 // secondary tone; Hold to talk listening takes the active tone, its microphone pulsing (ADR 0027).
                 shimmers[index]!.Waits = prompt.Waits;
