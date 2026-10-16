@@ -122,6 +122,12 @@ namespace Halcyonic.XR.UI
         private float subjectUnsettledAt = float.NegativeInfinity;
 
         public bool SpatialWorkspace { get; set; }
+        /// <summary>This independently placed reading object owns its complete opaque backing.</summary>
+        public bool IndependentSurface { get; set; }
+        public Surface ReadingSurface => IndependentSurface ? unifiedPlate : content;
+        /// <summary>Actual Activity context carries no controls and cannot report editor reading.</summary>
+        public bool PassiveActivity { get; set; }
+        public string? HeadingOverride { get; set; }
         public CharacterPresentation? TaskPortrait { get; set; }
         public double? TaskPortraitHue { get; set; }
         private TaskIdentityAvatarView portrait = null!;
@@ -331,6 +337,16 @@ namespace Halcyonic.XR.UI
             return measuringHero;
         }
 
+        public static int IndependentTitleRows(string subject, float columnDegrees) =>
+            Mathf.Clamp(Count(Measuring(Glaze.HeroDegrees), subject, ContentWidth(columnDegrees)), 1, SubjectRows);
+
+        public static float IndependentSubjectHeightOfRows(int rows, bool pillRoom, bool portrait = false)
+        {
+            var room = pillRoom ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
+            return Mathf.Max(portrait ? PortraitHeight + 2f * U(Glaze.Menu.SubjectPaddingDegrees) : 0f,
+                room + Mathf.Max(U(Glaze.TargetDegrees), SpatialInner(room) + rows * GlazeText.LineHeight(Measuring(Glaze.HeroDegrees)) + 2f * U(Glaze.Menu.SubjectPaddingDegrees)));
+        }
+
         public static int SpatialTitleRows(string subject, float columnDegrees, bool portrait = false) =>
             Mathf.Clamp(Count(HeroMeasure(), subject, ContentWidth(columnDegrees) - (portrait ? PortraitWidth + MenuPage.TargetGap : 0f)), 1, SubjectRows);
 
@@ -344,6 +360,7 @@ namespace Halcyonic.XR.UI
         public float SpatialSubjectHeight(string subject, float columnDegrees, bool pillRoom)
         {
             subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
+            if (IndependentSurface) return IndependentSubjectHeightOfRows(IndependentTitleRows(subject, columnDegrees), pillRoom, HasPortrait);
             return SpatialSubjectHeightOfRows(SpatialTitleRows(subject, columnDegrees, HasPortrait), pillRoom, HasPortrait);
         }
 
@@ -387,7 +404,8 @@ namespace Halcyonic.XR.UI
             Begin(columnDegrees, subject, pillRoom || shown.Pill != null && !stateInHeader);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
-            LaySubject(shown.SubjectRuns, stateInHeader ? null : shown.Pill, shown.IdentityKind);
+            LaySubject(HeadingOverride == null ? shown.SubjectRuns : LineWords.Ours(HeadingOverride),
+                HeadingOverride != null || stateInHeader ? null : shown.Pill, HeadingOverride == null ? shown.IdentityKind : null);
             LaySections(shown.Sections, shown.SectionSlots);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
@@ -825,15 +843,18 @@ namespace Halcyonic.XR.UI
         private void LaySubject(LineWords words, StateBadge? badge, MenuIdentityKind? identityKind)
         {
             var padding = U(Glaze.Menu.PaddingDegrees);
-            var portraitRoom = HasPortrait ? PortraitWidth + MenuPage.TargetGap : 0f;
+            var portraitRoom = HasPortrait && !IndependentSurface ? PortraitWidth + MenuPage.TargetGap : 0f;
             var left = -width / 2f + padding + portraitRoom;
             var room = width - 2f * padding - portraitRoom - (OrganizationControls ? OrganizationControlsView.Width() + MenuPage.TargetGap : 0f);
             // A title all of outside text leans in its plate, which is its ground; the pill on the plate's edge stays upright.
             if (HasPortrait)
-                portrait.Show(TaskPortrait!, TaskPortraitHue, new Vector2(-width / 2f + PortraitWidth / 2f, 0f), new Vector2(PortraitWidth, PortraitHeight));
+                portrait.Show(TaskPortrait!, TaskPortraitHue, new Vector2(-width / 2f + (IndependentSurface ? -PortraitWidth / 4f : PortraitWidth / 2f), 0f), new Vector2(PortraitWidth, PortraitHeight));
             else portrait.Hide();
             var namedIdentity = SpatialWorkspace && identityKind != null;
             if (SpatialWorkspace) subjectTitle.fontSize = GlazeTokens.FontSize(U(Glaze.HeroDegrees));
+            subjectTitle.font = IndependentSurface ? Measuring(Glaze.HeroDegrees).font : HeroMeasure().font;
+            GlazeText.SetStrong(subjectTitle, false);
+            subjectTitle.fontStyle = FontStyles.Normal;
             var theirs = namedIdentity
                 ? GlazeRuns.Of(subjectTitle).SetIdentity(words.Text, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows)
                 : GlazeRuns.Of(subjectTitle).Set(words, shown => GlazeText.Lay(subjectTitle, room, Unlimited).Lines <= SubjectRows);
@@ -956,7 +977,7 @@ namespace Halcyonic.XR.UI
 
             // How tall it needs to be first, from a top at 0, then laid from its own top.
             // The last target and the prompts stand 12 mm apart, the footer's line between them.
-            var needed = -LayFrom(0f) + TargetGap + FooterView.Height + U(1f);
+            var needed = -LayFrom(0f) + (PassiveActivity ? U(1f) : TargetGap + FooterView.Height + U(1f));
             var tall = Mathf.Max(height, needed);
             var top = tall / 2f;
             LayFrom(top);
@@ -1017,9 +1038,10 @@ namespace Halcyonic.XR.UI
             var footerMiddle = -top + U(1f) + FooterView.Height / 2f;
             // Hold to talk shows where the voice stands, the same in every column (Footer.Voiced).
             var prompts = frame?.Footer ?? carried ?? SidePanel.Footer;
-            footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle, boundedControls: SpatialWorkspace);
+            footer.gameObject.SetActive(!PassiveActivity);
+            if (!PassiveActivity) footer.Show(Voice is (string held, VoiceStage stage) ? prompts.Voiced(held, stage) : prompts, left, right, footerMiddle, boundedControls: SpatialWorkspace);
             // A faint line between the page and its footer, too faint to mark anything.
-            footerLine.gameObject.SetActive(!SpatialWorkspace);
+            footerLine.gameObject.SetActive(!SpatialWorkspace && !PassiveActivity);
             footerLine.Draw(new Vector2(width - 2f * U(1f), U(0.05f)), 0f, new Color(1f, 1f, 1f, 0.09f));
             footerLine.transform.localPosition = new Vector3(0f, footerMiddle + FooterView.Height / 2f + TargetGap / 2f, -U(0.02f));
             // The light ends within the top padding, above the first row: a row looks lit only when chosen.
@@ -1373,7 +1395,9 @@ namespace Halcyonic.XR.UI
             // Chrome's one coated face includes this task and its context. No opaque poster
             // or independent title/tab surface sits on a second clear carrier.
             subjectPlate.gameObject.SetActive(false);
-            unifiedPlate.Draw(Vector2.zero, 0f, Color.clear);
+            if (IndependentSurface)
+                unifiedPlate.DrawCoatedInstrument(new Vector2(width, total), U(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Palette.Raised));
+            else unifiedPlate.Draw(Vector2.zero, 0f, Color.clear);
             unifiedPlate.transform.localPosition = Vector3.zero;
             unifiedBacking.gameObject.SetActive(false);
         }

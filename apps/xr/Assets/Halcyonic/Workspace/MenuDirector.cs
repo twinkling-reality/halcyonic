@@ -274,6 +274,9 @@ namespace Halcyonic.XR.Workspace
                 director.Open(MenuPlace.Projects);
             };
             director.plane.Drawn += director.OnDrawn;
+            director.plane.ContextProjectPressed += director.OnContextProject;
+            director.plane.ContextPlacePressed += director.OnContextPlace;
+            director.plane.ContextWorkspacePressed += director.OnContextWorkspace;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
             director.plane.SubjectPressed += director.OnSubjectPressed;
@@ -637,15 +640,14 @@ namespace Halcyonic.XR.Workspace
             var rotation = Quaternion.LookRotation(forward, Vector3.up);
             var field = ViewField.Current ?? MenuPage.Quest3S;
             var outside = false;
-            for (var x = -1; x <= 1; x += 2) for (var y = -1; y <= 1; y += 2)
+            foreach (var corner in plane.WorkspaceCorners)
             {
-                var corner = plane.Chrome.transform.TransformPoint(new Vector3(plane.Chrome.Size.x * x * 0.5f, plane.Chrome.Size.y * y * 0.5f, 0));
                 var relative = Quaternion.Inverse(rotation) * (corner - stage.Eyes);
                 var yaw = Mathf.Atan2(relative.x, relative.z) * Mathf.Rad2Deg;
                 var pitch = Mathf.Atan2(relative.y, new Vector2(relative.x, relative.z).magnitude) * Mathf.Rad2Deg;
                 if (relative.z <= 0 || !field.Shows(yaw, pitch)) outside = true;
             }
-            var distance = Vector3.Distance(stage.Eyes, plane.Chrome.transform.position);
+            var distance = Vector3.Distance(stage.Eyes, plane.WorkspaceCentre);
             outside |= distance < PlaneComposition.Distance * 0.65f || distance > PlaneComposition.Distance * 1.5f;
             var recover = workspaceFollow.Update(now,
                 headPosition, headForward, outside, blocked, plane.Sliding);
@@ -730,6 +732,7 @@ namespace Halcyonic.XR.Workspace
             shownBar = bar;
             // Tasks keeps the row of the file beside the menu chosen.
             if (navigator.Shown is TasksColumn tasks) tasks.Showing(navigator.BesideTask);
+            ConfigureSpatialComposer();
             var (menu, beside) = navigator.Frames(bar);
             var stage = setup.StageNow();
             ApplyCharacterColours();
@@ -757,6 +760,7 @@ namespace Halcyonic.XR.Workspace
             plane.SelectionContext = WorkspaceContext();
             plane.OtherAppsAvailable = CanOpenOtherApps;
             plane.Chrome.MoveMode = moveMode;
+            PrepareSpatialContext();
             void ShowComposition() => plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved, placement ?? (object?)navigator.Beside, navigator.IsCompact ? CompactIdentity() : null, navigator.IsCompact ? CompactState() : null,
                 navigator.IsCompact && State != null ? State.Workstreams.Values.Count(item => item.Attention.Level == AttentionLevel.ActionRequired) : 0,
                 navigator.IsCompact ? (object?)navigator.Beside ?? navigator.Shown ?? (object)navigator : null);
@@ -926,7 +930,8 @@ namespace Halcyonic.XR.Workspace
             if (Away || plane.Repositioning || dirty || drag != null || plane.Sliding) return false;
             // Global frame controls remain usable over a local overlay. Its task/content input
             // still belongs exclusively to the exact overlay frame that was physically drawn.
-            if (frame == null && side == null) return plane.Chrome.Visible || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
+            if (frame == null && side == null) return plane.Chrome.Visible || plane.Context.gameObject.activeInHierarchy
+                || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
             if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
         }
@@ -1222,7 +1227,8 @@ namespace Halcyonic.XR.Workspace
 
         public bool FitsHalf(PageLine answer, float columnDegrees) => MenuFrameView.FitsHalf(answer, columnDegrees);
 
-        public int TitleRows(string subject, float columnDegrees) => plane.SpatialWorkspace
+        public int TitleRows(string subject, float columnDegrees) => SeparateWorkspace
+            ? MenuFrameView.IndependentTitleRows(subject, Glaze.Menu.FileColumnDegrees) : plane.SpatialWorkspace
             ? MenuFrameView.SpatialTitleRows(subject, Glaze.Menu.FileColumnDegrees, HasTaskPortrait) : MenuFrameView.TitleRows(subject, columnDegrees);
 
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
@@ -1244,6 +1250,7 @@ namespace Halcyonic.XR.Workspace
                 return MenuPage.Height(TextSize, subjectRows, 0f, ViewField.Current, besideMenu, focused, WorkspaceChromeView.Height,
                     centered: true, placement: direction, occupied: occupied, readable: focused);
             if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows));
+            if (SeparateWorkspace) return IndependentPageHeight(subjectRows, false, false);
             // Spatial chooser navigation shares the object header, without an empty rail column.
             // A standalone wizard retains its actual sections; a focused task omits them.
             var zoom = TextSize == TextSize.Larger ? Comfort.LargerTextScale : 1f;

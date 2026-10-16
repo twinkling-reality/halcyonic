@@ -18,7 +18,7 @@ namespace Halcyonic.XR.Workspace
     /// and comes back from there, easing out as what arrives does. Closed with no file open, the menu is its bar. The light line joins the
     /// file's character's label to the file's subject.
     /// </summary>
-    public sealed class MenuPlane : MonoBehaviour
+    public sealed partial class MenuPlane : MonoBehaviour
     {
         private const float LineStart = 0.003f;
         private const float LineEnd = 0.0012f;
@@ -219,7 +219,7 @@ namespace Halcyonic.XR.Workspace
         public bool Repositioning
         {
             get => repositioning;
-            set { repositioning = value; foreach (var view in frameViews) view.InputSuspended = value; }
+            set { repositioning = value; if (value) pendingIndependentDraw = null; foreach (var view in frameViews) view.InputSuspended = value; }
         }
 
         /// <summary>
@@ -301,7 +301,16 @@ namespace Halcyonic.XR.Workspace
             // A file's subject drags the whole plane (ADR 0026).
 
             plane.side = plane.View("Side panel", MenuColumn.Side);
-            plane.frameViews = new[] { plane.menu, plane.file, plane.side };
+            // Passive Activity is a concrete second view, never a second input or command owner.
+            plane.activityContext = MenuFrameView.Create(go.transform, "Actual Activity context");
+            plane.activityContext.Hide();
+            plane.frameViews = new[] { plane.menu, plane.file, plane.side, plane.activityContext };
+            plane.Context = WorkspaceContextView.Create(go.transform);
+            plane.Context.Accepting = () => !FocusGuard.InputSuspended && !plane.Repositioning && !plane.Sliding
+                && plane.shown.Count > 0 && plane.shown.TrueForAll(each => !each.View.Opening && !each.View.Closing);
+            plane.Context.ProjectPressed += (project, owner) => plane.ContextProjectPressed?.Invoke(project, owner);
+            plane.Context.PlacePressed += (place, owner) => plane.ContextPlacePressed?.Invoke(place, owner);
+            plane.Context.WorkspacePressed += owner => plane.ContextWorkspacePressed?.Invoke(owner);
             plane.bar = MenuBarView.Create(go.transform, "Menu, closed");
             plane.bar.Controls.MovePressed += () => plane.MovePressed?.Invoke(MenuColumn.Menu, null, null);
             plane.bar.Controls.PressStarted += () => plane.SubjectPressed?.Invoke(MenuColumn.Menu, null);
@@ -340,7 +349,7 @@ namespace Halcyonic.XR.Workspace
             {
                 if (Takes(view)) Acted?.Invoke(kind, action, key, view.Frame, view.Side);
             };
-            view.Drawn += drawn => Drawn?.Invoke(kind, drawn);
+            view.Drawn += drawn => ForwardDrawn(kind, drawn);
             view.HoldStarted += prompt =>
             {
                 if (Takes(view)) HoldStarted?.Invoke(kind, prompt, view.Frame, view.Side);
@@ -512,6 +521,7 @@ namespace Halcyonic.XR.Workspace
 
             if (shown.Count == 0)
             {
+                Context.Hide(); activityContext.Hide();
                 // Closed with no file: the bar alone, where the person looks, which leaves the banner be.
                 cover.SetActive(false);
                 Chrome.Hide();
@@ -626,6 +636,13 @@ namespace Halcyonic.XR.Workspace
         private void ShowSpatial(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, SidePanel? panel, object? fileColumn,
             IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, (float Yaw, float Elevation) moved, bool immediately, MenuFrame? previousFront)
         {
+            if (SeparateWorkspace && ContextBinding != null)
+            {
+                ShowIndependentWorkspace(menuBar, menuFrame, fileFrame, panel, fileColumn, all, looking, surfaceHeight, moved, immediately);
+                return;
+            }
+            Context.Hide(); activityContext.Hide();
+            foreach (var frameView in frameViews) { frameView.IndependentSurface = false; frameView.PassiveActivity = false; frameView.HeadingOverride = null; }
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;
             var view = kind == MenuColumn.Side ? side : kind == MenuColumn.File ? file : menu;
@@ -689,6 +706,14 @@ namespace Halcyonic.XR.Workspace
             }
             Direction = MenuDrag.Turned(Placed, moved);
             var zoom = Composition.Zoom;
+            if (SeparateWorkspace && Context.gameObject.activeSelf)
+            {
+                Stand(Context.transform, contextAllocation, zoom);
+                if (ActivityContext != null && ReaderAllocation is PlanePart reader) Stand(activityContext.Parts[0], reader, zoom);
+                if (shown.Count > 0 && (ComposerAllocation ?? ReaderAllocation) is PlanePart primary) Stand(shown[0].View.Parts[0], primary, zoom);
+                UpdateLightLine();
+                return;
+            }
             var all = Composition.Parts;
             Stand(Chrome.transform, headerPart, zoom);
             // Indexed, never through an interface's enumerator, which Mono and IL2CPP box: this runs every frame of a drag.
@@ -713,6 +738,13 @@ namespace Halcyonic.XR.Workspace
 
         private Vector3[]? VisibleCorners()
         {
+            if (SeparateWorkspace && Context.gameObject.activeSelf && Composition != null)
+            {
+                var envelope = new Vector3[4];
+                for (var index = 0; index < envelope.Length; index++) envelope[index] = PlaneLayout.PointOf(eyes, Direction,
+                    (index % 2 == 0 ? -0.5f : 0.5f) * Composition.Width, (index < 2 ? -0.5f : 0.5f) * Composition.Height);
+                return envelope;
+            }
             var shape = Chrome.Visible ? Chrome.FrameSurface : bar.gameObject.activeInHierarchy ? bar.Shape : null;
             if (shape == null) return null;
             var corners = new Vector3[4];
@@ -983,6 +1015,7 @@ namespace Halcyonic.XR.Workspace
                 if (slide.Progress >= 1f && slide.HideAtEnd) part.parent.gameObject.SetActive(false);
             }
             UpdateLightLine();
+            FlushIndependentDraw();
         }
 
         private void LateUpdate() => Step(Time.unscaledDeltaTime, frame: true);
