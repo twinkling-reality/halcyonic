@@ -370,6 +370,46 @@ public class FileColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    [Test]
+    public void BothRegionBudgetsShareOneLayoutLifetimeWhileActivityContentStillRefreshes()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var current = FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct);
+        var column = Column(host, () => current);
+        var activityMeasures = 0;
+        var composerMeasures = 0;
+        var geometryRows = 8;
+        column.ConfigureActivityComposer(() => { activityMeasures++; return new RowBudget(geometryRows); },
+            () => { composerMeasures++; return new RowBudget(geometryRows); });
+        Assert.That((activityMeasures, composerMeasures), Is.EqualTo((0, 0)), "configuration does not measure inactive regions");
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Retain exact ordinary words");
+        Assert.That((activityMeasures, composerMeasures), Is.EqualTo((1, 1)));
+        var before = column.ActivityContextFrame;
+        geometryRows = 3; // A moved head/field sample is not itself an explicit layout change.
+        host.Wait(1);
+        column.Tick();
+        Assert.That((activityMeasures, composerMeasures), Is.EqualTo((1, 1)));
+        Assert.That(column.ActivityContextFrame, Is.SameAs(before));
+        current = new WorkspacePresentation(current.Character, current.Objective, current.Execution, current.Runtime, current.Actions,
+            current.Actions.Where(current.RequiresConfirmation).ToList(), current.Commands,
+            new[] { new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Tool, "Actual new tool result", false) });
+        host.Wait(1);
+        column.Tick();
+        Assert.That((activityMeasures, composerMeasures), Is.EqualTo((1, 1)));
+        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Has.Some.EqualTo("Actual new tool result"));
+        Assert.That(column.ActivityContextFrame, Is.Not.SameAs(before), "new content refreshes within the retained allocation");
+        column.Reflow();
+        Assert.That((activityMeasures, composerMeasures), Is.EqualTo((2, 2)), "explicit geometry change remeasures both regions together");
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Retain exact ordinary words"));
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That((activityMeasures, composerMeasures), Is.EqualTo((3, 3)), "text size changes share the same measurement lifetime");
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     private FileColumn Column(FileMenuHost host, Func<WorkspacePresentation?> present, IReadOnlyList<PresetInstruction>? recorded = null) =>
         new(host, present, factory, () => null, _ => recorded, () => "");
 
