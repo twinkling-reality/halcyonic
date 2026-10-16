@@ -533,5 +533,11 @@ checks also exposed workspace controls whose available page budget becomes empty
 character. Bounded field, readability and occupied-space diagnostics preserve the first failed
 transition; no clearance or action guard has been relaxed to make the journey pass.
 
+The integrated repository check passes type checking, lint and 1,195 tests, with one optional
+skip and no failures. The client suite at `955ddd6de357d1eb85f71df52b86c399653b31e2`
+passes 1,858 tests with no failures or skips; its recent-Activity core matches this candidate.
+The UI, workspace and Editor assemblies also compile against their actual Unity references,
+with six existing nullable warnings. Compilation is separate from the required engine journeys.
+
 Private images and logs retain the intermediate failures. No result in this section establishes
 headset readability, comfort, design acceptance, or completion of a native project-work journey.
