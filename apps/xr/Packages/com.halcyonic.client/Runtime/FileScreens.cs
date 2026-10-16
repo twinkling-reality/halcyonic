@@ -209,11 +209,20 @@ namespace Halcyonic.Client
             new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
                 key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: chosen, rows: rows, answerMark: AnswerMark.Single);
 
-        private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget? budget)
+        internal static MenuFrame ActivityContext(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget budget)
+        {
+            var context = new FileScreen { Section = FileSection.Activity, Page = screen.Section == FileSection.Activity ? screen.Page : 0, Zone = screen.Zone, ActivityNote = screen.ActivityNote };
+            var page = Activity(workspace, steering, context, room, budget, passive: true);
+            return new MenuFrame(LineWords.TheirName(workspace.Character.Title), new Footer(), lines: page.Lines.Where(line => line.Action == null && line.Key == null
+                    && line.Control == LineControl.None && !line.InputFocused && !line.Opens && !line.Choice && !line.Chosen).ToArray(),
+                source: "Activity", identityKind: MenuIdentityKind.Task);
+        }
+
+        private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget? budget, bool passive = false)
         {
             const string? source = null;
-            var normal = ActivityFooter(workspace, screen);
-            if (steering.Typing)
+            var normal = passive ? new Footer() : ActivityFooter(workspace, screen);
+            if (!passive && steering.Typing)
             {
                 return new Page(new[] { new PageLine(WorkspaceText.TypingPrompt) }, source, new Footer(CloseFile, rare: CancelChoice));
             }

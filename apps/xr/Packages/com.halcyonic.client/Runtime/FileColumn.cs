@@ -36,6 +36,21 @@ namespace Halcyonic.Client
         private readonly IntelligenceFeed<EvaluationResponse> evaluation;
         private readonly Func<IIntelligenceReader?> reader;
         private PageBudget? budget;
+        private Func<PageBudget>? activityBudget, composerBudget;
+        private bool budgetComposer;
+        private (string? Journal, string Task, string? Execution, TextSize Size, float? Room)? activityScope;
+        /// <summary>Passive Activity while the ordinary composer or its review owns Frame. Drawing this grants no reading or input authority.</summary>
+        public MenuFrame? ActivityContextFrame { get; private set; }
+        /// <summary>Opts into separate measured Activity and ordinary composer content budgets. Call Reflow when their geometry changes.</summary>
+        public void ConfigureActivityComposer(Func<PageBudget> activity, Func<PageBudget> composer)
+        {
+            if (activity == null) throw new ArgumentNullException(nameof(activity));
+            if (composer == null) throw new ArgumentNullException(nameof(composer));
+            if (activityBudget == activity && composerBudget == composer) return;
+            activityBudget = activity; composerBudget = composer;
+            Screen.InstructionHideOffered = true;
+            Reflow();
+        }
         private bool budgetFocused;
         private TextSize budgetAt;
         private QuestionDraft? draft;
@@ -161,7 +176,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The local ordinary editor draft, never a question answer or armed decision.</summary>
-        public WorkspaceInstructionDraft? ContinuationDraft() => Screen.Instruction.Open && Screen.Instruction.ExecutionId == Now?.Execution?.ExecutionId
+        public WorkspaceInstructionDraft? ContinuationDraft() => Screen.Instruction.ExecutionId != null && Screen.Instruction.ExecutionId == Now?.Execution?.ExecutionId
             ? new WorkspaceInstructionDraft { Text = Screen.Instruction.Words, Spoken = Screen.Instruction.Spoken, Part = Screen.Instruction.Part } : null;
 
         /// <summary>Applies a validated current panel view with fresh input/read/confirmation proof. It sends nothing.</summary>
@@ -195,6 +210,7 @@ namespace Halcyonic.Client
         public void Reflow()
         {
             Compact();
+            ActivityContextFrame = null;
             Screen.ReadAgainAtNewSize();
             Steering.Cancel();
             budget = null;
@@ -228,7 +244,7 @@ namespace Halcyonic.Client
             // RefreshSeconds ago, so the steering's checks see a request or question that changed since.
             if (present() is WorkspacePresentation fresh)
             {
-                if (Now.Execution?.ExecutionId != fresh.Execution?.ExecutionId)
+                if (Now.Character.WorkstreamId != fresh.Character.WorkstreamId || Now.Execution?.ExecutionId != fresh.Execution?.ExecutionId)
                 {
                     // Preserve/revoke the old editors while Now still belongs to their execution.
                     // The old drawn action is discarded; the new run needs a new physical draw.
@@ -390,7 +406,20 @@ namespace Halcyonic.Client
                     if (drawnInstructionNoticeFrame != Frame) return;
                     Screen.Instruction.NextNotice(host.Clock);
                     break;
+                case FileScreens.HideInstruction:
+                    if (!Screen.InstructionHideOffered || Steering.Armed != null || !Screen.Instruction.Open
+                        || Frame?.Footer[PromptSlot.Close]?.Id != FileScreens.HideInstruction
+                        || (drawnInstructionFrame != Frame && drawnInstructionNoticeFrame != Frame)) return;
+                    instructionKeyboardSession++;
+                    instructionVoiceValid = false;
+                    Screen.Instruction.Hide();
+                    Steering.StopTyping();
+                    Steering.Cancel();
+                    presets = false;
+                    break;
                 case FileScreens.CancelInstruction:
+                    if (Screen.InstructionHideOffered && (!Screen.Instruction.Open || Steering.Armed != null
+                        || (drawnInstructionFrame != Frame && drawnInstructionNoticeFrame != Frame))) return;
                     instructionKeyboardSession++;
                     instructionVoiceValid = false;
                     Screen.Instruction.Close();
@@ -495,6 +524,8 @@ namespace Halcyonic.Client
         {
             var execution = Now?.Execution?.ExecutionId;
             if (execution == null) return;
+            if (Screen.Instruction.Hidden && Screen.Instruction.ExecutionId == execution)
+            { Screen.Instruction.Begin(execution); return; }
             recordedNow = recorded(execution);
             if (recordedNow?.Count > 0 || !host.KeyboardOffered)
             {
@@ -510,7 +541,7 @@ namespace Halcyonic.Client
         {
             var current = present();
             return host.Connected && Screen.Instruction.Open && Screen.Instruction.ExecutionId == execution && Screen.Instruction.Epoch == epoch
-                && current?.Execution?.ExecutionId == execution && current.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(current) == null && Steering.Armed == null;
+                && current?.Character.WorkstreamId == Now?.Character.WorkstreamId && current?.Execution?.ExecutionId == execution && current.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(current) == null && Steering.Armed == null;
         }
 
         private void OpenInstructionKeyboard()
@@ -793,6 +824,7 @@ namespace Halcyonic.Client
             var presentation = present();
             if (presentation == null)
             {
+                ActivityContextFrame = null;
                 // The work is gone from the state.
                 Closed?.Invoke();
                 return;
@@ -800,11 +832,12 @@ namespace Halcyonic.Client
             var leavingExecution = Now?.Execution?.ExecutionId;
             if (leavingExecution != null && leavingExecution != presentation.Execution?.ExecutionId && ContinuationRequest() is WorkspaceRequestContinuation leavingRequest)
             { RequestDraftLeaving?.Invoke(leavingExecution, leavingRequest); DropRequest(); Surface = WorkspaceSurface.Task; }
+            var taskChanged = Now != null && Now.Character.WorkstreamId != presentation.Character.WorkstreamId;
             Now = presentation;
             Screen.CharacterColourOffered = CanColour();
             drawnInstructionFrame = null;
             drawnInstructionNoticeFrame = null;
-            if (Screen.Instruction.Open && Screen.Instruction.ExecutionId != presentation.Execution?.ExecutionId)
+            if (Screen.Instruction.ExecutionId != null && (taskChanged || Screen.Instruction.ExecutionId != presentation.Execution?.ExecutionId))
             {
                 OrdinaryDraftLeaving?.Invoke(Screen.Instruction.ExecutionId!, new WorkspaceInstructionDraft
                 { Text = Screen.Instruction.Words, Spoken = Screen.Instruction.Spoken, Part = Screen.Instruction.Part });
@@ -845,10 +878,12 @@ namespace Halcyonic.Client
 
             var focused = Screen.Instruction.Open || (Screen.Presets != null && Steering.Armed == null)
                 || FileScreens.FocusesAnswer(presentation, Screen.Section == FileSection.Waiting && Steering.Armed == null, Steering);
-            if (budget == null || resized || budgetFocused != focused)
+            var composing = composerBudget != null && Screen.Instruction.Open && (Steering.Armed == null || Steering.Armed == WorkspaceAction.Instruct);
+            if (budget == null || resized || budgetFocused != focused || budgetComposer != composing)
             {
                 budgetFocused = focused;
-                budget = Budget(presentation);
+                budgetComposer = composing;
+                budget = composing ? composerBudget!() : Budget(presentation);
                 budgetAt = host.TextSize;
             }
             if (Screen.Presets != null)
@@ -907,8 +942,26 @@ namespace Halcyonic.Client
                 if (Screen.Question.Writing) Screen.Question.CancelInput();
                 answering = false;
             }
+            var contextBudget = activityBudget != null && composing ? activityBudget() : null;
+            var context = contextBudget != null
+                ? FileScreens.ActivityContext(presentation, Steering, Screen, room, contextBudget) : null;
+            var scope = (host.State?.Journal?.JournalId, presentation.Character.WorkstreamId, presentation.Execution?.ExecutionId, host.TextSize, contextBudget?.Room);
+            if (activityScope != scope || !SameActivity(ActivityContextFrame, context)) ActivityContextFrame = context;
+            activityScope = scope;
             Frame = FileScreens.Screen(presentation, Steering, Screen, room, budget);
             Changed?.Invoke();
+        }
+
+        private static bool SameActivity(MenuFrame? before, MenuFrame? after)
+        {
+            if (before == null || after == null) return before == after;
+            bool Words(LineWords? left, LineWords? right) => left == null || right == null ? left == right
+                : left.Runs.Select(run => (run.Text, run.Theirs)).SequenceEqual(right.Runs.Select(run => (run.Text, run.Theirs)));
+            return Words(before.SubjectRuns, after.SubjectRuns) && before.Source == after.Source
+                && before.Lines.Count == after.Lines.Count && before.Lines.Zip(after.Lines, (left, right) =>
+                    Words(left.Runs, right.Runs) && Words(left.FactRuns, right.FactRuns)
+                    && (left.Icon, left.Tone, left.Chip, left.Rows, left.FromRow, left.Waits, left.WordsAreData, left.Claim, left.FactIsData)
+                        == (right.Icon, right.Tone, right.Chip, right.Rows, right.FromRow, right.Waits, right.WordsAreData, right.Claim, right.FactIsData)).All(equal => equal);
         }
 
         /// <summary>

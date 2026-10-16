@@ -10,6 +10,7 @@ namespace Halcyonic.Client
         public const string BackInstructionNotice = "instruction-notice-back";
         public const string NextInstructionNotice = "instruction-notice-next";
         public const string EditInstruction = "instruction-edit";
+        public const string HideInstruction = "instruction-hide";
         public const string CancelInstruction = "instruction-cancel";
         public const string SendInstruction = "instruction-send";
         public const string NextInstructionPart = "instruction-next-part";
@@ -38,7 +39,8 @@ namespace Halcyonic.Client
                     new PageLine("What happened", tone: LineTone.Secondary),
                     new PageLine(instruction.Notice, rows: Math.Min(instruction.NoticePartRows, instruction.NoticeRows - instruction.NoticePart * instruction.NoticePartRows),
                         fromRow: instruction.NoticePart * instruction.NoticePartRows),
-                }, null, new Footer(new Prompt(CancelInstruction, "Cancel", GlazeIcon.Close, PromptKind.Close),
+                }, null, new Footer(new Prompt(screen.InstructionHideOffered ? HideInstruction : CancelInstruction, screen.InstructionHideOffered ? "Hide composer" : "Cancel", GlazeIcon.Close, PromptKind.Close),
+                    rare: screen.InstructionHideOffered ? new Prompt(CancelInstruction, "Discard draft", GlazeIcon.Close) : null,
                     secondary: new Prompt(BackInstructionNotice, "Back to instruction", GlazeIcon.Back),
                     farRight: instruction.NoticeParts > 1 ? new Prompt(NextInstructionNotice, Footer.NextPageWords(instruction.NoticePart, instruction.NoticeParts), GlazeIcon.Next, PromptKind.NextPage) : null));
             var lines = new List<PageLine>
@@ -52,7 +54,8 @@ namespace Halcyonic.Client
             if (instruction.Part + 1 < instruction.Parts) lines.Add(InstructionPager());
             if (screen.InstructionResultsOffered) lines.Add(ReadResultsLine(screen.ResultsRows));
             var reason = InstructionSendReason(workspace, screen);
-            return new Page(lines, null, new Footer(new Prompt(CancelInstruction, "Cancel", GlazeIcon.Close, PromptKind.Close),
+            return new Page(lines, null, new Footer(new Prompt(screen.InstructionHideOffered ? HideInstruction : CancelInstruction, screen.InstructionHideOffered ? "Hide composer" : "Cancel", GlazeIcon.Close, PromptKind.Close),
+                rare: screen.InstructionHideOffered ? new Prompt(CancelInstruction, "Discard draft", GlazeIcon.Close) : null,
                 secondary: screen.Speak ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true,
                     available: workspace.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(workspace) == null,
                     reason: workspace.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(workspace) == null ? null : WorkspaceText.NeedFromYou(workspace) != null ? "The agent needs your approval first." : WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions.") : null,

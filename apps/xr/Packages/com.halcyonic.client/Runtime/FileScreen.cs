@@ -117,6 +117,7 @@ namespace Halcyonic.Client
         public bool CharacterColourOffered { get; set; }
         public int CharacterColourRows { get; set; } = 1;
         public bool ResultsOffered { get; set; }
+        public bool InstructionHideOffered { get; set; }
         public bool InstructionResultsOffered { get; set; }
         public int ResultsRows { get; set; } = 1;
 
