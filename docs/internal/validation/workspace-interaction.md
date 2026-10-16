@@ -510,3 +510,28 @@ attributes and reset bodies are unchanged. `ComponentLifecycleCheck` creates and
 actual four components and collects Unity error, exception and assertion messages. It failed on
 all four original names, then passed with the renamed initializers. The same check is included in
 the combined gate so this lifecycle failure cannot be hidden by successful geometry checks.
+
+
+### Independent reading objects and ordinary input — 2026-10-16
+
+The replacement composition was exercised through the actual Unity director, frame views, fonts,
+input targets and opaque backings in `ActivityComposerCheck`, at Standard and Larger text with
+and without the offered voice control. The fixture uses synthetic task/activity snapshots and
+a synthetic input callback; it does not capture microphone audio or dispatch runtime work.
+
+At source `2df2285460d466caf140247bce155ca77e441a98`, geometry, target, text, provenance,
+opacity and authority checks passed. The images were nevertheless rejected during review: the
+large portrait-driven header and one-line input field did not provide useful editing space.
+A later run showed the corrected latest chronological Activity entries, but failed the new
+minimum-three-draft-row requirement. Passing geometry alone did not establish usable layout.
+
+The current candidate measures the work title at 24 dp, reserves an external portrait motion
+volume rather than padding the text header, and allocates the ordinary editor from its real
+labels, pager and minimum three draft rows. The alternate focused-editor presentation and these
+new dimensions still require a fresh actual-engine run and visual review. Broader navigation
+checks also exposed workspace controls whose available page budget becomes empty near a placed
+character. Bounded field, readability and occupied-space diagnostics preserve the first failed
+transition; no clearance or action guard has been relaxed to make the journey pass.
+
+Private images and logs retain the intermediate failures. No result in this section establishes
+headset readability, comfort, design acceptance, or completion of a native project-work journey.
