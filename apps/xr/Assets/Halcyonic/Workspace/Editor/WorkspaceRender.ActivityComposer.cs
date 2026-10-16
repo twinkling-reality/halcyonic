@@ -17,7 +17,12 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
-        public static void ActivityComposerCheck()
+        public static void ActivityComposerCheck() => CheckActivityComposer(forceMinimumPair: false);
+
+        /// <summary>Editor-only controlled experiment; never a production selection-policy proof.</summary>
+        public static void ActivityComposerPairExperiment() => CheckActivityComposer(forceMinimumPair: true);
+
+        private static void CheckActivityComposer(bool forceMinimumPair)
         {
             var previous = ViewField.Current;
             var failures = new List<string>();
@@ -27,11 +32,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
                     ViewField.Current = FieldChecks.Quest3S;
-                    var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "ActivityComposerRenders", variant)); Directory.CreateDirectory(folder);
-                    var result = RenderActivityComposer(folder);
+                    var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", forceMinimumPair ? "ActivityComposerPairExperiment" : "ActivityComposerRenders", variant)); Directory.CreateDirectory(folder);
+                    var result = RenderActivityComposer(folder, forceMinimumPair: forceMinimumPair);
                     UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
                     var voiceFolder = Path.Combine(folder, "voice-offered"); Directory.CreateDirectory(voiceFolder);
-                    result.AddRange(RenderActivityComposer(voiceFolder, offerVoice: true));
+                    result.AddRange(RenderActivityComposer(voiceFolder, offerVoice: true, forceMinimumPair: forceMinimumPair));
                     return result;
                 }));
             }
@@ -42,7 +47,7 @@ namespace Halcyonic.XR.Workspace.Editor
             UnityEditor.EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> RenderActivityComposer(string folder, bool offerVoice = false)
+        private static List<string> RenderActivityComposer(string folder, bool offerVoice = false, bool forceMinimumPair = false)
         {
             var failures = new List<string>(); var root = new GameObject("Actual Activity and optional ordinary composer");
             var target = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear) { antiAliasing = 1 };
@@ -240,7 +245,25 @@ namespace Halcyonic.XR.Workspace.Editor
                     + "Include one account moving between addresses and two accounts using the same address. Explain the expected behavior of each case before changing the implementation. "
                     + "Compare the new tests with the existing sign-in tests and retain their assertions. Run the focused tests, record their actual exit outcome, and describe any test that could not run. "
                     + "Keep this change limited to the rate-limit boundary. If the evidence points to a separate session or storage problem, report that evidence and leave the unrelated behavior for a separate task.";
-                typed?.Invoke(draft); typed = null; Draw(); Shot("02-activity-and-composer");
+                typed?.Invoke(draft); typed = null; Draw();
+                if (forceMinimumPair && file != null)
+                {
+                    // This isolated Editor experiment bypasses only the conservative selection
+                    // heuristic. Actual production views, fonts, camera and every Shot gate remain.
+                    var terms = new HeightBudget(0f);
+                    var paired = director.FitsHalf(FileScreens.InstructionPager(previous: true), Glaze.Menu.FileColumnDegrees)
+                        && director.FitsHalf(FileScreens.InstructionPager(), Glaze.Menu.FileColumnDegrees);
+                    var minimumActivity = MenuPage.SourceLine + terms.Words(2) + terms.LineGap;
+                    var minimumComposer = MenuPage.SourceLine + terms.Words(1) + terms.LineGap + terms.Reason
+                        + terms.Target(3) + (paired ? terms.Target() : terms.Targets(1, 1)) + terms.TargetGap;
+                    file.ConfigureActivityComposer(() => new HeightBudget(minimumActivity), () => new HeightBudget(minimumComposer));
+                    var modes = (Dictionary<FileColumn, bool>)typeof(MenuDirector).GetField("composerFocus", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(director)!;
+                    modes[file] = false;
+                    Draw();
+                    Require(!director.Plane.ComposerFocused && director.Plane.ActivityContext != null, "controlled minimum-pair experiment failed to select its experimental pair");
+                    Debug.Log($"Halcyonic: EXPERIMENT ONLY forced exact minimum pair activity={minimumActivity:R}; composer={minimumComposer:R}; actual measured gates unchanged; no production selection-policy claim.");
+                }
+                Shot("02-activity-and-composer");
                 if (offerVoice)
                 {
                     var footer = director.Plane.Shown.Single(shown => !shown.View.PassiveActivity).View.Footer;
@@ -269,6 +292,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         && context.Frame.Lines.Any(line => line.Words.Contains("Command failed: node --test")),
                         "actual reclaimed Activity preview omitted either of its two latest synthetic journal entries");
                     Debug.Log($"Halcyonic: reclaimed passive Activity shows {context.Frame.Lines.Count} actual entries; allocated height={director.Plane.ReaderAllocation?.Height:R}; footer visible={context.Footer.gameObject.activeInHierarchy}.");
+                }
+                if (forceMinimumPair)
+                {
+                    Require(!focusedComposer, "controlled pair experiment silently fell back to focused mode");
+                    return failures;
                 }
                 var forwardedPassive = 0;
                 director.Plane.Drawn += (_, view) => { if (ReferenceEquals(view, context)) forwardedPassive++; };
