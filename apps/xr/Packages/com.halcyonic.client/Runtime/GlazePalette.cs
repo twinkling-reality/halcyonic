@@ -79,10 +79,10 @@ namespace Halcyonic.Client
             }
             if (instrument)
             {
-                Panel = GlazeColor.Hex(0x242726); Raised = GlazeColor.Hex(0x2E3330);
-                Control = GlazeColor.Hex(0x3A423D); ControlHover = GlazeColor.Hex(0x49534C); ControlPressed = GlazeColor.Hex(0x59645C);
-                Well = GlazeColor.Hex(0x1D211F); Text = GlazeColor.Hex(0xE9E7E0); TextSecondary = GlazeColor.Hex(0xB9BEB9);
-                TextDisabled = GlazeColor.Hex(0x949D96); Outline = GlazeColor.Hex(0x78887C);
+                Panel = GlazeColor.Hex(0x242424); Raised = GlazeColor.Hex(0x2E2E2E);
+                Control = GlazeColor.Hex(0x3A3A3A); ControlHover = GlazeColor.Hex(0x494949); ControlPressed = GlazeColor.Hex(0x595959);
+                Well = GlazeColor.Hex(0x1D1D1D); Text = GlazeColor.Hex(0xF2F2F2); TextSecondary = GlazeColor.Hex(0xC4C4C4);
+                TextDisabled = GlazeColor.Hex(0xA0A0A0); Outline = GlazeColor.Hex(0x8A8A8A);
                 tones[GlazeTone.Neutral] = new GlazeToneColors(TextSecondary, Raised, Control, Text);
                 tones[GlazeTone.Accent] = new GlazeToneColors(GlazeColor.Hex(0xA3C3FF), GlazeColor.Hex(0x22324F), GlazeColor.Hex(0x7FA9F8), GlazeColor.Hex(0x0B1422));
             }

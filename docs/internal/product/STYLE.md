@@ -275,7 +275,11 @@ actions to reserve colour for work states and characters. Glaze preserves the or
 Graphite retains its graphite surfaces and blue action accent. Saved `glaze` and `graphite` choices
 retain their exact meanings; there is no preference migration. State colours retain their meanings
 in all three presets. Actual three-palette Appearance and character review is still required
-before aesthetic acceptance. Settings' Appearance
+before aesthetic acceptance. The Neutral candidate uses achromatic reading levels: well `#1D1D1D`,
+panel `#242424`, raised `#2E2E2E`, control `#3A3A3A`, hover `#494949`, pressed `#595959`;
+text `#F2F2F2`, secondary `#C4C4C4`, disabled `#A0A0A0`, outline `#8A8A8A`.
+These are a design decision to remove the prior green/cream cast, not colours copied exactly from
+a reference or an accepted visual result. Existing semantic status and blue accent colours remain. Settings' Appearance
 chooses locally, then shows a labelled Preview with actual navigation, choice, input, status and
 outside-word treatments. Preview controls send nothing to an agent. Apply theme keeps the preset;
 Cancel or leaving restores the applied colours. Restore default appearance opens its own explanation

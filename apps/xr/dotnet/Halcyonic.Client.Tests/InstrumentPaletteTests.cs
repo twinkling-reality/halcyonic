@@ -6,7 +6,7 @@ namespace Halcyonic.Client.Tests;
 public class InstrumentPaletteTests
 {
     [Test]
-    public void NeutralRetainsStudyColoursWithoutReassigningStateMeaning()
+    public void NeutralRetainsItsKeyWithoutReassigningStateMeaning()
     {
         var study = GlazePalette.InstrumentStudy;
         Assert.That(GlazePalette.Find(study.Key), Is.SameAs(GlazePalette.Neutral));
@@ -17,6 +17,23 @@ public class InstrumentPaletteTests
             Assert.That((candidate.Foreground, candidate.Container, candidate.Strong, candidate.OnStrong),
                 Is.EqualTo((original.Foreground, original.Container, original.Strong, original.OnStrong)), tone.ToString());
         }
+    }
+
+    [Test]
+    public void NeutralReadingAndControlLevelsAreAchromaticAndRemainOrdered()
+    {
+        var palette = GlazePalette.Neutral;
+        var surfaces = new[] { palette.Well, palette.Panel, palette.Raised, palette.Control, palette.ControlHover, palette.ControlPressed };
+        for (var index = 0; index < surfaces.Length; index++)
+        {
+            var hex = surfaces[index].ToString();
+            Assert.That(hex.Substring(1, 2), Is.EqualTo(hex.Substring(3, 2)));
+            Assert.That(hex.Substring(3, 2), Is.EqualTo(hex.Substring(5, 2)));
+            if (index > 0) Assert.That(surfaces[index].Luminance, Is.GreaterThan(surfaces[index - 1].Luminance));
+            Assert.That(GlazeColor.Contrast(palette.Text, surfaces[index]), Is.GreaterThanOrEqualTo(4.5));
+        }
+        Assert.That(GlazePalette.Default, Is.SameAs(palette));
+        Assert.That(palette.Key, Is.EqualTo("neutral"));
     }
 
     [TestCase(false)]
