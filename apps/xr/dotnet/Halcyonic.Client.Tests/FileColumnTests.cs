@@ -107,7 +107,7 @@ public class FileColumnTests
         var (host, _, column) = ComposingTask();
         var context = column.ActivityContextFrame!;
         Assert.That(context, Is.Not.Null.And.Not.SameAs(column.Frame));
-        Assert.That(context.Source, Is.EqualTo("Activity"));
+        Assert.That(context.Source, Is.EqualTo("Recent activity"));
         Assert.That(context.Sections, Is.Empty);
         Assert.That(context.Footer.All, Is.Empty);
         Assert.That(context.Side, Is.Null);
@@ -408,6 +408,95 @@ public class FileColumnTests
         column.Tick();
         Assert.That((activityMeasures, composerMeasures), Is.EqualTo((3, 3)), "text size changes share the same measurement lifetime");
         Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void ComposingShowsLatestRecordedFailureAndReportInsteadOfTheFirstHiddenHistoryPage()
+    {
+        var host = new FileMenuHost { Height = _ => MenuPage.Words(4) + MenuPage.SourceLine };
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var current = FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct);
+        var history = Enumerable.Range(1, 18).Select(index => new ActivityEntry(index, "2026-09-26T09:00:01.000Z", ActivityKind.Tool, "Read file " + index, false))
+            .Concat(new[] {
+                new ActivityEntry(19, "2026-09-26T09:00:02.000Z", ActivityKind.Turn, "Couldn't finish this round", false),
+                new ActivityEntry(20, "2026-09-26T09:00:03.000Z", ActivityKind.Message, "I will retry the check", true),
+            }).ToArray();
+        current = new WorkspacePresentation(current.Character, current.Objective, current.Execution, current.Runtime, current.Actions,
+            current.Actions.Where(current.RequiresConfirmation).ToList(), current.Commands, history);
+        var column = Column(host, () => current);
+        column.ConfigureActivityComposer(() => new RowBudget(2), () => new RowBudget(8));
+        Assert.That(column.Screen.Pages, Is.GreaterThan(1));
+        column.Act(Footer.NextPage, null);
+        var page = column.Screen.Page;
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Keep my ordinary draft");
+        var context = column.ActivityContextFrame!;
+        Assert.That(context.Source, Is.EqualTo("Recent activity"));
+        Assert.That(context.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Couldn't finish this round", "I will retry the check" }));
+        Assert.That((context.Lines[0].Chip, context.Lines[0].Runs.AnyTheirs), Is.EqualTo(((string?)null, false)));
+        Assert.That((context.Lines[1].Chip, context.Lines[1].Runs.AllTheirs), Is.EqualTo(("Agent says", true)));
+        Assert.That(context.Lines.All(line => line.Fact != null && line.Action == null && line.Control == LineControl.None), Is.True);
+        Assert.That(context.Footer.All, Is.Empty);
+        Assert.That((column.Screen.Page, current.Activity.Count), Is.EqualTo((page, 20)));
+        Assert.That(current.Activity, Is.SameAs(history));
+        column.Drawn(context, null);
+        Assert.That(column.Screen.Instruction.Read, Is.False);
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Keep my ordinary draft"));
+        column.ConfigureActivityComposer(() => new HeightBudget(2 * MenuPage.Words(1) + MenuPage.Grid + MenuPage.SourceLine), () => new RowBudget(8));
+        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Is.EqualTo(context.Lines.Select(line => line.Words)));
+        column.ConfigureActivityComposer(() => new RowBudget(1), () => new RowBudget(8));
+        Assert.That(column.ActivityContextFrame!.Lines.Single().Words, Is.EqualTo("I will retry the check"));
+        Assert.That(column.Screen.Page, Is.EqualTo(page));
+        ReadInstructionDraft(host, column);
+        column.Act(FileScreens.HideInstruction, null);
+        Assert.That((column.ActivityContextFrame, column.Screen.Page), Is.EqualTo(((MenuFrame?)null, page)));
+        Assert.That(current.Activity.Count, Is.EqualTo(20));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void TheRecentTailRefreshesWithoutReplayingOldEventsOrGrantingDraftReading()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        var current = FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct);
+        WorkspacePresentation With(params ActivityEntry[] entries) => new(current.Character, current.Objective, current.Execution, current.Runtime,
+            current.Actions, current.Actions.Where(current.RequiresConfirmation).ToList(), current.Commands, entries);
+        current = With(new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Turn, "Round started", false));
+        var column = Column(host, () => current);
+        column.ConfigureActivityComposer(() => new RowBudget(2), () => new RowBudget(8));
+        column.HoldStarted(FileScreens.HoldToTalk); column.Heard("Retain this draft");
+        var before = column.ActivityContextFrame;
+        current = With(current.Activity[0], new ActivityEntry(2, "2026-09-26T09:00:02.000Z", ActivityKind.Message, "I found a problem", true),
+            new ActivityEntry(3, "2026-09-26T09:00:03.000Z", ActivityKind.Turn, "Couldn't finish this round", false));
+        host.Wait(1); column.Tick();
+        Assert.That(column.ActivityContextFrame, Is.Not.SameAs(before));
+        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "I found a problem", "Couldn't finish this round" }));
+        column.Drawn(column.ActivityContextFrame, null); column.Act(FileScreens.SendInstruction, null);
+        Assert.That((column.Screen.Instruction.Words, column.Screen.Instruction.Read), Is.EqualTo(("Retain this draft", false)));
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void OnlyTheOptInComposerOmitsDuplicateResultsWhileTheFullTaskRouteRemains()
+    {
+        var (host, work, column) = ComposingTask();
+        var opened = 0; column.OfferResults(() => opened++);
+        Assert.That(column.Screen.InstructionResultsOffered, Is.False);
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == FileScreens.OpenResults), Is.False);
+        Assert.That(column.ActivityContextFrame!.Lines.All(line => line.Action == null), Is.True);
+        var legacyHost = new FileMenuHost();
+        var legacy = Column(legacyHost, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct));
+        legacy.OfferResults(() => {});
+        legacy.HoldStarted(FileScreens.HoldToTalk); legacy.Heard("Legacy draft");
+        Assert.That(legacy.Frame!.Lines.Any(line => line.Action == FileScreens.OpenResults), Is.True);
+        ReadInstructionDraft(host, column); column.Act(FileScreens.HideInstruction, null);
+        Assert.That(column.Frame!.Lines.Any(line => line.Action == FileScreens.OpenResults), Is.True);
+        Draw(host, column); column.Act(FileScreens.OpenResults, null);
+        Assert.That(opened, Is.EqualTo(1));
+        Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Carry on carefully"));
     }
 
     private FileColumn Column(FileMenuHost host, Func<WorkspacePresentation?> present, IReadOnlyList<PresetInstruction>? recorded = null) =>
