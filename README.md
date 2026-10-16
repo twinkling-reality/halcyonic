@@ -30,7 +30,7 @@ A project binds to one folder the host has approved. A spatial overview that rel
 ```bash
 pnpm install
 pnpm dev     # 127.0.0.1:47800, data in ~/.halcyonic
-pnpm demo    # second terminal: three mock workstreams, one waiting for approval
+pnpm demo    # second terminal: three mock workstreams; it approves the one request after three seconds
 ```
 
 Replay a recorded trace:
