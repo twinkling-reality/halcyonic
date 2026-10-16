@@ -36,6 +36,7 @@ namespace Halcyonic.Client
         private readonly IntelligenceFeed<EvaluationResponse> evaluation;
         private readonly Func<IIntelligenceReader?> reader;
         private PageBudget? budget;
+        private PageBudget? activityPageBudget;
         private Func<PageBudget>? activityBudget, composerBudget;
         private bool budgetComposer;
         private (string? Journal, string Task, string? Execution, TextSize Size, float? Room)? activityScope;
@@ -887,6 +888,7 @@ namespace Halcyonic.Client
                 budgetFocused = focused;
                 budgetComposer = composing;
                 budget = composing ? composerBudget!() : Budget(presentation);
+                activityPageBudget = composing ? activityBudget?.Invoke() : null;
                 budgetAt = host.TextSize;
             }
             if (Screen.Presets != null)
@@ -945,7 +947,7 @@ namespace Halcyonic.Client
                 if (Screen.Question.Writing) Screen.Question.CancelInput();
                 answering = false;
             }
-            var contextBudget = activityBudget != null && composing ? activityBudget() : null;
+            var contextBudget = composing ? activityPageBudget : null;
             var context = contextBudget != null
                 ? FileScreens.ActivityContext(presentation, Steering, Screen, room, contextBudget) : null;
             var scope = (host.State?.Journal?.JournalId, presentation.Character.WorkstreamId, presentation.Execution?.ExecutionId, host.TextSize, contextBudget?.Room);
