@@ -209,20 +209,44 @@ namespace Halcyonic.Client
             new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
                 key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: chosen, rows: rows, answerMark: AnswerMark.Single);
 
-        internal static MenuFrame ActivityContext(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget budget)
+        /// <summary>A passive recent tail, never the first page of a history whose other pages have no controls here.</summary>
+        internal static MenuFrame ActivityContext(WorkspacePresentation workspace, FileScreen screen, AnswerRoom room, PageBudget budget)
         {
-            var context = new FileScreen { Section = FileSection.Activity, Page = screen.Section == FileSection.Activity ? screen.Page : 0, Zone = screen.Zone, ActivityNote = screen.ActivityNote };
-            var page = Activity(workspace, steering, context, room, budget, passive: true);
-            return new MenuFrame(LineWords.TheirName(workspace.Character.Title), new Footer(), pill: StateLanguage.BadgeOf(workspace.Character), lines: page.Lines.Where(line => line.Action == null && line.Key == null
-                    && line.Control == LineControl.None && !line.InputFocused && !line.Opens && !line.Choice && !line.Chosen).ToArray(),
-                source: "Activity", identityKind: MenuIdentityKind.Task);
+            var lines = new List<PageLine>();
+            var used = 0f;
+            // ActivityLog is oldest first. Choose from the newest end, then retain chronology in the preview.
+            for (var index = workspace.Activity.Count - 1; index >= 0 && lines.Count < room.Rows; index--)
+            {
+                var height = budget.Words(1) + (lines.Count > 0 ? budget.LineGap : 0f);
+                if (used + height > budget.Room + 1e-6f) break;
+                var entry = workspace.Activity[index];
+                var time = Clock(entry.OccurredAt, screen.Zone);
+                lines.Add(new PageLine(entry.Words, fact: time == null ? null : LineWords.Ours(time),
+                    tone: LineTone.Secondary, chip: entry.Reported ? AgentSays : null));
+                used += height;
+            }
+            lines.Reverse();
+            if (lines.Count == 0)
+            {
+                if (room.Rows < 1 || budget.Words(1) > budget.Room + 1e-6f)
+                    lines.Add(new PageLine("Move the workspace to make room for Activity.", tone: LineTone.Secondary, rows: 2));
+                else if (workspace.Activity.Count == 0)
+                {
+                    var note = screen.ActivityNote.TrimStart(' ', '·');
+                    lines.Add(string.IsNullOrWhiteSpace(note)
+                        ? new PageLine("No recorded activity yet.", tone: LineTone.Secondary)
+                        : new PageLine(note, wordsAreData: true, tone: LineTone.Secondary));
+                }
+            }
+            return new MenuFrame(LineWords.TheirName(workspace.Character.Title), new Footer(), pill: StateLanguage.BadgeOf(workspace.Character),
+                lines: lines, source: "Recent activity", identityKind: MenuIdentityKind.Task);
         }
 
-        private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget? budget, bool passive = false)
+        private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget? budget)
         {
             const string? source = null;
-            var normal = passive ? new Footer() : ActivityFooter(workspace, screen);
-            if (!passive && steering.Typing)
+            var normal = ActivityFooter(workspace, screen);
+            if (steering.Typing)
             {
                 return new Page(new[] { new PageLine(WorkspaceText.TypingPrompt) }, source, new Footer(CloseFile, rare: CancelChoice));
             }

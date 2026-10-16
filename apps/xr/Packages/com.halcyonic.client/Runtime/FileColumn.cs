@@ -904,7 +904,7 @@ namespace Halcyonic.Client
                 action: FileScreens.OpenWorkspaceRequest, opens: true, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.CharacterColourOffered) Screen.CharacterColourRows = Math.Max(1, host.RowsOf(new PageLine("Character colour", rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.ResultsOffered) Screen.ResultsRows = Math.Max(1, host.RowsOf(FileScreens.ReadResultsLine(rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
-            Screen.InstructionResultsOffered = Screen.ResultsOffered && presentation.Execution != null && Steering.Armed == null
+            Screen.InstructionResultsOffered = !Screen.InstructionHideOffered && Screen.ResultsOffered && presentation.Execution != null && Steering.Armed == null
                 && WorkspaceText.NeedFromYou(presentation) == null && asked == null && presentation.ApprovalToAnswer == null && notice == null;
             if (Screen.Instruction.Open)
                 Screen.Instruction.Measure(host.RowsOf(FileScreens.InstructionLine(Screen.Instruction, host.KeyboardOffered, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees), budget, host.TextSize,
@@ -949,7 +949,7 @@ namespace Halcyonic.Client
             }
             var contextBudget = composing ? activityPageBudget : null;
             var context = contextBudget != null
-                ? FileScreens.ActivityContext(presentation, Steering, Screen, room, contextBudget) : null;
+                ? FileScreens.ActivityContext(presentation, Screen, room, contextBudget) : null;
             var scope = (host.State?.Journal?.JournalId, presentation.Character.WorkstreamId, presentation.Execution?.ExecutionId, host.TextSize, contextBudget?.Room);
             if (activityScope != scope || !SameActivity(ActivityContextFrame, context)) ActivityContextFrame = context;
             activityScope = scope;
