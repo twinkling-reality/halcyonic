@@ -4,6 +4,10 @@
   on 2026-10-08.
 - Date: 2026-10-02
 
+Superseded in part on 2026-10-17 by [ADR 0034](0034-the-workspace-is-one-continuous-gentle-curve-centred-on-the-eyes.md):
+rule 1, one plane facing the eyes, gives way to one continuous gentle curve centred on the eyes, with this
+plane as the documented fallback.
+
 Mandatory character entry and closed-on-return behavior are superseded by
 [ADR 0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md).
 The record below preserves the original decision and its evidence; reading and input safeguards
