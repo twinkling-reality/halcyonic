@@ -117,6 +117,12 @@ namespace Halcyonic.XR.Workspace.Editor
             /// <summary>Meshes the curve made, destroyed with the shot.</summary>
             public List<Mesh> Meshes = new List<Mesh>();
 
+            /// <summary>
+            /// A frame inside a move: nothing in it is read, so the checks of words, targets and the field, which hold
+            /// every state at rest, wait for the move's end, itself a state at rest; opacity and the joins still hold.
+            /// </summary>
+            public bool Moving;
+
             /// <summary>Each region of the instrument, with the targets it carries, for the per-region measures.</summary>
             public List<(string Name, KitCarrier Carrier, IEnumerable<KitPress> Targets)> Regions = new List<(string, KitCarrier, IEnumerable<KitPress>)>();
 
@@ -162,14 +168,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The curve is drawn by bending the laid-out plane's meshes round the eyes; everything after measures
                 // where the eyes see each point.
                 if (shot.Curved) shot.Meshes.AddRange(BendMeshes(root, shot.Seen));
-                failures.AddRange(shot.Curved ? TextAsSeenWhereDrawn(root, eyes, name, shot.Seen) : GlazeChecks.TextAsSeen(root, eyes, name));
-                foreach (var (plane, space, targets) in shot.Targets)
+                if (shot.Moving) Debug.Log("Halcyonic: spatial kit: " + name + " is a frame inside a move: words, targets and the field are held at its end, a state at rest.");
+                else
                 {
-                    var shown = targets.Where(press => press.gameObject.activeInHierarchy).ToList();
-                    failures.AddRange(TargetsWhole(shown, eyes, name + " " + plane));
-                    failures.AddRange(TargetsApart(shown, space, name + " " + plane));
+                    failures.AddRange(shot.Curved ? TextAsSeenWhereDrawn(root, eyes, name, shot.Seen) : GlazeChecks.TextAsSeen(root, eyes, name));
+                    foreach (var (plane, space, targets) in shot.Targets)
+                    {
+                        var shown = targets.Where(press => press.gameObject.activeInHierarchy).ToList();
+                        failures.AddRange(TargetsWhole(shown, eyes, name + " " + plane));
+                        failures.AddRange(TargetsApart(shown, space, name + " " + plane));
+                    }
+                    if (shot.Corners.Count > 0) failures.AddRange(GlazeChecks.InsideField(name, shot.Corners, eyes, shot.Centre, shot.PitchDown, Quest3S));
                 }
-                if (shot.Corners.Count > 0) failures.AddRange(GlazeChecks.InsideField(name, shot.Corners, eyes, shot.Centre, shot.PitchDown, Quest3S));
 
                 var camera = MakeCamera(fixture.transform, eyes, target, shot.Yaw, shot.Elevation);
                 Caption(fixture.transform, camera, shot.Caption + " · " + size + " text");
@@ -186,8 +196,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.AddRange(StoredAsTheHeadsetStores(witnessFace, witnessLocal, witnessColour, camera, eye, name, shot.Seen));
                     bright = Composite(image, BrightRoom(Width, Height, camera), Color.white);
                     dark = Composite(image, null, DarkRoom);
-                    failures.AddRange(WordsHoldContrast(root, camera, bright.GetPixels32(), name + " over the bright room", shot.Seen));
-                    failures.AddRange(WordsHoldContrast(root, camera, dark.GetPixels32(), name + " over the dark room", shot.Seen));
+                    if (!shot.Moving)
+                    {
+                        failures.AddRange(WordsHoldContrast(root, camera, bright.GetPixels32(), name + " over the bright room", shot.Seen));
+                        failures.AddRange(WordsHoldContrast(root, camera, dark.GetPixels32(), name + " over the dark room", shot.Seen));
+                    }
                     File.WriteAllBytes(Path.Combine(folder, state + "-rgba.png"), image.EncodeToPNG());
                     File.WriteAllBytes(Path.Combine(folder, state + "-bright.png"), bright.EncodeToPNG());
                     File.WriteAllBytes(Path.Combine(folder, state + "-dark.png"), dark.EncodeToPNG());
@@ -310,7 +323,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         private static Shot FocusedWork(Transform root, Vector3 eyes, bool curved, KitWorkModel? state = null, string? caption = null,
-            System.Action<KitWorkView, Shot>? require = null)
+            System.Action<KitWorkView, Shot>? require = null, System.Action<KitWorkView, Shot>? placed = null)
         {
             var shot = new Shot { Caption = caption ?? (curved ? "Focused work on one gentle curve, synthetic data" : "Focused work on one plane, the fallback, synthetic data"), Curved = curved };
             var view = KitWorkView.Create(root);
@@ -318,7 +331,17 @@ namespace Halcyonic.XR.Workspace.Editor
             view.Show(model);
             shot.Elevation = CentreFor(view.Size.y);
             shot.Centre = Place(view.transform, eyes, 0f, shot.Elevation);
+            placed?.Invoke(view, shot);
             Stand(shot, view.transform, eyes, view.Carriers, view.Size);
+            if (view.Avatar.gameObject.activeSelf)
+            {
+                // The task's place stands above the slate: the field holds it too.
+                var zone = view.Avatar.transform;
+                var half = view.Avatar.Size / 2f;
+                foreach (var corner in new[] { new Vector3(-half.x, -half.y, 0f), new Vector3(half.x, -half.y, 0f), new Vector3(-half.x, half.y, 0f), new Vector3(half.x, half.y, 0f) })
+                    shot.Corners.Add(shot.Seen(zone.TransformPoint(corner)));
+                shot.PitchDown = shot.Curved ? ReadingPitchOf(shot.Corners, eyes, shot.Centre) : shot.PitchDown;
+            }
             shot.Glance = TurnTo(shot.Seen(view.Rail.transform.TransformPoint(new Vector3(KitType.Units(SpatialKit.InstrumentRadiusDegrees) / 2f, 0f, 0f))), eyes);
             // The target checks hold on the curve as on the plane: each target's tangent plane stands at its plane's
             // distance, and the arcs between targets are their distances on the plane (chords shorter by under 0.01 mm).
@@ -429,6 +452,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var column = Mathf.Tan(0.5f * Mathf.Deg2Rad) * PlaneComposition.Distance;
             foreach (var surface in root.GetComponentsInChildren<Surface>(true))
             {
+                if (surface.GetComponentInParent<CharacterView>() != null) continue;
                 var filter = surface.GetComponent<MeshFilter>();
                 var t = surface.transform;
                 var scale = t.lossyScale;
@@ -456,9 +480,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 filter.sharedMesh = mesh;
                 made.Add(mesh);
             }
+            // A character is a body, not a page: it stands where the curve puts its feet, turned with it.
+            foreach (var character in root.GetComponentsInChildren<CharacterView>(true))
+            {
+                var t = character.transform;
+                var right = t.right * 0.001f;
+                var at = bend(t.position);
+                var along = bend(t.position + right) - at;
+                t.SetPositionAndRotation(at, Quaternion.FromToRotation(t.right, along.normalized) * t.rotation);
+            }
             foreach (var label in root.GetComponentsInChildren<TMP_Text>(true))
             {
-                if (label.textInfo == null) continue;
+                if (label.textInfo == null || label.GetComponentInParent<CharacterView>() != null) continue;
                 var t = label.transform;
                 foreach (var info in label.textInfo.meshInfo)
                 {

@@ -37,14 +37,114 @@ namespace Halcyonic.XR.Workspace.Editor
             "6-checks-failed" => FocusedWork(root, eyes, true, ChecksFailed(), "Checks failed, synthetic data", RequireFailed),
             "7-disconnected" => FocusedWork(root, eyes, true, Disconnected(), "The connection lost, everything last known, synthetic data", RequireDisconnected),
             "8-cant-tell" => FocusedWork(root, eyes, true, CantTell(), "An outcome that can't be told, synthetic data", RequireCantTell),
-            _ => FocusedWork(root, eyes, true, Question(), "A question waits for an answer, synthetic data", RequireQuestion),
+            "9-question" => FocusedWork(root, eyes, true, Question(), "A question waits for an answer, synthetic data", RequireQuestion),
+            "10-avatar-working" => FocusedWork(root, eyes, true, WithCharacter(CharacterActivity.Working), "The task's character at its work, synthetic data", RequireFacing(KitAvatarZone.AwayDegrees)),
+            "10-avatar-turning" => FocusedWork(root, eyes, true, WithCharacter(CharacterActivity.Working), "An approval arrives: the character turns to you, halfway, synthetic data",
+                RequireTurning, placed: (view, _) => TurnHalfway(view)),
+            "10-avatar-waiting" => FocusedWork(root, eyes, true, WithCharacter(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired), "The character faces you while the task waits, synthetic data", RequireFacing(0f)),
+            "11-avatar-agents-off" => FocusedWork(root, eyes, true, Focused(Badge(CharacterActivity.Working), SelectedActivity().Report,
+                avatar: KitAvatar.Absent(AgentsOff, ShowAgents, null)), "No character: agents are off, synthetic data", RequireAbsent(AgentsOff, ShowAgents)),
+            "11-avatar-no-room" => FocusedWork(root, eyes, true, Focused(Badge(CharacterActivity.Working), SelectedActivity().Report,
+                avatar: KitAvatar.Absent(NoRoom, WorkspaceMoveWords, GlazeIcon.Move)), "No character: no room above the workspace, synthetic data", RequireAbsent(NoRoom, WorkspaceMoveWords)),
+            "12-to-compact-mid" => Moving(FocusedWork(root, eyes, true, WorkModel(), "Workspace to Compact, halfway, synthetic data", placed: (view, _) => TowardCompact(view, eyes))),
+            _ => Moving(FocusedWork(root, eyes, true, WorkModel(), "Project to task, halfway: the task grows from its row, synthetic data", placed: (view, _) => FromRow(view, eyes))),
         };
 
-        private static readonly string[] States = { "5-approval", "5-approval-confirming", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question" };
+        private static readonly string[] States = { "5-approval", "5-approval-confirming", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question",
+            "10-avatar-working", "10-avatar-turning", "10-avatar-waiting", "11-avatar-agents-off", "11-avatar-no-room", "12-to-compact-mid", "12-to-task-mid" };
+
+        // The ways back are the ones that exist: Settings' agents switch (SpaceSettings) and the placement column's move.
+        private const string AgentsOff = "The workspace works without characters";
+        private const string ShowAgents = "Show agents";
+        private const string NoRoom = "No room above the workspace for its character";
+        private const string WorkspaceMoveWords = "Move workspace";
+
+        private static KitWorkModel WithCharacter(CharacterActivity activity, AttentionLevel attention = AttentionLevel.None)
+        {
+            var (_, report) = SelectedActivity();
+            var presentation = Presentation("synthetic-task-rate-limit", SelectedTask, activity, attention, attention == AttentionLevel.ActionRequired ? 1 : 0);
+            return Focused(StateLanguage.BadgeOf(presentation), report, avatar: KitAvatar.Standing(presentation));
+        }
+
+        /// <summary>A real change of state, an approval arriving, turns the character; the frame is half a slide in.</summary>
+        private static void TurnHalfway(KitWorkView view)
+        {
+            GlazeMotion.Still = false;
+            view.Show(WithCharacter(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired));
+            view.Avatar.Advance(Glaze.SlideSeconds / 2f);
+            GlazeMotion.Still = true;
+        }
+
+        private static System.Action<KitWorkView, Shot> RequireFacing(float turn) => (view, shot) =>
+        {
+            if (view.Avatar.Character == null || !view.Avatar.Character.gameObject.activeSelf) shot.Failures.Add("the task's character does not stand");
+            else if (Mathf.Abs(view.Avatar.Turn - turn) > 0.01f) shot.Failures.Add("the character stands turned " + Degrees(view.Avatar.Turn) + ", not " + Degrees(turn));
+        };
+
+        private static void RequireTurning(KitWorkView view, Shot shot)
+        {
+            var turn = view.Avatar.Turn;
+            if (turn <= 0.5f || turn >= KitAvatarZone.AwayDegrees - 0.5f) shot.Failures.Add("the character is not between its work and the person mid-turn (" + Degrees(turn) + ")");
+            // Kept still, the same change ends at once.
+            GlazeMotion.Still = true;
+            view.Show(WithCharacter(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired));
+            view.Show(WithCharacter(CharacterActivity.Working));
+            if (Mathf.Abs(view.Avatar.Turn - KitAvatarZone.AwayDegrees) > 0.01f) shot.Failures.Add("kept still, the turn did not end at once");
+            GlazeMotion.Still = false;
+            view.Show(WithCharacter(CharacterActivity.Working));
+            view.Show(WithCharacter(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired));
+            view.Avatar.Advance(Glaze.SlideSeconds / 2f);
+            GlazeMotion.Still = true;
+        }
+
+        private static System.Action<KitWorkView, Shot> RequireAbsent(string why, string wayBack) => (view, shot) =>
+        {
+            if (view.Avatar.Character != null && view.Avatar.Character.gameObject.activeSelf) shot.Failures.Add("a character stands where none should");
+            if (view.Avatar.Words.text != LabelText.ForTextMeshPro(why) || view.Avatar.Cut) shot.Failures.Add("the absence does not say why, whole");
+            if (!view.Avatar.Action.gameObject.activeSelf || view.Avatar.Action.Words.text != LabelText.ForTextMeshPro(wayBack)) shot.Failures.Add("the absence does not offer " + wayBack);
+        };
+
+        private static Shot Moving(Shot shot)
+        {
+            shot.Moving = true;
+            shot.Glance = null;
+            // Kept still, a move is over before it starts.
+            GlazeMotion.Still = true;
+            if (KitTransition.Progress(0f) != 1f) shot.Failures.Add("kept still, a move does not end at once");
+            return shot;
+        }
+
+        /// <summary>Halfway, eased, from the workspace's place toward the compact presence's, taking its size.</summary>
+        private static void TowardCompact(KitWorkView view, Vector3 eyes)
+        {
+            var from = new Pose(view.transform.position, view.transform.rotation);
+            var scale = view.transform.localScale.x;
+            var target = new GameObject("Compact's place").transform;
+            Place(target, eyes, SpatialKit.PresenceYawDegrees, SpatialKit.PresenceElevationDegrees);
+            var share = PlaneComposition.Units(SpatialKit.PresenceDegrees) / view.Size.x;
+            GlazeMotion.Still = false;
+            KitTransition.Pose(view.transform, from, scale, new Pose(target.position, target.rotation), scale * share, KitTransition.Progress(Glaze.SlideSeconds / 2f));
+            GlazeMotion.Still = true;
+            Object.DestroyImmediate(target.gameObject);
+        }
+
+        /// <summary>Halfway, eased, from the task's row on the board, at the row's size, to the focused work's place.</summary>
+        private static void FromRow(KitWorkView view, Vector3 eyes)
+        {
+            var to = new Pose(view.transform.position, view.transform.rotation);
+            var scale = view.transform.localScale.x;
+            var row = new GameObject("The row's place").transform;
+            Place(row, eyes, 12f, CentreFor(view.Size.y) + 4f);
+            var share = PlaneComposition.Units(SpatialKit.BoardDegrees * 0.8f) / view.Size.x;
+            GlazeMotion.Still = false;
+            KitTransition.Pose(view.transform, new Pose(row.position, row.rotation), scale * share, to, scale, KitTransition.Progress(Glaze.SlideSeconds / 2f));
+            GlazeMotion.Still = true;
+            Object.DestroyImmediate(row.gameObject);
+        }
 
         /// <summary>The focused work as <see cref="WorkModel"/> shows it, with its state, report, need, question and notice as given.</summary>
         private static KitWorkModel Focused(StateBadge badge, ActivityEntry? report, KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null,
-            bool sendable = true, string? whyNot = null, bool stale = false, string draft = Draft)
+            bool sendable = true, string? whyNot = null, bool stale = false, string draft = Draft, KitAvatar? avatar = null)
         {
             var (trail, _) = SelectedActivity();
             var spine = new[]
@@ -58,7 +158,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }, SelectedProject, headingIsName: true),
             };
             return new KitWorkModel(SelectedProject, SelectedTask, badge, new WorkMark[0], report, trail, draft, voiceOffered: true,
-                sendable, whyNot, spine, spineFoot: null, need, ask, notice);
+                sendable, whyNot, spine, spineFoot: null, need, ask, notice, avatar);
         }
 
         /// <summary>
