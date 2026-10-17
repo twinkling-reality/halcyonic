@@ -35,12 +35,14 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private const string Day = "2026-10-16T";
 
-        private static CharacterPresentation Presentation(string id, string title, CharacterActivity activity, AttentionLevel attention = AttentionLevel.None, int approvals = 0) =>
+        private static CharacterPresentation Presentation(string id, string title, CharacterActivity activity, AttentionLevel attention = AttentionLevel.None, int approvals = 0,
+            bool stale = false) =>
             new CharacterPresentation(id, title, activity, StateLanguage.WordOf(StateLanguage.StateOf(activity, attention)), attention,
-                approvals > 0 ? new[] { "It wants to run a command." } : new string[0], approvals, false, false, false);
+                approvals > 0 ? new[] { "It wants to run a command." } : new string[0], approvals, false, false, stale);
 
-        private static StateBadge Badge(CharacterActivity activity, AttentionLevel attention = AttentionLevel.None, int approvals = 0) =>
-            StateLanguage.BadgeOf(Presentation("synthetic", "synthetic", activity, attention, approvals));
+        /// <summary>A task's badge as production derives it; <paramref name="stale"/> where the session is not live and the state is the last known.</summary>
+        private static StateBadge Badge(CharacterActivity activity, AttentionLevel attention = AttentionLevel.None, int approvals = 0, bool stale = false) =>
+            StateLanguage.BadgeOf(Presentation("synthetic", "synthetic", activity, attention, approvals, stale));
 
         /// <summary>The selected task's synthetic journal, recorded through the production activity log, with each entry's kind icon and recorded outcome.</summary>
         private static (IReadOnlyList<KitTrailEntry> Trail, ActivityEntry Report) SelectedActivity()
@@ -86,9 +88,9 @@ namespace Halcyonic.XR.Workspace.Editor
         };
 
         private static KitRowModel TaskRow(string key, string title, CharacterActivity activity, AttentionLevel attention = AttentionLevel.None,
-            int approvals = 0, bool selected = false, string? next = null, bool opensMore = true, int lines = 2)
+            int approvals = 0, bool selected = false, string? next = null, bool opensMore = true, int lines = 2, bool stale = false)
         {
-            var badge = Badge(activity, attention, approvals);
+            var badge = Badge(activity, attention, approvals, stale);
             return new KitRowModel(key, LineWords.TheirName(title), badge.Icon, badge.Tone, badge.Text, badge.Tone,
                 end: next, endTone: badge.State == WorkState.WaitingForYou ? GlazeTone.Attention : GlazeTone.Accent,
                 opensMore: opensMore, selected: selected, wordLines: lines, isName: true);
@@ -207,14 +209,21 @@ namespace Halcyonic.XR.Workspace.Editor
             switches[3].ShowConfirmed(true, immediately: true);
             y -= switches[0].Size.y + KitType.Scaled(0.35f) + KitType.LinePitch(probe.WorkspaceLabel) + KitType.Scaled(1.2f);
 
-            // The decision bar, before and after its request has been read: Yes stands only after.
+            // The decision bar in production's words: asked; then confirming Approve before the whole request has been
+            // read, its final press locked, and after, Yes where no control stood and Cancel where Approve was.
             Heading("Decision bar");
+            var deny = WorkspaceText.Label(WorkspaceAction.Deny);
+            var approve = WorkspaceText.Label(WorkspaceAction.Approve);
+            var ask = WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null);
+            var confirm = WorkspaceText.ConfirmLabel(WorkspaceAction.Approve);
+            var asked = KitDecisionBar.Create(carrier.transform, "Decision bar, asked");
+            y -= asked.ShowAsked(new Vector2(x0, y), inner, deny, approve) + gap;
             var unread = KitDecisionBar.Create(carrier.transform, "Decision bar, unread");
-            y -= unread.Show(new Vector2(x0, y), inner, "Allow the command above?", "Yes, allow", read: false, "Read the whole request first.") + gap;
+            y -= unread.ShowConfirming(new Vector2(x0, y), inner, deny, approve, true, ask, confirm, read: false, EntryText.ReadToPart(2)) + gap;
             var read = KitDecisionBar.Create(carrier.transform, "Decision bar, read");
-            y -= read.Show(new Vector2(x0, y), inner, "Allow the command above?", "Yes, allow", read: true, "Read the whole request first.") + KitType.Scaled(1.2f);
-            foreach (var bar in new[] { unread, read })
-                foreach (var each in new[] { bar.Close, bar.Cancel, bar.Yes }) if (each.gameObject.activeSelf) targets.Add(each.Press);
+            y -= read.ShowConfirming(new Vector2(x0, y), inner, deny, approve, true, ask, confirm, read: true, EntryText.ReadToPart(2)) + KitType.Scaled(1.2f);
+            foreach (var bar in new[] { asked, unread, read })
+                foreach (var each in new[] { bar.Deny, bar.Approve, bar.Cancel, bar.Yes }) if (each.gameObject.activeSelf) targets.Add(each.Press);
 
             // Every state's signal on its pill, a last-known one at the end.
             Heading("Every state");

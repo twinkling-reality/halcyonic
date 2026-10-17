@@ -20,6 +20,10 @@ namespace Halcyonic.XR.UI
         public const string Label = "Your instruction";
         public const string Empty = "Type your instruction";
         public const string NotSent = "Not sent yet.";
+        public const string SendInstruction = "Send instruction";
+
+        /// <summary>The input's label while the work waits for the person's answer, as the file column labels it.</summary>
+        public const string AnswerLabel = "Your answer";
 
         private TextMeshPro label = null!;
         private Surface well = null!;
@@ -37,10 +41,19 @@ namespace Halcyonic.XR.UI
         public TextMeshPro Draft => draft;
         public KitPress Field => field;
         public TextMeshPro Status => status;
+
+        /// <summary>Why Send waits, shown above the footer while it does.</summary>
+        public TextMeshPro Reason => reason;
         public KitButton Talk => talk;
         public KitButton Send => send;
         public Surface Well => well;
         public Vector2 Size => size;
+
+        /// <summary>
+        /// Whether the work waits for the person's answer to its question: the composer then asks for Your answer and
+        /// sends it with Send answer, production's words for that action, read at the next <see cref="Show"/>.
+        /// </summary>
+        public bool Answering { get; set; }
 
         /// <summary>How many of the draft's lines there are at the width last laid, and how many show in the well.</summary>
         public int DraftLines { get; private set; }
@@ -78,7 +91,7 @@ namespace Halcyonic.XR.UI
         {
             transform.localPosition = new Vector3(topLeft.x, topLeft.y, 0f);
             KitType.Size(label, KitRole.Body);
-            GlazeText.SetLiteral(label, Label);
+            GlazeText.SetLiteral(label, Answering ? AnswerLabel : Label);
             var (_, labelWidth, labelHeight) = KitType.Lay(label, width, 1);
             label.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
             // Whether the draft has gone, on the label's line at its right: said whole, or not at all.
@@ -100,7 +113,7 @@ namespace Halcyonic.XR.UI
             var runs = GlazeRuns.Of(draft);
             if (string.IsNullOrEmpty(words))
             {
-                runs.Set(LineWords.Ours(Empty));
+                runs.Set(LineWords.Ours(Answering ? FileScreens.TypeMyAnswer : Empty));
                 draft.color = KitType.Secondary;
             }
             else
@@ -138,9 +151,10 @@ namespace Halcyonic.XR.UI
             // The footer: Hold to talk and Send instruction at the right, Send rightmost.
             var gap = KitType.Units(SpatialKit.TargetGapDegrees);
             var row = -y - KitButton.Height / 2f;
-            var sendWidth = send.Measure("Send instruction", GlazeIcon.SendAnswer);
+            var sendWords = Answering ? WorkspaceText.Label(WorkspaceAction.Answer) : SendInstruction;
+            var sendWidth = send.Measure(sendWords, GlazeIcon.SendAnswer);
             send.Available = sendable;
-            send.Show("Send instruction", GlazeIcon.SendAnswer, new Vector2(width - sendWidth / 2f, row), sendWidth);
+            send.Show(sendWords, GlazeIcon.SendAnswer, new Vector2(width - sendWidth / 2f, row), sendWidth);
             var right = width - sendWidth - gap;
             talk.gameObject.SetActive(voiceOffered);
             if (voiceOffered)
