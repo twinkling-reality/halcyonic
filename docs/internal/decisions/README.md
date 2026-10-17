@@ -46,3 +46,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 
 | [0032](0032-recover-the-workspace-when-it-leaves-view.md) | Recover the workspace when it leaves view | Accepted direction; candidate thresholds require wearer validation |
 | [0033](0033-approvals-declare-whether-commands-leave-the-sandbox.md) | An agent app declares whether approving a command can let it leave the sandbox | Accepted |
+| [0034](0034-the-workspace-is-one-continuous-gentle-curve-centred-on-the-eyes.md) | The workspace is one continuous gentle curve centred on the eyes | Accepted as direction on Editor renders; implementation and wearer review pending |
