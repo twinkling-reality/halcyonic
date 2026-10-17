@@ -61,7 +61,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" })
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States))
                     {
                         try { found.AddRange(RenderState(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
@@ -150,6 +150,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     "2-overview" => Overview(root.transform, eyes, curved: true),
                     "2-overview-plane" => Overview(root.transform, eyes, curved: false),
                     "3-compact-presence" => CompactPresence(root.transform, eyes),
+                    _ when States.Contains(state) => StateShot(state, root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
@@ -304,11 +305,12 @@ namespace Halcyonic.XR.Workspace.Editor
             return high;
         }
 
-        private static Shot FocusedWork(Transform root, Vector3 eyes, bool curved)
+        private static Shot FocusedWork(Transform root, Vector3 eyes, bool curved, KitWorkModel? state = null, string? caption = null,
+            System.Action<KitWorkView, Shot>? require = null)
         {
-            var shot = new Shot { Caption = curved ? "Focused work on one gentle curve, synthetic data" : "Focused work on one plane, the fallback, synthetic data", Curved = curved };
+            var shot = new Shot { Caption = caption ?? (curved ? "Focused work on one gentle curve, synthetic data" : "Focused work on one plane, the fallback, synthetic data"), Curved = curved };
             var view = KitWorkView.Create(root);
-            var model = WorkModel();
+            var model = state ?? WorkModel();
             view.Show(model);
             shot.Elevation = CentreFor(view.Size.y);
             shot.Centre = Place(view.transform, eyes, 0f, shot.Elevation);
@@ -324,12 +326,16 @@ namespace Halcyonic.XR.Workspace.Editor
             shot.Faces.AddRange(view.Carriers.Select(carrier => carrier.Face));
             shot.OpacityNegative = view.Slate.Face;
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
-            Require(view.Message.Complete, "the agent's report shows " + view.Message.ShownLines + " of its " + view.Message.Lines + " lines");
-            Require(GlazeRuns.Of(view.Message.Prose).IsAttributedProse && !GlazeRuns.Of(view.Message.Prose).IsNamedIdentity, "the report lost its attributed-prose treatment");
-            Require(view.Message.Theirs.Count > 0 && view.Message.Prose.richText == false && view.Message.Prose.parseCtrlCharacters, "the report lost its outside ranges or literal rendering");
-            Require(view.Message.Chip.gameObject.activeInHierarchy && view.Message.Chip.Words.text == KitMessage.Source, "the report lost its Agent says chip");
+            if (model.Need == null && model.Ask == null && model.Report != null)
+            {
+                Require(view.Message.Complete, "the agent's report shows " + view.Message.ShownLines + " of its " + view.Message.Lines + " lines");
+                Require(GlazeRuns.Of(view.Message.Prose).IsAttributedProse && !GlazeRuns.Of(view.Message.Prose).IsNamedIdentity, "the report lost its attributed-prose treatment");
+                Require(view.Message.Theirs.Count > 0 && view.Message.Prose.richText == false && view.Message.Prose.parseCtrlCharacters, "the report lost its outside ranges or literal rendering");
+                Require(view.Message.Chip.gameObject.activeInHierarchy && view.Message.Chip.Words.text == KitMessage.Source, "the report lost its Agent says chip");
+            }
             Require(GlazeRuns.Of(view.Title).IsNamedIdentity, "the task's name is not shown as a named identity");
-            Require(view.Composer.ShownDraftLines == view.Composer.DraftLines, "the draft shows " + view.Composer.ShownDraftLines + " of its " + view.Composer.DraftLines + " lines");
+            if (model.Need == null) Require(view.Composer.ShownDraftLines == view.Composer.DraftLines, "the draft shows " + view.Composer.ShownDraftLines + " of its " + view.Composer.DraftLines + " lines");
+            require?.Invoke(view, shot);
             Require(!view.Spine.Switch.ConfirmedCompact && view.Spine.Switch.ThumbPosition == 0f, "the switch's thumb is not on Workspace in the whole workspace");
             Require(view.Trail.Shown.All(entry => entry.Entry.Kind != ActivityKind.Message), "the evidence rail shows an agent message");
             Require(view.Trail.Shown.Count > 0, "the evidence rail shows no recorded event");

@@ -8,13 +8,95 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
+    /// <summary>
+    /// An approval the work waits on, in production's words (<see cref="WorkspaceText.NeedFromYou"/>): what it asks, the
+    /// request whole as the runtime reported it, where an approved command runs as its agent app declares it, and what
+    /// each answer does; and once an answer is pressed, its confirmation.
+    /// </summary>
+    public sealed class KitNeed
+    {
+        public KitNeed(LineWords asks, string? request, string? scopeNote, IReadOnlyList<string> notes, string denyWords, string approveWords,
+            KitConfirmation? confirming = null)
+        {
+            Asks = asks;
+            Request = request;
+            ScopeNote = scopeNote;
+            Notes = notes;
+            DenyWords = denyWords;
+            ApproveWords = approveWords;
+            Confirming = confirming;
+        }
+
+        /// <summary>Halcyonic's sentence of what it asks, a tool's name leaning inside it.</summary>
+        public LineWords Asks { get; }
+
+        /// <summary>The request, literal and whole, or null where it named no tool.</summary>
+        public string? Request { get; }
+
+        /// <summary>Where an approved command runs, ADR 0033's words, or null where its agent app declares nothing.</summary>
+        public string? ScopeNote { get; }
+
+        /// <summary>What each answer does and when it counts, in Halcyonic's words, the scope note not among them.</summary>
+        public IReadOnlyList<string> Notes { get; }
+
+        public string DenyWords { get; }
+
+        public string ApproveWords { get; }
+
+        /// <summary>The confirmation of the answer pressed, or null while both answers are offered.</summary>
+        public KitConfirmation? Confirming { get; }
+    }
+
+    /// <summary>The confirmation of an approval's answer: the question about the request above, Yes's words, and whether all of it has been read.</summary>
+    public sealed class KitConfirmation
+    {
+        public KitConfirmation(bool approving, string ask, string confirm, bool read, string readFirst)
+        {
+            Approving = approving;
+            Ask = ask;
+            Confirm = confirm;
+            Read = read;
+            ReadFirst = readFirst;
+        }
+
+        public bool Approving { get; }
+
+        public string Ask { get; }
+
+        public string Confirm { get; }
+
+        public bool Read { get; }
+
+        public string ReadFirst { get; }
+    }
+
+    /// <summary>The question the work waits on the person to answer: production's heading over the agent's own words.</summary>
+    public sealed class KitAsk
+    {
+        public KitAsk(LineWords heading, string question)
+        {
+            Heading = heading;
+            Question = question;
+        }
+
+        /// <summary>Halcyonic's heading, such as It asks you, or the agent's own header leaning.</summary>
+        public LineWords Heading { get; }
+
+        /// <summary>The question as the agent wrote it: outside text.</summary>
+        public string Question { get; }
+    }
+
     /// <summary>What the focused work shows: the selected task, what its agent last said, what was recorded, and the person's draft.</summary>
     public sealed class KitWorkModel
     {
         public KitWorkModel(string projectName, string taskTitle, StateBadge badge, IReadOnlyList<WorkMark> marks,
             ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail, string draft, bool voiceOffered, bool sendable,
-            string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot)
+            string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
+            KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null)
         {
+            Need = need;
+            Ask = ask;
+            Notice = notice;
             ProjectName = projectName;
             TaskTitle = taskTitle;
             Badge = badge;
@@ -55,6 +137,15 @@ namespace Halcyonic.XR.UI
         public IReadOnlyList<KitSpineSection> Spine { get; }
 
         public KitRowModel? SpineFoot { get; }
+
+        /// <summary>An approval it waits on: the slate reads the request and the decision bar takes the composer's place.</summary>
+        public KitNeed? Need { get; }
+
+        /// <summary>A question it waits on the person to answer: the composer asks for the answer.</summary>
+        public KitAsk? Ask { get; }
+
+        /// <summary>What its state alone can't say about what happened, as an outcome that can't be told: shown over the activity it points to.</summary>
+        public KitNoticeModel? Notice { get; }
     }
 
     /// <summary>
@@ -87,6 +178,15 @@ namespace Halcyonic.XR.UI
         private KitMessage message = null!;
         private TextMeshPro nothing = null!;
         private KitComposer composer = null!;
+        private KitDecisionBar decision = null!;
+        private KitNotice notice = null!;
+        private TextMeshPro asks = null!;
+        private KitChip request = null!;
+        private TextMeshPro question = null!;
+        private readonly List<TextMeshPro> notes = new List<TextMeshPro>();
+        private readonly List<float> noteTops = new List<float>();
+        private float requestTop;
+        private float questionTop;
         private TextMeshPro railHeading = null!;
         private KitRow earlier = null!;
         private KitTrail trail = null!;
@@ -100,6 +200,12 @@ namespace Halcyonic.XR.UI
         public TextMeshPro Title => title;
         public KitMessage Message => message;
         public KitComposer Composer => composer;
+        public KitDecisionBar Decision => decision;
+        public KitNotice Notice => notice;
+        public TextMeshPro Asks => asks;
+        public KitChip Request => request;
+        public TextMeshPro AskedQuestion => question;
+        public IReadOnlyList<TextMeshPro> Notes => notes;
         public KitTrail Trail => trail;
         public KitRow Earlier => earlier;
 
@@ -128,9 +234,15 @@ namespace Halcyonic.XR.UI
         {
             get
             {
-                yield return composer.Field;
-                foreach (var button in new[] { composer.Talk, composer.Send })
-                    if (button.gameObject.activeSelf) yield return button.Press;
+                if (composer.gameObject.activeSelf)
+                {
+                    yield return composer.Field;
+                    foreach (var button in new[] { composer.Talk, composer.Send })
+                        if (button.gameObject.activeSelf) yield return button.Press;
+                }
+                if (decision.gameObject.activeSelf)
+                    foreach (var button in new[] { decision.Deny, decision.Approve, decision.Cancel, decision.Yes })
+                        if (button.gameObject.activeSelf) yield return button.Press;
             }
         }
 
@@ -165,6 +277,11 @@ namespace Halcyonic.XR.UI
             view.message = KitMessage.Create(face, "Agent's report");
             view.nothing = KitType.Create(face, "Nothing reported", KitRole.Body, KitType.Secondary, KitType.Order.Words);
             view.composer = KitComposer.Create(face);
+            view.decision = KitDecisionBar.Create(face);
+            view.notice = KitNotice.Create(view.rail.transform);
+            view.asks = KitType.Create(face, "What it asks", KitRole.Strong, KitType.Text, KitType.Order.Words);
+            view.request = KitChip.Create(face, "Request");
+            view.question = KitType.Create(face, "Its question", KitRole.Body, KitType.Text, KitType.Order.Words, leading: SpatialKit.ReadingLeading);
             view.railHeading = KitType.Create(view.rail.transform, "Rail heading", KitRole.Heading, KitType.Secondary, KitType.Order.Words);
             view.earlier = KitRow.Create(view.rail.transform, "Earlier activity");
             view.earlier.Pressed += key => view.RowPressed?.Invoke(key);
@@ -189,20 +306,12 @@ namespace Halcyonic.XR.UI
             y += header + KitType.Scaled(0.9f);
             var dividerAt = y;
             y += KitType.Scaled(0.9f);
-            // The composer's height first: the agent's words take what remains, and page rather than shrink.
-            var composerHeight = composer.Show(Vector2.zero, inner, model.Draft, 3, model.VoiceOffered, model.Sendable, model.WhyNotSend);
+            // The foot's height first: the decision bar while an approval waits, else the composer. What is read takes
+            // what remains, and pages rather than shrinks.
+            var composerHeight = ShowFoot(model, Vector2.zero, inner);
             var gap = KitType.Scaled(1.2f);
             var room = Mathf.Max(KitType.Units(4f), most - y - gap - composerHeight - pad);
-            float reading;
-            message.gameObject.SetActive(model.Report != null);
-            nothing.gameObject.SetActive(model.Report == null);
-            if (model.Report != null) reading = message.Show(model.Report, inner, room);
-            else
-            {
-                KitType.Size(nothing, KitRole.Body);
-                GlazeText.SetLiteral(nothing, NothingReported);
-                (_, _, reading) = KitType.Lay(nothing, inner, 2);
-            }
+            var reading = LayReading(model, inner, room);
             var readingTop = y;
             y += reading + gap;
             var composerTop = y;
@@ -240,9 +349,8 @@ namespace Halcyonic.XR.UI
             PlaceHeader(slateLeft, top - pad, inner);
             // No rule under the header: the space and the type's own steps divide it.
             divider.gameObject.SetActive(false);
-            message.transform.localPosition = new Vector3(slateLeft, top - readingTop, 0f);
-            nothing.transform.localPosition = new Vector3(slateLeft, top - readingTop, -0.0005f);
-            composer.Show(new Vector2(slateLeft, top - composerTop), inner, model.Draft, 3, model.VoiceOffered, model.Sendable, model.WhyNotSend);
+            PlaceReading(slateLeft, top - readingTop);
+            ShowFoot(model, new Vector2(slateLeft, top - composerTop), inner);
 
             // The spine, inside its own padding, the part under the slate left empty.
             var sideTop = sides / 2f;
@@ -256,6 +364,10 @@ namespace Halcyonic.XR.UI
             var (_, _, headingHeight) = KitType.Lay(railHeading, railInner, 1);
             railHeading.transform.localPosition = new Vector3(railLeft, sideTop - pad, -0.0005f);
             var railY = pad + headingHeight + KitType.Scaled(0.6f);
+            // A notice about what happened stands over the activity it points to; the trail takes the room left.
+            if (model.Notice != null) railY += notice.Show(model.Notice, new Vector2(railLeft, sideTop - railY), railInner) + KitType.Scaled(0.6f);
+            else notice.Hide();
+            var earlierAt = railY;
             var trailRoom = sides - railY - pad;
             trail.Show(model.Trail, railInner, trailRoom);
             if (trail.Earlier > 0)
@@ -267,10 +379,100 @@ namespace Halcyonic.XR.UI
                 railY += earlierHeight + KitType.Scaled(0.5f);
                 trail.Show(model.Trail, railInner, sides - railY - pad);
                 earlier.Show(new KitRowModel("activity:earlier", LineWords.Ours(EarlierWords), GlazeIcon.LastKnown,
-                    end: trail.Earlier == 1 ? "1 more" : trail.Earlier + " more", endTone: GlazeTone.Accent), new Vector2(railLeft, sideTop - (pad + headingHeight + KitType.Scaled(0.6f))), railInner);
+                    end: trail.Earlier == 1 ? "1 more" : trail.Earlier + " more", endTone: GlazeTone.Accent), new Vector2(railLeft, sideTop - earlierAt), railInner);
             }
             else earlier.Hide();
             trail.transform.localPosition = new Vector3(railLeft, sideTop - railY, 0f);
+        }
+
+        /// <summary>The slate's foot at <paramref name="topLeft"/>: the decision bar while an approval waits, else the composer, asking for an answer where a question waits.</summary>
+        private float ShowFoot(KitWorkModel model, Vector2 topLeft, float inner)
+        {
+            if (model.Need is KitNeed need)
+            {
+                composer.gameObject.SetActive(false);
+                return need.Confirming is KitConfirmation confirming
+                    ? decision.ShowConfirming(topLeft, inner, need.DenyWords, need.ApproveWords, confirming.Approving, confirming.Ask, confirming.Confirm, confirming.Read, confirming.ReadFirst)
+                    : decision.ShowAsked(topLeft, inner, need.DenyWords, need.ApproveWords);
+            }
+            decision.Hide();
+            composer.gameObject.SetActive(true);
+            composer.Answering = model.Ask != null;
+            return composer.Show(topLeft, inner, model.Draft, 3, model.VoiceOffered, model.Sendable, model.WhyNotSend);
+        }
+
+        /// <summary>
+        /// Measures what the slate reads: the approval it waits on (what it asks, the request whole, where it runs and
+        /// what each answer does), the question it asks, or else the agent's report. Returns its height.
+        /// </summary>
+        private float LayReading(KitWorkModel model, float inner, float room)
+        {
+            var need = model.Need;
+            var ask = need == null ? model.Ask : null;
+            message.gameObject.SetActive(need == null && ask == null && model.Report != null);
+            nothing.gameObject.SetActive(need == null && ask == null && model.Report == null);
+            asks.gameObject.SetActive(need != null || ask != null);
+            request.gameObject.SetActive(need?.Request != null);
+            question.gameObject.SetActive(ask != null);
+            foreach (var note in notes) note.gameObject.SetActive(false);
+            noteTops.Clear();
+            if (need == null && ask == null)
+            {
+                if (model.Report != null) return message.Show(model.Report, inner, room);
+                KitType.Size(nothing, KitRole.Body);
+                GlazeText.SetLiteral(nothing, NothingReported);
+                var (_, _, nothingHeight) = KitType.Lay(nothing, inner, 2);
+                return nothingHeight;
+            }
+            KitType.Size(asks, KitRole.Strong);
+            GlazeRuns.Of(asks).Set(need != null ? need.Asks : ask!.Heading);
+            var (_, _, asksHeight) = KitType.Lay(asks, inner, 2);
+            var y = asksHeight + KitType.Scaled(0.5f);
+            if (ask != null)
+            {
+                // The agent's question, its own words, leaning as outside text does.
+                KitType.Size(question, KitRole.Body, SpatialKit.ReadingLeading);
+                GlazeRuns.Of(question).Set(LineWords.Theirs(ask.Question));
+                var (_, _, questionHeight) = KitType.Lay(question, inner, 8);
+                questionTop = y;
+                return y + questionHeight;
+            }
+            if (need!.Request != null)
+            {
+                // The request whole, literal, as the runtime reported it, on a chip's ground as evidence is.
+                var chip = request.Show(LineWords.Theirs(need.Request), null, KitType.Secondary, inner, 8);
+                requestTop = y;
+                y += chip.y + KitType.Scaled(0.8f);
+            }
+            var lines = new List<(string Words, bool Leads)>();
+            if (need.ScopeNote != null) lines.Add((need.ScopeNote, true));
+            foreach (var line in need.Notes) lines.Add((line, false));
+            for (var index = 0; index < lines.Count; index++)
+            {
+                while (notes.Count <= index) notes.Add(KitType.Create(slate.transform, "Note " + notes.Count, KitRole.Body, KitType.Text, KitType.Order.Words, leading: SpatialKit.ReadingLeading));
+                var note = notes[index];
+                note.gameObject.SetActive(true);
+                KitType.Size(note, KitRole.Body, SpatialKit.ReadingLeading);
+                // Where an approved command runs leads, in the reading colour; what each answer does follows, quieter.
+                note.color = lines[index].Leads ? KitType.Text : KitType.Secondary;
+                GlazeText.SetLiteral(note, lines[index].Words);
+                var (_, _, noteHeight) = KitType.Lay(note, inner, 3);
+                noteTops.Add(y);
+                y += noteHeight + KitType.Scaled(0.35f);
+            }
+            return y - KitType.Scaled(0.35f);
+        }
+
+        private void PlaceReading(float left, float top)
+        {
+            message.transform.localPosition = new Vector3(left, top, 0f);
+            nothing.transform.localPosition = new Vector3(left, top, -0.0005f);
+            asks.transform.localPosition = new Vector3(left, top, -0.0005f);
+            question.transform.localPosition = new Vector3(left, top - questionTop, -0.0005f);
+            if (request.gameObject.activeSelf)
+                request.transform.localPosition = new Vector3(left + request.Size.x / 2f, top - requestTop - request.Size.y / 2f, -0.0003f);
+            for (var index = 0; index < noteTops.Count; index++)
+                notes[index].transform.localPosition = new Vector3(left, top - noteTops[index], -0.0005f);
         }
 
         private float headerContext;
