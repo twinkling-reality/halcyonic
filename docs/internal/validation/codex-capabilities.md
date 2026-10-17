@@ -371,6 +371,10 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   produced `item/started` and never `item/completed`; the model still received the output.
   Halcyonic cannot journal what Codex does not send, so a missing tool event does not mean that
   nothing ran.
+- **Approval text stays whole (2026-10-17):** a command approval's summary is reported complete up to
+  2000 characters, and a longer one is marked incomplete, so it can only be denied. A started tool's title
+  is cut at 500 characters and ends in "[truncated]". Seen in a rehearsal with the pinned binary: a
+  533-character command had a whole, complete approval and a cut tool title.
 - **Not verified:** whether a sandboxed command can signal another sandboxed process; whether a real
   model always sends `reason` with an escalation and never with a plain command; other macOS
   versions.
