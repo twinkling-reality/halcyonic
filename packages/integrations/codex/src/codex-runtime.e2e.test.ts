@@ -500,14 +500,20 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       'runtime.tool.started',
       'runtime.approval.requested',
       'runtime.approval.resolved',
+      'runtime.tool.result',
       'runtime.tool.completed',
       'runtime.agent_message',
       'runtime.turn.completed',
     ]);
     const payloads = execution.observations.map((observation) => observation.payload);
     assert.deepEqual(payloads[5], { approval_id: approvalId(requested), decision: 'approved' });
-    assert.equal((payloads[6] as { outcome: string }).outcome, 'succeeded');
-    assert.match((payloads[7] as { text: string }).text, /Output: created-approved/);
+    const result = payloads[6] as { kind: string; completion: string; exit_code: number | null };
+    assert.deepEqual(
+      [result.kind, result.completion, result.exit_code],
+      ['command', 'completed', 0],
+    );
+    assert.equal((payloads[7] as { outcome: string }).outcome, 'succeeded');
+    assert.match((payloads[8] as { text: string }).text, /Output: created-approved/);
     assert.ok(existsSync(`${sandbox.project}/approved.txt`));
     assertValidObservations(execution.observations, execution.context);
   });
@@ -570,6 +576,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       await execution.next('runtime.turn.completed');
       assert.deepEqual(execution.typesAfter('runtime.approval.requested'), [
         'runtime.approval.resolved',
+        'runtime.tool.result',
         'runtime.tool.completed',
         'runtime.agent_message',
         'runtime.turn.completed',
@@ -620,6 +627,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         'runtime.tool.started',
         'runtime.approval.requested',
         'runtime.approval.resolved',
+        'runtime.tool.result',
         'runtime.tool.completed',
         'runtime.agent_message',
         'runtime.turn.completed',
