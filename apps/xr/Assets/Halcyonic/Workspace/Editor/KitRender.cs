@@ -122,6 +122,9 @@ namespace Halcyonic.XR.Workspace.Editor
 
             /// <summary>A bare point of a face and the colour it is drawn in: the eye buffer must hold it as the headset stores it.</summary>
             public (Surface Face, Vector3 Local, GlazeColor Colour)? Witness;
+
+            /// <summary>Where a recessed band joins the forward region: that region, and the side, -1 left or 1 right, the band stands.</summary>
+            public List<(KitCarrier Front, float Side)> Joins = new List<(KitCarrier, float)>();
         }
 
         private static List<string> RenderState(string state, string size)
@@ -178,6 +181,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var eye = image.GetPixels32();
                     failures.AddRange(Opaque(shot.Faces, camera, eye, name, shot.Seen));
+                    failures.AddRange(JoinsClosed(shot, camera, eye, name));
                     if (shot.Witness is (Surface witnessFace, Vector3 witnessLocal, GlazeColor witnessColour))
                         failures.AddRange(StoredAsTheHeadsetStores(witnessFace, witnessLocal, witnessColour, camera, eye, name, shot.Seen));
                     bright = Composite(image, BrightRoom(Width, Height, camera), Color.white);
@@ -323,6 +327,8 @@ namespace Halcyonic.XR.Workspace.Editor
             shot.Regions.Add(("reading slate", view.Slate, view.SlateTargets));
             shot.Regions.Add(("evidence rail", view.Rail, view.RailTargets));
             shot.Witness = (view.Slate.Face, new Vector3(-0.48f, 0f, 0f), SpatialKit.Slate);
+            shot.Joins.Add((view.Slate, -1f));
+            shot.Joins.Add((view.Slate, 1f));
             shot.Faces.AddRange(view.Carriers.Select(carrier => carrier.Face));
             shot.OpacityNegative = view.Slate.Face;
             void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
@@ -358,6 +364,7 @@ namespace Halcyonic.XR.Workspace.Editor
             shot.Regions.Add(("context spine", view.SpineCarrier, view.SpineTargets));
             shot.Regions.Add(("board", view.Board, view.BoardTargets));
             shot.Witness = (view.Board.Face, new Vector3(-0.48f, 0f, 0f), SpatialKit.Slate);
+            shot.Joins.Add((view.Board, -1f));
             shot.Faces.AddRange(view.Carriers.Select(carrier => carrier.Face));
             var rows = view.TaskRows.ToList();
             if (rows.Count != model.Projects.Sum(project => project.Tasks.Count)) shot.Failures.Add("the board shows " + rows.Count + " task rows");
@@ -724,6 +731,39 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The eye buffer holds a bare point of a face as the headset's eight-bit sRGB buffers would: within three
         /// steps of its colour. A linear buffer, or a conversion on reading back, would show here.
         /// </summary>
+        /// <summary>
+        /// No room shows where a band joins the forward region: along each join, at seven heights clear of the corners,
+        /// from just inside the forward region's edge to a degree past it, the eye buffer is opaque, so the room the
+        /// compositor would lay under it cannot show. Points are taken where the eyes see them, on the plane or the curve.
+        /// </summary>
+        private static IEnumerable<string> JoinsClosed(Shot shot, Camera camera, Color32[] eye, string what)
+        {
+            if (shot.Joins.Count == 0) yield break;
+            var least = 255;
+            var samples = 0;
+            var open = 0;
+            foreach (var (front, side) in shot.Joins)
+            {
+                var half = front.Size / 2f;
+                var clear = half.y - KitType.Units(SpatialKit.SlateRiseDegrees) - KitType.Units(SpatialKit.InstrumentRadiusDegrees);
+                foreach (var past in new[] { -0.05f, 0.05f, 0.25f, 0.5f, 1f })
+                for (var step = 0; step < 7; step++)
+                {
+                    var local = new Vector3(side * (half.x + KitType.Units(past)), -clear + 2f * clear * step / 6f, 0f);
+                    var screen = camera.WorldToScreenPoint(shot.Seen(front.transform.TransformPoint(local)));
+                    var x = Mathf.RoundToInt(screen.x);
+                    var y = Mathf.RoundToInt(screen.y);
+                    if (screen.z <= 0f || x < 0 || y < 0 || x >= Width || y >= Height) continue;
+                    samples++;
+                    var alpha = eye[y * Width + x].a;
+                    least = Mathf.Min(least, alpha);
+                    if (alpha < 254) open++;
+                }
+            }
+            Debug.Log("Halcyonic: spatial kit: " + what + ": joins, " + samples + " points from just inside the edge to a degree past it, the least alpha " + least + " of 255.");
+            if (open > 0) yield return what + ": " + open + " of " + samples + " points at the joins let the room through (least alpha " + least + " of 255).";
+        }
+
         private static IEnumerable<string> StoredAsTheHeadsetStores(Surface face, Vector3 local, GlazeColor colour, Camera camera, Color32[] eye, string what, Func<Vector3, Vector3> seen)
         {
             var screen = camera.WorldToScreenPoint(seen(face.transform.TransformPoint(local)));
