@@ -86,14 +86,40 @@ namespace Halcyonic.XR.UI
         public string Question { get; }
     }
 
+    /// <summary>The task's place: its character, or why none stands there and the one real way back.</summary>
+    public sealed class KitAvatar
+    {
+        private KitAvatar(CharacterPresentation? present, string? why, string? wayBack, GlazeIcon? wayBackIcon)
+        {
+            Present = present;
+            Why = why;
+            WayBack = wayBack;
+            WayBackIcon = wayBackIcon;
+        }
+
+        public static KitAvatar Standing(CharacterPresentation presentation) => new KitAvatar(presentation, null, null, null);
+
+        /// <summary>No character: <paramref name="why"/> in Halcyonic's words, with the existing action that brings it back, if any.</summary>
+        public static KitAvatar Absent(string why, string? wayBack = null, GlazeIcon? icon = null) => new KitAvatar(null, why, wayBack, icon);
+
+        public CharacterPresentation? Present { get; }
+
+        public string? Why { get; }
+
+        public string? WayBack { get; }
+
+        public GlazeIcon? WayBackIcon { get; }
+    }
+
     /// <summary>What the focused work shows: the selected task, what its agent last said, what was recorded, and the person's draft.</summary>
     public sealed class KitWorkModel
     {
         public KitWorkModel(string projectName, string taskTitle, StateBadge badge, IReadOnlyList<WorkMark> marks,
             ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail, string draft, bool voiceOffered, bool sendable,
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
-            KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null)
+            KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null)
         {
+            Avatar = avatar;
             Need = need;
             Ask = ask;
             Notice = notice;
@@ -146,6 +172,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>What its state alone can't say about what happened, as an outcome that can't be told: shown over the activity it points to.</summary>
         public KitNoticeModel? Notice { get; }
+
+        /// <summary>The task's place on the slate's top edge, or null where the kit shows none.</summary>
+        public KitAvatar? Avatar { get; }
     }
 
     /// <summary>
@@ -180,6 +209,7 @@ namespace Halcyonic.XR.UI
         private KitComposer composer = null!;
         private KitDecisionBar decision = null!;
         private KitNotice notice = null!;
+        private KitAvatarZone avatar = null!;
         private TextMeshPro asks = null!;
         private KitChip request = null!;
         private TextMeshPro question = null!;
@@ -202,6 +232,7 @@ namespace Halcyonic.XR.UI
         public KitComposer Composer => composer;
         public KitDecisionBar Decision => decision;
         public KitNotice Notice => notice;
+        public KitAvatarZone Avatar => avatar;
         public TextMeshPro Asks => asks;
         public KitChip Request => request;
         public TextMeshPro AskedQuestion => question;
@@ -240,6 +271,7 @@ namespace Halcyonic.XR.UI
                     foreach (var button in new[] { composer.Talk, composer.Send })
                         if (button.gameObject.activeSelf) yield return button.Press;
                 }
+                if (avatar.gameObject.activeSelf && avatar.Action.gameObject.activeSelf) yield return avatar.Action.Press;
                 if (decision.gameObject.activeSelf)
                     foreach (var button in new[] { decision.Deny, decision.Approve, decision.Cancel, decision.Yes })
                         if (button.gameObject.activeSelf) yield return button.Press;
@@ -279,6 +311,8 @@ namespace Halcyonic.XR.UI
             view.composer = KitComposer.Create(face);
             view.decision = KitDecisionBar.Create(face);
             view.notice = KitNotice.Create(view.rail.transform);
+            view.avatar = KitAvatarZone.Create(view.slate.transform);
+            view.avatar.gameObject.SetActive(false);
             view.asks = KitType.Create(face, "What it asks", KitRole.Strong, KitType.Text, KitType.Order.Words);
             view.request = KitChip.Create(face, "Request");
             view.question = KitType.Create(face, "Its question", KitRole.Body, KitType.Text, KitType.Order.Words, leading: SpatialKit.ReadingLeading);
@@ -350,6 +384,10 @@ namespace Halcyonic.XR.UI
             // No rule under the header: the space and the type's own steps divide it.
             divider.gameObject.SetActive(false);
             PlaceReading(slateLeft, top - readingTop);
+            // The task's place, on the slate's top edge at its right.
+            avatar.gameObject.SetActive(model.Avatar != null);
+            if (model.Avatar?.Present is CharacterPresentation present) avatar.ShowPresent(present, new Vector2(slateWidth, height));
+            else if (model.Avatar is KitAvatar absent) avatar.ShowAbsent(absent.Why!, absent.WayBack, absent.WayBackIcon, new Vector2(slateWidth, height), slateWidth * 0.75f);
             ShowFoot(model, new Vector2(slateLeft, top - composerTop), inner);
 
             // The spine, inside its own padding, the part under the slate left empty.
