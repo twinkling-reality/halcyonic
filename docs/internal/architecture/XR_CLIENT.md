@@ -209,7 +209,8 @@ launch/return, process recreation and current-frame action behavior need separat
   when the state registers at least one runtime and every one is synthetic, so it can only ever run
   on a practice agent (`CharacterPresenter.OnlyPractice`), and one real runtime marks nothing. The
   demonstration's recording registers only synthetic runtimes, which `DemonstrationRecording`
-  checks of every snapshot, so its tasks read Demo before they start as after.
+  checks of every snapshot, so its tasks read Demo before they start as after. A recorded run
+  registers only its one real runtime, so its tasks read Recorded and never Practice or Demo.
 - **`Glaze`** holds the interface's tokens, once: colors as roles (amber only for waiting for you,
   red only for what went wrong, the cobalt accent only for what can be acted on), sizes as angles at
   the eye (one of Meta's dp is 0.0625 degrees; body text 1.125, nothing under the caption's 0.94),
@@ -1455,7 +1456,20 @@ launch/return, process recreation and current-frame action behavior need separat
   as a resynchronization, like a journal change. Its `Line` is what the line above the stage says
   while the demonstration is shown: "Demo: recorded work played on this headset. Nothing here is
   live." and "It follows your answers. Nothing reaches an agent.", and, while it holds
-  an end, that it starts again shortly.
+  an end, that it starts again shortly. While a recorded run plays it says "Recorded: real agent
+  work, played back on this headset. Nothing here is live." and "It waits for you where the agent
+  waited. Nothing reaches an agent."
+- **A recorded run** is one real run played the same way (`pnpm judge:record`,
+  [EVENTS.md](EVENTS.md), "Recorded runs"): format version 3, kind `recorded_run`, read by
+  `DemonstrationRecording` with `IsRecordedRun` true. Its journal is a fixture, so its work is
+  labeled recorded; its runtime is real, so never simulated. The two are never mixed, and the reader
+  refuses either way round: a recorded run whose snapshot registers a synthetic runtime, whose work
+  starts on one, or that carries stand-in answers or usage limits; a demonstration whose snapshot
+  registers a real runtime or whose work starts on one; a version and kind that disagree. A
+  recorded run holds only the answers someone really gave when it ran, so `DemonstrationTransport`
+  answers the one it holds with "Not sent to any agent. This was approved when it ran, so the run
+  goes on as it happened." (or denied), and anything else with "Not sent to any agent. This run is
+  recorded as it happened, so nothing changes."
 - **The room placement's decisions** ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)),
   on plain floor plan geometry the Unity layer converts to and from its vectors:
   - `StageSurfaces.Choose` picks where the characters stand from the room's surfaces facing up
