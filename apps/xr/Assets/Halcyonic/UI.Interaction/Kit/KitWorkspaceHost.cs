@@ -162,13 +162,16 @@ namespace Halcyonic.XR.UI
             foreach (var press in view.Targets) press.SettleForRender();
         }
 
+        /// <summary>For the Editor, which runs no frames: every control as if settled, and the frame shown reported drawn as a frame would.</summary>
+        public void DrawnForRender()
+        {
+            SettleForRender();
+            ReportDrawn();
+        }
+
         private void Update()
         {
-            if (binding != null && Settled && !ReferenceEquals(drawn, binding.Frame))
-            {
-                drawn = binding.Frame;
-                Drawn?.Invoke(column, binding.Frame);
-            }
+            ReportDrawn();
             if (held != null && !holding && heldAt >= 0f && Time.unscaledTime - heldAt >= GlazeButton.HoldSeconds)
             {
                 holding = true;
@@ -177,6 +180,13 @@ namespace Halcyonic.XR.UI
         }
 
         private void OnDisable() => EndHold(false);
+
+        private void ReportDrawn()
+        {
+            if (binding == null || !Settled || ReferenceEquals(drawn, binding.Frame)) return;
+            drawn = binding.Frame;
+            Drawn?.Invoke(column, binding.Frame);
+        }
 
         private void Press(KitPlace place)
         {
@@ -246,16 +256,18 @@ namespace Halcyonic.XR.UI
             return Mathf.Max(0f, sides - 2f * pad - KitType.Scaled(3f));
         }
 
-        /// <summary>Where the spine's, the slate's and the rail's words stand, inside their padding, relative to the centre, at the standard text size.</summary>
+        /// <summary>
+        /// Where the spine's, the slate's and the rail's words can stand, relative to the centre, at the standard text size:
+        /// each region's whole visible face, padding included, since some words stand just inside it.
+        /// </summary>
         private static TextBand[] Bands(Vector2 size, float zoom)
         {
-            var pad = KitType.Units(SpatialKit.PaddingDegrees);
             var spine = PlaneComposition.Units(SpatialKit.SpineDegrees);
             var slate = PlaneComposition.Units(SpatialKit.SlateDegrees);
             var left = -size.x / 2f;
             var sides = size.y / 2f - KitType.Units(SpatialKit.SlateRiseDegrees);
             var em = SpatialKit.Degrees(SpatialKit.BodyDp) * zoom;
-            TextBand Band(float from, float to, float half) => new TextBand((from + pad) / zoom, (to - pad) / zoom, (-half + pad) / zoom, (half - pad) / zoom, em);
+            TextBand Band(float from, float to, float half) => new TextBand(from / zoom, to / zoom, -half / zoom, half / zoom, em);
             return new[]
             {
                 Band(left, left + spine, sides),
