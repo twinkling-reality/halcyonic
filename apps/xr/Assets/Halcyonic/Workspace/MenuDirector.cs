@@ -274,6 +274,8 @@ namespace Halcyonic.XR.Workspace
                 director.Open(MenuPlace.Projects);
             };
             director.plane.Drawn += director.OnDrawn;
+            director.plane.KitDrawn += director.OnKitDrawn;
+            director.plane.KitContextPressed += director.OnKitContext;
             director.plane.ContextProjectPressed += director.OnContextProject;
             director.plane.ContextPlacePressed += director.OnContextPlace;
             director.plane.ContextWorkspacePressed += director.OnContextWorkspace;
@@ -835,6 +837,13 @@ namespace Halcyonic.XR.Workspace
         /// A view drew its frame whole: the column that gave it learns of it, never while focus is away or
         /// the plane is folded, since the person is elsewhere; on return it is drawn, and counted, again.
         /// </summary>
+        /// <summary>The kit drew the file's frame: the frame's draw, by the same rules as a view's (<see cref="OnDrawn"/>).</summary>
+        private void OnKitDrawn(MenuColumn from, MenuFrame frame)
+        {
+            if (Away || plane.Repositioning || placement != null) return;
+            navigator.Drawn(from, frame, null);
+        }
+
         private void OnDrawn(MenuColumn from, MenuFrameView view)
         {
             if (Away || plane.Repositioning) return;
@@ -1223,7 +1232,9 @@ namespace Halcyonic.XR.Workspace
 
         public int RowsOf(string words, float columnDegrees) => MenuFrameView.RowsOf(words, columnDegrees);
 
-        public int RowsOf(PageLine line, float columnDegrees) => MenuFrameView.RowsOf(line, columnDegrees);
+        /// <summary>The rows a line takes where it is drawn: the person's instruction in the kit's composer while the kit draws the file.</summary>
+        public int RowsOf(PageLine line, float columnDegrees) => plane.KitShows && line.Action == FileScreens.EditInstruction
+            ? plane.Kit.RowsOf(line.Words) : MenuFrameView.RowsOf(line, columnDegrees);
 
         public bool FitsHalf(PageLine answer, float columnDegrees) => MenuFrameView.FitsHalf(answer, columnDegrees);
 

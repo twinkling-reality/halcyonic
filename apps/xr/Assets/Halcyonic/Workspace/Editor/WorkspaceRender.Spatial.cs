@@ -82,7 +82,9 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <param name="curved">Each shot is first drawn, checked and rendered on the curve (<see cref="CurveState"/>), then flat as always.</param>
-        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false, bool multipleProjects = false, bool curved = false)
+        /// <param name="kit">The spatial kit draws the task's file where it can (<see cref="KitState"/>), presses on the file going through its controls.</param>
+        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false, bool multipleProjects = false, bool curved = false,
+            bool kit = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Actual spatial workspace composition witness");
@@ -168,10 +170,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.Add("spatial: host title row budget differs from the actual reading title");
                 }
                 void Draw()
-                { for (var turn = 0; turn < 4; turn++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); } }
+                {
+                    if (kit) { KitDraw(director); return; }
+                    for (var turn = 0; turn < 4; turn++) { director.UpdateForRender(); director.DrawNow(); director.Plane.Advance(MenuPlane.OpeningSeconds); }
+                }
                 void Press(string action, string? key = null)
                 {
                     Draw();
+                    if (kit && PressOnKit(director, action, key)) { Draw(); return; }
                     var visible = director.Plane.Shown.LastOrDefault(each => each.View.Frame is MenuFrame frame &&
                         (frame.Lines.Any(line => line.Action == action && line.Key == key && line.Available) ||
                          frame.Footer.All.Any(slot => slot.Prompt.Id == action && slot.Prompt.Available)));
@@ -217,7 +223,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     Draw();
                     if (curved) failures.AddRange(CurveState(name, folder, root, camera, texture, director));
-                    failures.AddRange(SpatialState(name, folder, root, camera, texture, director, characters, eyes));
+                    failures.AddRange(kit ? KitState(name, folder, root, camera, texture, director, characters, eyes)
+                        : SpatialState(name, folder, root, camera, texture, director, characters, eyes));
                 }
                 if (!waiting)
                 {
@@ -296,6 +303,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (!waiting) Shot("spatial-working-activity");
                 if (!waiting) { Press(FileScreens.TellIt); done?.Invoke("Add a regression test for the rate limit."); }
                 Shot(question ? "spatial-question-first-part" : waiting ? "spatial-waiting-approval" : "spatial-working-direction");
+                // With the kit, the route ends here: what follows moves through the context column and the chrome, the file's views' own.
+                if (kit) return failures;
                 if (question && selectedFile != null)
                 {
                     void SettledPress(string action, string? key = null)

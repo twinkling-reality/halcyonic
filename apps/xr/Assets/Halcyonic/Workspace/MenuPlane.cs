@@ -329,6 +329,7 @@ namespace Halcyonic.XR.Workspace
             plane.Context.ProjectPressed += (project, owner) => plane.ContextProjectPressed?.Invoke(project, owner);
             plane.Context.PlacePressed += (place, owner) => plane.ContextPlacePressed?.Invoke(place, owner);
             plane.Context.WorkspacePressed += owner => plane.ContextWorkspacePressed?.Invoke(owner);
+            plane.CreateKit(go.transform);
             plane.bar = MenuBarView.Create(go.transform, "Menu, closed");
             plane.bar.Controls.MovePressed += () => plane.MovePressed?.Invoke(MenuColumn.Menu, null, null);
             plane.bar.Controls.PressStarted += () => plane.SubjectPressed?.Invoke(MenuColumn.Menu, null);
@@ -539,7 +540,7 @@ namespace Halcyonic.XR.Workspace
 
             if (shown.Count == 0)
             {
-                Context.Hide(); activityContext.Hide();
+                Context.Hide(); activityContext.Hide(); Kit.Hide();
                 // Closed with no file: the bar alone, where the person looks, which leaves the banner be.
                 cover.SetActive(false);
                 Chrome.Hide();
@@ -659,7 +660,7 @@ namespace Halcyonic.XR.Workspace
                 ShowIndependentWorkspace(menuBar, menuFrame, fileFrame, panel, fileColumn, all, looking, surfaceHeight, moved, immediately);
                 return;
             }
-            Context.Hide(); activityContext.Hide();
+            Context.Hide(); activityContext.Hide(); Kit.Hide();
             foreach (var frameView in frameViews) { frameView.IndependentSurface = false; frameView.PassiveActivity = false; frameView.HeadingOverride = null; }
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;
@@ -724,6 +725,11 @@ namespace Halcyonic.XR.Workspace
             }
             Direction = MenuDrag.Turned(Placed, moved);
             var zoom = Composition.Zoom;
+            if (SeparateWorkspace && KitShows)
+            {
+                Stand(Kit.Part, kitPart, zoom);
+                return;
+            }
             if (SeparateWorkspace && Context.gameObject.activeSelf)
             {
                 Stand(Context.transform, contextAllocation, zoom);
@@ -756,7 +762,7 @@ namespace Halcyonic.XR.Workspace
 
         private Vector3[]? VisibleCorners()
         {
-            if (SeparateWorkspace && Context.gameObject.activeSelf && Composition != null)
+            if (SeparateWorkspace && (Context.gameObject.activeSelf || KitShows) && Composition != null)
             {
                 var envelope = new Vector3[4];
                 for (var index = 0; index < envelope.Length; index++) envelope[index] = PlaneLayout.PointOf(eyes, Direction,
@@ -1038,6 +1044,7 @@ namespace Halcyonic.XR.Workspace
             DrawOnCurve();
             UpdateLightLine();
             FlushIndependentDraw();
+            FlushKitDraw();
         }
 
         private void LateUpdate() => Step(Time.unscaledDeltaTime, frame: true);
@@ -1058,8 +1065,32 @@ namespace Halcyonic.XR.Workspace
                 curvedBodies.Add(portrait.transform);
                 portrait.StandOn(on);
             }
+            foreach (var body in Kit.Bodies)
+            {
+                if (body == null) continue;
+                curvedBodies.Add(body);
+                StandOnCurve(body, on);
+            }
             Curved.Refresh(curvedBodies);
             DrawTargetsOnCurve();
+        }
+
+        /// <summary>
+        /// Stands a body's <paramref name="pivot"/>, which its owner leaves at identity under the body's place, where the
+        /// curve puts that place, turned with it; at identity again with no curve on.
+        /// </summary>
+        private static void StandOnCurve(Transform pivot, CurvedDrawing? on)
+        {
+            var place = pivot.parent;
+            if (on == null || place == null)
+            {
+                pivot.localPosition = Vector3.zero;
+                pivot.localRotation = Quaternion.identity;
+                return;
+            }
+            var bent = on.Bend(place.position);
+            var along = on.Bend(place.position + place.right * 0.001f) - bent;
+            pivot.SetPositionAndRotation(bent, Quaternion.FromToRotation(place.right, along.normalized) * place.rotation);
         }
 
         /// <summary>
