@@ -21,22 +21,7 @@ public class RecordedRunTests
 {
     private readonly CommandFactory commands = new(Samples.Client);
 
-    /// <summary>The demonstration in a recorded run's shape, then changed by <paramref name="edit"/>.</summary>
-    private static string AsRecordedRun(Action<JObject>? edit = null) =>
-        Demonstration.Edit(document =>
-        {
-            document["version"] = DemonstrationRecording.RecordedRunVersion;
-            document["kind"] = DemonstrationRecording.RecordedRunKind;
-            document.Remove("understanding");
-            document.Remove("evaluation");
-            document.Remove("usage_limits");
-            foreach (var runtime in Runtimes(document)) runtime["synthetic"] = false;
-            edit?.Invoke(document);
-        });
-
-    /// <summary>Every runtime the recording names: those its snapshots register and those its work starts on.</summary>
-    private static IEnumerable<JObject> Runtimes(JObject document) =>
-        document.Descendants().OfType<JObject>().Where(item => item["runtime_id"] != null && item["synthetic"] != null).ToList();
+    private static string AsRecordedRun(Action<JObject>? edit = null) => RecordedRunTestsShapes.AsRecordedRun(edit);
 
     private static JObject FirstStart(JObject document) =>
         document.Descendants().OfType<JObject>()
@@ -170,4 +155,150 @@ public class RecordedRunTests
         Assert.That(ack.Command!.Rejection!.Code, Is.EqualTo(RejectionCode.Demonstration));
         Assert.That(ack.Command.Rejection.Message, Is.EqualTo(words));
     }
+}
+
+/// <summary>
+/// When a recorded run is bundled, a judge meets it first: once its end has held, the demonstration
+/// follows, and after the demonstration's end the recorded run again, each switch a
+/// resynchronization. Without one, the demonstration plays and starts again by itself, as before.
+/// These recordings are cut short to their first stretch so each ends at once.
+/// </summary>
+public class RecordedRunHandOffTests
+{
+    private readonly List<DemonstrationFallback> fallbacks = new();
+
+    [TearDown]
+    public async Task StopAll()
+    {
+        foreach (var fallback in fallbacks) await fallback.StopAsync();
+    }
+
+    /// <summary>The recording's first stretch only, ending in a short timed hold instead of a decision.</summary>
+    private static void ShortStretch(JObject document)
+    {
+        var first = (JObject)document["nodes"]![0]!;
+        first["answers"] = new JArray();
+        first["ending"] = new JObject { ["snapshot"] = null, ["hold_ms"] = 50 };
+        document["nodes"] = new JArray(first);
+        // The demonstration's recorded answers name the nodes cut away.
+        foreach (var key in new[] { "understanding", "evaluation" })
+        {
+            if (document[key] != null) document[key] = new JObject();
+        }
+    }
+
+    private static DemonstrationOptions Once() => new() { Speed = 1000, Loop = false };
+
+    private static DemonstrationPlayer ShortRun() =>
+        new(DemonstrationRecording.Parse(RecordedRunTestsShapes.AsRecordedRun(ShortStretch)), Samples.Client, Once());
+
+    private static DemonstrationPlayer ShortDemonstration() =>
+        new(DemonstrationRecording.Parse(Demonstration.Edit(ShortStretch)), Samples.Client, Once());
+
+    private DemonstrationFallback Start(Func<DemonstrationPlayer?> demonstration, Func<DemonstrationPlayer?>? recordedRun)
+    {
+        var fallback = new DemonstrationFallback(null, demonstration, recordedRun);
+        fallbacks.Add(fallback);
+        fallback.Start();
+        return fallback;
+    }
+
+    private static async Task<List<StateChanges>> Until(DemonstrationFallback fallback, Func<bool> condition, string description)
+    {
+        var pumped = new List<StateChanges>();
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (true)
+        {
+            pumped.Add(fallback.Pump());
+            if (condition()) return pumped;
+            if (DateTime.UtcNow > deadline) Assert.Fail("Timed out waiting until " + description + ".");
+            await Task.Delay(5);
+        }
+    }
+
+    private static bool Playing(DemonstrationFallback fallback, bool recordedRun) =>
+        fallback.Player?.Recording is DemonstrationRecording recording && recording.IsRecordedRun == recordedRun;
+
+    [Test]
+    public async Task ARecordingThatDoesNotLoopFinishesAndHoldsInsteadOfStartingAgain()
+    {
+        var player = ShortRun();
+        player.Session.Start();
+        try
+        {
+            await Pumping.Until(player.Session, _ => player.Finished, "the recorded run finishes");
+            Assert.That(player.Plays, Is.EqualTo(1), "it never started again");
+            Assert.That(player.Ended, Is.False, "it ended without a final snapshot, so only Finished says so");
+        }
+        finally
+        {
+            await player.Session.StopAsync();
+        }
+    }
+
+    [Test]
+    public async Task TheJudgeMeetsTheRecordedRunFirstThenTheDemonstrationThenTheRunAgain()
+    {
+        var runs = 0;
+        var fallback = Start(ShortDemonstration, () => { runs++; return ShortRun(); });
+        await Until(fallback, () => Playing(fallback, recordedRun: true), "the recorded run is read");
+        Assert.That(fallback.Line, Does.StartWith("Recorded: real agent work"));
+
+        var pumped = await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration follows");
+        Assert.That(pumped[^1].Resynchronized, Is.True, "consumers redraw everything");
+        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+
+        await Until(fallback, () => Playing(fallback, recordedRun: true), "the recorded run comes back");
+        Assert.That(runs, Is.EqualTo(2), "a new player each time, from its beginning");
+    }
+
+    [Test]
+    public async Task AtItsEndTheLineSaysWhatComesNext()
+    {
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: true, next: true),
+            Does.EndWith("\nThis run has ended. A demo you can answer comes next."));
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: false, next: true),
+            Does.EndWith("\nThis demo has ended. The recorded run comes next."));
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true),
+            Does.EndWith("\nThis recording has ended and starts again shortly."), "alone, the demonstration starts again");
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    public async Task ARecordedRunThatCannotBeReadGivesWayToTheDemonstration()
+    {
+        var unreadable = Task.FromException<DemonstrationRecording>(new InvalidDataException("not a recording"));
+        var fallback = Start(ShortDemonstration, () => new DemonstrationPlayer(unreadable, Samples.Client, Once()));
+        await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration plays instead");
+        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+    }
+
+    [Test]
+    public async Task WithNoRecordedRunTheDemonstrationPlaysAlone()
+    {
+        var fallback = Start(() => new DemonstrationPlayer(Demonstration.Recording(), Samples.Client, Demonstration.Fast()), null);
+        await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration is read");
+        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+    }
+}
+
+/// <summary>Recordings in a recorded run's shape, made from the demonstration, for these tests.</summary>
+internal static class RecordedRunTestsShapes
+{
+    /// <summary>The demonstration in a recorded run's shape, then changed by <paramref name="edit"/>.</summary>
+    public static string AsRecordedRun(Action<JObject>? edit = null) =>
+        Demonstration.Edit(document =>
+        {
+            document["version"] = DemonstrationRecording.RecordedRunVersion;
+            document["kind"] = DemonstrationRecording.RecordedRunKind;
+            document.Remove("understanding");
+            document.Remove("evaluation");
+            document.Remove("usage_limits");
+            foreach (var runtime in Runtimes(document)) runtime["synthetic"] = false;
+            edit?.Invoke(document);
+        });
+
+    /// <summary>Every runtime the recording names: those its snapshots register and those its work starts on.</summary>
+    private static IEnumerable<JObject> Runtimes(JObject document) =>
+        document.Descendants().OfType<JObject>().Where(item => item["runtime_id"] != null && item["synthetic"] != null).ToList();
 }

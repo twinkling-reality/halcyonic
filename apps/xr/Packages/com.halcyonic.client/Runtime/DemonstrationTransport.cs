@@ -314,6 +314,13 @@ namespace Halcyonic.Client
             if (hold == null || player?.Reading == true) return null;
             var end = holdStart.GetValueOrDefault(now) + hold.Value;
             if (end > now) return end - now;
+            if (!options.Loop)
+            {
+                // The final state has held, and nothing follows it here: it stays, and the player says
+                // so, until the connection closes.
+                player?.ReachedTheEnd();
+                return null;
+            }
             // The final state has held: the demonstration starts again, in the same connection.
             Send(Playing.Snapshot);
             Begin(0);

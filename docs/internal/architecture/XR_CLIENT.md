@@ -1470,6 +1470,16 @@ launch/return, process recreation and current-frame action behavior need separat
   answers the one it holds with "Not sent to any agent. This was approved when it ran, so the run
   goes on as it happened." (or denied), and anything else with "Not sent to any agent. This run is
   recorded as it happened, so nothing changes."
+  - **Recorded run, then demonstration.** When the build has `Resources/HalcyonicRecordedRun.json`,
+    `ControlPlaneConnection` gives `DemonstrationFallback` a player for it as well, and neither player
+    loops (`DemonstrationOptions.Loop` false): a recording that has held its final state to the end
+    has `Finished`, and stays as it stands. The fallback shows the recorded run first; once it has
+    finished, the demonstration from its beginning, and once that has finished, the recorded run
+    again, each a new player and each switch a resynchronization. A recorded run that can't be read
+    gives way to the demonstration. Without the file, the demonstration plays alone and starts again
+    by itself, as before. Each file must hold its own kind, or it is refused. At an end the line says
+    what follows: "This run has ended. A demo you can answer comes next." or "This demo has ended.
+    The recorded run comes next."
 - **The room placement's decisions** ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)),
   on plain floor plan geometry the Unity layer converts to and from its vectors:
   - `StageSurfaces.Choose` picks where the characters stand from the room's surfaces facing up

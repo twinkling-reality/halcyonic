@@ -20,6 +20,9 @@ namespace Halcyonic.XR
         /// <summary>The demonstration: a text asset under Resources, written by pnpm demonstration:record.</summary>
         private const string DemonstrationResource = "HalcyonicDemonstration";
 
+        /// <summary>A recorded real run, when the build has one: a text asset under Resources, written by pnpm judge:record.</summary>
+        private const string RecordedRunResource = "HalcyonicRecordedRun";
+
         private DemonstrationFallback? sessions;
         private string? sourceConnectionKey;
 
@@ -89,7 +92,13 @@ namespace Halcyonic.XR
                 try { sourceConnectionKey = WorkspaceContinuity.ConnectionKey(target); }
                 catch (ArgumentException) { sourceConnectionKey = null; }
             }
-            sessions = new DemonstrationFallback(controlPlane, () => LoadDemonstration(client));
+            // With a recorded run, it plays first and the demonstration follows it, neither looping on its own.
+            var recordedRun = Resources.Load<TextAsset>(RecordedRunResource) != null;
+            if (recordedRun) Log("this build has a recorded run, played before the demonstration");
+            sessions = new DemonstrationFallback(
+                controlPlane,
+                () => LoadRecording(DemonstrationResource, "demonstration", recordedRun: false, loop: !recordedRun, client),
+                recordedRun ? () => LoadRecording(RecordedRunResource, "recorded run", recordedRun: true, loop: false, client) : null);
             sessions.Start();
             if (sessions.Current == null)
             {
@@ -112,16 +121,17 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// Loads the text asset on the main thread, as Unity requires, and reads it on another thread,
-        /// so the half megabyte of recording never holds up a frame; the demonstration's session opens
-        /// once it has been read.
+        /// so the megabyte and more of recording never holds up a frame; its session opens once it has
+        /// been read. A recording that is not the kind expected, a recorded run where the demonstration
+        /// belongs or the other way round, is refused rather than played under the wrong label.
         /// </summary>
-        private static DemonstrationPlayer? LoadDemonstration(ClientInfo client)
+        private static DemonstrationPlayer? LoadRecording(string resource, string name, bool recordedRun, bool loop, ClientInfo client)
         {
             var loading = System.Diagnostics.Stopwatch.StartNew();
-            var asset = Resources.Load<TextAsset>(DemonstrationResource);
+            var asset = Resources.Load<TextAsset>(resource);
             if (asset == null)
             {
-                Debug.LogError("Halcyonic: the demonstration is missing from the build.");
+                Debug.LogError("Halcyonic: the " + name + " is missing from the build.");
                 return null;
             }
             var text = asset.text;
@@ -131,14 +141,18 @@ namespace Halcyonic.XR
                 // How long a judge's cold start spends on the recording, in numbers only (pnpm quest:cold-start reads it).
                 var parsing = System.Diagnostics.Stopwatch.StartNew();
                 var recording = DemonstrationRecording.Parse(text);
-                Debug.Log("Halcyonic: demonstration read " + text.Length / 1024 + " KiB, loaded in " + loaded + " ms on the main thread, parsed in "
+                if (recording.IsRecordedRun != recordedRun)
+                {
+                    throw new System.IO.InvalidDataException("Its file holds " + (recording.IsRecordedRun ? "a recorded run" : "the demonstration") + ".");
+                }
+                Debug.Log("Halcyonic: " + name + " read " + text.Length / 1024 + " KiB, loaded in " + loaded + " ms on the main thread, parsed in "
                     + parsing.ElapsedMilliseconds + " ms on another");
                 return recording;
             });
             _ = reading.ContinueWith(
-                failed => Debug.LogError("Halcyonic: the demonstration cannot be played. " + failed.Exception?.GetBaseException().Message),
+                failed => Debug.LogError("Halcyonic: the " + name + " cannot be played. " + failed.Exception?.GetBaseException().Message),
                 TaskContinuationOptions.OnlyOnFaulted);
-            return new DemonstrationPlayer(reading, client);
+            return new DemonstrationPlayer(reading, client, new DemonstrationOptions { Loop = loop });
         }
 
         private void LogShown(DemonstrationReason? reason)

@@ -23,13 +23,21 @@ namespace Halcyonic.Client
     /// demonstration plays, and the control plane keeps being tried behind it. Once the control plane
     /// is live the demonstration stops for good, so a control plane that drops later shows its last
     /// known state as usual. A switch reaches consumers as a resynchronization, like a journal change.
+    /// <para>
+    /// With a recorded run as well (ADR 0012, JUDGE's D2), a judge meets the recorded run first: once
+    /// its end has held, the demonstration follows, and once the demonstration's end has held, the
+    /// recorded run again, each time a new player from its beginning. Both must be made not to loop
+    /// (<see cref="DemonstrationOptions.Loop"/>), or a switch never comes.
+    /// </para>
     /// </summary>
     public sealed class DemonstrationFallback : IDisposable
     {
         private static readonly PresetInstruction[] NoInstructions = new PresetInstruction[0];
         private readonly RealtimeSession? controlPlane;
         private readonly Func<DemonstrationPlayer?> createDemonstration;
+        private readonly Func<DemonstrationPlayer?>? createRecordedRun;
         private DemonstrationPlayer? player;
+        private bool showingRecordedRun;
         private Task retired = Task.CompletedTask;
         private bool demonstrationCreated;
         private bool controlPlaneWasLive;
@@ -40,9 +48,21 @@ namespace Halcyonic.Client
         /// needed; returns null when there is no demonstration to play.
         /// </param>
         public DemonstrationFallback(RealtimeSession? controlPlane, Func<DemonstrationPlayer?> createDemonstration)
+            : this(controlPlane, createDemonstration, null)
+        {
+        }
+
+        /// <param name="controlPlane">The configured control plane, not started; null when none is configured.</param>
+        /// <param name="createDemonstration">Creates the demonstration's player, whose session is not started.</param>
+        /// <param name="createRecordedRun">
+        /// Creates the recorded run's player, whose session is not started, each time it is shown; null,
+        /// or returning null, when there is none, and the demonstration plays alone.
+        /// </param>
+        public DemonstrationFallback(RealtimeSession? controlPlane, Func<DemonstrationPlayer?> createDemonstration, Func<DemonstrationPlayer?>? createRecordedRun)
         {
             this.controlPlane = controlPlane;
             this.createDemonstration = createDemonstration;
+            this.createRecordedRun = createRecordedRun;
         }
 
         /// <summary>The session to show, or null when there is neither a control plane nor a demonstration.</summary>
@@ -65,7 +85,8 @@ namespace Halcyonic.Client
 
         /// <summary>What the line above the stage says while the demonstration is shown; null while it is not.</summary>
         public string? Line => Reason is DemonstrationReason reason
-            ? Describe(reason, controlPlane?.Status, player?.Ended ?? false, player?.Recording?.IsRecordedRun ?? false)
+            ? Describe(reason, controlPlane?.Status, (player?.Ended ?? false) || (player?.Finished ?? false),
+                player?.Recording?.IsRecordedRun ?? false, next: createRecordedRun != null)
             : null;
 
         /// <summary>
@@ -94,7 +115,7 @@ namespace Halcyonic.Client
         public StateChanges Pump()
         {
             var demonstration = Demonstration;
-            if (controlPlane == null) return demonstration?.Pump() ?? new StateChanges();
+            if (controlPlane == null) return Done() ? Switched(ShowNext()) : demonstration?.Pump() ?? new StateChanges();
             var fromControlPlane = controlPlane.Pump();
             if (controlPlane.Status.IsLive || fromControlPlane.Resynchronized) controlPlaneWasLive = true;
             if (demonstration != null)
@@ -105,6 +126,7 @@ namespace Halcyonic.Client
                     player = null;
                     return Switched(fromControlPlane);
                 }
+                if (Done()) return Switched(ShowNext());
                 var shown = demonstration.Pump();
                 // The line says why the control plane is not shown, so it changes with its status.
                 if (fromControlPlane.ConnectionChanged) shown.ConnectionChanged = true;
@@ -140,26 +162,67 @@ namespace Halcyonic.Client
         /// agent; when the recording has ended, that it starts again. For a recorded run, that the work
         /// was real and is played back, and that it waits where the run waited for someone.
         /// </summary>
-        public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false, bool recordedRun = false)
+        public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false, bool recordedRun = false, bool next = false)
         {
             var line = recordedRun
                 ? "Recorded: real agent work, played back on this headset. Nothing here is live.\n"
                     + "It waits for you where the agent waited. Nothing reaches an agent."
                 : "Demo: recorded work played on this headset. Nothing here is live.\n"
                     + "It follows your answers. Nothing reaches an agent.";
-            if (ended) line += "\nThis recording has ended and starts again shortly.";
+            if (ended)
+            {
+                line += !next ? "\nThis recording has ended and starts again shortly."
+                    : recordedRun ? "\nThis run has ended. A demo you can answer comes next."
+                    : "\nThis demo has ended. The recorded run comes next.";
+            }
             if (reason == DemonstrationReason.NotConfigured) return line;
             return line + "\n" + ConnectionText.WhyNotLive(controlPlane);
         }
 
-        /// <summary>Only the demonstration's first start: once shown and stopped, it is never shown again.</summary>
+        /// <summary>
+        /// Only the demonstration's first start: once shown and stopped, it is never shown again. The
+        /// recorded run comes first when there is one.
+        /// </summary>
         private bool ShowDemonstration()
         {
             if (demonstrationCreated) return false;
             demonstrationCreated = true;
-            player = createDemonstration();
+            player = createRecordedRun?.Invoke();
+            showingRecordedRun = player != null;
+            player ??= createDemonstration();
             player?.Session.Start();
             return player != null;
+        }
+
+        /// <summary>
+        /// The recording shown has finished, or is a recorded run that can't be read while the
+        /// demonstration can still be shown in its place.
+        /// </summary>
+        private bool Done() =>
+            player != null && (player.Finished || (showingRecordedRun && player.Loading.IsFaulted));
+
+        /// <summary>
+        /// The recording shown has finished: the other one follows from its beginning, or, when it can't
+        /// be made, the same one again. Returns what the stopped one's last pump reported.
+        /// </summary>
+        private StateChanges ShowNext()
+        {
+            var finished = player!;
+            var changes = finished.Session.Pump();
+            retired = Task.WhenAll(retired, finished.Session.StopAsync());
+            var order = showingRecordedRun
+                ? new[] { (false, createDemonstration), (true, createRecordedRun) }
+                : new[] { (true, createRecordedRun), (false, createDemonstration) };
+            player = null;
+            foreach (var (recordedRun, create) in order)
+            {
+                if (create == null || !(create() is DemonstrationPlayer next)) continue;
+                player = next;
+                showingRecordedRun = recordedRun;
+                break;
+            }
+            player?.Session.Start();
+            return changes;
         }
 
         /// <summary>Another session is shown now, so consumers redraw everything, as after a journal change.</summary>
