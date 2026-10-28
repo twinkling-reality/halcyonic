@@ -11,6 +11,7 @@
  *   pnpm quest:device -- install <apk> --saved <saved apk> [--package <p>]
  *   pnpm quest:device -- restore <saved apk> [--package <p>]
  *   pnpm quest:device -- launch [--package <p>]      fails when a system dialog holds the launch
+ *     [--extra <key>=<text>] [--extra-bool <key>=true|false]   intent extras, each repeatable
  *   pnpm quest:device -- stop [--package <p>]
  *   pnpm quest:device -- shot [--out <dir>]          a frame of both eyes, through screenrecord
  *   pnpm quest:device -- shot --service --sync-is-off    Meta's capture service, one eye
@@ -335,7 +336,33 @@ async function restore(): Promise<void> {
     console.log('Warning: its first install time changed.');
 }
 
+/**
+ * The intent extras `launch` was given, as `am start` options: `--extra key=text` as a string,
+ * `--extra-bool key=true|false` as a boolean. `adb shell` joins its words into one command for the
+ * headset's shell, so a key or value may hold only letters, digits and `._:/-`.
+ */
+function launchExtras(argv: readonly string[]): string[] {
+  const options: string[] = [];
+  for (let at = 0; at < argv.length; at++) {
+    const kind = argv[at];
+    if (kind !== '--extra' && kind !== '--extra-bool') continue;
+    const match = /^([A-Za-z0-9._]+)=([A-Za-z0-9._:/-]+)$/.exec(argv[at + 1] ?? '');
+    const key = match?.[1];
+    const value = match?.[2];
+    if (key === undefined || value === undefined) {
+      fail(`${kind} needs key=value, of letters, digits and ._:/- only.`);
+    }
+    if (kind === '--extra-bool' && value !== 'true' && value !== 'false') {
+      fail(`--extra-bool ${key} needs true or false.`);
+    }
+    options.push(kind === '--extra' ? '--es' : '--ez', key, value);
+    at++;
+  }
+  return options;
+}
+
 async function launch(): Promise<void> {
+  const extras = launchExtras(process.argv.slice(3));
   await refuseSystemDialog('launching');
   const activity =
     packageName === PACKAGE
@@ -350,7 +377,7 @@ async function launch(): Promise<void> {
       "This is the owner's Halcyonic: a launch rewrites its files/halcyonic-panel-motion.json. Never run it with a real runtime behind it.",
     );
   }
-  const said = await adbSaid('shell', 'am', 'start', '-W', '-n', activity);
+  const said = await adbSaid('shell', 'am', 'start', '-W', '-n', activity, ...extras);
   writeState((state) => {
     if (!state.started.includes(packageName)) state.started.push(packageName);
   });

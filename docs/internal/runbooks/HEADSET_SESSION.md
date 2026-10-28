@@ -651,6 +651,8 @@ pnpm quest:device -- give-back
   is replaced and how to restore it (the tool's state file, `.private/quest/state.json`).
 - `launch` fails, and stops the app again, when a system dialog holds the launch. Launching the
   owner's own Halcyonic rewrites one of its files; never run it with a real runtime behind it.
+  `--extra key=text` and `--extra-bool key=true|false` pass intent extras, letters, digits and
+  `._:/-` only, since the headset's shell reads the command.
 - `shot` takes one second of `screenrecord` (both eyes) and keeps a frame of the left eye when ffmpeg
   is there. `shot --service` and `record --seconds <n>` use Meta's capture service (one eye; a
   recording includes the headset microphone) and run only with `--sync-is-off`, once the owner has
