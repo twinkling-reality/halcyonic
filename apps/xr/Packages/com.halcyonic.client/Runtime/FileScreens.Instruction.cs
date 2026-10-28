@@ -19,6 +19,9 @@ namespace Halcyonic.Client
         public const string InstructionEmpty = "Write an instruction first.";
         public const string InstructionChanged = "Nothing was sent: the instruction's task changed.";
 
+        /// <summary>The composer's caption over the person's own words.</summary>
+        public const string YourInstruction = "Your instruction";
+
         public static PageLine InstructionLine(FileInstruction instruction, bool keyboard, int rows = 1, int? fromRow = null, bool available = true) =>
             new PageLine(instruction.Words.Length == 0 ? LineWords.Ours(keyboard ? "Type your instruction" : "Hold to talk below") : LineWords.Theirs(instruction.Words),
                 icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change, action: EditInstruction,
@@ -45,9 +48,9 @@ namespace Halcyonic.Client
                     farRight: instruction.NoticeParts > 1 ? new Prompt(NextInstructionNotice, Footer.NextPageWords(instruction.NoticePart, instruction.NoticeParts), GlazeIcon.Next, PromptKind.NextPage) : null));
             var lines = new List<PageLine>
             {
-                new PageLine("Your instruction", tone: LineTone.Secondary),
+                new PageLine(YourInstruction, tone: LineTone.Secondary),
                 InstructionLine(instruction, screen.KeyboardOffered, instruction.PartRows, instruction.Part * instruction.PartRows,
-                    workspace.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(workspace) == null),
+                    WhyNoInstruction(workspace) == null),
             };
             if (instruction.Part > 0)
                 lines.Add(InstructionPager(previous: true, besideNext: instruction.PairedPager && instruction.Part + 1 < instruction.Parts));

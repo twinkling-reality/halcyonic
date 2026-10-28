@@ -1509,6 +1509,9 @@ evidence rail holds every other activity entry unchanged, with an icon for the k
 no outcome tone, since an entry carries none. No production view draws the kit yet; the overview's
 adapters from the Tasks and Projects columns come with the overview. Tests: `KitPresenterTests`.
 The kit's Editor renders (`KitRender`) draw it through `CurvedDrawing`, production's own mapping.
+`KitFileBinding` binds the kit to the frame a task's file drew: every press the frame offers takes a kit
+place with the frame's own action, words, availability and reason, and every line the frame shows must be
+words the kit shows too; otherwise there is no binding and the file draws the frame as before.
 
 ## Verification
 
