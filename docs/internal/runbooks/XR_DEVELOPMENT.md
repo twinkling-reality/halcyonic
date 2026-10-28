@@ -442,13 +442,16 @@ build exits with status 1, and the log says why.
 On a shared development machine, isolate the editor's Android Debug Bridge before each Android
 editor run. This editor can stop its ADB server on exit, including after a render check. Use an
 unused private server port and a device filter that matches no attached device, so that server
-does not take the headset away from the ordinary ADB server. For example, after checking that
-port 5038 is free:
+does not take the headset away from the headset's ADB server. Where the headset has a server of
+its own on port 5038 ([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)),
+give the editor 5039, after checking that port 5039 is free:
 
 ```bash
-"/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb" -L tcp:localhost:5038 --one-device halcyonic-editor-no-device start-server
-ADB_SERVER_SOCKET=tcp:localhost:5038 ANDROID_ADB_SERVER_PORT=5038 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
+"/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb" -L tcp:localhost:5039 --one-device halcyonic-editor-no-device start-server
+ADB_SERVER_SOCKET=tcp:localhost:5039 ANDROID_ADB_SERVER_PORT=5039 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
 ```
+
+Never give the editor the headset's own server: it stops the server it uses when it quits.
 
 Start that private server with the same filter again before the next editor run; an implicit
 restart would lose the filter. Keep installation and headset commands on the ordinary server.
@@ -470,17 +473,35 @@ A build changes the project in ways that are expected:
   editor window, changes `ProjectSettings.asset` and `QualitySettings.asset`. Restore them unless
   the change is intended.
 
-**Never share the development APK.** It is debuggable and carries Meta's development tools:
-Meta XR Operator, which serves agents from inside the app and brings a screen capture activity and
-service with the `FOREGROUND_SERVICE_MEDIA_PROJECTION` permission; the Immersive Debugger and its
-dev agent; and `DevAgentSettings.asset`, into which Meta's build step writes this Mac's LAN address
-and the token of the editor's remote agent server.
+**Never share the development APK.** It is debuggable and carries Meta's development tools: the
+Immersive Debugger and its dev agent, and `DevAgentSettings.asset`, into which Meta's build step
+writes this Mac's LAN address and the token of the editor's remote agent server.
+
+Meta XR Operator is left out of development builds too, unless a journey build asks for it. Meta's
+build step puts its Android library into every development build; while such an app runs, the
+library serves agents over MCP on port 8720 on every address of the headset, with no authentication
+and any web origin allowed, so anything on the headset or its network, or a browser page that can
+reach it, can read the scene and capture what the wearer sees
+([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)).
+`OperatorInDevelopmentBuilds` runs after Meta's step and leaves the whole library out, and
+`BuildDevelopmentApk` deletes an APK that carries its layer anyway. A journey build, for an
+on-device journey driver against a scratch control plane only, sets `HALCYONIC_OPERATOR=1` in the
+build's environment, and `BuildDevelopmentApk` then refuses an APK without the layer:
+
+```bash
+HALCYONIC_OPERATOR=1 ADB_SERVER_SOCKET=tcp:localhost:5039 ANDROID_ADB_SERVER_PORT=5039 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
+```
+
+Never install a journey build over the owner's own app or run it with the owner's token, never
+build the owner's or a competition APK with `HALCYONIC_OPERATOR` set, and remove every
+`adb forward` to 8720 when the journey ends: while one exists, any browser tab on the Mac can reach
+the server.
 
 The release APK is built without the development option, so it is not debuggable and has no
 profiler connection, and it leaves those tools out:
 - Meta's own build step leaves Meta XR Operator's Android library out of every non-development
-  build, and with it the media projection activity, service and permission. The project's manifest
-  removes nothing, so the development APK keeps them.
+  build, and with it the media projection activity, service and permission, and
+  `OperatorInDevelopmentBuilds` leaves it out as well.
 - `QuestBuild` filters the assemblies of the Immersive Debugger's dev agent and the agent bridge
   out of every non-development build; nothing else in the build references them. The debugger's
   runtime assembly stays, disabled by the committed settings, because the MR Utility Kit reads
