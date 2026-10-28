@@ -151,7 +151,7 @@ namespace Halcyonic.XR.Workspace
         {
             get
             {
-                if (Composition != null || bar == null || !bar.gameObject.activeInHierarchy) return null;
+                if (Composition != null || bar == null || !(bar.gameObject.activeInHierarchy || KitCompactShows)) return null;
                 var part = barPart;
                 return Mathf.Max(ElevationOf(PlaneLayout.PointOf(eyes, Direction, part.Left, part.Top)),
                     ElevationOf(PlaneLayout.PointOf(eyes, Direction, part.Right + part.Width / 2f, part.Top)));
@@ -540,7 +540,10 @@ namespace Halcyonic.XR.Workspace
 
             if (shown.Count == 0)
             {
-                Context.Hide(); activityContext.Hide(); Kit.Hide();
+                Context.Hide(); activityContext.Hide();
+                // With the kit switched on, its compact presence stands in the bar's place (D3.5); the bar otherwise.
+                var kitCompact = ShowKitCompact(menuBar, compactIdentity, compactState, waitingCount);
+                if (!kitCompact) Kit.Hide();
                 // Closed with no file: the bar alone, where the person looks, which leaves the banner be.
                 cover.SetActive(false);
                 Chrome.Hide();
@@ -555,22 +558,28 @@ namespace Halcyonic.XR.Workspace
                 LeaveLine(lineWas, immediately);
                 // Where something closes, the bar shows only once it has left, then fades in, so the bar's words
                 // never stand over the file's; newly laid otherwise, as the plane starts, it stands whole at once.
-                var barWas = bar.gameObject.activeSelf;
-                bar.Show(menuBar, Glaze.Menu.FileColumnDegrees, compactIdentity, compactState, waitingCount, compactBinding, SpatialWorkspace ? SelectedPortrait : null, SelectedPortraitHue);
-                if (!barWas)
+                if (kitCompact) bar.Hide();
+                else
                 {
-                    var closing = false;
-                    foreach (var (_, view) in before) closing |= view.Closing;
-                    barFor = closing ? 0f : Glaze.AfterLeaveSeconds;
+                    var barWas = bar.gameObject.activeSelf;
+                    bar.Show(menuBar, Glaze.Menu.FileColumnDegrees, compactIdentity, compactState, waitingCount, compactBinding, SpatialWorkspace ? SelectedPortrait : null, SelectedPortraitHue);
+                    if (!barWas)
+                    {
+                        var closing = false;
+                        foreach (var (_, view) in before) closing |= view.Closing;
+                        barFor = closing ? 0f : Glaze.AfterLeaveSeconds;
+                    }
+                    bar.Shown = Glaze.AfterLeaveShown(barFor);
                 }
-                bar.Shown = Glaze.AfterLeaveShown(barFor);
-                var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
+                var standing = kitCompact ? Kit.Size : bar.Size;
+                var barSize = new PanelSize(PlaneComposition.Distance, standing.x * zoom / 2f * PlaneComposition.Distance, standing.y * zoom / 2f * PlaneComposition.Distance);
                 Placed = PlaceWorkspace(all, looking, surfaceHeight, barSize);
                 Moved = offset;
                 Direction = MenuDrag.Turned(Placed, Moved);
-                var placedBar = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
+                var placedBar = new PlanePart(0, 0, standing.x * zoom, standing.y * zoom, 0f, 0f);
                 barPart = placedBar;
-                SlideTo(bar.transform, placedBar, zoom, null, true);
+                SlideTo(kitCompact ? Kit.Part : bar.transform, placedBar, zoom, null, true);
+                if (kitCompact) KitCompactBands(placedBar, zoom);
                 UpdateLightLine();
                 return;
             }

@@ -2307,14 +2307,30 @@ Routing stays production's:
   rows. The instruction is measured where the kit draws it, and the composer always pairs with the
   rail.
 
+Compact and Workspace go through the kit's connected switch to the existing routes only (D3.5):
+
+- Compact on the spine raises the plane's `CompactPressed` with the frame shown, as a frame view's
+  Compact does, so `OrganizationStanding` and `MinimizeWorkspace` decide.
+- Closed, the kit's compact presence stands in the closed bar's place, naming what the bar would name:
+  the retained task or the place's closed line, the task's state, the tasks waiting. Its Workspace
+  raises the plane's `Opened`, the bar's own route; the presence counts as standing for it once
+  settled.
+- Both switches' thumbs move only when `PresentationChanged` reports the confirmed presentation; a
+  press the route refuses moves nothing.
+- The presence has no Move and no hold-and-drag, because the closed bar offers neither. While the bar
+  would show a task portrait, the bar stands instead.
+
 The Editor journeys `KitSpatialCheck` and `KitActivityComposerCheck` press the kit's own controls.
 They check, for every shot the kit draws:
 
 - the spine against the context column's words;
-- text in the kit's bands;
-- the curve and its targets;
+- text in the kit's bands, each glyph at its band's em or reading at the floor by itself, with
+  witnesses: a kit label moved off every face and one shrunk below the floor must each be caught;
+- the curve and its targets, each kit target whole and 12 mm from the next;
 - a stale context owner refused;
 - Tasks on the spine reaching its place;
+- Compact and Workspace through the switch, a refused Compact moving nothing, and the presence's
+  words and targets held to the same rules;
 - the composer's fallback to the file's views and back.
 
 ### The room
