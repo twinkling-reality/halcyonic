@@ -48,6 +48,7 @@ else if (said === 'shell sha256sum /data/app/test/base.apk') out(scenario.instal
 else if (said === 'shell dumpsys package com.halcyonic.xr') out('      firstInstallTime=2026-01-01 00:00:00');
 else if (said === 'shell dumpsys activity activities') out('      topResumedActivity=ActivityRecord{a u0 com.oculus.vrshell/.HomeActivity t1}');
 else if (args[0] === 'logcat') out(scenario.syncLog ?? '');
+else if (args[0] === 'shell' && args[1] === 'am' && args[2] === 'start') out('Status: ok');
 else if (args[0] === 'shell' && args[1] === 'rm') {}
 else {
   process.stderr.write('stand-in adb: not modelled: ' + said + '\\n');
@@ -139,6 +140,35 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       !calls.some((call) => call.startsWith('install') || call.startsWith('shell')),
       calls.join('\n'),
     );
+  });
+
+  test('launch passes intent extras through, typed, after the same checks', async () => {
+    const { code, said, calls } = await device(
+      {},
+      'launch',
+      '--extra',
+      'halcyonic.open=running-task',
+      '--extra-bool',
+      'halcyonic.kit=true',
+    );
+    assert.equal(code, 0, said);
+    const start = calls.filter((call) => call.startsWith('shell am start'));
+    assert.deepEqual(start, [
+      'shell am start -W -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity --es halcyonic.open running-task --ez halcyonic.kit true',
+    ]);
+  });
+
+  test('an extra the headset shell could read as more than words is refused before any launch', async () => {
+    for (const extra of [
+      ['--extra', 'halcyonic.open=task;reboot'],
+      ['--extra', 'halcyonic open=task'],
+      ['--extra-bool', 'halcyonic.kit=yes'],
+      ['--extra', 'no-equals'],
+    ]) {
+      const { code, said, calls } = await device({}, 'launch', ...extra);
+      assert.equal(code, 1, said);
+      assert.ok(!calls.some((call) => call.startsWith('shell am start')), calls.join('\n'));
+    }
   });
 
   test("the capture service is not used while the headset's log says media sync is on", async () => {
