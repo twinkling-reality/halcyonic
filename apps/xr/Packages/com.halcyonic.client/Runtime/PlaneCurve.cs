@@ -50,6 +50,19 @@ namespace Halcyonic.Client
         /// </summary>
         public Vector3 Bend(Vector3 fromEyes) => Map(new Vector3(fromEyes.X, fromEyes.Y, fromEyes.Z - Radius));
 
+        /// <summary>
+        /// The part of the curve a rectangle laid out from <paramref name="left"/> to <paramref name="right"/> across and
+        /// <paramref name="bottom"/> to <paramref name="top"/> up is drawn on: centred at its centre's arc, as wide as its
+        /// width's arc, in degrees from straight ahead, and as high as it was. A pointer's target there takes exactly the
+        /// rectangle drawn.
+        /// </summary>
+        public (float RotationDegrees, float ArcDegrees, float Bottom, float Top) Segment(float left, float right, float bottom, float top)
+        {
+            if (!(right >= left)) throw new ArgumentOutOfRangeException(nameof(right), right, "A rectangle's right edge can't stand left of its left edge.");
+            if (!(top >= bottom)) throw new ArgumentOutOfRangeException(nameof(top), top, "A rectangle's top can't stand under its bottom.");
+            return (SpreadDegrees((left + right) / 2f), SpreadDegrees(right - left), bottom, top);
+        }
+
         /// <summary>The angle across, in degrees, that a laid-out width spreads at the eyes: arc over radius.</summary>
         public float SpreadDegrees(float width) => width / Radius * DegreesPerRadian;
 

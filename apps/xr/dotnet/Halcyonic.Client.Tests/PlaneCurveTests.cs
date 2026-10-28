@@ -132,6 +132,49 @@ public class PlaneCurveTests
     }
 
     [Test]
+    public void AFlatRectangleTakesTheSegmentOfTheCurveItBendsOnto()
+    {
+        // A target laid out 30 mm wide and 25 mm tall, its centre 0.2 m to the right and 0.05 m up.
+        var segment = Curve.Segment(0.185f, 0.215f, 0.0375f, 0.0625f);
+        const float ToDegrees = 180f / MathF.PI;
+        Assert.That(segment.RotationDegrees, Is.EqualTo(0.2f / Distance * ToDegrees).Within(1e-4f), "centred at its centre's arc");
+        Assert.That(segment.ArcDegrees, Is.EqualTo(0.03f / Distance * ToDegrees).Within(1e-4f), "as wide as its width's arc");
+        Assert.That(segment.Bottom, Is.EqualTo(0.0375f));
+        Assert.That(segment.Top, Is.EqualTo(0.0625f));
+
+        bool Inside(Vector3 seen)
+        {
+            var angle = MathF.Atan2(seen.X, seen.Z) * ToDegrees;
+            return MathF.Abs(angle - segment.RotationDegrees) <= segment.ArcDegrees / 2f + 1e-5f && seen.Y >= segment.Bottom && seen.Y <= segment.Top;
+        }
+        for (var i = 0; i <= 10; i++)
+        for (var j = 0; j <= 10; j++)
+        {
+            var laid = new Vector3(0.185f + 0.03f * i / 10f, 0.0375f + 0.025f * j / 10f, 0f);
+            Assert.That(Inside(Curve.Map(laid)), Is.True, "every point of the rectangle is drawn inside its segment: " + laid);
+        }
+        foreach (var past in new[] { new Vector3(0.1849f, 0.05f, 0f), new Vector3(0.2151f, 0.05f, 0f), new Vector3(0.2f, 0.0374f, 0f), new Vector3(0.2f, 0.0626f, 0f) })
+            Assert.That(Inside(Curve.Map(past)), Is.False, "0.1 mm past an edge is outside: " + past);
+
+        // Where a ray or a poke meets the segment comes back to the rectangle by the inverse.
+        Vector3 On(float degrees, float height) => new(Distance * MathF.Sin(degrees / ToDegrees), height, Distance * MathF.Cos(degrees / ToDegrees));
+        Assert.That(Vector3.Distance(Curve.Unmap(On(segment.RotationDegrees, 0.05f)), new Vector3(0.2f, 0.05f, 0f)), Is.LessThan(1e-6f), "the centre");
+        Assert.That(Vector3.Distance(Curve.Unmap(On(segment.RotationDegrees - segment.ArcDegrees / 2f, segment.Bottom)), new Vector3(0.185f, 0.0375f, 0f)), Is.LessThan(1e-6f), "the bottom left corner");
+        Assert.That(Vector3.Distance(Curve.Unmap(On(segment.RotationDegrees + segment.ArcDegrees / 2f, segment.Top)), new Vector3(0.215f, 0.0625f, 0f)), Is.LessThan(1e-6f), "the top right corner");
+    }
+
+    [Test]
+    public void TargetsTwelveMillimetresApartStayTwelveMillimetresApartAlongTheCurve()
+    {
+        var left = Curve.Segment(-0.05f, 0.1f, 0f, 0.03f);
+        var right = Curve.Segment(0.112f, 0.2f, 0f, 0.03f);
+        var gapDegrees = right.RotationDegrees - right.ArcDegrees / 2f - (left.RotationDegrees + left.ArcDegrees / 2f);
+        Assert.That(gapDegrees * MathF.PI / 180f * Distance, Is.EqualTo(0.012f).Within(1e-6f), "the arc between their edges is the 12 mm laid out");
+        Assert.Throws<ArgumentOutOfRangeException>(() => Curve.Segment(0.1f, 0.05f, 0f, 0.03f), "right of its right edge");
+        Assert.Throws<ArgumentOutOfRangeException>(() => Curve.Segment(0f, 0.05f, 0.03f, 0f), "above its top");
+    }
+
+    [Test]
     public void ImpossibleCurvesAndPointsAreRefused()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaneCurve(0f));

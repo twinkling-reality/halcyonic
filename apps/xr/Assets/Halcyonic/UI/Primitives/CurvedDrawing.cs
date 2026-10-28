@@ -14,13 +14,13 @@ namespace Halcyonic.XR.UI
     /// labels bend in their one ordered hook, after any lean (<see cref="GlazeRuns"/>).
     /// </summary>
     /// <remarks>
-    /// <see cref="Enabled"/> is the one switch between the curve and the plane, the fallback. It stays off until the
-    /// interface's targets are curved as well: a flat target on a wide curved row would miss what is drawn.
+    /// <see cref="Enabled"/> is the one switch between the curve and the plane, the fallback. It is on: the plane's
+    /// targets lie on the same curve (<c>PointerTarget.DrawOn</c>), so the ray and the poke meet what is drawn.
     /// </remarks>
     public sealed class CurvedDrawing : MonoBehaviour
     {
-        /// <summary>Whether planes draw on the curve; off, everything draws flat as laid out.</summary>
-        public static bool Enabled { get; set; }
+        /// <summary>Whether planes draw on the curve, as they do unless switched off; off, everything draws flat as laid out.</summary>
+        public static bool Enabled { get; set; } = true;
 
         /// <summary>The widest column a bent shape takes: its chord sags 0.018 mm at 0.46 m, far under a pixel.</summary>
         public const float ColumnDegrees = 1f;

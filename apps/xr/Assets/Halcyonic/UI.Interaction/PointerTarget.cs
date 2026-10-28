@@ -25,6 +25,11 @@ namespace Halcyonic.XR.UI
         private readonly HashSet<int> gazes = new HashSet<int>();
         private readonly HashSet<int> pressing = new HashSet<int>();
         private BoundsClipper? clipper;
+        private ClippedPlaneSurface? flatPatch;
+        private CylinderClipper? curveClipper;
+        private ClippedCylinderSurface? curvePatch;
+        private ISurfacePatch? patch;
+        private Vector2 size;
         private PokeInteractable? poke;
         private RayInteractable? ray;
         private bool drags;
@@ -71,6 +76,24 @@ namespace Halcyonic.XR.UI
 
         public bool Hovered => HandHovered || GazeHovered;
 
+        /// <summary>The rectangle's size, as laid out on its host's plane; zero for a sphere.</summary>
+        public Vector2 Size => size;
+
+        /// <summary>Whether this is a rectangle, which can lie on its plane's curve.</summary>
+        public bool IsRectangle => flatPatch != null;
+
+        /// <summary>Whether the ray and the poke meet it on its plane's curve now, rather than on its flat rectangle.</summary>
+        public bool OnCurve => curvePatch != null && ReferenceEquals(patch, curvePatch);
+
+        /// <summary>The patch of the curve the rectangle lies on, once it has lain there, for checks.</summary>
+        public ClippedCylinderSurface? CurvedPatch => curvePatch;
+
+        /// <summary>The flat rectangle's patch, for checks; null for a sphere.</summary>
+        public ClippedPlaneSurface? FlatPatch => flatPatch;
+
+        /// <summary>The surface the ray meets, and the patch the poke meets, now, for checks.</summary>
+        public (ISurface? Ray, ISurfacePatch? Poke) Meets => (ray?.Surface, poke?.SurfacePatch);
+
         /// <summary>
         /// A flat rectangle on <paramref name="host"/>'s XY plane, facing the way text does (the
         /// host's -Z, toward the person): pointable with a ray, pokeable, or both.
@@ -85,6 +108,8 @@ namespace Halcyonic.XR.UI
             target.Resize(size);
             var patch = host.AddComponent<ClippedPlaneSurface>();
             patch.InjectAllClippedPlaneSurface(plane, new IBoundsClipper[] { target.clipper });
+            target.flatPatch = patch;
+            target.patch = patch;
             if (ray)
             {
                 var rayInteractable = host.AddComponent<RayInteractable>();
@@ -152,7 +177,60 @@ namespace Halcyonic.XR.UI
 
         public void Resize(Vector2 size)
         {
+            this.size = size;
             if (clipper != null) clipper.Size = new Vector3(size.x, size.y, 0.1f);
+        }
+
+        /// <summary>
+        /// Lays the rectangle on <paramref name="curve"/>'s curve while it is on, as the plane draws it there (ADR 0034):
+        /// the ray and the poke then meet the patch of <paramref name="cylinder"/> that the laid-out rectangle bends onto,
+        /// centred at its centre's arc, as wide as its width's arc and as high as it is. With no curve on, they meet the
+        /// flat rectangle again. Called by the plane after each step; presses and their rules are the same either way.
+        /// </summary>
+        public void DrawOn(CurvedDrawing? curve, CylinderSurface? cylinder)
+        {
+            if (flatPatch == null) return;
+            if (curve == null || !curve.On || cylinder == null)
+            {
+                Meet(flatPatch);
+                return;
+            }
+            if (curvePatch == null)
+            {
+                curveClipper = gameObject.AddComponent<CylinderClipper>();
+                curvePatch = gameObject.AddComponent<ClippedCylinderSurface>();
+                curvePatch.InjectAllClippedCylinderSurface(cylinder, new ICylinderClipper[] { curveClipper });
+            }
+            else if (!ReferenceEquals(curvePatch.BackingSurface, cylinder)) curvePatch.InjectCylinderSurface(cylinder);
+            // The rectangle as laid out, in the curve's frame: x across the flat plane, y up its axis.
+            float left = float.MaxValue, right = float.MinValue, bottom = float.MaxValue, top = float.MinValue;
+            var toCurve = Quaternion.Inverse(curve.Facing);
+            foreach (var x in new[] { -0.5f, 0.5f })
+            foreach (var y in new[] { -0.5f, 0.5f })
+            {
+                var laid = toCurve * (transform.TransformPoint(new Vector3(size.x * x, size.y * y, 0f)) - curve.Eyes);
+                left = Mathf.Min(left, laid.x); right = Mathf.Max(right, laid.x);
+                bottom = Mathf.Min(bottom, laid.y); top = Mathf.Max(top, laid.y);
+            }
+            var segment = curve.Curve.Segment(left, right, bottom, top);
+            curveClipper!.Rotation = segment.RotationDegrees;
+            curveClipper.ArcDegrees = segment.ArcDegrees;
+            curveClipper.Bottom = segment.Bottom;
+            curveClipper.Top = segment.Top;
+            Meet(curvePatch);
+        }
+
+        /// <summary>Has the ray and the poke meet <paramref name="next"/>; the interactables read it on every query.</summary>
+        private void Meet(ISurfacePatch next)
+        {
+            if (ReferenceEquals(patch, next)) return;
+            patch = next;
+            if (ray != null)
+            {
+                ray.InjectSurface(next);
+                ray.InjectOptionalSelectSurface(next);
+            }
+            if (poke != null) poke.InjectSurfacePatch(next);
         }
 
         /// <summary>How close, along the surface's normal, a fingertip hovers the poke and stops hovering it, in meters.</summary>
@@ -236,11 +314,17 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The point a press takes hold of: a poke's on the surface; a ray's, whose pose is its origin
-        /// while it drags, where it meets this target's plane, kept at that distance along it.
+        /// while it drags, where it meets this target's plane, or its patch of the curve while it lies on
+        /// one, kept at that distance along it.
         /// </summary>
         private Vector3 TakeHold(Pose pose, bool fromRay)
         {
             if (!fromRay) return pose.position;
+            if (OnCurve && curvePatch!.Raycast(new Ray(pose.position, pose.forward), out var hit))
+            {
+                heldAlongRay = Vector3.Distance(pose.position, hit.Point);
+                return hit.Point;
+            }
             var normal = transform.forward;
             var across = Vector3.Dot(pose.forward, normal);
             heldAlongRay = Mathf.Abs(across) > 1e-4f ? Vector3.Dot(transform.position - pose.position, normal) / across : -1f;
