@@ -75,7 +75,7 @@ namespace Halcyonic.XR.Editor
             // Its window shows task titles: keep it out of the recent apps' thumbnails.
             activity.SetAttribute("excludeFromRecents", AndroidNamespace, "true");
             activity.SetAttribute("launchMode", AndroidNamespace, "singleTask");
-            activity.SetAttribute("taskAffinity", AndroidNamespace, "com.halcyonic.xr.glance");
+            activity.SetAttribute("taskAffinity", AndroidNamespace, "${applicationId}.glance");
             activity.SetAttribute("theme", AndroidNamespace, "@android:style/Theme.DeviceDefault.NoActionBar");
             var filter = document.CreateElement("intent-filter");
             filter.AppendChild(Named(document, "action", "android.intent.action.MAIN"));

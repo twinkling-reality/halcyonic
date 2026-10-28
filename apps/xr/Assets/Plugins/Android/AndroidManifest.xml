@@ -15,7 +15,7 @@
       </intent-filter>
       <meta-data android:name="com.oculus.vr.focusaware" android:value="true" />
     </activity>
-    <activity android:name="com.halcyonic.panel.AgentPanelActivity" android:label="Halcyonic" android:exported="true" android:excludeFromRecents="true" android:launchMode="singleTask" android:taskAffinity="com.halcyonic.xr.panel" android:theme="@android:style/Theme.DeviceDefault.NoActionBar" android:resizeableActivity="true">
+    <activity android:name="com.halcyonic.panel.AgentPanelActivity" android:label="Halcyonic" android:exported="true" android:excludeFromRecents="true" android:launchMode="singleTask" android:taskAffinity="${applicationId}.panel" android:theme="@android:style/Theme.DeviceDefault.NoActionBar" android:resizeableActivity="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.DEFAULT" />

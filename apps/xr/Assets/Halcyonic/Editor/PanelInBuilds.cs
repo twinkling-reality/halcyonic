@@ -58,7 +58,7 @@ namespace Halcyonic.XR.Editor
                 activity.SetAttribute("exported", android, "false");
                 activity.SetAttribute("excludeFromRecents", android, "true");
                 activity.SetAttribute("launchMode", android, "singleTask");
-                activity.SetAttribute("taskAffinity", android, "com.halcyonic.xr.panel.preview");
+                activity.SetAttribute("taskAffinity", android, "${applicationId}.panel.preview");
                 activity.SetAttribute("theme", android, "@android:style/Theme.DeviceDefault.NoActionBar");
                 activity.SetAttribute("resizeableActivity", android, "true");
                 var filter = document.CreateElement("intent-filter");

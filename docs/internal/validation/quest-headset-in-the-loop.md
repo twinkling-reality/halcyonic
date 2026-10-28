@@ -133,6 +133,20 @@
   `HALCYONIC_OPERATOR=1` it held both. `BuildDevelopmentApk` passed both builds.
 - Not yet checked on the headset: that an app built without it opens no listener on 8720.
 
+### A check build beside the owner's app (2026-10-28)
+
+- Three builds with Unity 6000.3.25f1 on its own adb server, read with `aapt2`: without
+  `HALCYONIC_TEST_ID`, `BuildDevelopmentApk` wrote `Builds/Halcyonic.apk`, package `com.halcyonic.xr`,
+  task affinities `com.halcyonic.xr.glance`, `.panel` and `.panel.preview` as before; with
+  `HALCYONIC_TEST_ID=1` it wrote `Builds/Halcyonic-check.apk`, package `com.halcyonic.xr.check`,
+  affinities `com.halcyonic.xr.check.glance`, `.check.panel` and `.check.panel.preview`, and
+  `BuildReleaseApk` wrote `Builds/Halcyonic-release-check.apk`, package `com.halcyonic.xr.check`,
+  affinity `com.halcyonic.xr.check.panel`. The manifest merger filled `${applicationId}` in each.
+- The check builds left the development APK's bytes, and a file put at the release APK's path, as
+  they were, and no build changed ProjectSettings.asset.
+- Not yet checked on the headset: installing the check package beside the owner's app, its first
+  start (which permissions it asks for, and whether the microphone's needs a grant), and removing it.
+
 ## Consequences
 
 - `pnpm quest:device` gives every command `-L tcp:localhost:<port> -s <serial>`, refuses 5037,
