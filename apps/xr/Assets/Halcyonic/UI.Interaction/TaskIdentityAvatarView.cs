@@ -12,6 +12,7 @@ namespace Halcyonic.XR.UI
     public sealed class TaskIdentityAvatarView : MonoBehaviour
     {
         private CharacterView? character;
+        private Transform? pivot;
         public CharacterView? Character => character;
         public string? WorkstreamId => character != null ? character.WorkstreamId : null;
         public Vector2 Size { get; private set; }
@@ -43,7 +44,7 @@ namespace Halcyonic.XR.UI
             if (character == null || character.WorkstreamId != presentation.WorkstreamId)
             {
                 ReleaseCharacter();
-                character = CharacterView.Create(transform, presentation.WorkstreamId);
+                character = CharacterView.Create(Pivot, presentation.WorkstreamId);
                 character.BodyOnlyPresentation = true;
                 character.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             }
@@ -60,6 +61,38 @@ namespace Halcyonic.XR.UI
             character.SetIdentityHue(hue);
             character.Show(presentation);
             gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Stands the character where <paramref name="curve"/>'s curve puts the portrait's centre, turned with it, while
+        /// the curve is on; with none, as laid out. The portrait's own place and the character's within it are kept.
+        /// </summary>
+        public void StandOn(CurvedDrawing? curve)
+        {
+            if (pivot == null) return;
+            if (curve == null || !curve.On || !gameObject.activeInHierarchy)
+            {
+                pivot.localPosition = Vector3.zero;
+                pivot.localRotation = Quaternion.identity;
+                return;
+            }
+            var at = transform.position;
+            var bent = curve.Bend(at);
+            var along = curve.Bend(at + transform.right * 0.001f) - bent;
+            pivot.SetPositionAndRotation(bent, Quaternion.FromToRotation(transform.right, along.normalized) * transform.rotation);
+        }
+
+        /// <summary>What the character stands on: where the curve puts the portrait, or the portrait itself.</summary>
+        private Transform Pivot
+        {
+            get
+            {
+                if (pivot != null) return pivot;
+                var go = new GameObject("Stands on the curve");
+                go.transform.SetParent(transform, false);
+                pivot = go.transform;
+                return pivot;
+            }
         }
 
         public void Hide()

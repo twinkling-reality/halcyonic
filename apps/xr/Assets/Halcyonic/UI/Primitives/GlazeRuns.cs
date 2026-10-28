@@ -14,6 +14,8 @@ namespace Halcyonic.XR.UI
     /// font's own italic amount and Halcyonic's left upright, and a ground only Halcyonic draws under
     /// each run where it meets Halcyonic's words. The menu's lines use it, and so can the stage's
     /// banner, plate and glance: one label, one ground a run on each row it reaches.
+    /// Its hook is the label's one ordered change to its drawn mesh: lean in flat coordinates, then bend onto
+    /// the plane's curve while one is on (<see cref="CurvedDrawing"/>).
     /// </summary>
     public sealed class GlazeRuns : MonoBehaviour
     {
@@ -28,7 +30,7 @@ namespace Halcyonic.XR.UI
             if (runs != null) return runs;
             runs = label.gameObject.AddComponent<GlazeRuns>();
             runs.label = label;
-            label.OnPreRenderText += runs.LeanTheirs;
+            label.OnPreRenderText += runs.Drawn;
             return runs;
         }
 
@@ -125,6 +127,13 @@ namespace Halcyonic.XR.UI
 
         private Color32? grounded;
 
+        /// <summary>The label's one hook, as its mesh is made: its outside text leans, in flat coordinates, and then the whole bends.</summary>
+        private void Drawn(TMP_TextInfo info)
+        {
+            LeanTheirs(info);
+            BendText(info);
+        }
+
         private void LeanTheirs(TMP_TextInfo info)
         {
             if (theirs.Count == 0) return;
@@ -139,9 +148,105 @@ namespace Halcyonic.XR.UI
             }
         }
 
+        private CurvedDrawing? curvedOn;
+        private Vector3[][] flat = Array.Empty<Vector3[]>();
+        private int[] flatCounts = Array.Empty<int>();
+        private bool bent;
+        private Matrix4x4 bentAt;
+        private int bentVersion = -1;
+        private (int Version, Matrix4x4 At, string Text)? tried;
+
+        /// <summary>Whether the label's mesh is drawn on its plane's curve now.</summary>
+        public bool Bent => bent;
+
+        /// <summary>Where a vertex of the drawn mesh was laid out, leaned, before the bend, in the label's units, for checks.</summary>
+        public Vector3 FlatVertex(int material, int index) => flat[material][index];
+
+        private CurvedDrawing? Curve => curvedOn != null && curvedOn.On ? curvedOn : null;
+
+        /// <summary>
+        /// Draws the label on <paramref name="curve"/>'s curve while it is on, or flat with none: called by the plane
+        /// after each step. A label that only moved bends again from the flat mesh it kept, without making its text
+        /// again; one not yet bent, or whose mesh changed since, is made again, and its hook bends it.
+        /// </summary>
+        public void DrawOn(CurvedDrawing? curve)
+        {
+            curvedOn = curve;
+            var on = Curve;
+            if (on == null)
+            {
+                tried = null;
+                if (!bent) return;
+                bent = false;
+                label.ForceMeshUpdate();
+                return;
+            }
+            if (!label.isActiveAndEnabled || string.IsNullOrEmpty(label.text)) return;
+            var at = label.transform.localToWorldMatrix;
+            if (bent && bentVersion == on.Version && bentAt == at) return;
+            if (!bent || label.geometrySortingOrder != VertexSortingOrder.Normal || !Kept(label.textInfo))
+            {
+                // A label whose text makes no mesh never calls its hook: try it once per place and text.
+                if (tried is (int version, Matrix4x4 was, string text) && version == on.Version && was == at && text == label.text) return;
+                tried = (on.Version, at, label.text);
+                label.ForceMeshUpdate();
+                return;
+            }
+            Write(label.textInfo, on);
+            label.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices);
+        }
+
+        private void BendText(TMP_TextInfo info)
+        {
+            var curve = Curve;
+            if (curve == null) { bent = false; return; }
+            if (flat.Length < info.materialCount)
+            {
+                Array.Resize(ref flat, info.materialCount);
+                Array.Resize(ref flatCounts, info.materialCount);
+            }
+            for (var material = 0; material < info.materialCount; material++)
+            {
+                var mesh = info.meshInfo[material];
+                var count = mesh.vertices == null ? 0 : mesh.vertexCount;
+                if (flat[material] == null || flat[material].Length < count) flat[material] = new Vector3[Mathf.Max(count, 4)];
+                if (count > 0) Array.Copy(mesh.vertices!, flat[material], count);
+                flatCounts[material] = count;
+            }
+            Write(info, curve);
+        }
+
+        /// <summary>Whether the kept flat mesh still matches the label's: the same vertex count in each of its meshes.</summary>
+        private bool Kept(TMP_TextInfo? info)
+        {
+            if (info == null || flat.Length < info.materialCount) return false;
+            for (var material = 0; material < info.materialCount; material++)
+                if (flat[material] == null || info.meshInfo[material].vertices == null || flatCounts[material] != info.meshInfo[material].vertexCount) return false;
+            return true;
+        }
+
+        /// <summary>Writes the kept flat mesh, bent, into the label's: each vertex where the curve puts it, in the label's units.</summary>
+        private void Write(TMP_TextInfo info, CurvedDrawing curve)
+        {
+            var t = label.transform;
+            var at = t.localToWorldMatrix;
+            var toLocal = t.worldToLocalMatrix;
+            for (var material = 0; material < info.materialCount; material++)
+            {
+                var vertices = info.meshInfo[material].vertices;
+                var kept = flat[material];
+                for (var index = 0; index < flatCounts[material]; index++)
+                    vertices[index] = toLocal.MultiplyPoint3x4(curve.Bend(at.MultiplyPoint3x4(kept[index])));
+            }
+            bent = true;
+            bentAt = at;
+            bentVersion = curve.Version;
+            tried = null;
+        }
+
         private void OnDestroy()
         {
-            if (label != null) label.OnPreRenderText -= LeanTheirs;
+            if (label != null) label.OnPreRenderText -= Drawn;
         }
 
         /// <summary>The ground's fill: white, faint on the glass, so the words on it read first.</summary>

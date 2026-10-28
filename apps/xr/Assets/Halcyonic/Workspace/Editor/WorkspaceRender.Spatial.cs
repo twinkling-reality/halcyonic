@@ -81,7 +81,8 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false, bool multipleProjects = false)
+        /// <param name="curved">Each shot is first drawn, checked and rendered on the curve (<see cref="CurveState"/>), then flat as always.</param>
+        private static IEnumerable<string> RenderSpatialWorkspace(string folder, Work work, bool waiting, bool question = false, bool multipleProjects = false, bool curved = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Actual spatial workspace composition witness");
@@ -215,6 +216,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 void Shot(string name)
                 {
                     Draw();
+                    if (curved) failures.AddRange(CurveState(name, folder, root, camera, texture, director));
                     failures.AddRange(SpatialState(name, folder, root, camera, texture, director, characters, eyes));
                 }
                 if (!waiting)

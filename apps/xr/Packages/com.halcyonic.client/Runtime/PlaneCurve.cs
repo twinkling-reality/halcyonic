@@ -44,6 +44,12 @@ namespace Halcyonic.Client
             return new Vector3(MathF.Atan2(seen.X, seen.Z) * Radius, seen.Y, radius - Radius);
         }
 
+        /// <summary>
+        /// Where the curve draws a point of the flat plane, given from the eyes: the plane stands <see cref="Radius"/>
+        /// in front of them, so this is <see cref="Map"/> of the point measured from the plane. Drawing bends with it.
+        /// </summary>
+        public Vector3 Bend(Vector3 fromEyes) => Map(new Vector3(fromEyes.X, fromEyes.Y, fromEyes.Z - Radius));
+
         /// <summary>The angle across, in degrees, that a laid-out width spreads at the eyes: arc over radius.</summary>
         public float SpreadDegrees(float width) => width / Radius * DegreesPerRadian;
 
