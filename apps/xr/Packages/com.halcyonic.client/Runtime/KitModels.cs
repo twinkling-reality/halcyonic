@@ -62,11 +62,12 @@ namespace Halcyonic.Client
     /// <summary>A group of the spine's rows under an optional heading: Halcyonic's name for a place, or a project's own name.</summary>
     public sealed class KitSpineSection
     {
-        public KitSpineSection(IReadOnlyList<KitRowModel> rows, string? heading = null, bool headingIsName = false)
+        public KitSpineSection(IReadOnlyList<KitRowModel> rows, string? heading = null, bool headingIsName = false, string? note = null)
         {
             Rows = rows;
             Heading = heading;
             HeadingIsName = headingIsName;
+            Note = note;
         }
 
         public IReadOnlyList<KitRowModel> Rows { get; }
@@ -75,6 +76,9 @@ namespace Halcyonic.Client
 
         /// <summary>The heading is a project's name from outside, shown upright as a named identity, literal.</summary>
         public bool HeadingIsName { get; }
+
+        /// <summary>A quiet line under the heading, in Halcyonic's words, never a target: the connection's state, as the context column says it.</summary>
+        public string? Note { get; }
     }
 
     /// <summary>One line of the evidence rail: a journal-derived activity entry, the icon its event's kind shows and the tone its recorded outcome takes.</summary>

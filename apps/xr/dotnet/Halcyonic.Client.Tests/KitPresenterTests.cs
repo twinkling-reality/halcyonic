@@ -146,7 +146,7 @@ public class KitPresenterTests
         var task = Task(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, 1);
         var badge = StateLanguage.BadgeOf(task);
         var row = KitPresenter.TaskRowOf(task, selected: true, next: "Review request");
-        Assert.That((row.Key, row.Words.Text, row.IsName, row.Words.AllTheirs), Is.EqualTo((task.WorkstreamId, task.Title, true, true)));
+        Assert.That((row.Key, row.Words.Text, row.IsName, row.Words.AllTheirs), Is.EqualTo(("task:" + task.WorkstreamId, task.Title, true, true)), "the spine's key for a task");
         Assert.That((row.Icon, row.IconTone, row.Detail, row.DetailTone), Is.EqualTo(((GlazeIcon?)badge.Icon, badge.Tone, badge.Text, (GlazeTone?)badge.Tone)));
         Assert.That((row.End, row.EndTone, row.Selected), Is.EqualTo(("Review request", (GlazeTone?)GlazeTone.Attention, true)));
         var presence = KitPresenter.PresenceOf(task, waiting: 2);
@@ -219,6 +219,18 @@ public class KitPresenterTests
             Assert.That((work.Sendable, work.WhyNotSend), Is.EqualTo((false, production)));
         }
         Assert.That(FileScreens.WhyNoInstruction(Waiting()), Is.Null, "running and taking instructions: no reason");
+    }
+
+    [Test]
+    public void TheSpinesNoteCarriesTheConnectionsStateInProductionsWords()
+    {
+        foreach (var status in new[] { new ConnectionStatus(ConnectionPhase.Live), new ConnectionStatus(ConnectionPhase.Connecting), new ConnectionStatus(ConnectionPhase.WaitingToRetry) })
+        {
+            var words = ConnectionText.Phase(status);
+            var section = new KitSpineSection(new KitRowModel[0], "Projects", note: words);
+            Assert.That((section.Heading, section.Note), Is.EqualTo(("Projects", (string?)words)));
+        }
+        Assert.That(new KitSpineSection(new KitRowModel[0], "Projects").Note, Is.Null, "a section says nothing more where it is given nothing");
     }
 
     private static ApprovalView Approval(string tool, string summary, bool approvable = true) => new()
