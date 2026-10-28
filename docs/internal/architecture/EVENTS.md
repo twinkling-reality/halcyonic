@@ -61,6 +61,10 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | --- | --- | --- | --- |
 | `project.created` | project | control plane | A project exists; carries its location, the folder the host bound it to, or null |
 | `project.location_set` | project | control plane | The project's work runs in another folder from now on |
+| `project.checkpoint.recorded` | project | control plane | The host kept every file of the project's folder as a checkpoint for its own undo ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)): why (`before_task`, `after_turn`, `before_restore`), the execution it follows, the tree hash and file count, and the project's own commit. Never contents |
+| `project.checkpoint.failed` | project | control plane | No checkpoint could be kept (`location_missing`, `nested_repository`, `too_large`, `unreadable`, `store_failed`); nothing from that point can be put back |
+| `project.restored` | project | control plane | The host put a checkpoint back and read every file again: all equal. Carries the checkpoint taken just before, the files compared, and at most 100 paths each changed back, removed and returned, relative to the folder |
+| `project.restore_incomplete` | project | control plane | A restore did not end equal to the checkpoint: whether anything was written, and what still differs |
 | `workstream.created` | workstream | control plane | A workstream exists |
 | `execution.created` | execution | control plane | A start was accepted; the runtime has not confirmed yet. Carries the folder the runtime was given (`directory`), null for a runtime that uses none |
 | `execution.start_failed` | execution | control plane | The runtime refused to start |
@@ -255,6 +259,10 @@ folders the host allows (`GET /api/locations`), nor the list of
 models a runtime offers, which changes whenever a model is pulled, removed or configured; only the
 choice, in the `execution.start` command, and the model the runtime reports using are journaled
 ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
+
+The files a checkpoint holds stay in the host's checkpoint store, outside the journal; so does what
+a restore would change before it is confirmed (`GET .../restore-preview`), which is read on request
+([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)).
 
 ## Traces
 

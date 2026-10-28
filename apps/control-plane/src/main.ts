@@ -6,6 +6,7 @@ import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integ
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
+import { CheckpointStore } from './checkpoints/store.ts';
 import { Companion } from './companion/companion.ts';
 import {
   type ControlPlaneConfig,
@@ -112,6 +113,16 @@ async function main(): Promise<void> {
     logger: app.log,
     commandTimeoutMs: config.commandTimeoutMs,
     locations,
+    ...(config.gitBinary === null
+      ? {}
+      : {
+          checkpoints: {
+            store: new CheckpointStore({
+              git: config.gitBinary,
+              directory: join(config.dataDir, 'checkpoints'),
+            }),
+          },
+        }),
     secrets: heldSecrets(
       config,
       { environment: process.env, dataDir: config.dataDir },

@@ -23,6 +23,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Seorak client: integration API v1, evaluation per execution and account-wide provider usage limits | `packages/integrations/seorak` | Built; evaluation verified against `seorak` 0.3.0, usage limits read live once against an unreleased Seorak build (2026-09-30) |
 | Device pairing and serving paired devices on the local network: SRP with a code, pinned TLS, per-device credentials, `pnpm pair` and `pnpm devices` | `apps/control-plane/src/network`, the client core, `apps/xr/Assets/Halcyonic/Pairing` | Built, verified off the headset; [ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), [SECURITY.md](SECURITY.md) |
 | Voice: a held clip of speech becomes a draft, transcribed on the Mac by whisper.cpp; hold to talk in development builds | `apps/control-plane/src/speech`, the client core (`SpeechClip`, `VoiceText`), `apps/xr/Assets/Halcyonic/Workspace/HoldToTalk.cs` | Control plane verified on this Mac with synthetic speech; client core tested against a real control plane; the headset's capture built and rendered, not run on a Quest; [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md), [record](../validation/voice-transcription.md) |
+| Undo: checkpoints of project folders before a task, after each turn and before a restore, and a restore the host checks file by file; off unless `HALCYONIC_GIT_BIN` is set | `apps/control-plane/src/checkpoints` | Built and tested against the system's git in temporary folders; [ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md). Not yet measured on a large project, not run with a real runtime, and no headset screen yet |
 | Remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 
 ## Dependency rules
@@ -107,6 +108,7 @@ Environment variables, all optional:
 | `HALCYONIC_OPENCODE_BIN` | none | Absolute path of the pinned OpenCode 2.0.18 binary; registers the OpenCode runtime |
 | `HALCYONIC_CODEX_BIN` | none | Absolute path of the pinned Codex 0.157.0 native binary; registers the Codex runtime |
 | `HALCYONIC_WHISPER_BIN`, `HALCYONIC_WHISPER_MODEL`, `HALCYONIC_WHISPER_VAD_MODEL` | none | Absolute paths of whisper.cpp's `whisper-cli`, its large-v3-turbo q5_0 model and its Silero voice activity model; all three or none. With them, `POST /api/transcriptions` turns clips of speech into drafts ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md)) |
+| `HALCYONIC_GIT_BIN` | none | Absolute path of the git Halcyonic's undo runs (`/usr/bin/git` on a Mac); unset, undo is off: no checkpoint is taken and `project.restore` is refused ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)) |
 | `HALCYONIC_COMPANION_MODEL` | none | The local Ollama model Create's companion asks, exactly as Ollama lists it; a name with a `cloud` tag is refused. Unset, the companion is off and Help me figure it out asks the fixed questions ([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)) |
 | `HALCYONIC_COMPANION_OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama answers: `http://` on a loopback address with a port and nothing else; needs `HALCYONIC_COMPANION_MODEL` |
 
@@ -114,6 +116,7 @@ Files in the data directory besides the journal and the access token, all option
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
 `seorak-credential`, the integration credential the owner issued for Halcyonic, and
 `anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
+`checkpoints/`, the store of Halcyonic's undo when it is set up, and
 `opencode-server.json`, `codex-server.json` and `claude-agent-processes.json`, the records of the
 running OpenCode and Codex servers and Claude Code processes (no secrets) that let the next start
 stop anything a crash left behind, and `network-key.pem` and `network-certificate.pem`, the network

@@ -20,6 +20,8 @@ credential instead (below, and [SECURITY.md](SECURITY.md)).
 | `GET /api/runtimes` | Runtime descriptors with capabilities; clients show only supported actions |
 | `GET /api/locations` | `LocationsResponse`: where projects may live on the host, read from the file system on request and never journaled ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). Each project root (`HALCYONIC_PROJECT_ROOTS`, as its real path) with its own `name`, `status` (`available`, or `missing` when it is no longer a folder), the visible folders directly inside it (`{name, path}`, no hidden folders or symbolic links, sorted, at most 200, found among at most the first 10,000 entries the file system returns) and `folders_truncated`, true when either limit was reached. `roots: []` means the host allows no folder yet. Paths and names are for display, and names are untrusted text |
 | `GET /api/runtimes/:runtime_id/models` | `RuntimeModelsResponse`: the models the runtime lists now, from its own list, read through and never journaled ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)); always 200 with an availability (`unavailable` carries the reason in words: `timeout` after 30 s, `invalid_models` for a list outside the contract, or the adapter's own code), 404 `models_not_listed` for a runtime whose `model_choice` is `none`, 404 `runtime_not_found` for an unknown one. Listing may start the runtime, so it can take seconds: fetch it when a person opens the choice, and never poll |
+| `GET /api/projects/:project_id/checkpoints` | `CheckpointsResponse`: the project's checkpoints for Halcyonic's own undo, oldest first, from the projection ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)); `unavailable` with `undo_not_set_up` when the host has no `HALCYONIC_GIT_BIN`; 404 `project_not_found` |
+| `GET /api/projects/:project_id/checkpoints/:checkpoint_id/restore-preview` | `RestorePreviewResponse`: what putting the checkpoint back would change now (at most 100 paths each changed back, removed and returned, with totals, and whether the project's own commit moved), read from the folder on request and never journaled; `unavailable` with a reason when undo is off or the folder cannot be read; 404 `checkpoint_not_found` for a checkpoint not the project's. Fetch it when a person opens Undo, and show it before they confirm |
 | `GET /api/events?after=&limit=&workstream_id=` | Journal history after a position (limit 1 to 1000, default 200); a paired device's reads leave device events out |
 | `GET /api/executions/:execution_id/understanding` | What Salidium says about the execution's session, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. An available answer's `source.synthetic` is true only for a stand-in's, as in the recorded demonstration ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)) |
 | `GET /api/executions/:execution_id/evaluation` | What Seorak measured about the execution's session (estimated cost, outcome, verification runs), read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. Each answer spends three of Seorak's 60 requests a minute, so fetch it on demand, for example when a workstream is opened, and never poll. `source.synthetic` as for understanding |
@@ -109,6 +111,17 @@ client                                   server
   their options; the execution's `directory` says where it runs ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)).
   `location` was added as an explicit null without a new protocol or schema version: a development
   build generated before it sends `project.create` without it and gets 400 until it is rebuilt.
+- **Putting a project back.** `project.restore` `{project_id, checkpoint_id}` is `review_required`:
+  a client sends it only after the person has read the preview. It is refused with
+  `capability_unsupported` when undo is off, `checkpoint_not_found` for a checkpoint not the
+  project's, and `invalid_state` while a task in the project is starting, running, verifying or
+  waiting, is in an unknown state other than after a restart, or another command in the project
+  waits for its outcome; while it runs, `execution.start` and `execution.send_instruction` in the
+  project are refused with `invalid_state`. It completes, with `{kind: 'project_restored',
+  checkpoint_id}`, only after `project.restored`, which the host journals once it has read every
+  file again and found the folder equal; otherwise `project.restore_incomplete` and a failure,
+  effect `unknown` once a file was written
+  ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)).
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
   as `GET /api/runtimes/:runtime_id/models` gave it. A start without one on a runtime whose
   `model_choice` is `listed` is rejected with `model_required`, so a model the person did not

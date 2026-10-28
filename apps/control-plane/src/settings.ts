@@ -23,7 +23,8 @@ const MAX_SETTINGS_BYTES = 64 * 1024;
 
 /**
  * The variables a settings file may hold: which folders agents may use, the pinned agent apps,
- * Halcyonic's own OpenCode settings, voice, Create's companion and the listener for paired devices.
+ * Halcyonic's own OpenCode settings, the git its undo runs, voice, Create's companion and the
+ * listener for paired devices.
  * Nothing that spends model credit or widens what reaches an agent can be set there: the Claude
  * Agent runtime, its executable and the variables passed through to agents stay in the environment
  * alone, and no setting names a model that can run on a remote service. The companion's model is
@@ -35,6 +36,7 @@ export const SETTING_NAMES = [
   'HALCYONIC_OPENCODE_BIN',
   'HALCYONIC_OPENCODE_CONFIG_HOME',
   'HALCYONIC_CODEX_BIN',
+  'HALCYONIC_GIT_BIN',
   'HALCYONIC_WHISPER_BIN',
   'HALCYONIC_WHISPER_MODEL',
   'HALCYONIC_WHISPER_VAD_MODEL',

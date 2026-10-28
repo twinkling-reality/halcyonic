@@ -1,5 +1,12 @@
 import Type, { type Static, type TSchema } from 'typebox';
 import {
+  CheckpointFailure,
+  CheckpointId,
+  CheckpointReason,
+  GitObjectId,
+  PathList,
+} from './checkpoints.ts';
+import {
   CommandEnvelope,
   CommandFailure,
   CommandId,
@@ -208,6 +215,76 @@ export const ProjectCreated = projectEvent(
 export const ProjectLocationSet = projectEvent(
   'project.location_set',
   Type.Object({ location: ProjectLocation }, strict),
+);
+
+/**
+ * The host kept every file of the project's folder as a checkpoint (ADR 0036): hashes and counts
+ * only, never contents. `execution_id` names the execution whose start or turn it follows, or is
+ * null before a restore.
+ */
+export const ProjectCheckpointRecorded = projectEvent(
+  'project.checkpoint.recorded',
+  Type.Object(
+    {
+      checkpoint_id: CheckpointId,
+      reason: CheckpointReason,
+      execution_id: Nullable(ExecutionId),
+      tree: Sha256Hex,
+      files: Type.Integer({ minimum: 0 }),
+      project_head: Nullable(GitObjectId),
+    },
+    strict,
+  ),
+);
+
+/** The host could not keep a checkpoint, so nothing from this point can be put back. */
+export const ProjectCheckpointFailed = projectEvent(
+  'project.checkpoint.failed',
+  Type.Object(
+    { reason: CheckpointReason, execution_id: Nullable(ExecutionId), failure: CheckpointFailure },
+    strict,
+  ),
+);
+
+/**
+ * The host put every file back as the checkpoint holds it and then read every one again: each
+ * equal, and nothing else outside what the checkpoint left out. Recorded only after that check.
+ */
+export const ProjectRestored = projectEvent(
+  'project.restored',
+  Type.Object(
+    {
+      checkpoint_id: CheckpointId,
+      /** The checkpoint taken just before, which puts back what this restore changed. */
+      before_restore_checkpoint_id: CheckpointId,
+      tree: Sha256Hex,
+      files_compared: Type.Integer({ minimum: 0 }),
+      changed_back: PathList,
+      removed: PathList,
+      returned: PathList,
+      /** Whether the project's own repository points at another commit than at the checkpoint. */
+      project_head_moved: Nullable(Type.Boolean()),
+    },
+    strict,
+  ),
+);
+
+/**
+ * A restore that did not end with every file equal to the checkpoint. `written` says whether it
+ * had changed any file before it stopped; `not_restored` lists what still differs, as far as known.
+ */
+export const ProjectRestoreIncomplete = projectEvent(
+  'project.restore_incomplete',
+  Type.Object(
+    {
+      checkpoint_id: CheckpointId,
+      before_restore_checkpoint_id: Nullable(CheckpointId),
+      written: Type.Boolean(),
+      not_restored: PathList,
+      failure: ErrorInfo,
+    },
+    strict,
+  ),
 );
 
 export const WorkstreamCreated = workstreamEvent(
@@ -531,6 +608,10 @@ export const RuntimeModelUsed = runtimeEvent('runtime.model.used', P['runtime.mo
 export const EVENT_VARIANTS = [
   ProjectCreated,
   ProjectLocationSet,
+  ProjectCheckpointRecorded,
+  ProjectCheckpointFailed,
+  ProjectRestored,
+  ProjectRestoreIncomplete,
   WorkstreamCreated,
   ExecutionCreated,
   ExecutionStartFailed,

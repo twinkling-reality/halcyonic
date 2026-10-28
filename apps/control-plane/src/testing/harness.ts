@@ -8,7 +8,7 @@ import { createVirtualTime, type RuntimeAdapter, type VirtualTime } from '@halcy
 import type { FastifyInstance } from 'fastify';
 import { Companion, type CompanionBounds } from '../companion/companion.ts';
 import type { CompanionConfig, LogLevel } from '../config.ts';
-import { ControlPlane } from '../core/control-plane.ts';
+import { ControlPlane, type ControlPlaneOptions } from '../core/control-plane.ts';
 import type { HeldSecret } from '../core/redaction.ts';
 import { createCommandFactory } from '../demo-plan.ts';
 import { registerDeviceRoutes } from '../http/device-routes.ts';
@@ -77,6 +77,8 @@ export interface TestControlPlaneOptions {
   readonly modelListTimeoutMs?: number;
   /** Where projects may live; by default nowhere, as with no project roots configured. */
   readonly locations?: HostLocations;
+  /** Halcyonic's own undo (ADR 0036); off by default, as on a host that has not set it up. */
+  readonly checkpoints?: ControlPlaneOptions['checkpoints'];
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -101,6 +103,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     commandTimeoutMs: options.commandTimeoutMs ?? 30_000,
     ...(options.locations !== undefined && { locations: options.locations }),
     ...(options.secrets !== undefined && { secrets: options.secrets }),
+    ...(options.checkpoints !== undefined && { checkpoints: options.checkpoints }),
   });
   const commands = createCommandFactory(
     createUuidV7Generator({ now: () => time.now().getTime() }),

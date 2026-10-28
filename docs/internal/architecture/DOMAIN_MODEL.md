@@ -11,6 +11,12 @@ in `packages/domain`.
   A client chooses it from the folders the host lists, or names a new folder the host makes; it
   never sends a path. `project.set_location` binds the project to another folder, for example after
   the folder was moved; executions already started keep the folder they started in.
+- **Checkpoint**: every file of a project's folder as it was at one moment, kept by the host for
+  Halcyonic's own undo when the host has set it up: before a task starts, after each turn the
+  runtime reports ended, and before a restore. `project.restore` puts one back, and completes only
+  once the host has read every file again and found the folder equal to it
+  ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)).
+  No runtime is asked to undo anything.
 - **Workstream**: a meaningful unit of work, such as "Fix flaky checkout tests". It is the aggregate
   a character represents, and it keeps its identity across executions and runtimes.
 - **Execution**: one attempt by one runtime toward a Workstream. It corresponds to the runtime's
@@ -108,9 +114,10 @@ Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `co
 | --- | --- | --- |
 | `project.create` | low consequence | always, and when it names a location, the host can bind it (below) |
 | `project.set_location` | low consequence | the project exists and the host can bind the location |
+| `project.restore` | review required | undo is set up on the host (`capability_unsupported` otherwise), the checkpoint is the project's (`checkpoint_not_found` otherwise), no task in the project is `starting`, `running`, `verifying` or `waiting_for_human` or `unknown` other than after a restart, and no command in the project waits for its outcome (`invalid_state` otherwise) |
 | `workstream.create` | low consequence | the project exists |
-| `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is given exactly when the runtime's `model_choice` is `listed` (`model_required` when it is missing), for a runtime that `uses_project_location` the project has a folder the host's policy still allows at the same real path, and the adapter accepts the options and the model |
-| `execution.send_instruction` | low consequence | the runtime has started a session, and: at rest (`completed`, `failed`, `interrupted`) with `instruct_at_rest`, or running (`running`, `verifying`, `waiting_for_human`) with `instruct_while_running` |
+| `execution.start` | low consequence | no restore of the project is in progress, the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is given exactly when the runtime's `model_choice` is `listed` (`model_required` when it is missing), for a runtime that `uses_project_location` the project has a folder the host's policy still allows at the same real path, and the adapter accepts the options and the model |
+| `execution.send_instruction` | low consequence | no restore of the project is in progress, the runtime has started a session, and: at rest (`completed`, `failed`, `interrupted`) with `instruct_at_rest`, or running (`running`, `verifying`, `waiting_for_human`) with `instruct_while_running` |
 | `execution.respond_to_approval` | review required | the approval is pending, the execution is `waiting_for_human`, and the runtime has `respond_to_approval` |
 | `execution.answer_question` | low consequence | the question is pending (`question_not_found` otherwise), the execution is `waiting_for_human`, the runtime has `answer_question`, the question is answerable and asks for no secret (`capability_unsupported` otherwise), and the answers fit its prompts (`invalid_answer` otherwise) |
 | `execution.interrupt` | review required | a turn is running and the runtime has `interrupt` |
@@ -149,6 +156,8 @@ submitted ──> rejected                  (journaled with a reason; nothing el
 - A runtime action that is not confirmed within the timeout fails with `code: timeout` and
   `effect: unknown`, because the runtime may still act.
 - A start that fails with an unknown effect makes the execution `unknown`, not `failed`.
+- A restore is done by the host, not a runtime, so no timeout applies; it completes only after its
+  own check, and fails with `effect: unknown` once a file was written.
 - Effects are observed separately: an approved request completes as a command, and the runtime's
   `runtime.approval.resolved` shows that the runtime applied it. An answer likewise counts once
   `runtime.question.resolved` says the runtime took it. When the turn ends first, as Codex 0.157.0
