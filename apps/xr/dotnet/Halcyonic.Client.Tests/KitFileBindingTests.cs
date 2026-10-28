@@ -346,6 +346,32 @@ public class KitFileBindingTests
     }
 
     [Test]
+    public void AnActivityEntryIsNeverTakenForANotice()
+    {
+        var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true });
+        Assert.That(frame.Lines.Select(line => line.Words), Does.Contain(Recorded[0].Text), "the page leads with a recorded entry, as a notice would stand");
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        Assert.That(binding.Model.Said, Is.Empty, "no notice, no attention, nothing waiting, nothing sent: nothing said");
+    }
+
+    [Test]
+    public void TheHistoryNoteIsNeverTakenForANotice()
+    {
+        var workspace = Running(new WaitingWork(), new ActivityEntry[0], WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        const string note = "Earlier activity isn't loaded yet.";
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, ActivityNote = note });
+        Assert.That(frame.Lines.Select(line => line.Words), Does.Contain(note));
+        var binding = Bind(frame, steering, workspace);
+        // The kit has no place for the file's history note, so the file draws the page as before.
+        Assert.That(binding?.Model.Said.Select(line => line.Words) ?? new string[0], Does.Not.Contain(note));
+        Assert.That(binding, Is.Null);
+    }
+
+    [Test]
     public void NothingIsBoundWhereTheKitCantDrawTheFrameWhole()
     {
         var steering = Steering();
