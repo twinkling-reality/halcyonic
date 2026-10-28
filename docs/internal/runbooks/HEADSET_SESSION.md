@@ -162,6 +162,16 @@ other apps remain unimplemented; do not demonstrate them as available controls.
 
 ## Connect
 
+The headset has an adb server of its own on port 5038; the shared one on 5037 belongs to other
+projects, and Unity's Android builds start a throwaway server on 5039 that never has the headset
+([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). In the shell for this
+session, point every bare `adb` below at the headset's server first; the `pnpm quest:` tools do so
+themselves:
+
+```bash
+export ANDROID_ADB_SERVER_PORT=5038 ADB_SERVER_SOCKET=tcp:localhost:5038
+```
+
 1. `adb devices` lists the headset as `device`, not `unauthorized` (accept USB debugging in the
    headset). Record `adb shell getprop ro.product.model` and `adb shell getprop ro.build.display.id`.
 2. Look at the token's old place before anything runs, names and sizes only:
@@ -609,6 +619,46 @@ Record in quest-3-device.md as its own session; the owner's words beside each st
 consequences; and the OPEN_QUESTIONS.md rows on calm motion, outside words over a bright room, and the
 shimmer under Keep things still, each resolved or narrowed as its own rule says.
 
+## Checking the headset without wearing it
+
+`pnpm quest:device` reads the headset and drives what a check needs without anyone wearing it
+([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). It goes to the
+headset's adb server on 5038 (`HALCYONIC_ADB_PORT`), names the headset (`HALCYONIC_QUEST_SERIAL`,
+else the one that server lists) and refuses the shared server on 5037. In order:
+
+```bash
+pnpm quest:device -- status
+pnpm quest:device -- awake
+pnpm quest:device -- save
+pnpm quest:device -- install apps/xr/Builds/Halcyonic.apk --saved .private/quest/com.halcyonic.xr-installed-<sha>.apk
+pnpm quest:device -- launch
+pnpm quest:device -- shot
+pnpm quest:device -- logs --out .private/quest/halcyonic.log
+pnpm quest:device -- stop
+pnpm quest:device -- restore .private/quest/com.halcyonic.xr-installed-<sha>.apk
+pnpm quest:device -- give-back
+```
+
+- `status` says in plain words whether it is awake and what is in front. "Can't find its position in
+  the room" is Meta's Guardian dialog: nothing opens until the headset sees the room, so stand it
+  facing the room or wear it. Never press anything in a system dialog.
+- `awake` keeps it awake on the desk (the proximity override); `give-back` hands the sensor back and
+  stops the apps this tool started. Run it at the end, every time.
+- `save` pulls the installed APK and checks its bytes. `install` needs that copy as `--saved` (and
+  `--package` for any app but Halcyonic), refuses unless it is exactly what is installed, and checks
+  the headset's bytes after `install -r`, so `restore` puts it back exactly with its data. It refuses
+  while a system dialog is in front. Until the restore, `status` and `give-back` say the owner's app
+  is replaced and how to restore it (the tool's state file, `.private/quest/state.json`).
+- `launch` fails, and stops the app again, when a system dialog holds the launch. Launching the
+  owner's own Halcyonic rewrites one of its files; never run it with a real runtime behind it.
+- `shot` takes one second of `screenrecord` (both eyes) and keeps a frame of the left eye when ffmpeg
+  is there. `shot --service` and `record --seconds <n>` use Meta's capture service (one eye; a
+  recording includes the headset microphone) and run only with `--sync-is-off`, once the owner has
+  turned the headset's media sync off, and never while the headset's log says sync is on. Every capture is pulled, its bytes checked, and only then
+  removed from the headset by name. Captures show the room: keep them out of the repository.
+- `logs` keeps Halcyonic's own lines, its OpenXR session's states and the compositor's frame line,
+  from Halcyonic's process only.
+
 ## Where time allows
 
 Each is its own section with what to see and record; fit them in between blocks, with the
@@ -640,12 +690,15 @@ development build and the token in place:
    com.oculus.vrpowermanager.automation_disable` if the headset was kept awake, and remove the sound
    option files if they were made: the while-away one ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Beside
    a window on a Quest") and `sound-panned` (check 11, step 9).
-5. `adb kill-server`. The Mac's adb server answers every local account while it runs.
+5. Never stop the headset's adb server (`adb kill-server`) while other work uses it, as the device
+   tools and Unity's builds do. An adb server answers every local account while it runs.
    If check 11's first part made `~/halcyonic-fresh`, stop any control plane using it and remove it:
    `rm -rf ~/halcyonic-fresh`.
-6. Pull the captures to a folder outside the repository:
+6. Pull this session's captures, by name, to a folder outside the repository; the folder holds the
+   owner's own captures too. Meta's capture service uploads every capture to the headset's account
+   while its media sync is on, so `pnpm quest:device -- shot` uses `screenrecord` unless told otherwise:
    ```bash
-   adb pull /sdcard/Oculus/Screenshots ~/halcyonic-captures
+   adb pull /sdcard/Oculus/Screenshots/<capture name> ~/halcyonic-captures/
    ```
 7. Record: the validation records above, the OPEN_QUESTIONS rows the session answered, and the
    commit, date and headset.

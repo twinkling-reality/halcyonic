@@ -109,6 +109,8 @@ only at debug level. The same demo on a fresh data directory completed.
 
 ### Captures and working without the wearer
 
+- Checking the headset without wearing it, `screenrecord`, recording and the capture service's uploads:
+  [quest-headset-in-the-loop.md](quest-headset-in-the-loop.md) (2026-10-28).
 - `adb exec-out screencap -p` fails on the headset (exit status 1, no data). Meta's capture service
   works: `adb shell am startservice -n com.oculus.metacam/.capture.CaptureService -a
   TAKE_SCREENSHOT` saves a 1440 by 1440 JPEG of one eye's view to `/sdcard/Oculus/Screenshots` in
