@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Linq;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -17,7 +18,7 @@ namespace Halcyonic.XR.UI
     /// </summary>
     public sealed class KitComposer : MonoBehaviour
     {
-        public const string Label = "Your instruction";
+        public const string Label = FileScreens.YourInstruction;
         public const string Empty = "Type your instruction";
         public const string NotSent = "Not sent yet.";
         public const string SendInstruction = "Send instruction";
@@ -33,10 +34,18 @@ namespace Halcyonic.XR.UI
         private TextMeshPro status = null!;
         private KitButton talk = null!;
         private KitButton send = null!;
+        private KitButton close = null!;
+        private KitButton rare = null!;
         private Vector2 size;
 
         public event Action? FieldPressed;
         public event Action? SendPressed;
+
+        /// <summary>The bound Close, Cancel or Hide composer, at the row's left.</summary>
+        public event Action? ClosePressed;
+
+        /// <summary>The bound Stop or Discard draft, beside it.</summary>
+        public event Action? RarePressed;
 
         public TextMeshPro Draft => draft;
         public KitPress Field => field;
@@ -46,6 +55,8 @@ namespace Halcyonic.XR.UI
         public TextMeshPro Reason => reason;
         public KitButton Talk => talk;
         public KitButton Send => send;
+        public KitButton Close => close;
+        public KitButton Rare => rare;
         public Surface Well => well;
         public Vector2 Size => size;
 
@@ -79,6 +90,12 @@ namespace Halcyonic.XR.UI
             composer.talk = KitButton.Create(go.transform, "Hold to talk", KitButtonRole.Secondary);
             composer.send = KitButton.Create(go.transform, "Send instruction", KitButtonRole.Primary);
             composer.send.Pressed += () => composer.SendPressed?.Invoke();
+            composer.close = KitButton.Create(go.transform, "Close", KitButtonRole.Secondary);
+            composer.close.Pressed += () => composer.ClosePressed?.Invoke();
+            composer.close.Hide();
+            composer.rare = KitButton.Create(go.transform, "Rare action", KitButtonRole.Secondary);
+            composer.rare.Pressed += () => composer.RarePressed?.Invoke();
+            composer.rare.Hide();
             return composer;
         }
 
@@ -87,9 +104,26 @@ namespace Halcyonic.XR.UI
         /// <paramref name="rows"/> lines in the well; Hold to talk where <paramref name="voiceOffered"/>; Send available
         /// only when <paramref name="sendable"/>, else quiet with <paramref name="whyNot"/>. Returns its height.
         /// </summary>
-        public float Show(Vector2 topLeft, float width, string words, int rows, bool voiceOffered, bool sendable, string? whyNot)
+        public float Show(Vector2 topLeft, float width, string words, int rows, bool voiceOffered, bool sendable, string? whyNot) =>
+            Lay(topLeft, width, words, rows, sendable, whyNot, false, voiceOffered, true, null, null, null, null);
+
+        /// <summary>
+        /// Shows the composer bound to a task's file (<see cref="KitFileBinding"/>): each control only where the file's
+        /// frame offers it, in its words and availability, in the footer's order along one row, <paramref name="close"/>
+        /// (Close, Cancel or Hide composer) at the left, <paramref name="rare"/> (Stop or Discard draft) beside it, then
+        /// <paramref name="talk"/> and <paramref name="send"/> at the right, Send rightmost; its caption only where the
+        /// frame shows one (<paramref name="caption"/>), as the composer's own page does. Returns its height.
+        /// </summary>
+        public float Show(Vector2 topLeft, float width, string words, int rows, bool sendable, string? whyNot,
+            KitControl? close, KitControl? rare, KitControl? talk, KitControl? send, bool caption) =>
+            Lay(topLeft, width, words, rows, sendable, whyNot, true, talk != null, caption, close, rare, talk, send);
+
+        /// <summary>Unbound, as the fixture shows it, Hold to talk and Send stand in the kit's own words; bound, each only where its control is.</summary>
+        private float Lay(Vector2 topLeft, float width, string words, int rows, bool sendable, string? whyNot, bool bound, bool voiceOffered, bool caption,
+            KitControl? closeControl, KitControl? rareControl, KitControl? talkControl, KitControl? sendControl)
         {
             transform.localPosition = new Vector3(topLeft.x, topLeft.y, 0f);
+            label.gameObject.SetActive(caption);
             KitType.Size(label, KitRole.Body);
             GlazeText.SetLiteral(label, Answering ? AnswerLabel : Label);
             var (_, labelWidth, labelHeight) = KitType.Lay(label, width, 1);
@@ -98,14 +132,14 @@ namespace Halcyonic.XR.UI
             KitType.Size(status, KitRole.Body);
             GlazeText.SetLiteral(status, NotSent);
             var statusRoom = width - labelWidth - KitType.Scaled(1f);
-            var statusFits = !string.IsNullOrEmpty(words) && status.GetPreferredValues(status.text).x <= statusRoom;
+            var statusFits = caption && !string.IsNullOrEmpty(words) && status.GetPreferredValues(status.text).x <= statusRoom;
             status.gameObject.SetActive(statusFits);
             if (statusFits)
             {
                 KitType.Lay(status, statusRoom, 1);
                 status.transform.localPosition = new Vector3(width, -labelHeight / 2f, -0.0005f);
             }
-            var y = labelHeight + KitType.Scaled(0.35f);
+            var y = caption ? labelHeight + KitType.Scaled(0.35f) : 0f;
 
             // The well: the person's words, upright and literal, or the empty field's own prompt.
             var pad = KitType.Scaled(0.75f);
@@ -148,20 +182,51 @@ namespace Halcyonic.XR.UI
                 y += reasonHeight + KitType.Scaled(0.35f);
             }
 
-            // The footer: Hold to talk and Send instruction at the right, Send rightmost.
+            // The footer: Hold to talk and Send instruction at the right, Send rightmost; bound, Close and the rare action
+            // at the left, in the order the file's footer stands them.
             var gap = KitType.Units(SpatialKit.TargetGapDegrees);
             var row = -y - KitButton.Height / 2f;
-            var sendWords = Answering ? WorkspaceText.Label(WorkspaceAction.Answer) : SendInstruction;
-            var sendWidth = send.Measure(sendWords, GlazeIcon.SendAnswer);
-            send.Available = sendable;
-            send.Show(sendWords, GlazeIcon.SendAnswer, new Vector2(width - sendWidth / 2f, row), sendWidth);
-            var right = width - sendWidth - gap;
+            // Close and the rare action stand at the row's left; where they would not keep a target's gap from Hold to talk
+            // and Send, they take a row of their own above them, the same order read row by row.
+            var leftControls = new[] { (close, closeControl), (rare, rareControl) }.Where(each => each.Item2 != null).ToList();
+            var leftWidth = leftControls.Sum(each => each.Item1.Measure(each.Item2!.Words, each.Item2.Icon ?? GlazeIcon.Close) + gap);
+            var rightWidth = (sendControl != null || !bound ? send.Measure(sendControl?.Words ?? SendInstruction, GlazeIcon.SendAnswer) + gap : 0f)
+                + (voiceOffered ? talk.Measure(talkControl?.Words ?? "Hold to talk", GlazeIcon.HoldToTalk) + gap : 0f);
+            var leftRow = row;
+            if (leftControls.Count > 0 && leftWidth + rightWidth - gap > width + 1e-5f)
+            {
+                row -= KitButton.Height + gap;
+                y += KitButton.Height + gap;
+            }
+            var right = width;
+            send.gameObject.SetActive(sendControl != null || !bound);
+            if (send.gameObject.activeSelf)
+            {
+                var sendWords = sendControl != null ? sendControl.Words
+                    : Answering ? WorkspaceText.Label(WorkspaceAction.Answer) : SendInstruction;
+                var sendWidth = send.Measure(sendWords, GlazeIcon.SendAnswer);
+                send.Available = sendable;
+                send.Show(sendWords, GlazeIcon.SendAnswer, new Vector2(right - sendWidth / 2f, row), sendWidth);
+                right -= sendWidth + gap;
+            }
             talk.gameObject.SetActive(voiceOffered);
             if (voiceOffered)
             {
-                var talkWidth = talk.Measure("Hold to talk", GlazeIcon.HoldToTalk);
-                talk.Show("Hold to talk", GlazeIcon.HoldToTalk, new Vector2(right - talkWidth / 2f, row), talkWidth);
+                var talkWords = talkControl?.Words ?? "Hold to talk";
+                var talkWidth = talk.Measure(talkWords, GlazeIcon.HoldToTalk);
+                talk.Available = talkControl == null || talkControl.Available;
+                talk.Show(talkWords, GlazeIcon.HoldToTalk, new Vector2(right - talkWidth / 2f, row), talkWidth);
                 right -= talkWidth + gap;
+            }
+            var left = 0f;
+            foreach (var (button, control) in new[] { (close, closeControl), (rare, rareControl) })
+            {
+                if (control == null) { button.Hide(); continue; }
+                var glyph = control.Icon ?? GlazeIcon.Close;
+                var buttonWidth = button.Measure(control.Words, glyph);
+                button.Available = control.Available;
+                button.Show(control.Words, glyph, new Vector2(left + buttonWidth / 2f, leftRow), buttonWidth);
+                left += buttonWidth + gap;
             }
             y += KitButton.Height;
             size = new Vector2(width, y);

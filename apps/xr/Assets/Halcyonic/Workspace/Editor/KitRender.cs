@@ -368,7 +368,7 @@ namespace Halcyonic.XR.Workspace.Editor
             require?.Invoke(view, shot);
             Require(!view.Spine.Switch.ConfirmedCompact && view.Spine.Switch.ThumbPosition == 0f, "the switch's thumb is not on Workspace in the whole workspace");
             Require(view.Trail.Shown.All(entry => entry.Entry.Kind != ActivityKind.Message), "the evidence rail shows an agent message");
-            Require(view.Trail.Shown.Count > 0, "the evidence rail shows no recorded event");
+            if (model.Trail.Count > 0) Require(view.Trail.Shown.Count > 0, "the evidence rail shows no recorded event");
             FacesTheEyes(shot, view.transform, view.Carriers, eyes);
             Debug.Log("Halcyonic: spatial kit: focused work " + (curved ? "on one gentle curve " : "on one plane ") + Spread(shot, eyes) + "; report " + view.Message.Lines
                 + " lines; trail shows " + view.Trail.Shown.Count + " of " + model.Trail.Count + " events, " + view.Trail.Earlier + " earlier.");

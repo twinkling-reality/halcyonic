@@ -105,7 +105,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 new KitSpineSection(new[]
                 {
                     // Where space is fixed, the short count that keeps its noun (WORDS.md).
-                    new KitRowModel("place:projects", LineWords.Ours("Projects"), GlazeIcon.Folder, detail: "1 task waiting", detailTone: GlazeTone.Attention),
+                    new KitRowModel("place:Projects", LineWords.Ours("Projects"), GlazeIcon.Folder, detail: "1 task waiting", detailTone: GlazeTone.Attention),
                 }),
                 new KitSpineSection(new[]
                 {
@@ -145,12 +145,12 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 new KitSpineSection(new[]
                 {
-                    new KitRowModel("place:projects", LineWords.Ours("Projects"), GlazeIcon.Folder, selected: true, opensMore: false),
+                    new KitRowModel("place:Projects", LineWords.Ours("Projects"), GlazeIcon.Folder, selected: true, opensMore: false),
                     new KitRowModel("action:new-project", LineWords.Ours("New project"), GlazeIcon.CreateProject),
                 }),
             };
             return new KitOverviewModel("Projects", "1 task is waiting for you, 1 couldn't finish this round, and 2 are running.", projects, spine,
-                new KitRowModel("place:settings", LineWords.Ours("Settings"), GlazeIcon.Settings));
+                new KitRowModel("place:Settings", LineWords.Ours("Settings"), GlazeIcon.Settings));
         }
 
         private static KitPresenceModel PresenceModel() => new KitPresenceModel(SelectedTask, Badge(CharacterActivity.Working), waiting: 1);
