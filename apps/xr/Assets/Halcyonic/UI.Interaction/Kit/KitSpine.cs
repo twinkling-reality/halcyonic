@@ -19,6 +19,7 @@ namespace Halcyonic.XR.UI
         private readonly List<KitRow> rows = new List<KitRow>();
         private readonly List<TextMeshPro> placeHeadings = new List<TextMeshPro>();
         private readonly List<TextMeshPro> nameHeadings = new List<TextMeshPro>();
+        private readonly List<TextMeshPro> notes = new List<TextMeshPro>();
         private readonly List<Surface> dividers = new List<Surface>();
         private KitRow footer = null!;
 
@@ -64,6 +65,7 @@ namespace Halcyonic.XR.UI
             var placeIndex = 0;
             var nameIndex = 0;
             var dividerIndex = 0;
+            var noteIndex = 0;
             foreach (var section in sections)
             {
                 // Sections are divided by space and their headings, not by rules.
@@ -82,6 +84,16 @@ namespace Halcyonic.XR.UI
                     label.transform.localPosition = new Vector3(KitType.Scaled(0.7f), -y, -0.0005f);
                     y += headingHeight + KitType.Scaled(0.25f);
                 }
+                if (section.Note != null)
+                {
+                    // A quiet line under the heading, never a target: the connection's state, as the context column says it.
+                    var note = Take(notes, noteIndex++, () => KitType.Create(transform, "Note " + notes.Count, KitRole.Body, KitType.Secondary, KitType.Order.Words));
+                    KitType.Size(note, KitRole.Body);
+                    GlazeText.SetLiteral(note, section.Note);
+                    var (_, _, noteHeight) = KitType.Lay(note, width - KitType.Scaled(0.7f), 1);
+                    note.transform.localPosition = new Vector3(KitType.Scaled(0.7f), -y, -0.0005f);
+                    y += noteHeight + KitType.Scaled(0.35f);
+                }
                 foreach (var model in section.Rows)
                 {
                     var row = Take(rows, rowIndex++, () =>
@@ -98,6 +110,7 @@ namespace Halcyonic.XR.UI
             for (var index = placeIndex; index < placeHeadings.Count; index++) placeHeadings[index].gameObject.SetActive(false);
             for (var index = nameIndex; index < nameHeadings.Count; index++) nameHeadings[index].gameObject.SetActive(false);
             for (var index = dividerIndex; index < dividers.Count; index++) dividers[index].gameObject.SetActive(false);
+            for (var index = noteIndex; index < notes.Count; index++) notes[index].gameObject.SetActive(false);
             if (foot != null)
             {
                 // At the foot, measured first so it stands on the spine's last line.

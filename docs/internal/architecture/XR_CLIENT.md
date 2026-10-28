@@ -1515,6 +1515,9 @@ words the kit shows too; otherwise there is no binding and the file draws the fr
 What Activity leads with, attention notes, an approval waiting on Waiting and why nothing can be sent, is
 taken by its place and tone into the kit's slate in the file's own lines, and the four sections become rows of
 the kit's spine.
+`KitWorkspaceHost` shows the bound kit in the independent workspace behind one switch, off by default, and raises
+what each control raises in the plane's own terms: the frame's action with that frame, Hold to talk's own prompt held
+and let go, a context row's key with its owner, and the frame drawn once every control has settled.
 
 ## Verification
 

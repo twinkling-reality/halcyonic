@@ -46,6 +46,12 @@ namespace Halcyonic.XR.UI
         private TextMeshPro question = null!;
         private readonly List<TextMeshPro> notes = new List<TextMeshPro>();
         private readonly List<float> noteTops = new List<float>();
+        private readonly List<KitButton> tabs = new List<KitButton>();
+        private readonly List<Vector2> tabCentres = new List<Vector2>();
+        private float tabsHeight;
+        private readonly List<TextMeshPro> said = new List<TextMeshPro>();
+        private readonly List<float> saidTops = new List<float>();
+        private float saidHeight;
         private float requestTop;
         private float questionTop;
         private TextMeshPro railHeading = null!;
@@ -68,11 +74,21 @@ namespace Halcyonic.XR.UI
         public KitChip Request => request;
         public TextMeshPro AskedQuestion => question;
         public IReadOnlyList<TextMeshPro> Notes => notes;
+
+        /// <summary>The file's sections as tabs under the header, as shown.</summary>
+        public IEnumerable<KitButton> Tabs => tabs.Where(tab => tab.gameObject.activeSelf);
+
+        /// <summary>The file's own lines under the state (<see cref="KitWorkModel.Said"/>), as shown.</summary>
+        public IEnumerable<TextMeshPro> Said => said.Where(line => line.gameObject.activeSelf);
         public KitTrail Trail => trail;
         public KitRow Earlier => earlier;
 
         /// <summary>The instrument's extent as laid out, in units of its distance.</summary>
         public Vector2 Size => size;
+
+        /// <summary>Everything read shows whole as last laid out: the agent's report, where there is one, and the person's words.</summary>
+        public bool ReadsWhole => (!message.gameObject.activeSelf || message.Complete)
+            && (!composer.gameObject.activeSelf || composer.ShownDraftLines >= composer.DraftLines);
 
         /// <summary>A spine row or the rail's Earlier activity was pressed.</summary>
         public event Action<string>? RowPressed;
@@ -99,9 +115,10 @@ namespace Halcyonic.XR.UI
                 if (composer.gameObject.activeSelf)
                 {
                     yield return composer.Field;
-                    foreach (var button in new[] { composer.Talk, composer.Send })
+                    foreach (var button in new[] { composer.Close, composer.Rare, composer.Talk, composer.Send })
                         if (button.gameObject.activeSelf) yield return button.Press;
                 }
+                foreach (var tab in Tabs) yield return tab.Press;
                 if (avatar.gameObject.activeSelf && avatar.Action.gameObject.activeSelf) yield return avatar.Action.Press;
                 if (decision.gameObject.activeSelf)
                     foreach (var button in new[] { decision.Deny, decision.Approve, decision.Cancel, decision.Yes })
@@ -154,9 +171,18 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
-        /// <summary>Lays the whole instrument out for <paramref name="model"/>, centred on the view's transform.</summary>
-        public void Show(KitWorkModel model)
+        /// <summary>The rail's row for the file's Activity pager, where <see cref="Show"/> is given a binding with one.</summary>
+        public const string PagerKey = "activity:pager";
+
+        /// <summary>
+        /// Lays the whole instrument out for <paramref name="model"/>, centred on the view's transform. Given the
+        /// <paramref name="binding"/> to a task's file, its controls are the frame's own (<see cref="KitFileBinding"/>):
+        /// the composer shows only what the frame offers, in its words, and the rail shows the page of Activity the frame
+        /// shows, its pager in the frame's words.
+        /// </summary>
+        public void Show(KitWorkModel model, KitFileBinding? binding = null)
         {
+            this.binding = binding;
             var pad = KitType.Units(SpatialKit.PaddingDegrees);
             var spineWidth = PlaneComposition.Units(SpatialKit.SpineDegrees);
             var slateWidth = PlaneComposition.Units(SpatialKit.SlateDegrees);
@@ -174,6 +200,10 @@ namespace Halcyonic.XR.UI
             // The foot's height first: the decision bar while an approval waits, else the composer. What is read takes
             // what remains, and pages rather than shrinks.
             var composerHeight = ShowFoot(model, Vector2.zero, inner);
+            tabsHeight = LayTabs(inner);
+            y += tabsHeight;
+            saidHeight = LaySaid(model, inner);
+            y += saidHeight;
             var gap = KitType.Scaled(1.2f);
             var room = Mathf.Max(KitType.Units(4f), most - y - gap - composerHeight - pad);
             var reading = LayReading(model, inner, room);
@@ -214,6 +244,8 @@ namespace Halcyonic.XR.UI
             PlaceHeader(slateLeft, top - pad, inner);
             // No rule under the header: the space and the type's own steps divide it.
             divider.gameObject.SetActive(false);
+            PlaceTabs(slateLeft, top - readingTop + saidHeight + tabsHeight);
+            PlaceSaid(slateLeft, top - readingTop + saidHeight);
             PlaceReading(slateLeft, top - readingTop);
             // The task's place, on the slate's top edge at its right.
             avatar.gameObject.SetActive(model.Avatar != null);
@@ -238,8 +270,20 @@ namespace Halcyonic.XR.UI
             else notice.Hide();
             var earlierAt = railY;
             var trailRoom = sides - railY - pad;
-            trail.Show(model.Trail, railInner, trailRoom);
-            if (trail.Earlier > 0)
+            // Bound, the rail shows the page of Activity the file shows, and its pager turns it; no history of its own.
+            var entries = model.Trail;
+            if (binding?[KitPlace.Pager] is KitControl pager)
+            {
+                entries = model.Trail.Where(entry => binding!.Frame.Lines.Any(line => line.Action == null && line.Words == entry.Entry.Text)).ToList();
+                var pagerHeight = earlier.Show(new KitRowModel(PagerKey, LineWords.Ours(pager.Words), pager.Icon ?? GlazeIcon.Next), new Vector2(railLeft, sideTop - railY), railInner);
+                railY += pagerHeight + KitType.Scaled(0.5f);
+                trail.Show(entries, railInner, sides - railY - pad);
+                trail.transform.localPosition = new Vector3(railLeft, sideTop - railY, 0f);
+                return;
+            }
+            trail.Show(entries, railInner, trailRoom);
+            if (binding != null) earlier.Hide();
+            else if (trail.Earlier > 0)
             {
                 // Some did not fit: Earlier activity opens the whole history, and the trail gives it the room it needs.
                 var earlierModel = new KitRowModel("activity:earlier", LineWords.Ours(EarlierWords), GlazeIcon.LastKnown,
@@ -267,7 +311,11 @@ namespace Halcyonic.XR.UI
             decision.Hide();
             composer.gameObject.SetActive(true);
             composer.Answering = model.Ask != null;
-            return composer.Show(topLeft, inner, model.Draft, 3, model.VoiceOffered, model.Sendable, model.WhyNotSend);
+            if (binding != null)
+                return composer.Show(topLeft, inner, model.Draft, ComposerRows, model.Sendable, model.WhyNotSend, binding[KitPlace.Close],
+                    binding[KitPlace.Stop] ?? binding[KitPlace.Discard], binding[KitPlace.Talk], binding[KitPlace.Send],
+                    caption: binding.Frame.Lines.Any(line => line.Action == null && line.Words == FileScreens.YourInstruction));
+            return composer.Show(topLeft, inner, model.Draft, ComposerRows, model.VoiceOffered, model.Sendable, model.WhyNotSend);
         }
 
         /// <summary>
@@ -330,6 +378,93 @@ namespace Halcyonic.XR.UI
                 y += noteHeight + KitType.Scaled(0.35f);
             }
             return y - KitType.Scaled(0.35f);
+        }
+
+        /// <summary>The rows the composer's well shows of the person's words.</summary>
+        public const int ComposerRows = 3;
+
+        private KitFileBinding? binding;
+
+        /// <summary>The prefix of a tab's key: the rest is the file's own key for the section.</summary>
+        public const string SectionKey = KitFileBinding.SectionRowKey;
+
+        /// <summary>
+        /// Lays the file's sections, where the bound frame has them, as one row of tabs under the header, as the file's own
+        /// frame stands them; a row that would not fit wraps to the next. The one showing stands on a raised fill, the others
+        /// as their outline, each a whole target 12 mm from the next. Returns their height, with the gap under them.
+        /// </summary>
+        private float LayTabs(float inner)
+        {
+            var sections = binding?.Sections.ToList() ?? new List<KitControl>();
+            foreach (var tab in tabs) tab.Hide();
+            tabCentres.Clear();
+            if (sections.Count == 0) return 0f;
+            var gap = KitType.Units(SpatialKit.TargetGapDegrees);
+            var x = 0f;
+            var y = 0f;
+            for (var index = 0; index < sections.Count; index++)
+            {
+                while (tabs.Count <= index)
+                {
+                    var made = KitButton.Create(slate.transform, "Section " + tabs.Count, KitButtonRole.Quiet);
+                    var at = tabs.Count;
+                    made.Pressed += () => { if (binding?.Sections.ElementAtOrDefault(at) is KitControl pressed) RowPressed?.Invoke(SectionKey + pressed.Key); };
+                    tabs.Add(made);
+                }
+                var tab = tabs[index];
+                var section = sections[index];
+                tab.Role = section.Chosen ? KitButtonRole.Secondary : KitButtonRole.Quiet;
+                var width = tab.Measure(section.Words, null);
+                if (x > 0f && x + width > inner + 1e-5f) { x = 0f; y += KitButton.Height + gap; }
+                tabCentres.Add(new Vector2(x + width / 2f, y + KitButton.Height / 2f));
+                tab.Show(section.Words, null, Vector2.zero, width);
+                x += width + gap;
+            }
+            return y + KitButton.Height + KitType.Scaled(0.9f);
+        }
+
+        private void PlaceTabs(float left, float top)
+        {
+            for (var index = 0; index < tabCentres.Count; index++)
+                tabs[index].transform.localPosition = new Vector3(left + tabCentres[index].x, top - tabCentres[index].y, -KitType.Units(0.05f));
+        }
+
+        /// <summary>
+        /// Lays the file's own lines under the state (<see cref="KitWorkModel.Said"/>): a notice, an attention note, that
+        /// something waits on Waiting, why nothing can be sent, the newest command's feedback, each whole, in the tone
+        /// its line has. Returns their height, with the gap under them.
+        /// </summary>
+        private float LaySaid(KitWorkModel model, float inner)
+        {
+            foreach (var line in said) line.gameObject.SetActive(false);
+            saidTops.Clear();
+            var y = 0f;
+            for (var index = 0; index < model.Said.Count; index++)
+            {
+                while (said.Count <= index) said.Add(KitType.Create(slate.transform, "Said " + said.Count, KitRole.Body, KitType.Text, KitType.Order.Words));
+                var line = said[index];
+                var page = model.Said[index];
+                line.gameObject.SetActive(true);
+                KitType.Size(line, KitRole.Body);
+                line.color = page.Tone switch
+                {
+                    LineTone.Waiting => KitType.ToneText(GlazeTone.Attention),
+                    LineTone.Problem => KitType.ToneText(GlazeTone.Failure),
+                    LineTone.Secondary => KitType.Secondary,
+                    _ => KitType.Text,
+                };
+                GlazeRuns.Of(line).Set(page.Runs);
+                var (_, _, height) = KitType.Lay(line, inner, 3);
+                saidTops.Add(y);
+                y += height + KitType.Scaled(0.35f);
+            }
+            return model.Said.Count == 0 ? 0f : y + KitType.Scaled(0.6f);
+        }
+
+        private void PlaceSaid(float left, float top)
+        {
+            for (var index = 0; index < saidTops.Count; index++)
+                said[index].transform.localPosition = new Vector3(left, top - saidTops[index], -0.0005f);
         }
 
         private void PlaceReading(float left, float top)

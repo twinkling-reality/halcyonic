@@ -18,11 +18,13 @@ namespace Halcyonic.XR.UI
     public sealed class KitTrail : MonoBehaviour
     {
         private const float NodeDegrees = 1.6f;
-        private const float EntryGapDegrees = 0.7f;
+        /// <summary>The gap between two entries of the trail.</summary>
+        public const float EntryGapDegrees = 0.7f;
 
         private readonly List<Row> rows = new List<Row>();
         private readonly List<TextMeshPro> minutes = new List<TextMeshPro>();
         private Surface line = null!;
+        private TextMeshPro? nothingYet;
         private int order;
 
         /// <summary>How many earlier entries did not fit.</summary>
@@ -46,9 +48,14 @@ namespace Halcyonic.XR.UI
             return trail;
         }
 
-        /// <summary>Shows the newest of <paramref name="entries"/> (oldest first) that fit <paramref name="room"/>, <paramref name="width"/> wide; returns the height used.</summary>
+        /// <summary>
+        /// Shows the newest of <paramref name="entries"/> (oldest first) that fit <paramref name="room"/>, <paramref name="width"/>
+        /// wide; with none recorded, production's own line that nothing has been. Returns the height used.
+        /// </summary>
         public float Show(IReadOnlyList<KitTrailEntry> entries, float width, float room)
         {
+            if (entries.Count == 0) return ShowNothingYet(width);
+            if (nothingYet != null) nothingYet.gameObject.SetActive(false);
             var node = KitType.Scaled(NodeDegrees);
             var gap = KitType.Scaled(EntryGapDegrees);
             var textLeft = node + KitType.Scaled(0.6f);
@@ -111,6 +118,24 @@ namespace Halcyonic.XR.UI
                 line.transform.localPosition = new Vector3(node / 2f, (firstNode + lastNode) / 2f, -0.0001f);
             }
             return Height;
+        }
+
+        /// <summary>What the file says while nothing has been recorded (<see cref="FileScreens.NoActivityYet"/>), in the trail's place.</summary>
+        private float ShowNothingYet(float width)
+        {
+            foreach (var row in rows) row.Root.SetActive(false);
+            foreach (var minute in minutes) minute.gameObject.SetActive(false);
+            line.gameObject.SetActive(false);
+            if (nothingYet == null) nothingYet = KitType.Create(transform, "Nothing recorded", KitRole.Body, KitType.Secondary, order);
+            nothingYet.gameObject.SetActive(true);
+            KitType.Size(nothingYet, KitRole.Body);
+            GlazeText.SetLiteral(nothingYet, FileScreens.NoActivityYet);
+            var (_, _, height) = KitType.Lay(nothingYet, width, 2);
+            nothingYet.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
+            Earlier = 0;
+            Shown = new KitTrailEntry[0];
+            Height = height;
+            return height;
         }
 
         private float MinuteHeight()
