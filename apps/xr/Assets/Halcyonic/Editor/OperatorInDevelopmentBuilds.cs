@@ -62,12 +62,14 @@ namespace Halcyonic.XR.Editor
                 : "Halcyonic: Meta XR Operator is left out of this build.");
         }
 
-        /// <summary>The Operator's layer files the APK carries; empty when it carries none.</summary>
+        /// <summary>Part of every name the Operator's layer puts in an APK, for any ABI.</summary>
+        internal const string Marker = "XrApiLayer_METAX_operator";
+
+        /// <summary>Every file of the Operator's layer the APK carries, whatever its ABI or folder; empty when it carries none.</summary>
         internal static List<string> FindIn(string apkPath)
         {
             using var apk = ZipFile.OpenRead(apkPath);
-            var names = new HashSet<string>(apk.Entries.Select(entry => entry.FullName));
-            return LayerFiles.Where(names.Contains).ToList();
+            return apk.Entries.Select(entry => entry.FullName).Where(name => name.Contains(Marker)).ToList();
         }
     }
 }

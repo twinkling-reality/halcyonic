@@ -37,7 +37,7 @@ namespace Halcyonic.XR.Editor
                     Fail($"Halcyonic: deleted {DevelopmentApkPath}, which carries Meta XR Operator ({string.Join("; ", layer)}) though {OperatorInDevelopmentBuilds.Variable} is not 1: its server on 8720 has no authentication.");
                     return;
                 }
-                if (OperatorInDevelopmentBuilds.Asked() && layer.Count != OperatorInDevelopmentBuilds.LayerFiles.Length)
+                if (OperatorInDevelopmentBuilds.Asked() && !OperatorInDevelopmentBuilds.LayerFiles.All(layer.Contains))
                 {
                     File.Delete(DevelopmentApkPath);
                     Fail($"Halcyonic: deleted {DevelopmentApkPath}: {OperatorInDevelopmentBuilds.Variable}=1 asked for Meta XR Operator, but the APK carries {(layer.Count == 0 ? "none of it" : string.Join("; ", layer))}.");
