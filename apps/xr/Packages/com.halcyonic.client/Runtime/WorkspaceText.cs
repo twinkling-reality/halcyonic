@@ -467,6 +467,7 @@ namespace Halcyonic.Client
             RejectionCode.InvalidRuntimeOptions => "Its agent app didn't accept those settings. Choose them again.",
             RejectionCode.LocationRequired or RejectionCode.LocationMissing or RejectionCode.LocationNotAllowed or RejectionCode.LocationExists
                 => EntryText.FolderProblem(code, null),
+            RejectionCode.CheckpointNotFound => "That earlier version isn't kept for this project anymore. Choose another one.",
             // One sentence for a revoked pairing, wherever it is said.
             RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
             _ => null,

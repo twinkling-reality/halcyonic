@@ -372,6 +372,7 @@ namespace Halcyonic.Contracts
     {
         [EnumMember(Value = "project.create")] ProjectCreate,
         [EnumMember(Value = "project.set_location")] ProjectSetLocation,
+        [EnumMember(Value = "project.restore")] ProjectRestore,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
         [EnumMember(Value = "execution.start")] ExecutionStart,
         [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
@@ -887,6 +888,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "location_missing")] LocationMissing,
         [EnumMember(Value = "location_not_allowed")] LocationNotAllowed,
         [EnumMember(Value = "location_exists")] LocationExists,
+        [EnumMember(Value = "checkpoint_not_found")] CheckpointNotFound,
         [EnumMember(Value = "demonstration")] Demonstration,
         [EnumMember(Value = "device_revoked")] DeviceRevoked,
     }
@@ -946,6 +948,7 @@ namespace Halcyonic.Contracts
                 "project_created" => new ProjectCreatedResult(),
                 "workstream_created" => new WorkstreamCreatedResult(),
                 "execution_created" => new ExecutionCreatedResult(),
+                "project_restored" => new ProjectRestoredResult(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "CommandResult has no string kind."
                     : "Unknown kind \"" + tag + "\" for CommandResult."),
@@ -996,6 +999,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("execution_id", Required = Required.Always)]
         public string ExecutionId { get; set; } = default!;
+    }
+
+    public sealed class ProjectRestoredResult : CommandResult
+    {
+        protected override string Discriminator => "project_restored";
+
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
     }
 
     public sealed class CommandView
@@ -1259,6 +1270,120 @@ namespace Halcyonic.Contracts
         public ProjectLocation Location { get; set; } = default!;
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CheckpointReason
+    {
+        [EnumMember(Value = "before_task")] BeforeTask,
+        [EnumMember(Value = "after_turn")] AfterTurn,
+        [EnumMember(Value = "before_restore")] BeforeRestore,
+    }
+
+    public sealed class ProjectCheckpointRecordedPayload
+    {
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public CheckpointReason Reason { get; set; }
+
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
+
+        [JsonProperty("tree", Required = Required.Always)]
+        public string Tree { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public long Files { get; set; }
+
+        [JsonProperty("project_head", Required = Required.AllowNull)]
+        public string? ProjectHead { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectCheckpointFailedPayloadFailureCode
+    {
+        [EnumMember(Value = "location_missing")] LocationMissing,
+        [EnumMember(Value = "nested_repository")] NestedRepository,
+        [EnumMember(Value = "too_large")] TooLarge,
+        [EnumMember(Value = "unreadable")] Unreadable,
+        [EnumMember(Value = "store_failed")] StoreFailed,
+    }
+
+    public sealed class ProjectCheckpointFailedPayloadFailure
+    {
+        [JsonProperty("code", Required = Required.Always)]
+        public ProjectCheckpointFailedPayloadFailureCode Code { get; set; }
+
+        [JsonProperty("message", Required = Required.Always)]
+        public string Message { get; set; } = default!;
+    }
+
+    public sealed class ProjectCheckpointFailedPayload
+    {
+        [JsonProperty("reason", Required = Required.Always)]
+        public CheckpointReason Reason { get; set; }
+
+        [JsonProperty("execution_id", Required = Required.AllowNull)]
+        public string? ExecutionId { get; set; }
+
+        [JsonProperty("failure", Required = Required.Always)]
+        public ProjectCheckpointFailedPayloadFailure Failure { get; set; } = default!;
+    }
+
+    public sealed class PathList
+    {
+        [JsonProperty("paths", Required = Required.Always)]
+        public List<string> Paths { get; set; } = new List<string>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    public sealed class ProjectRestoredPayload
+    {
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("before_restore_checkpoint_id", Required = Required.Always)]
+        public string BeforeRestoreCheckpointId { get; set; } = default!;
+
+        [JsonProperty("tree", Required = Required.Always)]
+        public string Tree { get; set; } = default!;
+
+        [JsonProperty("files_compared", Required = Required.Always)]
+        public long FilesCompared { get; set; }
+
+        [JsonProperty("changed_back", Required = Required.Always)]
+        public PathList ChangedBack { get; set; } = default!;
+
+        [JsonProperty("removed", Required = Required.Always)]
+        public PathList Removed { get; set; } = default!;
+
+        [JsonProperty("returned", Required = Required.Always)]
+        public PathList Returned { get; set; } = default!;
+
+        [JsonProperty("project_head_moved", Required = Required.AllowNull)]
+        public bool? ProjectHeadMoved { get; set; }
+    }
+
+    public sealed class ProjectRestoreIncompletePayload
+    {
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
+
+        [JsonProperty("before_restore_checkpoint_id", Required = Required.AllowNull)]
+        public string? BeforeRestoreCheckpointId { get; set; }
+
+        [JsonProperty("written", Required = Required.Always)]
+        public bool Written { get; set; }
+
+        [JsonProperty("not_restored", Required = Required.Always)]
+        public PathList NotRestored { get; set; } = default!;
+
+        [JsonProperty("failure", Required = Required.Always)]
+        public ErrorInfo Failure { get; set; } = default!;
+    }
+
     public sealed class WorkstreamCreatedPayload
     {
         [JsonProperty("title", Required = Required.Always)]
@@ -1391,6 +1516,15 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("location", Required = Required.Always)]
         public ProjectLocationChoice Location { get; set; } = default!;
+    }
+
+    public sealed class ProjectRestorePayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("checkpoint_id", Required = Required.Always)]
+        public string CheckpointId { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatePayload
@@ -1551,6 +1685,7 @@ namespace Halcyonic.Contracts
             {
                 "project.create" => new ProjectCreateCommand(),
                 "project.set_location" => new ProjectSetLocationCommand(),
+                "project.restore" => new ProjectRestoreCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
                 "execution.start" => new ExecutionStartCommand(),
                 "execution.send_instruction" => new ExecutionSendInstructionCommand(),
@@ -1594,6 +1729,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectSetLocationPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRestoreCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.restore";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectRestorePayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreateCommand : CommandEnvelope
@@ -2167,6 +2310,10 @@ namespace Halcyonic.Contracts
             {
                 "project.created" => new ProjectCreatedEvent(),
                 "project.location_set" => new ProjectLocationSetEvent(),
+                "project.checkpoint.recorded" => new ProjectCheckpointRecordedEvent(),
+                "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
+                "project.restored" => new ProjectRestoredEvent(),
+                "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
@@ -2232,6 +2379,38 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectLocationSetPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectCheckpointRecordedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.checkpoint.recorded";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectCheckpointRecordedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectCheckpointFailedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.checkpoint.failed";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectCheckpointFailedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRestoredEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.restored";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectRestoredPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectRestoreIncompleteEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.restore_incomplete";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectRestoreIncompletePayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedEvent : EventEnvelope

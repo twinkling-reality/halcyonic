@@ -1,4 +1,5 @@
 import Type, { type Static, type TSchema } from 'typebox';
+import { CheckpointId } from './checkpoints.ts';
 import { ProjectLocationChoice } from './locations.ts';
 import {
   ClientInfo,
@@ -55,6 +56,16 @@ export const ProjectCreateCommand = defineCommand(
 export const ProjectSetLocationCommand = defineCommand(
   'project.set_location',
   Type.Object({ project_id: ProjectId, location: ProjectLocationChoice }, strict),
+);
+
+/**
+ * Puts every file of the project's folder back as one of its checkpoints holds it (ADR 0036). The
+ * host does it, never a runtime, and completes it only once it has read every file again and found
+ * it equal to the checkpoint.
+ */
+export const ProjectRestoreCommand = defineCommand(
+  'project.restore',
+  Type.Object({ project_id: ProjectId, checkpoint_id: CheckpointId }, strict),
 );
 
 export const WorkstreamCreateCommand = defineCommand(
@@ -149,6 +160,7 @@ export const WorkspaceRequestCancelCommand = defineCommand(
 export const COMMAND_VARIANTS = [
   ProjectCreateCommand,
   ProjectSetLocationCommand,
+  ProjectRestoreCommand,
   WorkstreamCreateCommand,
   ExecutionStartCommand,
   ExecutionSendInstructionCommand,
@@ -168,6 +180,7 @@ export type CommandOf<T extends CommandType> = Extract<CommandEnvelope, { comman
 export const CommandType = Type.Union([
   Type.Literal('project.create'),
   Type.Literal('project.set_location'),
+  Type.Literal('project.restore'),
   Type.Literal('workstream.create'),
   Type.Literal('execution.start'),
   Type.Literal('execution.send_instruction'),
@@ -219,6 +232,8 @@ export const RejectionCode = Type.Union([
   Type.Literal('location_not_allowed'),
   /** Something already has the name a new folder was to get. */
   Type.Literal('location_exists'),
+  /** The checkpoint is not one of this project's. */
+  Type.Literal('checkpoint_not_found'),
   /**
    * The client is playing a recorded demonstration on its own device: the command was not sent to
    * any control plane or agent, however admissible it was in the recording. Only the client's
@@ -258,6 +273,7 @@ export const CommandResult = Type.Union([
   Type.Object({ kind: Type.Literal('project_created'), project_id: ProjectId }, strict),
   Type.Object({ kind: Type.Literal('workstream_created'), workstream_id: WorkstreamId }, strict),
   Type.Object({ kind: Type.Literal('execution_created'), execution_id: ExecutionId }, strict),
+  Type.Object({ kind: Type.Literal('project_restored'), checkpoint_id: CheckpointId }, strict),
 ]);
 export type CommandResult = Static<typeof CommandResult>;
 

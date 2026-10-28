@@ -1,6 +1,8 @@
 import type { Snapshot } from '@halcyonic/contracts';
 import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
+import { Checkpointer } from '../checkpoints/checkpointer.ts';
+import type { CheckpointStore, RestoreHooks } from '../checkpoints/store.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { EventJournal } from '../journal/journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
@@ -27,6 +29,11 @@ export interface ControlPlaneOptions {
   /** How many finished commands a snapshot includes alongside the pending ones. */
   readonly snapshotFinishedCommands?: number;
   /**
+   * Where Halcyonic keeps checkpoints of project folders for its own undo (ADR 0036). Absent,
+   * undo is off: no checkpoint is taken and `project.restore` is refused.
+   */
+  readonly checkpoints?: { readonly store: CheckpointStore; readonly restoreHooks?: RestoreHooks };
+  /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
    * credential shapes still go from error text.
@@ -49,6 +56,8 @@ export class ControlPlane {
   readonly registry = new RuntimeRegistry();
   readonly recorder: Recorder;
   readonly commands: CommandService;
+  /** Halcyonic's own undo, or null when it is off. */
+  readonly checkpoints: Checkpointer | null;
   readonly locations: HostLocations;
   readonly clock: Clock;
   /** How a runtime's or a provider's text loses credentials before a device sees it. */
@@ -73,6 +82,22 @@ export class ControlPlane {
       clock: options.clock,
       logger: options.logger,
     });
+    this.checkpoints =
+      options.checkpoints === undefined
+        ? null
+        : new Checkpointer({
+            store: options.checkpoints.store,
+            recorder: this.recorder,
+            projection: this.projection,
+            locations: this.locations,
+            ids: options.ids,
+            clock: options.clock,
+            logger: options.logger,
+            ...(options.checkpoints.restoreHooks === undefined
+              ? {}
+              : { restoreHooks: options.checkpoints.restoreHooks }),
+          });
+    this.checkpoints?.attach(this.publisher);
     this.commands = new CommandService({
       projection: this.projection,
       recorder: this.recorder,
@@ -84,6 +109,7 @@ export class ControlPlane {
       logger: options.logger,
       commandTimeoutMs: options.commandTimeoutMs,
       redaction: this.redaction,
+      checkpoints: this.checkpoints,
     });
     this.#rebuild();
   }

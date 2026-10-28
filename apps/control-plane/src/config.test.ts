@@ -116,6 +116,16 @@ describe('configuration', () => {
     }
   });
 
+  test('undo is off unless a git is set, which must be an existing absolute file', () => {
+    assert.equal(loadConfig({}).gitBinary, null);
+    const binary = join(base, 'git');
+    writeFileSync(binary, '#!/bin/sh\n');
+    assert.equal(loadConfig({ HALCYONIC_GIT_BIN: binary }).gitBinary, binary);
+    for (const path of ['git', join(base, 'missing'), base]) {
+      assert.throws(() => loadConfig({ HALCYONIC_GIT_BIN: path }), ConfigError, path);
+    }
+  });
+
   test('voice is off unless the whisper.cpp binary, model and voice activity model are all set, as existing absolute files', () => {
     assert.equal(loadConfig({}).speech, null);
     const files = ['whisper-cli', 'model.bin', 'vad.bin'].map((name) => {

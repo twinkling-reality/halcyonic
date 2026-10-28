@@ -192,6 +192,11 @@ describe('the settings file', () => {
     assert.equal(readHostSettings(dataDir).HALCYONIC_COMPANION_MODEL, 'qwen3.5:9b');
   });
 
+  test('may name the git Halcyonic’s undo runs', () => {
+    const dataDir = dataDirWith({ format: 1, HALCYONIC_GIT_BIN: '/usr/bin/git' });
+    assert.equal(readHostSettings(dataDir).HALCYONIC_GIT_BIN, '/usr/bin/git');
+  });
+
   test('fills in only what the environment leaves unset; a variable in the environment wins, even empty', () => {
     const projects = folder('env-wins');
     const settings = { HALCYONIC_PROJECT_ROOTS: projects, HALCYONIC_NETWORK_HOST: '0.0.0.0' };

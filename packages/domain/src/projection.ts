@@ -1,5 +1,6 @@
 import type {
   ApprovalView,
+  CheckpointView,
   CommandEnvelope,
   CommandFailure,
   CommandId,
@@ -133,6 +134,8 @@ export class Projection {
   readonly #workstreams = new Map<WorkstreamId, WorkstreamState>();
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
+  /** Checkpoints the host took, by project, oldest first (ADR 0036). */
+  readonly #checkpoints = new Map<ProjectId, CheckpointView[]>();
   readonly #devices = new DeviceRegistry();
   readonly #resultStarts = new Map<
     string,
@@ -459,6 +462,52 @@ export class Projection {
       .map(toFacts);
   }
 
+  /** The project's checkpoints, oldest first. */
+  checkpoints(projectId: string): CheckpointView[] {
+    return [...(this.#checkpoints.get(projectId as ProjectId) ?? [])];
+  }
+
+  /** One of the project's checkpoints, or undefined when it is another project's or none. */
+  checkpoint(projectId: string, checkpointId: string): CheckpointView | undefined {
+    return this.#checkpoints
+      .get(projectId as ProjectId)
+      ?.find((checkpoint) => checkpoint.checkpoint_id === checkpointId);
+  }
+
+  /**
+   * Why the project's files may be changing now, or null when nothing of Halcyonic's can be writing
+   * them: an execution that is starting, running, verifying or waiting; one whose state became
+   * unknown other than by a restart, after which no runtime session survives; or a command in the
+   * project still waiting for its outcome, such as a start or a restore.
+   */
+  projectBusy(projectId: string): string | null {
+    for (const state of this.#executions.values()) {
+      if (state.projectId !== projectId) continue;
+      const status = deriveExecutionStatus(state);
+      if (ACTIVE_STATUSES.has(status)) return `A task in this project is ${status}.`;
+      if (status === 'unknown' && state.unknownReason?.code !== 'control_plane_restarted')
+        return 'A task in this project may still be running: its state is unknown.';
+    }
+    for (const command of this.#commands.values()) {
+      if (command.status === 'accepted' && command.projectId === projectId)
+        return `A ${command.envelope.command_type} command in this project is still in progress.`;
+    }
+    return null;
+  }
+
+  /** Whether a restore of the project's files has been accepted and has no outcome yet. */
+  restoreInProgress(projectId: string): boolean {
+    for (const command of this.#commands.values()) {
+      if (
+        command.status === 'accepted' &&
+        command.envelope.command_type === 'project.restore' &&
+        command.projectId === projectId
+      )
+        return true;
+    }
+    return false;
+  }
+
   pendingCommands(): CommandView[] {
     return [...this.#commands.values()]
       .filter((command) => command.status === 'accepted')
@@ -612,6 +661,32 @@ export class Projection {
         changes.projects.add(event.project_id);
         return;
       }
+      case 'project.checkpoint.recorded': {
+        if (!this.#projects.has(event.project_id)) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        const list = this.#checkpoints.get(event.project_id) ?? [];
+        list.push({
+          checkpoint_id: event.payload.checkpoint_id,
+          project_id: event.project_id,
+          reason: event.payload.reason,
+          execution_id: event.payload.execution_id,
+          recorded_at: event.occurred_at,
+          tree: event.payload.tree,
+          files: event.payload.files,
+          project_head: event.payload.project_head,
+        });
+        this.#checkpoints.set(event.project_id, list);
+        return;
+      }
+      case 'project.checkpoint.failed':
+      case 'project.restored':
+      case 'project.restore_incomplete':
+        // Facts for the record and for clients; current state keeps only the checkpoints.
+        if (!this.#projects.has(event.project_id))
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+        return;
       case 'workstream.created': {
         const project = this.#projects.get(event.project_id);
         if (project === undefined) {

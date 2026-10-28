@@ -107,6 +107,27 @@ export function admitCommand(
       };
     }
 
+    case 'project.restore': {
+      const projectId = command.payload.project_id;
+      if (projection.project(projectId) === undefined) {
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      }
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (projection.checkpoint(projectId, command.payload.checkpoint_id) === undefined) {
+        return reject(
+          scope,
+          'checkpoint_not_found',
+          `Checkpoint ${command.payload.checkpoint_id} is not one of this project's.`,
+        );
+      }
+      // Files the runtime is still writing cannot be put back, and a restore must not race a start.
+      const busy = projection.projectBusy(projectId);
+      if (busy !== null) {
+        return reject(scope, 'invalid_state', `${busy} Stop it before putting files back.`);
+      }
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'workstream.create': {
       const projectId = command.payload.project_id;
       if (projection.project(projectId) === undefined) {
@@ -160,6 +181,13 @@ export function admitCommand(
           'Choose a model: this runtime lists the models it can use.',
         );
       }
+      if (projection.restoreInProgress(workstream.project_id)) {
+        return reject(
+          scope,
+          'invalid_state',
+          "The project's files are being put back. Start the task once that has finished.",
+        );
+      }
       const location = projection.project(workstream.project_id)?.location ?? null;
       if (runtime.uses_project_location && location === null) {
         return reject(
@@ -180,6 +208,13 @@ export function admitCommand(
           scope,
           'invalid_state',
           'The execution never started, so it cannot be instructed.',
+        );
+      }
+      if (projection.restoreInProgress(facts.projectId)) {
+        return reject(
+          scope,
+          'invalid_state',
+          "The project's files are being put back. Send the instruction once that has finished.",
         );
       }
       switch (facts.status) {

@@ -1,4 +1,6 @@
 import {
+  CheckpointId,
+  type CheckpointsResponse,
   CommandId,
   type CommandSubmissionResponse,
   CompanionReplyResponse,
@@ -16,6 +18,7 @@ import {
   ProjectId,
   type ProjectsResponse,
   parseCommandEnvelope,
+  type RestorePreviewResponse,
   RuntimeId,
   type RuntimeModelsResponse,
   type RuntimesResponse,
@@ -44,6 +47,7 @@ const validateEventsQuery = compileValidator(EventsQuery);
 const validateProjectId = compileValidator(ProjectId);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
+const validateCheckpointId = compileValidator(CheckpointId);
 const validateWorkspaceRequestId = compileValidator(WorkspaceRequestId);
 const validateWorkspaceCommandId = compileValidator(CommandId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
@@ -256,6 +260,93 @@ export function registerRoutes(
     const body: RuntimeModelsResponse = { runtime_id: adapter.descriptor.runtime_id, result };
     return body;
   });
+
+  // Halcyonic's own undo (ADR 0036): read through, never journaled.
+  const undoOff = {
+    availability: 'unavailable',
+    reason: {
+      code: 'undo_not_set_up',
+      message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
+    },
+  } as const;
+
+  app.get('/api/projects/:project_id/checkpoints', async (request, reply) => {
+    const projectId = (request.params as { project_id: string }).project_id;
+    if (!validateProjectId(projectId).ok) {
+      return reply.code(400).send(errorBody('invalid_request', 'project_id must be a project id.'));
+    }
+    if (controlPlane.projection.project(projectId) === undefined) {
+      return reply
+        .code(404)
+        .send(errorBody('project_not_found', `Project ${projectId} does not exist.`));
+    }
+    const checkpoints = controlPlane.checkpoints;
+    const body: CheckpointsResponse = {
+      project_id: projectId as ProjectId,
+      result:
+        checkpoints === null
+          ? undoOff
+          : { availability: 'available', checkpoints: checkpoints.checkpoints(projectId) },
+    };
+    return body;
+  });
+
+  app.get(
+    '/api/projects/:project_id/checkpoints/:checkpoint_id/restore-preview',
+    async (request, reply) => {
+      const { project_id: projectId, checkpoint_id: checkpointId } = request.params as {
+        project_id: string;
+        checkpoint_id: string;
+      };
+      if (!validateProjectId(projectId).ok || !validateCheckpointId(checkpointId).ok) {
+        return reply
+          .code(400)
+          .send(errorBody('invalid_request', 'The project or checkpoint id is invalid.'));
+      }
+      if (controlPlane.projection.project(projectId) === undefined) {
+        return reply
+          .code(404)
+          .send(errorBody('project_not_found', `Project ${projectId} does not exist.`));
+      }
+      const checkpoints = controlPlane.checkpoints;
+      if (checkpoints === null) {
+        const body: RestorePreviewResponse = {
+          project_id: projectId as ProjectId,
+          result: undoOff,
+        };
+        return body;
+      }
+      if (controlPlane.projection.checkpoint(projectId, checkpointId) === undefined) {
+        return reply
+          .code(404)
+          .send(
+            errorBody(
+              'checkpoint_not_found',
+              `Checkpoint ${checkpointId} is not one of this project's.`,
+            ),
+          );
+      }
+      const previewed = await checkpoints.preview(
+        projectId as ProjectId,
+        checkpointId as CheckpointId,
+      );
+      const body: RestorePreviewResponse = {
+        project_id: projectId as ProjectId,
+        result: previewed.ok
+          ? { availability: 'available', preview: previewed.preview }
+          : {
+              availability: 'unavailable',
+              reason: {
+                code: /^[a-z][a-z0-9_]{0,63}$/.test(previewed.code)
+                  ? previewed.code
+                  : 'preview_failed',
+                message: previewed.message,
+              },
+            },
+      };
+      return body;
+    },
+  );
 
   app.get('/api/events', async (request, reply) => {
     const query = request.query as Record<string, unknown>;

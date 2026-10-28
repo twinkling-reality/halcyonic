@@ -31,6 +31,7 @@ import {
   type RuntimeAdapter,
   type Scheduler,
 } from '@halcyonic/runtime-core';
+import type { Checkpointer } from '../checkpoints/checkpointer.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
@@ -70,6 +71,8 @@ export interface CommandServiceDeps {
   readonly commandTimeoutMs: number;
   /** How a runtime's text loses credentials before it is journaled (redaction.ts). */
   readonly redaction: Redaction;
+  /** Halcyonic's own undo (ADR 0036), or null when the host has not set it up. */
+  readonly checkpoints?: Checkpointer | null;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -324,6 +327,15 @@ export class CommandService {
           message: 'The workspace coordinator is unavailable on this computer.',
         },
       };
+    if (command.command_type === 'project.restore' && !this.#deps.checkpoints)
+      return {
+        admitted: false,
+        scope: { project_id: command.payload.project_id, workstream_id: null, execution_id: null },
+        rejection: {
+          code: 'capability_unsupported',
+          message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
+        },
+      };
     const admission = admitCommand(command, this.#deps.projection, this.#deps.registry);
     if (!admission.admitted) return admission;
     const refuse = (code: RejectionCode, message: string): Admission => ({
@@ -457,6 +469,42 @@ export class CommandService {
         this.#complete(command, admission.scope, null);
         return;
       }
+      case 'project.restore': {
+        const checkpoints = this.#deps.checkpoints;
+        if (!checkpoints) throw new Error('admitted project.restore with undo off');
+        // The host's own work, bounded by the store's own limits, not the runtime timeout.
+        void checkpoints
+          .restore(command)
+          .then(
+            (outcome) =>
+              outcome.ok
+                ? this.#complete(command, admission.scope, {
+                    kind: 'project_restored',
+                    checkpoint_id: command.payload.checkpoint_id,
+                  })
+                : this.#fail(command, admission.scope, outcome.failure),
+            (error: unknown) => {
+              this.#deps.logger.error(
+                { err: error, command_id: command.command_id },
+                'restore failed',
+              );
+              this.#fail(command, admission.scope, {
+                code: 'restore_failed',
+                message: 'The restore stopped on an error. Some files may already have changed.',
+                effect: 'unknown',
+              });
+            },
+          )
+          // Recording can fail only when the journal is gone, as when the control plane stops;
+          // the restart then records the restore as failed with an unknown effect.
+          .catch((error: unknown) =>
+            this.#deps.logger.error(
+              { err: error, command_id: command.command_id },
+              'restore outcome not recorded',
+            ),
+          );
+        return;
+      }
       case 'workstream.create': {
         const workstreamId = this.#deps.ids.next() as WorkstreamId;
         const scope = {
@@ -513,26 +561,34 @@ export class CommandService {
           runtime.runtime_id,
           this.#deps.redaction,
         );
-        void this.#perform(
-          command,
-          () =>
-            start.call(adapter, {
-              execution,
-              instruction: command.payload.instruction,
-              options: command.payload.options,
-              model_ref: command.payload.model_ref,
-              directory,
-              emit,
-            }),
-          {
-            succeeded: () =>
-              this.#complete(command, scope, {
-                kind: 'execution_created',
-                execution_id: execution.execution_id,
+        const run = () =>
+          this.#perform(
+            command,
+            () =>
+              start.call(adapter, {
+                execution,
+                instruction: command.payload.instruction,
+                options: command.payload.options,
+                model_ref: command.payload.model_ref,
+                directory,
+                emit,
               }),
-            failed: (failure) => this.#recordStartFailure(command, scope, failure),
-          },
-        );
+            {
+              succeeded: () =>
+                this.#complete(command, scope, {
+                  kind: 'execution_created',
+                  execution_id: execution.execution_id,
+                }),
+              failed: (failure) => this.#recordStartFailure(command, scope, failure),
+            },
+          );
+        // With undo set up, the folder is kept before the runtime is asked, outside its timeout.
+        const checkpoints = this.#deps.checkpoints;
+        if (checkpoints && directory !== null)
+          void checkpoints
+            .beforeTask(project_id, execution.execution_id, directory, cause)
+            .then(run, run);
+        else void run();
         return;
       }
       case 'execution.send_instruction':

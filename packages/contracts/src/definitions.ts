@@ -15,6 +15,14 @@ import {
   WorkstreamsResponse,
 } from './api.ts';
 import {
+  CheckpointReason,
+  CheckpointsResponse,
+  CheckpointView,
+  PathList,
+  RestorePreview,
+  RestorePreviewResponse,
+} from './checkpoints.ts';
+import {
   ApprovalDecision,
   CommandEnvelope,
   CommandFailure,
@@ -218,6 +226,12 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ProjectView,
   ProjectLocation,
   ProjectLocationChoice,
+  CheckpointView,
+  CheckpointReason,
+  PathList,
+  RestorePreview,
+  CheckpointsResponse,
+  RestorePreviewResponse,
   LocationsResponse,
   LocationRoot,
   LocationFolder,

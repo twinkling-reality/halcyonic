@@ -85,6 +85,11 @@ export interface ControlPlaneConfig {
    * is registered only when it is set.
    */
   readonly codexBinary: string | null;
+  /**
+   * The git Halcyonic's undo runs (ADR 0036), by absolute path, or null to leave undo off. Never
+   * looked up on PATH: on the owner's Mac an older git comes first there.
+   */
+  readonly gitBinary: string | null;
   /** Null, and voice off, unless the owner set all three HALCYONIC_WHISPER_ variables. */
   readonly speech: SpeechConfig | null;
   /** Null, and the companion off, unless the owner named its model in HALCYONIC_COMPANION_MODEL. */
@@ -160,6 +165,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
     opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
+    gitBinary: parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
     speech: parseSpeech(env),
     companion: parseCompanion(env),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),

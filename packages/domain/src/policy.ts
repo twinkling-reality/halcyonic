@@ -11,6 +11,8 @@ import type { CommandType, PolicyCategory } from '@halcyonic/contracts';
 export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.create': 'low_consequence',
   'project.set_location': 'low_consequence',
+  // Writes over the project's files: the person reads what would change before confirming.
+  'project.restore': 'review_required',
   'workstream.create': 'low_consequence',
   'execution.start': 'low_consequence',
   'execution.send_instruction': 'low_consequence',
