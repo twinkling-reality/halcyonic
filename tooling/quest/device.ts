@@ -28,7 +28,7 @@
  * Meta's capture service uploads every capture to the headset's account while the headset's
  * media sync is on (validation/quest-headset-in-the-loop.md), so it runs only with
  * `--sync-is-off`, which the headset's owner confirms, and never while the headset's log says
- * sync is on; `screenrecord` is not uploaded.
+ * sync is on; for `screenrecord` no upload was seen.
  *
  * What it changed is kept in a state file (`HALCYONIC_QUEST_STATE`, `.private/quest/state.json`,
  * which git ignores): each app it installed over and the saved copy to restore, and each app it
@@ -175,7 +175,7 @@ async function warnIfSyncOn(): Promise<void> {
 
 /** The proximity override as GET_PROPERTY reads it, after the broadcast has had time to land. */
 async function proximityOverride(): Promise<boolean | undefined> {
-  await sleep(5000);
+  await sleep(Number(process.env.HALCYONIC_QUEST_SETTLE_MS ?? 5000));
   return readTestingProperties(await adbSaid('shell', ...TESTING)).set_proximity_close;
 }
 
@@ -250,7 +250,9 @@ async function awake(): Promise<void> {
   console.log(
     on === true
       ? 'Awake, and kept awake on the desk until give-back.'
-      : 'The proximity override did not take.',
+      : on === false
+        ? 'The proximity override did not take.'
+        : 'The proximity override could not be read.',
   );
   console.log(`front: ${describeFront(await front(), PACKAGE)}`);
   if (on !== true) process.exit(1);
@@ -268,7 +270,9 @@ async function giveBack(): Promise<void> {
   console.log(
     on === false
       ? "The proximity sensor is the headset's again."
-      : 'The proximity override is still on.',
+      : on === true
+        ? 'The proximity override is still on.'
+        : 'The proximity override could not be read, so it may still be on.',
   );
   const reverse = (await adbSaid('reverse', '--list')).trim();
   const forward = (await adbSaid('forward', '--list')).trim();
