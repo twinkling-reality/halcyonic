@@ -105,6 +105,12 @@ namespace Halcyonic.Client
             new KitPresenceModel(retained.Title, StateLanguage.BadgeOf(retained), waiting);
 
         /// <summary>
+        /// The compact presence from what the closed bar shows: <paramref name="identity"/> (the retained task's name, or
+        /// the place's word), its <paramref name="state"/> where there is a task, and the tasks waiting on the person.
+        /// </summary>
+        public static KitPresenceModel PresenceOf(LineWords identity, StateBadge? state, int waiting) => new KitPresenceModel(identity, state, waiting);
+
+        /// <summary>
         /// The focused work from the presentation: its state and marks, the agent's report, the rail, what it waits on,
         /// and Send offered only where the connection is live and production takes an instruction, else why not in
         /// <see cref="ConnectionText"/>'s or <see cref="FileScreens.WhyNoInstruction"/>'s words.

@@ -346,19 +346,30 @@ namespace Halcyonic.Client
         public KitRowModel? SpineFoot { get; }
     }
 
-    /// <summary>What the compact presence keeps in view: the retained task, its state, and what waits anywhere in the workspace.</summary>
+    /// <summary>
+    /// What the compact presence keeps in view, as the closed bar names it: what was beside the menu (the retained task's
+    /// name, or the place's own word), the task's state where there is a task, and what waits anywhere in the workspace.
+    /// </summary>
     public sealed class KitPresenceModel
     {
-        public KitPresenceModel(string taskTitle, StateBadge badge, int waiting)
+        public KitPresenceModel(string taskTitle, StateBadge badge, int waiting) : this(LineWords.TheirName(taskTitle), badge, waiting)
         {
-            TaskTitle = taskTitle;
+        }
+
+        public KitPresenceModel(LineWords identity, StateBadge? badge, int waiting)
+        {
+            Identity = identity;
             Badge = badge;
             Waiting = waiting;
         }
 
-        public string TaskTitle { get; }
+        /// <summary>The retained task's name as theirs, or Halcyonic's word for the place beside the menu.</summary>
+        public LineWords Identity { get; }
 
-        public StateBadge Badge { get; }
+        public string TaskTitle => Identity.Text;
+
+        /// <summary>The retained task's state; null where no task was beside the menu.</summary>
+        public StateBadge? Badge { get; }
 
         /// <summary>How many tasks wait for the person across the workspace, as known now.</summary>
         public int Waiting { get; }
