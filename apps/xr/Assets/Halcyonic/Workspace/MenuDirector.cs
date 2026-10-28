@@ -334,6 +334,7 @@ namespace Halcyonic.XR.Workspace
         private void PresentationChanged()
         {
             if (!setup.Presentation.Minimized) navigator.Expand();
+            KitPresentationConfirmed();
             navigator.Moved();
             dirty = true;
         }
@@ -940,7 +941,7 @@ namespace Halcyonic.XR.Workspace
             // Global frame controls remain usable over a local overlay. Its task/content input
             // still belongs exclusively to the exact overlay frame that was physically drawn.
             if (frame == null && side == null) return plane.Chrome.Visible || plane.Context.gameObject.activeInHierarchy
-                || plane.Bar is MenuBarView bar && bar.Shown >= 1f;
+                || plane.Bar is MenuBarView bar && bar.Shown >= 1f || KitCompactStands();
             if (placement != null) return from == MenuColumn.File && frame != null && frame == placementFrame && frame == placementDrawn;
             return !plane.Opening(from) && navigator.Standing(from, frame, side) != null;
         }

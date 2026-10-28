@@ -158,6 +158,12 @@ namespace Halcyonic.XR.Workspace
             else if (key == "workspace") OnContextWorkspace(owner);
         }
 
+        /// <summary>The kit's compact presence stands in the closed bar's place, settled, so its Workspace is the bar's Open (OrganizationStanding).</summary>
+        private bool KitCompactStands() => plane.KitCompactShows && plane.Kit.Settled;
+
+        /// <summary>The presentation the existing routes confirmed, to both of the kit's switches: their thumbs move only on it.</summary>
+        private void KitPresentationConfirmed() => plane.Kit.ShowConfirmed(setup.Presentation.Minimized);
+
         private IReadOnlyList<WorkMark> CurrentSpatialMarks() => navigator.BesideTask is string task
             && State?.Workstreams.TryGetValue(task, out var work) == true
             ? StateLanguage.MarksOf(CharacterPresenter.Present(work, State, Connected && !Demonstration)) : Array.Empty<WorkMark>();

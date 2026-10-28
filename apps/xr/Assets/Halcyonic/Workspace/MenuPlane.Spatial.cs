@@ -32,7 +32,10 @@ namespace Halcyonic.XR.Workspace
         public KitFileBinding? KitBinding { get; set; }
 
         /// <summary>Whether the kit draws the task's file now, in place of its views.</summary>
-        public bool KitShows => Kit.gameObject.activeSelf;
+        public bool KitShows => Kit.gameObject.activeSelf && !Kit.ShowsCompact;
+
+        /// <summary>Whether the kit's compact presence stands where the closed bar would (D3.5).</summary>
+        public bool KitCompactShows => Kit.ShowsCompact;
 
         /// <summary>The context owner the kit was last shown with, carried back on its context rows.</summary>
         public object? KitOwner { get; private set; }
@@ -47,7 +50,7 @@ namespace Halcyonic.XR.Workspace
         private (MenuColumn Kind, MenuFrame Frame)? pendingKitDraw;
 
         /// <summary>The kit takes a press only where the file's view would: settled, still, standing, and input not suspended.</summary>
-        private bool TakesKit() => !FocusGuard.InputSuspended && !Repositioning && !Sliding && KitShows && Kit.Settled;
+        private bool TakesKit() => !FocusGuard.InputSuspended && !Repositioning && !Sliding && (KitShows || KitCompactShows) && Kit.Settled;
 
         private void CreateKit(Transform root)
         {
@@ -58,6 +61,34 @@ namespace Halcyonic.XR.Workspace
             Kit.HoldEnded += (kind, prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
             Kit.ContextRow += (key, owner) => { if (TakesKit()) KitContextPressed?.Invoke(key, owner); };
             Kit.Drawn += ForwardKitDrawn;
+            // The connected switch asks for the existing routes only: Compact as a frame view's Compact, Workspace as the closed bar's Open.
+            Kit.CompactPressed += (kind, frame) => { if (TakesKit() && KitShows) CompactPressed?.Invoke(kind, frame, null); };
+            Kit.Opened += () => { if (TakesKit() && KitCompactShows) Opened?.Invoke(); };
+        }
+
+        /// <summary>
+        /// Shows the kit's compact presence in the closed bar's place, naming what the bar would (<paramref name="identity"/>, or
+        /// the place's closed line, the task's state, the tasks waiting), while the kit is switched on in the spatial workspace and
+        /// the bar would show no portrait; returns false, showing nothing, where the bar stands instead. A presence newly shown
+        /// whose switch was never told the presentation (as at start) stands at Compact at once; otherwise the thumb has
+        /// already been sent there by the confirmed presentation (<see cref="KitWorkspaceHost.ShowConfirmed"/>).
+        /// </summary>
+        private bool ShowKitCompact(MenuBar menuBar, LineWords? identity, StateBadge? state, int waiting)
+        {
+            if (!KitWorkspaceHost.Enabled || !SpatialWorkspace || SelectedPortrait != null) return false;
+            Kit.ShowCompact(KitPresenter.PresenceOf(identity ?? LineWords.Ours(menuBar.ClosedLine), state, waiting));
+            if (!Kit.Presence.Switch.ConfirmedCompact) Kit.ShowConfirmed(true, immediately: true);
+            KitOwner = null;
+            return true;
+        }
+
+        /// <summary>The compact presence's own band, about the bar's placed part, as the plane's reading bands.</summary>
+        private void KitCompactBands(PlanePart placed, float zoom)
+        {
+            ContextTextBands = Array.Empty<TextBand>();
+            ReaderTextBands = Kit.TextBands.Select(band => new TextBand(placed.Right + band.Left * zoom, placed.Right + band.Right * zoom,
+                placed.Up + band.Bottom * zoom, placed.Up + band.Top * zoom, band.EmDegrees)).ToArray();
+            ComposerTextBands = Array.Empty<TextBand>();
         }
 
         /// <summary>The kit's draw, held while the plane moves and passed on once it stands, for the frame the kit still shows.</summary>
@@ -95,6 +126,8 @@ namespace Halcyonic.XR.Workspace
             file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, 0f, false);
             file.Hide();
             Kit.Show(binding, MenuColumn.File, ContextBinding);
+            // As the presence at Compact: a switch never told the whole workspace stands there at once.
+            if (Kit.View.Spine.Switch.ConfirmedCompact) Kit.ShowConfirmed(false, immediately: true);
             KitOwner = ContextBinding;
             Composition = new PlaneComposition(new[] { new PlaneColumn(Kit.Size.x, Kit.Size.y) }, zoom);
             Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size); Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
