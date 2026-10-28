@@ -323,7 +323,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     while (selectedFile.Screen.Question.SideOption != null && sideParts++ < 64)
                     {
                         Shot("spatial-question-answer-detail-" + sideParts);
-                        if (director.Plane.Composition?.Columns.Count != 1) failures.Add("spatial: task answer details restored a competing chooser rail");
+                        if (ChooserBesideDetails(director.Plane) is string chooser) failures.Add("spatial: task answer details restored a competing chooser rail: " + chooser);
+                        // The same check must refuse a chooser shown beside the details: the menu's view, or the chrome and its rail.
+                        var menuView = director.Plane.GetComponentsInChildren<MenuFrameView>(true)
+                            .FirstOrDefault(view => view.transform.parent == director.Plane.transform && view.name == "Menu");
+                        if (menuView == null) failures.Add("spatial: no menu view to witness a chooser beside task answer details");
+                        else
+                        {
+                            var menuWas = menuView.gameObject.activeSelf;
+                            try
+                            {
+                                menuView.gameObject.SetActive(true);
+                                if (ChooserBesideDetails(director.Plane) == null) failures.Add("spatial: chooser check accepted the menu view beside task answer details");
+                            }
+                            finally { menuView.gameObject.SetActive(menuWas); }
+                        }
+                        var chromeWas = director.Plane.Chrome.gameObject.activeSelf;
+                        try
+                        {
+                            director.Plane.Chrome.gameObject.SetActive(true);
+                            if (ChooserBesideDetails(director.Plane) == null) failures.Add("spatial: chooser check accepted the chrome and its rail beside task answer details");
+                        }
+                        finally { director.Plane.Chrome.gameObject.SetActive(chromeWas); }
                         var sideView = director.Plane.Shown.Single().View;
                         Draw(); System.Threading.Thread.Sleep(450);
                         var next = sideView.Footer.Showing?.All.FirstOrDefault(slot => slot.Prompt.Id == Footer.NextPage).Prompt;
@@ -652,6 +673,35 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             finally { action.fontSize = size; action.ForceMeshUpdate(); }
             return failures;
+        }
+
+        /// <summary>
+        /// Why a chooser competes with a task's answer details on <paramref name="plane"/>, or null when none does. Focused
+        /// details stand alone: one column. In the independent workspace the project context stands beside them, as
+        /// XR_CLIENT.md has task files, so exactly two columns: the context where it was allocated, and the details alone
+        /// where the reading part was, this task's side panel the only frame view showing, and no chrome, so no rail.
+        /// </summary>
+        private static string? ChooserBesideDetails(MenuPlane plane)
+        {
+            if (plane.Composition == null) return "no composition";
+            var columns = plane.Composition.Columns.Count;
+            if (!(plane.SeparateWorkspace && plane.Context.gameObject.activeInHierarchy))
+                return columns == 1 ? null : columns + " columns beside focused details";
+            if (columns != 2) return columns + " columns, not the project context and one reading column";
+            if (plane.Chrome.Visible) return "the chrome and its rail show";
+            if (plane.Shown.Count != 1 || plane.Shown[0].Kind != MenuColumn.Side || plane.Shown[0].View.InPlaceOf?.IdentityKind != MenuIdentityKind.Task)
+                return "the one view shown is not the task's side panel";
+            var details = plane.Shown[0].View;
+            var others = plane.GetComponentsInChildren<MenuFrameView>(false).Where(view => view != details).Select(view => view.name).ToList();
+            if (others.Count > 0) return "other frame views show: " + string.Join(", ", others);
+            if (plane.ContextTextBands.Count != 1) return "the project context has no single allocation";
+            var band = plane.ContextTextBands[0];
+            var context = PlaneLayout.PointOf(plane.Eyes, plane.Direction, (band.Left + band.Right) / 2f, (band.Bottom + band.Top) / 2f);
+            if (Vector3.Distance(plane.Context.transform.position, context) > 0.0001f) return "the project context does not stand where it was allocated";
+            if (plane.ReaderAllocation is not PlanePart reading
+                || Vector3.Distance(details.Parts[0].position, PlaneLayout.PointOf(plane.Eyes, plane.Direction, reading.Right, reading.Up)) > 0.0001f)
+                return "the details do not stand where the reading part was allocated";
+            return null;
         }
 
         private static IEnumerable<string> SpatialState(string name, string folder, GameObject root, Camera camera,
