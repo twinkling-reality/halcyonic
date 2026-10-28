@@ -5,24 +5,6 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>What a notice says: Halcyonic's words, the icon of the state they are about, and that state's tone.</summary>
-    public sealed class KitNoticeModel
-    {
-        public KitNoticeModel(GlazeIcon icon, GlazeTone tone, LineWords words)
-        {
-            Icon = icon;
-            Tone = tone;
-            Words = words;
-        }
-
-        public GlazeIcon Icon { get; }
-
-        public GlazeTone Tone { get; }
-
-        /// <summary>Halcyonic's own sentence, as ConnectionText or WorkspaceText words it; an agent's words never stand here.</summary>
-        public LineWords Words { get; }
-    }
-
     /// <summary>
     /// A notice of the spatial kit: one band on a raised fill, holding what is true about what happened that the
     /// work's state alone cannot say, such as that a command's outcome can't be told; it stands over the activity it

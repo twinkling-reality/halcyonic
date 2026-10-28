@@ -6,62 +6,6 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>What a kit row shows and where it goes. A row takes the person somewhere; it never acts.</summary>
-    public sealed class KitRowModel
-    {
-        public KitRowModel(string key, LineWords words, GlazeIcon? icon = null, GlazeTone iconTone = GlazeTone.Neutral,
-            string? detail = null, GlazeTone? detailTone = null, string? end = null, GlazeTone? endTone = null,
-            bool opensMore = true, bool selected = false, int wordLines = 2, bool isName = false)
-        {
-            Key = key;
-            IsName = isName;
-            Words = words;
-            Icon = icon;
-            IconTone = iconTone;
-            Detail = detail;
-            DetailTone = detailTone;
-            End = end;
-            EndTone = endTone;
-            OpensMore = opensMore;
-            Selected = selected;
-            WordLines = wordLines;
-        }
-
-        /// <summary>What the row is, for its owner: a task's or a project's id, or a place.</summary>
-        public string Key { get; }
-
-        /// <summary>Its words: a task's title, a project's name, or Halcyonic's name for a place.</summary>
-        public LineWords Words { get; }
-
-        public GlazeIcon? Icon { get; }
-
-        /// <summary>The icon's tone: a state's, which its detail also says in words.</summary>
-        public GlazeTone IconTone { get; }
-
-        /// <summary>A second line in Halcyonic's words, as a task's state.</summary>
-        public string? Detail { get; }
-
-        public GlazeTone? DetailTone { get; }
-
-        /// <summary>Words at its right end saying where pressing it goes, as Review request; else a chevron when it opens more.</summary>
-        public string? End { get; }
-
-        public GlazeTone? EndTone { get; }
-
-        public bool OpensMore { get; }
-
-        /// <summary>The row is the chosen one: lit, and already showing.</summary>
-        public bool Selected { get; }
-
-        public int WordLines { get; }
-
-        /// <summary>
-        /// The words are one name from outside, a task's or a project's: it stands upright through the named-identity
-        /// treatment, literal and with its outside range kept. Anything else from outside keeps its lean.
-        /// </summary>
-        public bool IsName { get; }
-    }
-
     /// <summary>
     /// A row of the spatial kit: its icon in the icon column in its state's tone, its words (wrapping to their lines),
     /// a second line under them, and at its right end the words saying where it goes or a chevron. The whole row is

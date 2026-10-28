@@ -7,24 +7,6 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>A group of the spine's rows under an optional heading: Halcyonic's name for a place, or a project's own name.</summary>
-    public sealed class KitSpineSection
-    {
-        public KitSpineSection(IReadOnlyList<KitRowModel> rows, string? heading = null, bool headingIsName = false)
-        {
-            Rows = rows;
-            Heading = heading;
-            HeadingIsName = headingIsName;
-        }
-
-        public IReadOnlyList<KitRowModel> Rows { get; }
-
-        public string? Heading { get; }
-
-        /// <summary>The heading is a project's name from outside, shown upright as a named identity, literal.</summary>
-        public bool HeadingIsName { get; }
-    }
-
     /// <summary>
     /// The context spine at the instrument's left: where the person is. The connected switch always stands at its top,
     /// in one fixed place in every state; under it the places and the selected project's tasks as rows, the chosen

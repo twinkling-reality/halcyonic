@@ -1489,6 +1489,23 @@ launch/return, process recreation and current-frame action behavior need separat
   `SoundCueSelector` chooses which cue plays, on whose note, from where and when, from what each
   pump changed and from what the person did in the workspace (`WorkspaceAct`).
 
+### Spatial kit models (2026-10-28)
+
+The curved spatial kit (ADR 0034) keeps what it shows in the client core, beside its tokens in
+`SpatialKit`; its Unity views only draw. `KitModels` holds the engine-free models of the focused
+work, the overview, the compact presence, rows, spine sections, trail entries, notices, approvals,
+confirmations, questions and the task's character. `KitPresenter` fills them from what production
+already presents and words, and never words anything itself: an approval from
+`WorkspaceText.NeedFromYou`, with where an approved command runs standing apart only where that
+answer says it; a confirmation from `ConfirmationPrompt`, `ConfirmLabel` and `EntryText.ReadToPart`;
+a question under `PromptHeadingRuns`, only where the kit draws it whole (one answerable prompt
+answered by typing; several prompts, options or a secret give nothing); an outcome that can't be
+told in `WorkspaceText.NotSure`'s words; why Send is unavailable in `ConnectionText`'s; rows and the
+presence from `StateLanguage.BadgeOf`. The agent's latest message stays a reported claim, and the
+evidence rail holds every other activity entry unchanged, with an icon for the kind of record and
+no outcome tone, since an entry carries none. No production view draws the kit yet; the overview's
+adapters from the Tasks and Projects columns come with the overview. Tests: `KitPresenterTests`.
+
 ## Verification
 
 `apps/xr/dotnet` compiles the two packages' sources as .NET Standard 2.1 with C# 9 and warnings as
