@@ -21,6 +21,11 @@
 - **Status:** Off the device only. Every device claim below (frame rate, the field's real split,
   pause and resume, cold start) waits for the headset session; the tools for it are in
   [XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Device measures on a Quest".
+- **2026-10-28:** The client can also play a recorded real run (version 3, kind `recorded_run`,
+  [EVENTS.md](../architecture/EVENTS.md), "Recorded runs"), labeled Recorded and never mixed with the
+  simulated demonstration. No recorded run is bundled yet: the one surviving complete run names
+  products and home folders in fields the recorder never edits, so it is refused, and a run recorded
+  to be shown is planned. The release APK has still never run on a headset.
 
 ## The rules that bind the judge build
 

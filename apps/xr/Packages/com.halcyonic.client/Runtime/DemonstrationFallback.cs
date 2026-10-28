@@ -64,7 +64,9 @@ namespace Halcyonic.Client
             : DemonstrationReason.Unreachable;
 
         /// <summary>What the line above the stage says while the demonstration is shown; null while it is not.</summary>
-        public string? Line => Reason is DemonstrationReason reason ? Describe(reason, controlPlane?.Status, player?.Ended ?? false) : null;
+        public string? Line => Reason is DemonstrationReason reason
+            ? Describe(reason, controlPlane?.Status, player?.Ended ?? false, player?.Recording?.IsRecordedRun ?? false)
+            : null;
 
         /// <summary>
         /// The instructions the demonstration offers for this execution where it stands, to show instead
@@ -135,12 +137,16 @@ namespace Halcyonic.Client
         /// <summary>
         /// The line above the stage while the demonstration is shown. It says, in words, that nothing
         /// is live, that the demonstration follows the person's answers, and that nothing reaches an
-        /// agent; when the recording has ended, that it starts again.
+        /// agent; when the recording has ended, that it starts again. For a recorded run, that the work
+        /// was real and is played back, and that it waits where the run waited for someone.
         /// </summary>
-        public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false)
+        public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false, bool recordedRun = false)
         {
-            var line = "Demo: recorded work played on this headset. Nothing here is live.\n"
-                + "It follows your answers. Nothing reaches an agent.";
+            var line = recordedRun
+                ? "Recorded: real agent work, played back on this headset. Nothing here is live.\n"
+                    + "It waits for you where the agent waited. Nothing reaches an agent."
+                : "Demo: recorded work played on this headset. Nothing here is live.\n"
+                    + "It follows your answers. Nothing reaches an agent.";
             if (ended) line += "\nThis recording has ended and starts again shortly.";
             if (reason == DemonstrationReason.NotConfigured) return line;
             return line + "\n" + ConnectionText.WhyNotLive(controlPlane);

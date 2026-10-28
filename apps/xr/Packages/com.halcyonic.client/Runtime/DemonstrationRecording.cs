@@ -165,11 +165,23 @@ namespace Halcyonic.Client
     /// a recording of a fixture journal is accepted, so everything it shows is labeled as recorded,
     /// and only answers a stand-in gave, so none passes for a real source's. Keys this client does
     /// not know are ignored.
+    /// <para>
+    /// A recorded run (<c>pnpm judge:record</c>, format version 3, kind <c>recorded_run</c>) is one real
+    /// run of a real agent played the same way: its runtime is real, so its work is labeled recorded
+    /// and never simulated, and it holds nothing simulated at all, no stand-in answers and no usage
+    /// limits. The two are never mixed: a demonstration whose work runs on a real runtime, or a recorded
+    /// run whose work runs on a synthetic one, is refused.
+    /// </para>
     /// </summary>
     public sealed class DemonstrationRecording
     {
         /// <summary>The version of the recording format this client plays.</summary>
         public const int FormatVersion = 2;
+
+        /// <summary>The version of the format of a recorded run, and the kind it says it is.</summary>
+        public const int RecordedRunVersion = 3;
+
+        public const string RecordedRunKind = "recorded_run";
 
         private static readonly Dictionary<string, IReadOnlyList<RecordedAnswer<UnderstandingResponse>>> NoUnderstanding =
             new Dictionary<string, IReadOnlyList<RecordedAnswer<UnderstandingResponse>>>();
@@ -185,8 +197,10 @@ namespace Halcyonic.Client
             WelcomeMessage welcome,
             SnapshotMessage snapshot,
             IReadOnlyList<DemonstrationNode> nodes,
-            (int Node, int After)[] parents)
+            (int Node, int After)[] parents,
+            bool recordedRun)
         {
+            IsRecordedRun = recordedRun;
             Source = source;
             Welcome = welcome;
             Snapshot = snapshot;
@@ -196,6 +210,9 @@ namespace Halcyonic.Client
 
         /// <summary>The plan it was recorded from, relative to the repository root.</summary>
         public string Source { get; }
+
+        /// <summary>True for one real run recorded as it happened; false for the simulated demonstration.</summary>
+        public bool IsRecordedRun { get; }
 
         public WelcomeMessage Welcome { get; }
 
@@ -302,10 +319,21 @@ namespace Halcyonic.Client
                 document = JObject.Load(reader);
             }
             var version = document.Value<int?>("version");
-            if (version != FormatVersion)
+            var kind = document.Value<string>("kind");
+            var recordedRun = version == RecordedRunVersion;
+            if (version != FormatVersion && !recordedRun)
             {
                 throw new InvalidDataException(
-                    "The demonstration has format version " + (version?.ToString() ?? "none") + "; this client plays version " + FormatVersion + ".");
+                    "The demonstration has format version " + (version?.ToString() ?? "none") + "; this client plays version " + FormatVersion
+                    + " and recorded runs of version " + RecordedRunVersion + ".");
+            }
+            if (recordedRun ? kind != RecordedRunKind : kind != null)
+            {
+                throw new InvalidDataException("A recording of version " + version + " can't be of kind " + (kind ?? "none") + ".");
+            }
+            if (recordedRun && (document["understanding"] != null || document["evaluation"] != null || document["usage_limits"] != null))
+            {
+                throw new InvalidDataException("A recorded run holds nothing simulated: no stand-in answers and no usage limits.");
             }
             var serializer = JsonSerializer.Create(HalcyonicJson.Tolerant);
             var source = document.Value<string>("source") ?? throw Missing("source");
@@ -318,7 +346,7 @@ namespace Halcyonic.Client
             {
                 throw new InvalidDataException("A demonstration must come from a recorded (fixture) journal, so that it is labeled as recorded.");
             }
-            CheckJournal(snapshot, journal, "beginning");
+            CheckJournal(snapshot, journal, "beginning", recordedRun);
             if (welcome.Protocol != ContractVersions.RealtimeProtocol)
             {
                 throw new InvalidDataException("The demonstration speaks realtime protocol " + welcome.Protocol + ".");
@@ -330,9 +358,9 @@ namespace Halcyonic.Client
             if (entries.Count == 0) throw Missing("beginning");
 
             var nodes = new List<DemonstrationNode>(entries.Count);
-            foreach (var entry in entries) nodes.Add(ReadNode(entry, serializer, journal, nodes.Count, entries.Count));
+            foreach (var entry in entries) nodes.Add(ReadNode(entry, serializer, journal, nodes.Count, entries.Count, recordedRun));
             var parents = CheckTree(nodes, snapshot.Snapshot.Position);
-            var recording = new DemonstrationRecording(source, welcome, snapshot, nodes, parents);
+            var recording = new DemonstrationRecording(source, welcome, snapshot, nodes, parents, recordedRun);
             recording.Understanding = ReadAnswers<UnderstandingResponse>(document["understanding"], "understanding", serializer, nodes,
                 (response, key) => response.ExecutionId == key && Simulated(response.Result));
             recording.Evaluation = ReadAnswers<EvaluationResponse>(document["evaluation"], "evaluation", serializer, nodes,
@@ -435,7 +463,7 @@ namespace Halcyonic.Client
         /// <summary>The control plane's own answer while a runtime has not named its session.</summary>
         private const string NativeIdUnknown = "native_id_unknown";
 
-        private static DemonstrationNode ReadNode(JToken entry, JsonSerializer serializer, JournalInfo journal, int index, int count)
+        private static DemonstrationNode ReadNode(JToken entry, JsonSerializer serializer, JournalInfo journal, int index, int count, bool recordedRun)
         {
             var eventEntries = entry["events"] as JArray ?? throw Missing("events of node " + index);
             var events = new List<RecordedEvent>(eventEntries.Count);
@@ -449,6 +477,12 @@ namespace Halcyonic.Client
                 if (next < at || message.Position <= position)
                 {
                     throw new InvalidDataException("The demonstration's event at position " + message.Position + " is out of order.");
+                }
+                if (message.Event is ExecutionCreatedEvent created && created.Payload.Runtime.Synthetic == recordedRun)
+                {
+                    throw new InvalidDataException(recordedRun
+                        ? "A recorded run starts work on a synthetic runtime."
+                        : "The demonstration starts work on a runtime that is not synthetic.");
                 }
                 at = next;
                 position = message.Position;
@@ -476,7 +510,7 @@ namespace Halcyonic.Client
             var endingSnapshot = ending["snapshot"]?.Type == JTokenType.Object ? ending["snapshot"]!.ToObject<SnapshotMessage>(serializer) : null;
             if (endingSnapshot != null)
             {
-                CheckJournal(endingSnapshot, journal, "ending");
+                CheckJournal(endingSnapshot, journal, "ending", recordedRun);
                 if (events.Count > 0 && endingSnapshot.Snapshot.Position != position)
                 {
                     throw new InvalidDataException("The demonstration's ending is not where its last event left the journal.");
@@ -542,16 +576,22 @@ namespace Halcyonic.Client
             return parents;
         }
 
-        private static void CheckJournal(SnapshotMessage snapshot, JournalInfo journal, string which)
+        private static void CheckJournal(SnapshotMessage snapshot, JournalInfo journal, string which, bool recordedRun)
         {
             if (snapshot.Snapshot.Journal.JournalId != journal.JournalId || snapshot.Snapshot.Journal.Origin != journal.Origin)
             {
                 throw new InvalidDataException("The demonstration's " + which + " snapshot comes from another journal than its welcome.");
             }
-            // Only practice agents, so every task it shows, started or not, is labeled as simulated.
+            // A demonstration has only practice agents, so every task it shows, started or not, is
+            // labeled as simulated; a recorded run only the real one, so none of its work is.
             foreach (var runtime in snapshot.Snapshot.Runtimes)
             {
-                if (!runtime.Synthetic) throw new InvalidDataException("The demonstration's " + which + " snapshot registers a runtime that is not synthetic.");
+                if (runtime.Synthetic == recordedRun)
+                {
+                    throw new InvalidDataException(recordedRun
+                        ? "The recorded run's " + which + " snapshot registers a synthetic runtime."
+                        : "The demonstration's " + which + " snapshot registers a runtime that is not synthetic.");
+                }
             }
         }
 

@@ -96,6 +96,24 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
+        /// The answer to a command in a recorded run where it holds nothing for it: the run happened
+        /// once, so only what was done then can follow.
+        /// </summary>
+        public const string NothingRecordedInRun = "Not sent to any agent. This run is recorded as it happened, so nothing changes.";
+
+        /// <summary>
+        /// What the acknowledgement says in a recorded run when a person gives the answer the run was
+        /// given: that it reached no agent, and that the run goes on as it went then. A recorded run holds
+        /// only answers someone really gave, so it never says a person's answer was the one sent.
+        /// </summary>
+        public static string AnsweredInRun(DemonstrationAnswer answer) => answer.Kind switch
+        {
+            DemonstrationAnswerKind.Approve => "Not sent to any agent. This was approved when it ran, so the run goes on as it happened.",
+            DemonstrationAnswerKind.Deny => "Not sent to any agent. This was denied when it ran, so the run goes on as it happened.",
+            _ => "Not sent to any agent. The run goes on as it happened.",
+        };
+
+        /// <summary>
         /// What the acknowledgement says when a person typed an instruction the recording does not hold:
         /// it continues with a recorded one instead, naming no label (settled by the coordinator, 2026-10-08).
         /// </summary>
@@ -352,6 +370,7 @@ namespace Halcyonic.Client
                     ? Array.Empty<DemonstrationBranch>()
                     : read.Nodes[node].BranchesAfter(played);
                 var branch = Match(offered, command, out var words);
+                if (read?.IsRecordedRun == true) words = branch == null ? NothingRecordedInRun : AnsweredInRun(branch.Answer);
                 Send(Acknowledge(command, words));
                 if (branch == null) return;
                 path.Add((node, played));
