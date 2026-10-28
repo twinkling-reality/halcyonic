@@ -218,19 +218,32 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// What Activity says of the work beside its state, as the file laid it: the lines it leads with in a waiting or
-        /// a problem's tone (an approval or a question waiting on Waiting, attention notes), then why nothing can be sent,
-        /// where it says so. Taken by their place and tone on the page, never by matching their words.
+        /// What Activity says of the work beside its state, as the file laid it, in its order: a notice first; the lines
+        /// it leads with in a waiting or a problem's tone (an approval or a question waiting on Waiting, attention notes);
+        /// why nothing can be sent, where it says so; then the newest command's feedback. Taken by their place and tone
+        /// on the page; the why and the feedback lines are compared only with what writes them. Feedback that an outcome
+        /// can't be told is the kit's notice already, so it is said once.
         /// </summary>
         private static IReadOnlyList<PageLine> Said(MenuFrame frame, WorkspacePresentation workspace)
         {
             var said = new List<PageLine>();
             if (!frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Activity))) return said;
+            var lines = frame.Lines;
+            var why = WorkspaceText.WhyNoActions(workspace);
+            var sent = workspace.Commands.FirstOrDefault();
+            bool Quiet(int at) => at < lines.Count && lines[at].Action == null && lines[at].Tone == LineTone.Secondary;
+            bool Feedback(int at) => Quiet(at) && sent != null && lines[at].Words == sent.Text;
             var index = 0;
-            while (index < frame.Lines.Count && frame.Lines[index].Action == null
-                && (frame.Lines[index].Tone == LineTone.Waiting || frame.Lines[index].Tone == LineTone.Problem)) said.Add(frame.Lines[index++]);
-            if (index < frame.Lines.Count && frame.Lines[index].Action == null && frame.Lines[index].Tone == LineTone.Secondary
-                && WorkspaceText.WhyNoActions(workspace) is string why && frame.Lines[index].Words == why) said.Add(frame.Lines[index]);
+            // A notice leads the page whenever the file has one; nothing else in the secondary tone stands before what Activity leads with.
+            if (Quiet(index) && lines[index].Words != why && !Feedback(index) && lines[index].Words != FileScreens.NoActivityYet) said.Add(lines[index++]);
+            while (index < lines.Count && lines[index].Action == null && (lines[index].Tone == LineTone.Waiting || lines[index].Tone == LineTone.Problem))
+                said.Add(lines[index++]);
+            if (Quiet(index) && why != null && lines[index].Words == why) said.Add(lines[index++]);
+            if (Feedback(index))
+            {
+                if (sent!.Text != WorkspaceText.NotSure(sent.CommandType)) said.Add(lines[index]);
+                index++;
+            }
             return said;
         }
 
