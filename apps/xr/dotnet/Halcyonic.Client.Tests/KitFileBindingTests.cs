@@ -20,8 +20,8 @@ public class KitFileBindingTests
 
     private WorkspaceSteering Steering() => new(factory, () => Now);
 
-    private static MenuFrame Screen(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen) =>
-        FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
+    private static MenuFrame Screen(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, int rows = 4) =>
+        FileScreens.Screen(workspace, steering, screen, new AnswerRoom(rows));
 
     private static KitFileBinding? Bind(MenuFrame frame, WorkspaceSteering steering, WorkspacePresentation workspace, string draft = "", ConnectionStatus? connection = null) =>
         KitFileBinding.Of(frame, steering.Armed, workspace, draft, connection ?? Live, "Storefront", Spine);
@@ -33,13 +33,15 @@ public class KitFileBindingTests
     };
 
     /// <summary>The task running with two recorded entries, offering exactly <paramref name="offered"/>, or what its agent app offers where none are given.</summary>
-    private static WorkspacePresentation Running(WaitingWork work, params WorkspaceAction[] offered)
+    private static WorkspacePresentation Running(WaitingWork work, params WorkspaceAction[] offered) => Running(work, Recorded, offered);
+
+    private static WorkspacePresentation Running(WaitingWork work, IReadOnlyList<ActivityEntry> activity, params WorkspaceAction[] offered)
     {
         work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
         var running = work.Present();
         var actions = offered.Length == 0 ? running.Actions : offered;
         return new WorkspacePresentation(running.Character, running.Objective, running.Execution, running.Runtime, actions,
-            actions.Where(running.RequiresConfirmation).ToList(), running.Commands, Recorded);
+            actions.Where(running.RequiresConfirmation).ToList(), running.Commands, activity);
     }
 
     /// <summary>Every footer prompt, every line that acts and every section has exactly one control, raising what the frame raises.</summary>
@@ -200,6 +202,103 @@ public class KitFileBindingTests
     }
 
     [Test]
+    public void ATaskWithNothingRecordedBindsAndItsRailSaysSoInProductionsWords()
+    {
+        var workspace = Running(new WaitingWork(), new ActivityEntry[0], WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
+        Assert.That(frame.Lines.Select(line => line.Words), Does.Contain(FileScreens.NoActivityYet));
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        Assert.That((binding.Model.Trail.Count, binding.Model.Report, binding.Model.Said.Count), Is.EqualTo((0, (ActivityEntry?)null, 0)));
+    }
+
+    [Test]
+    public void AnApprovalSeenFromActivitySaysWhereItWaitsInTheFramesOwnLine()
+    {
+        var workspace = new WaitingWork().Present();
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        var doing = frame.Lines.First();
+        Assert.That(binding.Model.Said, Is.EqualTo(new[] { doing }), "the frame's own line, its words and tone");
+        Assert.That((doing.Tone, binding.Model.Need), Is.EqualTo((LineTone.Waiting, (KitNeed?)null)), "answered on Waiting, not here");
+        Assert.That(binding.SectionRows.Single(row => row.Key == KitFileBinding.SectionRowKey + FileScreens.Key(FileSection.Waiting)).Selected, Is.False);
+    }
+
+    /// <summary>The running task finished its round with <paramref name="notes"/> needing the person's attention.</summary>
+    private static WorkspacePresentation Failed(WorkspacePresentation running, params string[] notes)
+    {
+        var failed = new CharacterPresentation(running.Character.WorkstreamId, running.Character.Title, CharacterActivity.TurnFinished,
+            StateLanguage.WordOf(StateLanguage.StateOf(CharacterActivity.TurnFinished, AttentionLevel.Notice)), AttentionLevel.Notice,
+            notes, 0, false, false, false);
+        return new WorkspacePresentation(failed, running.Objective, running.Execution, running.Runtime, running.Actions,
+            running.Actions.Where(running.RequiresConfirmation).ToList(), running.Commands, running.Activity);
+    }
+
+    [Test]
+    public void AFailedTasksAttentionNotesStandUnderItsStateAsTheFileSaysThem()
+    {
+        var workspace = Failed(Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt), "Checks failed: 1 failed, 23 passed.");
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        Assert.That(binding.Model.Said.Select(line => (line.Words, line.Tone)), Is.EqualTo(new[] { ("Checks failed: 1 failed, 23 passed.", LineTone.Problem) }));
+    }
+
+    [Test]
+    public void WhyNothingCanBeSentStandsUnderTheStateInProductionsWords()
+    {
+        // Its agent app offers nothing now, so the file says why nothing can be sent.
+        var running = Running(new WaitingWork());
+        var workspace = new WorkspacePresentation(running.Character, running.Objective, running.Execution, running.Runtime, new WorkspaceAction[0],
+            new WorkspaceAction[0], running.Commands, running.Activity);
+        Assert.That(WorkspaceText.WhyNoActions(workspace), Is.Not.Null);
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        Assert.That(binding.Model.Said.Select(line => line.Words), Is.EqualTo(new[] { WorkspaceText.WhyNoActions(workspace) }));
+    }
+
+    [Test]
+    public void ALongActivityBindsItsPagerAsTheFileDrewIt()
+    {
+        // Two notes of two rows each ahead of the recent entries are more than three rows hold: the page turns.
+        var workspace = Failed(Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt),
+            "Checks failed: 1 failed, 23 passed.", "It stopped before the tests finished.");
+        var steering = Steering();
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true };
+        var frame = Screen(workspace, steering, screen, rows: 3);
+        Assert.That(screen.Pages, Is.GreaterThan(1));
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        var pager = binding[KitPlace.Pager]!;
+        Assert.That((pager.Action, pager.Available), Is.EqualTo((Footer.NextPage, true)));
+        Assert.That(pager.Words, Is.EqualTo(frame.Lines.Concat(new PageLine[0]).Where(line => line.Action == Footer.NextPage).Select(line => line.Words)
+            .Concat(frame.Footer.All.Where(each => each.Prompt.Kind == PromptKind.NextPage).Select(each => each.Prompt.Words)).Single()));
+    }
+
+    [Test]
+    public void TheSectionsStandAsSpineRowsTheOneShowingLit()
+    {
+        var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding.SectionRows.Select(row => (row.Key, row.Words.Text, row.Selected)),
+            Is.EqualTo(frame.Sections.Select(section => (KitFileBinding.SectionRowKey + section.Key, section.Words, section.Chosen))));
+        Assert.That(binding.SectionRows.All(row => !row.Words.AnyTheirs), Is.True, "Halcyonic's own names for its sections");
+    }
+
+    [Test]
     public void NothingIsBoundWhereTheKitCantDrawTheFrameWhole()
     {
         var steering = Steering();
@@ -215,14 +314,6 @@ public class KitFileBindingTests
         var stopping = Steering();
         stopping.Press(WorkspaceAction.Interrupt, running);
         Assert.That(Bind(Screen(running, stopping, new FileScreen { Section = FileSection.Activity }), stopping, running), Is.Null, "Stop's confirmation");
-        // Nothing recorded yet: production says so, and the kit's rail has no words for it yet.
-        var quiet = new WaitingWork();
-        quiet.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
-        var empty = FileScreensTests.Offering(quiet.Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
-        Assert.That(Bind(Screen(empty, steering, new FileScreen { Section = FileSection.Activity }), steering, empty), Is.Null, "nothing recorded");
-        // An approval waiting, seen from Activity: its pointer to Waiting is a line the kit doesn't draw.
-        var waiting = new WaitingWork().Present();
-        Assert.That(Bind(Screen(waiting, steering, new FileScreen { Section = FileSection.Activity }), steering, waiting), Is.Null, "Open Waiting");
         // Questions: answers to choose, a secret, several prompts.
         foreach (var prompts in new[]
         {

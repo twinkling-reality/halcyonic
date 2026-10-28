@@ -230,8 +230,9 @@ namespace Halcyonic.Client
         public KitWorkModel(string projectName, string taskTitle, StateBadge badge, IReadOnlyList<WorkMark> marks,
             ActivityEntry? report, IReadOnlyList<KitTrailEntry> trail, string draft, bool voiceOffered, bool sendable,
             string? whyNotSend, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot,
-            KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null)
+            KitNeed? need = null, KitAsk? ask = null, KitNoticeModel? notice = null, KitAvatar? avatar = null, IReadOnlyList<PageLine>? said = null)
         {
+            Said = said ?? new PageLine[0];
             Avatar = avatar;
             Need = need;
             Ask = ask;
@@ -288,6 +289,12 @@ namespace Halcyonic.Client
 
         /// <summary>The task's place on the slate's top edge, or null where the kit shows none.</summary>
         public KitAvatar? Avatar { get; }
+
+        /// <summary>
+        /// What the file says of the work beside its state, in its own lines and tones: an attention note, that an approval
+        /// waits on Waiting, why nothing can be sent. Shown on the slate under the state.
+        /// </summary>
+        public IReadOnlyList<PageLine> Said { get; }
     }
 
     /// <summary>One project on the overview: its own name, a sentence of its work, and its tasks as rows.</summary>

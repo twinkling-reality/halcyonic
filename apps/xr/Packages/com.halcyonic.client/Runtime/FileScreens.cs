@@ -29,6 +29,10 @@ namespace Halcyonic.Client
         public const string OpenCharacterColour = "file-character-colour";
         public const string OpenResults = "file-results";
         public const string TellIt = WorkspaceScreens.TellIt;
+
+        /// <summary>What Activity says while nothing has been recorded for the task.</summary>
+        public const string NoActivityYet = "No recorded activity yet.";
+
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
         internal static bool FocusesAnswer(WorkspacePresentation workspace, bool questionPage, WorkspaceSteering steering) =>
             WorkspaceText.NeedFromYou(workspace) == null && workspace.QuestionToAnswer is QuestionView question && WorkspaceText.Answerable(question)
@@ -265,7 +269,7 @@ namespace Halcyonic.Client
                 {
                     var note = screen.ActivityNote.TrimStart(' ', '·');
                     lines.Add(string.IsNullOrWhiteSpace(note)
-                        ? new PageLine("No recorded activity yet.", tone: LineTone.Secondary)
+                        ? new PageLine(NoActivityYet, tone: LineTone.Secondary)
                         : new PageLine(note, wordsAreData: true, tone: LineTone.Secondary));
                 }
             }
@@ -325,7 +329,7 @@ namespace Halcyonic.Client
             // Utility routes are not activity. A task with no recorded events still says so,
             // before its optional routes, instead of silently presenting an action directory.
             if (lines.Count == 0 && workspace.Activity.Count == 0 && string.IsNullOrWhiteSpace(screen.ActivityNote))
-                lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
+                lines.Add(new PageLine(NoActivityYet, tone: LineTone.Secondary));
             var activity = workspace.Activity;
             // Keep a bounded recent log, then page it with the routes. Routes must not consume
             // all log capacity, nor may mandatory rows silently overflow an empty log.
@@ -354,7 +358,7 @@ namespace Halcyonic.Client
                 for (var from = 0; from < reportRows; from += part)
                     lines.Add(ActivityLine(entry, screen.Zone, Math.Min(part, reportRows - from), from));
             }
-            if (lines.Count == 0) lines.Add(new PageLine("No recorded activity yet.", tone: LineTone.Secondary));
+            if (lines.Count == 0) lines.Add(new PageLine(NoActivityYet, tone: LineTone.Secondary));
             lines.AddRange(utilityLines);
             // Activity notices join the same paging allocation, rather than being appended
             // after packing on every page. Keep their complete words and normal two-row size.
