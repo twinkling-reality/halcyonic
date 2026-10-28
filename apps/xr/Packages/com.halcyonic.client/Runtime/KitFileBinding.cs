@@ -39,6 +39,12 @@ namespace Halcyonic.Client
 
         /// <summary>Activity's pager: Next page, and on its last page First page.</summary>
         Pager,
+
+        /// <summary>
+        /// One of the task's own routes Activity offers under its log: Show this task here, Ask workspace, Read results or
+        /// Character colour, each the line that opens it; several stand, in the frame's order.
+        /// </summary>
+        Route,
     }
 
     /// <summary>
@@ -119,6 +125,9 @@ namespace Halcyonic.Client
 
         public IEnumerable<KitControl> Sections => Controls.Where(control => control.Place == KitPlace.Section);
 
+        /// <summary>The task's routes the frame offers, in its order.</summary>
+        public IEnumerable<KitControl> Routes => Controls.Where(control => control.Place == KitPlace.Route);
+
         /// <summary>The prefix of a spine row's key that stands for one of the file's sections.</summary>
         public const string SectionRowKey = "section:";
 
@@ -144,10 +153,13 @@ namespace Halcyonic.Client
                 if (place == null || controls.Any(control => control.Place == place)) return null;
                 controls.Add(new KitControl(place.Value, frame, prompt.Id, null, prompt.Words, prompt.Icon, prompt.Available, prompt.Reason, prompt.Holds));
             }
+            // The task's routes stand under Activity's log; Read results beside an open instruction is the composer's, which has no place for it.
+            var composing = frame.Lines.Any(line => line.Action == FileScreens.EditInstruction);
             foreach (var line in frame.Lines.Where(line => line.Action != null))
             {
-                var place = line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager : (KitPlace?)null;
-                if (place == null || controls.Any(control => control.Place == place)) return null;
+                var place = line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager
+                    : !composing && RouteActions.Contains(line.Action!) ? KitPlace.Route : (KitPlace?)null;
+                if (place == null || (place != KitPlace.Route && controls.Any(control => control.Place == place))) return null;
                 controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false));
             }
             foreach (var section in frame.Sections)
@@ -250,6 +262,12 @@ namespace Halcyonic.Client
             }
             return said;
         }
+
+        /// <summary>The lines that open the task's own routes from Activity, each a <see cref="KitPlace.Route"/>.</summary>
+        private static readonly HashSet<string> RouteActions = new HashSet<string>(System.StringComparer.Ordinal)
+        {
+            FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults, FileScreens.OpenCharacterColour,
+        };
 
         /// <summary>The kit place of a footer prompt, or null where the kit has none for it.</summary>
         private static KitPlace? PlaceOf(PromptSlot slot, Prompt prompt)
