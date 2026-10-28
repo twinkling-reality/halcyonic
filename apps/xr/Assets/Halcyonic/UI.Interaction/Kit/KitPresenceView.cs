@@ -8,8 +8,9 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The compact presence: the whole instrument folded to one small opaque piece that stays beside other work. The
-    /// connected switch stands at its left, its thumb on Compact; beside it the retained task's name, its state in
-    /// icon and word, and how many tasks wait for the person anywhere, in words. It accepts no work input: its only
+    /// connected switch stands at its left, its thumb on Compact; beside it what the closed bar names (the retained
+    /// task's name, or the place's own word), the task's state in icon and word where there is a task, and how many
+    /// tasks wait for the person anywhere, in words. It accepts no work input: its only
     /// targets are the switch's two positions, and Workspace forwards to the existing Open route, which restores the
     /// retained task and draft and asks for fresh input authority. Nothing in it moves on its own except the state's
     /// own icon. Centred on its transform, built in units of the plane's distance.
@@ -64,9 +65,13 @@ namespace Halcyonic.XR.UI
             var textWidth = width - textLeft - pad;
 
             KitType.Size(title, KitRole.Strong);
-            GlazeRuns.Of(title).SetIdentity(model.TaskTitle);
+            if (model.Identity.AllTheirs) GlazeRuns.Of(title).SetIdentity(model.Identity.Text);
+            else GlazeRuns.Of(title).Set(model.Identity);
             var (_, _, titleHeight) = KitType.Lay(title, textWidth, 2);
-            var stateSize = state.Show(model.Badge, onPill: false);
+            // A state only where a task was beside the menu: a place has none to show.
+            state.gameObject.SetActive(model.Badge != null);
+            var stateSize = model.Badge is StateBadge badge ? state.Show(badge, onPill: false) : Vector2.zero;
+            var stateGap = model.Badge != null ? KitType.Scaled(0.3f) : 0f;
             KitType.Size(waiting, KitRole.Body);
             GlazeText.SetLiteral(waiting, model.WaitingWords);
             waiting.color = model.Waiting > 0 ? KitType.ToneText(GlazeTone.Attention) : KitType.Secondary;
@@ -74,10 +79,10 @@ namespace Halcyonic.XR.UI
             waitingIcon.gameObject.SetActive(model.Waiting > 0);
             var waitingLeft = model.Waiting > 0 ? iconEm + KitType.Scaled(0.4f) : 0f;
             var (_, _, waitingHeight) = KitType.Lay(waiting, textWidth - waitingLeft, 1);
-            var textHeight = titleHeight + KitType.Scaled(0.3f) + stateSize.y + KitType.Scaled(0.2f) + waitingHeight;
+            var textHeight = titleHeight + stateGap + stateSize.y + KitType.Scaled(0.2f) + waitingHeight;
             var height = Mathf.Max(switchSize.y, textHeight) + 2f * pad;
             size = new Vector2(width, height);
-            var tone = Glaze.Tone(model.Badge.LastKnown ? GlazeTone.Unknown : model.Badge.Tone);
+            var tone = Glaze.Tone(model.Badge == null ? GlazeTone.Neutral : model.Badge.LastKnown ? GlazeTone.Unknown : model.Badge.Tone);
             carrier.Draw(size, KitType.Units(SpatialKit.InstrumentRadiusDegrees), SpatialKit.Slate, lit: true,
                 light: KitType.Mix(SpatialKit.Slate, tone.Strong, 0.92f));
 
@@ -85,7 +90,7 @@ namespace Halcyonic.XR.UI
             modeSwitch.transform.localPosition = new Vector3(left + pad + switchSize.x / 2f, 0f, 0f);
             var top = textHeight / 2f;
             title.transform.localPosition = new Vector3(left + textLeft, top, -0.0005f);
-            var stateY = top - titleHeight - KitType.Scaled(0.3f) - stateSize.y / 2f;
+            var stateY = top - titleHeight - stateGap - stateSize.y / 2f;
             state.transform.localPosition = new Vector3(left + textLeft + stateSize.x / 2f, stateY, -0.0003f);
             var waitingY = stateY - stateSize.y / 2f - KitType.Scaled(0.2f) - waitingHeight / 2f;
             if (model.Waiting > 0)

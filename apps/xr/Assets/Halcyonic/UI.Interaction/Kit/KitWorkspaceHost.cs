@@ -12,9 +12,12 @@ namespace Halcyonic.XR.UI
     /// The spatial kit standing in for a task's file in the independent workspace (D3.4): it shows <see cref="KitWorkView"/>
     /// from a <see cref="KitFileBinding"/>, the file's sections as tabs on the slate and the task's routes at the rail's foot, and raises, in the plane's own terms, what each of its controls raises: the
     /// frame's own action and key with that frame, Hold to talk's prompt held and let go, a context row's key with the
-    /// owner it was shown for, and that the frame has been drawn once every control has settled. It routes nothing
-    /// itself: the plane and the director decide, by the rules they apply to the file's own views. Laid out centred on
-    /// <see cref="Part"/>, in units of the plane's distance at the standard text size, as a frame view is.
+    /// owner it was shown for, and that the frame has been drawn once every control has settled. Its connected switch
+    /// asks for the existing Compact and Open routes (D3.5): Compact on the spine with the frame shown, Workspace from the
+    /// compact presence it shows where the closed bar stands, and the thumb moves only on the presentation confirmed. It
+    /// routes nothing itself: the plane and the director decide, by the rules they apply to the file's own views and the
+    /// closed bar. Laid out centred on <see cref="Part"/>, in units of the plane's distance at the standard text size, as
+    /// a frame view is.
     /// </summary>
     public sealed class KitWorkspaceHost : MonoBehaviour
     {
@@ -25,6 +28,7 @@ namespace Halcyonic.XR.UI
         private const int DefaultRailRows = 8;
 
         private KitWorkView view = null!;
+        private KitPresenceView presence = null!;
         private TextMeshPro measure = null!;
         private KitFileBinding? binding;
         private MenuColumn column;
@@ -34,8 +38,15 @@ namespace Halcyonic.XR.UI
         private Prompt? held;
         private float heldAt = -1f;
         private bool holding;
+        private bool compact;
 
         public KitWorkView View => view;
+
+        /// <summary>The compact presence, shown by <see cref="ShowCompact"/> where the closed bar stands.</summary>
+        public KitPresenceView Presence => presence;
+
+        /// <summary>Whether it shows the compact presence rather than the task's file.</summary>
+        public bool ShowsCompact => compact && gameObject.activeSelf;
 
         /// <summary>What the plane stands at its slot and scales to its distance and the text size.</summary>
         public Transform Part => transform;
@@ -56,7 +67,7 @@ namespace Halcyonic.XR.UI
         public IReadOnlyList<Transform> Bodies { get; } = new Transform[0];
 
         /// <summary>Every control shown has stood long enough for a press to count (<see cref="GlazeButton.SettleSeconds"/>).</summary>
-        public bool Settled => binding != null && Time.unscaledTime - shownAt >= GlazeButton.SettleSeconds;
+        public bool Settled => (binding != null || compact) && Time.unscaledTime - shownAt >= GlazeButton.SettleSeconds;
 
         /// <summary>Presses are passed over while false, as the context column's are.</summary>
         public Func<bool> Accepting { get; set; } = () => false;
@@ -75,6 +86,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The frame shown has been drawn and every control settled, once per frame shown.</summary>
         public event Action<MenuColumn, MenuFrame>? Drawn;
+
+        /// <summary>The spine switch's Compact pressed, with the frame shown, as a frame view's Compact raises it; the thumb waits for the presentation.</summary>
+        public event Action<MenuColumn, MenuFrame>? CompactPressed;
+
+        /// <summary>The compact presence's Workspace pressed, as the closed bar's Open raises it; the thumb waits for the presentation.</summary>
+        public event Action? Opened;
 
         public static KitWorkspaceHost Create(Transform parent)
         {
@@ -97,6 +114,11 @@ namespace Halcyonic.XR.UI
             decision.CancelPressed += () => host.Press(KitPlace.Cancel);
             decision.YesPressed += () => host.Press(KitPlace.Yes);
             host.view.RowPressed += host.OnRow;
+            host.view.Spine.Switch.CompactRequested += () => { if (host.binding != null) host.CompactPressed?.Invoke(host.column, host.binding.Frame); };
+            host.presence = KitPresenceView.Create(go.transform);
+            host.presence.Switch.WorkspaceRequested += () => { if (host.compact) host.Opened?.Invoke(); };
+            foreach (var press in host.presence.Targets) press.Accepting = () => host.Accepting();
+            host.presence.gameObject.SetActive(false);
             go.SetActive(false);
             return host;
         }
@@ -124,16 +146,17 @@ namespace Halcyonic.XR.UI
         /// <summary>Shows <paramref name="binding"/>, its frame from <paramref name="column"/>, the spine's context rows raised with <paramref name="owner"/>.</summary>
         public void Show(KitFileBinding binding, MenuColumn column, object owner)
         {
-            var changed = this.binding == null || !ReferenceEquals(this.binding.Frame, binding.Frame) || !ReferenceEquals(this.owner, owner);
+            var changed = compact || this.binding == null || !ReferenceEquals(this.binding.Frame, binding.Frame) || !ReferenceEquals(this.owner, owner);
             this.binding = binding;
             this.column = column;
             this.owner = owner;
+            compact = false;
             gameObject.SetActive(true);
+            presence.gameObject.SetActive(false);
+            view.gameObject.SetActive(true);
             var zoom = GlazeText.Scale;
             view.transform.localScale = Vector3.one / zoom;
             view.Show(binding.Model, binding);
-            // The connected switch comes with production's route to it (D3.5); until then it stands nowhere.
-            view.Spine.Switch.gameObject.SetActive(false);
             // Rows are made as they are first shown: each takes presses only while the host does.
             foreach (var press in view.Targets) press.Accepting = () => Accepting();
             Size = view.Size / zoom;
@@ -147,11 +170,47 @@ namespace Halcyonic.XR.UI
             }
         }
 
+        /// <summary>
+        /// Shows the compact presence where the closed bar stands, naming what the bar names (<paramref name="model"/>):
+        /// its switch's Workspace raises <see cref="Opened"/>; nothing else in it takes a press.
+        /// </summary>
+        public void ShowCompact(KitPresenceModel model)
+        {
+            EndHold(false);
+            var changed = !compact || !gameObject.activeSelf;
+            binding = null;
+            drawn = null;
+            compact = true;
+            gameObject.SetActive(true);
+            view.gameObject.SetActive(false);
+            presence.gameObject.SetActive(true);
+            var zoom = GlazeText.Scale;
+            presence.transform.localScale = Vector3.one / zoom;
+            presence.Show(model);
+            Size = presence.Size / zoom;
+            var em = SpatialKit.Degrees(SpatialKit.BodyDp) * zoom;
+            var half = presence.Size / 2f;
+            TextBands = new[] { new TextBand(-half.x / zoom, half.x / zoom, -half.y / zoom, half.y / zoom, em) };
+            if (changed)
+            {
+                shownAt = Time.unscaledTime;
+                foreach (var press in presence.Targets) press.Unsettle();
+            }
+        }
+
+        /// <summary>The presentation the existing routes confirmed: both switches' thumbs go there, at once when <paramref name="immediately"/>.</summary>
+        public void ShowConfirmed(bool isCompact, bool immediately = false)
+        {
+            view.Spine.Switch.ShowConfirmed(isCompact, immediately);
+            presence.Switch.ShowConfirmed(isCompact, immediately);
+        }
+
         public void Hide()
         {
             EndHold(false);
             binding = null;
             drawn = null;
+            compact = false;
             gameObject.SetActive(false);
         }
 
@@ -160,6 +219,7 @@ namespace Halcyonic.XR.UI
         {
             shownAt = float.NegativeInfinity;
             foreach (var press in view.Targets) press.SettleForRender();
+            foreach (var press in presence.Targets) press.SettleForRender();
         }
 
         /// <summary>For the Editor, which runs no frames: every control as if settled, and the frame shown reported drawn as a frame would.</summary>

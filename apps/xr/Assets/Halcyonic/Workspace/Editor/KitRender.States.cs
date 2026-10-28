@@ -56,6 +56,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // The rail's own rows (the host's DefaultRailRows), turned to the page of Activity where the routes stand.
             "13-bound-routes" => Bound(root, eyes, Running(SelectedEntries().Skip(SelectedEntries().Count - 3).ToList()), Routed(), "Bound to the file: running, the task's routes at the rail's foot, synthetic data",
                 RequireRoutes, rows: 8, until: frame => frame.Lines.Any(line => line.Action == FileScreens.ShowTaskHere)),
+            "13-host-compact" => HostCompact(root, eyes),
             "13-bound-approval-from-activity" => Bound(root, eyes, WithActivity(ApprovalWorkspace(), SelectedEntries()), new FileScreen { Section = FileSection.Activity, Speak = true },
                 "Bound to the file: an approval waits on Waiting, seen from Activity, synthetic data", RequireSaid),
             _ => Moving(FocusedWork(root, eyes, true, WorkModel(), "Project to task, halfway: the task grows from its row, synthetic data", placed: (view, _) => FromRow(view, eyes))),
@@ -103,6 +104,109 @@ namespace Halcyonic.XR.Workspace.Editor
                 view.Show(model, binding);
                 view.Spine.Switch.gameObject.SetActive(false);
             });
+        }
+
+        /// <summary>
+        /// The workspace's host carrying the existing Compact and Open routes (D3.5), reached the way a person reaches them:
+        /// the spine switch's Compact, with the task's file bound, through a real director's
+        /// <see cref="MenuDirector.MinimizeWorkspace"/>, then the compact presence where the closed bar stands, naming
+        /// what the bar names, and its Workspace through <see cref="MenuDirector.RestoreWorkspace"/>. The fixture plays
+        /// the plane: it forwards the host's requests and shows the form the confirmed presentation calls for.
+        /// </summary>
+        private static Shot HostCompact(Transform root, Vector3 eyes)
+        {
+            var shot = new Shot { Caption = "The workspace's host: Compact through the existing route, the presence where the closed bar stands, synthetic data" };
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            var presentation = new WorkspacePresentationState();
+            // Outside the kit's root and layer: its own views are never measured or rendered here.
+            var directorRoot = new GameObject("Existing director, never rendered").transform;
+            shot.Extras.Add(directorRoot.gameObject);
+            var client = new ClientInfo { Name = "kit-render", Version = "kit-render", DeviceLabel = "kit-render" };
+            var director = MenuDirector.Create(directorRoot, new MenuDirector.Setup
+            {
+                SpatialWorkspace = true, Presentation = presentation, InitialPlacementReady = () => true,
+                Commands = new CommandFactory(client),
+            });
+            var workspace = Running();
+            var steering = new WorkspaceSteering(new CommandFactory(client));
+            var frame = FileScreens.Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Speak = true }, new AnswerRoom(4));
+            var binding = KitFileBinding.Of(frame, steering.Armed, workspace, "", new ConnectionStatus(ConnectionPhase.Live), SelectedProject, ProductionSpine(workspace),
+                new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move));
+            if (binding == null)
+            {
+                shot.Failures.Add("the kit has no binding to this frame");
+                return shot;
+            }
+            var host = KitWorkspaceHost.Create(root);
+            var accepting = true;
+            host.Accepting = () => accepting;
+            var owner = new object();
+            // What the closed bar names here: the retained task's name, its state, the tasks waiting for the person.
+            var retained = KitPresenter.PresenceOf(LineWords.TheirName(SelectedTask), Badge(CharacterActivity.Working), waiting: 1);
+            var requests = 0;
+            MenuFrame? pressedWith = null;
+            host.CompactPressed += (_, pressed) => { requests++; pressedWith = pressed; director.MinimizeWorkspace(); };
+            host.Opened += () => { requests++; director.RestoreWorkspace(); };
+            presentation.Changed += () =>
+            {
+                if (presentation.Minimized) host.ShowCompact(retained);
+                else host.Show(binding, MenuColumn.File, owner);
+                host.ShowConfirmed(presentation.Minimized);
+                host.SettleForRender();
+            };
+            host.Show(binding, MenuColumn.File, owner);
+            host.SettleForRender();
+            var spineSwitch = host.View.Spine.Switch;
+            Require(spineSwitch.gameObject.activeInHierarchy, "the spine's switch does not stand beside its route");
+
+            // The current position is a fact, not an action.
+            spineSwitch.WorkspaceTarget.PressForRender(401);
+            Require(requests == 0 && !presentation.Minimized, "pressing the current Workspace position asked for something");
+            // A host that takes no presses asks nothing, and the thumb never moves on a press alone.
+            accepting = false;
+            spineSwitch.CompactTarget.PressForRender(402);
+            Require(requests == 0 && !presentation.Minimized && !spineSwitch.ConfirmedCompact && spineSwitch.ThumbPosition == 0f,
+                "a press the host refused moved the thumb or reached the route");
+            accepting = true;
+            // The real route: Compact asks with the frame shown, the director's existing Minimize compacts, the presence follows.
+            spineSwitch.CompactTarget.PressForRender(403);
+            Require(requests == 1 && presentation.Minimized, "Compact did not reach the existing Minimize route");
+            Require(ReferenceEquals(pressedWith, frame), "Compact was not raised with the frame shown");
+            Require(director.IsCompact, "the existing Minimize route's suspension did not compact the retained views");
+            Require(host.ShowsCompact && host.Presence.gameObject.activeInHierarchy && !host.View.gameObject.activeInHierarchy,
+                "the confirmed presentation did not show the compact presence");
+            Require(host.Presence.Switch.ConfirmedCompact && host.Presence.Switch.ThumbPosition == 1f, "the compact presence's thumb is not on Compact");
+            // With no task beside the menu the bar names the place, in Halcyonic's word, and shows no state.
+            host.ShowCompact(KitPresenter.PresenceOf(LineWords.Ours("Projects"), null, waiting: 0));
+            Require(!host.Presence.State.gameObject.activeSelf, "the presence shows a state where no task was beside the menu");
+            Require(host.Presence.Title.text.Contains("Projects"), "the presence does not name the place as the closed bar does");
+            host.ShowCompact(retained);
+            host.SettleForRender();
+            Require(host.Presence.State.gameObject.activeSelf, "the retained task's state does not show");
+
+            // Placed as the plane places its part: at its distance, scaled for the text size; the presence low at the left.
+            shot.Centre = Place(host.transform, eyes, SpatialKit.PresenceYawDegrees, SpatialKit.PresenceElevationDegrees);
+            host.transform.localScale *= GlazeText.Scale;
+            shot.Yaw = 0f;
+            shot.Elevation = -18f;
+            shot.Glance = (SpatialKit.PresenceYawDegrees, SpatialKit.PresenceElevationDegrees);
+            shot.PitchDown = 0f;
+            shot.Targets.Add(("compact presence", host.Presence.transform, host.Presence.Targets));
+            shot.Faces.Add(host.Presence.Carrier.Face);
+            shot.Corners.AddRange(host.Presence.Corners());
+            shot.AfterRender = failures =>
+            {
+                // Back again: Workspace raises Opened, the existing Restore route expands, the file's frame shows again.
+                host.Presence.Switch.WorkspaceTarget.SettleForRender();
+                host.Presence.Switch.WorkspaceTarget.PressForRender(404);
+                if (presentation.Minimized || requests != 2) failures.Add("Workspace did not reach the existing Restore route");
+                if (host.ShowsCompact || !host.View.gameObject.activeInHierarchy || host.View.Spine.Switch.ConfirmedCompact)
+                    failures.Add("the confirmed restore did not return the task's file with the thumb on Workspace");
+                if (director.IsCompact) failures.Add("the existing Restore route left the retained views compact");
+                Debug.Log("Halcyonic: spatial kit: the host's switch reached Minimize and Restore through a real director: requests "
+                    + requests + ", minimized " + presentation.Minimized + ", compact views " + director.IsCompact + ".");
+            };
+            return shot;
         }
 
         /// <summary>Whether the bound control stands in the view, in the frame's own words.</summary>
@@ -225,7 +329,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static readonly string[] States = { "5-approval", "5-approval-confirming", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question",
             "10-avatar-working", "10-avatar-turning", "10-avatar-waiting", "11-avatar-agents-off", "11-avatar-no-room", "12-to-compact-mid", "12-to-task-mid",
-            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-approval-from-activity" };
+            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-approval-from-activity", "13-host-compact" };
 
         // The ways back are the ones that exist: Settings' agents switch (SpaceSettings) and the placement column's move.
         private const string AgentsOff = "The workspace works without characters";
