@@ -7,24 +7,6 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>One line of the evidence rail: a journal-derived activity entry, the icon its event's kind shows and the tone its recorded outcome takes.</summary>
-    public sealed class KitTrailEntry
-    {
-        public KitTrailEntry(ActivityEntry entry, GlazeIcon icon, GlazeTone tone = GlazeTone.Neutral)
-        {
-            Entry = entry;
-            Icon = icon;
-            Tone = tone;
-        }
-
-        public ActivityEntry Entry { get; }
-
-        public GlazeIcon Icon { get; }
-
-        /// <summary>The recorded outcome's tone on the entry's icon; its words stay in the text colour.</summary>
-        public GlazeTone Tone { get; }
-    }
-
     /// <summary>
     /// The evidence rail's trail: what the journal recorded, newest last, each entry a node on one fine line with its
     /// words, under the minute it was recorded in. Where an entry ends in text from outside, as a file's path, a command

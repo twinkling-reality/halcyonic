@@ -8,51 +8,6 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>One project on the overview: its own name, a sentence of its work, and its tasks as rows.</summary>
-    public sealed class KitProjectModel
-    {
-        public KitProjectModel(string key, string name, string summary, IReadOnlyList<KitRowModel> tasks)
-        {
-            Key = key;
-            Name = name;
-            Summary = summary;
-            Tasks = tasks;
-        }
-
-        public string Key { get; }
-
-        public string Name { get; }
-
-        /// <summary>The project's work in a sentence a person would say, as "1 task waiting for you, 1 running".</summary>
-        public string Summary { get; }
-
-        public IReadOnlyList<KitRowModel> Tasks { get; }
-    }
-
-    /// <summary>What the overview shows: every project's work, led by what needs the person.</summary>
-    public sealed class KitOverviewModel
-    {
-        public KitOverviewModel(string title, string lead, IReadOnlyList<KitProjectModel> projects, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot)
-        {
-            Title = title;
-            Lead = lead;
-            Projects = projects;
-            Spine = spine;
-            SpineFoot = spineFoot;
-        }
-
-        public string Title { get; }
-
-        /// <summary>The whole workspace's attention in one or two sentences, what waits for the person first.</summary>
-        public string Lead { get; }
-
-        public IReadOnlyList<KitProjectModel> Projects { get; }
-
-        public IReadOnlyList<KitSpineSection> Spine { get; }
-
-        public KitRowModel? SpineFoot { get; }
-    }
-
     /// <summary>
     /// The overview: the same instrument with the spine at its left and a wider slate, the board, holding every project
     /// as one band of its own: the project's name, a sentence of its work, then its tasks as rows, each with its state

@@ -6,28 +6,6 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>What the compact presence keeps in view: the retained task, its state, and what waits anywhere in the workspace.</summary>
-    public sealed class KitPresenceModel
-    {
-        public KitPresenceModel(string taskTitle, StateBadge badge, int waiting)
-        {
-            TaskTitle = taskTitle;
-            Badge = badge;
-            Waiting = waiting;
-        }
-
-        public string TaskTitle { get; }
-
-        public StateBadge Badge { get; }
-
-        /// <summary>How many tasks wait for the person across the workspace, as known now.</summary>
-        public int Waiting { get; }
-
-        /// <summary>The count said in full, as there is room for it (WORDS.md): a count keeps its noun and its verb.</summary>
-        public string WaitingWords => Waiting == 0 ? "Nothing is waiting for you."
-            : Waiting == 1 ? "1 task is waiting for you." : Waiting + " tasks are waiting for you.";
-    }
-
     /// <summary>
     /// The compact presence: the whole instrument folded to one small opaque piece that stays beside other work. The
     /// connected switch stands at its left, its thumb on Compact; beside it the retained task's name, its state in
