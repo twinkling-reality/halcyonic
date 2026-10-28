@@ -57,17 +57,26 @@ namespace Halcyonic.Client
             return new Page(lines, null, new Footer(new Prompt(screen.InstructionHideOffered ? HideInstruction : CancelInstruction, screen.InstructionHideOffered ? "Hide composer" : "Cancel", GlazeIcon.Close, PromptKind.Close),
                 rare: screen.InstructionHideOffered ? new Prompt(CancelInstruction, "Discard draft", GlazeIcon.Close) : null,
                 secondary: screen.Speak ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true,
-                    available: workspace.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(workspace) == null,
-                    reason: workspace.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(workspace) == null ? null : WorkspaceText.NeedFromYou(workspace) != null ? "The agent needs your approval first." : WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions.") : null,
+                    available: WhyNoInstruction(workspace) == null, reason: WhyNoInstruction(workspace)) : null,
                 farRight: new Prompt(SendInstruction, "Send instruction", GlazeIcon.TellIt, main: true, available: reason == null, reason: reason)));
+        }
+
+        /// <summary>
+        /// Why no instruction can be sent to the work now, whatever is written: it waits on an approval first, or it
+        /// takes no instructions, in production's words; null while it takes one.
+        /// </summary>
+        public static string? WhyNoInstruction(WorkspacePresentation workspace)
+        {
+            if (WorkspaceText.NeedFromYou(workspace) != null) return "The agent needs your approval first.";
+            if (!workspace.Actions.Contains(WorkspaceAction.Instruct)) return WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions.";
+            return null;
         }
 
         public static string? InstructionSendReason(WorkspacePresentation workspace, FileScreen screen)
         {
             var instruction = screen.Instruction;
             if (!instruction.Open || instruction.ExecutionId != workspace.Execution?.ExecutionId) return InstructionChanged;
-            if (WorkspaceText.NeedFromYou(workspace) != null) return "The agent needs your approval first.";
-            if (!workspace.Actions.Contains(WorkspaceAction.Instruct)) return WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions.";
+            if (WhyNoInstruction(workspace) is string why) return why;
             if (instruction.Words.Length == 0) return InstructionEmpty;
             return !instruction.Read ? InstructionNotRead : null;
         }

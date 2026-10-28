@@ -262,7 +262,7 @@ namespace Halcyonic.XR.UI
                 composer.gameObject.SetActive(false);
                 return need.Confirming is KitConfirmation confirming
                     ? decision.ShowConfirming(topLeft, inner, need.DenyWords, need.ApproveWords, confirming.Approving, confirming.Ask, confirming.Confirm, confirming.Read, confirming.ReadFirst)
-                    : decision.ShowAsked(topLeft, inner, need.DenyWords, need.ApproveWords);
+                    : decision.ShowAsked(topLeft, inner, need.DenyWords, need.ApproveWords, need.DenyOffered, need.ApproveOffered);
             }
             decision.Hide();
             composer.gameObject.SetActive(true);

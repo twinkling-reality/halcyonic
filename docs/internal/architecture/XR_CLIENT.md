@@ -1497,10 +1497,13 @@ work, the overview, the compact presence, rows, spine sections, trail entries, n
 confirmations, questions and the task's character. `KitPresenter` fills them from what production
 already presents and words, and never words anything itself: an approval from
 `WorkspaceText.NeedFromYou`, with where an approved command runs standing apart only where that
-answer says it; a confirmation from `ConfirmationPrompt`, `ConfirmLabel` and `EntryText.ReadToPart`;
+answer says it, and each answer offered only where the presentation offers it, so a request that
+can only be denied shows no Approve (the decision bar leaves its place empty); a confirmation
+from `ConfirmationPrompt`, `ConfirmLabel` and `EntryText.ReadToPart`;
 a question under `PromptHeadingRuns`, only where the kit draws it whole (one answerable prompt
 answered by typing; several prompts, options or a secret give nothing); an outcome that can't be
-told in `WorkspaceText.NotSure`'s words; why Send is unavailable in `ConnectionText`'s; rows and the
+told in `WorkspaceText.NotSure`'s words; why Send is unavailable in `ConnectionText`'s, or while
+live in `FileScreens.WhyNoInstruction`'s, the reason the instruction page gives; rows and the
 presence from `StateLanguage.BadgeOf`. The agent's latest message stays a reported claim, and the
 evidence rail holds every other activity entry unchanged, with an icon for the kind of record and
 no outcome tone, since an entry carries none. No production view draws the kit yet; the overview's

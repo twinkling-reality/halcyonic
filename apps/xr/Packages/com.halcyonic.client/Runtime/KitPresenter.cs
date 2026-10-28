@@ -20,15 +20,20 @@ namespace Halcyonic.Client
         /// <summary>
         /// The approval the work waits on, in <see cref="WorkspaceText.NeedFromYou"/>'s words, or null while none
         /// waits. Where an approved command runs stands apart only where NeedFromYou says it, so for commands alone.
+        /// Each answer is offered only where production offers it, and a confirmation of one it doesn't is dropped.
         /// </summary>
         public static KitNeed? NeedOf(WorkspacePresentation workspace, KitConfirmation? confirming = null)
         {
             var need = WorkspaceText.NeedFromYou(workspace);
             if (need == null) return null;
+            var denyOffered = workspace.Actions.Contains(WorkspaceAction.Deny);
+            var approveOffered = workspace.Actions.Contains(WorkspaceAction.Approve);
+            if (confirming != null && !(confirming.Approving ? approveOffered : denyOffered)) confirming = null;
             var where = WorkspaceText.ApprovedCommandNote(workspace.Runtime);
             var scope = where != null && need.Notes.Contains(where) ? where : null;
             var notes = need.Notes.Where(note => scope == null || note != scope).ToList();
-            return new KitNeed(need.AsksRuns, need.Request, scope, notes, WorkspaceText.Label(WorkspaceAction.Deny), WorkspaceText.Label(WorkspaceAction.Approve), confirming);
+            return new KitNeed(need.AsksRuns, need.Request, scope, notes, WorkspaceText.Label(WorkspaceAction.Deny), WorkspaceText.Label(WorkspaceAction.Approve),
+                denyOffered, approveOffered, confirming);
         }
 
         /// <summary>
@@ -98,13 +103,14 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The focused work from the presentation: its state and marks, the agent's report, the rail, what it waits on,
-        /// and Send offered only where production offers an instruction and the connection is live.
+        /// and Send offered only where the connection is live and production takes an instruction, else why not in
+        /// <see cref="ConnectionText"/>'s or <see cref="FileScreens.WhyNoInstruction"/>'s words.
         /// </summary>
         public static KitWorkModel WorkOf(WorkspacePresentation workspace, string projectName, string draft, bool voiceOffered, ConnectionStatus connection,
             IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitConfirmation? confirming = null, KitAvatar? avatar = null)
         {
-            var whyNot = WhyNotSendOf(connection);
-            var sendable = whyNot == null && workspace.Actions.Contains(WorkspaceAction.Instruct);
+            var whyNot = WhyNotSendOf(connection) ?? FileScreens.WhyNoInstruction(workspace);
+            var sendable = whyNot == null;
             return new KitWorkModel(projectName, workspace.Character.Title, StateLanguage.BadgeOf(workspace.Character), StateLanguage.MarksOf(workspace.Character),
                 ReportOf(workspace.Activity), TrailOf(workspace.Activity), draft, voiceOffered, sendable, whyNot, spine, spineFoot,
                 NeedOf(workspace, confirming), AskOf(workspace), NoticeOf(workspace), avatar);

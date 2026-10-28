@@ -121,7 +121,7 @@ namespace Halcyonic.Client
     public sealed class KitNeed
     {
         public KitNeed(LineWords asks, string? request, string? scopeNote, IReadOnlyList<string> notes, string denyWords, string approveWords,
-            KitConfirmation? confirming = null)
+            bool denyOffered, bool approveOffered, KitConfirmation? confirming = null)
         {
             Asks = asks;
             Request = request;
@@ -129,6 +129,8 @@ namespace Halcyonic.Client
             Notes = notes;
             DenyWords = denyWords;
             ApproveWords = approveWords;
+            DenyOffered = denyOffered;
+            ApproveOffered = approveOffered;
             Confirming = confirming;
         }
 
@@ -147,6 +149,12 @@ namespace Halcyonic.Client
         public string DenyWords { get; }
 
         public string ApproveWords { get; }
+
+        /// <summary>Production offers Deny now (<see cref="WorkspacePresentation.Actions"/>); where it doesn't, none is drawn.</summary>
+        public bool DenyOffered { get; }
+
+        /// <summary>Production offers Approve now; not for a request it can't show whole, which can only be denied (<see cref="WorkspaceText.OnlyDeny"/>).</summary>
+        public bool ApproveOffered { get; }
 
         /// <summary>The confirmation of the answer pressed, or null while both answers are offered.</summary>
         public KitConfirmation? Confirming { get; }
