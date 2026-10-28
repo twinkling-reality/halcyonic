@@ -492,6 +492,18 @@ build's environment, and `BuildDevelopmentApk` then refuses an APK without the l
 HALCYONIC_OPERATOR=1 ADB_SERVER_SOCKET=tcp:localhost:5039 ANDROID_ADB_SERVER_PORT=5039 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
 ```
 
+A check build installs beside the owner's app instead of over it, with data of its own:
+`HALCYONIC_TEST_ID=1` in the build's environment makes `BuildDevelopmentApk` or `BuildReleaseApk`
+build `com.halcyonic.xr.check`, written to `Builds/Halcyonic-check.apk` or
+`Builds/Halcyonic-release-check.apk` so it never sits where an upload is taken from, and puts the
+project's id back afterwards, so ProjectSettings.asset never keeps it. Each build refuses an APK whose package is not the one asked for. A release build
+made this way is a check build: never upload or share it. Owner-facing and competition builds never
+set the variable.
+
+```bash
+HALCYONIC_TEST_ID=1 ADB_SERVER_SOCKET=tcp:localhost:5039 ANDROID_ADB_SERVER_PORT=5039 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
+```
+
 Never install a journey build over the owner's own app or run it with the owner's token, never
 build the owner's or a competition APK with `HALCYONIC_OPERATOR` set, and remove every
 `adb forward` to 8720 when the journey ends: while one exists, any browser tab on the Mac can reach
@@ -557,7 +569,9 @@ into a chat or a command line that a log keeps.
    HALCYONIC_VERSION_CODE=26111701 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildReleaseApk -logFile ~/Library/Logs/Unity/halcyonic-xr-release.log
    ```
    Check the log's `Halcyonic: the release APK carries version code …` and
-   `Halcyonic: built …`, and `aapt2 dump badging` for `versionCode`.
+   `Halcyonic: built …`, and `aapt2 dump badging` for `versionCode` and for
+   `package: name='com.halcyonic.xr'`: never `com.halcyonic.xr.check`, a check build, and never with
+   `HALCYONIC_TEST_ID` set (check builds go to `Halcyonic-release-check.apk` instead).
 5. Sign it with the release key. `apksigner` replaces the debug signature and asks for the
    passwords:
    ```bash

@@ -649,6 +649,11 @@ pnpm quest:device -- give-back
   the headset's bytes after `install -r`, so `restore` puts it back exactly with its data. It refuses
   while a system dialog is in front. Until the restore, `status` and `give-back` say the owner's app
   is replaced and how to restore it (the tool's state file, `.private/quest/state.json`).
+- A check build (`HALCYONIC_TEST_ID=1`, [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md)) installs beside the
+  owner's app: `install <apk> --package com.halcyonic.xr.check`, with no saved copy, since nothing
+  of the owner's is replaced. `grant <permission> --package com.halcyonic.xr.check` gives it the
+  scene or the microphone where its first start would otherwise ask, and
+  `uninstall --package com.halcyonic.xr.check` removes it at the end. Both act on that package only.
 - `launch` fails, and stops the app again, when a system dialog holds the launch. Launching the
   owner's own Halcyonic rewrites one of its files; never run it with a real runtime behind it.
   `--extra key=text` and `--extra-bool key=true|false` pass intent extras, letters, digits and

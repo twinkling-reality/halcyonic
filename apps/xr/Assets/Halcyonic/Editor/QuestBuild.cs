@@ -23,42 +23,59 @@ namespace Halcyonic.XR.Editor
         public const string DevelopmentApkPath = "Builds/Halcyonic.apk";
         public const string ReleaseApkPath = "Builds/Halcyonic-release.apk";
 
+        /// <summary>Where a check build (<see cref="TestApplicationId"/>) goes, never where an upload is taken from.</summary>
+        public const string CheckDevelopmentApkPath = "Builds/Halcyonic-check.apk";
+
+        public const string CheckReleaseApkPath = "Builds/Halcyonic-release-check.apk";
+
         [MenuItem("Halcyonic/Build Quest APK")]
         public static void BuildDevelopmentApk()
         {
-            var report = Build(DevelopmentApkPath, BuildOptions.Development);
+            var apkPath = TestApplicationId.Asked() ? CheckDevelopmentApkPath : DevelopmentApkPath;
+            if (TestApplicationId.Asked()) Debug.Log($"Halcyonic: this check build goes to {CheckDevelopmentApkPath}; {DevelopmentApkPath} is not written.");
+            BuildReport report;
+            using (TestApplicationId.Apply())
+            {
+                report = Build(apkPath, BuildOptions.Development);
+            }
             if (report.summary.result == BuildResult.Succeeded)
             {
+                if (!TestApplicationId.Carries(apkPath))
+                {
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}: its package is not the one asked for, {TestApplicationId.Wanted()}.");
+                    return;
+                }
                 // Meta XR Operator only in a journey build (OperatorInDevelopmentBuilds), both its files or neither.
-                var layer = OperatorInDevelopmentBuilds.FindIn(DevelopmentApkPath);
+                var layer = OperatorInDevelopmentBuilds.FindIn(apkPath);
                 if (!OperatorInDevelopmentBuilds.Asked() && layer.Count > 0)
                 {
-                    File.Delete(DevelopmentApkPath);
-                    Fail($"Halcyonic: deleted {DevelopmentApkPath}, which carries Meta XR Operator ({string.Join("; ", layer)}) though {OperatorInDevelopmentBuilds.Variable} is not 1: its server on 8720 has no authentication.");
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}, which carries Meta XR Operator ({string.Join("; ", layer)}) though {OperatorInDevelopmentBuilds.Variable} is not 1: its server on 8720 has no authentication.");
                     return;
                 }
                 if (OperatorInDevelopmentBuilds.Asked() && !OperatorInDevelopmentBuilds.LayerFiles.All(layer.Contains))
                 {
-                    File.Delete(DevelopmentApkPath);
-                    Fail($"Halcyonic: deleted {DevelopmentApkPath}: {OperatorInDevelopmentBuilds.Variable}=1 asked for Meta XR Operator, but the APK carries {(layer.Count == 0 ? "none of it" : string.Join("; ", layer))}.");
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}: {OperatorInDevelopmentBuilds.Variable}=1 asked for Meta XR Operator, but the APK carries {(layer.Count == 0 ? "none of it" : string.Join("; ", layer))}.");
                     return;
                 }
                 // The release check's positive control: everything it looks for is found here, where the glance is.
-                var missing = GlanceInDevelopmentBuilds.MissingFrom(GlanceInDevelopmentBuilds.FindIn(DevelopmentApkPath));
+                var missing = GlanceInDevelopmentBuilds.MissingFrom(GlanceInDevelopmentBuilds.FindIn(apkPath));
                 if (missing.Count > 0)
                 {
-                    Fail($"Halcyonic: the release build's glance check finds none of {string.Join("; ", missing)} in {DevelopmentApkPath}, which carries the glance, so it could miss them in a release.");
+                    Fail($"Halcyonic: the release build's glance check finds none of {string.Join("; ", missing)} in {apkPath}, which carries the glance, so it could miss them in a release.");
                     return;
                 }
                 // The same positive control for the boundary: the development build asks for it, never as a boundaryless app.
-                if (!MetaDevelopmentTools.ManifestAsks(DevelopmentApkPath, BoundaryInDevelopmentBuilds.Permission))
+                if (!MetaDevelopmentTools.ManifestAsks(apkPath, BoundaryInDevelopmentBuilds.Permission))
                 {
-                    Fail($"Halcyonic: {DevelopmentApkPath} doesn't ask for {BoundaryInDevelopmentBuilds.Permission}, so it can't hide the boundary and the release check could miss it.");
+                    Fail($"Halcyonic: {apkPath} doesn't ask for {BoundaryInDevelopmentBuilds.Permission}, so it can't hide the boundary and the release check could miss it.");
                     return;
                 }
-                if (MetaDevelopmentTools.ManifestAsks(DevelopmentApkPath, BoundaryInDevelopmentBuilds.BoundarylessFeature))
+                if (MetaDevelopmentTools.ManifestAsks(apkPath, BoundaryInDevelopmentBuilds.BoundarylessFeature))
                 {
-                    Fail($"Halcyonic: {DevelopmentApkPath} declares {BoundaryInDevelopmentBuilds.BoundarylessFeature}; Halcyonic has an immersive part and never declares it.");
+                    Fail($"Halcyonic: {apkPath} declares {BoundaryInDevelopmentBuilds.BoundarylessFeature}; Halcyonic has an immersive part and never declares it.");
                     return;
                 }
             }
@@ -87,6 +104,8 @@ namespace Halcyonic.XR.Editor
         [MenuItem("Halcyonic/Build Quest Release APK")]
         public static void BuildReleaseApk()
         {
+            var apkPath = TestApplicationId.Asked() ? CheckReleaseApkPath : ReleaseApkPath;
+            if (TestApplicationId.Asked()) Debug.Log($"Halcyonic: this check build goes to {CheckReleaseApkPath}; {ReleaseApkPath} is not written.");
             if (!ReleaseVersionCode.TryRead(out var versionCode, out var problem))
             {
                 Fail(problem);
@@ -97,8 +116,9 @@ namespace Halcyonic.XR.Editor
             {
                 using (DevAgentSettingsAside.Begin())
                 using (ReleaseVersionCode.Apply(versionCode))
+                using (TestApplicationId.Apply())
                 {
-                    report = Build(ReleaseApkPath, BuildOptions.None);
+                    report = Build(apkPath, BuildOptions.None);
                 }
             }
             catch (BuildFailedException e)
@@ -108,38 +128,44 @@ namespace Halcyonic.XR.Editor
             }
             if (report.summary.result == BuildResult.Succeeded)
             {
-                var found = MetaDevelopmentTools.FindIn(ReleaseApkPath);
-                found.AddRange(OperatorInDevelopmentBuilds.FindIn(ReleaseApkPath).Where(file => !found.Contains(file)));
+                if (!TestApplicationId.Carries(apkPath))
+                {
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}: its package is not the one asked for, {TestApplicationId.Wanted()}.");
+                    return;
+                }
+                var found = MetaDevelopmentTools.FindIn(apkPath);
+                found.AddRange(OperatorInDevelopmentBuilds.FindIn(apkPath).Where(file => !found.Contains(file)));
                 if (found.Count > 0)
                 {
-                    File.Delete(ReleaseApkPath);
-                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which carries Meta's development tools: {string.Join("; ", found)}.");
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}, which carries Meta's development tools: {string.Join("; ", found)}.");
                     return;
                 }
-                if (MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, MicrophonePermission))
+                if (MetaDevelopmentTools.ManifestAsks(apkPath, MicrophonePermission))
                 {
-                    File.Delete(ReleaseApkPath);
-                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which asks for {MicrophonePermission}: only development builds may use the microphone (ADR 0021).");
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}, which asks for {MicrophonePermission}: only development builds may use the microphone (ADR 0021).");
                     return;
                 }
-                var glance = GlanceInDevelopmentBuilds.FindIn(ReleaseApkPath);
+                var glance = GlanceInDevelopmentBuilds.FindIn(apkPath);
                 if (glance.Count > 0)
                 {
-                    File.Delete(ReleaseApkPath);
-                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which carries the glance spike, for development builds only: {string.Join("; ", glance)}.");
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}, which carries the glance spike, for development builds only: {string.Join("; ", glance)}.");
                     return;
                 }
                 foreach (var boundary in new[] { BoundaryInDevelopmentBuilds.Permission, BoundaryInDevelopmentBuilds.BoundarylessFeature })
                 {
-                    if (!MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, boundary)) continue;
-                    File.Delete(ReleaseApkPath);
-                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which asks for {boundary}: only development builds may hide the boundary.");
+                    if (!MetaDevelopmentTools.ManifestAsks(apkPath, boundary)) continue;
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}, which asks for {boundary}: only development builds may hide the boundary.");
                     return;
                 }
-                if (MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, GlassesDevice))
+                if (MetaDevelopmentTools.ManifestAsks(apkPath, GlassesDevice))
                 {
-                    File.Delete(ReleaseApkPath);
-                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which declares Meta VR Glasses ({GlassesDevice}): the store build claims only devices it has run on.");
+                    File.Delete(apkPath);
+                    Fail($"Halcyonic: deleted {apkPath}, which declares Meta VR Glasses ({GlassesDevice}): the store build claims only devices it has run on.");
                     return;
                 }
             }
@@ -372,6 +398,59 @@ namespace Halcyonic.XR.Editor
     /// changes. Without it the project's own code (1) is kept, and the log says it is not for an
     /// upload. See docs/internal/runbooks/XR_DEVELOPMENT.md, "Before an upload".
     /// </summary>
+    /// <summary>
+    /// The test application id, for check builds that install beside the owner's app with data of
+    /// their own: with <c>HALCYONIC_TEST_ID=1</c> in the build's environment, the APK is
+    /// <see cref="CheckId"/> instead of the project's id, and the project's id is put back when
+    /// disposed, so ProjectSettings.asset never keeps it. Owner-facing and competition builds never
+    /// set it; a release build made with it is a check build, not one to upload.
+    /// </summary>
+    internal sealed class TestApplicationId : IDisposable
+    {
+        internal const string Variable = "HALCYONIC_TEST_ID";
+
+        internal const string ProjectId = "com.halcyonic.xr";
+
+        internal const string CheckId = ProjectId + ".check";
+
+        private readonly string previous;
+
+        private TestApplicationId(string previous)
+        {
+            this.previous = previous;
+        }
+
+        /// <summary>Whether this process's environment asks for the test id: exactly <c>1</c>.</summary>
+        internal static bool Asked() => Environment.GetEnvironmentVariable(Variable) == "1";
+
+        /// <summary>The application id the build was asked for.</summary>
+        internal static string Wanted() => Asked() ? CheckId : ProjectId;
+
+        /// <summary>Sets the test id for the build when asked, and puts the project's back when disposed.</summary>
+        internal static TestApplicationId Apply()
+        {
+            var applied = new TestApplicationId(PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Android));
+            if (Asked())
+            {
+                PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, CheckId);
+                Debug.Log($"Halcyonic: a check build, {CheckId}, to install beside the owner's {ProjectId}; never upload or share it.");
+            }
+            return applied;
+        }
+
+        /// <summary>
+        /// Whether the APK's manifest is the package asked for: a check build names <see cref="CheckId"/>;
+        /// any other build never does. The manifest names the project's id in both, inside the check id.
+        /// </summary>
+        internal static bool Carries(string apkPath) =>
+            MetaDevelopmentTools.ManifestAsks(apkPath, CheckId) == Asked();
+
+        public void Dispose()
+        {
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, previous);
+        }
+    }
+
     internal sealed class ReleaseVersionCode : IDisposable
     {
         internal const string Variable = "HALCYONIC_VERSION_CODE";

@@ -48,6 +48,12 @@ else if (said.startsWith('shell ls /sdcard/Download/')) {
 else if (said.startsWith('shell sha256sum /sdcard/')) out(sha(PULLED) + '  ' + args[2]);
 else if (args[0] === 'pull' && args[1].startsWith('/sdcard/')) fs.writeFileSync(args[2], scenario.pullMatches ? PULLED : 'other bytes');
 else if (said === 'shell pm path com.halcyonic.xr') out('package:/data/app/test/base.apk');
+else if (said === 'shell pm path com.halcyonic.xr.check') {
+  if (fs.existsSync(process.env.ADB_CALLS + '.check-sha')) out('package:/data/app/check/base.apk');
+} else if (said === 'shell sha256sum /data/app/check/base.apk') out(fs.readFileSync(process.env.ADB_CALLS + '.check-sha', 'utf8') + '  /data/app/check/base.apk');
+else if (said === 'shell dumpsys package com.halcyonic.xr.check') out('      firstInstallTime=2026-01-01 00:00:00');
+else if (args[0] === 'install' && args[1] === '-r') fs.writeFileSync(process.env.ADB_CALLS + '.check-sha', sha(fs.readFileSync(args[2], 'utf8')));
+else if (said === 'uninstall com.halcyonic.xr.check' || said.startsWith('shell pm grant com.halcyonic.xr.check ')) {}
 else if (said === 'shell sha256sum /data/app/test/base.apk') out(scenario.installedSha256 + '  /data/app/test/base.apk');
 else if (said === 'shell dumpsys package com.halcyonic.xr') out('      firstInstallTime=2026-01-01 00:00:00');
 else if (said === 'shell dumpsys activity activities') out('      topResumedActivity=ActivityRecord{a u0 com.oculus.vrshell/.HomeActivity t1}');
@@ -222,6 +228,67 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     assert.equal(code, 1, said);
     assert.match(said, /The launch was held and com\.halcyonic\.xr was stopped/);
     assert.ok(calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
+  });
+
+  test('uninstall refuses every package but the check build, and names it exactly', async () => {
+    for (const other of [[], ['--package', 'com.halcyonic.xr'], ['--package', 'com.boopy.quest']]) {
+      const { code, said, calls } = await device({}, 'uninstall', ...other);
+      assert.equal(code, 1, said);
+      assert.ok(!calls.some((call) => call.startsWith('uninstall')), calls.join('\n'));
+    }
+    const { code, said, calls } = await device(
+      {},
+      'uninstall',
+      '--package',
+      'com.halcyonic.xr.check',
+    );
+    assert.equal(code, 0, said);
+    assert.deepEqual(
+      calls.filter((call) => call.startsWith('uninstall')),
+      ['uninstall com.halcyonic.xr.check'],
+    );
+  });
+
+  test('grant gives only the listed permissions, and only to the check build', async () => {
+    for (const refused of [
+      ['--package', 'com.halcyonic.xr', 'com.oculus.permission.USE_SCENE'],
+      ['--package', 'com.halcyonic.xr.check', 'android.permission.READ_CONTACTS'],
+      ['--package', 'com.halcyonic.xr.check'],
+    ]) {
+      const { code, said, calls } = await device({}, 'grant', ...refused);
+      assert.equal(code, 1, said);
+      assert.ok(!calls.some((call) => call.includes('pm grant')), calls.join('\n'));
+    }
+    const { code, said, calls } = await device(
+      {},
+      'grant',
+      '--package',
+      'com.halcyonic.xr.check',
+      'com.oculus.permission.USE_SCENE',
+    );
+    assert.equal(code, 0, said);
+    assert.deepEqual(
+      calls.filter((call) => call.includes('pm grant')),
+      ['shell pm grant com.halcyonic.xr.check com.oculus.permission.USE_SCENE'],
+    );
+  });
+
+  test("the check build installs without a saved copy and is never taken for the owner's app", async () => {
+    const apk = join(directory, 'check.apk');
+    writeFileSync(apk, 'a check build');
+    const { code, said, calls } = await device(
+      {},
+      'install',
+      apk,
+      '--package',
+      'com.halcyonic.xr.check',
+    );
+    assert.equal(code, 0, said);
+    assert.ok(calls.includes(`install -r ${apk}`), calls.join('\n'));
+    assert.doesNotMatch(said, /The owner's/);
+    const state = join(directory, `state-${runs - 1}.json`);
+    const installs = existsSync(state) ? JSON.parse(readFileSync(state, 'utf8')).installs : {};
+    assert.deepEqual(installs, {});
   });
 
   test("the capture service is not used while the headset's log says media sync is on", async () => {

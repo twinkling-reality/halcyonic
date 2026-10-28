@@ -10,6 +10,9 @@
  *   pnpm quest:device -- save [--package <p>]        pulls the installed APK and checks its bytes
  *   pnpm quest:device -- install <apk> --saved <saved apk> [--package <p>]
  *   pnpm quest:device -- restore <saved apk> [--package <p>]
+ *   pnpm quest:device -- install <check apk> --package com.halcyonic.xr.check   beside the owner's app
+ *   pnpm quest:device -- grant <permission> --package com.halcyonic.xr.check
+ *   pnpm quest:device -- uninstall --package com.halcyonic.xr.check             the check build only
  *   pnpm quest:device -- launch [--package <p>]      fails when a system dialog holds the launch
  *     [--extra <key>=<text>] [--extra-bool <key>=true|false]   intent extras, each repeatable
  *   pnpm quest:device -- stop [--package <p>]
@@ -17,6 +20,10 @@
  *   pnpm quest:device -- shot --service --sync-is-off    Meta's capture service, one eye
  *   pnpm quest:device -- record --seconds <n> --sync-is-off
  *   pnpm quest:device -- logs [--out <file>]         Halcyonic's own lines, its process only
+ *
+ * A check build (QuestBuild's test application id, `com.halcyonic.xr.check`) installs beside the
+ * owner's app with data of its own, so it needs no saved copy, and it is the only package `grant`
+ * and `uninstall` act on: `grant` gives it one of the permissions in GRANTABLE.
  *
  * Besides what adb.ts lists, it runs `input keyevent KEYCODE_WAKEUP` (no other input), the
  * vrpowermanager `prox_close` and `automation_disable` broadcasts, the testing service's
@@ -67,12 +74,25 @@ import { readBattery, readThermal } from './readings.ts';
 
 const run = promisify(execFile);
 const command = process.argv[2] ?? '';
-const positional =
-  process.argv[3] !== undefined && !process.argv[3].startsWith('--') ? process.argv[3] : undefined;
+/** Options that take a value, so the value is never taken for the command's own argument. */
+const VALUED = new Set(['--package', '--saved', '--out', '--seconds', '--extra', '--extra-bool']);
+
+/** The command's own argument, such as the APK or the permission: the first word that is neither an option nor an option's value. */
+const positional = process.argv
+  .slice(3)
+  .find((word, at, words) => !word.startsWith('--') && !VALUED.has(words[at - 1] ?? ''));
 const flag = (name: string) => process.argv.includes(`--${name}`);
 const packageName = textOption('package', PACKAGE);
 const out = textOption('out', '.private/quest');
 const STATE = process.env.HALCYONIC_QUEST_STATE ?? '.private/quest/state.json';
+const CHECK_PACKAGE = `${PACKAGE}.check`;
+
+/** What `grant` may give the check build: the scene, and the microphone for hold to talk. */
+const GRANTABLE = [
+  'com.oculus.permission.USE_SCENE',
+  'horizonos.permission.USE_SCENE',
+  'android.permission.RECORD_AUDIO',
+];
 
 interface State {
   /** Each app installed over, with the saved copy that puts the owner's back. */
@@ -175,7 +195,8 @@ async function warnIfSyncOn(): Promise<void> {
 
 /** The proximity override as GET_PROPERTY reads it, after the broadcast has had time to land. */
 async function proximityOverride(): Promise<boolean | undefined> {
-  await sleep(Number(process.env.HALCYONIC_QUEST_SETTLE_MS ?? 5000));
+  const given = process.env.HALCYONIC_QUEST_SETTLE_MS ?? '';
+  await sleep(/^\d+$/.test(given) ? Number(given) : 5000);
   return readTestingProperties(await adbSaid('shell', ...TESTING)).set_proximity_close;
 }
 
@@ -297,6 +318,18 @@ async function save(): Promise<void> {
 async function install(): Promise<void> {
   if (positional === undefined || !existsSync(positional))
     fail('install needs the APK to install.');
+  if (packageName === CHECK_PACKAGE) {
+    await refuseSystemDialog('installing');
+    const wanted = sha256File(positional);
+    await adb('install', '-r', positional);
+    const after = await installed(CHECK_PACKAGE);
+    if (after?.sha256 !== wanted)
+      fail(`${CHECK_PACKAGE} on the headset is not ${basename(positional)} after install -r.`);
+    console.log(
+      `Installed ${basename(positional)} (${wanted.slice(0, 12)}) as ${CHECK_PACKAGE}, beside the owner's app.`,
+    );
+    return;
+  }
   const saved = textOption('saved', '');
   if (saved === '' || !existsSync(saved))
     fail(
@@ -363,6 +396,28 @@ function launchExtras(argv: readonly string[]): string[] {
     at++;
   }
   return options;
+}
+
+async function uninstall(): Promise<void> {
+  if (packageName !== CHECK_PACKAGE) {
+    fail(`uninstall acts only on the check build, ${CHECK_PACKAGE}; never on ${packageName}.`);
+  }
+  await adb('uninstall', CHECK_PACKAGE);
+  writeState((state) => {
+    state.started = state.started.filter((name) => name !== CHECK_PACKAGE);
+  });
+  console.log(`Uninstalled ${CHECK_PACKAGE}.`);
+}
+
+async function grant(): Promise<void> {
+  if (packageName !== CHECK_PACKAGE) {
+    fail(`grant acts only on the check build, ${CHECK_PACKAGE}; never on ${packageName}.`);
+  }
+  if (positional === undefined || !GRANTABLE.includes(positional)) {
+    fail(`grant gives one of: ${GRANTABLE.join(', ')}.`);
+  }
+  await adb('shell', 'pm', 'grant', CHECK_PACKAGE, positional);
+  console.log(`Granted ${positional} to ${CHECK_PACKAGE}.`);
 }
 
 async function launch(): Promise<void> {
@@ -500,6 +555,8 @@ const commands: Record<string, () => Promise<void>> = {
   'give-back': giveBack,
   save,
   install,
+  uninstall,
+  grant,
   restore,
   launch,
   stop,
