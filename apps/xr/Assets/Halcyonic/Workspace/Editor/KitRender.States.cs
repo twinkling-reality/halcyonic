@@ -56,6 +56,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // The rail's own rows (the host's DefaultRailRows), turned to the page of Activity where the routes stand.
             "13-bound-routes" => Bound(root, eyes, Running(SelectedEntries().Skip(SelectedEntries().Count - 3).ToList()), Routed(), "Bound to the file: running, the task's routes at the rail's foot, synthetic data",
                 RequireRoutes, rows: 8, until: frame => frame.Lines.Any(line => line.Action == FileScreens.ShowTaskHere)),
+            "13-bound-routes-page" => Bound(root, eyes, Running(), Routed(), "Bound to the file: the page of Activity holding only the task's routes, synthetic data",
+                RequireRoutesPage, rows: 8, until: frame => frame.Lines.Any(line => line.Action == FileScreens.ShowTaskHere)),
             "13-host-compact" => HostCompact(root, eyes),
             "13-bound-approval-from-activity" => Bound(root, eyes, WithActivity(ApprovalWorkspace(), SelectedEntries()), new FileScreen { Section = FileSection.Activity, Speak = true },
                 "Bound to the file: an approval waits on Waiting, seen from Activity, synthetic data", RequireSaid),
@@ -103,7 +105,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 view.Show(model, binding);
                 view.Spine.Switch.gameObject.SetActive(false);
-            });
+            }, bound: binding);
         }
 
         /// <summary>
@@ -279,7 +281,16 @@ namespace Halcyonic.XR.Workspace.Editor
             if (view.Trail.Earlier > 0) shot.Failures.Add("the routes left the trail too little room for the page's " + view.Trail.Earlier + " earlier entries");
             if (view.Routes.Any(route => !view.RailTargets.Contains(route.Press))) shot.Failures.Add("a route takes no presses");
             var trailBottom = view.Trail.transform.localPosition.y - view.Trail.Height;
-            if (view.Routes.Any(route => route.transform.localPosition.y + route.Size.y / 2f > trailBottom + 1e-4f)) shot.Failures.Add("a route stands over the trail");
+            if (view.Trail.gameObject.activeSelf && view.Routes.Any(route => route.transform.localPosition.y + route.Size.y / 2f > trailBottom + 1e-4f))
+                shot.Failures.Add("a route stands over the trail");
+        }
+
+        /// <summary>The page of Activity that holds only the routes: its pager and its routes, and no trail, since the page shows no recorded event.</summary>
+        private static void RequireRoutesPage(KitWorkView view, Shot shot)
+        {
+            RequireRoutes(view, shot);
+            if (!view.Earlier.gameObject.activeSelf) shot.Failures.Add("the page's pager is not shown");
+            if (view.Trail.gameObject.activeSelf) shot.Failures.Add("the rail shows a trail on a page that shows no recorded event");
         }
 
         /// <summary>The instruction composer open on the person's draft.</summary>
@@ -329,7 +340,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static readonly string[] States = { "5-approval", "5-approval-confirming", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question",
             "10-avatar-working", "10-avatar-turning", "10-avatar-waiting", "11-avatar-agents-off", "11-avatar-no-room", "12-to-compact-mid", "12-to-task-mid",
-            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-approval-from-activity", "13-host-compact" };
+            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-routes-page", "13-bound-approval-from-activity", "13-host-compact" };
 
         // The ways back are the ones that exist: Settings' agents switch (SpaceSettings) and the placement column's move.
         private const string AgentsOff = "The workspace works without characters";
