@@ -36,6 +36,9 @@ namespace Halcyonic.Client
 
         /// <summary>One of the file's sections: Waiting, Activity, Changes or Checks.</summary>
         Section,
+
+        /// <summary>Activity's pager: Next page, and on its last page First page.</summary>
+        Pager,
     }
 
     /// <summary>
@@ -116,6 +119,13 @@ namespace Halcyonic.Client
 
         public IEnumerable<KitControl> Sections => Controls.Where(control => control.Place == KitPlace.Section);
 
+        /// <summary>The prefix of a spine row's key that stands for one of the file's sections.</summary>
+        public const string SectionRowKey = "section:";
+
+        /// <summary>The file's sections as the spine's rows under the task, keyed <see cref="SectionRowKey"/> and the section's key, the one showing lit.</summary>
+        public IReadOnlyList<KitRowModel> SectionRows => Sections
+            .Select(section => new KitRowModel(SectionRowKey + section.Key, LineWords.Ours(section.Words), opensMore: false, selected: section.Chosen)).ToList();
+
         /// <summary>
         /// Binds the kit to <paramref name="frame"/>, the frame <paramref name="workspace"/>'s file drew with
         /// <paramref name="armed"/> armed (<see cref="WorkspaceSteering.Armed"/>), and the person's
@@ -136,8 +146,9 @@ namespace Halcyonic.Client
             }
             foreach (var line in frame.Lines.Where(line => line.Action != null))
             {
-                if (line.Action != FileScreens.EditInstruction || controls.Any(control => control.Place == KitPlace.Field)) return null;
-                controls.Add(new KitControl(KitPlace.Field, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false));
+                var place = line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager : (KitPlace?)null;
+                if (place == null || controls.Any(control => control.Place == place)) return null;
+                controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false));
             }
             foreach (var section in frame.Sections)
                 controls.Add(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, section.Key, section.Words, null, true, null, false, section.Chosen));
@@ -167,14 +178,18 @@ namespace Halcyonic.Client
             }
             else if (cancel != null || At(KitPlace.Yes) != null) return null;
             // Send says what the frame says of it; with no Send on the frame, only why the connection keeps it.
+            var said = Said(frame, workspace);
             var model = new KitWorkModel(work.ProjectName, work.TaskTitle, work.Badge, work.Marks, work.Report, work.Trail, draft, work.VoiceOffered,
                 send != null && send.Available, send != null ? send.Reason : KitPresenter.WhyNotSendOf(connection), work.Spine, work.SpineFoot,
-                need, null, work.Notice, work.Avatar);
+                need, null, work.Notice, work.Avatar, said);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);
+            foreach (var line in said) shown.Add(line.Words);
             for (var index = 0; index < frame.Lines.Count; index++)
             {
+                // A line that acts is a control, with its own words.
+                if (frame.Lines[index].Action != null) continue;
                 var words = frame.Lines[index].Words;
                 var question = cancel != null && index == frame.Lines.Count - 1;
                 var request = need?.Request is string whole && (words == whole || words.EndsWith(": " + whole, System.StringComparison.Ordinal));
@@ -188,8 +203,8 @@ namespace Halcyonic.Client
         /// <summary>The words the kit shows of <paramref name="model"/>: its recorded activity, the agent's report, what it asks, its notice, and the person's instruction under its caption.</summary>
         private static HashSet<string> ShownWords(KitWorkModel model, WorkspacePresentation workspace)
         {
-            // The kit's rail has no words yet for an activity with nothing recorded, so production's are not among these.
-            var shown = new HashSet<string>(System.StringComparer.Ordinal) { FileScreens.YourInstruction };
+            // The rail says production's words where nothing has been recorded.
+            var shown = new HashSet<string>(System.StringComparer.Ordinal) { FileScreens.YourInstruction, FileScreens.NoActivityYet };
             foreach (var entry in workspace.Activity) shown.Add(entry.Text);
             if (model.Draft.Length > 0) shown.Add(model.Draft);
             if (model.Notice != null) shown.Add(model.Notice.Words.Text);
@@ -202,9 +217,27 @@ namespace Halcyonic.Client
             return shown;
         }
 
+        /// <summary>
+        /// What Activity says of the work beside its state, as the file laid it: the lines it leads with in a waiting or
+        /// a problem's tone (an approval or a question waiting on Waiting, attention notes), then why nothing can be sent,
+        /// where it says so. Taken by their place and tone on the page, never by matching their words.
+        /// </summary>
+        private static IReadOnlyList<PageLine> Said(MenuFrame frame, WorkspacePresentation workspace)
+        {
+            var said = new List<PageLine>();
+            if (!frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Activity))) return said;
+            var index = 0;
+            while (index < frame.Lines.Count && frame.Lines[index].Action == null
+                && (frame.Lines[index].Tone == LineTone.Waiting || frame.Lines[index].Tone == LineTone.Problem)) said.Add(frame.Lines[index++]);
+            if (index < frame.Lines.Count && frame.Lines[index].Action == null && frame.Lines[index].Tone == LineTone.Secondary
+                && WorkspaceText.WhyNoActions(workspace) is string why && frame.Lines[index].Words == why) said.Add(frame.Lines[index]);
+            return said;
+        }
+
         /// <summary>The kit place of a footer prompt, or null where the kit has none for it.</summary>
         private static KitPlace? PlaceOf(PromptSlot slot, Prompt prompt)
         {
+            if (prompt.Kind == PromptKind.NextPage) return KitPlace.Pager;
             if (prompt.Kind == PromptKind.Close) return KitPlace.Close;
             if (prompt.Kind == PromptKind.Cancel) return KitPlace.Cancel;
             if (prompt.Kind == PromptKind.Yes) return KitPlace.Yes;

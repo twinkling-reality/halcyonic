@@ -1512,6 +1512,9 @@ The kit's Editor renders (`KitRender`) draw it through `CurvedDrawing`, producti
 `KitFileBinding` binds the kit to the frame a task's file drew: every press the frame offers takes a kit
 place with the frame's own action, words, availability and reason, and every line the frame shows must be
 words the kit shows too; otherwise there is no binding and the file draws the frame as before.
+What Activity leads with, attention notes, an approval waiting on Waiting and why nothing can be sent, is
+taken by its place and tone into the kit's slate in the file's own lines, and the four sections become rows of
+the kit's spine.
 
 ## Verification
 
