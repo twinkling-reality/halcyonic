@@ -114,8 +114,8 @@ namespace Halcyonic.XR.Workspace.Editor
             /// <summary>Where the eyes see a point of the instrument as laid out: itself on the plane, bent onto the curve.</summary>
             public Func<Vector3, Vector3> Seen = point => point;
 
-            /// <summary>Meshes the curve made, destroyed with the shot.</summary>
-            public List<Mesh> Meshes = new List<Mesh>();
+            /// <summary>The curve the instrument is drawn on, production's own; null on the plane.</summary>
+            public CurvedDrawing? Curve;
 
             /// <summary>
             /// A frame inside a move: nothing in it is read, so the checks of words, targets and the field, which hold
@@ -148,6 +148,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // the dark carriers would keep only a few steps and lose the recess shade.
             var target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB) { antiAliasing = 1 };
             var eyes = new Vector3(0f, EyeHeight, 0f);
+            var curveWas = CurvedDrawing.Enabled;
             Shot? made = null;
             try
             {
@@ -165,9 +166,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
                 SetLayer(root, KitLayer);
                 ForceMeshes(root);
-                // The curve is drawn by bending the laid-out plane's meshes round the eyes; everything after measures
-                // where the eyes see each point.
-                if (shot.Curved) shot.Meshes.AddRange(BendMeshes(root, shot.Seen));
+                // The curve is drawn by production's own drawing of a laid-out plane; everything after measures where
+                // the eyes see each point.
+                if (shot.Curve is CurvedDrawing curve) failures.AddRange(DrawOnTheCurve(curve, root, name));
                 if (shot.Moving) Debug.Log("Halcyonic: spatial kit: " + name + " is a frame inside a move: words, targets and the field are held at its end, a state at rest.");
                 else
                 {
@@ -263,7 +264,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(root);
                 UnityEngine.Object.DestroyImmediate(fixture);
                 if (made != null) foreach (var extra in made.Extras) UnityEngine.Object.DestroyImmediate(extra);
-                if (made != null) foreach (var mesh in made.Meshes) UnityEngine.Object.DestroyImmediate(mesh);
+                CurvedDrawing.Enabled = curveWas;
                 target.Release();
                 UnityEngine.Object.DestroyImmediate(target);
             }
@@ -410,7 +411,11 @@ namespace Halcyonic.XR.Workspace.Editor
         private static void Stand(Shot shot, Transform view, Vector3 eyes, IEnumerable<KitCarrier> carriers, Vector2 size)
         {
             shot.Instrument = view;
-            if (shot.Curved) shot.Seen = CurveAbout(view, eyes);
+            if (shot.Curved)
+            {
+                shot.Curve = CurveAt(view, eyes);
+                shot.Seen = shot.Curve.Bend;
+            }
             foreach (var carrier in carriers)
             {
                 var half = carrier.Size / 2f;
@@ -425,84 +430,48 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// One gentle curve centred on the eyes, about the instrument's own up: a point the plane lays out at an arc's
-        /// length across from its centre stands that arc round the eyes at the same distance, so every column of the
-        /// instrument faces the eyes across and keeps its words' size; the recessed regions curve the same way a
-        /// little farther out.
+        /// Production's one gentle curve (ADR 0034, <see cref="CurvedDrawing"/>) for an instrument stood at
+        /// <paramref name="view"/>: its axis through the eyes along the instrument's own up, the forward region on it at
+        /// the plane's distance. A point laid out an arc's length across from the centre stands that arc round the eyes,
+        /// so every column faces the eyes across and keeps its words' size; a recessed band keeps the same angle,
+        /// <see cref="SpatialKit.RecessMeters"/> farther out, so its edges stay on one line from the eyes with the slate's.
         /// </summary>
-        private static Func<Vector3, Vector3> CurveAbout(Transform view, Vector3 eyes)
+        private static CurvedDrawing CurveAt(Transform view, Vector3 eyes)
         {
-            var eye = view.InverseTransformPoint(eyes);
-            return world =>
-            {
-                var from = view.InverseTransformPoint(world) - eye;
-                var angle = from.x / from.z;
-                return view.TransformPoint(eye + new Vector3(from.z * Mathf.Sin(angle), from.y, from.z * Mathf.Cos(angle)));
-            };
+            var root = view.root.gameObject;
+            var curve = root.GetComponent<CurvedDrawing>();
+            if (curve == null) curve = root.AddComponent<CurvedDrawing>();
+            curve.Place(eyes, view.rotation);
+            return curve;
         }
 
         /// <summary>
-        /// Draws the laid-out instrument on its curve: every surface's quad becomes a strip of columns half a degree
-        /// wide, its UVs kept so the shape draws the same, and every glyph of every label is moved where the curve puts
-        /// it. Returns the meshes it made.
+        /// Draws the laid-out instrument on its curve the way production draws a plane: the switch on, every shape a
+        /// strip of columns and every label bent in its one hook, where <see cref="Shot.Seen"/> measures. The task's
+        /// character is a body, not a page: it stands where the curve puts its feet, turned with it. The curve draws
+        /// what was laid out, no more and no less: as many shapes, labels and glyphs as flat.
         /// </summary>
-        private static List<Mesh> BendMeshes(GameObject root, Func<Vector3, Vector3> bend)
+        private static List<string> DrawOnTheCurve(CurvedDrawing curve, GameObject root, string name)
         {
-            var made = new List<Mesh>();
-            var column = Mathf.Tan(0.5f * Mathf.Deg2Rad) * PlaneComposition.Distance;
-            foreach (var surface in root.GetComponentsInChildren<Surface>(true))
+            var failures = new List<string>();
+            var bodies = root.GetComponentsInChildren<CharacterView>(true).Select(character => character.transform).ToList();
+            var flat = curve.Counts(bodies);
+            CurvedDrawing.Enabled = true;
+            curve.Refresh(bodies);
+            ForceMeshes(root);
+            if (!curve.On) failures.Add(name + ": the switch did not put the instrument on the curve");
+            foreach (var body in bodies)
             {
-                if (surface.GetComponentInParent<CharacterView>() != null) continue;
-                var filter = surface.GetComponent<MeshFilter>();
-                var t = surface.transform;
-                var scale = t.lossyScale;
-                if (filter == null || Mathf.Abs(scale.x) < 1e-6f || Mathf.Abs(scale.y) < 1e-6f) continue;
-                var columns = Mathf.Clamp(Mathf.CeilToInt(Mathf.Abs(scale.x) / column), 1, 400);
-                var vertices = new List<Vector3>();
-                var uvs = new List<Vector2>();
-                var triangles = new List<int>();
-                for (var i = 0; i <= columns; i++)
-                {
-                    var u = (float)i / columns;
-                    foreach (var v in new[] { 0f, 1f })
-                    {
-                        vertices.Add(t.InverseTransformPoint(bend(t.TransformPoint(new Vector3(u - 0.5f, v - 0.5f, 0f)))));
-                        uvs.Add(new Vector2(u, v));
-                    }
-                    // As the shared quad winds: bottom left, top right, bottom right; bottom left, top left, top right.
-                    if (i < columns) triangles.AddRange(new[] { 2 * i, 2 * i + 3, 2 * i + 2, 2 * i, 2 * i + 1, 2 * i + 3 });
-                }
-                var mesh = new Mesh { name = "Glaze surface on the curve" };
-                mesh.SetVertices(vertices);
-                mesh.SetUVs(0, uvs);
-                mesh.SetTriangles(triangles, 0);
-                mesh.RecalculateBounds();
-                filter.sharedMesh = mesh;
-                made.Add(mesh);
+                var at = curve.Bend(body.position);
+                var along = curve.Bend(body.position + body.right * 0.001f) - at;
+                body.SetPositionAndRotation(at, Quaternion.FromToRotation(body.right, along.normalized) * body.rotation);
             }
-            // A character is a body, not a page: it stands where the curve puts its feet, turned with it.
-            foreach (var character in root.GetComponentsInChildren<CharacterView>(true))
-            {
-                var t = character.transform;
-                var right = t.right * 0.001f;
-                var at = bend(t.position);
-                var along = bend(t.position + right) - at;
-                t.SetPositionAndRotation(at, Quaternion.FromToRotation(t.right, along.normalized) * t.rotation);
-            }
-            foreach (var label in root.GetComponentsInChildren<TMP_Text>(true))
-            {
-                if (label.textInfo == null || label.GetComponentInParent<CharacterView>() != null) continue;
-                var t = label.transform;
-                foreach (var info in label.textInfo.meshInfo)
-                {
-                    if (info.vertices == null) continue;
-                    for (var k = 0; k < info.vertexCount; k++) info.vertices[k] = t.InverseTransformPoint(bend(t.TransformPoint(info.vertices[k])));
-                }
-                label.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices);
-                if (label is TextMeshPro text && text.mesh != null) text.mesh.RecalculateBounds();
-                foreach (var sub in label.GetComponentsInChildren<TMP_SubMesh>(true)) if (sub.mesh != null) sub.mesh.RecalculateBounds();
-            }
-            return made;
+            var bent = curve.Counts(bodies);
+            Debug.Log("Halcyonic: spatial kit: " + name + " on the curve: " + bent.Surfaces + " surfaces with " + bent.SurfaceVertices + " vertices ("
+                + flat.SurfaceVertices + " flat), " + bent.Labels + " labels, " + bent.Glyphs + " glyphs.");
+            if (bent.Surfaces != flat.Surfaces || bent.Labels != flat.Labels || bent.Glyphs != flat.Glyphs)
+                failures.Add(name + ": the curve changed what is drawn: " + flat + " flat against " + bent);
+            return failures;
         }
 
         /// <summary>

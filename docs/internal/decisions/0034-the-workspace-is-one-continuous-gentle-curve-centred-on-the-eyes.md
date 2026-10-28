@@ -66,3 +66,11 @@ direction."
   then does.
 - Worth revisiting if a wearer finds the curve uncomfortable, if poke on a concave surface proves unreliable,
   or if frame time on the device cannot carry the bent meshes.
+
+## Note, 2026-10-28: the angle of a recessed band
+
+The mapping's angle is the laid-out x over the forward region's radius, for every band: a recessed band keeps
+the angle and stands 10 mm farther out (`PlaneCurve`). An edge laid out at one x then stays on one line from
+the eyes on the slate and on the bands beside it, and hits map back by the same inverse. The first renders bent
+each band by its own radius instead; on the shared mapping the outer edges stand about 0.7 degrees farther out
+(the focused work spreads 69.4 degrees at both text sizes, not 68.0).
