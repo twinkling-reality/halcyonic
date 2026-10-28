@@ -10,7 +10,7 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The spatial kit standing in for a task's file in the independent workspace (D3.4): it shows <see cref="KitWorkView"/>
-    /// from a <see cref="KitFileBinding"/>, the file's sections as tabs on the slate, and raises, in the plane's own terms, what each of its controls raises: the
+    /// from a <see cref="KitFileBinding"/>, the file's sections as tabs on the slate and the task's routes at the rail's foot, and raises, in the plane's own terms, what each of its controls raises: the
     /// frame's own action and key with that frame, Hold to talk's prompt held and let go, a context row's key with the
     /// owner it was shown for, and that the frame has been drawn once every control has settled. It routes nothing
     /// itself: the plane and the director decide, by the rules they apply to the file's own views. Laid out centred on
@@ -206,6 +206,14 @@ namespace Halcyonic.XR.UI
             if (key == KitWorkView.PagerKey)
             {
                 Press(KitPlace.Pager);
+                return;
+            }
+            if (key.StartsWith(KitWorkView.RouteKey, StringComparison.Ordinal))
+            {
+                // A route raises its line's own action and key, with the frame it stood on.
+                if (int.TryParse(key.Substring(KitWorkView.RouteKey.Length), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var at)
+                    && binding.Routes.ElementAtOrDefault(at) is KitControl route)
+                    Acted?.Invoke(column, route.Action, route.Key, route.Frame, null);
                 return;
             }
             if (owner != null) ContextRow?.Invoke(key, owner);
