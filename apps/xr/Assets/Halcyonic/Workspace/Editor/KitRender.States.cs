@@ -168,14 +168,8 @@ namespace Halcyonic.XR.Workspace.Editor
         private static KitWorkModel Approval(bool confirming)
         {
             var workspace = ApprovalWorkspace();
-            var need = WorkspaceText.NeedFromYou(workspace)!;
-            var scope = WorkspaceText.ApprovedCommandNote(workspace.Runtime);
-            var notes = need.Notes.Where(note => note != scope).ToList();
-            var confirmation = confirming
-                ? new KitConfirmation(true, WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null), WorkspaceText.ConfirmLabel(WorkspaceAction.Approve),
-                    read: true, EntryText.ReadToPart(2))
-                : null;
-            var kitNeed = new KitNeed(need.AsksRuns, need.Request, scope, notes, WorkspaceText.Label(WorkspaceAction.Deny), WorkspaceText.Label(WorkspaceAction.Approve), confirmation);
+            var confirmation = confirming ? KitPresenter.ConfirmationOf(WorkspaceAction.Approve, read: true, parts: 2) : null;
+            var kitNeed = KitPresenter.NeedOf(workspace, confirmation)!;
             return Focused(Badge(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, 1), null, need: kitNeed);
         }
 

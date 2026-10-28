@@ -55,14 +55,17 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Shows the two answers, <paramref name="denyWords"/> then <paramref name="approveWords"/> at the right of a bar
-        /// <paramref name="width"/> wide with its top left at <paramref name="topLeft"/>; returns its height.
+        /// Shows the answers production offers, <paramref name="denyWords"/> then <paramref name="approveWords"/> at the
+        /// right of a bar <paramref name="width"/> wide with its top left at <paramref name="topLeft"/>; returns its
+        /// height. An answer not offered is not drawn and its place stays empty, so the other never moves into it.
         /// </summary>
-        public float ShowAsked(Vector2 topLeft, float width, string denyWords, string approveWords)
+        public float ShowAsked(Vector2 topLeft, float width, string denyWords, string approveWords, bool denyOffered, bool approveOffered)
         {
             var (denyAt, approveAt) = Lay(topLeft, width, denyWords, approveWords);
-            deny.Show(denyWords, GlazeIcon.Deny, denyAt.Centre, denyAt.Width);
-            approve.Show(approveWords, GlazeIcon.Approve, approveAt.Centre, approveAt.Width);
+            if (denyOffered) deny.Show(denyWords, GlazeIcon.Deny, denyAt.Centre, denyAt.Width);
+            else deny.Hide();
+            if (approveOffered) approve.Show(approveWords, GlazeIcon.Approve, approveAt.Centre, approveAt.Width);
+            else approve.Hide();
             cancel.Hide();
             yes.Hide();
             question.gameObject.SetActive(false);

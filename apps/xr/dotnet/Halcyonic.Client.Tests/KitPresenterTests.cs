@@ -169,11 +169,63 @@ public class KitPresenterTests
         Assert.That((asking.Need?.Request, asking.Ask), Is.EqualTo(((string?)Command, (KitAsk?)null)));
     }
 
-    private static ApprovalView Approval(string tool, string summary) => new()
+    [Test]
+    public void TheKitOffersTheAnswersProductionOffers()
+    {
+        var workspace = Waiting(Approval("shell", Command));
+        Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Approve).And.Contain(WorkspaceAction.Deny));
+        var need = KitPresenter.NeedOf(workspace)!;
+        Assert.That((need.DenyOffered, need.ApproveOffered), Is.EqualTo((true, true)));
+    }
+
+    [Test]
+    public void ARequestThatCanOnlyBeDeniedOffersNoApprove()
+    {
+        var workspace = Waiting(Approval("shell", "pnpm test --filter sign-in --reporter [truncated]", approvable: false));
+        Assert.That(workspace.Actions, Does.Not.Contain(WorkspaceAction.Approve));
+        var need = KitPresenter.NeedOf(workspace)!;
+        Assert.That((need.DenyOffered, need.ApproveOffered), Is.EqualTo((true, false)));
+        Assert.That(need.Notes, Does.Contain(WorkspaceText.TooLongToShow), "production says why it can only be denied");
+        // A confirmation of an answer production doesn't offer is never drawn; Deny's still is.
+        Assert.That(KitPresenter.NeedOf(workspace, KitPresenter.ConfirmationOf(WorkspaceAction.Approve, read: true, parts: 1))!.Confirming, Is.Null);
+        var denying = KitPresenter.ConfirmationOf(WorkspaceAction.Deny, read: true, parts: 1);
+        Assert.That(KitPresenter.NeedOf(workspace, denying)!.Confirming, Is.SameAs(denying));
+    }
+
+    [Test]
+    public void NoAnswerIsOfferedWhileTheSessionIsNotLive()
+    {
+        var workspace = Waiting(Approval("shell", Command), live: false);
+        Assert.That(workspace.Actions, Is.Empty);
+        var need = KitPresenter.NeedOf(workspace, KitPresenter.ConfirmationOf(WorkspaceAction.Deny, read: true, parts: 1))!;
+        Assert.That((need.DenyOffered, need.ApproveOffered, need.Confirming), Is.EqualTo((false, false, (KitConfirmation?)null)));
+        Assert.That(need.Request, Is.EqualTo(Command), "the request still reads whole");
+    }
+
+    [Test]
+    public void SendSaysWhyInProductionsWordsWhileLive()
+    {
+        var live = new ConnectionStatus(ConnectionPhase.Live);
+        var spine = new KitSpineSection[0];
+        foreach (var workspace in new[] { Waiting(Approval("shell", Command)), Waiting(status: ExecutionStatus.Completed, instructAtRest: false) })
+        {
+            Assert.That(workspace.Actions.Contains(WorkspaceAction.Instruct) && WorkspaceText.NeedFromYou(workspace) == null, Is.False);
+            var screen = new FileScreen();
+            screen.Instruction.Restore(workspace.Execution!.ExecutionId, "Run the tests again.", false, 0);
+            var production = FileScreens.InstructionSendReason(workspace, screen);
+            Assert.That(production, Is.Not.Null);
+            Assert.That(FileScreens.WhyNoInstruction(workspace), Is.EqualTo(production));
+            var work = KitPresenter.WorkOf(workspace, "Storefront", "Run the tests again.", voiceOffered: false, live, spine);
+            Assert.That((work.Sendable, work.WhyNotSend), Is.EqualTo((false, production)));
+        }
+        Assert.That(FileScreens.WhyNoInstruction(Waiting()), Is.Null, "running and taking instructions: no reason");
+    }
+
+    private static ApprovalView Approval(string tool, string summary, bool approvable = true) => new()
     {
         ApprovalId = "approval",
         Subject = new ToolUseSubject { ToolName = tool, Summary = summary },
-        Approvable = true,
+        Approvable = approvable,
         RequestedAt = At,
     };
 
@@ -189,8 +241,9 @@ public class KitPresenterTests
         new("task", "Fix the sign-in rate limit", activity, StateLanguage.WordOf(StateLanguage.StateOf(activity, attention)), attention,
             new string[0], approvals, false, false, false);
 
-    /// <summary>The task, live, as the production presenter presents it from a projection holding what it waits on and its commands.</summary>
-    private static WorkspacePresentation Waiting(ApprovalView? approval = null, QuestionView? question = null, IEnumerable<CommandView>? commands = null)
+    /// <summary>The task as the production presenter presents it, live unless said otherwise, from a projection holding what it waits on and its commands.</summary>
+    private static WorkspacePresentation Waiting(ApprovalView? approval = null, QuestionView? question = null, IEnumerable<CommandView>? commands = null,
+        bool live = true, ExecutionStatus? status = null, bool instructAtRest = true)
     {
         var runtime = new RuntimeDescriptor
         {
@@ -199,7 +252,7 @@ public class KitPresenterTests
             DisplayName = "Synthetic agent app",
             Synthetic = true,
             ApprovalMayLeaveSandbox = true,
-            Capabilities = new RuntimeCapabilities { StartExecution = true, InstructAtRest = true, InstructWhileRunning = true, RespondToApproval = true, Interrupt = true, AnswerQuestion = true },
+            Capabilities = new RuntimeCapabilities { StartExecution = true, InstructAtRest = instructAtRest, InstructWhileRunning = true, RespondToApproval = true, Interrupt = true, AnswerQuestion = true },
         };
         var waits = approval != null || question != null;
         var workstream = new WorkstreamView
@@ -207,7 +260,7 @@ public class KitPresenterTests
             WorkstreamId = "task",
             ProjectId = "project",
             Title = "Fix the sign-in rate limit",
-            Status = waits ? WorkstreamStatus.WaitingForHuman : WorkstreamStatus.Running,
+            Status = waits ? WorkstreamStatus.WaitingForHuman : status == ExecutionStatus.Completed ? WorkstreamStatus.Completed : WorkstreamStatus.Running,
             Attention = new Attention { Level = waits ? AttentionLevel.ActionRequired : AttentionLevel.None },
             CurrentExecutionId = "execution",
             ExecutionIds = new List<string> { "execution" },
@@ -221,7 +274,7 @@ public class KitPresenterTests
             ProjectId = "project",
             Runtime = new RuntimeRef { RuntimeId = runtime.RuntimeId, Kind = runtime.Kind, DisplayName = runtime.DisplayName, Synthetic = true },
             Instruction = "Do the work.",
-            Status = waits ? ExecutionStatus.WaitingForHuman : ExecutionStatus.Running,
+            Status = status ?? (waits ? ExecutionStatus.WaitingForHuman : ExecutionStatus.Running),
             TurnCount = 1,
             CreatedAt = At,
             StartedAt = At,
@@ -240,6 +293,6 @@ public class KitPresenterTests
             Commands = (commands ?? new CommandView[0]).ToList(),
             Runtimes = new List<RuntimeDescriptor> { runtime },
         }, new StateChanges());
-        return WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true);
+        return WorkspacePresenter.Present(workstream, state, new ActivityLog(), live);
     }
 }

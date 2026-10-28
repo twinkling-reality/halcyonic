@@ -217,7 +217,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var ask = WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null);
             var confirm = WorkspaceText.ConfirmLabel(WorkspaceAction.Approve);
             var asked = KitDecisionBar.Create(carrier.transform, "Decision bar, asked");
-            y -= asked.ShowAsked(new Vector2(x0, y), inner, deny, approve) + gap;
+            y -= asked.ShowAsked(new Vector2(x0, y), inner, deny, approve, denyOffered: true, approveOffered: true) + gap;
             var unread = KitDecisionBar.Create(carrier.transform, "Decision bar, unread");
             y -= unread.ShowConfirming(new Vector2(x0, y), inner, deny, approve, true, ask, confirm, read: false, EntryText.ReadToPart(2)) + gap;
             var read = KitDecisionBar.Create(carrier.transform, "Decision bar, read");
