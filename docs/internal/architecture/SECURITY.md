@@ -654,6 +654,17 @@ What each party can do with the network listener on
   replaces it on the computer; the
   headset's own lock is the first defense. It holds no provider key, repository secret or SSH
   key.
+- **Meta XR Operator in a development build.** Meta's build step puts the Operator's Android library
+  into every development build. While such an app runs, the library serves agents over MCP on port
+  8720 on every address of the headset, with no authentication, and answers any web origin
+  (`access-control-allow-origin: *`): any app or browser page on the headset, any device on its
+  network, and, while an `adb forward` to it exists, any browser tab on the Mac can read the scene
+  (its canvases, controls and their text) and capture what the wearer sees
+  ([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). Halcyonic leaves
+  the library out of every build (`OperatorInDevelopmentBuilds`), and `BuildDevelopmentApk` deletes
+  an APK that carries its layer, unless a journey build sets `HALCYONIC_OPERATOR=1`. A journey build
+  runs only against a scratch control plane, never over the owner's own app or with its token, and
+  its forwards are removed when the journey ends. Release builds never carry it.
 - **A web page**, on this machine or another, cannot drive either listener: both refuse any
   `Origin` and cross-site fetches, the network listener refuses `Host` names other than addresses
   and `.local` names, and browsers refuse its self-signed certificate.

@@ -123,10 +123,21 @@
   wearer sees while a development build runs. Whether the layer can listen on loopback only is an
   open question for Meta.
 
+### Meta XR Operator left out (2026-10-28)
+
+- Two development builds with Unity 6000.3.25f1 on its own adb server: without
+  `HALCYONIC_OPERATOR`, Meta's step still logged that it was including the Operator's library, then
+  `OperatorInDevelopmentBuilds` left it out, and the APK's file listing held neither
+  `lib/arm64-v8a/libXrApiLayer_METAX_operator.so` nor
+  `assets/openxr/1/api_layers/implicit.d/XrApiLayer_METAX_operator.json`; with
+  `HALCYONIC_OPERATOR=1` it held both. `BuildDevelopmentApk` passed both builds.
+- Not yet checked on the headset: that an app built without it opens no listener on 8720.
+
 ## Consequences
 
 - `pnpm quest:device` gives every command `-L tcp:localhost:<port> -s <serial>`, refuses 5037,
   saves an installed APK before installing over it and checks the bytes both ways, fails a launch a
   system dialog holds, removes only the captures it made after checking their pulled bytes, uses
   `screenrecord` unless the owner has turned media sync off, and keeps only Halcyonic's own log lines.
-- Development builds should leave Meta XR Operator out unless a build asks for it.
+- Development builds leave Meta XR Operator out unless a journey build asks for it
+  (`OperatorInDevelopmentBuilds`, XR_DEVELOPMENT.md).

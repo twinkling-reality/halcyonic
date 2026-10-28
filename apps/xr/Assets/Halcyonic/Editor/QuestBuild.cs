@@ -29,6 +29,20 @@ namespace Halcyonic.XR.Editor
             var report = Build(DevelopmentApkPath, BuildOptions.Development);
             if (report.summary.result == BuildResult.Succeeded)
             {
+                // Meta XR Operator only in a journey build (OperatorInDevelopmentBuilds), both its files or neither.
+                var layer = OperatorInDevelopmentBuilds.FindIn(DevelopmentApkPath);
+                if (!OperatorInDevelopmentBuilds.Asked() && layer.Count > 0)
+                {
+                    File.Delete(DevelopmentApkPath);
+                    Fail($"Halcyonic: deleted {DevelopmentApkPath}, which carries Meta XR Operator ({string.Join("; ", layer)}) though {OperatorInDevelopmentBuilds.Variable} is not 1: its server on 8720 has no authentication.");
+                    return;
+                }
+                if (OperatorInDevelopmentBuilds.Asked() && layer.Count != OperatorInDevelopmentBuilds.LayerFiles.Length)
+                {
+                    File.Delete(DevelopmentApkPath);
+                    Fail($"Halcyonic: deleted {DevelopmentApkPath}: {OperatorInDevelopmentBuilds.Variable}=1 asked for Meta XR Operator, but the APK carries {(layer.Count == 0 ? "none of it" : string.Join("; ", layer))}.");
+                    return;
+                }
                 // The release check's positive control: everything it looks for is found here, where the glance is.
                 var missing = GlanceInDevelopmentBuilds.MissingFrom(GlanceInDevelopmentBuilds.FindIn(DevelopmentApkPath));
                 if (missing.Count > 0)
@@ -95,6 +109,7 @@ namespace Halcyonic.XR.Editor
             if (report.summary.result == BuildResult.Succeeded)
             {
                 var found = MetaDevelopmentTools.FindIn(ReleaseApkPath);
+                found.AddRange(OperatorInDevelopmentBuilds.FindIn(ReleaseApkPath).Where(file => !found.Contains(file)));
                 if (found.Count > 0)
                 {
                     File.Delete(ReleaseApkPath);
@@ -139,6 +154,8 @@ namespace Halcyonic.XR.Editor
             GlanceInDevelopmentBuilds.Include = (options & BuildOptions.Development) != 0;
             // So may hiding the boundary while the room shows (BoundaryInDevelopmentBuilds).
             BoundaryInDevelopmentBuilds.Include = GlanceInDevelopmentBuilds.Include;
+            // Meta XR Operator goes only into a development build that asks for it (OperatorInDevelopmentBuilds).
+            OperatorInDevelopmentBuilds.Include = GlanceInDevelopmentBuilds.Include && OperatorInDevelopmentBuilds.Asked();
             try
             {
                 return BuildPipeline.BuildPlayer(new BuildPlayerOptions
@@ -154,6 +171,7 @@ namespace Halcyonic.XR.Editor
             {
                 GlanceInDevelopmentBuilds.Include = false;
                 BoundaryInDevelopmentBuilds.Include = false;
+                OperatorInDevelopmentBuilds.Include = false;
             }
         }
 
@@ -180,7 +198,8 @@ namespace Halcyonic.XR.Editor
     /// <list type="bullet">
     /// <item>Meta XR Operator's Android library: the agentic media projection activity and service,
     /// the FOREGROUND_SERVICE_MEDIA_PROJECTION permission, and an OpenXR API layer that serves agents
-    /// from inside the app. Meta's own build step leaves it out of every non-development build.</item>
+    /// from inside the app. Meta's own build step leaves it out of every non-development build, and
+    /// <see cref="OperatorInDevelopmentBuilds"/> out of every development build but a journey build.</item>
     /// <item>The Immersive Debugger's dev agent, and the agent bridge through which it reaches the
     /// editor, which <see cref="LeaveOutMetaDevelopmentAssemblies"/> leaves out. The debugger's
     /// runtime assembly stays: the MR Utility Kit's <c>MRUK.Awake</c> reads its settings, and the
