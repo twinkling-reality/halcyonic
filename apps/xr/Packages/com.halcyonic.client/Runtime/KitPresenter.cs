@@ -88,11 +88,14 @@ namespace Halcyonic.Client
             _ => GlazeIcon.Quote,
         };
 
-        /// <summary>A task's row: its title upright as a named identity, its state in icon and words as production derives it, and where pressing it goes.</summary>
+        /// <summary>The prefix of a spine row's key that stands for a task: the rest is its workstream's id.</summary>
+        public const string TaskRowKey = "task:";
+
+        /// <summary>A task's row, keyed <see cref="TaskRowKey"/> and its workstream's id: its title upright as a named identity, its state in icon and words as production derives it, and where pressing it goes.</summary>
         public static KitRowModel TaskRowOf(CharacterPresentation task, bool selected = false, bool opensMore = true, string? next = null, int wordLines = 2)
         {
             var badge = StateLanguage.BadgeOf(task);
-            return new KitRowModel(task.WorkstreamId, LineWords.TheirName(task.Title), badge.Icon, badge.Tone, badge.Text, badge.Tone,
+            return new KitRowModel(TaskRowKey + task.WorkstreamId, LineWords.TheirName(task.Title), badge.Icon, badge.Tone, badge.Text, badge.Tone,
                 end: next, endTone: badge.State == WorkState.WaitingForYou ? GlazeTone.Attention : GlazeTone.Accent,
                 opensMore: opensMore, selected: selected, wordLines: wordLines, isName: true);
         }
