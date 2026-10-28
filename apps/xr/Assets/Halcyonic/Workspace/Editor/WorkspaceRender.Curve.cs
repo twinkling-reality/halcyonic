@@ -39,6 +39,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 spatialProductGaps.Clear();
                 curveLeanedGlyphs = 0;
                 var found = new List<string>();
+                var byDefault = CurvedDrawing.Enabled;
+                if (!byDefault) found.Add("curve: the plane does not draw on the curve by default");
                 try
                 {
                     found.AddRange(RenderSpatialWorkspace(folder, Work.Running(), false, curved: true));
@@ -46,7 +48,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     found.AddRange(RenderSpatialWorkspace(multiple, Work.Running(), false, multipleProjects: true, curved: true));
                     found.AddRange(RenderSpatialWorkspace(folder, Work.Approval("Run make migrate"), true, curved: true));
                 }
-                finally { CurvedDrawing.Enabled = false; ViewField.Current = null; KeepFontAssetsAsCommitted(); }
+                finally { CurvedDrawing.Enabled = byDefault; ViewField.Current = null; KeepFontAssetsAsCommitted(); }
                 if (curveLeanedGlyphs == 0) found.Add("curve: no leaned outside words were drawn on the curve, so the lean-then-bend order was never witnessed");
                 else Debug.Log("Halcyonic: curve: " + curveLeanedGlyphs + " leaned outside-word glyphs kept their lean on the curve.");
                 foreach (var failure in found) Debug.LogError("Halcyonic: spatial curve: " + failure);
@@ -66,7 +68,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             var plane = director.Plane;
             var curve = plane.Curved;
-            // Counted once every label's mesh is current, as the curve's counts are.
+            // Flat first, the fallback, counted once every label's mesh is current, as the curve's counts are.
+            CurvedDrawing.Enabled = false;
+            plane.Advance(0f);
             ForceMeshes(root);
             var flat = curve.Counts(plane.CurvedBodies);
             var before = FlatMeshes(plane);
@@ -76,6 +80,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 plane.Advance(0f); ForceMeshes(root); plane.Advance(0f);
                 if (!curve.On) { failures.Add(name + ": the switch did not put the plane on the curve"); return failures; }
                 failures.AddRange(OnTheCurve(name, plane, record: true));
+                failures.AddRange(TargetsOnTheCurve(name, plane, record: true));
                 var counts = curve.Counts(plane.CurvedBodies);
                 Debug.Log("Halcyonic: curve: " + name + ": " + counts.Surfaces + " surfaces with " + counts.SurfaceVertices + " vertices (" + flat.SurfaceVertices
                     + " flat), " + counts.Labels + " labels, " + counts.Glyphs + " glyphs.");
@@ -97,6 +102,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (surface.OnCurve) { failures.Add(name + ": " + PathOf(surface.transform) + " stayed on the curve after the switch went off"); break; }
             foreach (var label in Pages(plane.transform, plane.CurvedBodies, plane.transform.GetComponentsInChildren<TMP_Text>(false)))
                 if (label.GetComponent<GlazeRuns>() is GlazeRuns runs && runs.Bent) { failures.Add(name + ": " + PathOf(label.transform) + " stayed bent after the switch went off"); break; }
+            foreach (var target in Pages(plane.transform, plane.CurvedBodies, plane.transform.GetComponentsInChildren<PointerTarget>(false)))
+                if (target.IsRectangle && (target.OnCurve || !ReferenceEquals(target.Meets.Poke ?? target.FlatPatch, target.FlatPatch)
+                    || !ReferenceEquals(target.Meets.Ray ?? target.FlatPatch, target.FlatPatch)))
+                { failures.Add(name + ": " + PathOf(target.transform) + " is still met on the curve after the switch went off"); break; }
             return failures;
         }
 
@@ -237,6 +246,95 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+        /// <summary>
+        /// Every target on the plane lies on the curve where its rectangle is drawn: the ray and the poke both meet its
+        /// patch of the curve's one cylinder; the patch is the bend of the laid-out rectangle, within 0.01 degrees and 0.05 mm;
+        /// a ray from the eyes through its drawn centre meets it there, and that point comes back to the laid-out centre;
+        /// rays 1 mm past each drawn edge miss it; a finger 5 mm in front of its drawn centre meets it there, its normal
+        /// toward the eyes; and any two targets laid out 12 mm apart or more stand as far apart along the curve.
+        /// </summary>
+        private static List<string> TargetsOnTheCurve(string name, MenuPlane plane, bool record)
+        {
+            var failures = new List<string>();
+            var curve = plane.Curved;
+            var eyes = curve.Eyes;
+            var radius = curve.Curve.Radius;
+            static string Millimetres(float meters) => (meters * 1000f).ToString("0.000", CultureInfo.InvariantCulture);
+            Vector3 Laid(Vector3 world) => Quaternion.Inverse(curve.Facing) * (world - eyes);
+            Vector3 Drawn(Vector3 laid)
+            {
+                var bent = curve.Curve.Bend(new System.Numerics.Vector3(laid.x, laid.y, laid.z));
+                return eyes + curve.Facing * new Vector3(bent.X, bent.Y, bent.Z);
+            }
+            var segments = new List<(PointerTarget Target, float Left, float Right, float Bottom, float Top)>();
+            foreach (var target in Pages(plane.transform, plane.CurvedBodies, plane.transform.GetComponentsInChildren<PointerTarget>(false)))
+            {
+                if (!target.IsRectangle || target.Size.x <= 0f || target.Size.y <= 0f) continue;
+                var where = PathOf(target.transform);
+                if (!target.OnCurve || target.CurvedPatch == null) { failures.Add(name + ": " + where + " is met flat on the curved plane"); continue; }
+                var patch = target.CurvedPatch;
+                if (target.Meets.Ray != null && !ReferenceEquals(target.Meets.Ray, patch) || target.Meets.Poke != null && !ReferenceEquals(target.Meets.Poke, patch))
+                    failures.Add(name + ": " + where + "'s ray or poke does not meet its patch of the curve");
+                var half = target.Size / 2f;
+                var corners = new[] { new Vector3(-half.x, -half.y, 0f), new Vector3(half.x, half.y, 0f), new Vector3(-half.x, half.y, 0f), new Vector3(half.x, -half.y, 0f) }
+                    .Select(corner => Laid(target.transform.TransformPoint(corner))).ToList();
+                float left = corners.Min(c => c.x), right = corners.Max(c => c.x), bottom = corners.Min(c => c.y), top = corners.Max(c => c.y);
+                const float ToDegrees = 180f / Mathf.PI;
+                if (!patch.GetClipped(out var segment)
+                    || Mathf.Abs(segment.Rotation - (left + right) / 2f / radius * ToDegrees) > 0.01f
+                    || Mathf.Abs(segment.ArcDegrees - (right - left) / radius * ToDegrees) > 0.01f
+                    || Mathf.Abs(segment.Bottom - bottom) > CurveTolerance || Mathf.Abs(segment.Top - top) > CurveTolerance)
+                    failures.Add(name + ": " + where + "'s patch of the curve is not the bend of its rectangle");
+                segments.Add((target, left, right, bottom, top));
+                var laidCentre = Laid(target.transform.position);
+                var centre = Drawn(laidCentre);
+                if (!patch.Raycast(new Ray(eyes, (centre - eyes).normalized), out var hit) || Vector3.Distance(hit.Point, centre) > CurveTolerance
+                    || Vector3.Distance(Laid(curve.Straighten(hit.Point)), laidCentre) > CurveTolerance)
+                    failures.Add(name + ": a ray through " + where + "'s drawn centre does not meet it there, or not back at its laid-out centre"
+                        + (hit.Point == default ? "" : ", " + Millimetres(Vector3.Distance(hit.Point, centre)) + " mm off"));
+                var middleY = (bottom + top) / 2f;
+                foreach (var past in new[] { new Vector3(left - 0.001f, middleY, laidCentre.z), new Vector3(right + 0.001f, middleY, laidCentre.z),
+                    new Vector3((left + right) / 2f, bottom - 0.001f, laidCentre.z), new Vector3((left + right) / 2f, top + 0.001f, laidCentre.z) })
+                {
+                    var outside = Drawn(past);
+                    if (patch.Raycast(new Ray(eyes, (outside - eyes).normalized), out _))
+                    { failures.Add(name + ": a ray 1 mm past " + where + "'s drawn edge still meets it"); break; }
+                }
+                var inward = Vector3.ProjectOnPlane(eyes - centre, curve.Facing * Vector3.up).normalized;
+                if (!patch.ClosestSurfacePoint(centre + inward * 0.005f, out var poke) || Vector3.Distance(poke.Point, centre) > CurveTolerance
+                    || Vector3.Angle(poke.Normal, inward) > 0.5f)
+                    failures.Add(name + ": a finger 5 mm in front of " + where + "'s drawn centre does not meet it there, facing the eyes");
+            }
+            var nearest = float.MaxValue;
+            for (var i = 0; i < segments.Count; i++)
+            for (var j = i + 1; j < segments.Count; j++)
+            {
+                var (a, b) = (segments[i], segments[j]);
+                float Gap(float aLow, float aHigh, float bLow, float bHigh) => Mathf.Max(0f, Mathf.Max(bLow - aHigh, aLow - bHigh));
+                // Laid out across, an arc's length is its width, so the flat gap is the gap along the curve.
+                var across = Gap(a.Left, a.Right, b.Left, b.Right);
+                var up = Gap(a.Bottom, a.Top, b.Bottom, b.Top);
+                var apart = Mathf.Sqrt(across * across + up * up);
+                // Measured where they are drawn: the arc between their segments' edges and the height between them.
+                var drawnAcross = Gap(Arc(a.Target, true), Arc(a.Target, false), Arc(b.Target, true), Arc(b.Target, false)) * radius;
+                var drawnApart = Mathf.Sqrt(drawnAcross * drawnAcross + up * up);
+                if (apart >= Glaze.TargetGapMeters - 0.0003f && drawnApart < Glaze.TargetGapMeters - 0.0003f)
+                    failures.Add(name + ": " + PathOf(a.Target.transform) + " and " + PathOf(b.Target.transform) + " stand " + Millimetres(drawnApart)
+                        + " mm apart on the curve, laid out " + Millimetres(apart) + " mm apart");
+                if (apart > 0f) nearest = Mathf.Min(nearest, drawnApart);
+            }
+            if (record) Debug.Log("Halcyonic: curve: " + name + ": " + segments.Count + " targets on the curve"
+                + (nearest < float.MaxValue ? ", the nearest two apart " + Millimetres(nearest) + " mm" : "") + ".");
+            return failures;
+        }
+
+        /// <summary>A target's patch's left or right edge, in radians round the curve's axis.</summary>
+        private static float Arc(PointerTarget target, bool left)
+        {
+            if (target.CurvedPatch == null || !target.CurvedPatch.GetClipped(out var segment)) return 0f;
+            return (segment.Rotation + (left ? -segment.ArcDegrees : segment.ArcDegrees) / 2f) * Mathf.Deg2Rad;
+        }
+
         /// <summary>The angle between two directions, in degrees, by atan2 in double precision: acos loses about 0.02 degrees at a degree.</summary>
         private static float Between(Vector3 a, Vector3 b)
         {
@@ -257,7 +355,9 @@ namespace Halcyonic.XR.Workspace.Editor
             void Check(string what)
             {
                 curve.Refresh(plane.CurvedBodies);
+                plane.DrawTargetsOnCurveForRender();
                 failures.AddRange(OnTheCurve(name + " (" + what + ")", plane, record: false));
+                failures.AddRange(TargetsOnTheCurve(name + " (" + what + ")", plane, record: false));
             }
             var view = plane.Shown[0].View;
             var part = view.Parts[0];
@@ -273,6 +373,21 @@ namespace Halcyonic.XR.Workspace.Editor
             Check("a shape grown a quarter wider");
             surface.transform.localScale = size;
             Check("the shape back to its size");
+            var target = Pages(plane.transform, plane.CurvedBodies, view.GetComponentsInChildren<PointerTarget>(false)).FirstOrDefault(each => each.IsRectangle);
+            if (target == null) failures.Add(name + ": no target to witness on the curve");
+            else
+            {
+                var targetSize = target.Size;
+                target.Resize(new Vector2(targetSize.x * 1.25f, targetSize.y));
+                Check("a target grown a quarter wider");
+                target.Resize(targetSize);
+                Check("the target back to its size");
+                // A target left flat while the plane is curved must be found.
+                target.DrawOn(null, null);
+                if (!TargetsOnTheCurve(name + " (a target left flat)", plane, record: false).Any())
+                    failures.Add(name + ": the target check accepted a target left flat on the curved plane");
+                Check("the target laid on the curve again");
+            }
             var (eyes, facing) = (curve.Eyes, curve.Facing);
             var turn = Quaternion.AngleAxis(12f, facing * Vector3.up);
             var (rootAt, rootTurned) = (plane.transform.localPosition, plane.transform.localRotation);

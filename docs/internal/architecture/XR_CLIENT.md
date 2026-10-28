@@ -2212,11 +2212,10 @@ recorded.
 
 ### Curved drawing (2026-10-28)
 
-The menu plane can draw on the workspace's one gentle curve (ADR 0034) behind one switch,
-`CurvedDrawing.Enabled`. It is off in production, so the plane is drawn flat as before, the
-fallback; the Editor's `SpatialCurveCheck` journey turns it on. It stays off until the interface's
-targets are curved too: a flat target on a wide curved row would sit up to about 16 mm off what is
-drawn.
+The menu plane draws on the workspace's one gentle curve (ADR 0034). One switch,
+`CurvedDrawing.Enabled`, chooses between the curve, the default, and the flat plane, the fallback;
+the Editor's `SpatialCurveCheck` journey checks each shot both ways. The plane's targets lie on the
+same curve, so the ray and the poke meet what is drawn.
 
 Layout stays flat. `CurvedDrawing`, on the plane's root, holds the client core's `PlaneCurve` at
 `PlaneComposition.Distance`. Its axis runs along the plane's own up through the eyes the plane was
@@ -2232,9 +2231,23 @@ follows the head. Then it draws what moved or changed:
   moved bends again from it without making its text again.
 - A task portrait's character stands where the curve puts the portrait's centre, turned with it.
 - The light line's plane end meets the page where it is drawn.
+- Each target made by `PointerTarget.Rectangle` lies on the curve. The plane keeps Interaction SDK
+  `Cylinder`s with a `CylinderSurface` facing in, their axis the curve's, placed with the plane: one
+  for each depth a target is laid at, shared by every target at that depth, so a target in front of
+  the plane or behind it, as a recessed band is, meets the hand where it is drawn. Each target cuts
+  its patch of its depth's cylinder with a `CylinderClipper` and a `ClippedCylinderSurface`:
+  - centred at its laid-out centre's arc, as wide as its width's arc, as high as it is
+    (`PlaneCurve.Segment`);
+  - its ray and poke meet that patch while the curve is on, and its flat rectangle when it is off;
+  - a ray's drag holds the point where it meets the patch;
+  - presses and their rules are the same either way.
 
-Still flat: targets (poke and ray), the band model and field fit (`MenuFrame.Fits`), and the
-journeys' field and placement checks. The surface and glyph counts each curve shot records are
+  Hits stay in the world: a drag turns the plane by the held point's angles from the eyes, and
+  `CurvedDrawing.Straighten` maps a point back to where it was laid out.
+
+Still flat: the band model and field fit (`MenuFrame.Fits`), and the journeys' field and placement
+checks. Not yet checked on the headset: how a poke's hover and press depths feel on the concave
+patch, and frame time with the curve on. The surface and glyph counts each curve shot records are
 Editor counts, not device frame times.
 
 ### The room

@@ -52,6 +52,15 @@ namespace Halcyonic.XR.Workspace
         public IReadOnlyList<Transform> CurvedBodies => curvedBodies;
 
         private readonly List<Transform> curvedBodies = new List<Transform>();
+        private readonly List<PointerTarget> curvedTargets = new List<PointerTarget>();
+
+        /// <summary>
+        /// The curves the plane's targets lie on while the plane draws on the curve: one for each depth a target is laid at,
+        /// shared by every target at that depth, so each meets the hand where its rectangle is drawn, as a recessed band is,
+        /// its depth farther out. Keyed by radius in hundredths of a millimetre; made the first time a depth needs one.
+        /// </summary>
+        private readonly Dictionary<int, Oculus.Interaction.Surfaces.CylinderSurface> targetCurves = new Dictionary<int, Oculus.Interaction.Surfaces.CylinderSurface>();
+        private bool targetsCurved;
         public WorkspaceChromeView Chrome { get; private set; } = null!;
         public string ConnectionState { get; set; } = WorkspaceText.Disconnected;
         public LineWords SelectionContext { get; set; } = LineWords.Ours("Projects");
@@ -1050,7 +1059,51 @@ namespace Halcyonic.XR.Workspace
                 portrait.StandOn(on);
             }
             Curved.Refresh(curvedBodies);
+            DrawTargetsOnCurve();
         }
+
+        /// <summary>
+        /// Lays every target on the plane on the curve where the plane draws it, or flat again once it is off: the curve's
+        /// one cylinder stands at the eyes it was placed for, turned with the plane, the targets' patches of it cut from it.
+        /// </summary>
+        private void DrawTargetsOnCurve()
+        {
+            var on = Curved.On ? Curved : null;
+            if (on == null && !targetsCurved) return;
+            if (on != null)
+                foreach (var curve in targetCurves.Values) curve.transform.SetPositionAndRotation(on.Eyes, on.Facing);
+            GetComponentsInChildren(false, curvedTargets);
+            foreach (var target in curvedTargets)
+            {
+                if (!target.IsRectangle || curvedBodies.Exists(body => body != null && target.transform.IsChildOf(body))) continue;
+                if (on == null) { target.DrawOn(null, null); continue; }
+                // A target laid out a little in front of the plane or behind it is drawn that much nearer or farther round the eyes.
+                var depth = (Quaternion.Inverse(on.Facing) * (target.transform.position - on.Eyes)).z - on.Curve.Radius;
+                target.DrawOn(on, TargetCurve(on, on.Curve.Radius + depth));
+            }
+            targetsCurved = on != null;
+        }
+
+        /// <summary>A vertical cylinder about the curve's axis, <paramref name="radius"/> from it, hit from inside at the wall ahead.</summary>
+        private Oculus.Interaction.Surfaces.CylinderSurface TargetCurve(CurvedDrawing curve, float radius)
+        {
+            var key = Mathf.RoundToInt(radius * 100000f);
+            if (targetCurves.TryGetValue(key, out var made)) return made;
+            var go = new GameObject("Curve the targets lie on, " + (key / 100f).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " mm from the eyes");
+            go.transform.SetParent(transform, false);
+            go.transform.SetPositionAndRotation(curve.Eyes, curve.Facing);
+            var cylinder = go.AddComponent<Oculus.Interaction.Cylinder>();
+            cylinder.Radius = key / 100000f;
+            var surface = go.AddComponent<Oculus.Interaction.Surfaces.CylinderSurface>();
+            surface.InjectAllCylinderSurface(Oculus.Interaction.Surfaces.CylinderSurface.NormalFacing.In, cylinder, 0f);
+            targetCurves[key] = surface;
+            return surface;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>For the editor's renders: the targets laid on the curve as it is placed now, without stepping the plane.</summary>
+        public void DrawTargetsOnCurveForRender() => DrawTargetsOnCurve();
+#endif
 
         private static PlaneColumn ColumnOf(MenuFrameView view) => new PlaneColumn(view.Width, ToArray(view.Heights));
 

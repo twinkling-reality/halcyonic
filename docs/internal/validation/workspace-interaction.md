@@ -541,3 +541,31 @@ with six existing nullable warnings. Compilation is separate from the required e
 
 Private images and logs retain the intermediate failures. No result in this section establishes
 headset readability, comfort, design acceptance, or completion of a native project-work journey.
+
+### Interaction SDK cylinder targets for the curved plane (2026-10-28)
+
+Verified by reading the pinned Interaction SDK source (`com.meta.xr.sdk.interaction`, package cache
+`1e9ef3ea573f`) and by the Editor's `SpatialCurveCheck`. Nothing here is a headset result.
+
+- `PokeInteractable` reads `SurfacePatch` on every query. `InjectSurfacePatch` sets it, so a
+  target can move between a flat patch and a cylinder patch at runtime.
+- `RayInteractable` raycasts `Surface`, or `SelectSurface` when selecting, and `Start` copies
+  `Surface` into an unset `SelectSurface`. A runtime switch therefore injects both: `InjectSurface`
+  and `InjectOptionalSelectSurface`.
+- `ClippedCylinderSurface.InjectClippers` sets the clippers used by queries directly.
+  `GetClipped` intersects every active clipper. A disabled `CylinderClipper` is skipped, which
+  leaves the whole cylinder; a hidden target's interactables are disabled with it.
+- `CylinderClipper` angles are degrees about the cylinder's up, 0 along its forward (`atan2(x, z)`).
+  Bottom and top are heights in the cylinder's own units. `Cylinder.Radius` is in the same units,
+  so each cylinder stands at the eyes unscaled, its radius the depth its targets are drawn at, 0.46
+  m for the plane itself.
+- `CylinderSurface` facing `In`: a ray that starts inside the cylinder, as a hand ray near the eyes
+  does, meets the wall ahead of it. The hit's normal points toward the axis, that is, toward the
+  eyes.
+- `ClippedCylinderSurface.Raycast` accepts a hit only when its clamped point is within 0.1 mm of it.
+  `ClosestSurfacePoint` clamps to the segment's arc and height.
+- No interactor uses `IBounds`, so a cylinder patch needs no bounds.
+
+Still to check on the headset: hover and press depths of a poke on the concave patch, a ray's drag
+from a curved target, and frame time with the curve on.
+
