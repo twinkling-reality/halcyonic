@@ -36,10 +36,14 @@ const TOKEN_FILE = '600 44 regular file';
  */
 const STAND_IN = `
 const scenario = JSON.parse(require('node:fs').readFileSync(process.env.ADB_SCENARIO, 'utf8'));
-const args = process.argv.slice(2);
+// Every command names the headset's server and, but for devices, the headset (adb.ts).
+let args = process.argv.slice(2);
+if (args[0] === '-L') args = args.slice(2);
+if (args[0] === '-s') args = args.slice(2);
 const said = args.join(' ');
 const out = (text) => process.stdout.write(text + '\\n');
-if (said === 'get-state') out('device');
+if (said === 'devices') out('List of devices attached\\nTEST-SERIAL\\tdevice\\n');
+else if (said === 'get-state') out('device');
 else if (said === 'reverse --list') out('UsbFfs tcp:47800 tcp:47800');
 else if (said === 'shell pidof com.halcyonic.xr') out('1234');
 else if (said === 'logcat -d -v brief --pid=1234') out(scenario.log.join('\\n'));
