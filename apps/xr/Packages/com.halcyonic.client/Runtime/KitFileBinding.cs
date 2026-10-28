@@ -221,8 +221,9 @@ namespace Halcyonic.Client
         /// What Activity says of the work beside its state, as the file laid it, in its order: a notice first; the lines
         /// it leads with in a waiting or a problem's tone (an approval or a question waiting on Waiting, attention notes);
         /// why nothing can be sent, where it says so; then the newest command's feedback. Taken by their place and tone
-        /// on the page; the why and the feedback lines are compared only with what writes them. Feedback that an outcome
-        /// can't be told is the kit's notice already, so it is said once.
+        /// on the page; the why and the feedback lines are compared only with what writes them, and a notice is never a
+        /// recorded entry's words nor outside text. Feedback that an outcome can't be told is the kit's notice already, so
+        /// it is said once.
         /// </summary>
         private static IReadOnlyList<PageLine> Said(MenuFrame frame, WorkspacePresentation workspace)
         {
@@ -234,8 +235,11 @@ namespace Halcyonic.Client
             bool Quiet(int at) => at < lines.Count && lines[at].Action == null && lines[at].Tone == LineTone.Secondary;
             bool Feedback(int at) => Quiet(at) && sent != null && lines[at].Words == sent.Text;
             var index = 0;
-            // A notice leads the page whenever the file has one; nothing else in the secondary tone stands before what Activity leads with.
-            if (Quiet(index) && lines[index].Words != why && !Feedback(index) && lines[index].Words != FileScreens.NoActivityYet) said.Add(lines[index++]);
+            // A notice leads the page whenever the file has one: Halcyonic's own line, never a recorded entry nor the history
+            // note (outside text), which stand in the same tone and place when there is no notice.
+            var recorded = new HashSet<string>(workspace.Activity.Select(entry => entry.Text), System.StringComparer.Ordinal);
+            if (Quiet(index) && !lines[index].WordsAreData && !recorded.Contains(lines[index].Words) && lines[index].Words != why && !Feedback(index)
+                && lines[index].Words != FileScreens.NoActivityYet) said.Add(lines[index++]);
             while (index < lines.Count && lines[index].Action == null && (lines[index].Tone == LineTone.Waiting || lines[index].Tone == LineTone.Problem))
                 said.Add(lines[index++]);
             if (Quiet(index) && why != null && lines[index].Words == why) said.Add(lines[index++]);
