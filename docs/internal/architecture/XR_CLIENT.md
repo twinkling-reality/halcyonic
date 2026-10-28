@@ -2259,6 +2259,50 @@ checks. Not yet checked on the headset: how a poke's hover and press depths feel
 patch, and frame time with the curve on. The surface and glyph counts each curve shot records are
 Editor counts, not device frame times.
 
+### The kit in the plane (2026-10-28)
+
+The plane can draw the selected task's file with the spatial kit's `KitWorkspaceHost`. It does so
+while `KitWorkspaceHost.Enabled` is on (off by default) and the director has a binding the kit
+`Holds` whole. Otherwise the file's own views draw it as before: side panels, a frame with lines the
+kit has no place for, or words too long for the kit's composer.
+
+Before each draw, `MenuDirector.PrepareSpatialContext` builds the binding from the active file's
+frame, its armed action, presentation, draft and connection. The kit's spine is exactly the context
+column's offers in its words:
+
+- the connection state under "Projects";
+- the same up to three projects, the selected one lit;
+- "More projects" past three;
+- "Tasks";
+- "Workspace" at its foot.
+
+`MenuPlane` stands the kit alone in the composition, one column of its size. The file's view stays
+the column of record, laid out for the frame but hidden, so `Showing` and the character's shared
+identity keep their meaning. The context column, passive Activity and the chrome are hidden, and the
+readability bands are the kit's own.
+
+Routing stays production's:
+
+- A kit press reaches the plane's `Acted`, and Hold to talk its hold events, only while the kit has
+  settled, the plane is still and input is not suspended.
+- A spine row's key goes to the context column's own handlers through `ContextStanding`, which takes
+  the kit as the standing context with its owner.
+- The kit's settled draw goes to `navigator.Drawn` with the view's draw rules, held while the plane
+  moves.
+- While the kit draws the file, Activity's page is the kit's rail rows and the composer's is its well's
+  rows. The instruction is measured where the kit draws it, and the composer always pairs with the
+  rail.
+
+The Editor journeys `KitSpatialCheck` and `KitActivityComposerCheck` press the kit's own controls.
+They check, for every shot the kit draws:
+
+- the spine against the context column's words;
+- text in the kit's bands;
+- the curve and its targets;
+- a stale context owner refused;
+- Tasks on the spine reaching its place;
+- the composer's fallback to the file's views and back.
+
 ### The room
 
 `Assets/Halcyonic/Room` is the separate `Halcyonic.XR.Room` assembly, the only one that references

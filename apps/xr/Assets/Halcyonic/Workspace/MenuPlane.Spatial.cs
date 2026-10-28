@@ -21,6 +21,101 @@ namespace Halcyonic.XR.Workspace
         public string? ContextSelectedProject { get; set; }
         public object? ContextBinding { get; set; }
         public event Action<string, object>? ContextProjectPressed;
+
+        /// <summary>
+        /// The spatial kit standing in for the task's file in the independent workspace (D3.4), while
+        /// <see cref="KitWorkspaceHost.Enabled"/> and the kit can draw the file's frame whole; the file's own views otherwise.
+        /// </summary>
+        public KitWorkspaceHost Kit { get; private set; } = null!;
+
+        /// <summary>The kit bound to the active file's frame, set by the director before each draw; null where the kit can't stand in.</summary>
+        public KitFileBinding? KitBinding { get; set; }
+
+        /// <summary>Whether the kit draws the task's file now, in place of its views.</summary>
+        public bool KitShows => Kit.gameObject.activeSelf;
+
+        /// <summary>The context owner the kit was last shown with, carried back on its context rows.</summary>
+        public object? KitOwner { get; private set; }
+
+        /// <summary>A context row of the kit's spine pressed, by its key, with the owner it was shown for.</summary>
+        public event Action<string, object>? KitContextPressed;
+
+        /// <summary>The kit has drawn the file's frame and every control has settled: the frame's draw, as a view's Drawn is.</summary>
+        public event Action<MenuColumn, MenuFrame>? KitDrawn;
+
+        private PlanePart kitPart;
+        private (MenuColumn Kind, MenuFrame Frame)? pendingKitDraw;
+
+        /// <summary>The kit takes a press only where the file's view would: settled, still, standing, and input not suspended.</summary>
+        private bool TakesKit() => !FocusGuard.InputSuspended && !Repositioning && !Sliding && KitShows && Kit.Settled;
+
+        private void CreateKit(Transform root)
+        {
+            Kit = KitWorkspaceHost.Create(root);
+            Kit.Accepting = TakesKit;
+            Kit.Acted += (kind, action, key, frame, side) => { if (TakesKit()) Acted?.Invoke(kind, action, key, frame, side); };
+            Kit.HoldStarted += (kind, prompt, frame, side) => { if (TakesKit()) HoldStarted?.Invoke(kind, prompt, frame, side); };
+            Kit.HoldEnded += (kind, prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
+            Kit.ContextRow += (key, owner) => { if (TakesKit()) KitContextPressed?.Invoke(key, owner); };
+            Kit.Drawn += ForwardKitDrawn;
+        }
+
+        /// <summary>The kit's draw, held while the plane moves and passed on once it stands, for the frame the kit still shows.</summary>
+        private void ForwardKitDrawn(MenuColumn kind, MenuFrame frame)
+        {
+            if (Repositioning || Sliding) { pendingKitDraw = (kind, frame); return; }
+            if (KitShows && ReferenceEquals(KitBinding?.Frame, frame)) KitDrawn?.Invoke(kind, frame);
+        }
+
+        private void FlushKitDraw()
+        {
+            if (pendingKitDraw is not (MenuColumn kind, MenuFrame frame) || Repositioning || Sliding) return;
+            pendingKitDraw = null;
+            ForwardKitDrawn(kind, frame);
+        }
+
+        /// <summary>
+        /// Draws the active file through the kit, where the kit can draw its frame whole: the kit in one column of its size,
+        /// the file's view kept as the column of record, laid for its frame and hidden, the context column and passive
+        /// Activity hidden, the readability bands the kit's own. Returns false, drawing nothing, where it can't.
+        /// </summary>
+        private bool ShowKitWorkspace(MenuFrame? fileFrame, SidePanel? panel, object? fileColumn, IReadOnlyList<CharacterTarget> all,
+            Vector3 looking, float? surfaceHeight, (float Yaw, float Elevation) moved, bool immediately)
+        {
+            if (!KitWorkspaceHost.Enabled || panel != null || fileFrame == null || ContextBinding == null
+                || KitBinding is not KitFileBinding binding || !ReferenceEquals(binding.Frame, fileFrame) || !Kit.Holds(binding))
+                return false;
+            var zoom = GlazeText.Scale;
+            var kitWas = KitShows;
+            foreach (var view in frameViews) view.Hide();
+            Context.Hide();
+            // The file's view stays the column of record (Showing, identity), laid for this frame but never shown.
+            file.SpatialWorkspace = true; file.IndependentSurface = true; file.PassiveActivity = false;
+            file.OrganizationControls = false; file.ExternalPlaces = false; file.HeadingOverride = null;
+            file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, 0f, false);
+            file.Hide();
+            Kit.Show(binding, MenuColumn.File, ContextBinding);
+            KitOwner = ContextBinding;
+            Composition = new PlaneComposition(new[] { new PlaneColumn(Kit.Size.x, Kit.Size.y) }, zoom);
+            Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size); Moved = moved; Direction = MenuDrag.Turned(Placed, moved);
+            shown.Clear(); shown.Add((MenuColumn.File, file));
+            shownFileColumn = fileColumn;
+            MenuAside = false; FileAside = false;
+            Chrome.Hide(); bar.Hide(); cover.SetActive(true);
+            kitPart = Composition.Parts.First();
+            SlideTo(Kit.Part, kitPart, zoom, null, immediately || !kitWas);
+            // The kit's bands are its spine's, its slate's and its rail's, about its centre at the standard size.
+            TextBand At(TextBand band) => new TextBand(kitPart.Right + band.Left * zoom, kitPart.Right + band.Right * zoom,
+                kitPart.Up + band.Bottom * zoom, kitPart.Up + band.Top * zoom, band.EmDegrees);
+            var bands = Kit.TextBands.Select(At).ToArray();
+            ContextTextBands = bands.Take(1).ToArray();
+            ReaderTextBands = bands.Skip(1).ToArray();
+            ComposerTextBands = bands.Skip(1).Take(1).ToArray();
+            contextAllocation = kitPart; ReaderAllocation = kitPart; ComposerAllocation = null;
+            lineTo = null; lineColumn = -1;
+            Advance(0f);
+            return true;
+        }
         public event Action<MenuPlace, object>? ContextPlacePressed;
         public event Action<object>? ContextWorkspacePressed;
         public static float PortraitClearance => MenuFrameView.PortraitWidth * 0.75f;
@@ -140,6 +235,8 @@ namespace Halcyonic.XR.Workspace
             object? fileColumn, IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight,
             (float Yaw, float Elevation) moved, bool immediately)
         {
+            if (ShowKitWorkspace(fileFrame, panel, fileColumn, all, looking, surfaceHeight, moved, immediately)) return;
+            Kit.Hide();
             var zoom = GlazeText.Scale;
             var kind = panel != null ? MenuColumn.Side : fileFrame != null ? MenuColumn.File : MenuColumn.Menu;
             var primary = kind == MenuColumn.Side ? side : kind == MenuColumn.File ? file : menu;

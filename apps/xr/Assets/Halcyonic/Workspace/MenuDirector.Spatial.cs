@@ -10,8 +10,8 @@ namespace Halcyonic.XR.Workspace
 {
     public sealed partial class MenuDirector
     {
-        private readonly Dictionary<FileColumn, (float ContextHeight, bool Portrait, int TitleRows, int ProvenanceRows)> composerLayouts
-            = new Dictionary<FileColumn, (float, bool, int, int)>();
+        private readonly Dictionary<FileColumn, (float ContextHeight, bool Portrait, int TitleRows, int ProvenanceRows, bool Kit)> composerLayouts
+            = new Dictionary<FileColumn, (float, bool, int, int, bool)>();
         private readonly Dictionary<FileColumn, bool> composerFocus = new Dictionary<FileColumn, bool>();
         private void DropSpatialComposer(FileColumn file) { composerLayouts.Remove(file); composerFocus.Remove(file); }
 
@@ -34,7 +34,9 @@ namespace Halcyonic.XR.Workspace
             var titleRows = navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true
                 ? MenuFrameView.IndependentTitleRows(work.Title, Glaze.Menu.FileColumnDegrees) : 2;
             var provenanceRows = MenuFrameView.IndependentProvenanceRows(CurrentSpatialMarks(), Glaze.Menu.FileColumnDegrees);
-            var geometry = (contextHeight, HasTaskPortrait, titleRows, provenanceRows);
+            // The kit lays the file out by its own rows while it draws it (D3.4): Activity's page the rail's rows, the
+            // composer's the rows its well shows, always the pair; the file's views by their measured heights otherwise.
+            var geometry = (contextHeight, HasTaskPortrait, titleRows, provenanceRows, KitDraws(file));
             if (composerLayouts.TryGetValue(file, out var previous))
             {
                 if (previous != geometry) { composerLayouts[file] = geometry; file.Reflow(); }
@@ -43,8 +45,38 @@ namespace Halcyonic.XR.Workspace
             composerLayouts[file] = geometry;
             // Each retained file keeps its own callbacks and geometry lifetime. Background rebuilds
             // must never borrow another selected task's provenance or portrait allocation.
-            file.ConfigureActivityComposer(() => new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, false, file)),
-                () => new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, true, file)));
+            file.ConfigureActivityComposer(
+                () => KitDraws(file) ? new RowBudget(plane.Kit.RailRows) : new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, false, file)),
+                () =>
+                {
+                    if (!KitDraws(file)) return new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, true, file));
+                    composerFocus[file] = false;
+                    return new RowBudget(plane.Kit.ComposerRows);
+                });
+        }
+
+        /// <summary>Whether the kit draws <paramref name="file"/> now, as it last drew it in the plane's place.</summary>
+        private bool KitDraws(FileColumn file) => plane.KitShows && ReferenceEquals(navigator.Beside, file);
+
+        /// <summary>
+        /// The kit bound to <paramref name="file"/>'s frame (D3.4), its spine exactly the context column's offers in its words
+        /// (WorkspaceContextView): the connection state under Projects, the same up to three projects, More projects past
+        /// three, Tasks, and Workspace at its foot. Null where the kit is off or can't draw the frame.
+        /// </summary>
+        private KitFileBinding? KitBindingOf(FileColumn? file, IReadOnlyList<ProjectView> choices, string? selected)
+        {
+            if (!KitWorkspaceHost.Enabled || file?.Frame is not MenuFrame frame || file.Now is not WorkspacePresentation now) return null;
+            var projects = choices.Take(3).Select(project => new KitRowModel("project:" + project.ProjectId, LineWords.TheirName(project.Name),
+                opensMore: false, selected: project.ProjectId == selected, isName: true)).ToList();
+            if (choices.Count > 3) projects.Add(new KitRowModel("place:" + MenuPlace.Projects, LineWords.Ours("More projects")));
+            var spine = new[]
+            {
+                new KitSpineSection(projects, "Projects", note: plane.ConnectionState),
+                new KitSpineSection(new[] { new KitRowModel("place:" + MenuPlace.Tasks, LineWords.Ours("Tasks")) }),
+            };
+            var name = selected != null && State?.Projects.TryGetValue(selected, out var project) == true ? project.Name : "";
+            return KitFileBinding.Of(frame, file.Steering.Armed, now, file.Screen.Instruction.Open ? file.Screen.Instruction.Words : "",
+                setup.Session()?.Status ?? ConnectionStatus.Stopped, name, spine, new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move));
         }
 
         private static int OwnerTitleRows(FileColumn owner) => owner.Now?.Character is CharacterPresentation character
@@ -76,13 +108,17 @@ namespace Halcyonic.XR.Workspace
                 contextProject = selected; contextChoices = identities;
             }
             plane.ContextProjects = choices; plane.ContextSelectedProject = selected; plane.ContextBinding = contextOwner;
+            plane.KitBinding = KitBindingOf(activeFile, choices, selected);
         }
 
         private bool ContextStanding(object owner)
         {
-            return !Away && !dirty && drag == null && !plane.Repositioning && !plane.Sliding
-                && plane.Context.gameObject.activeInHierarchy && plane.Context.Accepting()
-                && ReferenceEquals(owner, contextOwner) && ReferenceEquals(owner, plane.Context.Binding)
+            // The context stands where it is drawn: the kit's spine while the kit draws the file, the context column otherwise.
+            var standing = plane.KitShows
+                ? plane.Kit.Settled && plane.Kit.Accepting() && ReferenceEquals(owner, plane.KitOwner)
+                : plane.Context.gameObject.activeInHierarchy && plane.Context.Accepting() && ReferenceEquals(owner, plane.Context.Binding);
+            return !Away && !dirty && drag == null && !plane.Repositioning && !plane.Sliding && standing
+                && ReferenceEquals(owner, contextOwner)
                 && ReferenceEquals(contextSession, setup.Session()) && ReferenceEquals(contextState, State)
                 && contextJournal == State?.Journal?.JournalId && contextTask == navigator.BesideTask
                 && contextConnection == (TryKey(out var connection) ? connection : null);
@@ -110,6 +146,16 @@ namespace Halcyonic.XR.Workspace
         private void OnContextWorkspace(object owner)
         {
             if (ContextStanding(owner)) OpenPlacement();
+        }
+
+        /// <summary>A row of the kit's spine, by its key, to the context column's own handlers, each behind <see cref="ContextStanding"/>.</summary>
+        private void OnKitContext(string key, object owner)
+        {
+            const string Project = "project:";
+            if (key.StartsWith(Project, StringComparison.Ordinal)) OnContextProject(key.Substring(Project.Length), owner);
+            else if (key == "place:" + MenuPlace.Projects) OnContextPlace(MenuPlace.Projects, owner);
+            else if (key == "place:" + MenuPlace.Tasks) OnContextPlace(MenuPlace.Tasks, owner);
+            else if (key == "workspace") OnContextWorkspace(owner);
         }
 
         private IReadOnlyList<WorkMark> CurrentSpatialMarks() => navigator.BesideTask is string task
