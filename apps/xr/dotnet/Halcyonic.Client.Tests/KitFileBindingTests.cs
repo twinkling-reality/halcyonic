@@ -298,6 +298,53 @@ public class KitFileBindingTests
         Assert.That(binding.SectionRows.All(row => !row.Words.AnyTheirs), Is.True, "Halcyonic's own names for its sections");
     }
 
+    /// <summary>The running task with <paramref name="commands"/> as its recent commands, newest first.</summary>
+    private static WorkspacePresentation Commanded(WorkspacePresentation running, params CommandFeedback[] commands) =>
+        new(running.Character, running.Objective, running.Execution, running.Runtime, running.Actions,
+            running.Actions.Where(running.RequiresConfirmation).ToList(), commands, running.Activity);
+
+    [Test]
+    public void AfterAnInstructionIsSentItsFeedbackStandsUnderTheStateInTheFilesOwnLine()
+    {
+        var sent = new CommandFeedback("command-1", CommandType.ExecutionSendInstruction, CommandStatus.Accepted, "Sent. Waiting for the agent…", waits: true);
+        var workspace = Commanded(Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt), sent);
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        var line = frame.Lines.Single(each => each.Words == sent.Text);
+        Assert.That(binding.Model.Said, Is.EqualTo(new[] { line }), "the file's own line, its words and its wait");
+    }
+
+    [Test]
+    public void ANoticeStandsFirstThenWhatActivityLeadsWithThenTheFeedback()
+    {
+        var refused = new CommandFeedback("command-1", CommandType.ExecutionSendInstruction, CommandStatus.Rejected, "Couldn't do that: it was busy.");
+        var workspace = Commanded(Failed(Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt), "Checks failed: 1 failed, 23 passed."), refused);
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity, Notice = FileScreens.InstructionChanged }, rows: 8);
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        Assert.That(binding.Model.Said.Select(line => line.Words),
+            Is.EqualTo(new[] { FileScreens.InstructionChanged, "Checks failed: 1 failed, 23 passed.", refused.Text }));
+    }
+
+    [Test]
+    public void AnOutcomeThatCantBeToldStandsOnceAsTheKitsNotice()
+    {
+        var unknown = new CommandFeedback("command-1", CommandType.ExecutionRespondToApproval, CommandStatus.Failed, WorkspaceText.NotSure(CommandType.ExecutionRespondToApproval));
+        var workspace = Commanded(Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt), unknown);
+        var steering = Steering();
+        var frame = Screen(workspace, steering, new FileScreen { Section = FileSection.Activity });
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        Assert.That(binding.Model.Notice!.Words.Text, Is.EqualTo(unknown.Text));
+        Assert.That(binding.Model.Said, Is.Empty, "said once, as the notice over the activity it points to");
+    }
+
     [Test]
     public void NothingIsBoundWhereTheKitCantDrawTheFrameWhole()
     {
