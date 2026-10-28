@@ -324,7 +324,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         private static Shot FocusedWork(Transform root, Vector3 eyes, bool curved, KitWorkModel? state = null, string? caption = null,
-            System.Action<KitWorkView, Shot>? require = null, System.Action<KitWorkView, Shot>? placed = null)
+            System.Action<KitWorkView, Shot>? require = null, System.Action<KitWorkView, Shot>? placed = null, KitFileBinding? bound = null)
         {
             var shot = new Shot { Caption = caption ?? (curved ? "Focused work on one gentle curve, synthetic data" : "Focused work on one plane, the fallback, synthetic data"), Curved = curved };
             var view = KitWorkView.Create(root);
@@ -368,7 +368,23 @@ namespace Halcyonic.XR.Workspace.Editor
             require?.Invoke(view, shot);
             Require(!view.Spine.Switch.ConfirmedCompact && view.Spine.Switch.ThumbPosition == 0f, "the switch's thumb is not on Workspace in the whole workspace");
             Require(view.Trail.Shown.All(entry => entry.Entry.Kind != ActivityKind.Message), "the evidence rail shows an agent message");
-            if (model.Trail.Count > 0) Require(view.Trail.Shown.Count > 0, "the evidence rail shows no recorded event");
+            // Paging with the file, the rail shows exactly the recorded events the file's page shows, none where it shows none;
+            // otherwise the newest recorded events that fit, at least one, none skipped.
+            var shown = view.Trail.gameObject.activeInHierarchy ? view.Trail.Shown.Select(entry => entry.Entry.Position).ToList() : new List<long>();
+            if (bound?[KitPlace.Pager] != null)
+            {
+                var page = model.Trail.Where(entry => bound.Frame.Lines.Any(line => line.Action == null && line.Words == entry.Entry.Text)).Select(entry => entry.Entry.Position).ToList();
+                Require(shown.SequenceEqual(page), "the evidence rail shows events " + string.Join(", ", shown) + " where the file's page shows " + string.Join(", ", page));
+            }
+            else if (model.Trail.Count > 0)
+            {
+                Require(shown.Count > 0, "the evidence rail shows no recorded event");
+                var newest = model.Trail.Skip(model.Trail.Count - shown.Count).Select(entry => entry.Entry.Position).ToList();
+                Require(shown.SequenceEqual(newest), "the evidence rail shows events " + string.Join(", ", shown) + " where the newest that fit are " + string.Join(", ", newest));
+            }
+            var nothingYet = view.Rail.GetComponentsInChildren<TextMeshPro>(false).Any(label => label.text == LabelText.ForTextMeshPro(FileScreens.NoActivityYet));
+            if (model.Trail.Count > 0) Require(!nothingYet, "the evidence rail says " + FileScreens.NoActivityYet + " beside recorded events");
+            else Require(nothingYet, "the evidence rail does not say " + FileScreens.NoActivityYet + " where nothing was recorded");
             FacesTheEyes(shot, view.transform, view.Carriers, eyes);
             Debug.Log("Halcyonic: spatial kit: focused work " + (curved ? "on one gentle curve " : "on one plane ") + Spread(shot, eyes) + "; report " + view.Message.Lines
                 + " lines; trail shows " + view.Trail.Shown.Count + " of " + model.Trail.Count + " events, " + view.Trail.Earlier + " earlier.");
