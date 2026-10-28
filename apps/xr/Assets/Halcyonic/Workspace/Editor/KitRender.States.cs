@@ -53,6 +53,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 (view, shot) => RequireBound(view, shot, KitPlace.Close, KitPlace.Talk, KitPlace.Send)),
             "13-bound-nothing-yet" => Bound(root, eyes, Running(new ActivityEntry[0]), new FileScreen { Section = FileSection.Activity, Speak = true },
                 "Bound to the file: nothing recorded yet, synthetic data", RequireNothingYet),
+            // The rail's own rows (the host's DefaultRailRows), turned to the page of Activity where the routes stand.
+            "13-bound-routes" => Bound(root, eyes, Running(SelectedEntries().Skip(SelectedEntries().Count - 3).ToList()), Routed(), "Bound to the file: running, the task's routes at the rail's foot, synthetic data",
+                RequireRoutes, rows: 8, until: frame => frame.Lines.Any(line => line.Action == FileScreens.ShowTaskHere)),
             "13-bound-approval-from-activity" => Bound(root, eyes, WithActivity(ApprovalWorkspace(), SelectedEntries()), new FileScreen { Section = FileSection.Activity, Speak = true },
                 "Bound to the file: an approval waits on Waiting, seen from Activity, synthetic data", RequireSaid),
             _ => Moving(FocusedWork(root, eyes, true, WorkModel(), "Project to task, halfway: the task grows from its row, synthetic data", placed: (view, _) => FromRow(view, eyes))),
@@ -62,7 +65,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The kit bound to the frame a task's file draws for <paramref name="screen"/> (<see cref="KitFileBinding"/>), shown
         /// as the workspace's host shows it: the file's sections as tabs on the slate, no switch until its route exists. Fails where the frame has no binding: the kit would not stand in for the file there.
         /// </summary>
-        private static Shot Bound(Transform root, Vector3 eyes, WorkspacePresentation workspace, FileScreen screen, string caption, System.Action<KitWorkView, Shot> require)
+        private static Shot Bound(Transform root, Vector3 eyes, WorkspacePresentation workspace, FileScreen screen, string caption, System.Action<KitWorkView, Shot> require,
+            int rows = 4, System.Func<MenuFrame, bool>? until = null)
         {
             // The file's sections stand as its tabs on the slate, in its words, the one showing raised.
             void Sections(KitWorkView view, Shot shot, KitFileBinding bound)
@@ -73,7 +77,12 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var steering = new WorkspaceSteering(new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }));
             if (screen.Instruction.Open) screen.Instruction.Restore(workspace.Execution!.ExecutionId, Draft, false, 0);
-            var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
+            var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(rows));
+            for (var turn = 0; until != null && !until(frame) && turn < screen.Pages; turn++)
+            {
+                screen.NextPage();
+                frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(rows));
+            }
             var binding = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Open ? screen.Instruction.Words : "", new ConnectionStatus(ConnectionPhase.Live),
                 SelectedProject, ProductionSpine(workspace), new KitRowModel("workspace", LineWords.Ours("Workspace"), GlazeIcon.Move));
             if (binding == null)
@@ -114,6 +123,7 @@ namespace Halcyonic.XR.Workspace.Editor
             };
             if (control.Place == KitPlace.Field) return composer.gameObject.activeInHierarchy && composer.Field.gameObject.activeInHierarchy;
             if (control.Place == KitPlace.Pager) return view.Earlier.gameObject.activeInHierarchy;
+            if (control.Place == KitPlace.Route) return view.Routes.Any(route => route.Words.text == LabelText.ForTextMeshPro(control.Words));
             return button != null && button.gameObject.activeInHierarchy && button.Words.text == LabelText.ForTextMeshPro(control.Words);
         }
 
@@ -140,6 +150,32 @@ namespace Halcyonic.XR.Workspace.Editor
             RequireBound(view, shot);
             if (!view.Said.Any(line => line.text.Contains("Open Waiting"))) shot.Failures.Add("the file's line that the approval waits on Waiting is not shown");
             if (view.Decision.gameObject.activeSelf) shot.Failures.Add("an approval is answered on Waiting, not from Activity");
+        }
+
+        /// <summary>Activity with every route the file offers a running task: Show this task here, Ask workspace, Read results, Character colour.</summary>
+        private static FileScreen Routed() => new FileScreen
+        {
+            Section = FileSection.Activity, Speak = true, ShowTaskHereOffered = true, WorkspaceRequestOffered = true, ResultsOffered = true, CharacterColourOffered = true,
+        };
+
+        /// <summary>
+        /// The page's routes stand at the rail's foot in the frame's words and order, under the trail, and take presses; the
+        /// trail still shows every entry the page shows.
+        /// </summary>
+        private static void RequireRoutes(KitWorkView view, Shot shot)
+        {
+            RequireBound(view, shot);
+            var shown = view.Routes.Select(route => route.Words.text).ToList();
+            var offered = new[] { "Show this task here", "Ask workspace", "Read results", "Character colour" }.Select(LabelText.ForTextMeshPro).ToList();
+            var from = shown.Count > 0 ? offered.IndexOf(shown[0]) : -1;
+            if (from < 0 || !offered.Skip(from).Take(shown.Count).SequenceEqual(shown))
+                shot.Failures.Add("the rail's routes are not the frame's, in its order: " + string.Join(", ", shown));
+            if (view.Rail.GetComponentsInChildren<TMPro.TextMeshPro>(false).Any(label => label.text == LabelText.ForTextMeshPro(FileScreens.NoActivityYet)))
+                shot.Failures.Add("the rail says nothing was recorded beside a task's recorded activity");
+            if (view.Trail.Earlier > 0) shot.Failures.Add("the routes left the trail too little room for the page's " + view.Trail.Earlier + " earlier entries");
+            if (view.Routes.Any(route => !view.RailTargets.Contains(route.Press))) shot.Failures.Add("a route takes no presses");
+            var trailBottom = view.Trail.transform.localPosition.y - view.Trail.Height;
+            if (view.Routes.Any(route => route.transform.localPosition.y + route.Size.y / 2f > trailBottom + 1e-4f)) shot.Failures.Add("a route stands over the trail");
         }
 
         /// <summary>The instruction composer open on the person's draft.</summary>
@@ -189,7 +225,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static readonly string[] States = { "5-approval", "5-approval-confirming", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question",
             "10-avatar-working", "10-avatar-turning", "10-avatar-waiting", "11-avatar-agents-off", "11-avatar-no-room", "12-to-compact-mid", "12-to-task-mid",
-            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-approval-from-activity" };
+            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-approval-from-activity" };
 
         // The ways back are the ones that exist: Settings' agents switch (SpaceSettings) and the placement column's move.
         private const string AgentsOff = "The workspace works without characters";

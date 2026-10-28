@@ -56,6 +56,7 @@ namespace Halcyonic.XR.UI
         private float questionTop;
         private TextMeshPro railHeading = null!;
         private KitRow earlier = null!;
+        private readonly List<KitRow> routes = new List<KitRow>();
         private KitTrail trail = null!;
         private Vector2 size;
 
@@ -83,6 +84,9 @@ namespace Halcyonic.XR.UI
         public KitTrail Trail => trail;
         public KitRow Earlier => earlier;
 
+        /// <summary>The task's routes at the rail's foot, as shown, in the frame's order.</summary>
+        public IEnumerable<KitRow> Routes => routes.Where(route => route.gameObject.activeSelf);
+
         /// <summary>The instrument's extent as laid out, in units of its distance.</summary>
         public Vector2 Size => size;
 
@@ -90,7 +94,7 @@ namespace Halcyonic.XR.UI
         public bool ReadsWhole => (!message.gameObject.activeSelf || message.Complete)
             && (!composer.gameObject.activeSelf || composer.ShownDraftLines >= composer.DraftLines);
 
-        /// <summary>A spine row or the rail's Earlier activity was pressed.</summary>
+        /// <summary>A spine row, the rail's Earlier activity, its pager or one of its routes was pressed.</summary>
         public event Action<string>? RowPressed;
 
         public IEnumerable<KitCarrier> Carriers => new[] { spineCarrier, slate, rail };
@@ -131,6 +135,7 @@ namespace Halcyonic.XR.UI
             get
             {
                 if (earlier.gameObject.activeSelf) yield return earlier.Press;
+                foreach (var route in Routes) yield return route.Press;
             }
         }
 
@@ -173,6 +178,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The rail's row for the file's Activity pager, where <see cref="Show"/> is given a binding with one.</summary>
         public const string PagerKey = "activity:pager";
+
+        /// <summary>The prefix of the rail's rows for the task's routes, followed by the route's place in the binding's order.</summary>
+        public const string RouteKey = "activity:route:";
 
         /// <summary>
         /// Lays the whole instrument out for <paramref name="model"/>, centred on the view's transform. Given the
@@ -269,7 +277,10 @@ namespace Halcyonic.XR.UI
             if (model.Notice != null) railY += notice.Show(model.Notice, new Vector2(railLeft, sideTop - railY), railInner) + KitType.Scaled(0.6f);
             else notice.Hide();
             var earlierAt = railY;
-            var trailRoom = sides - railY - pad;
+            // The task's own routes stand at the rail's foot, in the frame's words and order; the trail takes the room left.
+            var routesHeight = ShowRoutes(railLeft, -sideTop + pad, railInner);
+            var routesRoom = routesHeight > 0f ? routesHeight + KitType.Scaled(0.6f) : 0f;
+            var trailRoom = sides - railY - pad - routesRoom;
             // Bound, the rail shows the page of Activity the file shows, and its pager turns it; no history of its own.
             var entries = model.Trail;
             if (binding?[KitPlace.Pager] is KitControl pager)
@@ -277,10 +288,13 @@ namespace Halcyonic.XR.UI
                 entries = model.Trail.Where(entry => binding!.Frame.Lines.Any(line => line.Action == null && line.Words == entry.Entry.Text)).ToList();
                 var pagerHeight = earlier.Show(new KitRowModel(PagerKey, LineWords.Ours(pager.Words), pager.Icon ?? GlazeIcon.Next), new Vector2(railLeft, sideTop - railY), railInner);
                 railY += pagerHeight + KitType.Scaled(0.5f);
-                trail.Show(entries, railInner, sides - railY - pad);
+                trail.Show(entries, railInner, sides - railY - pad - routesRoom);
                 trail.transform.localPosition = new Vector3(railLeft, sideTop - railY, 0f);
+                // A page that shows none of what was recorded, as one holding only the routes, says nothing of it: never that nothing was recorded.
+                trail.gameObject.SetActive(entries.Count > 0 || model.Trail.Count == 0);
                 return;
             }
+            trail.gameObject.SetActive(true);
             trail.Show(entries, railInner, trailRoom);
             if (binding != null) earlier.Hide();
             else if (trail.Earlier > 0)
@@ -290,12 +304,39 @@ namespace Halcyonic.XR.UI
                     end: trail.Earlier == 1 ? "1 more" : trail.Earlier + " more", endTone: GlazeTone.Accent);
                 var earlierHeight = earlier.Show(earlierModel, new Vector2(railLeft, sideTop - railY), railInner);
                 railY += earlierHeight + KitType.Scaled(0.5f);
-                trail.Show(model.Trail, railInner, sides - railY - pad);
+                trail.Show(model.Trail, railInner, sides - railY - pad - routesRoom);
                 earlier.Show(new KitRowModel("activity:earlier", LineWords.Ours(EarlierWords), GlazeIcon.LastKnown,
                     end: trail.Earlier == 1 ? "1 more" : trail.Earlier + " more", endTone: GlazeTone.Accent), new Vector2(railLeft, sideTop - earlierAt), railInner);
             }
             else earlier.Hide();
             trail.transform.localPosition = new Vector3(railLeft, sideTop - railY, 0f);
+        }
+
+        /// <summary>
+        /// The binding's routes as rows standing up from <paramref name="bottom"/> at <paramref name="left"/>, in the frame's
+        /// order and words, each opening more; none unbound. Returns their height.
+        /// </summary>
+        private float ShowRoutes(float left, float bottom, float width)
+        {
+            var shown = binding?.Routes.ToList() ?? new List<KitControl>();
+            while (routes.Count < shown.Count)
+            {
+                var made = KitRow.Create(rail.transform, "Route");
+                made.Pressed += key => RowPressed?.Invoke(key);
+                routes.Add(made);
+            }
+            KitRowModel Row(int at) => new KitRowModel(RouteKey + at, LineWords.Ours(shown[at].Words));
+            var gap = KitType.Units(SpatialKit.TargetGapDegrees);
+            var heights = shown.Select((_, at) => routes[at].Show(Row(at), new Vector2(left, bottom), width)).ToList();
+            var total = heights.Sum() + gap * Mathf.Max(0, shown.Count - 1);
+            var top = bottom + total;
+            for (var at = 0; at < shown.Count; at++)
+            {
+                routes[at].Show(Row(at), new Vector2(left, top), width);
+                top -= heights[at] + gap;
+            }
+            for (var at = shown.Count; at < routes.Count; at++) routes[at].Hide();
+            return total;
         }
 
         /// <summary>The slate's foot at <paramref name="topLeft"/>: the decision bar while an approval waits, else the composer, asking for an answer where a question waits.</summary>
