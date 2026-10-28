@@ -2209,6 +2209,33 @@ Cancel. Where no keyboard is supported, such as the editor, the workspace offers
 instructions in place of the tab's answer, and the recorded demonstration offers the instructions it
 recorded.
 
+### Curved drawing (2026-10-28)
+
+The menu plane can draw on the workspace's one gentle curve (ADR 0034) behind one switch,
+`CurvedDrawing.Enabled`. It is off in production, so the plane is drawn flat as before, the
+fallback; the Editor's `SpatialCurveCheck` journey turns it on. It stays off until the interface's
+targets are curved too: a flat target on a wide curved row would sit up to about 16 mm off what is
+drawn.
+
+Layout stays flat. `CurvedDrawing`, on the plane's root, holds the client core's `PlaneCurve` at
+`PlaneComposition.Distance`. Its axis runs along the plane's own up through the eyes the plane was
+placed for. `MenuPlane` places it after every step, so Move takes the curve along and it never
+follows the head. Then it draws what moved or changed:
+
+- Each `Surface` becomes a strip of columns at most 1 degree wide. It keeps its UVs, so the shader
+  draws the same shape, and its normals are those of the bent face. A coated surface's rim gets
+  points along its top and bottom edges and bends the same way. A strip is rebuilt only when its
+  place, size, column count or the curve's place changes. Strip topology is shared by column count.
+- Each label bends in `GlazeRuns`' one hook on its mesh: outside words lean first in flat
+  coordinates, then everything bends. The hook keeps the leaned flat mesh, so a label that only
+  moved bends again from it without making its text again.
+- A task portrait's character stands where the curve puts the portrait's centre, turned with it.
+- The light line's plane end meets the page where it is drawn.
+
+Still flat: targets (poke and ray), the band model and field fit (`MenuFrame.Fits`), and the
+journeys' field and placement checks. The surface and glyph counts each curve shot records are
+Editor counts, not device frame times.
+
 ### The room
 
 `Assets/Halcyonic/Room` is the separate `Halcyonic.XR.Room` assembly, the only one that references

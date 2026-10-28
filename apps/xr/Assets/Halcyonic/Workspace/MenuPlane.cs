@@ -44,6 +44,14 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The menu, the file and the side panel, made once, for stepping each frame without allocating.</summary>
         private MenuFrameView[] frameViews = null!;
         private MenuBarView bar = null!;
+
+        /// <summary>Draws the plane on the workspace's one gentle curve while <see cref="CurvedDrawing.Enabled"/>, placed with the plane.</summary>
+        public CurvedDrawing Curved { get; private set; } = null!;
+
+        /// <summary>The task portraits standing on the plane: bodies, not pages, each stood on the curve as a whole.</summary>
+        public IReadOnlyList<Transform> CurvedBodies => curvedBodies;
+
+        private readonly List<Transform> curvedBodies = new List<Transform>();
         public WorkspaceChromeView Chrome { get; private set; } = null!;
         public string ConnectionState { get; set; } = WorkspaceText.Disconnected;
         public LineWords SelectionContext { get; set; } = LineWords.Ours("Projects");
@@ -292,6 +300,7 @@ namespace Halcyonic.XR.Workspace
             var go = new GameObject("Menu plane");
             go.transform.SetParent(parent, false);
             var plane = go.AddComponent<MenuPlane>();
+            plane.Curved = go.AddComponent<CurvedDrawing>();
             plane.cover = new GameObject("Covers the banner");
             plane.cover.transform.SetParent(go.transform, false);
             AmbientCover.Add(plane.cover, panel: true, openAs, () => plane.TopElevation, () => plane.BarElevation);
@@ -1017,11 +1026,31 @@ namespace Halcyonic.XR.Workspace
                 part.localScale = Vector3.one * Mathf.Lerp(slide.FromScale, slide.ToScale, eased);
                 if (slide.Progress >= 1f && slide.HideAtEnd) part.parent.gameObject.SetActive(false);
             }
+            DrawOnCurve();
             UpdateLightLine();
             FlushIndependentDraw();
         }
 
         private void LateUpdate() => Step(Time.unscaledDeltaTime, frame: true);
+
+        /// <summary>
+        /// Places the curve where the plane stands, its axis through the eyes it was placed for, so Move takes it
+        /// along, and draws what moved or changed on it: pages bent, each task portrait stood where the curve puts it.
+        /// </summary>
+        private void DrawOnCurve()
+        {
+            Curved.Place(eyes, PlaneLayout.Facing(Direction));
+            curvedBodies.Clear();
+            var on = Curved.On ? Curved : null;
+            foreach (var view in frameViews)
+            {
+                var portrait = view.TaskIdentity;
+                if (portrait == null) continue;
+                curvedBodies.Add(portrait.transform);
+                portrait.StandOn(on);
+            }
+            Curved.Refresh(curvedBodies);
+        }
 
         private static PlaneColumn ColumnOf(MenuFrameView view) => new PlaneColumn(view.Width, ToArray(view.Heights));
 
@@ -1229,6 +1258,8 @@ namespace Halcyonic.XR.Workspace
             var (from, to) = ClearJoin(labelLeft, labelRight, plateLeft, plateRight, includeOwn: true);
             line.gameObject.SetActive(true);
             line.SetPosition(0, from);
+            // Its plane end meets the page where the curve draws it.
+            if (Curved.On) to = Curved.Bend(to);
             // Drawn from the character's end as far as it has come.
             line.SetPosition(1, Vector3.Lerp(from, to, drawnShare));
         }

@@ -109,6 +109,29 @@ public class PlaneCurveTests
     }
 
     [Test]
+    public void APointOfTheFlatPlaneBendsOntoTheCurveByItsArc()
+    {
+        // The flat plane stands the radius in front of the eyes; its centre column is already on the curve.
+        foreach (var y in new[] { -0.2f, 0f, 0.16f })
+            Assert.That(Vector3.Distance(Curve.Bend(new Vector3(0f, y, Distance)), new Vector3(0f, y, Distance)), Is.LessThan(1e-7f));
+        foreach (var point in new[] { new Vector3(0.27f, 0.16f, Distance), new Vector3(-0.13f, -0.08f, Distance + 0.01f), new Vector3(0.4f, 0f, Distance - 0.004f) })
+        {
+            var bent = Curve.Bend(point);
+            Assert.That(bent, Is.EqualTo(Curve.Map(point - new Vector3(0f, 0f, Distance))), "Bend is Map of the point measured from the plane");
+            Assert.That(bent.Y, Is.EqualTo(point.Y), "height is kept");
+            Assert.That(new Vector2(bent.X, bent.Z).Length(), Is.EqualTo(point.Z).Within(1e-6f), "depth beyond the plane is kept as radius");
+            Assert.That(MathF.Atan2(bent.X, bent.Z) * Distance, Is.EqualTo(point.X).Within(1e-6f), "a point across stands its arc round the eyes");
+            Assert.That(Vector3.Distance(Curve.Unmap(bent) + new Vector3(0f, 0f, Distance), point), Is.LessThan(1e-6f), "and comes back by the inverse");
+        }
+        // Two points a glyph apart across keep their distance as arc on the curve, so a glyph keeps its width.
+        var left = Curve.Bend(new Vector3(0.3f, 0f, Distance));
+        var right = Curve.Bend(new Vector3(0.305f, 0f, Distance));
+        Assert.That(Vector3.Distance(left, right), Is.EqualTo(0.005f).Within(1e-6f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Curve.Bend(new Vector3(MathF.PI * Distance, 0f, Distance)), "past half a turn the curve meets itself");
+        Assert.Throws<ArgumentOutOfRangeException>(() => Curve.Bend(Vector3.Zero), "a point at the eyes is behind no plane");
+    }
+
+    [Test]
     public void ImpossibleCurvesAndPointsAreRefused()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaneCurve(0f));
