@@ -256,6 +256,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: "the recorder's failure: fixed words or a path",
     },
     {
+      file: 'apps/control-plane/src/cli/record-judge.ts',
+      args: '" error instanceof Error ? error.message : String(error) " ,',
+      why: "the recorder's failure: fixed words, a path, or each event and field it refused, never their text",
+    },
+    {
       file: 'apps/control-plane/src/cli/record-fixtures.ts',
       args: '" path "',
       why: "the trace's path",

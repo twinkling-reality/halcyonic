@@ -1053,7 +1053,7 @@ function checkPlan(scenarios: ReadonlyMap<string, Scenario>, plan: Demonstration
 }
 
 /** The command policies every realtime client is welcomed with (http/realtime.ts). */
-function commandPolicies(): CommandPolicy[] {
+export function commandPolicies(): CommandPolicy[] {
   return Object.entries(COMMAND_POLICY).map(([commandType, policy]) => ({
     command_type: commandType as CommandType,
     policy,
@@ -1100,24 +1100,6 @@ class WatchOnlyRuntime implements RuntimeAdapter {
 /** JSON with one event or answer per line, so a change to the recording reads like a change to a trace. */
 function serializeDemonstration(demonstration: Demonstration): string {
   const json = (value: unknown) => JSON.stringify(value);
-  const list = (name: string, items: readonly unknown[], last: boolean) => {
-    const end = last ? '' : ',';
-    if (items.length === 0) return [`      "${name}": []${end}`];
-    return [
-      `      "${name}": [`,
-      items.map((item) => `        ${json(item)}`).join(',\n'),
-      `      ]${end}`,
-    ];
-  };
-  const nodes = demonstration.nodes.map((node, index) =>
-    [
-      '    {',
-      ...list('events', node.events, false),
-      ...list('answers', node.answers, false),
-      `      "ending": ${json(node.ending)}`,
-      index < demonstration.nodes.length - 1 ? '    },' : '    }',
-    ].join('\n'),
-  );
   const byExecution = (name: string, answers: RecordedAnswers<unknown>, last: boolean) => {
     const entries = Object.entries(answers);
     const end = last ? '' : ',';
@@ -1141,7 +1123,7 @@ function serializeDemonstration(demonstration: Demonstration): string {
     `  "welcome": ${json(demonstration.welcome)},`,
     `  "snapshot": ${json(demonstration.snapshot)},`,
     '  "nodes": [',
-    ...nodes,
+    ...serializeNodes(demonstration.nodes),
     '  ],',
     ...byExecution('understanding', demonstration.understanding, false),
     ...byExecution('evaluation', demonstration.evaluation, false),
@@ -1149,4 +1131,27 @@ function serializeDemonstration(demonstration: Demonstration): string {
     '}',
     '',
   ].join('\n');
+}
+
+/** The nodes of a recording, one event or answer per line, for the inside of its `nodes` array. */
+export function serializeNodes(nodes: readonly DemonstrationNode[]): string[] {
+  const json = (value: unknown) => JSON.stringify(value);
+  const list = (name: string, items: readonly unknown[], last: boolean) => {
+    const end = last ? '' : ',';
+    if (items.length === 0) return [`      "${name}": []${end}`];
+    return [
+      `      "${name}": [`,
+      items.map((item) => `        ${json(item)}`).join(',\n'),
+      `      ]${end}`,
+    ];
+  };
+  return nodes.map((node, index) =>
+    [
+      '    {',
+      ...list('events', node.events, false),
+      ...list('answers', node.answers, false),
+      `      "ending": ${json(node.ending)}`,
+      index < nodes.length - 1 ? '    },' : '    }',
+    ].join('\n'),
+  );
 }
