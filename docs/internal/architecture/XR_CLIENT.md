@@ -1508,6 +1508,7 @@ presence from `StateLanguage.BadgeOf`. The agent's latest message stays a report
 evidence rail holds every other activity entry unchanged, with an icon for the kind of record and
 no outcome tone, since an entry carries none. No production view draws the kit yet; the overview's
 adapters from the Tasks and Projects columns come with the overview. Tests: `KitPresenterTests`.
+The kit's Editor renders (`KitRender`) draw it through `CurvedDrawing`, production's own mapping.
 
 ## Verification
 
