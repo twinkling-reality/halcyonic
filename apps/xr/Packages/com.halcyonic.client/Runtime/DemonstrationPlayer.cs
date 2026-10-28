@@ -18,6 +18,13 @@ namespace Halcyonic.Client
         /// answer, as at an approval, always does.
         /// </summary>
         public TimeSpan? Hold { get; set; }
+
+        /// <summary>
+        /// True: once a final state has held, the recording starts again. False: once a final state has
+        /// held, the recording has finished; it stays as it stands and the player says so
+        /// (<see cref="DemonstrationPlayer.Finished"/>), so another recording can follow it.
+        /// </summary>
+        public bool Loop { get; set; } = true;
     }
 
     /// <summary>
@@ -83,6 +90,17 @@ namespace Halcyonic.Client
 
         /// <summary>How many times the recording has started from its beginning, in any connection.</summary>
         public int Plays => Volatile.Read(ref plays);
+
+        private int finished;
+
+        /// <summary>
+        /// A recording that does not loop has held its final state to the end: nothing more plays, and
+        /// whoever shows it may show another.
+        /// </summary>
+        public bool Finished => Volatile.Read(ref finished) == 1;
+
+        /// <summary>The transport playing now has held a final state to its end, without looping.</summary>
+        internal void ReachedTheEnd() => Volatile.Write(ref finished, 1);
 
         private int reading;
         private DemonstrationTransport? playing;

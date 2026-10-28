@@ -192,13 +192,13 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
     },
     {
       file: 'apps/xr/Assets/Halcyonic/Scripts/ControlPlaneConnection.cs',
-      args: '"" + text.Length / 1024 + "" + loaded + "" + parsing.ElapsedMilliseconds + ""',
-      why: "the bundled demonstration's size and times",
+      args: '"" + name + "" + text.Length / 1024 + "" + loaded + "" + parsing.ElapsedMilliseconds + ""',
+      why: 'which bundled recording (the demonstration or the recorded run, fixed words), its size and times',
     },
     {
       file: 'apps/xr/Assets/Halcyonic/Scripts/ControlPlaneConnection.cs',
-      args: '"" + failed.Exception?.GetBaseException().Message',
-      why: "a parse error in the demonstration bundled in the app, never the person's work",
+      args: '"" + name + "" + failed.Exception?.GetBaseException().Message',
+      why: "which bundled recording (fixed words) and its parse error or wrong kind (fixed words), never the person's work",
     },
     {
       file: 'apps/xr/Assets/Halcyonic/Scripts/ControlPlaneConnection.cs',
