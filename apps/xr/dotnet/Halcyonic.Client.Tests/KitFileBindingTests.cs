@@ -371,6 +371,82 @@ public class KitFileBindingTests
         Assert.That(binding, Is.Null);
     }
 
+    /// <summary>The task's own routes Activity offers under its log, each the line that opens it.</summary>
+    private static readonly string[] Routes = { FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults, FileScreens.OpenCharacterColour };
+
+    /// <summary>The routes the binding holds, against the frame's lines that open them, both in the frame's order.</summary>
+    private static void RoutesAreTheFramesLines(MenuFrame frame, KitFileBinding binding)
+    {
+        var lines = frame.Lines.Where(line => line.Action != null && Routes.Contains(line.Action)).ToList();
+        Assert.That(lines, Is.Not.Empty, "the frame offers routes");
+        Assert.That(binding.Routes.Select(route => (route.Place, route.Action, route.Key, route.Words, route.Icon, route.Available, route.Reason, route.Holds)),
+            Is.EqualTo(lines.Select(line => (KitPlace.Route, line.Action!, line.Key, line.Words, line.Icon, line.Available, (string?)null, false))));
+    }
+
+    [Test]
+    public void ThePlainRunningActivityPageBindsItsRoutesInTheFramesOrder()
+    {
+        var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        var steering = Steering();
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true, ShowTaskHereOffered = true, WorkspaceRequestOffered = true, ResultsOffered = true,
+            CharacterColourOffered = true };
+        var frame = Screen(workspace, steering, screen, rows: 12);
+        Assert.That(frame.Lines.Where(line => line.Action != null).Select(line => line.Action), Is.EqualTo(Routes), "the frame offers every route, on one page");
+        var binding = Bind(frame, steering, workspace)!;
+        Assert.That(binding, Is.Not.Null);
+        EveryPressIsBound(frame, binding);
+        RoutesAreTheFramesLines(frame, binding);
+        Assert.That(binding[KitPlace.Route]!.Action, Is.EqualTo(FileScreens.ShowTaskHere), "the first route, as the frame lays it");
+    }
+
+    [Test]
+    public void EachRouteAloneBindsAsItsLine()
+    {
+        var workspace = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
+        foreach (var route in Routes)
+        {
+            var steering = Steering();
+            var screen = new FileScreen
+            {
+                Section = FileSection.Activity, Speak = true, ShowTaskHereOffered = route == FileScreens.ShowTaskHere,
+                WorkspaceRequestOffered = route == FileScreens.OpenWorkspaceRequest, ResultsOffered = route == FileScreens.OpenResults,
+                CharacterColourOffered = route == FileScreens.OpenCharacterColour,
+            };
+            var frame = Screen(workspace, steering, screen, rows: 12);
+            var binding = Bind(frame, steering, workspace);
+            Assert.That(binding, Is.Not.Null, route);
+            EveryPressIsBound(frame, binding!);
+            RoutesAreTheFramesLines(frame, binding!);
+        }
+    }
+
+    [Test]
+    public void RoutesTurnWithActivitysPage()
+    {
+        // Two notes of two rows each and every route are more than three rows hold: the routes stand on the pages the file gives them.
+        var workspace = Failed(Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt),
+            "Checks failed: 1 failed, 23 passed.", "It stopped before the tests finished.");
+        var steering = Steering();
+        var screen = new FileScreen { Section = FileSection.Activity, Speak = true, ShowTaskHereOffered = true, WorkspaceRequestOffered = true, ResultsOffered = true,
+            CharacterColourOffered = true };
+        var seen = new List<string>();
+        var pages = 0;
+        do
+        {
+            var frame = Screen(workspace, steering, screen, rows: 3);
+            var binding = Bind(frame, steering, workspace)!;
+            Assert.That(binding, Is.Not.Null, "page " + (screen.Page + 1));
+            EveryPressIsBound(frame, binding);
+            Assert.That(binding[KitPlace.Pager], Is.Not.Null);
+            if (binding.Routes.Any()) RoutesAreTheFramesLines(frame, binding);
+            seen.AddRange(binding.Routes.Select(route => route.Action));
+            screen.NextPage();
+            pages++;
+        }
+        while (screen.Page != 0 && pages < 10);
+        Assert.That(seen, Is.EqualTo(Routes), "every route once, in the frame's order, across the pages");
+    }
+
     [Test]
     public void NothingIsBoundWhereTheKitCantDrawTheFrameWhole()
     {
