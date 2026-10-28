@@ -17,6 +17,10 @@ interface Headset {
   readonly installedSha256?: string;
   /** The capture service's log lines. */
   readonly syncLog?: string;
+  /** ActivityTaskManager's lines after a launch. */
+  readonly launchLog?: string;
+  /** Each GET_PROPERTY reading of set_proximity_close in turn, 'true', 'false' or 'missing'; the last repeats. */
+  readonly proximity?: readonly string[];
 }
 
 /**
@@ -47,7 +51,15 @@ else if (said === 'shell pm path com.halcyonic.xr') out('package:/data/app/test/
 else if (said === 'shell sha256sum /data/app/test/base.apk') out(scenario.installedSha256 + '  /data/app/test/base.apk');
 else if (said === 'shell dumpsys package com.halcyonic.xr') out('      firstInstallTime=2026-01-01 00:00:00');
 else if (said === 'shell dumpsys activity activities') out('      topResumedActivity=ActivityRecord{a u0 com.oculus.vrshell/.HomeActivity t1}');
+else if (args[0] === 'logcat' && said.includes('ActivityTaskManager')) out(scenario.launchLog ?? '');
 else if (args[0] === 'logcat') out(scenario.syncLog ?? '');
+else if (said.startsWith('shell am broadcast') || said.startsWith('shell am force-stop') || said === 'shell input keyevent KEYCODE_WAKEUP') {}
+else if (said.startsWith('shell content call')) {
+  const seen = fs.readFileSync(process.env.ADB_CALLS, 'utf8').split('\\n').filter((c) => c.startsWith('shell content call')).length;
+  const readings = scenario.proximity ?? ['false'];
+  const reading = readings[Math.min(seen, readings.length) - 1];
+  out(reading === 'missing' ? 'Error: no such method' : 'Result: Bundle[{disable_guardian=false, set_proximity_close=' + reading + '}]');
+}
 else if (args[0] === 'shell' && args[1] === 'am' && args[2] === 'start') out('Status: ok');
 else if (args[0] === 'shell' && args[1] === 'rm') {}
 else {
@@ -77,6 +89,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       HALCYONIC_QUEST_SERIAL: 'TEST-SERIAL',
       HALCYONIC_QUEST_STATE: join(directory, `state-${at}.json`),
       HALCYONIC_FFMPEG: join(directory, 'no-ffmpeg'),
+      HALCYONIC_QUEST_SETTLE_MS: '0',
       ADB_SCENARIO: scenario,
       ADB_CALLS: calls,
     };
@@ -169,6 +182,46 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       assert.equal(code, 1, said);
       assert.ok(!calls.some((call) => call.startsWith('shell am start')), calls.join('\n'));
     }
+  });
+
+  test('give-back sends the release again when its second reading says the override is on', async () => {
+    const { code, said, calls } = await device(
+      { proximity: ['false', 'true', 'false', 'false'] },
+      'give-back',
+    );
+    assert.equal(code, 0, said);
+    assert.equal(
+      calls.filter((call) => call.includes('automation_disable')).length,
+      2,
+      calls.join('\n'),
+    );
+    assert.match(said, /The proximity sensor is the headset's again/);
+  });
+
+  test('give-back never takes two unreadable readings for off', async () => {
+    const { code, said, calls } = await device({ proximity: ['missing'] }, 'give-back');
+    assert.equal(code, 1, said);
+    assert.equal(
+      calls.filter((call) => call.includes('automation_disable')).length,
+      2,
+      calls.join('\n'),
+    );
+    assert.match(said, /could not be read/);
+  });
+
+  test('awake says when the override could not be read', async () => {
+    const { code, said } = await device({ proximity: ['missing'] }, 'awake');
+    assert.equal(code, 1, said);
+    assert.match(said, /could not be read/);
+  });
+
+  test('a launch a system dialog held is stopped again and fails', async () => {
+    const launchLog =
+      '10-28 15:11:02.100  1505  1662 I ActivityTaskManager: Launch is blocked because: a Guardian dialog is currently showing. Caching launch';
+    const { code, said, calls } = await device({ launchLog }, 'launch');
+    assert.equal(code, 1, said);
+    assert.match(said, /The launch was held and com\.halcyonic\.xr was stopped/);
+    assert.ok(calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
   });
 
   test("the capture service is not used while the headset's log says media sync is on", async () => {
