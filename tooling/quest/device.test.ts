@@ -17,6 +17,8 @@ interface Headset {
   readonly installedSha256?: string;
   /** The capture service's log lines. */
   readonly syncLog?: string;
+  /** The capture service's log lines once a recording has stopped, where they differ. */
+  readonly syncLogAfter?: string;
   /** ActivityTaskManager's lines after a launch. */
   readonly launchLog?: string;
   /** Each GET_PROPERTY reading of set_proximity_close in turn, 'true', 'false' or 'missing'; the last repeats. */
@@ -58,7 +60,13 @@ else if (said === 'shell sha256sum /data/app/test/base.apk') out(scenario.instal
 else if (said === 'shell dumpsys package com.halcyonic.xr') out('      firstInstallTime=2026-01-01 00:00:00');
 else if (said === 'shell dumpsys activity activities') out('      topResumedActivity=ActivityRecord{a u0 com.oculus.vrshell/.HomeActivity t1}');
 else if (args[0] === 'logcat' && said.includes('ActivityTaskManager')) out(scenario.launchLog ?? '');
-else if (args[0] === 'logcat') out(scenario.syncLog ?? '');
+else if (args[0] === 'logcat') {
+  const stopped = fs.readFileSync(process.env.ADB_CALLS, 'utf8').includes('STOP_INTERNAL_CAPTURE_TO_DISK');
+  out(stopped && scenario.syncLogAfter !== undefined ? scenario.syncLogAfter : (scenario.syncLog ?? ''));
+} else if (said === 'shell ls /sdcard/Oculus/Screenshots /sdcard/Oculus/VideoShots') {
+  const stopped = fs.readFileSync(process.env.ADB_CALLS, 'utf8').includes('STOP_INTERNAL_CAPTURE_TO_DISK');
+  out('/sdcard/Oculus/Screenshots:\\n\\n/sdcard/Oculus/VideoShots:\\ncom.oculus.vrshell-20261016-020147-0.mp4' + (stopped ? '\\ncom.oculus.vrshell-20261029-011231-0.mp4' : ''));
+} else if (said.startsWith('shell am startservice -n com.oculus.metacam/.capture.CaptureService -a ')) {}
 else if (said.startsWith('shell am broadcast') || said.startsWith('shell am force-stop') || said === 'shell input keyevent KEYCODE_WAKEUP') {}
 else if (said.startsWith('shell content call')) {
   const seen = fs.readFileSync(process.env.ADB_CALLS, 'utf8').split('\\n').filter((c) => c.startsWith('shell content call')).length;
@@ -103,6 +111,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       HALCYONIC_QUEST_SERIAL: 'TEST-SERIAL',
       HALCYONIC_QUEST_STATE: join(directory, `state-${at}.json`),
       HALCYONIC_FFMPEG: join(directory, 'no-ffmpeg'),
+      HALCYONIC_FFPROBE: join(directory, 'no-ffprobe'),
       HALCYONIC_QUEST_SETTLE_MS: '0',
       ADB_SCENARIO: scenario,
       ADB_CALLS: calls,
@@ -323,6 +332,84 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     assert.equal(code, 1, said);
     assert.match(said, /is com\.example\.other, not com\.halcyonic\.xr/);
     assert.ok(!calls.some((call) => call.startsWith('install')), calls.join('\n'));
+  });
+
+  test('record start, then record stop, pulls the clip with its sha256 beside it and removes it from the headset', async () => {
+    const out = join(directory, 'footage');
+    const off =
+      '10-29 01:15:51.642 11156 11237 I SimpleMediaSyncUtils: media sync preference is enabled: false';
+    const state = join(directory, 'state-record.json');
+    const started = await device(
+      { syncLog: off, pullMatches: true },
+      'record',
+      'start',
+      '--sync-is-off',
+      '--state',
+      state,
+    );
+    assert.equal(started.code, 0, started.said);
+    assert.match(started.said, /microphone/);
+    const stopped = await device(
+      { syncLog: off, pullMatches: true },
+      'record',
+      'stop',
+      '--out',
+      out,
+      '--state',
+      state,
+    );
+    assert.equal(stopped.code, 0, stopped.said);
+    const clip = join(out, 'com.oculus.vrshell-20261029-011231-0.mp4');
+    assert.ok(existsSync(clip), stopped.said);
+    const sum = readFileSync(`${clip}.sha256`, 'utf8');
+    assert.match(sum, /^[0-9a-f]{64} {2}com\.oculus\.vrshell-20261029-011231-0\.mp4\n$/);
+    assert.deepEqual(
+      stopped.calls.filter((call) => call.startsWith('shell rm')),
+      ['shell rm /sdcard/Oculus/VideoShots/com.oculus.vrshell-20261029-011231-0.mp4'],
+    );
+  });
+
+  test('record stop with no recording in progress stops nothing', async () => {
+    const { code, said, calls } = await device(
+      {},
+      'record',
+      'stop',
+      '--state',
+      join(directory, 'state-none.json'),
+    );
+    assert.equal(code, 1, said);
+    assert.match(said, /No recording is in progress/);
+    assert.ok(
+      !calls.some((call) => call.includes('STOP_INTERNAL_CAPTURE_TO_DISK')),
+      calls.join('\n'),
+    );
+  });
+
+  test("record stop fails when the headset's latest sync line says the clip was uploaded", async () => {
+    const off =
+      '10-29 01:15:51.642 11156 11237 I SimpleMediaSyncUtils: media sync preference is enabled: false';
+    const on = `${off}\n10-29 01:20:00.000 11156 11237 I SimpleMediaSyncUtils: media sync preference is enabled: true`;
+    const state = join(directory, 'state-upload.json');
+    const out = join(directory, 'footage-upload');
+    await device(
+      { syncLog: off, pullMatches: true },
+      'record',
+      'start',
+      '--sync-is-off',
+      '--state',
+      state,
+    );
+    const { code, said } = await device(
+      { syncLog: off, syncLogAfter: on, pullMatches: true },
+      'record',
+      'stop',
+      '--out',
+      out,
+      '--state',
+      state,
+    );
+    assert.equal(code, 1, said);
+    assert.match(said, /uploaded/);
   });
 
   test("the capture service is not used while the headset's log says media sync is on", async () => {

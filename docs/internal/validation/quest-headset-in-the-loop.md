@@ -167,6 +167,19 @@
 - With no control plane reachable a development build shows the recorded demonstration and logs
   that nothing answered at 127.0.0.1:47800 and its access code was not sent.
 
+### Recording with media sync off (2026-10-29)
+
+- With media sync turned off on the headset, the capture service logged `media sync preference is
+  enabled: false` and `auto_sync_not_allow` after each recording, and nothing was uploaded.
+- A 200 s recording through `START_INTERNAL_CAPTURE_TO_DISK` and `STOP_INTERNAL_CAPTURE_TO_DISK` came
+  back whole: 199.7 s, H.264 1920 by 1080 at about 30 fps, AAC 48 kHz stereo, 159 MB; the capture
+  service's own check said `video: true, audio: true, duration Ms: 199724`. No length limit was met.
+- With nobody wearing the headset its sound was almost silent (mean -90 dB, peak -64 dB): whether
+  the microphone is heard while it is worn is still to see on the owner's first take.
+- `record start` and `record stop`, run as two commands with a recording in between, pulled the clip
+  with its sha256 beside it and removed it from the headset; a `record stop` with nothing recording
+  stopped nothing.
+
 ## Consequences
 
 - `pnpm quest:device` gives every command `-L tcp:localhost:<port> -s <serial>`, refuses 5037,
