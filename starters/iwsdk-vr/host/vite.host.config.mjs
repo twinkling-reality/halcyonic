@@ -36,7 +36,8 @@ const profilesListing = readManifest(fileURLToPath(new URL('./input-profiles.jso
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
-  `connect-src 'self' ws://localhost:${port} ws://127.0.0.1:${port}`,
+  // data: for yoga-layout's WASM, which the SDK's panels inline and fetch as a data: URL; no network.
+  `connect-src 'self' data: ws://localhost:${port} ws://127.0.0.1:${port}`,
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
   "worker-src 'self' blob:",

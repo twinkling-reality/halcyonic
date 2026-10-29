@@ -102,6 +102,24 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   second the probe waited; longer was not measured. Not tried: controllers, hands and touch on the headset, and the
   Quest Browser's own VR offer.
 
+## The check opens the page (M1.5b)
+
+- **Question:** does a passed type check and build mean the game runs, and can the host tell?
+- **Date:** 2026-10-29.
+- **Found with six agent-built games** (SH, `qwen3.6:35b-a3b-nvfp4` through Codex 0.157.0), each opened for 10 seconds
+  in the check's headless Chrome: three threw uncaught exceptions in their own code (a white screen, or no canvas)
+  although two had passed the type check and build; three threw nothing but showed nothing of the game from the laptop
+  camera. Every project, the starter included, had yoga-layout's inlined WASM refused by the preview's policy
+  (`connect-src 'self'`); allowing `data:` removed that refusal, and the six games' own exceptions remained.
+- **Drawn:** sharp edges outside the welcome panel in a picture at 3 s and at 10 s. The empty starter has 0, one small
+  box about 2,700, the clean whack-a-mole run about 7,450. More than 200 counts as drawn. It passed one run whose
+  picture showed floating spheres rather than a whack-a-mole: drawn is not working.
+- **Tried on this Mac** (the check against SH's installed set and Chrome, opt-in tests in `check.test.ts`): the empty
+  starter type checks, builds and throws nothing but is not drawn; a box in front of the camera is drawn; an exception
+  thrown by the page is caught. One SH game threw on Vite's development server but not as a production build; the
+  check opens the build, which is what the headset is served.
+- **Not tried:** the headset, a click or trigger reaching the game.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.
