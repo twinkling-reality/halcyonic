@@ -1,5 +1,6 @@
 import type {
   ApprovalView,
+  CatalogRepositoryRef,
   CheckpointView,
   CommandEnvelope,
   CommandFailure,
@@ -81,6 +82,8 @@ interface ProjectState {
   readonly name: string;
   location: ProjectLocation | null;
   starter: string | null;
+  /** The catalog repository the person linked (ADR 0039); kept out of the project's view. */
+  catalog: CatalogRepositoryRef | null;
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -330,6 +333,17 @@ export class Projection {
   project(projectId: string): ProjectView | undefined {
     const state = this.#projects.get(projectId as ProjectId);
     return state === undefined ? undefined : toProjectView(state);
+  }
+
+  /**
+   * The catalog repository the person linked the project to, null when none, undefined for an
+   * unknown project. Only the control plane reads it: clients are to see links through its catalog
+   * read (ADR 0039), not in the project's view.
+   */
+  catalogLink(projectId: string): CatalogRepositoryRef | null | undefined {
+    const state = this.#projects.get(projectId as ProjectId);
+    if (state === undefined) return undefined;
+    return state.catalog === null ? null : { ...state.catalog };
   }
 
   workstream(workstreamId: string): WorkstreamView | undefined {
@@ -646,6 +660,7 @@ export class Projection {
           name: event.payload.name,
           location: event.payload.location,
           starter: null,
+          catalog: null,
           createdAt: event.occurred_at,
           updatedAt: event.ingested_at,
         });
@@ -659,6 +674,19 @@ export class Projection {
           return;
         }
         project.location = event.payload.location;
+        project.updatedAt = event.ingested_at;
+        changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.catalog_linked':
+      case 'project.catalog_unlinked': {
+        const project = this.#projects.get(event.project_id);
+        if (project === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        project.catalog =
+          event.event_type === 'project.catalog_linked' ? { ...event.payload.catalog } : null;
         project.updatedAt = event.ingested_at;
         changes.projects.add(event.project_id);
         return;

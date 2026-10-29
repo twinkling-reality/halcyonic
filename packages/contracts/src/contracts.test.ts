@@ -5,6 +5,7 @@ import Schema from 'typebox/schema';
 import { renderCSharpContracts } from './csharp.ts';
 import {
   buildSchemaDocument,
+  CatalogResponse,
   COMMAND_VARIANTS,
   COMPANION_LINE_MAX,
   COMPANION_MAX_MESSAGES,
@@ -505,5 +506,189 @@ describe('fitting a question', () => {
     assert.equal(fitted.prompts, prompts);
     assert.equal(fitted.answerable, false);
     assert.equal(fitQuestion(prompts, true).answerable, true);
+  });
+});
+
+describe('the catalog (ADR 0039)', () => {
+  const ref = {
+    source: 'phat-porcupine',
+    repository_id: 4_100_001,
+    full_name: 'harbor-labs/tide.web',
+  };
+  const link = (catalog: unknown) =>
+    parseCommandEnvelope({
+      ...COMMAND,
+      command_type: 'project.link_catalog',
+      payload: { project_id: COMMAND.payload.execution_id, catalog },
+    });
+
+  test('a project links to one catalog repository by its numeric id and owner/name', () => {
+    assert.equal(link(ref).ok, true);
+    const unlink = parseCommandEnvelope({
+      ...COMMAND,
+      command_type: 'project.unlink_catalog',
+      payload: { project_id: COMMAND.payload.execution_id },
+    });
+    assert.equal(unlink.ok, true);
+  });
+
+  test("owner/name follows GitHub's characters, so no path, URL or credential can pass as one", () => {
+    for (const fullName of [
+      'a/b',
+      'a-1/.x',
+      'a/..x',
+      'A9/name_with.dots-1',
+      `${'o'.repeat(39)}/${'n'.repeat(100)}`,
+    ])
+      assert.equal(link({ ...ref, full_name: fullName }).ok, true, fullName);
+    for (const fullName of [
+      'a/.',
+      'a/..',
+      '-a/b',
+      'a/b/c',
+      'a',
+      '/b',
+      'a/',
+      'a b/c',
+      'a/b c',
+      'token@github.com/a/b',
+      'https://github.com/a/b',
+      'a:b/c',
+      `${'o'.repeat(40)}/b`,
+      `a/${'n'.repeat(101)}`,
+    ])
+      assert.equal(link({ ...ref, full_name: fullName }).ok, false, fullName);
+    for (const id of [0, -1, 1.5]) assert.equal(link({ ...ref, repository_id: id }).ok, false);
+    assert.equal(link({ ...ref, source: 'github' }).ok, false);
+    assert.equal(link({ ...ref, url: 'https://github.com/a/b' }).ok, false, 'no other field');
+  });
+
+  test('the link events carry the catalog repository the person chose and the one it replaced', () => {
+    const base = sampleEvent('project.created');
+    const linked = parseEventEnvelope({
+      ...base,
+      event_type: 'project.catalog_linked',
+      payload: { catalog: ref, previous: null },
+    });
+    assert.equal(linked.ok, true);
+    const unlinked = parseEventEnvelope({
+      ...base,
+      event_type: 'project.catalog_unlinked',
+      payload: { previous: ref },
+    });
+    assert.equal(unlinked.ok, true);
+  });
+
+  const validate = compileValidator(CatalogResponse);
+  const project = {
+    catalog_id: '6f1c0b2e-9d3a-4e7b-8c1d-2a3b4c5d6e7f',
+    name: 'Tide',
+    group_id: null,
+    group_order: null,
+    repositories: [
+      {
+        repository_id: 4_100_001,
+        full_name: 'harbor-labs/tide-web',
+        primary: true,
+        visibility: 'private',
+        fork: false,
+        archived: false,
+        language: 'TypeScript',
+        description: null,
+        pushed_at: '2026-10-29T10:00:00Z',
+        access: 'ok',
+      },
+    ],
+    state: {
+      state: 'review_requested',
+      active: true,
+      last_activity_at: '2026-10-29T10:00:00Z',
+      sessions: { running: 0, awaiting_input: 0 },
+      unknown: [],
+    },
+    attention: [
+      {
+        kind: 'review_requested',
+        repository_id: 4_100_001,
+        pull_request: { number: 12, title: 'Add a tide chart' },
+        at: '2026-10-29T09:00:00Z',
+      },
+    ],
+    local: { project_ids: [], suggestions: [] },
+  };
+  const answer = {
+    availability: 'available',
+    provenance: 'reported',
+    source: { system: 'phat-porcupine', api_version: '1', synthetic: false, sample: false },
+    generated_at: '2026-10-29T10:01:00Z',
+    sync: {
+      repositories_at: '2026-10-29T09:50:00Z',
+      repositories_failed: false,
+      activity_at: null,
+      activity_failed: true,
+    },
+    groups: [],
+    projects: [project],
+    truncated: null,
+  };
+
+  test('an available catalog is reported by Phat Porcupine, never observed', () => {
+    assert.equal(validate(answer).ok, true);
+    assert.equal(validate({ ...answer, provenance: 'observed' }).ok, false);
+    assert.equal(validate({ ...answer, provenance: undefined }).ok, false);
+    assert.equal(validate({ ...answer, sync: undefined }).ok, false, 'its age is always said');
+  });
+
+  test('a state Halcyonic does not know yet still reads, as Phat Porcupine may add states', () => {
+    const later = { ...project, state: { ...project.state, state: 'deploy_failed' } };
+    assert.equal(validate({ ...answer, projects: [later] }).ok, true);
+    const bad = { ...project, state: { ...project.state, state: 'Not A State' } };
+    assert.equal(validate({ ...answer, projects: [bad] }).ok, false);
+  });
+
+  test('no link reaches the headset, and the bounds hold', () => {
+    const withUrl = {
+      ...project,
+      repositories: [{ ...project.repositories[0], html_url: 'https://github.com/a/b' }],
+    };
+    assert.equal(validate({ ...answer, projects: [withUrl] }).ok, false);
+    const pr = {
+      ...project.attention[0],
+      pull_request: { number: 12, title: 'x', url: 'https://x' },
+    };
+    assert.equal(validate({ ...answer, projects: [{ ...project, attention: [pr] }] }).ok, false);
+    const tooMany = { ...project, attention: Array(6).fill(project.attention[0]) };
+    assert.equal(validate({ ...answer, projects: [tooMany] }).ok, false);
+    const none = { ...project, repositories: [] };
+    assert.equal(validate({ ...answer, projects: [none] }).ok, false);
+  });
+
+  test('a folder suggestion names its rule, so it reads as inferred', () => {
+    const suggested = {
+      ...project,
+      local: {
+        project_ids: [],
+        suggestions: [{ root: '/work', folder_name: 'tide-web', rule: 'github_origin_full_name' }],
+      },
+    };
+    assert.equal(validate({ ...answer, projects: [suggested] }).ok, true);
+    const unnamed = {
+      ...project,
+      local: { project_ids: [], suggestions: [{ root: '/work', folder_name: 'tide-web' }] },
+    };
+    assert.equal(validate({ ...answer, projects: [unnamed] }).ok, false);
+  });
+
+  test('every other answer carries no catalog, only why', () => {
+    for (const availability of ['unavailable', 'unauthorized', 'incompatible'])
+      assert.equal(
+        validate({ availability, reason: { code: 'not_running', message: 'Not running.' } }).ok,
+        true,
+      );
+    assert.equal(
+      validate({ availability: 'unavailable', reason: { code: 'x', message: 'y' }, projects: [] })
+        .ok,
+      false,
+    );
   });
 });

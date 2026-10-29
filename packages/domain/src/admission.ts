@@ -107,6 +107,19 @@ export function admitCommand(
       };
     }
 
+    case 'project.link_catalog':
+    case 'project.unlink_catalog': {
+      const projectId = command.payload.project_id;
+      const link = projection.catalogLink(projectId);
+      if (link === undefined) {
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      }
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (command.command_type === 'project.unlink_catalog' && link === null)
+        return reject(scope, 'invalid_state', 'The project is not linked to a catalog repository.');
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'project.restore': {
       const projectId = command.payload.project_id;
       if (projection.project(projectId) === undefined) {

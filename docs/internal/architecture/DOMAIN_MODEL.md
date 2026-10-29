@@ -14,6 +14,13 @@ in `packages/domain`.
   A new project may begin from a **starter** the host vets and keeps, such as a VR app for the
   headset's browser: its folder starts with the starter's files and a link to the starter's shared,
   read-only dependencies, and the project's view names the starter ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)).
+  A project may be **linked** to one repository of the person's catalog, the list of every project
+  they have across their accounts that Phat Porcupine keeps
+  ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)): GitHub's numeric repository id, its stable identity, beside its `owner/name` as the client sent it, taken from the catalog's answer; checked neither against the catalog nor GitHub. Only the person links (`project.link_catalog`,
+  again to replace the link) and unlinks (`project.unlink_catalog`); the catalog itself is read
+  through and never part of the model. The link is kept out of the project's view: clients are to
+  see it through the catalog read. The two link events still reach the person's own clients in the realtime
+  stream, `owner/name` included, as every event but a device's does.
 - **Checkpoint**: every file of a project's folder as it was at one moment, kept by the host for
   Halcyonic's own undo when the host has set it up: before a task starts, after each turn the
   runtime reports ended, and before a restore. `project.restore` puts one back, and completes only
@@ -117,6 +124,8 @@ Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `co
 | --- | --- | --- |
 | `project.create` | low consequence | always, and when it names a location, the host can bind it (below) |
 | `project.set_location` | low consequence | the project exists and the host can bind the location |
+| `project.link_catalog` | low consequence | the project exists |
+| `project.unlink_catalog` | low consequence | the project exists and is linked (`invalid_state` otherwise) |
 | `project.restore` | review required | undo is set up on the host (`capability_unsupported` otherwise), the checkpoint is the project's (`checkpoint_not_found` otherwise), no task in the project is `starting`, `running`, `verifying` or `waiting_for_human` or `unknown` other than after a restart, and no command in the project waits for its outcome (`invalid_state` otherwise) |
 | `workstream.create` | low consequence | the project exists |
 | `execution.start` | low consequence | no restore of the project is in progress, the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is given exactly when the runtime's `model_choice` is `listed` (`model_required` when it is missing), for a runtime that `uses_project_location` the project has a folder the host's policy still allows at the same real path, and the adapter accepts the options and the model |

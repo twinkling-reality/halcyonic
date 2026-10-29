@@ -251,6 +251,8 @@ namespace Halcyonic.Client
             ProjectCreateCommand _ => CommandType.ProjectCreate,
             ProjectSetLocationCommand _ => CommandType.ProjectSetLocation,
             ProjectRestoreCommand _ => CommandType.ProjectRestore,
+            ProjectLinkCatalogCommand _ => CommandType.ProjectLinkCatalog,
+            ProjectUnlinkCatalogCommand _ => CommandType.ProjectUnlinkCatalog,
             WorkstreamCreateCommand _ => CommandType.WorkstreamCreate,
             ExecutionAnswerQuestionCommand _ => CommandType.ExecutionAnswerQuestion,
             ExecutionStartCommand _ => CommandType.ExecutionStart,

@@ -345,7 +345,7 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 12);
+    assert.equal(policies.size, 14);
     assert.equal(policies.get('execution.answer_question'), 'low_consequence');
     assert.equal(policies.get('project.set_location'), 'low_consequence');
     assert.equal(policies.get('project.restore'), 'review_required');

@@ -518,6 +518,34 @@ export class CommandService {
         this.#complete(command, admission.scope, null);
         return;
       }
+      case 'project.link_catalog':
+      case 'project.unlink_catalog': {
+        // The person's own link (ADR 0039): a local fact, complete as soon as it is recorded.
+        const scope = {
+          project_id: command.payload.project_id,
+          workstream_id: null,
+          execution_id: null,
+        };
+        const previous = this.#deps.projection.catalogLink(command.payload.project_id) ?? null;
+        if (command.command_type === 'project.link_catalog') {
+          recorder.record(
+            controlPlaneDraft(
+              'project.catalog_linked',
+              scope,
+              { catalog: command.payload.catalog, previous },
+              this.#now(),
+              cause,
+            ),
+          );
+        } else {
+          if (previous === null) throw new Error('admitted project.unlink_catalog with no link');
+          recorder.record(
+            controlPlaneDraft('project.catalog_unlinked', scope, { previous }, this.#now(), cause),
+          );
+        }
+        this.#complete(command, admission.scope, null);
+        return;
+      }
       case 'project.restore': {
         const checkpoints = this.#deps.checkpoints;
         if (!checkpoints) throw new Error('admitted project.restore with undo off');
