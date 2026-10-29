@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "package": "@webxr-input-profiles/assets",
+  "version": "1.0.20",
+  "licence": "MIT",
+  "source": "https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0.20/",
+  "notice": { "path": "LICENSE.md", "size": 1094, "sha256": "0ef0c87e8ffdd0681f332dc3b39f284dee2166d1f853fabc3853884fe81a6f30" },
+  "files": [
+    { "path": "dist/profiles/meta-quest-touch-plus/left.glb", "size": 217984, "sha256": "41a35b80221398d37029cbfaa9e39084ccd43e0206be72a5e8460f52e7882cb4" },
+    { "path": "dist/profiles/meta-quest-touch-plus/right.glb", "size": 213868, "sha256": "5126d638fb1d03e05d16d8eec3b31b9588df88eaa8b42cc21b857fac3bd44916" },
+    { "path": "dist/profiles/meta-quest-touch-plus-v2/left.glb", "size": 804740, "sha256": "2df6f94439d23e9bedda4c60b55d2c45c477e2590b9338ad4f452a2b81fe27c7" },
+    { "path": "dist/profiles/meta-quest-touch-plus-v2/right.glb", "size": 806196, "sha256": "380b1a6fb82fecaf76f8a3c202aadaa441d58da66020c692b90adc0e9490a672" },
+    { "path": "dist/profiles/generic-hand/left.glb", "size": 94572, "sha256": "bc67783144944ea1cda54d9247885825ea5fb9d4651469fe7d00be517a5c2b87" },
+    { "path": "dist/profiles/generic-hand/right.glb", "size": 94004, "sha256": "291790c14f7f88a7f9bd35330c47392ed8e8d395ae6728f4bb7089f1bc1f2b96" }
+  ]
+}

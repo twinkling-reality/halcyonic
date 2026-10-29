@@ -5,11 +5,21 @@
 //
 // Environment: HALCYONIC_PREVIEW_ROOT (the project folder), HALCYONIC_PREVIEW_PORT, HALCYONIC_PREVIEW_CACHE
 // (a folder outside the project for Vite's cache), HALCYONIC_PREVIEW_DEPS (the host's own path to the shared
-// dependencies; folders separated by `:`).
+// dependencies; folders separated by `:`), and optionally HALCYONIC_PREVIEW_PROFILES (the host's folder of
+// controller models listed in input-profiles.json; without it a controller shows no model).
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assertValidIwsdkProjectManifest } from '@iwsdk/core/project';
 import { defineConfig } from 'vite';
+import {
+  buildFiles,
+  isProfilesModule,
+  PROFILES_PREFIX,
+  profilesMiddleware,
+  readManifest,
+  rewriteProfilesModule,
+} from './input-profiles.mjs';
 
 const root = process.env.HALCYONIC_PREVIEW_ROOT;
 const port = Number(process.env.HALCYONIC_PREVIEW_PORT);
@@ -20,6 +30,8 @@ const deps = (process.env.HALCYONIC_PREVIEW_DEPS ?? '').split(':').filter((path)
 if (!root || !Number.isInteger(port) || !cacheDir || deps.length === 0)
   throw new Error('preview root, port, cache and dependencies are required');
 const allowed = [root, ...deps, cacheDir].map((path) => realpathSync(path));
+const profiles = process.env.HALCYONIC_PREVIEW_PROFILES || null;
+const profilesListing = readManifest(fileURLToPath(new URL('./input-profiles.json', import.meta.url)));
 
 const csp = [
   "default-src 'self'",
@@ -99,6 +111,42 @@ function confine() {
   };
 }
 
+/**
+ * Controller models from the preview's own origin, never the CDN: the one module naming cdn.jsdelivr.net is
+ * rewritten (by this plugin for the build, by the esbuild plugin below for the dev server's pre-bundling), and only
+ * the listed, verified files are served or added to the build.
+ */
+function inputProfiles() {
+  return {
+    name: 'halcyonic-input-profiles',
+    transform(code, id) {
+      return isProfilesModule(id) ? { code: rewriteProfilesModule(code), map: null } : null;
+    },
+    configureServer(server) {
+      server.middlewares.use(`/${PROFILES_PREFIX}`, profilesMiddleware(profiles, profilesListing));
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(`/${PROFILES_PREFIX}`, profilesMiddleware(profiles, profilesListing));
+    },
+    generateBundle() {
+      for (const { fileName, source } of buildFiles(profiles, profilesListing)) {
+        this.emitFile({ type: 'asset', fileName, source });
+      }
+    },
+  };
+}
+
+const prebundledProfiles = {
+  name: 'halcyonic-input-profiles',
+  setup(build) {
+    build.onLoad({ filter: /input-profiles\.js$/ }, (args) =>
+      isProfilesModule(args.path)
+        ? { contents: rewriteProfilesModule(readFileSync(args.path, 'utf8')), loader: 'js' }
+        : undefined,
+    );
+  },
+};
+
 export default defineConfig({
   root,
   cacheDir,
@@ -106,7 +154,7 @@ export default defineConfig({
   envDir: cacheDir,
   publicDir: 'public',
   base: './',
-  plugins: [confine(), iwsdkProject()],
+  plugins: [confine(), iwsdkProject(), inputProfiles()],
   // Inline, so Vite never looks for the project's own postcss.config.*, which would run on the Mac.
   css: { postcss: { plugins: [] } },
   server: {
@@ -125,6 +173,6 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@babylonjs/havok'],
     include: ['three', '@pmndrs/uikit', '@pmndrs/uikit-horizon', '@pmndrs/uikit-lucide', '@drawcall/uikitml'],
-    esbuildOptions: { target: 'esnext' },
+    esbuildOptions: { target: 'esnext', plugins: [prebundledProfiles] },
   },
 });

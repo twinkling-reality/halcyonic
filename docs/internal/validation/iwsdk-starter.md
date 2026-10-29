@@ -55,6 +55,27 @@ two copies of the types do not mix.
 Vite bundles a configuration file into `node_modules/.vite-temp` before loading it, even an `.mjs` one, which a
 profile that keeps the dependencies read only refuses; `--configLoader native` loads it as it is.
 
+## Controller models from the Mac
+
+- **Question:** can a starter's controllers show their models with no network?
+- **Date:** 2026-10-29.
+- **Found in the installed `@iwsdk/xr-input` 1.0.1:** the button layouts are bundled
+  (`dist/gamepad/generated-profiles.js`); only the models are fetched, from one constant,
+  `DEFAULT_PROFILES_PATH = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles'`
+  (`dist/gamepad/input-profiles.js`), with no option to change it. A controller's model is
+  `<profile>/<left|right>.glb` of its first matching profile; a tracked hand's is `generic-hand/<left|right>.glb`
+  (`dist/visual/adapter/base-visual-adapter.js`, `AnimatedHand.assetProfileId`).
+- **Fetched, on the owner's yes (2026-10-29):** `@webxr-input-profiles/assets` 1.0.20 (MIT), the Quest 3's
+  `meta-quest-touch-plus` and `meta-quest-touch-plus-v2` models, left and right (2,042,788 bytes in all), and its
+  `LICENSE.md`, from jsDelivr; each size and SHA-256 equal to jsDelivr's published listing, recorded in
+  `starters/iwsdk-vr/host/input-profiles.json`. On a second yes the same day, the `generic-hand` models, left and
+  right (94,572 and 94,004 bytes), the same way; the package's `LICENSE.md` covers them.
+- **Tried on this Mac:** a fresh starter project built and served with the host config, network denied, the models in
+  a host folder: the build and the dev server's pre-bundled code no longer name the CDN (Vite's source map of the
+  pre-bundled module still holds the original text); the build carries the six models byte for byte and the notice;
+  the server answers a listed model as `model/gltf-binary` and 404 to an unlisted model, `..` paths and the package's
+  own layout. Not tried: a browser loading a model, the headset.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.
