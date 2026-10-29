@@ -27,9 +27,11 @@ import {
   CLAUDE_AGENT_PROCESS_RECORD,
   CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
+  codexConfinement,
   codexEnvironment,
   createRuntimeAdapters,
   heldSecrets,
+  OLLAMA_PORT,
   openCodeEnvironment,
   openCodeSandbox,
   ripgrepOnPath,
@@ -607,5 +609,43 @@ describe("the secrets taken out of a runtime's text", () => {
       { what: 'AWS_SECRET_ACCESS_KEY', value: '/k7XpQ2aLm9vRt4wZb8nHc3jYd6fGs1aKe5uNo0iV' },
       { what: 'DB_PASSWORD', value: '/aB3+xY9qLm2Zt7Rk4Wd8Hc1Vn' },
     ]);
+  });
+});
+
+describe("Codex's confinement of a project made from a starter (ADR 0041)", () => {
+  const dependencies = (starterOf?: (directory: string) => string | null) => ({
+    dataDir: '/Users/someone/.halcyonic',
+    ...(starterOf === undefined ? {} : { starterOf }),
+  });
+
+  test('confines a starter project to its folder and the shared dependencies, and no other', {
+    skip: process.platform !== 'darwin',
+  }, () => {
+    const { confinement } = codexConfinement(
+      dependencies((directory) => (directory === '/Users/someone/dev/garden' ? 'iwsdk-vr' : null)),
+      '/opt/homebrew/Cellar/node@24/24.15.0/bin/node',
+    );
+    assert.ok(confinement !== undefined);
+    assert.deepEqual(confinement.forDirectory('/Users/someone/dev/garden'), {
+      project: '/Users/someone/dev/garden',
+      readable: ['/Users/someone/.halcyonic/starters/iwsdk-vr'],
+    });
+    assert.equal(confinement.forDirectory('/Users/someone/dev/storefront'), null);
+    // Homebrew's package folders, where Node loads its libraries from; never var or etc.
+    assert.deepEqual(confinement.toolFolders, [
+      '/opt/homebrew/Cellar',
+      '/opt/homebrew/opt',
+      '/opt/homebrew/lib',
+      '/opt/homebrew/bin',
+      '/opt/homebrew/libexec',
+      '/opt/homebrew/share',
+      // The one file of etc Node needs to start.
+      '/opt/homebrew/etc/openssl@3/openssl.cnf',
+    ]);
+    assert.deepEqual(confinement.loopbackPorts, [OLLAMA_PORT]);
+  });
+
+  test('confines nothing without a way to tell starter projects apart', () => {
+    assert.deepEqual(codexConfinement(dependencies()), {});
   });
 });

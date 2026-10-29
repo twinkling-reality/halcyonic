@@ -40,6 +40,7 @@
  * A turn runs until it is interrupted, unless its text contains COMPLETE. Every message received
  * is appended to FAKE_CODEX_LOG when it is set.
  */
+import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, rmSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 
@@ -245,6 +246,15 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     case 'turn/steer':
       respond({ turnId: params.expectedTurnId });
       return;
+    case 'command/exec': {
+      // Run for real, so a stand-in launched inside a Seatbelt profile meets the profile's rules.
+      const ran = spawnSync(params.command[0], params.command.slice(1), {
+        cwd: params.cwd,
+        encoding: 'utf8',
+      });
+      respond({ exitCode: ran.status ?? 1, stdout: ran.stdout ?? '', stderr: ran.stderr ?? '' });
+      return;
+    }
     case 'turn/interrupt':
       if (flags.has('silent-interrupt')) return;
       respond({});

@@ -378,3 +378,39 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
 - **Not verified:** whether a sandboxed command can signal another sandboxed process; whether a real
   model always sends `reason` with an escalation and never with a plain command; other macOS
   versions.
+
+## Confined to a project (2026-10-29)
+
+- **Question:** can Codex 0.157.0 work on a new app's project while reading and writing nothing else (ADR 0041)?
+- **Environment:** this Mac (macOS 26.7), the pinned 0.157.0 binary, no model: a dead provider, then the scripted fake
+  provider of the end to end tests.
+- **Found in the binary's own schema** (`codex app-server generate-json-schema`): `SandboxPolicy` has an
+  `externalSandbox` variant (`networkAccess`, default `restricted`). `thread/start`'s `sandbox` takes only
+  `read-only`, `workspace-write` or `danger-full-access` (it answered "unknown variant `external-sandbox`");
+  `turn/start` takes `sandboxPolicy`, "for this turn and subsequent turns", and accepted `externalSandbox`.
+- **Run, app-server inside a Seatbelt profile** that refuses reads of a folder standing for the home folder but the
+  project, Codex's home, a temporary folder and the runtime, writes but in the first three, and connections but to
+  the provider's port, commands through app-server's `command/exec`: a read and a write outside the project were
+  refused ("Operation not permitted"), inside both worked. Without the profile the same read returned the file and
+  the write succeeded. Codex's own sandbox nested inside the profile failed (`sandbox-exec: sandbox_apply: Operation
+  not permitted`, exit 71). A provider named by `localhost` was reached through the profile (over `::1`).
+- **End to end, through the adapter:** a model's `cat` of a file outside the project was refused and its contents
+  never appeared; an escalated `touch` outside the project wrote nothing, and Codex did not ask for approval first.
+  Each confined launch first has the server `cat` a canary file in the data directory through `command/exec`; the
+  read was refused, and a server whose profile did not cover the data directory was stopped before any thread.
+- **Closed by default (after AUDIT's M15A verdict):** the first profile allowed everything but the home folder's
+  reads; under it `lsappinfo` answered, `pbpaste` read the clipboard, `osascript` ran, `open` started Calculator, and
+  a listen on every address succeeded. The profile now starts from Codex's own base policy (`(deny default)`, read
+  from the binary) with the project's allowances. With the real binary and the fake provider, each of these is
+  refused: a read outside the project, a write to the open server's Codex home, a listing of `/private/tmp` and
+  `/Users/Shared`, `pbpaste`, `osascript`, `open -a Calculator` ("Unable to find application"), and a listen on every
+  address (EPERM); the same tests fail with the first profile. Seatbelt's `localhost` filter does not hold binds to
+  loopback (a bind to every address passed under `(allow network-bind (local ip "localhost:*"))`), so the profile
+  allows no bind at all. A `localhost` provider is still reached, and Node (from Homebrew's prefix), the system Perl,
+  and Codex's bundled `zsh` run. Homebrew's whole prefix was first readable, and on this Mac `/opt/homebrew/var`
+  holds PostgreSQL and MongoDB data folders (AUDIT M5): reads are now `Cellar`, `opt`, `lib`, `bin`, `libexec`,
+  `share` and the one file `etc/openssl@3/openssl.cnf`, without which a Homebrew Node exits at start ("OpenSSL
+  configuration error ... Operation not permitted"); a listing of `var` or `etc` is refused.
+- **Not verified:** a real model's turns, how often a model needs something the profile refuses (a shell's start-up
+  files in the home folder are refused), other macOS versions.
+

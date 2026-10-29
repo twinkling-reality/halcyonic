@@ -52,6 +52,8 @@ async function main(): Promise<void> {
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
   const locations = createHostLocations(config.projectRoots);
+  // Which starter a folder was made from, read from the projection once the control plane is built.
+  let starterOf: (directory: string) => string | null = () => null;
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
     mock: new MockRuntimeAdapter({
@@ -61,6 +63,7 @@ async function main(): Promise<void> {
     directoryPolicy: locations.policy,
     environment: process.env,
     dataDir: config.dataDir,
+    starterOf: (directory) => starterOf(directory),
   });
   // Opened before anything listens, so a speech engine that cannot report its version stops startup.
   const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
@@ -140,6 +143,11 @@ async function main(): Promise<void> {
       adapters,
     ),
   });
+  starterOf = (directory) =>
+    controlPlane.projection
+      .projects()
+      .find((project) => project.starter !== null && project.location?.path === directory)
+      ?.starter ?? null;
   controlPlane.reconcile();
   const transcriptions = new Transcriptions({ engine: speech, clock: systemClock });
   const companion = new Companion({ config: config.companion, clock: systemClock });
