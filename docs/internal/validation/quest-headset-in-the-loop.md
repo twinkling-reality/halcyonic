@@ -157,6 +157,16 @@
   development builds only, and what it hears stays private. An `adb reverse` on 47800 serves every
   app on the headset, not only the check build, so it exists only while a step needs it.
 
+### An agent build over the owner's app, data set aside (2026-10-29)
+
+- Through `run-as` the app's private files can be listed, copied aside with `cp -p` and compared with
+  `cmp -s`, and the copies put back with names, sizes, modes and times equal to before. Its folder
+  on shared storage, `/sdcard/Android/data/com.halcyonic.xr`, could not be read through `run-as`, so
+  it was not set aside: an agent build's first start there may leave Unity's extracted IL2CPP data
+  for its own build in `files/il2cpp`, which the owner's app extracts again at its next start.
+- With no control plane reachable a development build shows the recorded demonstration and logs
+  that nothing answered at 127.0.0.1:47800 and its access code was not sent.
+
 ## Consequences
 
 - `pnpm quest:device` gives every command `-L tcp:localhost:<port> -s <serial>`, refuses 5037,
