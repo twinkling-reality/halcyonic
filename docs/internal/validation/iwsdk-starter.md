@@ -76,6 +76,32 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   the server answers a listed model as `model/gltf-binary` and 404 to an unlisted model, `..` paths and the package's
   own layout. Not tried: a browser loading a model, the headset.
 
+## Playing on a laptop and in VR (M1.8a)
+
+- **Question:** what does SDK 1.0.1 give for playing in a desktop browser without a headset and without its
+  emulator, and does the starter's input layer turn a mouse and keyboard into the game's input?
+- **Date:** 2026-10-29.
+- **Read in the installed `@iwsdk/core` 1.0.1:**
+
+| What | Where | On a laptop |
+| --- | --- | --- |
+| Rendering outside XR | `World.create` draws to the page's canvas until a session starts | yes |
+| Mouse into the scene | `input.canvasPointerEvents` (the starter sets it) forwards the canvas's pointer events into the scene with `@pmndrs/pointer-events`' `forwardHtmlEvents`; off during a session unless `activeDuringXR` | yes |
+| `Hovered` and `Pressed` | `InputSystem` adds them on `pointerenter` and `pointerdown` of each `RayInteractable`, the same listeners a controller's or hand's ray uses | one path for mouse and rays |
+| Keyboard, browser gamepad, actions | `input.keyboard`, `input.browserGamepads`, `input.actions` with bindings from keyboard, browser gamepad and XR gamepad | yes |
+| Default bindings | `xr` (thumbsticks to move and turn, A to jump) on by default; `browser-first-person` adds W A S D and the arrows, Space, and a browser gamepad | `interaction.select` is declared with no binding |
+| Looking with the mouse | none (no pointer lock or drag to look in the package) | missing |
+| VR entry | `xr.offer` calls `navigator.xr.offerSession` when the browser has it; the template's panel button calls `launchXR` | a desktop browser has neither, so the button cannot start a session there |
+| The emulator | IWER through `@iwsdk/vite-plugin-dev`, not in the vetted set | not used |
+
+- **Tried on this Mac:** the template with the layer and one test box (not in the template), served by the host
+  config with the network denied, opened at `?check` in headless Chrome inside the check's sandbox and driven over
+  the DevTools protocol: the layer reported `laptop`, the box's screen point, then one `mouse` after a real press
+  and release on it, the box left the view after a 200-pixel drag on empty space, and one `key` after Space. The
+  panel showed the laptop line and no VR button. `tsc` passed on the template. The turned view held for the half
+  second the probe waited; longer was not measured. Not tried: controllers, hands and touch on the headset, and the
+  Quest Browser's own VR offer.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.
