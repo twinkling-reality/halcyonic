@@ -2387,9 +2387,11 @@ size in metres, facing back along its bearing. No surface the person points at s
 0.8 m or farther than 3 m (Meta's ray-cast reach); a distance outside that is refused.
 
 - **Screen.** A picked project's screen stands 2 m away on the bearing it is given, its middle at
-  eye height, as wide as the kit's angle there.
+  eye height, as wide and as high as the kit's angles there (56 by 31.5 degrees).
 - **Bar.** The bar has the screen's width, so its edges are the screen's and it is never wider. It
-  stands parallel to the screen, 2 cm nearer, its top a given angle under the screen's bottom.
+  stands on the screen's bearing, 2 cm nearer, its top 0.75 degrees (`BarGapDegrees`) under the
+  screen's bottom. About 19 degrees below eye level, it tilts up to face the eyes. Upright, the
+  slant and the extra distance put its targets at 3.3 to 3.5 degrees, under the kit's 3.75.
 - **Moment slot.** The slot stands beside the task's character, at the character's distance held
   to the reach above, a little above the character's point. It sits on the side toward where the
   person looks, its nearer edge 1.5 degrees (the workspace's clearance) beyond the character's body
@@ -2409,8 +2411,27 @@ size in metres, facing back along its bearing. No surface the person points at s
   - A third item is refused.
 
 The dead zone, side and low angles, the slot's height above the character and the fade are
-candidates that need a wearer. Nothing in the Unity layer reads `RoomLayout` yet; the plane places
-the kit's new views with it as DESIGN's units land. `RoomLayoutTests` covers it.
+candidates that need a wearer. `RoomLayoutTests` covers it.
+
+`MenuPlane.ShowScreen` stands DESIGN's `KitScreen` and `KitScreenBar` at these poses, under the
+plane, and `HideScreen` takes them away.
+
+- The kit lays out in units of the viewing distance, so each view is scaled by its own distance
+  from the eyes.
+- The bar, lower and so farther, is laid out narrower by the same ratio. Its width in metres stays
+  the screen's, and its targets and words keep their angles.
+- Its height is the bar's own, so a bar that wraps to a second row at Larger keeps its gap.
+- Until the gallery wires picking a project, only the Editor journey `RoomScreenCheck` calls it.
+  At both text sizes, straight ahead and 40 degrees round, with the bar open and folded, the
+  journey checks:
+  - the screen's 56 degrees and its 2 m;
+  - the bar's width, edges, gap, distance and facing;
+  - every glyph at the reading floor;
+  - every target at 3.75 degrees and 12 mm from the next, measured at its true distance from the
+    eyes rather than along the bar's normal as `KitTargets` does, with both figures logged;
+  - the carriers opaque in the pixels;
+  - the neutral mark.
+- A bar made 5% wider and a title shrunk under the floor must each be caught.
 
 ### The room
 

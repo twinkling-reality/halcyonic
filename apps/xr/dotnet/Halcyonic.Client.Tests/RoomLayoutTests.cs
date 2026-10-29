@@ -11,7 +11,7 @@ public class RoomLayoutTests
 
     // Sizes come from the kit (SpatialKit, DESIGN's); these are the test's own.
     private const float ScreenDegrees = 56f;
-    private const float ScreenAspect = 16f / 9f;
+    private const float ScreenHeightDegrees = 31.5f;
     private const float BarDegrees = 5.4f;
     private const float GapDegrees = 0.8f;
     // A character's half-width with its label plate, as the far-3s stage measures one.
@@ -31,12 +31,13 @@ public class RoomLayoutTests
     {
         foreach (var bearing in new[] { 0f, 35f, -120f })
         {
-            var screen = RoomLayout.Screen(Eyes, bearing, ScreenDegrees, ScreenAspect);
+            var screen = RoomLayout.Screen(Eyes, bearing, ScreenDegrees, ScreenHeightDegrees);
             Assert.That(Flat(screen.Centre, Eyes), Is.EqualTo(RoomLayout.ScreenDistance).Within(1e-4f));
             Assert.That(screen.Centre.Y, Is.EqualTo(Eyes.Y).Within(1e-5f));
             Assert.That(screen.Bearing, Is.EqualTo(bearing).Within(1e-4f));
             Assert.That(Across(screen, Eyes), Is.EqualTo(ScreenDegrees).Within(0.01f), $"bearing {bearing}");
-            Assert.That(screen.Width / screen.Height, Is.EqualTo(ScreenAspect).Within(1e-4f));
+            var tall = Degrees(screen.Centre + screen.Up * (screen.Height / 2f) - Eyes, screen.Centre - screen.Up * (screen.Height / 2f) - Eyes);
+            Assert.That(tall, Is.EqualTo(ScreenHeightDegrees).Within(0.01f), "as high as the kit's angle, which the kit draws it");
             Assert.That(Vector3.Dot(screen.Facing, Vector3.Normalize(Eyes - screen.Centre)), Is.GreaterThan(0.9999f), "faces the eyes");
         }
         Assert.That(RoomLayout.ScreenDistance, Is.EqualTo(2f), "ADR 0040 rule 2");
@@ -45,7 +46,7 @@ public class RoomLayoutTests
     [Test]
     public void TheBarStandsBeneathTheScreenSlightlyInFrontWithItsEdges()
     {
-        var screen = RoomLayout.Screen(Eyes, 20f, ScreenDegrees, ScreenAspect);
+        var screen = RoomLayout.Screen(Eyes, 20f, ScreenDegrees, ScreenHeightDegrees);
         var bar = RoomLayout.Bar(Eyes, screen, BarDegrees, GapDegrees);
         Assert.That(bar.Width, Is.EqualTo(screen.Width).Within(1e-5f), "the bar's edges are the screen's, never wider");
         Assert.That(Vector3.Distance(bar.Left, screen.Left with { Y = bar.Left.Y }), Is.LessThan(0.03f), "left edges aligned");
@@ -55,10 +56,15 @@ public class RoomLayoutTests
         var closer = Flat(screen.Centre, Eyes) - Flat(bar.Centre, Eyes);
         Assert.That(closer, Is.EqualTo(RoomLayout.BarForward).Within(1e-4f), "slightly in front");
         Assert.That(closer, Is.GreaterThan(0f));
-        var barTall = Degrees(bar.Centre with { Y = bar.Top } - Eyes, bar.Centre with { Y = bar.Bottom } - Eyes);
-        Assert.That(barTall, Is.EqualTo(BarDegrees).Within(0.05f), "its height is the kit's angle where it stands");
-        var gap = Degrees(screen.Centre with { Y = screen.Bottom } - Eyes, bar.Centre with { Y = bar.Top } - Eyes);
-        Assert.That(gap, Is.EqualTo(GapDegrees).Within(0.05f));
+        var barTop = bar.Centre + bar.Up * (bar.Height / 2f);
+        var barTall = Degrees(barTop - Eyes, bar.Centre - bar.Up * (bar.Height / 2f) - Eyes);
+        Assert.That(barTall, Is.EqualTo(BarDegrees).Within(0.01f), "its height is the kit's angle where it stands");
+        var gap = Degrees(screen.Centre - screen.Up * (screen.Height / 2f) - Eyes, barTop - Eyes);
+        Assert.That(gap, Is.EqualTo(GapDegrees).Within(0.01f));
+        Assert.That(Vector3.Dot(bar.Facing, Vector3.Normalize(Eyes - bar.Centre)), Is.GreaterThan(0.9999f), "tilted up to face the eyes, low in the view");
+        Assert.That(bar.Pitch, Is.LessThan(-10f));
+        Assert.That(RoomLayout.Bar(Eyes, screen, BarDegrees), Is.EqualTo(RoomLayout.Bar(Eyes, screen, BarDegrees, RoomLayout.BarGapDegrees)), "the room's own gap by default");
+        Assert.That(RoomLayout.BarGapDegrees, Is.EqualTo(0.75f));
     }
 
     [Test]
@@ -142,9 +148,9 @@ public class RoomLayoutTests
     [Test]
     public void SurfacesOutsideReachAreRefused()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, ScreenDegrees, ScreenAspect, distance: 0.5f));
-        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, ScreenDegrees, ScreenAspect, distance: 3.5f));
-        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, 180f, ScreenAspect));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, ScreenDegrees, ScreenHeightDegrees, distance: 0.5f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, ScreenDegrees, ScreenHeightDegrees, distance: 3.5f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, 180f, ScreenHeightDegrees));
         Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screen(Eyes, 0f, ScreenDegrees, 0f));
         Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.ReadingSurface(Eyes, Vector3.Zero, 44f, 33f));
     }
