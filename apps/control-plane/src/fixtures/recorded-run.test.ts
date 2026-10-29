@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
@@ -37,12 +37,9 @@ const validateServerMessage = compileValidator(ServerMessage);
  * runtime that is not synthetic and names its vendor, the project's folder in its instructions
  * and directory, and a model and client of its own. Synthetic text; no real run is read here.
  */
-function realShaped(): EventEnvelope[] {
-  const text = readFileSync(
-    fileURLToPath(new URL('fixtures/traces/multiple_workstreams.jsonl', ROOT)),
-    'utf8',
-  );
-  return parseTrace(text, 'multiple_workstreams.jsonl').map((event) => {
+function realShaped(trace = 'multiple_workstreams.jsonl'): EventEnvelope[] {
+  const text = readFileSync(fileURLToPath(new URL(`fixtures/traces/${trace}`, ROOT)), 'utf8');
+  return parseTrace(text, trace).map((event) => {
     const dressed = structuredClone(event);
     if (dressed.source.kind === 'runtime' && dressed.source.runtime_id === 'mock') {
       dressed.source.runtime_id = 'codex' as RuntimeId;
@@ -183,6 +180,63 @@ describe('sanitizing a recorded real run', () => {
       complete: false,
       truncation: 'scope',
     });
+  });
+
+  test('refuses a journal holding an event type the recorder does not list, naming the type', () => {
+    const events = realShaped();
+    const project = first(events, 'project.created');
+    // A synthetic event of a type the recorder was never written for: its words may be anyone's.
+    const linked = {
+      ...project,
+      event_id: `${project.event_id.slice(0, -4)}ffff`,
+      event_type: 'project.catalog_linked',
+      payload: { repository: 'some-organisation/an-unreleased-thing' },
+    } as unknown as EventEnvelope;
+    const error = errorOf(() => sanitizeRecordedRun([...events, linked], OPTIONS));
+    assert.match(error.message, /project\.catalog_linked/);
+    assert.ok(!error.message.includes('some-organisation'), 'the error never repeats its words');
+  });
+
+  test("refuses a journal holding a device's pairing or revocation: no recording needs them", () => {
+    const events = realShaped();
+    const project = first(events, 'project.created');
+    // A device's self-declared label and the fingerprint of the computer's certificate it pinned.
+    const paired = {
+      ...project,
+      event_id: `${project.event_id.slice(0, -4)}fffe`,
+      event_type: 'device.paired',
+      payload: {
+        device_id: 'device-1',
+        label: 'A headset on a desk',
+        credential_sha256: 'a'.repeat(64),
+        certificate_sha256: 'b'.repeat(64),
+      },
+    } as unknown as EventEnvelope;
+    const revoked = {
+      ...paired,
+      event_id: `${project.event_id.slice(0, -4)}fffd`,
+      event_type: 'device.revoked',
+      payload: { device_id: 'device-1', revoked_by: 'owner' },
+    } as unknown as EventEnvelope;
+    for (const device of [paired, revoked]) {
+      const error = errorOf(() => sanitizeRecordedRun([...events, device], OPTIONS));
+      assert.match(error.message, new RegExp(device.event_type.replace('.', '\\.')));
+      assert.ok(
+        !error.message.includes('A headset on a desk'),
+        'the error never repeats its words',
+      );
+    }
+  });
+
+  test('every event type the committed traces journal is one the recorder is written for', () => {
+    const traces = readdirSync(fileURLToPath(new URL('fixtures/traces/', ROOT))).filter((name) =>
+      name.endsWith('.jsonl'),
+    );
+    assert.ok(traces.length >= 2, 'the committed traces are found');
+    for (const trace of traces) {
+      const events = realShaped(trace);
+      assert.doesNotThrow(() => sanitizeRecordedRun(events, OPTIONS), trace);
+    }
   });
 
   test('refuses a run whose runtime is synthetic: a recorded run is real work', () => {

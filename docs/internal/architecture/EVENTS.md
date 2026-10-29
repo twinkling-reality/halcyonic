@@ -312,7 +312,9 @@ host, an address, a URL, an email, a credential shape or a word from the deny fi
 written: the tool lists each event and field, never the text or the key, and the run is recorded
 again. The deny file is required and lists at least the owner's names, matched as whole words in any
 case, since an agent quoting a commit's author carries them. A run whose runtime is synthetic is
-refused; the demonstration is the place for simulated work.
+refused; the demonstration is the place for simulated work. A journal holding an event type the
+recorder is not written for is refused whole, naming the type, since a new type may carry words no
+rule knows, such as a private repository's name.
 
 The recording is the demonstration's format at version 3, kind `recorded_run`
 ([XR_CLIENT.md](XR_CLIENT.md)). A control plane without runtimes is given the sanitized run

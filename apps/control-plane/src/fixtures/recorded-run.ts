@@ -44,6 +44,54 @@ export const RECORDED_CLIENT: ClientInfo = {
 /** The longest wait the playback keeps between two events; each event keeps its real time. */
 export const MAX_GAP_MS = 2500;
 
+/**
+ * The event types the recorder was written and checked for: what each one's strings can hold is
+ * something its rewrites and scan judge. A journal holding any other type is refused, because a new
+ * type may carry words no rule knows, such as a private repository's owner and name. Adding one here
+ * is a review of what it journals. A device's pairing and revocation are left out on purpose: no
+ * recording needs them, and a pairing carries a self-declared label and the fingerprint of the
+ * computer's certificate.
+ */
+const LISTED_EVENT_TYPES: ReadonlySet<string> = new Set<EventEnvelope['event_type']>([
+  'project.created',
+  'project.location_set',
+  'project.starter_applied',
+  'project.checkpoint.recorded',
+  'project.checkpoint.failed',
+  'project.restored',
+  'project.restore_incomplete',
+  'workstream.created',
+  'execution.created',
+  'execution.files.observed',
+  'execution.start_failed',
+  'execution.state_unknown',
+  'command.accepted',
+  'command.rejected',
+  'command.completed',
+  'command.failed',
+  'workspace.request.created',
+  'workspace.request.changed',
+  'workspace.request.step_recorded',
+  'runtime.execution.started',
+  'runtime.turn.started',
+  'runtime.turn.completed',
+  'runtime.turn.failed',
+  'runtime.turn.interrupted',
+  'runtime.approval.requested',
+  'runtime.approval.resolved',
+  'runtime.question.asked',
+  'runtime.question.resolved',
+  'runtime.tool.started',
+  'runtime.tool.completed',
+  'runtime.tool.result',
+  'runtime.agent_message',
+  'runtime.test_run.started',
+  'runtime.test_run.completed',
+  'runtime.connection.lost',
+  'runtime.connection.restored',
+  'runtime.model.used',
+]);
+
 /** What a path at or under the project's folder reads as once the folder itself is left out. */
 const PROJECT_FOLDER = 'the project folder';
 
@@ -215,6 +263,7 @@ export class RecordedRunError extends OwnWordsError {
  * or private path, an address, a URL, an email, a credential or a denied word, this throws with
  * every place it found, naming the field and the kind of text but never the text, and the run must
  * be recorded again. The rules find only what they list, so a person reads the whole recording too.
+ * A journal holding an event type the recorder does not list is refused whole, naming the type.
  */
 export function sanitizeRecordedRun(
   events: readonly EventEnvelope[],
@@ -226,6 +275,18 @@ export function sanitizeRecordedRun(
   }
   if (options.deny.filter((word) => word.trim() !== '').length === 0) {
     throw new RecordedRunError("A deny list with at least the owner's names is required.");
+  }
+  const unlisted = [
+    ...new Set(
+      events
+        .map((event) => event.event_type as string)
+        .filter((type) => !LISTED_EVENT_TYPES.has(type)),
+    ),
+  ];
+  if (unlisted.length > 0) {
+    throw new RecordedRunError(
+      `The run holds events the recorder is not written for, so nothing is written: ${unlisted.join(', ')}.`,
+    );
   }
   const runtimes = new Map<string, string>();
   for (const event of events) {
