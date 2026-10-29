@@ -110,7 +110,7 @@ interface State {
   /** The apps this tool started and has not stopped. */
   started: string[];
   /** A recording `record start` began and `record stop` has not ended: the capture folders' names before it. */
-  recording?: { before: string[]; startedAt: string };
+  recording?: { before: string[]; startedAt: string; stopSentAt?: string };
 }
 
 function readState(): State {
@@ -143,6 +143,7 @@ function replaced(): void {
 
 const SCREENSHOTS = '/sdcard/Oculus/Screenshots';
 const VIDEOS = '/sdcard/Oculus/VideoShots';
+const CLIP_WAIT_MS = 120_000;
 const DOWNLOADS = '/sdcard/Download';
 const CAPTURE_SERVICE = 'com.oculus.metacam/.capture.CaptureService';
 const TESTING = ['content', 'call', '--uri', 'content://com.oculus.rc', '--method', 'GET_PROPERTY'];
@@ -313,7 +314,11 @@ async function status(): Promise<void> {
   console.log(`reverse rules: ${(await adbSaid('reverse', '--list')).trim() || 'none'}`);
   console.log(`forward rules: ${(await adbSaid('forward', '--list')).trim() || 'none'}`);
   const recording = readState().recording;
-  if (recording)
+  if (recording?.stopSentAt)
+    console.log(
+      `A recording may still be going: a stop was sent at ${recording.stopSentAt} but no clip appeared. Run record stop again.`,
+    );
+  else if (recording)
     console.log(`A recording is in progress since ${recording.startedAt}; record stop ends it.`);
   replaced();
 }
@@ -349,12 +354,17 @@ async function giveBack(): Promise<void> {
     state.started = [];
   });
   const on = await giveSensorBack();
+  // Seen on the headset (2026-10-29): while Meta's Guardian dialog holds it, the override reads on after the
+  // release until the headset sleeps, and then reads off.
+  const lost = on === true && isGuardianDialog(await front());
   console.log(
     on === false
       ? "The proximity sensor is the headset's again."
-      : on === true
-        ? 'The proximity override is still on.'
-        : 'The proximity override could not be read, so it may still be on.',
+      : lost
+        ? "The headset can't find its position in the room, so the proximity override reads on until the headset sleeps. The release was sent."
+        : on === true
+          ? 'The proximity override is still on.'
+          : 'The proximity override could not be read, so it may still be on.',
   );
   const reverse = (await adbSaid('reverse', '--list')).trim();
   const forward = (await adbSaid('forward', '--list')).trim();
@@ -363,7 +373,7 @@ async function giveBack(): Promise<void> {
   replaced();
   if (problem !== null)
     fail(`${problem} A clip may still be on the headset in ${VIDEOS}; collect it by name.`);
-  if (on !== false) process.exit(1);
+  if (on !== false && !lost) process.exit(1);
 }
 
 async function save(): Promise<void> {
@@ -622,12 +632,23 @@ async function stopRecording(): Promise<string | null> {
     '-a',
     'STOP_INTERNAL_CAPTURE_TO_DISK',
   );
+  // A 200 s clip of 159 MB appeared within 10 s of its stop; the wait leaves room for longer clips.
+  const given = process.env.HALCYONIC_QUEST_CLIP_WAIT_MS ?? '';
+  const wait = /^\d+$/.test(given) ? Number(given) : CLIP_WAIT_MS;
+  const until = Date.now() + wait;
   let made: string[] = [];
-  for (let i = 0; i < 20 && made.length === 0; i++) {
+  do {
     await sleep(500);
     made = newCaptures(recording.before, await captureFolders()).filter((name) =>
       name.endsWith('.mp4'),
     );
+  } while (made.length === 0 && Date.now() < until);
+  if (made.length === 0) {
+    // No clip means the stop may not have taken: the recording, and the microphone, may still be going.
+    writeState((state) => {
+      if (state.recording) state.recording.stopSentAt = new Date().toISOString();
+    });
+    return `No clip appeared within ${Math.ceil(wait / 1000)} s of the stop, so the recording may still be going. Run record stop again.`;
   }
   writeState((state) => {
     delete state.recording;

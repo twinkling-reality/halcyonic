@@ -629,7 +629,8 @@ A lane runs `pnpm quest:device -- record start --sync-is-off` on "record" and
 fixed length), only after the headset's own log has said its media sync is off: Meta's capture
 service records one eye at 1920 by 1080 and 30 fps, about 48 MB a minute, with the app's sound and
 the headset microphone, and a clip of 200 s was recorded whole
-([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)).
+([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). If no clip appears
+within two minutes of the stop, `status` says the recording may still be going: run `record stop` again.
 
 ## Checking the headset without wearing it
 
@@ -655,7 +656,8 @@ pnpm quest:device -- give-back
   the room" is Meta's Guardian dialog: nothing opens until the headset sees the room, so stand it
   facing the room or wear it. Never press anything in a system dialog.
 - `awake` keeps it awake on the desk (the proximity override); `give-back` hands the sensor back and
-  stops the apps this tool started. Run it at the end, every time.
+  stops the apps this tool started. Run it at the end, every time. While the Guardian dialog holds the
+  headset, the override reads on until the headset sleeps; `give-back` says so and does not fail for it.
 - `save` pulls the installed APK and checks its bytes. `install` needs that copy as `--saved` (and
   `--package` for any app but Halcyonic), refuses unless it is exactly what is installed, and checks
   the headset's bytes after `install -r`, so `restore` puts it back exactly with its data. It refuses

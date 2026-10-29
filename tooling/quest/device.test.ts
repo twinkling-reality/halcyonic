@@ -25,6 +25,8 @@ interface Headset {
   readonly launchLog?: string;
   /** Each GET_PROPERTY reading of set_proximity_close in turn, 'true', 'false' or 'missing'; the last repeats. */
   readonly proximity?: readonly string[];
+  /** Meta's Guardian dialog is in front: the headset can't find its position in the room. */
+  readonly guardian?: boolean;
 }
 
 /**
@@ -60,7 +62,9 @@ else if (args[0] === 'install' && args[1] === '-r') fs.writeFileSync(process.env
 else if (said === 'uninstall com.halcyonic.xr.check' || said.startsWith('shell pm grant com.halcyonic.xr.check ')) {}
 else if (said === 'shell sha256sum /data/app/test/base.apk') out(scenario.installedSha256 + '  /data/app/test/base.apk');
 else if (said === 'shell dumpsys package com.halcyonic.xr') out('      firstInstallTime=2026-01-01 00:00:00');
-else if (said === 'shell dumpsys activity activities') out('      topResumedActivity=ActivityRecord{a u0 com.oculus.vrshell/.HomeActivity t1}');
+else if (said === 'shell dumpsys activity activities') out(scenario.guardian
+  ? '      topResumedActivity=ActivityRecord{a u0 com.oculus.guardian/com.oculus.vrguardianservice.guardiandialog.GuardianDialogActivity t1}'
+  : '      topResumedActivity=ActivityRecord{a u0 com.oculus.vrshell/.HomeActivity t1}');
 else if (args[0] === 'logcat' && said.includes('ActivityTaskManager')) out(scenario.launchLog ?? '');
 else if (args[0] === 'logcat') {
   const stopped = fs.readFileSync(process.env.ADB_CALLS, 'utf8').includes('STOP_INTERNAL_CAPTURE_TO_DISK');
@@ -119,6 +123,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       HALCYONIC_FFMPEG: join(directory, 'no-ffmpeg'),
       HALCYONIC_FFPROBE: join(directory, 'no-ffprobe'),
       HALCYONIC_QUEST_SETTLE_MS: '0',
+      HALCYONIC_QUEST_CLIP_WAIT_MS: '1000',
       ADB_SCENARIO: scenario,
       ADB_CALLS: calls,
     };
@@ -225,6 +230,32 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       calls.join('\n'),
     );
     assert.match(said, /The proximity sensor is the headset's again/);
+  });
+
+  test("give-back says the Guardian dialog keeps the override reading on, and doesn't fail for it", async () => {
+    const { code, said, calls } = await device(
+      { guardian: true, proximity: ['true'] },
+      'give-back',
+    );
+    assert.equal(code, 0, said);
+    assert.ok(
+      calls.some((call) => call.includes('automation_disable')),
+      calls.join('\n'),
+    );
+    assert.match(said, /can't find its position in the room/);
+    assert.match(said, /reads on until the headset sleeps/);
+  });
+
+  test('give-back still fails when the override cannot be read, Guardian dialog or not', async () => {
+    const { code, said } = await device({ guardian: true, proximity: ['missing'] }, 'give-back');
+    assert.equal(code, 1, said);
+    assert.match(said, /could not be read/);
+  });
+
+  test('give-back still fails when the override stays on and no Guardian dialog explains it', async () => {
+    const { code, said } = await device({ proximity: ['true'] }, 'give-back');
+    assert.equal(code, 1, said);
+    assert.match(said, /The proximity override is still on/);
   });
 
   test('give-back never takes two unreadable readings for off', async () => {
@@ -443,10 +474,39 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       calls.some((call) => call.includes('automation_disable')),
       calls.join('\n'),
     );
-    assert.match(said, /no single new recording/);
+    assert.match(
+      said,
+      /No clip appeared within 1 s of the stop, so the recording may still be going/,
+    );
     assert.match(
       said,
       /A clip may still be on the headset in \/sdcard\/Oculus\/VideoShots; collect it by name\./,
+    );
+    assert.ok(
+      JSON.parse(readFileSync(state, 'utf8')).recording?.stopSentAt,
+      'the recording stays in the state',
+    );
+  });
+
+  test('record stop keeps the recording when no clip appears, and status says it may still be going', async () => {
+    const off =
+      '10-29 01:15:51.642 11156 11237 I SimpleMediaSyncUtils: media sync preference is enabled: false';
+    const state = join(directory, 'state-stop-noclip.json');
+    await device({ syncLog: off }, 'record', 'start', '--sync-is-off', '--state', state);
+    const stopped = await device(
+      { syncLog: off, noClip: true },
+      'record',
+      'stop',
+      '--state',
+      state,
+    );
+    assert.equal(stopped.code, 1, stopped.said);
+    assert.match(stopped.said, /may still be going/);
+    const shown = await device({}, 'status', '--state', state);
+    assert.equal(shown.code, 0, shown.said);
+    assert.match(
+      shown.said,
+      /A recording may still be going: a stop was sent at \d{4}-\d{2}-\d{2}T/,
     );
   });
 
