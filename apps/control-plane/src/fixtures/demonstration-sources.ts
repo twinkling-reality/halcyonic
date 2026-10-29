@@ -1,4 +1,6 @@
 import type {
+  CatalogProject,
+  CatalogResponse,
   EvaluationResult,
   EventEnvelope,
   ExecutionView,
@@ -14,6 +16,7 @@ import {
   usageLimitsDocument,
   usageReading,
 } from '@halcyonic/integration-seorak/testing';
+import type { CatalogSource } from '../http/routes.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 
@@ -1056,6 +1059,153 @@ const OBSERVED_AS = 'claude-agent';
  * The stand-ins, running: a stand-in Salidium daemon and a stand-in Seorak plane on loopback, the
  * test doubles of Halcyonic's integrations, answering with documents derived from what they observe.
  */
+/**
+ * The demonstration's catalog (ADR 0039): projects Halcyonic invented for it, across two invented
+ * owners, one in each state the gallery groups, with no product, brand or person's name, so the judge
+ * build and the video can show a full gallery. Each is a minute offset from the read.
+ */
+const DEMONSTRATION_CATALOG: readonly {
+  readonly id: string;
+  readonly name: string;
+  readonly repositories: readonly string[];
+  readonly group: 'games' | 'sounds';
+  readonly state: string;
+  readonly activeBeforeMin: number;
+  readonly waitsOn?: string;
+}[] = [
+  {
+    id: 'demo-star-garden',
+    name: 'Star garden',
+    repositories: ['pebble-studio/star-garden'],
+    group: 'games',
+    state: 'review_requested',
+    activeBeforeMin: 40,
+    waitsOn: 'Add a night sky',
+  },
+  {
+    id: 'demo-treehouse',
+    name: 'Treehouse',
+    repositories: ['kite-club/treehouse', 'kite-club/treehouse-notes'],
+    group: 'games',
+    state: 'awaiting_input',
+    activeBeforeMin: 6,
+  },
+  {
+    id: 'demo-bouncy-shapes',
+    name: 'Bouncy shapes',
+    repositories: ['pebble-studio/bouncy-shapes'],
+    group: 'games',
+    state: 'agent_running',
+    activeBeforeMin: 2,
+  },
+  {
+    id: 'demo-ocean-sounds',
+    name: 'Ocean sounds',
+    repositories: ['kite-club/ocean-sounds'],
+    group: 'sounds',
+    state: 'checks_failing',
+    activeBeforeMin: 90,
+  },
+  {
+    id: 'demo-paper-boats',
+    name: 'Paper boats',
+    repositories: ['kite-club/paper-boats'],
+    group: 'sounds',
+    state: 'active',
+    activeBeforeMin: 300,
+  },
+  {
+    id: 'demo-rainy-maze',
+    name: 'Rainy day maze',
+    repositories: ['pebble-studio/rainy-day-maze'],
+    group: 'games',
+    state: 'session_complete',
+    activeBeforeMin: 150,
+  },
+  {
+    id: 'demo-snow-globe',
+    name: 'Snow globe',
+    repositories: ['kite-club/snow-globe'],
+    group: 'sounds',
+    state: 'inactive',
+    activeBeforeMin: 60 * 24 * 45,
+  },
+  {
+    id: 'demo-old-sketches',
+    name: 'Old sketches',
+    repositories: ['pebble-studio/old-sketches'],
+    group: 'games',
+    state: 'archived',
+    activeBeforeMin: 60 * 24 * 200,
+  },
+];
+
+/** The demonstration's catalog as its source would answer it at `now`, marked as Halcyonic's stand-in. */
+export function demonstrationCatalog(now: number): CatalogResponse {
+  const at = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
+  let repositoryId = 9_100_000;
+  const projects: CatalogProject[] = DEMONSTRATION_CATALOG.map((entry) => {
+    const repositories = entry.repositories.map((fullName, index) => ({
+      repository_id: ++repositoryId,
+      full_name: fullName,
+      primary: index === 0,
+      visibility: 'private' as const,
+      fork: false,
+      archived: entry.state === 'archived',
+      language: null,
+      description: null,
+      pushed_at: at(entry.activeBeforeMin),
+      access: 'ok' as const,
+    }));
+    return {
+      catalog_id: entry.id,
+      name: entry.name,
+      group_id: entry.group,
+      group_order: DEMONSTRATION_CATALOG.filter((other) => other.group === entry.group).indexOf(
+        entry,
+      ),
+      repositories,
+      state: {
+        state: entry.state,
+        active: entry.activeBeforeMin < 60 * 24 * 30,
+        last_activity_at: at(entry.activeBeforeMin),
+        sessions: { running: 0, awaiting_input: 0 },
+        unknown: [],
+      },
+      attention:
+        entry.waitsOn === undefined
+          ? []
+          : [
+              {
+                kind: entry.state,
+                repository_id: repositories[0]?.repository_id ?? repositoryId,
+                pull_request: { number: 3, title: entry.waitsOn },
+                at: at(entry.activeBeforeMin),
+              },
+            ],
+      local: { project_ids: [], suggestions: [] },
+    };
+  });
+  return {
+    availability: 'available',
+    provenance: 'reported',
+    source: { system: 'phat-porcupine', api_version: '1', synthetic: true, sample: false },
+    generated_at: at(0),
+    sync: {
+      repositories_at: at(4),
+      repositories_failed: false,
+      activity_at: at(4),
+      activity_failed: false,
+    },
+    groups: [
+      { group_id: 'games', name: 'Games', order: 0 },
+      { group_id: 'sounds', name: 'Sounds and toys', order: 1 },
+    ],
+    projects,
+    truncated: null,
+  };
+}
+
 export class DemonstrationSources {
   readonly #salidium: FakeSalidium;
   readonly #seorak: FakeSeorak;
@@ -1063,6 +1213,7 @@ export class DemonstrationSources {
   readonly #seorakClient: SeorakClient;
   readonly #sessions = new Map<string, CapturedSession>();
   #usageLabel: string | null = null;
+  #catalogAt: number | null = null;
 
   private constructor(salidium: FakeSalidium, seorak: FakeSeorak) {
     this.#salidium = salidium;
@@ -1122,9 +1273,31 @@ export class DemonstrationSources {
     this.#usageLabel = label;
   }
 
+  /**
+   * The catalog the stand-in serves from now on, its times as at `now`. Until Halcyonic has a client
+   * for Phat Porcupine's own contract, the stand-in answers in the control plane's catalog contract,
+   * so this one source skips the client a real one goes through (ADR 0019 asks for the real flow).
+   */
+  serveCatalog(now: number): void {
+    this.#catalogAt = now;
+  }
+
   /** The control plane's sources: Halcyonic's real clients reading the stand-ins, every answer marked synthetic. */
-  get sources(): { understanding: UnderstandingSource; evaluation: EvaluationSource } {
+  get sources(): {
+    understanding: UnderstandingSource;
+    evaluation: EvaluationSource;
+    catalog: CatalogSource;
+  } {
     return {
+      catalog: {
+        read: async () =>
+          this.#catalogAt === null
+            ? {
+                availability: 'unavailable',
+                reason: { code: 'not_configured', message: 'No catalog is served yet.' },
+              }
+            : demonstrationCatalog(this.#catalogAt),
+      },
       understanding: {
         understand: async (runtimeKind, nativeId) =>
           simulatedUnderstanding(

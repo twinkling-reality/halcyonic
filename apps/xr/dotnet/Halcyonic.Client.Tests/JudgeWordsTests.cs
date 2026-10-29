@@ -46,6 +46,8 @@ public class JudgeWordsTests
             SettingsText.Subject, "A step larger", SettingsText.YourSpace, "Around you", "Your room's layout", "Spatial agents", "Agent shelf", "The menu",
         }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
         Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");
+        Assert.That(words, Is.SupersetOf(new[] { GalleryText.SampleProjects, GalleryText.NotInThisRecording, "Star garden", "Asked for your review" }),
+            "the walk reached the gallery's sample catalog and the recording without one");
     }
 
     /// <summary>Every distinct string the client core gives the headset along every path of the demonstration.</summary>
@@ -128,6 +130,23 @@ public class JudgeWordsTests
         var limits = UsageLeftPresenter.Present(recording.UsageLimitsAt(DateTimeOffset.UtcNow)!, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, recorded: true);
         Add(UsageLeftScreens.Screen(limits, reading: false, canRead: true));
         Add(UsageLeftScreens.Screen(limits, reading: true, canRead: true));
+        // The gallery while the demonstration plays (ADR 0039): every word its core gives the headset from the
+        // sample catalog, and what it says while a recorded run plays, which holds none.
+        var galleryState = new ClientProjection();
+        var galleryOverview = WorkOverview.Of(galleryState, new StageVisibility(), _ => false);
+        var sample = Gallery.Build(galleryState, galleryOverview, new DemonstrationCatalogReads(recording.CatalogAt).ReadCatalogAsync().Result,
+            null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc);
+        foreach (var item in sample.Samples)
+        {
+            foreach (var line in new[] { item.Name, item.Owner, item.Group, item.Line, item.ReportedLine, item.Detail, item.Place })
+            {
+                Add(line?.Text);
+            }
+        }
+        Add(sample.SampleLabel);
+        Add(sample.Age);
+        Add(Gallery.Build(galleryState, galleryOverview, new DemonstrationCatalogReads(_ => null).ReadCatalogAsync().Result,
+            null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc).Note);
         Add(EntryText.DemoCannotStart);
         foreach (var field in typeof(SettingsText).GetFields().Where(field => field.IsLiteral)) Add(field.GetRawConstantValue());
         foreach (StageArrangement arrangement in Enum.GetValues(typeof(StageArrangement)))

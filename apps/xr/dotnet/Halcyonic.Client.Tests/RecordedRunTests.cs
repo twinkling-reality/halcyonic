@@ -61,6 +61,7 @@ public class RecordedRunTests
     [TestCase("understanding")]
     [TestCase("evaluation")]
     [TestCase("usage_limits")]
+    [TestCase("catalog")]
     public void ARecordedRunCarriesNoStandInAnswersAndNoUsageLimits(string key)
     {
         var demonstration = (JObject)Json.Parse(Demonstration.Text());
@@ -348,6 +349,7 @@ internal static class RecordedRunTestsShapes
             document.Remove("understanding");
             document.Remove("evaluation");
             document.Remove("usage_limits");
+            document.Remove("catalog");
             foreach (var runtime in Runtimes(document)) runtime["synthetic"] = false;
             edit?.Invoke(document);
         });

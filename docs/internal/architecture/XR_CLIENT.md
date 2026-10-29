@@ -1568,8 +1568,15 @@ projects; a recorded answer says only "Your other projects aren't part of this r
 source is named only where a real control plane answered. `CatalogFeed` asks `GET /api/catalog` (`ControlPlaneApi.ReadCatalogAsync`) when the gallery
 opens without an answer younger than a minute, on Refresh, and each minute while it stays open; the
 last answer stays shown while a new one is read and after the gallery closes. `CommandFactory`'s
-`LinkCatalog` and `UnlinkCatalog` send the person's link. The route itself, and the recorded
-demonstration's sample catalog, are not built yet. Tests: `GalleryTests`, `CatalogReadsTests`.
+`LinkCatalog` and `UnlinkCatalog` send the person's link. While the demonstration plays,
+`DemonstrationCatalogReads` answers from `DemonstrationFallback.CatalogAt`: the recording's sample
+catalog, invented projects the stand-in served, marked synthetic and recorded, with every time moved by
+`DemonstrationRecording.CatalogAt` as the usage limits' are, so the gallery shows them apart under "Sample
+projects". A recorded run holds no catalog, and one that carries one is refused, so while it plays, or
+before a recording is read, the read answers that there is none and the gallery says "Your other
+projects aren't part of this recording." Tests: `GalleryTests`, `CatalogReadsTests`,
+`DemonstrationCatalogTests`; `JudgeWordsTests` gathers every word of the sample gallery for the brand
+check.
 
 ## Verification
 

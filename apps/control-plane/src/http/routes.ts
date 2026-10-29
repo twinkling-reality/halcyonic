@@ -1,4 +1,5 @@
 import {
+  CatalogResponse,
   CheckpointId,
   type CheckpointsResponse,
   CommandId,
@@ -45,6 +46,7 @@ import type { WorkspaceRequests } from '../workspace-agent/requests.ts';
 import { errorBody } from './server.ts';
 
 const validateEventsQuery = compileValidator(EventsQuery);
+const validateCatalogResponse = compileValidator(CatalogResponse);
 const validateProjectId = compileValidator(ProjectId);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
@@ -65,9 +67,19 @@ const validateResultEventId = compileValidator(EventId);
  */
 const COMPANION_BODY_LIMIT = 256 * 1024;
 
+/**
+ * Where the person's catalog comes from (ADR 0039): Phat Porcupine on this computer, or the recorded
+ * demonstration's stand-in. Its answer is read through and never journaled.
+ */
+export interface CatalogSource {
+  read(): Promise<CatalogResponse>;
+}
+
 export interface RouteSources {
   readonly understanding: UnderstandingSource;
   readonly evaluation: EvaluationSource;
+  /** The person's catalog; absent, the gallery hears that none is set up. */
+  readonly catalog?: CatalogSource;
   /** How long a runtime has to list its models; `MODEL_LIST_TIMEOUT_MS` by default. */
   readonly modelListTimeoutMs?: number;
   /** Speech to drafts, shared by both listeners so its bounds hold across them; absent, voice is off. */
@@ -402,6 +414,64 @@ export function registerRoutes(
         code: 'invalid_usage_limits',
         message: 'The usage limit source returned data outside the contract.',
       },
+    };
+  });
+
+  // The person's catalog, read through on request and never journaled (ADR 0039). What it says about
+  // this computer is never taken: each project's links come from this journal, and no folder is
+  // suggested until the host matches folders itself.
+  app.get('/api/catalog', async (request): Promise<CatalogResponse> => {
+    let answer: CatalogResponse;
+    try {
+      answer = (await sources.catalog?.read()) ?? {
+        availability: 'unavailable',
+        reason: { code: 'not_configured', message: 'No catalog source is configured.' },
+      };
+    } catch {
+      // Its error can quote what it read, a path or an address, so only the fact is logged.
+      request.log.warn('the catalog source failed');
+      return {
+        availability: 'unavailable',
+        reason: { code: 'source_failed', message: 'The catalog source could not be read.' },
+      };
+    }
+    if (!validateCatalogResponse(answer).ok) {
+      request.log.warn('the catalog does not match the contract');
+      return {
+        availability: 'incompatible',
+        reason: {
+          code: 'invalid_catalog',
+          message: 'The catalog source returned data outside the contract.',
+        },
+      };
+    }
+    if (answer.availability !== 'available') {
+      return { ...answer, reason: reasonWithoutCredentials(answer.reason, controlPlane.redaction) };
+    }
+    const linked = new Map<number, string[]>();
+    for (const project of controlPlane.projection.projects()) {
+      const link = controlPlane.projection.catalogLink(project.project_id);
+      if (link == null) continue;
+      linked.set(link.repository_id, [
+        ...(linked.get(link.repository_id) ?? []),
+        project.project_id,
+      ]);
+    }
+    return {
+      ...answer,
+      projects: answer.projects.map((project) => ({
+        ...project,
+        local: {
+          project_ids: [
+            ...new Set(
+              project.repositories.flatMap(
+                (repository) => linked.get(repository.repository_id) ?? [],
+              ),
+            ),
+          ].slice(0, 100) as typeof project.local.project_ids,
+          suggestions: [],
+        },
+      })),
     };
   });
 

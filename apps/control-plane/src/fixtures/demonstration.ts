@@ -16,6 +16,7 @@ import type {
   WorkstreamId,
 } from '@halcyonic/contracts';
 import {
+  CatalogResponse,
   compileValidator,
   EvaluationResponse,
   REALTIME_PROTOCOL_VERSION,
@@ -135,6 +136,15 @@ export interface RecordedUsageLimits {
 }
 
 /**
+ * `GET /api/catalog` as the control plane answered it at `read_at`, from the stand-in's invented
+ * projects (ADR 0039), moved by a player the same way as the usage limits.
+ */
+export interface RecordedCatalog {
+  readonly read_at: string;
+  readonly answer: CatalogResponse;
+}
+
+/**
  * What the XR client plays when no control plane is configured or reachable: the realtime messages
  * the control plane sent while its scripted operator gave every answer the recording offers, as a
  * tree that shares its beginning. Its journal is a `fixture`, so every surface labels it as
@@ -159,6 +169,8 @@ export interface Demonstration {
   readonly evaluation: RecordedAnswers<EvaluationResponse>;
   /** The practice agent's usage limits, the same along every path. */
   readonly usage_limits: RecordedUsageLimits;
+  /** The gallery's sample catalog, the same along every path. */
+  readonly catalog: RecordedCatalog;
 }
 
 const ROOT = new URL('../../../../', import.meta.url);
@@ -338,6 +350,7 @@ export async function recordDemonstration(
   const prologue = (await demonstrationPrologue(scenarios, plan)).map(({ event }) => event);
   const answers = await recordAnswers(prologue, nodes, storiesOf(prologue, plan));
   const usageLimits = await recordUsageLimits(prologue, beginning.welcome.server_time);
+  const catalog = await recordCatalog(prologue, beginning.welcome.server_time);
   return serializeDemonstration({
     version: 2,
     source: DEMONSTRATION_SOURCE,
@@ -347,6 +360,7 @@ export async function recordDemonstration(
     understanding: answers.understanding,
     evaluation: answers.evaluation,
     usage_limits: usageLimits,
+    catalog,
   });
 }
 
@@ -513,6 +527,74 @@ async function recordUsageLimits(
     await replay.close();
     await sources.close();
   }
+}
+
+const validateCatalog = compileValidator(CatalogResponse);
+
+/**
+ * Records the control plane's answer about the person's catalog, read through its own route from the
+ * stand-in's invented projects, and moves its times so the read happened at `readAt`, as the usage
+ * limits are.
+ */
+async function recordCatalog(
+  prologue: readonly EventEnvelope[],
+  readAt: string,
+): Promise<RecordedCatalog> {
+  const sources = await DemonstrationSources.start();
+  const replay = replayOf(prologue);
+  const token = randomBytes(32).toString('base64url');
+  const app = await createHttpServer({ logLevel: 'silent', token });
+  registerRoutes(app, replay, sources.sources);
+  try {
+    const now = Date.now();
+    sources.serveCatalog(now);
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    const address = app.server.address();
+    if (address === null || typeof address === 'string') throw new Error('no port');
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/catalog`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body: unknown = await response.json();
+    if (response.status !== 200 || !validateCatalog(body).ok) {
+      throw new Error(`the control plane answered ${response.status}: ${JSON.stringify(body)}`);
+    }
+    const answer = body as CatalogResponse;
+    if (answer.availability !== 'available' || !answer.source.synthetic) {
+      throw new Error(`the catalog stand-in answered ${JSON.stringify(answer)}`);
+    }
+    return { read_at: readAt, answer: movedCatalog(answer, Date.parse(readAt) - now) };
+  } finally {
+    await app.close();
+    await replay.close();
+    await sources.close();
+  }
+}
+
+/** Every time in an available catalog moved by `shift` milliseconds. */
+export function movedCatalog(
+  answer: Extract<CatalogResponse, { availability: 'available' }>,
+  shift: number,
+): Extract<CatalogResponse, { availability: 'available' }> {
+  const moved = (at: string) => new Date(Date.parse(at) + shift).toISOString();
+  const maybe = (at: string | null) => (at === null ? null : moved(at));
+  return {
+    ...answer,
+    generated_at: moved(answer.generated_at),
+    sync: {
+      ...answer.sync,
+      repositories_at: maybe(answer.sync.repositories_at),
+      activity_at: maybe(answer.sync.activity_at),
+    },
+    projects: answer.projects.map((project) => ({
+      ...project,
+      repositories: project.repositories.map((repository) => ({
+        ...repository,
+        pushed_at: maybe(repository.pushed_at),
+      })),
+      state: { ...project.state, last_activity_at: maybe(project.state.last_activity_at) },
+      attention: project.attention.map((item) => ({ ...item, at: maybe(item.at) })),
+    })),
+  };
 }
 
 /** A control plane without runtimes that holds this journal, written through its recorder. */
@@ -1127,7 +1209,8 @@ function serializeDemonstration(demonstration: Demonstration): string {
     '  ],',
     ...byExecution('understanding', demonstration.understanding, false),
     ...byExecution('evaluation', demonstration.evaluation, false),
-    `  "usage_limits": ${json(demonstration.usage_limits)}`,
+    `  "usage_limits": ${json(demonstration.usage_limits)},`,
+    `  "catalog": ${json(demonstration.catalog)}`,
     '}',
     '',
   ].join('\n');

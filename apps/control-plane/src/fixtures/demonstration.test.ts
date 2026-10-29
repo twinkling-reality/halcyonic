@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  CatalogResponse,
   type CommandEnvelope,
   compileValidator,
   type EntityChanges,
@@ -37,6 +38,7 @@ import {
 } from './demonstration.ts';
 import {
   DEMONSTRATION_USAGE,
+  demonstrationCatalog,
   SIMULATED_INSTANCE_ID,
   SIMULATED_VERSION,
   USAGE_AGENT,
@@ -551,6 +553,40 @@ describe('the XR client demonstration', () => {
         account: 'unidentified',
       })),
     );
+  });
+
+  test("its catalog is the stand-in's invented projects, marked synthetic, read through the route at the recording's start", () => {
+    const { read_at, answer } = DEMONSTRATION.catalog;
+    assert.ok(compileValidator(CatalogResponse)(answer).ok);
+    assert.equal(read_at, DEMONSTRATION.welcome.server_time);
+    if (answer.availability !== 'available') assert.fail('only an available answer');
+    assert.equal(answer.source.synthetic, true, 'never taken for a real catalog');
+    assert.equal(answer.provenance, 'reported');
+    // The same projects the stand-in serves, with every time as far before the read as when recorded.
+    const expected = demonstrationCatalog(Date.parse(read_at));
+    if (expected.availability !== 'available') assert.fail('the stand-in answers');
+    assert.deepEqual(answer, expected);
+    assert.deepEqual(
+      [...new Set(answer.projects.map((project) => project.state.state))].sort(),
+      [
+        'active',
+        'agent_running',
+        'archived',
+        'awaiting_input',
+        'checks_failing',
+        'inactive',
+        'review_requested',
+        'session_complete',
+      ],
+      'every group of the gallery has something in it',
+    );
+    for (const project of answer.projects)
+      assert.deepEqual(
+        project.local,
+        { project_ids: [], suggestions: [] },
+        'never linked to the demonstration',
+      );
+    assert.doesNotMatch(JSON.stringify(answer.projects), /github|porcupine|phat/i);
   });
 
   test('wherever the playback stands, each execution it shows has the answer the control plane gave there', () => {

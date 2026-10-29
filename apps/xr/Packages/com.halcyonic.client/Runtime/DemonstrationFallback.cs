@@ -106,6 +106,12 @@ namespace Halcyonic.Client
         /// </summary>
         public AvailableUsageLimits? UsageLimitsAt(DateTimeOffset now) => player?.Recording?.UsageLimitsAt(now);
 
+        /// <summary>
+        /// The demonstration's sample catalog as if read at <paramref name="now"/> (<see cref="DemonstrationRecording.CatalogAt"/>);
+        /// null while nothing is played, while a recording is read or failed, and while a recorded run plays, which holds none.
+        /// </summary>
+        public AvailableCatalog? CatalogAt(DateTimeOffset now) => player?.Recording?.CatalogAt(now);
+
         public void Start()
         {
             if (controlPlane == null) ShowDemonstration();
