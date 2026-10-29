@@ -269,6 +269,21 @@ directly inside one), `location_missing` (not there, or the folder moved), `loca
 folder's name is taken; choose it as an existing folder instead), and `location_required` (a start
 in a project without a folder).
 
+### The VR starter's controller models
+
+A project made from the IWSDK starter shows its controllers' and hands' models only if the Mac has them. Put each file that
+`starters/iwsdk-vr/host/input-profiles.json` lists (and its `LICENSE.md`) under
+`~/.halcyonic/starters/iwsdk-vr/input-profiles/`, keeping the package's layout (`LICENSE.md`,
+`dist/profiles/<profile>/<file>.glb`), from the listing's `source` (jsDelivr's copy of
+`@webxr-input-profiles/assets` 1.0.20). Then check each one against the listing:
+
+```bash
+shasum -a 256 ~/.halcyonic/starters/iwsdk-vr/input-profiles/dist/profiles/*/*.glb
+```
+
+The preview serves a file only while its size and SHA-256 equal the listing, so a wrong or missing file means no
+model, never a different one.
+
 ### OpenCode
 
 Halcyonic runs only its pinned OpenCode version, from a binary you install for it, never the
