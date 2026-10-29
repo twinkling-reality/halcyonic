@@ -3,6 +3,7 @@
 - Status: Accepted by the owner on 2026-09-29: the on-device demonstration, with the scripted
   interactive variant, so judges act.
 - Date: 2026-09-29
+- Amended by [ADR 0035](0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md) on 2026-10-29: a recorded real run plays before the demonstration
 
 ## Context
 
@@ -243,5 +244,9 @@ Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted con
   reading is always seen two minutes ago and resets ahead; Refresh plays it again and sends
   nothing. It says "Recorded for the demo, not from any account" and "These limits are part of the
   recording.", and the judge words check scans it for brand names.
+- 2026-10-29, [ADR 0035](0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md): the bundled recordings are no longer only synthetic
+  work. A build may also bundle a recorded real run, labeled Recorded and never mixed with the
+  demonstration. It plays first, and this demonstration follows once its end has held; the
+  demonstration itself is unchanged.
 - Revisit if the organizers accept a hosted service and the owner wants the control loop shown, or
   once device pairing and encrypted transport exist.

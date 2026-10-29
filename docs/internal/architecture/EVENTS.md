@@ -286,8 +286,9 @@ content.
 
 ### Recorded runs
 
-A recorded run is one real run's journal made fit for anyone to read, for the judge build
-([ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)).
+A recorded run is one real run's journal prepared to be shown: how a person tries Halcyonic before
+connecting a computer, first used by the judge build ([ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md),
+amending [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)).
 `pnpm judge:record <trace.jsonl> --root <project folder> --home <home folder> --deny <file>`
 reads the run exported as a trace (read only: `sqlite3 'file:control-plane.db?immutable=1'
 "select envelope from events order by position"`) and changes only:
@@ -302,15 +303,16 @@ reads the run exported as a trace (read only: `sqlite3 'file:control-plane.db?im
 - the output of commands, left out as `omitted_scope` with exit codes kept, because tools print
   their makers' names.
 
-Instructions, agent messages, approval requests, tool titles, patches, provenance, identifiers and
-times are never edited. Every string and every object key is scanned. If any still names a
-product, company or platform (the same list as the headset's `JudgeWordsTests`, and runtime, model
-and product names in any case), a home or user folder, a private folder, the local host, an address,
-a URL, an email, a credential shape or a word from the deny file, nothing is written: the tool lists
-each event and field, never the text or the key, and the run is recorded again. The deny file is
-required and lists at least the owner's names, matched as whole words in any case, since an agent
-quoting a commit's author carries them. A run whose runtime is synthetic is refused; the demonstration is the place for
-simulated work.
+The project folder's path is rewritten wherever it appears, in what the person and the agent said
+too. Nothing else in instructions, agent messages, approval requests, tool titles, patches,
+provenance, identifiers or times is edited. Every string and every object key is scanned. If any
+still names a product, company or platform (the same list as the headset's `JudgeWordsTests`, and
+runtime, model and product names in any case), a home or user folder, a private folder, the local
+host, an address, a URL, an email, a credential shape or a word from the deny file, nothing is
+written: the tool lists each event and field, never the text or the key, and the run is recorded
+again. The deny file is required and lists at least the owner's names, matched as whole words in any
+case, since an agent quoting a commit's author carries them. A run whose runtime is synthetic is
+refused; the demonstration is the place for simulated work.
 
 The recording is the demonstration's format at version 3, kind `recorded_run`
 ([XR_CLIENT.md](XR_CLIENT.md)). A control plane without runtimes is given the sanitized run
@@ -319,6 +321,13 @@ publisher computed. Waits between events are shortened to 2.5 seconds at most; e
 the time it really happened. Where someone answered an approval, the recording holds before the
 answer's command and holds only that answer. The runtime is listed under its neutral name, real,
 able only to answer approvals. A run that asked the person a question is refused for now.
+
+The recorder's rules find only what they list, so a person (AUDIT, then the owner) reads the whole
+recording before it is bundled or shared. The run's journal stays private, kept outside the
+repository. After a change to the event format, the contracts or the pipeline, the run is recorded
+again from that journal, and `pnpm judge:record ... --check` says whether the bundled file is still
+that run's recording. Unlike the demonstration's check, `pnpm check` cannot run it, because the
+journal never enters the repository; without the journal, a new run is recorded.
 
 ## General workspace request lifecycle
 
