@@ -217,6 +217,8 @@ public class SpatialKitTests
         Assert.That(SpatialKit.ScreenHeightDegrees, Is.EqualTo(31.5f).Within(1e-4));
         Assert.That(SpatialKit.BarDegrees, Is.GreaterThanOrEqualTo(SpatialKit.TargetDegrees + 2 * SpatialKit.GridDegrees), "the bar holds a whole target with room round it");
         Assert.That(SpatialKit.ScreenDegrees, Is.LessThan(110f - 2 * 15f), "the screen leaves the field's edges to the room");
+        Assert.That(SpatialKit.MomentDegrees, Is.EqualTo(23f), "the moment slot's width (ADR 0040, rule 4)");
+        Assert.That(SpatialKit.StackEdgeDegrees, Is.LessThan(SpatialKit.TargetDegrees), "the stacked edge is a hint, never a target");
     }
 
     [Test]

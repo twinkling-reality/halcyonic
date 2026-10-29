@@ -1,7 +1,9 @@
 # ADR 0040: The headset is a room of projects: a gallery home, one screen per project, and moments from the task's character
 
-- Status: Accepted on 2026-10-29 by the owner from a storyboard of the wearer's view ("Yes, build it"); nothing built;
-  acceptance on the headset pending
+- Status: Accepted on 2026-10-29 by the owner from a storyboard of the wearer's view ("Yes, build it"). Built and
+  checked in Editor renders: the kit's colours, type and motion, the moment model, a picked project's screen and its bar,
+  and the moment card; the screen and its bar stand 2 m away in the room. Not built yet: the moment slot's placement, the gallery, the reading surface, the heads-up
+  items, compact and the character's moods. Acceptance on the headset pending
 - Date: 2026-10-29
 - Supersedes in part [ADR 0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md) (the menu
   on one plane as the headset's main presentation) and
