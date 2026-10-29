@@ -167,24 +167,22 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The line above the stage while the demonstration is shown. It says, in words, that nothing
-        /// is live, that the demonstration follows the person's answers, and that nothing reaches an
-        /// agent; when the recording has ended, that it starts again. For a recorded run, that the work
-        /// was real and is played back, and that it waits where the run waited for someone.
+        /// The line above the stage while the demonstration is shown. Its first sentence names what plays
+        /// and says nothing is live; its second, that the demonstration follows the person's answers, or
+        /// that a recorded run waits only where the agent waited, and that nothing reaches an agent. Once a
+        /// recording has ended, an end line takes the second sentence's place, saying what comes next and
+        /// still that nothing reaches an agent, so the banner keeps to its rows with a task waiting.
         /// </summary>
         public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false, bool recordedRun = false, bool next = false)
         {
-            var line = recordedRun
-                ? "Recorded: real agent work, played back on this headset. Nothing here is live.\n"
-                    + "It waits for you only where the agent waited. Nothing reaches an agent."
-                : "Demo: recorded work played on this headset. Nothing here is live.\n"
-                    + "It follows your answers. Nothing reaches an agent.";
-            if (ended)
-            {
-                line += !next ? "\nThis recording has ended and starts again shortly."
-                    : recordedRun ? "\nThis run has ended. A demo you can answer comes next."
-                    : "\nThis demo has ended. The recorded run comes next.";
-            }
+            var first = recordedRun
+                ? "Recorded: real agent work, played back here. Nothing here is live."
+                : "Demo: recorded work played on this headset. Nothing here is live.";
+            var second = !ended
+                ? recordedRun ? "It waits only where the agent waited." : "It follows your answers."
+                : !next ? (recordedRun ? "Run ended." : "Demo ended.") + " It starts again soon."
+                : recordedRun ? "Run ended. Next, a demo you can answer." : "Demo ended. Next, the recorded run.";
+            var line = first + "\n" + second + " Nothing reaches an agent.";
             if (reason == DemonstrationReason.NotConfigured) return line;
             return line + "\n" + ConnectionText.WhyNotLive(controlPlane);
         }

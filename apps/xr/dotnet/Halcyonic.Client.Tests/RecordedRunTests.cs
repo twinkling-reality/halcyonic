@@ -91,12 +91,10 @@ public class RecordedRunTests
     {
         var line = DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: false, recordedRun: true);
         Assert.That(line, Is.EqualTo(
-            "Recorded: real agent work, played back on this headset. Nothing here is live.\n"
-            + "It waits for you only where the agent waited. Nothing reaches an agent."));
+            "Recorded: real agent work, played back here. Nothing here is live.\n"
+            + "It waits only where the agent waited. Nothing reaches an agent."));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), Does.StartWith("Demo: "),
             "the demonstration keeps its own line");
-        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: true),
-            Does.EndWith("This recording has ended and starts again shortly."));
     }
 
     [Test]
@@ -256,12 +254,20 @@ public class RecordedRunHandOffTests
     [Test]
     public async Task AtItsEndTheLineSaysWhatComesNext()
     {
-        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: true, next: true),
-            Does.EndWith("\nThis run has ended. A demo you can answer comes next."));
-        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: false, next: true),
-            Does.EndWith("\nThis demo has ended. The recorded run comes next."));
-        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true),
-            Does.EndWith("\nThis recording has ended and starts again shortly."), "alone, the demonstration starts again");
+        // At an end the end line takes the second sentence's place, so the banner keeps to its rows with a task
+        // waiting, and every state still names its kind, says nothing is live and that nothing reaches an agent.
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: true, next: true), Is.EqualTo(
+            "Recorded: real agent work, played back here. Nothing here is live.\n"
+            + "Run ended. Next, a demo you can answer. Nothing reaches an agent."));
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: true), Is.EqualTo(
+            "Recorded: real agent work, played back here. Nothing here is live.\n"
+            + "Run ended. It starts again soon. Nothing reaches an agent."));
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: false, next: true), Is.EqualTo(
+            "Demo: recorded work played on this headset. Nothing here is live.\n"
+            + "Demo ended. Next, the recorded run. Nothing reaches an agent."));
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true), Is.EqualTo(
+            "Demo: recorded work played on this headset. Nothing here is live.\n"
+            + "Demo ended. It starts again soon. Nothing reaches an agent."), "alone, the demonstration starts again");
         await Task.CompletedTask;
     }
 
@@ -295,7 +301,7 @@ public class RecordedRunHandOffTests
             await Task.Delay(5);
         }
         Assert.That(runs, Is.EqualTo(1), "a run that could not be read is not read again");
-        Assert.That(ended, Does.EndWith("\nThis recording has ended and starts again shortly."), "it never promises the run");
+        Assert.That(ended, Does.EndWith("\nDemo ended. It starts again soon. Nothing reaches an agent."), "it never promises the run");
     }
 
     [Test]
