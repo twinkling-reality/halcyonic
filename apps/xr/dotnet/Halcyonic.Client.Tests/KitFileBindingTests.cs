@@ -447,6 +447,187 @@ public class KitFileBindingTests
         Assert.That(seen, Is.EqualTo(Routes), "every route once, in the frame's order, across the pages");
     }
 
+    /// <summary>A file column on an agent's question, as the workspace opens it on Waiting (AnswerFlowTests' host).</summary>
+    private static (FileMenuHost Host, FileColumn Column, AskingWork Work) Asking(QuestionView? question = null, IEnumerable<CommandPolicy>? policies = null)
+    {
+        var host = new FileMenuHost { Submissions = new CommandSubmissions() };
+        var work = new AskingWork(question, policies);
+        var column = new FileColumn(host, () => work.Present(host.Live, host.Submissions), new CommandFactory(Samples.Client), () => null, _ => null, () => "");
+        return (host, column, work);
+    }
+
+    /// <summary>The frame drawn whole and a moment passed, as the plane reports a draw.</summary>
+    private static void Drawn(FileMenuHost host, FileColumn column)
+    {
+        column.Drawn(column.Frame!, null);
+        host.Wait(1);
+        column.Tick();
+    }
+
+    /// <summary>The column's frame bound as the workspace binds it: its steering's armed action, the work as it stands.</summary>
+    private static KitFileBinding? BindColumn(FileMenuHost host, FileColumn column, AskingWork work) =>
+        KitFileBinding.Of(column.Frame!, column.Steering.Armed, work.Present(host.Live, host.Submissions), "", Live, "Storefront", Spine);
+
+    /// <summary>The frame binds, press for press, and its question's words are the frame's own lines, in order.</summary>
+    private static KitFileBinding BindsWhole(FileMenuHost host, FileColumn column, AskingWork work, string where)
+    {
+        var binding = BindColumn(host, column, work);
+        Assert.That(binding, Is.Not.Null, where);
+        EveryPressIsBound(column.Frame!, binding!);
+        Assert.That(binding!.Model.Ask, Is.Not.Null, where);
+        Assert.That(binding.Model.Ask!.Lines.Select(line => (line.Words, line.Rows, line.FromRow)),
+            Is.EqualTo(column.Frame!.Lines.Where(line => line.Action == null).Select(line => (line.Words, line.Rows, line.FromRow))), where + ": the question's lines");
+        return binding;
+    }
+
+    /// <summary>Takes the frame's main forward press, after its draw, as a person reading on does.</summary>
+    private static void Forward(FileMenuHost host, FileColumn column)
+    {
+        Drawn(host, column);
+        var next = column.Frame!.Footer[PromptSlot.FarRight]!;
+        Assert.That(next.Available, Is.True, next.Words);
+        column.Act(next.Id, null);
+    }
+
+    [Test]
+    public void EveryFrameOfAnAnswerBindsPressForPressInTheFramesOrder()
+    {
+        var (host, column, work) = Asking();
+        var frames = 0;
+        // The question, in its parts where it takes several, then its answers.
+        for (var turns = 0; turns < 30 && column.Screen.Question.QuestionPart != null; turns++, frames++)
+        {
+            BindsWhole(host, column, work, "a part of the question");
+            Forward(host, column);
+        }
+        Drawn(host, column);
+        var first = BindsWhole(host, column, work, "the first question");
+        var answers = column.Frame!.Lines.Where(line => line.Action == FileScreens.Choose).ToList();
+        Assert.That(answers, Is.Not.Empty);
+        Assert.That(first.Controls.Where(control => control.Place == KitPlace.Choice).Select(control => (control.Key, control.Words, control.Chosen)),
+            Is.EqualTo(answers.Select(line => (line.Key, line.Words, line.Chosen))), "each answer, in the frame's order");
+        Assert.That(first[KitPlace.Forward]!.Action, Is.EqualTo(FileScreens.NextQuestion));
+        Assert.That(first[KitPlace.Back], Is.Null, "no way back from the first question");
+        Assert.That(first.Controls.Any(control => control.Place == KitPlace.Step && control.Action == FileScreens.TypeAnswer), Is.True, "Type my answer, as the frame offers it");
+        // Choosing lights the answer chosen.
+        var dark = answers.First(line => line.Words.StartsWith("Dark", StringComparison.Ordinal));
+        column.Act(dark.Action!, dark.Key);
+        Drawn(host, column);
+        var chosen = BindsWhole(host, column, work, "an answer chosen");
+        Assert.That(chosen.Controls.Single(control => control.Place == KitPlace.Choice && control.Key == dark.Key).Chosen, Is.True);
+        column.Act(FileScreens.NextQuestion, null);
+        for (var turns = 0; turns < 30 && column.Screen.Question.QuestionPart != null; turns++) Forward(host, column);
+        Drawn(host, column);
+        var second = BindsWhole(host, column, work, "the second question");
+        Assert.That(second[KitPlace.Back]!.Action, Is.EqualTo(FileScreens.BackQuestion));
+        var orders = column.Frame!.Lines.First(line => line.Action == FileScreens.Choose && line.Words.StartsWith("Orders", StringComparison.Ordinal));
+        column.Act(orders.Action!, orders.Key);
+        Drawn(host, column);
+        // On to the person's answers, every page of them, each answer a row back to its question.
+        column.Act(column.Frame!.Footer[PromptSlot.FarRight]!.Id, null);
+        Drawn(host, column);
+        Assert.That(column.Screen.Question.Reviewing, Is.True);
+        for (var turns = 0; turns < 30; turns++, frames++)
+        {
+            var review = BindsWhole(host, column, work, "your answers");
+            Assert.That(review.Controls.Where(control => control.Place == KitPlace.Step).Select(control => control.Action).Distinct(), Is.EqualTo(new[] { FileScreens.GoToQuestion }),
+                "each answer a row back to its question");
+            if (review[KitPlace.Forward]!.Action == FileScreens.SendAnswer) break;
+            Forward(host, column);
+        }
+        Assert.That(BindColumn(host, column, work)![KitPlace.Forward]!.Action, Is.EqualTo(FileScreens.SendAnswer));
+    }
+
+    [Test]
+    public void SendingAnswersConfirmsInTheFramesOwnWords()
+    {
+        var policies = new[] { new CommandPolicy { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.ReviewRequired } };
+        var (host, column, work) = Asking(policies: policies);
+        for (var turns = 0; turns < 30 && column.Screen.Question.QuestionPart != null; turns++) Forward(host, column);
+        Drawn(host, column);
+        foreach (var label in new[] { "Dark", "Orders" })
+        {
+            var line = column.Frame!.Lines.First(each => each.Action == FileScreens.Choose && each.Words.StartsWith(label, StringComparison.Ordinal));
+            column.Act(line.Action!, line.Key);
+            Forward(host, column);
+            for (var turns = 0; turns < 30 && column.Screen.Question.QuestionPart != null; turns++) Forward(host, column);
+            Drawn(host, column);
+        }
+        for (var turns = 0; turns < 30 && column.Frame!.Footer[PromptSlot.FarRight]!.Id != FileScreens.SendAnswer; turns++) Forward(host, column);
+        Forward(host, column);
+        Drawn(host, column);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        var confirming = BindsWhole(host, column, work, "the answers' confirmation");
+        Assert.That(confirming.Model.Ask!.Confirming, Is.True);
+        IsPrompt(confirming[KitPlace.Cancel], column.Frame!.Footer.All.Select(each => each.Prompt).Single(prompt => prompt.Kind == PromptKind.Cancel));
+        Assert.That(host.Sent, Is.Empty, "nothing sent before Yes");
+    }
+
+    [Test]
+    public void ASecretPromptBindsOnlyTheWayOnAndNoWayToTypeIt()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts.Add(new QuestionPrompt { Key = "token", Header = "Token", Text = "Paste the deploy token.", FreeText = true, Secret = true });
+        var (host, column, work) = Asking(question);
+        Drawn(host, column);
+        var binding = BindsWhole(host, column, work, "a question asking for a secret");
+        // Halcyonic never takes a secret: no answer, no typing, nothing forward, only what it can't answer and the way on.
+        Assert.That(binding.Controls.Where(control => control.Place is KitPlace.Choice or KitPlace.Step or KitPlace.Forward or KitPlace.Field or KitPlace.Send), Is.Empty);
+        Assert.That(binding.Model.Ask!.Lines.Select(line => line.Words), Does.Contain(WorkspaceText.CannotAnswer(question)));
+        foreach (var control in binding.Controls.Where(control => control.Place != KitPlace.Section && control.Place != KitPlace.Close))
+        {
+            column.Act(control.Action, control.Key);
+            Assert.That(host.Keyboard, Is.Null, control.Words + " opened a way to type");
+        }
+    }
+
+    [Test]
+    public void AnApprovalsRequestInPartsBindsItsNextPartAndYesOnlyAfterTheLast()
+    {
+        var work = new WaitingWork();
+        var workspace = work.Present();
+        var steering = Steering();
+        var screen = new FileScreen { Section = FileSection.Waiting };
+        steering.Press(WorkspaceAction.Approve, workspace);
+        screen.ReadRequest(steering.ToRead(workspace)!, 9, 3, steering);
+        for (var part = 0; part < 3; part++)
+        {
+            var frame = Screen(workspace, steering, screen);
+            var binding = Bind(frame, steering, workspace)!;
+            Assert.That(binding, Is.Not.Null, "part " + (part + 1));
+            EveryPressIsBound(frame, binding);
+            var next = binding.Controls.Single(control => control.Place == KitPlace.Step);
+            Assert.That((next.Action, next.Key, next.Words), Is.EqualTo((FileScreens.NextPart, (string?)FileScreens.RequestKey, FileScreens.NextPartWords(part, 3))));
+            Assert.That(binding[KitPlace.Yes] != null, Is.EqualTo(frame.Footer.All.Any(each => each.Prompt.Kind == PromptKind.Yes)), "Yes as the frame offers it");
+            var drawnAt = Now.AddMinutes(part);
+            screen.RequestDrawn(part, steering, drawnAt);
+            screen.NextRequestPart(steering, drawnAt + FileScreen.TurnGuard);
+        }
+    }
+
+    [Test]
+    public void TypingAnAnswerAndAnUnavailableChoiceStayTheFilesOwn()
+    {
+        var (host, column, work) = Asking();
+        for (var turns = 0; turns < 30 && column.Screen.Question.QuestionPart != null; turns++) Forward(host, column);
+        Drawn(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        Drawn(host, column);
+        Assert.That(column.Screen.Question.Writing, Is.True);
+        Assert.That(BindColumn(host, column, work), Is.Null, "typing an answer: its own keyboard and input");
+
+        var alike = AskingWork.Scripted();
+        alike.Prompts[0].Options = new List<QuestionOption> { new() { Label = "Yes" }, new() { Label = " Yes " }, new() { Label = "No" } };
+        var (host2, column2, work2) = Asking(alike);
+        for (var turns = 0; turns < 30 && column2.Screen.Question.QuestionPart != null; turns++) Forward(host2, column2);
+        Drawn(host2, column2);
+        var why = column2.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
+        column2.Act(why.Action!, why.Key);
+        Drawn(host2, column2);
+        Assert.That(column2.Screen.Question.ExplainingAmbiguity, Is.True);
+        Assert.That(BindColumn(host2, column2, work2), Is.Null, "why an answer can't be chosen");
+    }
+
     [Test]
     public void NothingIsBoundWhereTheKitCantDrawTheFrameWhole()
     {
@@ -463,7 +644,13 @@ public class KitFileBindingTests
         var stopping = Steering();
         stopping.Press(WorkspaceAction.Interrupt, running);
         Assert.That(Bind(Screen(running, stopping, new FileScreen { Section = FileSection.Activity }), stopping, running), Is.Null, "Stop's confirmation");
-        // Questions: answers to choose, a secret, several prompts.
+    }
+
+    [Test]
+    public void AQuestionNotYetLaidOutBindsAsTheFileDrewIt()
+    {
+        var steering = Steering();
+        // Answers to choose, a secret, several prompts: before the question is laid out, what it asks and Send answer waiting, with why.
         foreach (var prompts in new[]
         {
             new[] { new QuestionPrompt { Key = "pick", Text = "Which one?", Options = new List<QuestionOption> { new() { Label = "This" }, new() { Label = "That" } } } },
@@ -479,7 +666,10 @@ public class KitFileBindingTests
             });
             var asked = work.Present();
             var frame = Screen(asked, steering, new FileScreen { Section = FileSection.Waiting });
-            Assert.That(Bind(frame, steering, asked), Is.Null, prompts[0].Text);
+            var binding = Bind(frame, steering, asked);
+            Assert.That(binding, Is.Not.Null, prompts[0].Text);
+            EveryPressIsBound(frame, binding!);
+            Assert.That(binding!.Model.Ask!.Lines.Select(line => line.Words), Is.EqualTo(frame.Lines.Where(line => line.Action == null).Select(line => line.Words)), prompts[0].Text);
         }
     }
 }

@@ -45,6 +45,21 @@ namespace Halcyonic.Client
         /// Character colour, each the line that opens it; several stand, in the frame's order.
         /// </summary>
         Route,
+
+        /// <summary>One of a question's answers to choose, the one chosen lit; several stand, in the frame's order.</summary>
+        Choice,
+
+        /// <summary>
+        /// A row on a question's page that takes the person on within it: Type my answer, More choices, Read question, Read
+        /// why, an answer back to its question, a part's next part; several stand, in the frame's order.
+        /// </summary>
+        Step,
+
+        /// <summary>A question's main press on: Next question, the next part, Review answers, the answers' next part, Send answer.</summary>
+        Forward,
+
+        /// <summary>Back to the question before, or the answers' part before.</summary>
+        Back,
     }
 
     /// <summary>
@@ -144,8 +159,8 @@ namespace Halcyonic.Client
             string projectName, IReadOnlyList<KitSpineSection> spine, KitRowModel? spineFoot = null, KitAvatar? avatar = null)
         {
             if (frame.Side != null) return null;
-            // The kit shows an approval's or a denial's confirmation; any other waits for the file's own drawing.
-            if (armed != null && armed != WorkspaceAction.Approve && armed != WorkspaceAction.Deny) return null;
+            // The kit shows an approval's, a denial's or the answers' confirmation; any other waits for the file's own drawing.
+            if (armed != null && armed != WorkspaceAction.Approve && armed != WorkspaceAction.Deny && armed != WorkspaceAction.Answer) return null;
             var controls = new List<KitControl>();
             foreach (var (slot, prompt) in frame.Footer.All)
             {
@@ -158,9 +173,12 @@ namespace Halcyonic.Client
             foreach (var line in frame.Lines.Where(line => line.Action != null))
             {
                 var place = line.Action == FileScreens.EditInstruction ? KitPlace.Field : line.Action == Footer.NextPage ? KitPlace.Pager
-                    : !composing && RouteActions.Contains(line.Action!) ? KitPlace.Route : (KitPlace?)null;
-                if (place == null || (place != KitPlace.Route && controls.Any(control => control.Place == place))) return null;
-                controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false));
+                    : !composing && RouteActions.Contains(line.Action!) ? KitPlace.Route
+                    : line.Action == FileScreens.Choose ? KitPlace.Choice
+                    : StepActions.Contains(line.Action!) ? KitPlace.Step : (KitPlace?)null;
+                var several = place is KitPlace.Route or KitPlace.Choice or KitPlace.Step;
+                if (place == null || (!several && controls.Any(control => control.Place == place))) return null;
+                controls.Add(new KitControl(place.Value, frame, line.Action!, line.Key, line.Words, line.Icon, line.Available, null, false, line.Chosen));
             }
             foreach (var section in frame.Sections)
                 controls.Add(new KitControl(KitPlace.Section, frame, MenuFrame.ChooseSection, section.Key, section.Words, null, true, null, false, section.Chosen));
@@ -188,16 +206,23 @@ namespace Halcyonic.Client
                 need = new KitNeed(asked.Asks, asked.Request, asked.ScopeNote, asked.Notes, deny?.Words ?? asked.DenyWords, approve?.Words ?? asked.ApproveWords,
                     deny != null && deny.Available, approve != null && approve.Available, confirming);
             }
-            else if (cancel != null || At(KitPlace.Yes) != null) return null;
+            else if ((cancel != null || At(KitPlace.Yes) != null) && armed != WorkspaceAction.Answer) return null;
+            // A question's page, wherever the file draws one (never Activity, which says only where it waits): its own lines, as drawn.
+            KitAsk? ask = null;
+            if (need == null && workspace.QuestionToAnswer != null
+                && !frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Activity)))
+                ask = new KitAsk(frame.Lines.Where(line => line.Action == null).ToList(), armed == WorkspaceAction.Answer);
+            else if (armed == WorkspaceAction.Answer) return null;
             // Send says what the frame says of it; with no Send on the frame, only why the connection keeps it.
             var said = Said(frame, workspace);
             var model = new KitWorkModel(work.ProjectName, work.TaskTitle, work.Badge, work.Marks, work.Report, work.Trail, draft, work.VoiceOffered,
                 send != null && send.Available, send != null ? send.Reason : KitPresenter.WhyNotSendOf(connection), work.Spine, work.SpineFoot,
-                need, null, work.Notice, work.Avatar, said);
+                need, ask, work.Notice, work.Avatar, said);
             // Every line the frame shows is words the kit shows too; a line it would leave out, as an attention note,
             // a pointer to Waiting, why nothing can be sent or a notice, keeps the frame on the file's own drawing.
             var shown = ShownWords(model, workspace);
             foreach (var line in said) shown.Add(line.Words);
+            if (ask != null) foreach (var line in ask.Lines) shown.Add(line.Words);
             for (var index = 0; index < frame.Lines.Count; index++)
             {
                 // A line that acts is a control, with its own words.
@@ -208,7 +233,7 @@ namespace Halcyonic.Client
                 if (!question && !request && !shown.Contains(words)) return null;
             }
             // A page of Waiting the kit draws is an approval's: anything else waiting there stays the file's.
-            if (need == null && frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Waiting))) return null;
+            if (need == null && ask == null && frame.Sections.Any(section => section.Chosen && section.Key == FileScreens.Key(FileSection.Waiting))) return null;
             return new KitFileBinding(frame, model, controls);
         }
 
@@ -269,6 +294,12 @@ namespace Halcyonic.Client
             FileScreens.ShowTaskHere, FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults, FileScreens.OpenCharacterColour,
         };
 
+        /// <summary>The rows that take the person on within a question's page, or an approval's request, each a <see cref="KitPlace.Step"/>.</summary>
+        private static readonly HashSet<string> StepActions = new HashSet<string>(System.StringComparer.Ordinal)
+        {
+            FileScreens.TypeAnswer, FileScreens.MoreAnswers, FileScreens.GoToQuestion, FileScreens.ReadQuestion, FileScreens.ReadWhy, FileScreens.NextPart,
+        };
+
         /// <summary>The kit place of a footer prompt, or null where the kit has none for it.</summary>
         private static KitPlace? PlaceOf(PromptSlot slot, Prompt prompt)
         {
@@ -285,6 +316,8 @@ namespace Halcyonic.Client
                 FileScreens.SendInstruction => KitPlace.Send,
                 FileScreens.Deny => KitPlace.Deny,
                 FileScreens.Approve => KitPlace.Approve,
+                FileScreens.NextQuestion or FileScreens.NextPart or FileScreens.MoreAnswers or FileScreens.SendAnswer => KitPlace.Forward,
+                FileScreens.BackQuestion or FileScreens.PreviousReviewPart => KitPlace.Back,
                 _ => null,
             };
         }
