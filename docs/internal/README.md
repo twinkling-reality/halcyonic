@@ -94,7 +94,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [companion-model.md](validation/companion-model.md) | Where Create's companion runs, and what a local model keeps to |
 | [agent-questions.md](validation/agent-questions.md) | How OpenCode, Codex and the Claude Agent SDK ask the person questions, how each is answered, dismissed and interrupted, on the pinned binaries and a local model |
 
-### Salidium and Seorak
+### Salidium, Seorak and Phat Porcupine
 
 | Record | Subject |
 | --- | --- |
@@ -102,6 +102,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
 | [salidium-project-map.md](validation/salidium-project-map.md) | Salidium experimental committed-repository map and execution links v0, source-verified; consumer access and evidence limits |
 | [seorak-integration-api.md](validation/seorak-integration-api.md) | Seorak integration API v1, checked against the running plane |
+| [phat-porcupine-catalog.md](validation/phat-porcupine-catalog.md) | Phat Porcupine catalog contract v1, source- and fixture-verified against its published types and fixtures; not yet read live |
 
 ### Headset platform
 
