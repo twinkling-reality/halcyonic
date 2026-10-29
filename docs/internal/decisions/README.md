@@ -51,3 +51,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0036](0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md) | Halcyonic undoes a task's changes itself, from checkpoints it keeps outside the project | Accepted; headset screens pending |
 | [0037](0037-new-vr-apps-start-from-a-host-vetted-web-starter.md) | New VR apps start from a web starter the host vets, and their code runs only in the headset's browser | Accepted; control plane, preview and headset screens pending |
 | [0038](0038-the-mac-observes-each-turns-file-changes-itself.md) | The Mac observes each turn's file changes itself | Accepted; headset build view pending |
+| [0039](0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md) | The projects gallery reads the person's catalog from Phat Porcupine, and Halcyonic never signs in to GitHub | Accepted; nothing built, Phat Porcupine's catalog API not yet published |

@@ -79,6 +79,12 @@ Before a person connects a computer, the headset shows what directing an agent l
 recorded real run, labeled Recorded, then a demonstration they can answer, both saying that nothing
 in them reaches an agent ([ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md)).
 
+The home is meant to be a gallery of every project the person has, across their accounts and
+organisations, grouped as products, with the ones that need the person first and the ones being worked
+on beside their character; a newcomer's gallery starts from what they make in Halcyonic. Halcyonic's own
+projects are always there, and the rest come from Phat Porcupine's catalog when it runs on the same
+computer ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)).
+
 Each task has a readable state and project context. Its detail exposes relevant Activity, Changes,
 Tests, requests and supported actions. An approval or question receives enough room to read it
 fully. Provider names identify evidence inside the relevant view; they are not the primary menu.
