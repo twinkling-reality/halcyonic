@@ -444,6 +444,10 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       calls.join('\n'),
     );
     assert.match(said, /no single new recording/);
+    assert.match(
+      said,
+      /A clip may still be on the headset in \/sdcard\/Oculus\/VideoShots; collect it by name\./,
+    );
   });
 
   test('record stop with no recording in progress stops nothing', async () => {
