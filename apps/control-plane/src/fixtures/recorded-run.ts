@@ -206,7 +206,9 @@ export class RecordedRunError extends OwnWordsError {
  * agent said included, wherever it stands as a whole path, that is followed by `/`, the end of the
  * text, white space, a quote, a bracket or punctuation that ends a sentence. A path under it becomes
  * relative to it, and the folder itself reads "the project folder". A folder that only starts with
- * its path, such as `<root>-old`, `<root>2` or `<root>.old`, is another folder and is left as it is.
+ * its path, such as `<root>-old`, `<root>2` or `<root>.old`, is another folder, and a longer path
+ * or a link that holds it, such as `/Volumes/Backup<root>/...` or `file://<root>/...`, is another
+ * place: both are left as they are.
  *
  * Nothing else in instructions, agent messages, approval requests, tool titles, patches, provenance,
  * identifiers or times is edited: if any of them still carries a name a judge must not read, a home
@@ -238,9 +240,10 @@ export function sanitizeRecordedRun(
   }
   if (runtimes.size === 0) throw new RecordedRunError('The run started no execution.');
 
-  // The root, then `/` (taken away with it) or a lookahead for what ends a whole path.
+  // The root, not inside a longer path or a link, then `/` (taken away with it) or a lookahead
+  // for what ends a whole path.
   const whole = new RegExp(
-    `${literal(root)}(?:(/)|(?=$|[\\s"'\`,;:!?)\\]}>]|\\.(?:$|[\\s"'\`)\\]}>])))`,
+    `(?<![\\w.~/-])${literal(root)}(?:(/)|(?=$|[\\s"'\`,;:!?)\\]}>]|\\.(?:$|[\\s"'\`)\\]}>])))`,
     'g',
   );
   const relative = (text: string) =>
