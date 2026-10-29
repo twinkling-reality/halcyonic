@@ -885,6 +885,10 @@
                         },
                         {
                           "type": "string",
+                          "const": "holds_host_data"
+                        },
+                        {
+                          "type": "string",
                           "const": "store_failed"
                         }
                       ]

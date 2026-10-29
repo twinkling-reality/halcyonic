@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
-import { join, sep } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import type { CheckpointFailureCode } from '@halcyonic/contracts';
 
 /**
@@ -45,6 +45,11 @@ export interface CheckpointStoreOptions {
   /** The folder the store keeps its repositories in, inside Halcyonic's data directory. */
   readonly directory: string;
   readonly limits?: CheckpointLimits;
+  /**
+   * Folders no checkpointed project may contain, such as Halcyonic's data directory with its journal
+   * and access token; the store's own directory is always one.
+   */
+  readonly protect?: readonly string[];
 }
 
 export type TakeResult =
@@ -120,11 +125,13 @@ export class CheckpointStore {
   readonly #git: string;
   readonly #directory: string;
   readonly #limits: CheckpointLimits;
+  readonly #protect: readonly string[];
 
   constructor(options: CheckpointStoreOptions) {
     this.#git = options.git;
     this.#directory = options.directory;
     this.#limits = options.limits ?? DEFAULT_CHECKPOINT_LIMITS;
+    this.#protect = [options.directory, ...(options.protect ?? [])];
   }
 
   /**
@@ -139,6 +146,7 @@ export class CheckpointStore {
   ): Promise<TakeResult> {
     if (!(await isFolder(folder)))
       return { ok: false, code: 'location_missing', message: "The project's folder is not there." };
+    if (await this.#holdsHostData(folder)) return HOLDS_HOST_DATA;
     let repository: string;
     try {
       repository = await this.#repository(projectId);
@@ -334,6 +342,19 @@ export class CheckpointStore {
     }
   }
 
+  /**
+   * Whether the project's folder holds the store or a folder the host protects: a checkpoint would
+   * keep its journal and token, and a restore would write them back or remove them.
+   */
+  async #holdsHostData(folder: string): Promise<boolean> {
+    const real = await realpath(folder);
+    for (const path of this.#protect) {
+      const protectedPath = await resolvedThroughExisting(path);
+      if (protectedPath === real || protectedPath.startsWith(real + sep)) return true;
+    }
+    return false;
+  }
+
   async #load(
     projectId: string,
     folder: string,
@@ -348,6 +369,7 @@ export class CheckpointStore {
         code: 'location_missing',
         message: "The project's folder is not there, or is not a folder.",
       };
+    if (await this.#holdsHostData(folder)) return HOLDS_HOST_DATA;
     const repository = this.#repositoryPath(projectId);
     if (!ID_PATTERN.test(checkpointId) || !(await isFolder(repository)))
       return { ok: false, code: 'checkpoint_missing', message: 'The checkpoint is not kept here.' };
@@ -658,14 +680,54 @@ async function clearWay(folder: string, entries: readonly TreeEntry[]): Promise<
   }
 }
 
-/** Removes one path inside the folder, a link as a link and a folder with what it holds. */
-async function removeInside(folder: string, relative: string): Promise<void> {
+/**
+ * Removes one path inside the folder, a link as a link and a folder with what it holds. Immediately
+ * before, every folder above it must still be a real folder inside the project, not a link a process
+ * left running put there since the path was listed; otherwise nothing is removed and it throws.
+ */
+export async function removeInside(folder: string, relative: string): Promise<void> {
   const trimmed = relative.endsWith('/') ? relative.slice(0, -1) : relative;
   if (!isProjectPath(trimmed)) throw new Error('not a path inside the project');
   const path = join(folder, trimmed);
   if (!path.startsWith(folder + sep)) throw new Error('not a path inside the project');
+  const parts = trimmed.split('/');
+  let current = folder;
+  for (const part of parts.slice(0, -1)) {
+    current = join(current, part);
+    if (!(await lstat(current)).isDirectory())
+      throw new Error(
+        'a folder in the project changed to something else while files were put back',
+      );
+  }
+  const realFolder = await realpath(folder);
+  const realParent = await realpath(dirname(path));
+  if (realParent !== realFolder && !realParent.startsWith(realFolder + sep))
+    throw new Error('a folder in the project now leads outside it');
   await rm(path, { recursive: true, force: true });
 }
+
+/** The path as the file system resolves it, through its nearest folder that exists. */
+async function resolvedThroughExisting(path: string): Promise<string> {
+  const rest: string[] = [];
+  let existing = path;
+  while (true) {
+    try {
+      return join(await realpath(existing), ...rest.reverse());
+    } catch {
+      const parent = dirname(existing);
+      if (parent === existing) return path;
+      rest.push(basename(existing));
+      existing = parent;
+    }
+  }
+}
+
+const HOLDS_HOST_DATA = {
+  ok: false,
+  code: 'holds_host_data',
+  message:
+    "The project's folder holds Halcyonic's own data, so it cannot be checkpointed or put back.",
+} as const;
 
 function isProjectPath(path: string): boolean {
   return (

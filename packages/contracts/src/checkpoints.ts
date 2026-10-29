@@ -80,6 +80,8 @@ export const CheckpointFailureCode = Type.Union([
   Type.Literal('too_large'),
   /** A file could not be read. */
   Type.Literal('unreadable'),
+  /** The folder holds Halcyonic's own data or its checkpoint store, which undo never keeps. */
+  Type.Literal('holds_host_data'),
   /** The checkpoint store refused or failed; nothing was kept. */
   Type.Literal('store_failed'),
 ]);
