@@ -92,7 +92,7 @@ public class RecordedRunTests
         var line = DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: false, recordedRun: true);
         Assert.That(line, Is.EqualTo(
             "Recorded: real agent work, played back on this headset. Nothing here is live.\n"
-            + "It waits for you where the agent waited. Nothing reaches an agent."));
+            + "It waits for you only where the agent waited. Nothing reaches an agent."));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), Does.StartWith("Demo: "),
             "the demonstration keeps its own line");
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true, recordedRun: true),

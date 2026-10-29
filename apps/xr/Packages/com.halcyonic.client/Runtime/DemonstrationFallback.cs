@@ -176,7 +176,7 @@ namespace Halcyonic.Client
         {
             var line = recordedRun
                 ? "Recorded: real agent work, played back on this headset. Nothing here is live.\n"
-                    + "It waits for you where the agent waited. Nothing reaches an agent."
+                    + "It waits for you only where the agent waited. Nothing reaches an agent."
                 : "Demo: recorded work played on this headset. Nothing here is live.\n"
                     + "It follows your answers. Nothing reaches an agent.";
             if (ended)
