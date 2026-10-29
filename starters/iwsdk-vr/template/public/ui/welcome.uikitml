@@ -51,6 +51,12 @@
     margin-bottom: 24px;
   }
 
+  .laptop-help {
+    padding-left: 24px;
+    padding-right: 24px;
+    margin-bottom: 24px;
+  }
+
   .button-label {
     transform-translate-y: 1px;
   }
@@ -70,6 +76,10 @@
     </ButtonIcon>
     <ButtonLabel class="button-label">Enter XR</ButtonLabel>
   </Button>
+  <div id="laptop-help" class="sub-heading laptop-help" style="display: none">
+    Put on your headset to play this in VR. On a laptop: click to play, drag to look around, W A S D to move,
+    Space and E for buttons.
+  </div>
   <Button id="exit-button" class="button" style="display: none">
     <ButtonIcon>
       <LogIn></LogIn>

@@ -27,4 +27,12 @@ How the app is put together:
   three.js (`new Mesh(new BoxGeometry(), new MeshStandardMaterial())`) and added with `world.createTransformEntity`.
 - The types in `node_modules/@iwsdk/core/dist/*.d.ts` are the reference for what exists. Read them rather than guess.
 
+Input, both ways:
+- Every game must play on a laptop with a mouse and keyboard and in VR with controllers or hands.
+- Read every input through `src/play-input.ts`: `onSelect(entity, fn)` for pointing and pressing (a click on a
+  laptop, the trigger or a pinch in VR), `onTouch(entity, fn)` for touching with a controller or hand (a click on a
+  laptop), `moveAxis()` for moving, `pressed('jump')` and `pressed('action')` for buttons, `mode()` to know which.
+- Never add listeners to the window, document or canvas, and never read controllers or keys directly. If the game
+  needs an input `play-input.ts` does not have, add it there, for both ways.
+
 Keep changes small, one idea at a time, and keep the app running after each one.

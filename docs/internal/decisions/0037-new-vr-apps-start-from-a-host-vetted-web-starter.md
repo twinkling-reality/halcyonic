@@ -66,3 +66,24 @@ observation. It says the app type checks and builds; it does not say it works or
   and whether Quest Browser treats `http://localhost` as a secure context for WebXR.
 - Revisit when the SDK moves to 1.1 (a deliberate new vetting), or if a runtime gains verified network isolation
   that would let an agent install from a pinned list.
+
+## Amendment, 2026-10-29: every game plays with a mouse and keyboard and in VR
+
+The owner asked that every new game play both on a laptop and in the headset. The starter now carries one input
+layer, `src/play-input.ts`, that a game reads every input through: pointing and pressing (a click, or the trigger or
+a pinch), touching (a click on a laptop, a controller or hand within reach in VR), moving (W A S D or the arrows, or
+the left thumbstick), two buttons (Space and E, or A and B), and dragging on empty space to turn the view on a
+laptop. It builds on what the SDK already gives (`input.canvasPointerEvents` turns a mouse into the same scene
+pointer events a ray makes; validation/iwsdk-starter.md). The template's `AGENTS.md` tells the agent to use only
+this layer. Where the browser cannot start VR, the panel says how to play on a laptop instead of showing a VR button.
+
+This amendment covers the layer and one exception to "runs only in the headset's browser": the host's check may
+load the page in a headless browser on the Mac, to see that it draws and that a mouse press and a key reach the
+layer. That browser runs inside a sandbox of the host's own that lets it connect only to the preview's port and
+reads no private folder, with a profile of its own, and shows nothing to the person; the check's picture is its
+only output. The amendment does not let the person play the app in a browser on the Mac: that would run
+agent-written code where it can reach the Mac's loopback services and the person's browser profile, and needs its
+own amendment for a contained browser.
+
+The controller models `@iwsdk/xr-input` loads are now served by the host from a tracked, hash-checked listing
+(SECURITY.md, Starters); the Draco and KTX2 decoders above are still blocked.
