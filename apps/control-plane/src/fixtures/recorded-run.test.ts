@@ -246,6 +246,12 @@ describe('sanitizing a recorded real run', () => {
     { name: 'a sibling with a number', text: `Copied ${PROJECT}2/src/main.ts.` },
     { name: 'a folder the root is a prefix of', text: `Opened ${PROJECT}front/index.html.` },
     { name: 'a sibling with a dotted suffix', text: `Kept ${PROJECT}.old/main.ts.` },
+    // The project's path inside a longer one: another folder, or a link, not the project.
+    {
+      name: 'a copy whose path ends with it',
+      text: `Restored /Volumes/Backup${PROJECT}/src/a.ts.`,
+    },
+    { name: 'a file link', text: `Opened file://${PROJECT}/index.html in a browser.` },
   ];
   for (const { name, text } of siblings) {
     test(`refuses ${name} of the project instead of calling it the project folder`, () => {
@@ -253,9 +259,13 @@ describe('sanitizing a recorded real run', () => {
       const message = first(events, 'runtime.agent_message');
       message.payload.text = text;
       const error = errorOf(() => sanitizeRecordedRun(events, OPTIONS));
-      const finding = error.findings.find((entry) => entry.field === 'payload.text');
-      assert.ok(finding, `a finding on payload.text: ${error.message}`);
-      assert.match(finding.reason, /home/);
+      const reasons = error.findings
+        .filter((entry) => entry.field === 'payload.text')
+        .map((entry) => entry.reason);
+      assert.ok(
+        reasons.some((reason) => /home/.test(reason)),
+        `the home folder is found in payload.text: ${error.message}`,
+      );
     });
   }
 
