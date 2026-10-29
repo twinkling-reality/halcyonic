@@ -2392,7 +2392,8 @@ size in metres, facing back along its bearing. No surface the person points at s
   stands parallel to the screen, 2 cm nearer, its top a given angle under the screen's bottom.
 - **Moment slot.** The slot stands beside the task's character, at the character's distance held
   to the reach above, a little above the character's point. It sits on the side toward where the
-  person looks, its nearer edge 1.5 degrees from the character (the workspace's clearance). It is
+  person looks, its nearer edge 1.5 degrees (the workspace's clearance) beyond the character's body
+  and label, whose half-width the caller gives as `BodyInView.HalfWidth` measures it. It is
   tilted to face the eyes, so it spans the kit's angle as they see it. The same character always
   gets the same slot.
 - **Reading surface.** The reading surface stands 1 m along the look, its pitch held to 25 degrees
