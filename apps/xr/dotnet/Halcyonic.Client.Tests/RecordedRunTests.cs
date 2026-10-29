@@ -274,6 +274,45 @@ public class RecordedRunHandOffTests
     }
 
     [Test]
+    public async Task ARecordedRunThatCannotBeReadIsDroppedAndTheDemonstrationStartsAgainAlone()
+    {
+        var runs = 0;
+        var demonstrations = 0;
+        var unreadable = Task.FromException<DemonstrationRecording>(new InvalidDataException("not a recording"));
+        var fallback = Start(
+            () => { demonstrations++; return ShortDemonstration(); },
+            () => { runs++; return new DemonstrationPlayer(unreadable, Samples.Client, Once()); });
+
+        // The line is read between pumps, while the finished demonstration holds; a pump switches it.
+        string? ended = null;
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (ended == null || demonstrations < 3)
+        {
+            if (DateTime.UtcNow > deadline) Assert.Fail("Timed out waiting until the demonstration has ended and started again twice.");
+            if (ended == null && fallback.Player?.Finished == true && Playing(fallback, recordedRun: false)) ended = fallback.Line;
+            fallback.Pump();
+            await Task.Delay(5);
+        }
+        Assert.That(runs, Is.EqualTo(1), "a run that could not be read is not read again");
+        Assert.That(ended, Does.EndWith("\nThis recording has ended and starts again shortly."), "it never promises the run");
+    }
+
+    [Test]
+    public async Task ARecordedRunThatCannotBeReadIsNotReadAgainWhenNoDemonstrationCanBeMade()
+    {
+        var runs = 0;
+        var unreadable = Task.FromException<DemonstrationRecording>(new InvalidDataException("not a recording"));
+        var fallback = Start(() => null, () => { runs++; return new DemonstrationPlayer(unreadable, Samples.Client, Once()); });
+        for (var pump = 0; pump < 20; pump++)
+        {
+            fallback.Pump();
+            await Task.Delay(5);
+        }
+        Assert.That(runs, Is.EqualTo(1), "nothing is shown, and the run is not read again");
+        Assert.That(fallback.Player, Is.Null);
+    }
+
+    [Test]
     public async Task WithNoRecordedRunTheDemonstrationPlaysAlone()
     {
         var fallback = Start(() => new DemonstrationPlayer(Demonstration.Recording(), Samples.Client, Demonstration.Fast()), null);

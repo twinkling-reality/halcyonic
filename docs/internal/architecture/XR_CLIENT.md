@@ -1476,8 +1476,8 @@ launch/return, process recreation and current-frame action behavior need separat
     has `Finished`, and stays as it stands. The fallback shows the recorded run first; once it has
     finished, the demonstration from its beginning, and once that has finished, the recorded run
     again, each a new player and each switch a resynchronization. A recorded run that can't be read
-    gives way to the demonstration. Without the file, the demonstration plays alone and starts again
-    by itself, as before. Each file must hold its own kind, or it is refused. At an end the line says
+    gives way to the demonstration and is not read again while the app runs: from then on, as without
+    the file, the demonstration plays alone and starts again by itself, and its end line says so. Each file must hold its own kind, or it is refused. At an end the line says
     what follows: "This run has ended. A demo you can answer comes next." or "This demo has ended.
     The recorded run comes next."
 - **The room placement's decisions** ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)),
