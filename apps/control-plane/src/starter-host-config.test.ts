@@ -42,7 +42,7 @@ describe("the IWSDK starter's host config", () => {
     assert.match(source, /"default-src 'self'"/);
     assert.match(
       source,
-      /`connect-src 'self' ws:\/\/localhost:\$\{port\} ws:\/\/127\.0\.0\.1:\$\{port\}`/,
+      /`connect-src 'self' data: ws:\/\/localhost:\$\{port\} ws:\/\/127\.0\.0\.1:\$\{port\}`/,
     );
   });
 });

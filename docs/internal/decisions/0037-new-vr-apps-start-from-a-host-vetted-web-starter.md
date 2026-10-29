@@ -87,3 +87,23 @@ own amendment for a contained browser.
 
 The controller models `@iwsdk/xr-input` loads are now served by the host from a tracked, hash-checked listing
 (SECURITY.md, Starters); the Draco and KTX2 decoders above are still blocked.
+
+## Amendment, 2026-10-29: what the check proves
+
+A type check and a build passed games that crashed in the browser (validation/iwsdk-starter.md: three of six showed a
+white screen or no canvas). The check (`apps/control-plane/src/preview/check.ts`) now also opens the page:
+`tsc --noEmit` and `vite build` inside a Seatbelt profile with no outbound connection, writes only in the check's
+cache and the person's home folder unreadable but the project and the starter; then the built copy, served by
+`vite preview` inside the same profile, opened for 10 seconds in headless Chrome inside its own profile (outbound only
+to the preview's port, no LaunchServices, inbound only on loopback and its own sockets), driven over
+`--remote-debugging-pipe` (no DevTools port) and stopped by its own pid. It records each uncaught exception and console
+error, takes pictures at 3 and 10 seconds, and counts sharp edges outside the welcome panel in each.
+
+The check passes only when the type check and build exit 0, the page opened, it threw nothing, and something is drawn
+in view of the laptop camera (more than 200 edges in either picture). **Drawn means something is drawn, never that the
+game works:** a scene of the wrong objects passes it (SH's second whack-a-mole run drew floating spheres). Nothing the
+check reports says more: no event, field, word on the headset or document may call a passed check a working game.
+
+The preview's Content-Security-Policy allows `data:` in `connect-src`: the SDK's panels lay out with yoga-layout,
+whose WASM is inlined and fetched as a `data:` URL, which reaches no network and was blocked in every project.
+
