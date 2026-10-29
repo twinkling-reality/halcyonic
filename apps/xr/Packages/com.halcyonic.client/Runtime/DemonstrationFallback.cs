@@ -38,6 +38,7 @@ namespace Halcyonic.Client
         private readonly Func<DemonstrationPlayer?>? createRecordedRun;
         private DemonstrationPlayer? player;
         private bool showingRecordedRun;
+        private bool recordedRunUnreadable;
         private Task retired = Task.CompletedTask;
         private bool demonstrationCreated;
         private bool controlPlaneWasLive;
@@ -86,7 +87,7 @@ namespace Halcyonic.Client
         /// <summary>What the line above the stage says while the demonstration is shown; null while it is not.</summary>
         public string? Line => Reason is DemonstrationReason reason
             ? Describe(reason, controlPlane?.Status, (player?.Ended ?? false) || (player?.Finished ?? false),
-                player?.Recording?.IsRecordedRun ?? false, next: createRecordedRun != null)
+                player?.Recording?.IsRecordedRun ?? false, next: RecordedRunFollows)
             : null;
 
         /// <summary>
@@ -202,6 +203,12 @@ namespace Halcyonic.Client
             player != null && (player.Finished || (showingRecordedRun && player.Loading.IsFaulted));
 
         /// <summary>
+        /// Whether a recorded run takes turns with the demonstration: there is one, and it has not failed
+        /// to be read. One that could not be read is not read again while the app runs.
+        /// </summary>
+        private bool RecordedRunFollows => createRecordedRun != null && !recordedRunUnreadable;
+
+        /// <summary>
         /// The recording shown has finished: the other one follows from its beginning, or, when it can't
         /// be made, the same one again. Returns what the stopped one's last pump reported.
         /// </summary>
@@ -210,9 +217,11 @@ namespace Halcyonic.Client
             var finished = player!;
             var changes = finished.Session.Pump();
             retired = Task.WhenAll(retired, finished.Session.StopAsync());
+            if (showingRecordedRun && finished.Loading.IsFaulted) recordedRunUnreadable = true;
+            var run = RecordedRunFollows ? createRecordedRun : null;
             var order = showingRecordedRun
-                ? new[] { (false, createDemonstration), (true, createRecordedRun) }
-                : new[] { (true, createRecordedRun), (false, createDemonstration) };
+                ? new[] { (false, createDemonstration), (true, run) }
+                : new[] { (true, run), (false, createDemonstration) };
             player = null;
             foreach (var (recordedRun, create) in order)
             {
