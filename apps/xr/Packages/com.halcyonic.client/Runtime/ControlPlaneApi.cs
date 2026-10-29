@@ -15,7 +15,7 @@ namespace Halcyonic.Client
     /// the understanding and evaluation providers say about an execution, the models a runtime lists, and
     /// where projects may live on the host.
     /// </summary>
-    public sealed class ControlPlaneApi : IEventHistory, IIntelligenceReader, IDisposable
+    public sealed class ControlPlaneApi : IEventHistory, IIntelligenceReader, ICatalogReader, IDisposable
     {
         /// <summary>
         /// How long a companion reply may take on this side: the control plane's 45 s for a turn, with
@@ -155,6 +155,24 @@ namespace Halcyonic.Client
         {
             var body = await GetAsync("api/usage-limits", cancellationToken).ConfigureAwait(false);
             return HalcyonicJson.Deserialize<UsageLimitsResponse>(body);
+        }
+
+        /// <summary>
+        /// Every project the person has across their accounts, from Phat Porcupine, read through by the
+        /// control plane and never journaled (ADR 0039). Asked when the gallery opens, never faster than
+        /// <see cref="CatalogFeed.Interval"/>.
+        /// </summary>
+        public async Task<CatalogResponse> GetCatalogAsync(CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/catalog", cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<CatalogResponse>(body);
+        }
+
+        /// <summary>The catalog, with when this device received it.</summary>
+        public async Task<IntelligenceRead<CatalogResponse>> ReadCatalogAsync(CancellationToken cancellationToken = default)
+        {
+            var response = await GetCatalogAsync(cancellationToken).ConfigureAwait(false);
+            return new IntelligenceRead<CatalogResponse>(response, DateTimeOffset.UtcNow, recorded: false);
         }
 
         /// <summary>The understanding answer, with when this device received it.</summary>
