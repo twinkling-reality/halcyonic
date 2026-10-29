@@ -112,15 +112,16 @@ namespace Halcyonic.XR.UI
         /// frame offers it, in its words and availability, in the footer's order along one row, <paramref name="close"/>
         /// (Close, Cancel or Hide composer) at the left, <paramref name="rare"/> (Stop or Discard draft) beside it, then
         /// <paramref name="talk"/> and <paramref name="send"/> at the right, Send rightmost; its caption only where the
-        /// frame shows one (<paramref name="caption"/>), as the composer's own page does. Returns its height.
+        /// frame shows one (<paramref name="caption"/>), as the composer's own page does; no well where the frame offers no
+        /// words to write (<paramref name="well"/>), as a question's page. Returns its height.
         /// </summary>
         public float Show(Vector2 topLeft, float width, string words, int rows, bool sendable, string? whyNot,
-            KitControl? close, KitControl? rare, KitControl? talk, KitControl? send, bool caption) =>
-            Lay(topLeft, width, words, rows, sendable, whyNot, true, talk != null, caption, close, rare, talk, send);
+            KitControl? close, KitControl? rare, KitControl? talk, KitControl? send, bool caption, bool well = true) =>
+            Lay(topLeft, width, words, rows, sendable, whyNot, true, talk != null, caption, close, rare, talk, send, well);
 
         /// <summary>Unbound, as the fixture shows it, Hold to talk and Send stand in the kit's own words; bound, each only where its control is.</summary>
         private float Lay(Vector2 topLeft, float width, string words, int rows, bool sendable, string? whyNot, bool bound, bool voiceOffered, bool caption,
-            KitControl? closeControl, KitControl? rareControl, KitControl? talkControl, KitControl? sendControl)
+            KitControl? closeControl, KitControl? rareControl, KitControl? talkControl, KitControl? sendControl, bool withWell = true)
         {
             transform.localPosition = new Vector3(topLeft.x, topLeft.y, 0f);
             label.gameObject.SetActive(caption);
@@ -141,36 +142,47 @@ namespace Halcyonic.XR.UI
             }
             var y = caption ? labelHeight + KitType.Scaled(0.35f) : 0f;
 
-            // The well: the person's words, upright and literal, or the empty field's own prompt.
-            var pad = KitType.Scaled(0.75f);
-            KitType.Size(draft, KitRole.Body, SpatialKit.ReadingLeading);
-            var runs = GlazeRuns.Of(draft);
-            if (string.IsNullOrEmpty(words))
+            well.gameObject.SetActive(withWell);
+            draft.gameObject.SetActive(withWell);
+            field.gameObject.SetActive(withWell);
+            if (!withWell)
             {
-                runs.Set(LineWords.Ours(Answering ? FileScreens.TypeMyAnswer : Empty));
-                draft.color = KitType.Secondary;
+                DraftLines = 0;
+                ShownDraftLines = 0;
             }
             else
             {
-                runs.Set(LineWords.Theirs(words));
-                runs.SetProseMode(true);
-                draft.color = KitType.Text;
+                // The well: the person's words, upright and literal, or the empty field's own prompt.
+                var pad = KitType.Scaled(0.75f);
+                KitType.Size(draft, KitRole.Body, SpatialKit.ReadingLeading);
+                var runs = GlazeRuns.Of(draft);
+                if (string.IsNullOrEmpty(words))
+                {
+                    runs.Set(LineWords.Ours(Answering ? FileScreens.TypeMyAnswer : Empty));
+                    draft.color = KitType.Secondary;
+                }
+                else
+                {
+                    runs.Set(LineWords.Theirs(words));
+                    runs.SetProseMode(true);
+                    draft.color = KitType.Text;
+                }
+                var inner = width - 2f * pad;
+                var (all, _, _) = KitType.Lay(draft, inner, 200);
+                DraftLines = all;
+                ShownDraftLines = Mathf.Min(all, Mathf.Max(1, rows));
+                KitType.Lay(draft, inner, ShownDraftLines);
+                var pitch = KitType.LinePitch(draft);
+                var wellHeight = 2f * pad + Mathf.Max(ShownDraftLines, Mathf.Min(rows, 2)) * pitch;
+                // Sunk into the slate by its darker tone alone.
+                well.Draw(new Vector2(width, wellHeight), KitType.Units(SpatialKit.ControlRadiusDegrees), KitType.Colour(SpatialKit.Well));
+                well.transform.localPosition = new Vector3(width / 2f, -y - wellHeight / 2f, 0f);
+                draft.transform.localPosition = new Vector3(pad, -y - pad, -0.0005f);
+                field.Resize(new Vector2(width, Mathf.Max(wellHeight, KitType.Units(SpatialKit.TargetDegrees))));
+                field.transform.localPosition = new Vector3(width / 2f, -y - wellHeight / 2f, -KitType.Units(0.04f));
+                // The field and the footer's buttons are targets too: 12 mm apart.
+                y += wellHeight + Mathf.Max(KitType.Scaled(0.6f), KitType.Units(SpatialKit.TargetGapDegrees));
             }
-            var inner = width - 2f * pad;
-            var (all, _, _) = KitType.Lay(draft, inner, 200);
-            DraftLines = all;
-            ShownDraftLines = Mathf.Min(all, Mathf.Max(1, rows));
-            KitType.Lay(draft, inner, ShownDraftLines);
-            var pitch = KitType.LinePitch(draft);
-            var wellHeight = 2f * pad + Mathf.Max(ShownDraftLines, Mathf.Min(rows, 2)) * pitch;
-            // Sunk into the slate by its darker tone alone.
-            well.Draw(new Vector2(width, wellHeight), KitType.Units(SpatialKit.ControlRadiusDegrees), KitType.Colour(SpatialKit.Well));
-            well.transform.localPosition = new Vector3(width / 2f, -y - wellHeight / 2f, 0f);
-            draft.transform.localPosition = new Vector3(pad, -y - pad, -0.0005f);
-            field.Resize(new Vector2(width, Mathf.Max(wellHeight, KitType.Units(SpatialKit.TargetDegrees))));
-            field.transform.localPosition = new Vector3(width / 2f, -y - wellHeight / 2f, -KitType.Units(0.04f));
-            // The field and the footer's buttons are targets too: 12 mm apart.
-            y += wellHeight + Mathf.Max(KitType.Scaled(0.6f), KitType.Units(SpatialKit.TargetGapDegrees));
 
             reason.gameObject.SetActive(!sendable && whyNot != null);
             if (!sendable && whyNot != null)

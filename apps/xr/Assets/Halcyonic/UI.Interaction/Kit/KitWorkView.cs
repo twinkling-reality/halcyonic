@@ -54,6 +54,11 @@ namespace Halcyonic.XR.UI
         private float saidHeight;
         private float requestTop;
         private float questionTop;
+        private readonly List<TextMeshPro> pageLines = new List<TextMeshPro>();
+        private readonly List<float> pageLineTops = new List<float>();
+        private readonly List<KitRow> pageRows = new List<KitRow>();
+        private readonly List<(KitRowModel Model, float Top)> pageRowsLaid = new List<(KitRowModel, float)>();
+        private bool pageWhole = true;
         private TextMeshPro railHeading = null!;
         private KitRow earlier = null!;
         private readonly List<KitRow> routes = new List<KitRow>();
@@ -76,6 +81,15 @@ namespace Halcyonic.XR.UI
         public TextMeshPro AskedQuestion => question;
         public IReadOnlyList<TextMeshPro> Notes => notes;
 
+        /// <summary>A bound question page's own lines, as shown (<see cref="KitAsk.Lines"/>).</summary>
+        public IEnumerable<TextMeshPro> PageLines => pageLines.Where(line => line.gameObject.activeSelf);
+
+        /// <summary>A bound question page's answers and steps, as shown, in the frame's order.</summary>
+        public IEnumerable<KitRow> PageRows => pageRows.Where(row => row.gameObject.activeSelf);
+
+        /// <summary>The prefix of a question page row's key, followed by its place among the binding's answers and steps.</summary>
+        public const string PageRowKey = "ask:";
+
         /// <summary>The file's sections as tabs under the header, as shown.</summary>
         public IEnumerable<KitButton> Tabs => tabs.Where(tab => tab.gameObject.activeSelf);
 
@@ -92,7 +106,7 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Everything read shows whole as last laid out: the agent's report, where there is one, and the person's words.</summary>
         public bool ReadsWhole => (!message.gameObject.activeSelf || message.Complete)
-            && (!composer.gameObject.activeSelf || composer.ShownDraftLines >= composer.DraftLines);
+            && (!composer.gameObject.activeSelf || composer.ShownDraftLines >= composer.DraftLines) && pageWhole;
 
         /// <summary>A spine row, the rail's Earlier activity, its pager or one of its routes was pressed.</summary>
         public event Action<string>? RowPressed;
@@ -118,11 +132,12 @@ namespace Halcyonic.XR.UI
             {
                 if (composer.gameObject.activeSelf)
                 {
-                    yield return composer.Field;
+                    if (composer.Field.gameObject.activeSelf) yield return composer.Field;
                     foreach (var button in new[] { composer.Close, composer.Rare, composer.Talk, composer.Send })
                         if (button.gameObject.activeSelf) yield return button.Press;
                 }
                 foreach (var tab in Tabs) yield return tab.Press;
+                foreach (var row in PageRows) yield return row.Press;
                 if (avatar.gameObject.activeSelf && avatar.Action.gameObject.activeSelf) yield return avatar.Action.Press;
                 if (decision.gameObject.activeSelf)
                     foreach (var button in new[] { decision.Deny, decision.Approve, decision.Cancel, decision.Yes })
@@ -352,6 +367,14 @@ namespace Halcyonic.XR.UI
             decision.Hide();
             composer.gameObject.SetActive(true);
             composer.Answering = model.Ask != null;
+            if (binding != null && model.Ask?.Lines.Count > 0)
+            {
+                // A question's page: no instruction well; its way back (or the confirmation's Cancel, or Stop) beside Close,
+                // its press on (or Yes) where Send stands, with the frame's words, availability and reason.
+                var on = binding[KitPlace.Forward] ?? binding[KitPlace.Yes];
+                return composer.Show(topLeft, inner, "", ComposerRows, on?.Available ?? false, on?.Reason, binding[KitPlace.Close],
+                    binding[KitPlace.Back] ?? binding[KitPlace.Cancel] ?? binding[KitPlace.Stop], null, on, caption: false, well: false);
+            }
             if (binding != null)
                 return composer.Show(topLeft, inner, model.Draft, ComposerRows, model.Sendable, model.WhyNotSend, binding[KitPlace.Close],
                     binding[KitPlace.Stop] ?? binding[KitPlace.Discard], binding[KitPlace.Talk], binding[KitPlace.Send],
@@ -367,6 +390,22 @@ namespace Halcyonic.XR.UI
         {
             var need = model.Need;
             var ask = need == null ? model.Ask : null;
+            pageWhole = true;
+            foreach (var line in pageLines) line.gameObject.SetActive(false);
+            foreach (var row in pageRows) row.Hide();
+            pageLineTops.Clear();
+            pageRowsLaid.Clear();
+            if (ask != null && ask.Lines.Count > 0 && binding != null)
+            {
+                message.gameObject.SetActive(false);
+                nothing.gameObject.SetActive(false);
+                asks.gameObject.SetActive(false);
+                request.gameObject.SetActive(false);
+                question.gameObject.SetActive(false);
+                foreach (var note in notes) note.gameObject.SetActive(false);
+                noteTops.Clear();
+                return LayPage(ask, inner, room);
+            }
             message.gameObject.SetActive(need == null && ask == null && model.Report != null);
             nothing.gameObject.SetActive(need == null && ask == null && model.Report == null);
             asks.gameObject.SetActive(need != null || ask != null);
@@ -420,6 +459,63 @@ namespace Halcyonic.XR.UI
             }
             return y - KitType.Scaled(0.35f);
         }
+
+        /// <summary>
+        /// Lays a bound question's page as the file drew it: its own lines in its order, each in the rows the file gave it,
+        /// then its answers and steps as rows in the frame's order and words, an answer chosen lit and said Selected. The
+        /// page reads whole only where every line shows whole in its rows, none is a part of a longer one (the file measured
+        /// its parts at its own width), and all of it fits the room; else the host leaves the frame to the file (Holds).
+        /// </summary>
+        private float LayPage(KitAsk ask, float inner, float room)
+        {
+            var y = 0f;
+            for (var index = 0; index < ask.Lines.Count; index++)
+            {
+                var line = ask.Lines[index];
+                while (pageLines.Count <= index)
+                    pageLines.Add(KitType.Create(slate.transform, "Page line " + pageLines.Count, KitRole.Body, KitType.Text, KitType.Order.Words, leading: SpatialKit.ReadingLeading));
+                var label = pageLines[index];
+                label.gameObject.SetActive(true);
+                KitType.Size(label, KitRole.Body, SpatialKit.ReadingLeading);
+                label.color = line.Tone == LineTone.Secondary ? KitType.Secondary : line.Tone == LineTone.Waiting ? KitType.ToneText(GlazeTone.Attention)
+                    : line.Tone == LineTone.Problem ? KitType.ToneText(GlazeTone.Failure) : KitType.Text;
+                GlazeRuns.Of(label).Set(line.Runs);
+                var rows = Mathf.Max(1, line.Rows);
+                var (all, _, _) = KitType.Lay(label, inner, 200);
+                var (_, _, height) = KitType.Lay(label, inner, rows);
+                if (line.FromRow != null || all > rows) pageWhole = false;
+                pageLineTops.Add(y);
+                y += height + KitType.Scaled(0.35f);
+            }
+            var steps = binding!.Controls.Where(control => control.Place is KitPlace.Choice or KitPlace.Step).ToList();
+            if (steps.Count > 0) y += KitType.Scaled(0.25f);
+            var gap = KitType.Units(SpatialKit.TargetGapDegrees);
+            for (var index = 0; index < steps.Count; index++)
+            {
+                var control = steps[index];
+                while (pageRows.Count <= index)
+                {
+                    var made = KitRow.Create(slate.transform, "Page row " + pageRows.Count);
+                    made.Pressed += key => RowPressed?.Invoke(key);
+                    pageRows.Add(made);
+                }
+                var drawn = binding.Frame.Lines.FirstOrDefault(line => line.Action == control.Action && line.Key == control.Key);
+                // An answer chosen is lit and says so in words, never by colour alone; a step opens more.
+                var model = new KitRowModel(PageRowKey + index, drawn?.Runs ?? LineWords.Ours(control.Words), detail: drawn?.Fact,
+                    end: control.Place == KitPlace.Choice && control.Chosen ? Selected : null, endTone: GlazeTone.Accent,
+                    opensMore: control.Place == KitPlace.Step, selected: control.Chosen, wordLines: Mathf.Max(2, drawn?.Rows ?? 1));
+                var height = pageRows[index].Show(model, new Vector2(0f, 0f), inner);
+                pageRowsLaid.Add((model, y));
+                y += height + gap;
+            }
+            if (steps.Count > 0) y -= gap;
+            else if (ask.Lines.Count > 0) y -= KitType.Scaled(0.35f);
+            if (y > room + 1e-4f) pageWhole = false;
+            return y;
+        }
+
+        /// <summary>An answer chosen, in production's word for it.</summary>
+        public const string Selected = "Selected";
 
         /// <summary>The rows the composer's well shows of the person's words.</summary>
         public const int ComposerRows = 3;
@@ -518,6 +614,11 @@ namespace Halcyonic.XR.UI
                 request.transform.localPosition = new Vector3(left + request.Size.x / 2f, top - requestTop - request.Size.y / 2f, -0.0003f);
             for (var index = 0; index < noteTops.Count; index++)
                 notes[index].transform.localPosition = new Vector3(left, top - noteTops[index], -0.0005f);
+            for (var index = 0; index < pageLineTops.Count; index++)
+                pageLines[index].transform.localPosition = new Vector3(left, top - pageLineTops[index], -0.0005f);
+            var inner = PlaneComposition.Units(SpatialKit.SlateDegrees) - 2f * KitType.Units(SpatialKit.PaddingDegrees);
+            for (var index = 0; index < pageRowsLaid.Count; index++)
+                pageRows[index].Show(pageRowsLaid[index].Model, new Vector2(left, top - pageRowsLaid[index].Top), inner);
         }
 
         private float headerContext;

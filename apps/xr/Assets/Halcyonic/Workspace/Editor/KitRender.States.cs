@@ -59,6 +59,10 @@ namespace Halcyonic.XR.Workspace.Editor
             "13-bound-routes-page" => Bound(root, eyes, Running(), Routed(), "Bound to the file: the page of Activity holding only the task's routes, synthetic data",
                 RequireRoutesPage, rows: 8, until: frame => frame.Lines.Any(line => line.Action == FileScreens.ShowTaskHere)),
             "13-host-compact" => HostCompact(root, eyes),
+            "14-question-answers" => Bound(root, eyes, SelectedWorkspace(waiting: true, Asked()), AskedScreen(Asked(), draft => draft.Choose(0, "Dark")),
+                "Bound to the file: the agent's question, its answers, one chosen, synthetic data", RequireQuestionPage, rows: 8),
+            "14-question-secret" => Bound(root, eyes, SelectedWorkspace(waiting: true, Secret()), AskedScreen(Secret(), draft => draft.Type(1, SecretMarker)),
+                "Bound to the file: a question asking for a secret, which Halcyonic never takes, synthetic data", RequireSecretPage, rows: 8),
             "13-bound-approval-from-activity" => Bound(root, eyes, WithActivity(ApprovalWorkspace(), SelectedEntries()), new FileScreen { Section = FileSection.Activity, Speak = true },
                 "Bound to the file: an approval waits on Waiting, seen from Activity, synthetic data", RequireSaid),
             _ => Moving(FocusedWork(root, eyes, true, WorkModel(), "Project to task, halfway: the task grows from its row, synthetic data", placed: (view, _) => FromRow(view, eyes))),
@@ -228,6 +232,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 _ => null,
             };
             if (control.Place == KitPlace.Field) return composer.gameObject.activeInHierarchy && composer.Field.gameObject.activeInHierarchy;
+            if (control.Place is KitPlace.Choice or KitPlace.Step) return view.PageRows.Any(row => row.Model?.Words.Text == control.Words);
+            // On a question's page the composer's row carries its presses: the way back beside Close, the press on where Send stands.
+            if (view.PageLines.Any())
+            {
+                var on = control.Place is KitPlace.Forward or KitPlace.Yes ? composer.Send : control.Place is KitPlace.Back or KitPlace.Cancel or KitPlace.Stop ? composer.Rare : button;
+                return on != null && on.gameObject.activeInHierarchy && on.Words.text == LabelText.ForTextMeshPro(control.Words);
+            }
             if (control.Place == KitPlace.Pager) return view.Earlier.gameObject.activeInHierarchy;
             if (control.Place == KitPlace.Route) return view.Routes.Any(route => route.Words.text == LabelText.ForTextMeshPro(control.Words));
             return button != null && button.gameObject.activeInHierarchy && button.Words.text == LabelText.ForTextMeshPro(control.Words);
@@ -293,6 +304,81 @@ namespace Halcyonic.XR.Workspace.Editor
             if (view.Trail.gameObject.activeSelf) shot.Failures.Add("the rail shows a trail on a page that shows no recorded event");
         }
 
+        /// <summary>A distinctive synthetic secret typed into the draft for a secret prompt: it must reach no label, render or log.</summary>
+        private const string SecretMarker = "SYNTHETIC-SECRET-7Q2Z-not-for-display";
+
+        /// <summary>The agent's question: a colour scheme to choose, with typed words allowed, then the pages to change, several allowed.</summary>
+        private static QuestionView Asked() => new QuestionView
+        {
+            QuestionId = "synthetic-question-scheme",
+            Answerable = true,
+            AskedAt = Day + "09:03:10.000Z",
+            Prompts = new List<QuestionPrompt>
+            {
+                new QuestionPrompt
+                {
+                    Key = "scheme", Header = "Colour scheme", Text = "Which colour scheme should the sign-in page use?", FreeText = true,
+                    Options = new List<QuestionOption>
+                    {
+                        new QuestionOption { Label = "Light", Description = "Dark text on a light background" },
+                        new QuestionOption { Label = "Dark", Description = "Light text on a dark background" },
+                    },
+                },
+                new QuestionPrompt
+                {
+                    Key = "pages", Header = "Pages", Text = "Which pages should change?", Multiple = true,
+                    Options = new List<QuestionOption> { new QuestionOption { Label = "Sign in" }, new QuestionOption { Label = "Orders" } },
+                },
+            },
+        };
+
+        /// <summary>A question whose second prompt asks for a secret: Halcyonic can't answer it, and says so, with the way on.</summary>
+        private static QuestionView Secret() => new QuestionView
+        {
+            QuestionId = "synthetic-question-token",
+            Answerable = true,
+            AskedAt = Day + "09:03:10.000Z",
+            Prompts = new List<QuestionPrompt>
+            {
+                new QuestionPrompt { Key = "region", Text = "Which region should the deploy run in?", FreeText = true },
+                new QuestionPrompt { Key = "token", Header = "Token", Text = "Paste the deploy token.", FreeText = true, Secret = true },
+            },
+        };
+
+        /// <summary>Waiting laid out on <paramref name="question"/>, each prompt and answer one row, the draft as <paramref name="answer"/> leaves it.</summary>
+        private static FileScreen AskedScreen(QuestionView question, System.Action<QuestionDraft> answer)
+        {
+            var screen = new FileScreen { Section = FileSection.Waiting, KeyboardOffered = true };
+            var draft = new QuestionDraft("synthetic-execution-rate-limit", question);
+            answer(draft);
+            var measures = question.Prompts.Select(prompt => new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList(), prompt.Options.Select(_ => 1).ToList())).ToList();
+            screen.ReadQuestion(draft, measures, new RowBudget(8), new RowBudget(3));
+            return screen;
+        }
+
+        /// <summary>The question's page whole: its lines, its answers in the frame's order, the one chosen said Selected, no instruction well, its press on where Send stands.</summary>
+        private static void RequireQuestionPage(KitWorkView view, Shot shot)
+        {
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            Require(view.PageLines.Any(), "the question's page shows none of its lines");
+            Require(view.ReadsWhole, "the question's page does not read whole in the kit, where the host would leave it to the file");
+            Require(view.PageRows.Count(row => row.Model?.End == KitWorkView.Selected) == 1, "the answer chosen is not said Selected, exactly once");
+            Require(!view.Composer.Field.gameObject.activeSelf, "an instruction well stands on a question's page");
+            Require(view.Composer.Send.gameObject.activeSelf, "the question's press on does not stand where Send stands");
+            Require(!view.Decision.gameObject.activeSelf, "the decision bar stands on a question's page");
+        }
+
+        /// <summary>A secret's question: what it asks, that it can't be answered and why, the way on; no answer, no typing, nothing typed shown.</summary>
+        private static void RequireSecretPage(KitWorkView view, Shot shot)
+        {
+            void Require(bool condition, string why) { if (!condition) shot.Failures.Add(why); }
+            Require(view.PageLines.Any(), "the question's page shows none of its lines");
+            Require(!view.PageRows.Any(), "a question asking for a secret offers an answer or a way to type");
+            Require(!view.Composer.Field.gameObject.activeSelf && !view.Composer.Send.gameObject.activeSelf, "a question asking for a secret offers a way to write or send");
+            var labels = view.GetComponentsInChildren<TMPro.TextMeshPro>(true).Select(label => label.text).ToList();
+            Require(labels.All(text => text == null || !text.Contains(SecretMarker)), "words typed for a secret prompt reached a label");
+        }
+
         /// <summary>The instruction composer open on the person's draft.</summary>
         private static FileScreen Composing()
         {
@@ -340,7 +426,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static readonly string[] States = { "5-approval", "5-approval-confirming", "6-checks-failed", "7-disconnected", "8-cant-tell", "9-question",
             "10-avatar-working", "10-avatar-turning", "10-avatar-waiting", "11-avatar-agents-off", "11-avatar-no-room", "12-to-compact-mid", "12-to-task-mid",
-            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-routes-page", "13-bound-approval-from-activity", "13-host-compact" };
+            "13-bound-running", "13-bound-composing", "13-bound-nothing-yet", "13-bound-routes", "13-bound-routes-page", "13-bound-approval-from-activity", "13-host-compact", "14-question-answers", "14-question-secret" };
 
         // The ways back are the ones that exist: Settings' agents switch (SpaceSettings) and the placement column's move.
         private const string AgentsOff = "The workspace works without characters";
@@ -511,7 +597,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The selected task as the production presenter presents it from a projection: waiting for approval of
         /// <see cref="ApprovalCommand"/>, or running with nothing waiting, the agent app's every action offered.
         /// </summary>
-        private static WorkspacePresentation SelectedWorkspace(bool waiting)
+        private static WorkspacePresentation SelectedWorkspace(bool waiting, QuestionView? asked = null)
         {
             const string at = Day + "09:03:00.000Z";
             var runtime = new RuntimeDescriptor
@@ -534,7 +620,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     ? new Attention
                     {
                         Level = AttentionLevel.ActionRequired,
-                        Reasons = new List<AttentionReason> { new ApprovalPendingReason { ExecutionId = "synthetic-execution-rate-limit", ApprovalId = "synthetic-approval" } },
+                        Reasons = new List<AttentionReason>
+                        {
+                            asked != null
+                                ? new QuestionPendingReason { ExecutionId = "synthetic-execution-rate-limit", QuestionId = asked.QuestionId }
+                                : new ApprovalPendingReason { ExecutionId = "synthetic-execution-rate-limit", ApprovalId = "synthetic-approval" },
+                        },
                     }
                     : new Attention { Level = AttentionLevel.None, Reasons = new List<AttentionReason>() },
                 CurrentExecutionId = "synthetic-execution-rate-limit",
@@ -555,7 +646,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 StartedAt = at,
                 UpdatedAt = at,
             };
-            if (waiting) execution.PendingApprovals.Add(new ApprovalView
+            if (asked != null) execution.PendingQuestions.Add(asked);
+            else if (waiting) execution.PendingApprovals.Add(new ApprovalView
             {
                 ApprovalId = "synthetic-approval",
                 Subject = new ToolUseSubject { ToolName = "shell", Summary = ApprovalCommand },

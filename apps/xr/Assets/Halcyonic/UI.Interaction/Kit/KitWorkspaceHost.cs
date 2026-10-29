@@ -103,9 +103,11 @@ namespace Halcyonic.XR.UI
             host.measure.GetComponent<MeshRenderer>().enabled = false;
             var composer = host.view.Composer;
             composer.FieldPressed += () => host.Press(KitPlace.Field);
-            composer.SendPressed += () => host.Press(KitPlace.Send);
+            // Where Send stands: Send, or on a question's page its press on, or the answers' Yes; beside Close: Stop or Discard
+            // draft, or a question's way back, or the confirmation's Cancel.
+            composer.SendPressed += () => host.Press(host.First(KitPlace.Forward, KitPlace.Yes, KitPlace.Send));
             composer.ClosePressed += () => host.Press(KitPlace.Close);
-            composer.RarePressed += () => host.Press(host.binding?[KitPlace.Stop] != null ? KitPlace.Stop : KitPlace.Discard);
+            composer.RarePressed += () => host.Press(host.First(KitPlace.Back, KitPlace.Cancel, KitPlace.Stop, KitPlace.Discard));
             composer.Talk.Pressed += host.OnTalkPressed;
             composer.Talk.Press.Target.Released += host.OnTalkReleased;
             var decision = host.view.Decision;
@@ -248,6 +250,9 @@ namespace Halcyonic.XR.UI
             Drawn?.Invoke(column, binding.Frame);
         }
 
+        /// <summary>The first of <paramref name="places"/> the binding holds a control for, else the last.</summary>
+        private KitPlace First(params KitPlace[] places) => places.Where(place => binding?[place] != null).DefaultIfEmpty(places[places.Length - 1]).First();
+
         private void Press(KitPlace place)
         {
             if (binding?[place] is KitControl control) Acted?.Invoke(column, control.Action, control.Key, control.Frame, null);
@@ -261,6 +266,14 @@ namespace Halcyonic.XR.UI
                 var section = key.Substring(KitFileBinding.SectionRowKey.Length);
                 if (binding.Sections.FirstOrDefault(each => each.Key == section) is KitControl control)
                     Acted?.Invoke(column, control.Action, control.Key, control.Frame, null);
+                return;
+            }
+            if (key.StartsWith(KitWorkView.PageRowKey, StringComparison.Ordinal))
+            {
+                // A question page's answer or step raises its line's own action and key, with the frame it stood on.
+                if (int.TryParse(key.Substring(KitWorkView.PageRowKey.Length), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var row)
+                    && binding.Controls.Where(control => control.Place is KitPlace.Choice or KitPlace.Step).ElementAtOrDefault(row) is KitControl step)
+                    Acted?.Invoke(column, step.Action, step.Key, step.Frame, null);
                 return;
             }
             if (key == KitWorkView.PagerKey)
