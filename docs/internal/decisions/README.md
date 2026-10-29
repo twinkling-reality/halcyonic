@@ -53,3 +53,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0038](0038-the-mac-observes-each-turns-file-changes-itself.md) | The Mac observes each turn's file changes itself | Accepted; headset build view pending |
 | [0039](0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md) | The projects gallery reads the person's catalog from Phat Porcupine, and Halcyonic never signs in to GitHub | Accepted; nothing built, Phat Porcupine's catalog API not yet published |
 | [0040](0040-the-headset-is-a-room-of-projects.md) | The headset is a room of projects: a gallery home, one screen per project, and moments from the task's character | Accepted on a storyboard; nothing built |
+| [0041](0041-a-new-apps-agent-is-confined-to-its-project.md) | A new app's agent is confined to its project | Accepted; built for Codex on macOS, not yet run with a real model |

@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { ClaudeAgentRuntimeAdapter } from '@halcyonic/integration-claude-code';
 import {
   CodexRuntimeAdapter,
+  type CodexRuntimeOptions,
   PROXY_VARIABLES,
   SIGN_IN_VARIABLES,
+  toolFoldersFor,
 } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter, personalSecrets } from '@halcyonic/integration-opencode';
@@ -36,6 +38,11 @@ export interface RuntimeDependencies {
   readonly environment: NodeJS.ProcessEnv;
   /** The control plane's data directory, where a key file may be kept. */
   readonly dataDir: string;
+  /**
+   * The starter a project folder was made from, or null (ADR 0037). Codex runs such a project
+   * confined to its folder (ADR 0041); asked at each start, since projects are made later.
+   */
+  readonly starterOf?: (directory: string) => string | null;
 }
 
 /**
@@ -84,10 +91,37 @@ export function createRuntimeAdapters(
         serverRecordFile: join(dependencies.dataDir, CODEX_SERVER_RECORD),
         directoryPolicy: dependencies.directoryPolicy,
         env: codexEnvironment(additions),
+        ...codexConfinement(dependencies),
       }),
     );
   }
   return adapters;
+}
+
+/**
+ * On macOS, a project made from a starter gets a Codex server of its own inside Halcyonic's
+ * sandbox (ADR 0041): it reads and writes its folder, reads the starter's shared dependencies its
+ * `node_modules` links to and the Node installation that type checks it, and reaches only Ollama.
+ * Elsewhere, none.
+ */
+export function codexConfinement(
+  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'dataDir'>,
+  node: string = process.execPath,
+): Pick<CodexRuntimeOptions, 'confinement'> {
+  const starterOf = dependencies.starterOf;
+  if (process.platform !== 'darwin' || starterOf === undefined) return {};
+  return {
+    confinement: {
+      forDirectory: (directory) => {
+        const starter = starterOf(directory);
+        return starter === null
+          ? null
+          : { project: directory, readable: [join(dependencies.dataDir, 'starters', starter)] };
+      },
+      toolFolders: toolFoldersFor(node),
+      loopbackPorts: [OLLAMA_PORT],
+    },
+  };
 }
 
 /**

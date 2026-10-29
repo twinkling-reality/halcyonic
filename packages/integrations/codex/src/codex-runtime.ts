@@ -1,5 +1,7 @@
+import { existsSync } from 'node:fs';
+import { chmod, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import type {
   ApprovalDecision,
   QuestionAnswer,
@@ -47,6 +49,7 @@ import {
 } from './options.ts';
 import type {
   ApprovalDecision as CodexDecision,
+  CommandExecParams,
   ConfigReadParams,
   ModelListParams,
   TextInput,
@@ -59,6 +62,12 @@ import type {
   TurnSteerParams,
 } from './protocol.ts';
 import { RpcError, type RpcHandlers, RpcUnanswered } from './rpc.ts';
+import {
+  type Confinement,
+  confinedProfile,
+  confinementKey,
+  TOOL_PREFIXES,
+} from './sandbox-profile.ts';
 import {
   buildEnvironment,
   CODEX_VERSION,
@@ -142,6 +151,18 @@ export interface CodexRuntimeOptions {
    * declares no `answer_question`, and the model asks in plain text instead. On by default.
    */
   readonly answerQuestions?: boolean;
+  /**
+   * Which project folders get a server of their own inside Halcyonic's sandbox (ADR 0041), and
+   * what that sandbox lets through. Without it every thread runs on the one open server.
+   */
+  readonly confinement?: {
+    /** The confinement for a project's folder, or null when its threads run on the open server. */
+    readonly forDirectory: (directory: string) => Confinement | null;
+    /** Folders of the tools a project's commands need, such as Node's installation, read only. */
+    readonly toolFolders: readonly string[];
+    /** The loopback ports a confined server may connect to: the model's. */
+    readonly loopbackPorts: readonly number[];
+  };
   readonly clock?: Clock;
 }
 
@@ -149,9 +170,29 @@ export type StaleServerResult =
   | { readonly outcome: 'none' }
   | { readonly outcome: StopOutcome; readonly pid: number };
 
+/** One server and what it may reach: the open one, or one per confined project (ADR 0041). */
+interface Slot {
+  readonly confinement: Confinement | null;
+  readonly recordFile: string;
+  current: Connection | null;
+  launching: Promise<Connection> | null;
+}
+
+/** The file a confined server must fail to read or write at launch (ADR 0041). */
+const CONFINEMENT_CANARY = 'confinement-canary.txt';
+/** Where each confined server's own Codex home is kept, beside the open server's. */
+const CONFINED_HOMES = 'codex-confined';
+/** A Perl one-liner that listens on every address, for the launch check; Perl ships with macOS. */
+const BIND_ANY =
+  'use Socket; socket(S, PF_INET, SOCK_STREAM, 0) or die "socket: $!\\n"; bind(S, sockaddr_in(0, INADDR_ANY)) or die "bind: $!\\n"; print "bound\\n";';
+
+/** Every turn on a confined server runs without Codex's own sandbox, inside Halcyonic's. */
+const EXTERNAL_SANDBOX = { type: 'externalSandbox', networkAccess: 'restricted' } as const;
+
 /** A launched server as the adapter uses it. */
 interface Connection {
   readonly server: CodexServer;
+  readonly slot: Slot;
   /** Aborted when the adapter stops using the server: it exited, was given up or closed. */
   readonly halted: AbortController;
   readonly launchedAt: number;
@@ -221,7 +262,6 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   readonly #systemConfiguration: readonly string[];
   /** Why the last launched server was not local-only: kept, so no request launches another. */
   #refusal: RuntimeActionError | null = null;
-  readonly #recordFile: string;
   readonly #directoryPolicy: DirectoryPolicy;
   readonly #environment: Readonly<Record<string, string>>;
   readonly #startupTimeoutMs: number;
@@ -229,11 +269,13 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   readonly #interruptTimeoutMs: number;
   readonly #approvalTimeoutMs: number;
   readonly #answerQuestions: boolean;
+  readonly #confinement: NonNullable<CodexRuntimeOptions['confinement']> | null;
   readonly #clock: Clock;
   readonly #threads = new Map<string, HostedThread>();
   readonly #byThreadId = new Map<string, HostedThread>();
-  #current: Connection | null = null;
-  #launching: Promise<Connection> | null = null;
+  readonly #open: Slot;
+  /** Confined projects' servers, by project folder. */
+  readonly #confined = new Map<string, Slot>();
   #closing: Promise<void> | null = null;
 
   constructor(options: CodexRuntimeOptions) {
@@ -248,7 +290,6 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#binaryPath = options.binaryPath;
     this.#home = options.codexHome;
     this.#systemConfiguration = options.systemConfiguration ?? systemConfigurationPaths();
-    this.#recordFile = options.serverRecordFile;
     this.#directoryPolicy = options.directoryPolicy;
     this.#environment = buildEnvironment(process.env, options.env ?? {}, options.codexHome);
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 20_000;
@@ -256,6 +297,13 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#interruptTimeoutMs = options.interruptTimeoutMs ?? 10_000;
     this.#approvalTimeoutMs = options.approvalTimeoutMs ?? 10_000;
     this.#answerQuestions = options.answerQuestions ?? true;
+    this.#confinement = options.confinement ?? null;
+    this.#open = {
+      confinement: null,
+      recordFile: options.serverRecordFile,
+      current: null,
+      launching: null,
+    };
     this.#clock = options.clock ?? systemClock;
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('codex' as RuntimeId),
@@ -277,7 +325,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   /** Pid of the running server, for diagnostics. */
   get serverPid(): number | null {
-    return this.#current?.server.pid ?? null;
+    return this.#open.current?.server.pid ?? null;
   }
 
   validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
@@ -322,7 +370,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    * execution. It does nothing once this adapter has launched a server.
    */
   async stopStaleServer(): Promise<StaleServerResult> {
-    if (this.#current !== null || this.#launching !== null || this.#closing !== null) {
+    if (this.#open.current !== null || this.#open.launching !== null || this.#closing !== null) {
       return { outcome: 'none' };
     }
     return this.#stopStale();
@@ -350,7 +398,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     // Checked at every start, not only at launch: a sign-in may have been put there since.
     await prepareHome(this.#home);
-    const connection = await this.#connection();
+    const connection = await this.#connection(false, this.#slotFor(cwd));
     const local = await this.#onThisMac(connection, options);
     // Asked again right before the folder is handed over: listing and launching wait.
     confirmProjectLocation(this.#directoryPolicy, cwd);
@@ -550,14 +598,17 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   async #shutDown(): Promise<void> {
     const stopping: CodexServer[] = [];
+    const slots = [this.#open, ...this.#confined.values()];
     const halt = () => {
-      const connection = this.#current;
-      if (connection === null) return;
-      stopping.push(connection.server);
-      this.#halt(connection);
+      for (const slot of slots) {
+        const connection = slot.current;
+        if (connection === null) continue;
+        stopping.push(connection.server);
+        this.#halt(connection);
+      }
     };
     halt();
-    await this.#launching?.catch(() => undefined);
+    await Promise.all(slots.map((slot) => slot.launching?.catch(() => undefined)));
     halt();
     for (const thread of this.#threads.values()) this.#dropConfirmations(thread, closedError());
     await Promise.all(stopping.map((server) => server.stop()));
@@ -567,7 +618,12 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   async #startTurn(thread: HostedThread, text: string): Promise<void> {
     const running = thread.state.activeTurnId;
-    const params: TurnStartParams = { threadId: thread.threadId, input: [textInput(text)] };
+    const params: TurnStartParams = {
+      threadId: thread.threadId,
+      input: [textInput(text)],
+      // Given with every turn, so a thread resumed on a relaunched server keeps it too.
+      ...(thread.connection.slot.confinement !== null && { sandboxPolicy: EXTERNAL_SANDBOX }),
+    };
     const result = await send(thread.connection, 'turn/start', params, this.#requestTimeoutMs);
     const turnId = isRecord(result) && isRecord(result.turn) ? result.turn.id : undefined;
     if (typeof turnId !== 'string' || turnId === '') {
@@ -733,20 +789,83 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   // Server lifecycle ---------------------------------------------------------------------------
 
-  async #connection(relaunch = false): Promise<Connection> {
-    if (this.#closing !== null) throw closedError();
-    if (this.#refusal !== null) throw this.#refusal;
-    const current = this.#current;
-    if (current !== null) return current;
-    this.#launching ??= this.#launch(relaunch).finally(() => {
-      this.#launching = null;
-    });
-    return this.#launching;
+  /**
+   * The server a project's threads run on: its own inside Halcyonic's sandbox when the project is
+   * confined (ADR 0041), else the open one.
+   */
+  #slotFor(directory: string): Slot {
+    const confinement = this.#confinement?.forDirectory(directory) ?? null;
+    if (confinement === null) return this.#open;
+    if (confinement.project !== directory) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        "Halcyonic could not confine Codex to this project's folder, so nothing was started.",
+      );
+    }
+    const known = this.#confined.get(directory);
+    if (known !== undefined) return known;
+    const slot: Slot = {
+      confinement,
+      recordFile: `${this.#open.recordFile}-${confinementKey(directory)}`,
+      current: null,
+      launching: null,
+    };
+    this.#confined.set(directory, slot);
+    return slot;
   }
 
-  async #launch(relaunch: boolean): Promise<Connection> {
+  async #connection(relaunch = false, slot: Slot = this.#open): Promise<Connection> {
+    if (this.#closing !== null) throw closedError();
+    if (this.#refusal !== null) throw this.#refusal;
+    if (slot.current !== null) return slot.current;
+    slot.launching ??= this.#launch(relaunch, slot).finally(() => {
+      slot.launching = null;
+    });
+    return slot.launching;
+  }
+
+  /** For a confined server: its temporary folder and the profile file it runs inside. */
+  /**
+   * For a confined server: a Codex home of its own beside the open server's, never inside it, with
+   * a copy of the open home's settings; its temporary folder; and the profile file it runs inside.
+   * The open server's home is outside the profile, so nothing a confined server does can plant
+   * settings, hooks or skills where the open server loads them.
+   */
+  async #confine(
+    slot: Slot,
+    confinement: Confinement,
+  ): Promise<{ codexHome: string; temp: string; profile: string }> {
+    const settings = this.#confinement;
+    if (settings === null) throw new Error('a confined server needs the confinement settings');
+    const confinedHomes = join(dirname(this.#home), CONFINED_HOMES);
+    await mkdir(confinedHomes, { recursive: true, mode: 0o700 });
+    const codexHome = join(confinedHomes, confinementKey(confinement.project));
+    await prepareHome(codexHome);
+    await copyFile(join(this.#home, 'config.toml'), join(codexHome, 'config.toml'));
+    await chmod(join(codexHome, 'config.toml'), 0o600);
+    const temp = join(codexHome, 'tmp');
+    await mkdir(temp, { recursive: true, mode: 0o700 });
+    const profile = `${slot.recordFile}.sb`;
+    await mkdir(dirname(profile), { recursive: true, mode: 0o700 });
+    await writeFile(
+      profile,
+      confinedProfile({
+        ...confinement,
+        codexHome,
+        temp,
+        // The binary's platform folder: Codex runs its bundled tools (rg, zsh) from beside it.
+        runtimeFolder: dirname(dirname(this.#binaryPath)),
+        toolFolders: settings.toolFolders,
+        loopbackPorts: settings.loopbackPorts,
+      }),
+      { mode: 0o600 },
+    );
+    return { codexHome, temp, profile };
+  }
+
+  async #launch(relaunch: boolean, slot: Slot): Promise<Connection> {
     try {
-      await this.#stopStale();
+      await this.#stopStale(slot.recordFile);
     } catch (error) {
       throw new RuntimeActionError(
         'runtime_unavailable',
@@ -765,23 +884,30 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     // Checked before every launch: the home may have changed since the last one.
     await prepareHome(this.#home);
+    const confined = slot.confinement === null ? null : await this.#confine(slot, slot.confinement);
     let connection: Connection | null = null;
     const server = await launchServer({
       binaryPath: this.#binaryPath,
-      environment: this.#environment,
-      recordFile: this.#recordFile,
-      cwd: tmpdir(),
+      environment:
+        confined === null
+          ? this.#environment
+          : { ...this.#environment, CODEX_HOME: confined.codexHome, TMPDIR: confined.temp },
+      recordFile: slot.recordFile,
+      cwd: confined?.temp ?? tmpdir(),
       startupTimeoutMs: this.#startupTimeoutMs,
       handlers: this.#handlers(() => connection),
+      ...(confined !== null && { sandboxProfile: confined.profile }),
     });
     if (this.#closing !== null) {
       await server.stop();
       throw closedError();
     }
-    connection = { server, halted: new AbortController(), launchedAt: Date.now(), relaunch };
-    // Before anything is listed or started on it: a server that is not local-only is stopped.
+    connection = { server, slot, halted: new AbortController(), launchedAt: Date.now(), relaunch };
+    // Before anything is listed or started on it: a server that is not local-only is stopped, and
+    // so is a confined one that can read outside its project.
     try {
       await this.#localOnly(connection);
+      if (slot.confinement !== null) await this.#checkConfined(connection, slot.confinement);
     } catch (error) {
       connection.halted.abort();
       await server.stop();
@@ -793,17 +919,80 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       }
       throw error;
     }
-    this.#current = connection;
+    slot.current = connection;
     const launched = connection;
     void server.exited.then((status) => this.#onExit(launched, status));
     return connection;
   }
 
-  async #stopStale(): Promise<StaleServerResult> {
-    const record = await readServerRecord(this.#recordFile);
+  /**
+   * Checks at launch that the profile holds (ADR 0041), one canary for each way out: a read of a
+   * file in the data directory, a write to the open server's Codex home, a read of the shared
+   * temporary folder, the pasteboard, LaunchServices, and a bind to every address. Each must be
+   * refused; anything else stops the server, naming the way out that was open.
+   */
+  async #checkConfined(connection: Connection, confinement: Confinement): Promise<void> {
+    const canary = join(dirname(this.#home), CONFINEMENT_CANARY);
+    await writeFile(canary, 'A confined Codex server must not be able to read this file.\n', {
+      mode: 0o600,
+    });
+    const planted = join(this.#home, CONFINEMENT_CANARY);
+    const run = async (command: string[]): Promise<{ code: unknown; out: string }> => {
+      const params: CommandExecParams = {
+        command,
+        cwd: confinement.project,
+        sandboxPolicy: EXTERNAL_SANDBOX,
+        timeoutMs: 10_000,
+      };
+      const result = await send(connection, 'command/exec', params, this.#requestTimeoutMs);
+      if (!isRecord(result)) return { code: null, out: '' };
+      return { code: result.exitCode, out: `${String(result.stdout)}${String(result.stderr)}` };
+    };
+    const notPermitted = ({ code, out }: { code: unknown; out: string }) =>
+      code !== 0 && /Operation not permitted/.test(out);
+    const checks: [string, string[], (ran: { code: unknown; out: string }) => boolean][] = [
+      ["read a file of Halcyonic's data", ['/bin/cat', canary], notPermitted],
+      ["write to the other Codex server's home", ['/usr/bin/touch', planted], notPermitted],
+      ['read the shared temporary folder', ['/bin/ls', '/private/tmp'], notPermitted],
+      // Its contents, if it could be read, go nowhere: only the exit code is looked at.
+      [
+        'read the pasteboard',
+        ['/bin/sh', '-c', '/usr/bin/pbpaste > /dev/null'],
+        ({ code }) => code !== 0,
+      ],
+      // LaunchServices, which `open` goes through, answers nothing to a process it cannot reach.
+      [
+        'reach LaunchServices',
+        ['/usr/bin/lsappinfo', 'front'],
+        ({ code, out }) => code !== 0 || /\[ NULL \]/.test(out),
+      ],
+      ['listen on every address', ['/usr/bin/perl', '-e', BIND_ANY], notPermitted],
+      // A package manager's data and configuration (databases live in var); the listing goes nowhere.
+      ...TOOL_PREFIXES.flatMap((prefix) =>
+        ['var', 'etc']
+          .filter((part) => existsSync(join(prefix, part)))
+          .map((part): [string, string[], (ran: { code: unknown; out: string }) => boolean] => [
+            `read ${prefix}/${part}`,
+            ['/bin/sh', '-c', `/bin/ls '${prefix}/${part}' > /dev/null`],
+            notPermitted,
+          ]),
+      ),
+    ];
+    for (const [way, command, refused] of checks) {
+      if (!refused(await run(command))) {
+        throw new RuntimeActionError(
+          'runtime_refused',
+          `Codex's server for this project could ${way}, so Halcyonic stopped it and started nothing.`,
+        );
+      }
+    }
+  }
+
+  async #stopStale(recordFile: string = this.#open.recordFile): Promise<StaleServerResult> {
+    const record = await readServerRecord(recordFile);
     if (record === null) return { outcome: 'none' };
     const outcome = await stopRecordedProcess(record);
-    await removeServerRecord(this.#recordFile, record.pid);
+    await removeServerRecord(recordFile, record.pid);
     return { outcome, pid: record.pid };
   }
 
@@ -885,7 +1074,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     try {
       let connection: Connection;
       try {
-        connection = await this.#connection(true);
+        connection = await this.#connection(true, (threads[0] as HostedThread).connection.slot);
       } catch (error) {
         for (const thread of threads) {
           this.#lose(thread, `${reason} It could not be started again: ${message(error)}`);
@@ -949,7 +1138,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   /** Stops using a server: its messages are ignored and actions on it are refused. */
   #halt(connection: Connection): void {
     connection.halted.abort();
-    if (this.#current === connection) this.#current = null;
+    if (connection.slot.current === connection) connection.slot.current = null;
   }
 
   // Threads ------------------------------------------------------------------------------------

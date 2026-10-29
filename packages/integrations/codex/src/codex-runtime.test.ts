@@ -31,6 +31,7 @@ import {
 } from './codex-runtime.ts';
 import { systemConfigurationPaths } from './managed.ts';
 import { APPROVAL_METHODS, METHODS_USED } from './protocol.ts';
+import { type Confinement, confinementKey, toolFoldersFor } from './sandbox-profile.ts';
 import {
   APP_SERVER_ARGUMENTS,
   buildEnvironment,
@@ -1720,5 +1721,84 @@ describe('Codex runtime against a stand-in binary', () => {
       runtime.sendInstruction({ execution: TEST_EXECUTION, text: 'More.' }),
       actionError('runtime_closed'),
     );
+  });
+});
+
+describe('a confined project (ADR 0041)', () => {
+  // Codex's home inside a data directory of its own, as the control plane keeps it.
+  const confinedTo = (t: TestContext, forDirectory: (directory: string) => Confinement | null) => {
+    const data = temporary(t);
+    mkdirSync(join(data, 'codex-home'), { mode: 0o700 });
+    writeFileSync(join(data, 'codex-home', 'config.toml'), 'model_provider = "ollama"\n');
+    return {
+      codexHome: join(data, 'codex-home'),
+      confinement: {
+        forDirectory,
+        toolFolders: toolFoldersFor(process.execPath),
+        loopbackPorts: [11434],
+      },
+    };
+  };
+  const turnStarts = (received: () => Record<string, unknown>[]) =>
+    received()
+      .filter((message) => message.method === 'turn/start')
+      .map((message) => message.params as Record<string, unknown>);
+
+  test("runs on a server of its own inside Halcyonic's sandbox, every turn without Codex's own", {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    const { runtime, received, recordFile, start, directory } = fake(t, [], {
+      ...confinedTo(t, (folder) => ({ project: folder, readable: [] })),
+    });
+    await start();
+    await runtime
+      .sendInstruction({ execution: TEST_EXECUTION, text: 'More.' })
+      .catch(() => undefined);
+    const turns = turnStarts(received);
+    assert.ok(turns.length >= 1);
+    for (const params of turns) {
+      assert.deepEqual(params.sandboxPolicy, {
+        type: 'externalSandbox',
+        networkAccess: 'restricted',
+      });
+    }
+    // The project's own server, recorded and profiled beside the open server's record, which is unused.
+    const own = `${recordFile}-${confinementKey(directory)}`;
+    assert.ok(existsSync(own));
+    assert.ok(!existsSync(recordFile));
+    assert.match(readFileSync(`${own}.sb`, 'utf8'), /\n\(deny default\)\n/);
+  });
+
+  test("runs any other project on the open server, with Codex's own sandbox", async (t) => {
+    const { received, recordFile, start } = fake(t, [], { ...confinedTo(t, () => null) });
+    await start();
+    assert.ok(existsSync(recordFile));
+    for (const params of turnStarts(received)) assert.equal(params.sandboxPolicy, undefined);
+  });
+
+  test('starts nothing when the server can read outside the project after all', {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    // A confinement that lets the data directory be read: the launch check reads its canary.
+    const options = confinedTo(t, () => null);
+    const data = dirname(options.codexHome);
+    const { received, start } = fake(t, [], {
+      ...options,
+      confinement: {
+        ...options.confinement,
+        forDirectory: (folder) => ({ project: folder, readable: [data] }),
+      },
+    });
+    await assert.rejects(start(), actionError('runtime_refused'));
+    assert.ok(received().some((message) => message.method === 'command/exec'));
+    assert.ok(!received().some((message) => message.method === 'thread/start'));
+  });
+
+  test('starts nothing when the confinement names another folder than the project', async (t) => {
+    const { received, start } = fake(t, [], {
+      ...confinedTo(t, () => ({ project: '/somewhere/else', readable: [] })),
+    });
+    await assert.rejects(start(), actionError('runtime_refused'));
+    assert.ok(!received().some((message) => message.method === 'thread/start'));
   });
 });

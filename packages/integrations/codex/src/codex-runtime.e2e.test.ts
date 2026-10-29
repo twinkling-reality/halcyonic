@@ -34,6 +34,7 @@ import {
 } from './codex-runtime.ts';
 import { isRecord } from './events.ts';
 import { RpcConnection } from './rpc.ts';
+import { TOOL_PREFIXES, toolFoldersFor } from './sandbox-profile.ts';
 import { APP_SERVER_ARGUMENTS, buildEnvironment, unappliedSettings } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
@@ -168,7 +169,12 @@ interface Harness {
 
 async function harness(
   t: TestContext,
-  setup: { runtime?: Partial<CodexRuntimeOptions>; provider?: FakeProviderOptions } = {},
+  setup: {
+    runtime?:
+      | Partial<CodexRuntimeOptions>
+      | ((sandbox: CodexSandbox) => Partial<CodexRuntimeOptions>);
+    provider?: FakeProviderOptions;
+  } = {},
 ): Promise<Harness> {
   const sandbox = await createSandbox(BINARY, setup.provider);
   const runtime = new CodexRuntimeAdapter({
@@ -177,7 +183,7 @@ async function harness(
     serverRecordFile: sandbox.recordFile,
     directoryPolicy: allowOnly(sandbox.project),
     env: sandbox.env,
-    ...setup.runtime,
+    ...(typeof setup.runtime === 'function' ? setup.runtime(sandbox) : setup.runtime),
   });
   t.after(async () => {
     await runtime.close();
@@ -1571,4 +1577,135 @@ describe('Codex before registration on a Mac', { skip: SKIP }, () => {
       assert.doesNotMatch(sent, /skill-installer\/SKILL\.md|Skill Installer/);
     },
   );
+});
+
+describe('Codex 0.157.0 confined to its project (ADR 0041)', {
+  skip: SKIP || (process.platform !== 'darwin' && 'Seatbelt is macOS only'),
+}, () => {
+  // Nothing outside the project, the server's own Codex home and the tools is readable.
+  const confined = (sandbox: CodexSandbox): Partial<CodexRuntimeOptions> => ({
+    confinement: {
+      forDirectory: (directory) =>
+        directory === sandbox.project ? { project: directory, readable: [] } : null,
+      toolFolders: toolFoldersFor(process.execPath),
+      loopbackPorts: [Number(new URL(sandbox.provider.baseUrl).port)],
+    },
+  });
+  /** Runs one command as the model's, on a confined thread, and returns what it printed. */
+  const runAsModel = async (t: TestContext, command: string) => {
+    const { sandbox, start } = await harness(t, { runtime: confined });
+    const execution = await start(`CMD:${command}`);
+    await execution.next('runtime.turn.completed');
+    return { sandbox, output: commandOutput(execution) };
+  };
+  const commandOutput = (execution: Execution): string =>
+    execution.observations
+      .filter((observation) => observation.type === 'runtime.tool.result')
+      .map((observation) => JSON.stringify(observation.payload))
+      .join('\n');
+
+  test('a command the model runs cannot read a file outside the project', SLOW_TEST, async (t) => {
+    const { sandbox, start } = await harness(t, { runtime: confined });
+    const outside = join(sandbox.root, 'outside-secret.txt');
+    await writeFile(outside, 'marker-5d2e\n');
+    const execution = await start(`CMD:cat ${outside}`);
+    await execution.next('runtime.turn.completed');
+    const output = commandOutput(execution);
+    assert.match(output, /Operation not permitted/);
+    assert.doesNotMatch(output, /marker-5d2e/);
+  });
+
+  test(
+    "runs on a Codex home of its own, and cannot write to the open server's",
+    SLOW_TEST,
+    async (t) => {
+      const { sandbox, output } = await runAsModel(
+        t,
+        'touch ../codex-home/planted.toml; echo planted=$?',
+      );
+      assert.match(output, /Operation not permitted/);
+      assert.ok(!existsSync(join(sandbox.codexHome, 'planted.toml')));
+      assert.ok(existsSync(join(sandbox.root, 'codex-confined')), "the confined server's own home");
+    },
+  );
+
+  test('cannot read the shared temporary folder', SLOW_TEST, async (t) => {
+    const { output } = await runAsModel(t, 'ls /private/tmp; echo listed=$?');
+    assert.match(output, /Operation not permitted/);
+  });
+
+  test("cannot read a package manager's data or configuration", SLOW_TEST, async (t) => {
+    // Databases such as PostgreSQL's live in <prefix>/var; the listing goes nowhere (LANE-RULES 11b).
+    const found = TOOL_PREFIXES.flatMap((prefix) =>
+      ['var', 'etc'].map((part) => join(prefix, part)).filter((path) => existsSync(path)),
+    );
+    if (found.length === 0) return t.skip('no Homebrew or /usr/local var or etc on this Mac');
+    for (const path of found) {
+      const { output } = await runAsModel(t, `ls '${path}' > /dev/null; echo listed=$?`);
+      assert.match(output, /Operation not permitted/, path);
+      assert.doesNotMatch(output, /listed=0/, path);
+    }
+  });
+
+  test('cannot read the pasteboard', SLOW_TEST, async (t) => {
+    // Only the exit code: the owner's clipboard never reaches a log, even if the profile failed.
+    const { output } = await runAsModel(t, 'pbpaste > /dev/null; echo pb=$?');
+    assert.match(output, /pb=1/);
+  });
+
+  test('cannot run AppleScript', SLOW_TEST, async (t) => {
+    const { output } = await runAsModel(t, "osascript -e 'return 1'; echo osa=$?");
+    assert.match(output, /osa=1/);
+  });
+
+  test('cannot open an app', SLOW_TEST, async (t) => {
+    // The target is an app of the test's own, whose only effect is a marker file in the test's own
+    // folder, so even a failing profile can never act on the owner's apps (LANE-RULES 11b).
+    const { sandbox, start } = await harness(t, { runtime: confined });
+    const app = join(sandbox.root, 'Marker.app');
+    const marker = join(sandbox.root, 'opened.marker');
+    await mkdir(join(app, 'Contents', 'MacOS'), { recursive: true });
+    await writeFile(
+      join(app, 'Contents', 'Info.plist'),
+      '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>CFBundleExecutable</key><string>marker</string><key>CFBundleIdentifier</key><string>dev.halcyonic.test.marker</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>\n',
+    );
+    await writeFile(join(app, 'Contents', 'MacOS', 'marker'), `#!/bin/sh\ntouch '${marker}'\n`, {
+      mode: 0o755,
+    });
+    const execution = await start(`CMD:open -g -j ${app}; echo open=$?`);
+    await execution.next('runtime.turn.completed');
+    assert.match(commandOutput(execution), /open=1/);
+    await delay(1000);
+    assert.ok(!existsSync(marker), 'the app was not opened');
+  });
+
+  test('cannot listen on any address', SLOW_TEST, async (t) => {
+    const { output } = await runAsModel(
+      t,
+      `perl -e 'use Socket; socket(S, PF_INET, SOCK_STREAM, 0) or die "socket: $!"; bind(S, sockaddr_in(0, INADDR_ANY)) or die "bind: $!"; print "bound"'`,
+    );
+    assert.match(output, /bind: Operation not permitted/);
+  });
+
+  test('an approved escalation still cannot write outside the project', SLOW_TEST, async (t) => {
+    const { runtime, sandbox, start } = await harness(t, { runtime: confined });
+    const outside = join(sandbox.root, 'outside-escalated.txt');
+    const execution = await start(`CMD_ESC:touch ${outside} && echo wrote-outside`);
+    // Whether Codex asks first under the external sandbox is recorded, not assumed.
+    const asked = await Promise.race([
+      execution.next('runtime.approval.requested').then((requested) => requested),
+      execution.next('runtime.turn.completed').then(() => null),
+    ]);
+    t.diagnostic(`approval asked: ${asked !== null}`);
+    if (asked !== null) {
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: approvalId(asked),
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed');
+    }
+    assert.ok(!existsSync(outside), 'nothing was written outside the project');
+  });
 });

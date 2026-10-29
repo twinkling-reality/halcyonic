@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 import type { ClientInfo, InitializeParams } from './protocol.ts';
 import { RpcConnection, type RpcHandlers } from './rpc.ts';
+import { SANDBOX_EXEC } from './sandbox-profile.ts';
 import {
   killWithDescendants,
   readDescendants,
@@ -237,6 +238,11 @@ export interface LaunchOptions {
   readonly cwd: string;
   readonly startupTimeoutMs: number;
   readonly handlers: RpcHandlers;
+  /**
+   * A Seatbelt profile file the server runs inside (ADR 0041), or none. With one, the server is
+   * started through `sandbox-exec`, which becomes the binary in the same process.
+   */
+  readonly sandboxProfile?: string;
 }
 
 /**
@@ -329,12 +335,19 @@ export async function launchServer(options: LaunchOptions): Promise<CodexServer>
   const deadline = Date.now() + options.startupTimeoutMs;
   const version = await readVersion(options, Math.min(options.startupTimeoutMs, 10_000));
   if (version !== CODEX_VERSION) throw unsupported(options.binaryPath, version);
-  const child = spawn(options.binaryPath, APP_SERVER_ARGUMENTS, {
-    cwd: options.cwd,
-    env: options.environment,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    detached: true,
-  });
+  const confined = options.sandboxProfile !== undefined;
+  const child = spawn(
+    confined ? SANDBOX_EXEC : options.binaryPath,
+    confined
+      ? ['-f', options.sandboxProfile as string, options.binaryPath, ...APP_SERVER_ARGUMENTS]
+      : APP_SERVER_ARGUMENTS,
+    {
+      cwd: options.cwd,
+      env: options.environment,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      detached: true,
+    },
+  );
   const spawnError = new Promise<Error>((resolve) => child.once('error', resolve));
   child.on('error', () => undefined);
   const pid = child.pid;

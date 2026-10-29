@@ -23,6 +23,7 @@ export const METHODS_USED = [
   'config/read',
   'configRequirements/read',
   'model/list',
+  'command/exec',
 ] as const;
 
 /** `ClientInfo.ts`. */
@@ -120,14 +121,35 @@ export interface TextInput {
   readonly text_elements: readonly never[];
 }
 
-/** `v2/TurnStartParams.ts`. */
+/**
+ * `v2/SandboxPolicy.ts`, the one variant Halcyonic sends: commands run without Codex's own sandbox
+ * because the server runs inside Halcyonic's (ADR 0041), network to loopback only.
+ */
+export interface ExternalSandboxPolicy {
+  readonly type: 'externalSandbox';
+  readonly networkAccess: 'restricted';
+}
+
+/**
+ * `v2/CommandExecParams.ts`: one command run by the server outside any thread, used only to check
+ * at launch that a confined server cannot read outside its project (ADR 0041).
+ */
+export interface CommandExecParams {
+  readonly command: readonly string[];
+  readonly cwd: string;
+  readonly sandboxPolicy: ExternalSandboxPolicy;
+  readonly timeoutMs: number;
+}
+
+/** `v2/TurnStartParams.ts`. A sandbox policy holds for this turn and the ones after it. */
 export interface TurnStartParams {
   readonly threadId: string;
   readonly input: readonly TextInput[];
+  readonly sandboxPolicy?: ExternalSandboxPolicy;
 }
 
 /** `v2/TurnSteerParams.ts`. The request fails unless `expectedTurnId` is the active turn. */
-export interface TurnSteerParams extends TurnStartParams {
+export interface TurnSteerParams extends Omit<TurnStartParams, 'sandboxPolicy'> {
   readonly expectedTurnId: string;
 }
 
