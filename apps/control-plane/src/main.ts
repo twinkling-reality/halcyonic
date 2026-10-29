@@ -120,6 +120,8 @@ async function main(): Promise<void> {
             store: new CheckpointStore({
               git: config.gitBinary,
               directory: join(config.dataDir, 'checkpoints'),
+              // A project folder holding the journal and token is never checkpointed.
+              protect: [config.dataDir],
             }),
           },
         }),

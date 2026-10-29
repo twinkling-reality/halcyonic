@@ -103,7 +103,13 @@ of is kept in the store, and a restore into another folder is refused.
   come back only if a build makes them again. Files ignored by rules the checkpoint did not have
   are removed, unless they sit in a folder that was ignored as a whole.
 - A restore also undoes changes anyone made by hand since the checkpoint; the host cannot tell who
-  changed a file. Commits the agent made stay in the project's own history; the journal says only
+  changed a file.
+- A process an agent left running (a development server, a sleeping script) can still write while a
+  restore runs; Halcyonic refuses a restore only while it knows of running work. The final check
+  catches a file it changed in the folder, and each removal first checks that no folder above it has
+  become a link, but such a process can still race the restore.
+- A project folder that holds Halcyonic's data directory or the store is refused outright
+  (`holds_host_data`). Commits the agent made stay in the project's own history; the journal says only
   whether the project's commit moved.
 - The first checkpoint of a large project reads every file once; later ones store only what changed.
   Their size and time on real projects still need measuring.

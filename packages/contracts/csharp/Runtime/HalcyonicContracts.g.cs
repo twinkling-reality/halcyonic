@@ -1306,6 +1306,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "nested_repository")] NestedRepository,
         [EnumMember(Value = "too_large")] TooLarge,
         [EnumMember(Value = "unreadable")] Unreadable,
+        [EnumMember(Value = "holds_host_data")] HoldsHostData,
         [EnumMember(Value = "store_failed")] StoreFailed,
     }
 

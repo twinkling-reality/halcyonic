@@ -17,7 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { CheckpointStore } from './store.ts';
+import { CheckpointStore, removeInside } from './store.ts';
 
 // The system's git, as the owner's Mac has it; the tests need a real one.
 const GIT = '/usr/bin/git';
@@ -274,5 +274,50 @@ describe('checking a folder against a checkpoint', () => {
     assert.deepEqual(await store.verify(PROJECT, folder, id), { compared: 5, differing: [] });
     write('src/keep.md', 'keeq\n');
     assert.deepEqual((await store.verify(PROJECT, folder, id)).differing, ['src/keep.md']);
+  });
+});
+
+describe("a folder that holds Halcyonic's own data", () => {
+  test('is refused: no checkpoint, preview or restore, when the store sits inside the project', async () => {
+    const id = await take();
+    const inside = new CheckpointStore({
+      git: GIT,
+      directory: join(folder, '.halcyonic', 'checkpoints'),
+    });
+    const taken = await inside.take(PROJECT, folder, nextId());
+    assert.equal(!taken.ok && taken.code, 'holds_host_data');
+    const preview = await inside.preview(PROJECT, folder, id);
+    assert.equal(!preview.ok && preview.code, 'holds_host_data');
+    const restored = await inside.restore(PROJECT, folder, id);
+    assert.equal(!restored.ok && restored.code, 'holds_host_data');
+    assert.equal(!restored.ok && restored.written, false);
+  });
+
+  test('is refused when a folder the host protects, such as its data directory, sits inside the project', async () => {
+    const guarded = new CheckpointStore({
+      git: GIT,
+      directory: join(root, 'store-guarded'),
+      protect: [join(folder, 'data')],
+    });
+    mkdirSync(join(folder, 'data'));
+    const taken = await guarded.take(PROJECT, folder, nextId());
+    assert.equal(!taken.ok && taken.code, 'holds_host_data');
+  });
+});
+
+describe('removing a leftover path', () => {
+  test('refuses when a folder above it has become a link, and leaves the outside alone', async () => {
+    mkdirSync(join(folder, 'a'));
+    writeFileSync(join(outside, 'b'), 'keep\n');
+    rmSync(join(folder, 'a'), { recursive: true });
+    symlinkSync(outside, join(folder, 'a'));
+    await assert.rejects(removeInside(folder, 'a/b'));
+    assert.equal(readFileSync(join(outside, 'b'), 'utf8'), 'keep\n');
+  });
+
+  test('removes a path whose folders are all real folders inside the project', async () => {
+    write('a/b.txt', 'x\n');
+    await removeInside(folder, 'a/b.txt');
+    assert.equal(existsSync(join(folder, 'a', 'b.txt')), false);
   });
 });
