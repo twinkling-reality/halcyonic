@@ -3,6 +3,8 @@
 - Status: Accepted as direction on Editor renders, 2026-10-17; implementation pending, through the D3 units;
   wearer review still required
 - Date: 2026-10-17
+- Superseded in part on 2026-10-29 by [ADR 0040](0040-the-headset-is-a-room-of-projects.md): the curve is no longer
+  the workspace's main presentation
 - Supersedes in part [ADR 0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md): its
   rule 1, one plane facing the eyes, only
 
