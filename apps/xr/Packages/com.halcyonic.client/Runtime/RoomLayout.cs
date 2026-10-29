@@ -127,11 +127,14 @@ namespace Halcyonic.Client
         /// <summary>
         /// The one slot a task's moments pop into: beside its character at the character's distance, on the side toward
         /// where the person looks (<paramref name="lookBearing"/>), its nearer edge <see cref="MomentClearanceDegrees"/>
-        /// from the character, tilted to face the eyes so it spans <paramref name="widthDegrees"/> as they see it. The same
+        /// beyond the character's body and label, which reach <paramref name="characterHalfDegrees"/> either side of it
+        /// (<see cref="BodyInView.HalfWidth"/>), tilted to face the eyes so it spans <paramref name="widthDegrees"/> as they see it. The same
         /// character always gets the same slot.
         /// </summary>
-        public static RoomPose MomentSlot(Vector3 eyes, float lookBearing, Vector3 character, float widthDegrees, float aspect)
+        public static RoomPose MomentSlot(Vector3 eyes, float lookBearing, Vector3 character, float characterHalfDegrees, float widthDegrees, float aspect)
         {
+            if (!(characterHalfDegrees >= 0f && characterHalfDegrees < 90f))
+                throw new ArgumentOutOfRangeException(nameof(characterHalfDegrees), characterHalfDegrees, "A character reaches 0 to 90 degrees either side.");
             if (!(aspect > 0f) || float.IsInfinity(aspect)) throw new ArgumentOutOfRangeException(nameof(aspect), aspect, "A slot needs a positive aspect.");
             var offset = character - eyes;
             var flat = Math.Min(FarthestSurface, Math.Max(NearestSurface, Flat(offset)));
@@ -142,7 +145,7 @@ namespace Halcyonic.Client
             // The bearing from its middle to its nearer edge, seen from above.
             var half = MathF.Atan2(width / 2f, flat) / RadiansPerDegree;
             var toward = Wrap(characterBearing - lookBearing) >= 0f ? -1f : 1f;
-            var bearing = characterBearing + toward * (MomentClearanceDegrees + half);
+            var bearing = characterBearing + toward * (characterHalfDegrees + MomentClearanceDegrees + half);
             var pitch = MathF.Atan2(rise, flat) / RadiansPerDegree;
             return new RoomPose(eyes + Direction(bearing, pitch) * distance, bearing, pitch, width, width / aspect);
         }

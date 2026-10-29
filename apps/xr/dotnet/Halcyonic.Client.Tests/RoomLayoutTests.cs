@@ -14,6 +14,8 @@ public class RoomLayoutTests
     private const float ScreenAspect = 16f / 9f;
     private const float BarDegrees = 5.4f;
     private const float GapDegrees = 0.8f;
+    // A character's half-width with its label plate, as the far-3s stage measures one.
+    private const float CharacterHalfDegrees = 5.2f;
 
     private static float Degrees(Vector3 a, Vector3 b) => MathF.Atan2(Vector3.Cross(a, b).Length(), Vector3.Dot(a, b)) * 180f / MathF.PI;
 
@@ -63,30 +65,41 @@ public class RoomLayoutTests
     public void AMomentPopsInOneSlotBesideItsCharacterTowardThePerson()
     {
         var right = Eyes + new Vector3(1.2f, -0.3f, 1.4f);
-        var slot = RoomLayout.MomentSlot(Eyes, 0f, right, 23f, 4f / 3f);
+        var slot = RoomLayout.MomentSlot(Eyes, 0f, right, CharacterHalfDegrees, 23f, 4f / 3f);
         Assert.That(Flat(slot.Centre, Eyes), Is.EqualTo(Flat(right, Eyes)).Within(1e-4f), "as far as the character");
         Assert.That(slot.Centre.Y, Is.EqualTo(right.Y + RoomLayout.MomentAboveCharacter).Within(1e-5f));
         var characterBearing = BearingOf(right);
         Assert.That(slot.Bearing, Is.LessThan(characterBearing), "on the character's side toward where the person looks");
         Assert.That(Across(slot, Eyes), Is.EqualTo(23f).Within(0.01f));
         Assert.That(Vector3.Dot(slot.Facing, Vector3.Normalize(Eyes - slot.Centre)), Is.GreaterThan(0.9999f), "tilted to face the eyes");
-        // Its nearer edge stands clear of the character, at the clearance the room keeps.
-        Assert.That(characterBearing - BearingOf(slot.Right), Is.EqualTo(RoomLayout.MomentClearanceDegrees).Within(0.01f));
+        // Its nearer edge stands clear of the character's body and label, at the clearance the room keeps.
+        Assert.That(characterBearing - BearingOf(slot.Right), Is.EqualTo(CharacterHalfDegrees + RoomLayout.MomentClearanceDegrees).Within(0.01f));
 
         var left = Eyes + new Vector3(-1.2f, -0.3f, 1.4f);
-        var mirrored = RoomLayout.MomentSlot(Eyes, 0f, left, 23f, 4f / 3f);
+        var mirrored = RoomLayout.MomentSlot(Eyes, 0f, left, CharacterHalfDegrees, 23f, 4f / 3f);
         Assert.That(mirrored.Bearing, Is.EqualTo(-slot.Bearing).Within(1e-3f), "a character on the left pops it on its right");
 
-        var again = RoomLayout.MomentSlot(Eyes, 0f, right, 23f, 4f / 3f);
+        var again = RoomLayout.MomentSlot(Eyes, 0f, right, CharacterHalfDegrees, 23f, 4f / 3f);
         Assert.That(again, Is.EqualTo(slot), "one fixed slot: the same character, the same place");
+    }
+
+    [Test]
+    public void AWideLabelPushesTheMomentSlotOut()
+    {
+        var character = Eyes + new Vector3(1.2f, -0.3f, 1.4f);
+        var narrow = RoomLayout.MomentSlot(Eyes, 0f, character, 4f, 23f, 4f / 3f);
+        var wide = RoomLayout.MomentSlot(Eyes, 0f, character, 12f, 23f, 4f / 3f);
+        Assert.That(narrow.Bearing - wide.Bearing, Is.EqualTo(8f).Within(0.01f), "as far again as the label is wider");
+        Assert.That(BearingOf(character) - BearingOf(wide.Right), Is.EqualTo(12f + RoomLayout.MomentClearanceDegrees).Within(0.01f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.MomentSlot(Eyes, 0f, character, -1f, 23f, 1f));
     }
 
     [Test]
     public void AMomentSlotStaysWithinRayCastReach()
     {
-        var near = RoomLayout.MomentSlot(Eyes, 0f, Eyes + new Vector3(0.1f, 0f, 0.3f), 23f, 1f);
+        var near = RoomLayout.MomentSlot(Eyes, 0f, Eyes + new Vector3(0.1f, 0f, 0.3f), CharacterHalfDegrees, 23f, 1f);
         Assert.That(Flat(near.Centre, Eyes), Is.EqualTo(RoomLayout.NearestSurface).Within(1e-4f));
-        var far = RoomLayout.MomentSlot(Eyes, 0f, Eyes + new Vector3(0f, 0f, 6f), 23f, 1f);
+        var far = RoomLayout.MomentSlot(Eyes, 0f, Eyes + new Vector3(0f, 0f, 6f), CharacterHalfDegrees, 23f, 1f);
         Assert.That(Flat(far.Centre, Eyes), Is.EqualTo(RoomLayout.FarthestSurface).Within(1e-4f));
         Assert.That((RoomLayout.NearestSurface, RoomLayout.FarthestSurface), Is.EqualTo((0.8f, 3f)), "Meta's ray-cast range");
     }
@@ -112,7 +125,7 @@ public class RoomLayoutTests
     [Test]
     public void ReadingFoldsBackIntoTheMomentItCameFrom()
     {
-        var slot = RoomLayout.MomentSlot(Eyes, 0f, Eyes + new Vector3(1.2f, -0.3f, 1.4f), 23f, 4f / 3f);
+        var slot = RoomLayout.MomentSlot(Eyes, 0f, Eyes + new Vector3(1.2f, -0.3f, 1.4f), CharacterHalfDegrees, 23f, 4f / 3f);
         var open = RoomLayout.ReadingSurface(Eyes, Vector3.UnitZ, 44f, 33f);
         Assert.That(RoomLayout.Between(open, slot, 0f), Is.EqualTo(open));
         Assert.That(RoomLayout.Between(open, slot, 1f), Is.EqualTo(slot));
