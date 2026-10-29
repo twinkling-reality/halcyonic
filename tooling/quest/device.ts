@@ -204,7 +204,9 @@ async function collect(remote: string, folder: string): Promise<string> {
   const onDevice = readSha256(await adbSaid('shell', 'sha256sum', remote));
   await adb('pull', remote, local);
   if (onDevice === null || sha256File(local) !== onDevice) {
-    fail(`The pulled copy of ${basename(remote)} does not match the headset's; it was left there.`);
+    throw new Error(
+      `The pulled copy of ${basename(remote)} does not match the headset's; it was left there.`,
+    );
   }
   await adb('shell', 'rm', remote);
   return local;
@@ -332,10 +334,12 @@ async function awake(): Promise<void> {
 }
 
 async function giveBack(): Promise<void> {
-  // A recording a cut-off run left going keeps the microphone on until something stops it.
+  // A recording a cut-off run left going keeps the microphone on until something stops it. Its trouble is reported
+  // at the end, after the apps are stopped and the sensor is given back.
+  let problem: string | null = null;
   if (readState().recording) {
     console.log('A recording is still in progress: stopping and collecting it first.');
-    await recordStop();
+    problem = await stopRecording().catch((error: unknown) => (error as Error).message);
   }
   for (const name of readState().started) {
     await adb('shell', 'am', 'force-stop', name);
@@ -357,6 +361,7 @@ async function giveBack(): Promise<void> {
   if (reverse) console.log(`reverse rules left: ${reverse}`);
   if (forward) console.log(`forward rules left: ${forward}`);
   replaced();
+  if (problem !== null) fail(problem);
   if (on !== false) process.exit(1);
 }
 
@@ -600,9 +605,13 @@ async function recordStart(): Promise<void> {
   console.log('Recording.');
 }
 
-async function recordStop(): Promise<void> {
+/**
+ * Stops the recording `record start` began and collects it: what went wrong, or null when the clip is in --out with
+ * its sha256 and the headset said media sync is off. Never exits, so give-back can finish its own work after it.
+ */
+async function stopRecording(): Promise<string | null> {
   const recording = readState().recording;
-  if (!recording) fail('No recording is in progress.');
+  if (!recording) return 'No recording is in progress.';
   await adb(
     'shell',
     'am',
@@ -623,14 +632,21 @@ async function recordStop(): Promise<void> {
     delete state.recording;
   });
   if (made.length !== 1 || made[0] === undefined)
-    fail('The capture service made no single new recording.');
-  const local = await keepClip(`${VIDEOS}/${made[0]}`);
-  console.log(local);
-  if ((await syncPreference()) === true) {
-    fail(
-      "The headset's media sync is on: this recording was uploaded to its account. Tell the owner.",
-    );
+    return 'The capture service made no single new recording.';
+  try {
+    console.log(await keepClip(`${VIDEOS}/${made[0]}`));
+  } catch (error) {
+    return (error as Error).message;
   }
+  if ((await syncPreference()) === true) {
+    return "The headset's media sync is on: this recording was uploaded to its account. Tell the owner.";
+  }
+  return null;
+}
+
+async function recordStop(): Promise<void> {
+  const problem = await stopRecording();
+  if (problem !== null) fail(problem);
 }
 
 async function record(): Promise<void> {

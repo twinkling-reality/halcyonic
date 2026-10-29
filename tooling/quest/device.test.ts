@@ -17,6 +17,8 @@ interface Headset {
   readonly installedSha256?: string;
   /** The capture service's log lines. */
   readonly syncLog?: string;
+  /** No clip appears after a recording stops. */
+  readonly noClip?: boolean;
   /** The capture service's log lines once a recording has stopped, where they differ. */
   readonly syncLogAfter?: string;
   /** ActivityTaskManager's lines after a launch. */
@@ -65,7 +67,7 @@ else if (args[0] === 'logcat') {
   out(stopped && scenario.syncLogAfter !== undefined ? scenario.syncLogAfter : (scenario.syncLog ?? ''));
 } else if (said === 'shell ls /sdcard/Oculus/Screenshots /sdcard/Oculus/VideoShots') {
   const stopped = fs.readFileSync(process.env.ADB_CALLS, 'utf8').includes('STOP_INTERNAL_CAPTURE_TO_DISK');
-  out('/sdcard/Oculus/Screenshots:\\n\\n/sdcard/Oculus/VideoShots:\\ncom.oculus.vrshell-20261016-020147-0.mp4' + (stopped ? '\\ncom.oculus.vrshell-20261029-011231-0.mp4' : ''));
+  out('/sdcard/Oculus/Screenshots:\\n\\n/sdcard/Oculus/VideoShots:\\ncom.oculus.vrshell-20261016-020147-0.mp4' + (stopped && !scenario.noClip ? '\\ncom.oculus.vrshell-20261029-011231-0.mp4' : ''));
 } else if (said.startsWith('shell am startservice -n com.oculus.metacam/.capture.CaptureService -a ')) {}
 else if (said.startsWith('shell am broadcast') || said.startsWith('shell am force-stop') || said === 'shell input keyevent KEYCODE_WAKEUP') {}
 else if (said.startsWith('shell content call')) {
@@ -410,6 +412,38 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       calls.join('\n'),
     );
     assert.ok(existsSync(join(out, 'com.oculus.vrshell-20261029-011231-0.mp4.sha256')), said);
+  });
+
+  test('give-back still stops the apps and gives the sensor back when the recording it stops yields no clip', async () => {
+    const state = join(directory, 'state-noclip.json');
+    writeFileSync(
+      state,
+      JSON.stringify({
+        installs: {},
+        started: ['com.halcyonic.xr'],
+        recording: {
+          before: ['com.oculus.vrshell-20261016-020147-0.mp4'],
+          startedAt: '2026-10-29T01:00:00.000Z',
+        },
+      }),
+    );
+    const { code, said, calls } = await device(
+      { noClip: true, proximity: ['false'] },
+      'give-back',
+      '--state',
+      state,
+    );
+    assert.equal(code, 1, said);
+    assert.ok(
+      calls.some((call) => call.includes('STOP_INTERNAL_CAPTURE_TO_DISK')),
+      calls.join('\n'),
+    );
+    assert.ok(calls.includes('shell am force-stop com.halcyonic.xr'), calls.join('\n'));
+    assert.ok(
+      calls.some((call) => call.includes('automation_disable')),
+      calls.join('\n'),
+    );
+    assert.match(said, /no single new recording/);
   });
 
   test('record stop with no recording in progress stops nothing', async () => {
