@@ -192,6 +192,65 @@ describe('command admission', () => {
     assert.equal(missing.admitted ? null : missing.rejection.code, 'project_not_found');
   });
 
+  test('linking a catalog repository is admitted for a known project; unlinking needs a link', () => {
+    const { b, projection, scope } = setup();
+    let n = 0;
+    const command = (
+      type: 'project.link_catalog' | 'project.unlink_catalog',
+      projectId: string,
+    ): CommandEnvelope => {
+      n += 1;
+      const base = {
+        schema_version: 1 as const,
+        command_id: `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}` as CommandId,
+        issued_at: '2026-10-29T10:00:00.000Z',
+        client: { name: 'test', version: null, device_label: null },
+      };
+      return type === 'project.link_catalog'
+        ? {
+            ...base,
+            command_type: type,
+            payload: {
+              project_id: projectId as never,
+              catalog: { source: 'phat-porcupine', repository_id: 7, full_name: 'acme/app' },
+            },
+          }
+        : { ...base, command_type: type, payload: { project_id: projectId as never } };
+    };
+    const linked = admitCommand(
+      command('project.link_catalog', scope.projectId),
+      projection,
+      catalog(),
+    );
+    assert.equal(linked.admitted && linked.policy, 'low_consequence');
+    assert.equal(linked.scope.project_id, scope.projectId);
+    const unknown = '01920000-0000-7000-8000-00000000ffff';
+    for (const type of ['project.link_catalog', 'project.unlink_catalog'] as const) {
+      const missing = admitCommand(command(type, unknown), projection, catalog());
+      assert.equal(missing.admitted ? null : missing.rejection.code, 'project_not_found', type);
+    }
+    const notLinked = admitCommand(
+      command('project.unlink_catalog', scope.projectId),
+      projection,
+      catalog(),
+    );
+    assert.equal(notLinked.admitted ? null : notLinked.rejection.code, 'invalid_state');
+
+    const projectScope = { project_id: scope.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('project.catalog_linked', projectScope, {
+        catalog: { source: 'phat-porcupine', repository_id: 7, full_name: 'acme/app' },
+        previous: null,
+      }),
+    );
+    const unlinked = admitCommand(
+      command('project.unlink_catalog', scope.projectId),
+      projection,
+      catalog(),
+    );
+    assert.equal(unlinked.admitted && unlinked.policy, 'low_consequence');
+  });
+
   test('unknown targets and runtimes are rejected with the scope that did resolve', () => {
     const { projection, commands, workstream } = setup();
     const missing = admitCommand(

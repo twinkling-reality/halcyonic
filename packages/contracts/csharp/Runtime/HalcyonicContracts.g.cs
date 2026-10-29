@@ -373,6 +373,8 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.create")] ProjectCreate,
         [EnumMember(Value = "project.set_location")] ProjectSetLocation,
         [EnumMember(Value = "project.restore")] ProjectRestore,
+        [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
+        [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
         [EnumMember(Value = "execution.start")] ExecutionStart,
         [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
@@ -1288,6 +1290,33 @@ namespace Halcyonic.Contracts
         public string Template { get; set; } = default!;
     }
 
+    public sealed class CatalogRepositoryRef
+    {
+        [JsonProperty("source", Required = Required.Always)]
+        public string Source { get; set; } = "phat-porcupine";
+
+        [JsonProperty("repository_id", Required = Required.Always)]
+        public long RepositoryId { get; set; }
+
+        [JsonProperty("full_name", Required = Required.Always)]
+        public string FullName { get; set; } = default!;
+    }
+
+    public sealed class ProjectCatalogLinkedPayload
+    {
+        [JsonProperty("catalog", Required = Required.Always)]
+        public CatalogRepositoryRef Catalog { get; set; } = default!;
+
+        [JsonProperty("previous", Required = Required.AllowNull)]
+        public CatalogRepositoryRef? Previous { get; set; }
+    }
+
+    public sealed class ProjectCatalogUnlinkedPayload
+    {
+        [JsonProperty("previous", Required = Required.Always)]
+        public CatalogRepositoryRef Previous { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum CheckpointReason
     {
@@ -1658,6 +1687,21 @@ namespace Halcyonic.Contracts
         public string CheckpointId { get; set; } = default!;
     }
 
+    public sealed class ProjectLinkCatalogPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("catalog", Required = Required.Always)]
+        public CatalogRepositoryRef Catalog { get; set; } = default!;
+    }
+
+    public sealed class ProjectUnlinkCatalogPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
     public sealed class WorkstreamCreatePayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -1817,6 +1861,8 @@ namespace Halcyonic.Contracts
                 "project.create" => new ProjectCreateCommand(),
                 "project.set_location" => new ProjectSetLocationCommand(),
                 "project.restore" => new ProjectRestoreCommand(),
+                "project.link_catalog" => new ProjectLinkCatalogCommand(),
+                "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
                 "execution.start" => new ExecutionStartCommand(),
                 "execution.send_instruction" => new ExecutionSendInstructionCommand(),
@@ -1868,6 +1914,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectRestorePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectLinkCatalogCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.link_catalog";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectLinkCatalogPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectUnlinkCatalogCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.unlink_catalog";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectUnlinkCatalogPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreateCommand : CommandEnvelope
@@ -2442,6 +2504,8 @@ namespace Halcyonic.Contracts
                 "project.created" => new ProjectCreatedEvent(),
                 "project.location_set" => new ProjectLocationSetEvent(),
                 "project.starter_applied" => new ProjectStarterAppliedEvent(),
+                "project.catalog_linked" => new ProjectCatalogLinkedEvent(),
+                "project.catalog_unlinked" => new ProjectCatalogUnlinkedEvent(),
                 "project.checkpoint.recorded" => new ProjectCheckpointRecordedEvent(),
                 "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
@@ -2520,6 +2584,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectStarterAppliedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectCatalogLinkedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.catalog_linked";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectCatalogLinkedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectCatalogUnlinkedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.catalog_unlinked";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectCatalogUnlinkedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectCheckpointRecordedEvent : EventEnvelope
@@ -4498,6 +4578,309 @@ namespace Halcyonic.Contracts
     }
 
     public sealed class IncompatibleUsageLimits : UsageLimitsResponse
+    {
+        protected override string Discriminator => "incompatible";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class CatalogSource
+    {
+        [JsonProperty("system", Required = Required.Always)]
+        public string System { get; set; } = "phat-porcupine";
+
+        [JsonProperty("api_version", Required = Required.Always)]
+        public string ApiVersion { get; set; } = "1";
+
+        [JsonProperty("synthetic", Required = Required.Always)]
+        public bool Synthetic { get; set; }
+
+        [JsonProperty("sample", Required = Required.Always)]
+        public bool Sample { get; set; }
+    }
+
+    public sealed class AvailableSync
+    {
+        [JsonProperty("repositories_at", Required = Required.AllowNull)]
+        public string? RepositoriesAt { get; set; }
+
+        [JsonProperty("repositories_failed", Required = Required.Always)]
+        public bool RepositoriesFailed { get; set; }
+
+        [JsonProperty("activity_at", Required = Required.AllowNull)]
+        public string? ActivityAt { get; set; }
+
+        [JsonProperty("activity_failed", Required = Required.Always)]
+        public bool ActivityFailed { get; set; }
+    }
+
+    public sealed class CatalogGroup
+    {
+        [JsonProperty("group_id", Required = Required.Always)]
+        public string GroupId { get; set; } = default!;
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("order", Required = Required.Always)]
+        public long Order { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CatalogRepositoryVisibility
+    {
+        [EnumMember(Value = "public")] Public,
+        [EnumMember(Value = "private")] Private,
+        [EnumMember(Value = "internal")] Internal,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CatalogRepositoryAccess
+    {
+        [EnumMember(Value = "ok")] Ok,
+        [EnumMember(Value = "removed")] Removed,
+        [EnumMember(Value = "not_found")] NotFound,
+    }
+
+    public sealed class CatalogRepository
+    {
+        [JsonProperty("repository_id", Required = Required.Always)]
+        public long RepositoryId { get; set; }
+
+        [JsonProperty("full_name", Required = Required.Always)]
+        public string FullName { get; set; } = default!;
+
+        [JsonProperty("primary", Required = Required.Always)]
+        public bool Primary { get; set; }
+
+        [JsonProperty("visibility", Required = Required.Always)]
+        public CatalogRepositoryVisibility Visibility { get; set; }
+
+        [JsonProperty("fork", Required = Required.Always)]
+        public bool Fork { get; set; }
+
+        [JsonProperty("archived", Required = Required.Always)]
+        public bool Archived { get; set; }
+
+        [JsonProperty("language", Required = Required.AllowNull)]
+        public string? Language { get; set; }
+
+        [JsonProperty("description", Required = Required.AllowNull)]
+        public string? Description { get; set; }
+
+        [JsonProperty("pushed_at", Required = Required.AllowNull)]
+        public string? PushedAt { get; set; }
+
+        [JsonProperty("access", Required = Required.Always)]
+        public CatalogRepositoryAccess Access { get; set; }
+    }
+
+    public sealed class CatalogStateSessions
+    {
+        [JsonProperty("running", Required = Required.Always)]
+        public long Running { get; set; }
+
+        [JsonProperty("awaiting_input", Required = Required.Always)]
+        public long AwaitingInput { get; set; }
+    }
+
+    public sealed class CatalogState
+    {
+        [JsonProperty("state", Required = Required.Always)]
+        public string State { get; set; } = default!;
+
+        [JsonProperty("active", Required = Required.Always)]
+        public bool Active { get; set; }
+
+        [JsonProperty("last_activity_at", Required = Required.AllowNull)]
+        public string? LastActivityAt { get; set; }
+
+        [JsonProperty("sessions", Required = Required.Always)]
+        public CatalogStateSessions Sessions { get; set; } = default!;
+
+        [JsonProperty("unknown", Required = Required.Always)]
+        public List<string> Unknown { get; set; } = new List<string>();
+    }
+
+    public sealed class CatalogAttentionPullRequest
+    {
+        [JsonProperty("number", Required = Required.Always)]
+        public long Number { get; set; }
+
+        [JsonProperty("title", Required = Required.Always)]
+        public string Title { get; set; } = default!;
+    }
+
+    public sealed class CatalogAttention
+    {
+        [JsonProperty("kind", Required = Required.Always)]
+        public string Kind { get; set; } = default!;
+
+        [JsonProperty("repository_id", Required = Required.Always)]
+        public long RepositoryId { get; set; }
+
+        [JsonProperty("pull_request", Required = Required.AllowNull)]
+        public CatalogAttentionPullRequest? PullRequest { get; set; }
+
+        [JsonProperty("at", Required = Required.AllowNull)]
+        public string? At { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CatalogLocalSuggestionsItemRule
+    {
+        [EnumMember(Value = "github_origin_full_name")] GithubOriginFullName,
+        [EnumMember(Value = "folder_name_equals_repository_name")] FolderNameEqualsRepositoryName,
+    }
+
+    public sealed class CatalogLocalSuggestionsItem
+    {
+        [JsonProperty("root", Required = Required.Always)]
+        public string Root { get; set; } = default!;
+
+        [JsonProperty("folder_name", Required = Required.Always)]
+        public string FolderName { get; set; } = default!;
+
+        [JsonProperty("rule", Required = Required.Always)]
+        public CatalogLocalSuggestionsItemRule Rule { get; set; }
+    }
+
+    public sealed class CatalogLocal
+    {
+        [JsonProperty("project_ids", Required = Required.Always)]
+        public List<string> ProjectIds { get; set; } = new List<string>();
+
+        [JsonProperty("suggestions", Required = Required.Always)]
+        public List<CatalogLocalSuggestionsItem> Suggestions { get; set; } = new List<CatalogLocalSuggestionsItem>();
+    }
+
+    public sealed class CatalogProject
+    {
+        [JsonProperty("catalog_id", Required = Required.Always)]
+        public string CatalogId { get; set; } = default!;
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("group_id", Required = Required.AllowNull)]
+        public string? GroupId { get; set; }
+
+        [JsonProperty("group_order", Required = Required.AllowNull)]
+        public long? GroupOrder { get; set; }
+
+        [JsonProperty("repositories", Required = Required.Always)]
+        public List<CatalogRepository> Repositories { get; set; } = new List<CatalogRepository>();
+
+        [JsonProperty("state", Required = Required.Always)]
+        public CatalogState State { get; set; } = default!;
+
+        [JsonProperty("attention", Required = Required.Always)]
+        public List<CatalogAttention> Attention { get; set; } = new List<CatalogAttention>();
+
+        [JsonProperty("local", Required = Required.Always)]
+        public CatalogLocal Local { get; set; } = default!;
+    }
+
+    public sealed class AvailableTruncated
+    {
+        [JsonProperty("projects", Required = Required.Always)]
+        public long Projects { get; set; }
+
+        [JsonProperty("repositories", Required = Required.Always)]
+        public long Repositories { get; set; }
+    }
+
+    [JsonConverter(typeof(CatalogResponseConverter))]
+    public abstract class CatalogResponse
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class CatalogResponseConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(CatalogResponse).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            CatalogResponse value = tag switch
+            {
+                "available" => new AvailableCatalog(),
+                "unavailable" => new UnavailableCatalog(),
+                "unauthorized" => new UnauthorizedCatalog(),
+                "incompatible" => new IncompatibleCatalog(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "CatalogResponse has no string availability."
+                    : "Unknown availability \"" + tag + "\" for CatalogResponse."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableCatalog : CatalogResponse
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("provenance", Required = Required.Always)]
+        public string Provenance { get; set; } = "reported";
+
+        [JsonProperty("source", Required = Required.Always)]
+        public CatalogSource Source { get; set; } = default!;
+
+        [JsonProperty("generated_at", Required = Required.Always)]
+        public string GeneratedAt { get; set; } = default!;
+
+        [JsonProperty("sync", Required = Required.Always)]
+        public AvailableSync Sync { get; set; } = default!;
+
+        [JsonProperty("groups", Required = Required.Always)]
+        public List<CatalogGroup> Groups { get; set; } = new List<CatalogGroup>();
+
+        [JsonProperty("projects", Required = Required.Always)]
+        public List<CatalogProject> Projects { get; set; } = new List<CatalogProject>();
+
+        [JsonProperty("truncated", Required = Required.AllowNull)]
+        public AvailableTruncated? Truncated { get; set; }
+    }
+
+    public sealed class UnavailableCatalog : CatalogResponse
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnauthorizedCatalog : CatalogResponse
+    {
+        protected override string Discriminator => "unauthorized";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class IncompatibleCatalog : CatalogResponse
     {
         protected override string Discriminator => "incompatible";
 

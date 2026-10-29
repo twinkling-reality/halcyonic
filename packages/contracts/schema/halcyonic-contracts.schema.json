@@ -808,6 +808,253 @@
             },
             "event_type": {
               "type": "string",
+              "const": "project.catalog_linked"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "catalog",
+                "previous"
+              ],
+              "properties": {
+                "catalog": {
+                  "$ref": "#/$defs/CatalogRepositoryRef"
+                },
+                "previous": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/CatalogRepositoryRef"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.catalog_unlinked"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "previous"
+              ],
+              "properties": {
+                "previous": {
+                  "$ref": "#/$defs/CatalogRepositoryRef"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
               "const": "project.checkpoint.recorded"
             },
             "source": {
@@ -5974,6 +6221,104 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "checkpoint_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "command_id",
+            "issued_at",
+            "client",
+            "command_type",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "command_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "client": {
+              "$ref": "#/$defs/ClientInfo"
+            },
+            "command_type": {
+              "type": "string",
+              "const": "project.link_catalog"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "project_id",
+                "catalog"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "catalog": {
+                  "$ref": "#/$defs/CatalogRepositoryRef"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "command_id",
+            "issued_at",
+            "client",
+            "command_type",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "command_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "client": {
+              "$ref": "#/$defs/ClientInfo"
+            },
+            "command_type": {
+              "type": "string",
+              "const": "project.unlink_catalog"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "project_id"
+              ],
+              "properties": {
+                "project_id": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 }
@@ -11462,6 +11807,601 @@
         }
       ]
     },
+    "CatalogResponse": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "provenance",
+            "source",
+            "generated_at",
+            "sync",
+            "groups",
+            "projects",
+            "truncated"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "provenance": {
+              "type": "string",
+              "const": "reported"
+            },
+            "source": {
+              "$ref": "#/$defs/CatalogSource"
+            },
+            "generated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "sync": {
+              "type": "object",
+              "required": [
+                "repositories_at",
+                "repositories_failed",
+                "activity_at",
+                "activity_failed"
+              ],
+              "properties": {
+                "repositories_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "repositories_failed": {
+                  "type": "boolean"
+                },
+                "activity_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "activity_failed": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CatalogGroup"
+              },
+              "maxItems": 500
+            },
+            "projects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CatalogProject"
+              },
+              "maxItems": 2000
+            },
+            "truncated": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "projects",
+                    "repositories"
+                  ],
+                  "properties": {
+                    "projects": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "repositories": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unauthorized"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "incompatible"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "CatalogSource": {
+      "type": "object",
+      "required": [
+        "system",
+        "api_version",
+        "synthetic",
+        "sample"
+      ],
+      "properties": {
+        "system": {
+          "type": "string",
+          "const": "phat-porcupine"
+        },
+        "api_version": {
+          "type": "string",
+          "const": "1"
+        },
+        "synthetic": {
+          "type": "boolean"
+        },
+        "sample": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CatalogGroup": {
+      "type": "object",
+      "required": [
+        "group_id",
+        "name",
+        "order"
+      ],
+      "properties": {
+        "group_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "\\S"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "CatalogProject": {
+      "type": "object",
+      "required": [
+        "catalog_id",
+        "name",
+        "group_id",
+        "group_order",
+        "repositories",
+        "state",
+        "attention",
+        "local"
+      ],
+      "properties": {
+        "catalog_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "\\S"
+        },
+        "group_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "group_order": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repositories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CatalogRepository"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "state": {
+          "$ref": "#/$defs/CatalogState"
+        },
+        "attention": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CatalogAttention"
+          },
+          "maxItems": 5
+        },
+        "local": {
+          "$ref": "#/$defs/CatalogLocal"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CatalogRepository": {
+      "type": "object",
+      "required": [
+        "repository_id",
+        "full_name",
+        "primary",
+        "visibility",
+        "fork",
+        "archived",
+        "language",
+        "description",
+        "pushed_at",
+        "access"
+      ],
+      "properties": {
+        "repository_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "full_name": {
+          "$ref": "#/$defs/RepositoryFullName"
+        },
+        "primary": {
+          "type": "boolean"
+        },
+        "visibility": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "public"
+            },
+            {
+              "type": "string",
+              "const": "private"
+            },
+            {
+              "type": "string",
+              "const": "internal"
+            }
+          ]
+        },
+        "fork": {
+          "type": "boolean"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 350,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pushed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "access": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "ok"
+            },
+            {
+              "type": "string",
+              "const": "removed"
+            },
+            {
+              "type": "string",
+              "const": "not_found"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "CatalogState": {
+      "type": "object",
+      "required": [
+        "state",
+        "active",
+        "last_activity_at",
+        "sessions",
+        "unknown"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "last_activity_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sessions": {
+          "type": "object",
+          "required": [
+            "running",
+            "awaiting_input"
+          ],
+          "properties": {
+            "running": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "awaiting_input": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "unknown": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false
+    },
+    "CatalogAttention": {
+      "type": "object",
+      "required": [
+        "kind",
+        "repository_id",
+        "pull_request",
+        "at"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "repository_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "pull_request": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "number",
+                "title"
+              ],
+              "properties": {
+                "number": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "pattern": "\\S"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "CatalogLocal": {
+      "type": "object",
+      "required": [
+        "project_ids",
+        "suggestions"
+      ],
+      "properties": {
+        "project_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "maxItems": 100
+        },
+        "suggestions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "root",
+              "folder_name",
+              "rule"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "\\S"
+              },
+              "folder_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255,
+                "pattern": "\\S"
+              },
+              "rule": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "github_origin_full_name"
+                  },
+                  {
+                    "type": "string",
+                    "const": "folder_name_equals_repository_name"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "CatalogRepositoryRef": {
+      "type": "object",
+      "required": [
+        "source",
+        "repository_id",
+        "full_name"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "const": "phat-porcupine"
+        },
+        "repository_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "full_name": {
+          "$ref": "#/$defs/RepositoryFullName"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RepositoryFullName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}/(?:[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}|\\.[A-Za-z0-9_-][A-Za-z0-9._-]{0,98}|\\.\\.[A-Za-z0-9._-]{1,98})$"
+    },
     "TranscriptionEngine": {
       "type": "object",
       "required": [
@@ -11957,6 +12897,14 @@
         {
           "type": "string",
           "const": "project.restore"
+        },
+        {
+          "type": "string",
+          "const": "project.link_catalog"
+        },
+        {
+          "type": "string",
+          "const": "project.unlink_catalog"
         },
         {
           "type": "string",

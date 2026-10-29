@@ -661,6 +661,70 @@ describe('project locations', () => {
   });
 });
 
+describe('catalog links (ADR 0039)', () => {
+  const first = { source: 'phat-porcupine' as const, repository_id: 7, full_name: 'acme/app' };
+  const second = { source: 'phat-porcupine' as const, repository_id: 8, full_name: 'acme/app-api' };
+
+  test('a project holds the catalog repository the person last linked, until they unlink it', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('App');
+    projection.apply(project.event);
+    const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    assert.equal(projection.catalogLink(project.projectId), null);
+
+    const { changes } = projection.apply(
+      b.controlPlane('project.catalog_linked', scope, { catalog: first, previous: null }),
+    );
+    assert.deepEqual(projection.catalogLink(project.projectId), first);
+    assert.deepEqual(
+      changes.projects.map((view) => view.project_id),
+      [project.projectId],
+      'clients hear that the project changed',
+    );
+    projection.apply(
+      b.controlPlane('project.catalog_linked', scope, { catalog: second, previous: first }),
+    );
+    assert.deepEqual(projection.catalogLink(project.projectId), second);
+    projection.apply(b.controlPlane('project.catalog_unlinked', scope, { previous: second }));
+    assert.equal(projection.catalogLink(project.projectId), null);
+  });
+
+  test("the link stays out of the project's view, so views and recordings are unchanged", () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('App');
+    projection.apply(project.event);
+    const before = structuredClone(projection.project(project.projectId));
+    const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('project.catalog_linked', scope, { catalog: first, previous: null }),
+    );
+    const after = projection.project(project.projectId);
+    assert.deepEqual(Object.keys(after ?? {}), Object.keys(before ?? {}));
+    assert.deepEqual({ ...after, updated_at: null }, { ...before, updated_at: null });
+  });
+
+  test('a link for an unknown project changes nothing and is reported', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const projectId = b.id() as ProjectId;
+    const scope = { project_id: projectId, workstream_id: null, execution_id: null };
+    for (const event of [
+      b.controlPlane('project.catalog_linked', scope, { catalog: first, previous: null }),
+      b.controlPlane('project.catalog_unlinked', scope, { previous: first }),
+    ]) {
+      const { changes, notes } = projection.apply(event);
+      assert.deepEqual(changes.projects, []);
+      assert.deepEqual(
+        notes.map((entry) => entry.code),
+        ['unknown_entity'],
+      );
+    }
+    assert.equal(projection.catalogLink(projectId), undefined);
+  });
+});
+
 test('command recovery retains the original journaled principal for accepted and rejected records', () => {
   const b = new EventBuilder();
   const projection = new Projection();

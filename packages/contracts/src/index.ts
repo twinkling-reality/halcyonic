@@ -1,4 +1,5 @@
 export * from './api.ts';
+export * from './catalog.ts';
 export * from './checkpoints.ts';
 export * from './commands.ts';
 export * from './companion.ts';

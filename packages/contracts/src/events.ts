@@ -1,4 +1,5 @@
 import Type, { type Static, type TSchema } from 'typebox';
+import { CatalogRepositoryRef } from './catalog.ts';
 import {
   CheckpointFailure,
   CheckpointId,
@@ -217,6 +218,22 @@ export const ProjectCreated = projectEvent(
 export const ProjectLocationSet = projectEvent(
   'project.location_set',
   Type.Object({ location: ProjectLocation }, strict),
+);
+
+/**
+ * The person linked the project to a repository of their catalog (ADR 0039), replacing `previous`.
+ * The link is the person's command, so the event is observed; the repository's `owner/name` in it
+ * is as the client sent it, taken from the catalog's answer; checked neither against the catalog nor GitHub, and it may name a private repository or an organisation.
+ */
+export const ProjectCatalogLinked = projectEvent(
+  'project.catalog_linked',
+  Type.Object({ catalog: CatalogRepositoryRef, previous: Nullable(CatalogRepositoryRef) }, strict),
+);
+
+/** The person removed the project's link to `previous`, as it was recorded when it was linked. */
+export const ProjectCatalogUnlinked = projectEvent(
+  'project.catalog_unlinked',
+  Type.Object({ previous: CatalogRepositoryRef }, strict),
 );
 
 /**
@@ -636,6 +653,8 @@ export const EVENT_VARIANTS = [
   ProjectCreated,
   ProjectLocationSet,
   ProjectStarterApplied,
+  ProjectCatalogLinked,
+  ProjectCatalogUnlinked,
   ProjectCheckpointRecorded,
   ProjectCheckpointFailed,
   ProjectRestored,

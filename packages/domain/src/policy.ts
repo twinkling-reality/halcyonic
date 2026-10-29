@@ -13,6 +13,9 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.set_location': 'low_consequence',
   // Writes over the project's files: the person reads what would change before confirming.
   'project.restore': 'review_required',
+  // The person's own link between a project and a catalog repository; changes no file.
+  'project.link_catalog': 'low_consequence',
+  'project.unlink_catalog': 'low_consequence',
   'workstream.create': 'low_consequence',
   'execution.start': 'low_consequence',
   'execution.send_instruction': 'low_consequence',

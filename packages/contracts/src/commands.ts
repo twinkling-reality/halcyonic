@@ -1,4 +1,5 @@
 import Type, { type Static, type TSchema } from 'typebox';
+import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId } from './checkpoints.ts';
 import { ProjectLocationChoice } from './locations.ts';
 import {
@@ -66,6 +67,21 @@ export const ProjectSetLocationCommand = defineCommand(
 export const ProjectRestoreCommand = defineCommand(
   'project.restore',
   Type.Object({ project_id: ProjectId, checkpoint_id: CheckpointId }, strict),
+);
+
+/**
+ * Links the project to one repository of the person's catalog (ADR 0039), replacing any link it
+ * had. The person's own choice: the host may suggest a repository, never link one itself.
+ */
+export const ProjectLinkCatalogCommand = defineCommand(
+  'project.link_catalog',
+  Type.Object({ project_id: ProjectId, catalog: CatalogRepositoryRef }, strict),
+);
+
+/** Removes the project's link to its catalog repository. */
+export const ProjectUnlinkCatalogCommand = defineCommand(
+  'project.unlink_catalog',
+  Type.Object({ project_id: ProjectId }, strict),
 );
 
 export const WorkstreamCreateCommand = defineCommand(
@@ -161,6 +177,8 @@ export const COMMAND_VARIANTS = [
   ProjectCreateCommand,
   ProjectSetLocationCommand,
   ProjectRestoreCommand,
+  ProjectLinkCatalogCommand,
+  ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
   ExecutionStartCommand,
   ExecutionSendInstructionCommand,
@@ -181,6 +199,8 @@ export const CommandType = Type.Union([
   Type.Literal('project.create'),
   Type.Literal('project.set_location'),
   Type.Literal('project.restore'),
+  Type.Literal('project.link_catalog'),
+  Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),
   Type.Literal('execution.start'),
   Type.Literal('execution.send_instruction'),
