@@ -39,6 +39,23 @@ namespace Halcyonic.Client
                 Payload = new ProjectSetLocationPayload { ProjectId = projectId, Location = location },
             });
 
+        /// <summary>
+        /// Links the project to one repository of the person's catalog, replacing any link (ADR 0039):
+        /// only on the person's own choice, never because the host suggested it.
+        /// </summary>
+        public ProjectLinkCatalogCommand LinkCatalog(string projectId, long repositoryId, string fullName) =>
+            Stamp(new ProjectLinkCatalogCommand
+            {
+                Payload = new ProjectLinkCatalogPayload
+                {
+                    ProjectId = projectId,
+                    Catalog = new CatalogRepositoryRef { RepositoryId = repositoryId, FullName = fullName },
+                },
+            });
+
+        public ProjectUnlinkCatalogCommand UnlinkCatalog(string projectId) =>
+            Stamp(new ProjectUnlinkCatalogCommand { Payload = new ProjectUnlinkCatalogPayload { ProjectId = projectId } });
+
         public WorkstreamCreateCommand CreateWorkstream(string projectId, string title, string? objective) =>
             Stamp(new WorkstreamCreateCommand
             {

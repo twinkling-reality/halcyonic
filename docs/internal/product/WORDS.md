@@ -453,3 +453,52 @@ sentence) is theirs and drawn as theirs. Nothing here is built yet.
 | A skipped reading | Skipped by your computer, then Not observed: {reason}. Never "no changes". | Not observed: too many files |
 | A package the starter doesn't hold | Wanted {package}, which isn't in this starter, then The install didn't run | Wanted matter-js, which isn't in this starter |
 | Reading | Read it, Fold, Whole file (unavailable until the Mac has read the file) | Read it |
+
+## The projects gallery
+
+The words of the gallery's core (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)),
+agreed with DESIGN on 2026-10-29. How the room lays them out is in "The room of projects". A
+project's state in the person's catalog is reported by Phat Porcupine, so its line never repeats a
+task's own words ("Waiting for you", "Checks failed"): a reported state is never read as one
+Halcyonic observed. Names, owners, groups and pull request titles from the catalog lean, as words
+from outside do; these lines are Halcyonic's own.
+
+| The catalog's state | Group | Line |
+| --- | --- | --- |
+| `awaiting_input` | Needs you | An agent is waiting for you |
+| `session_failed` | Needs you | An agent couldn't finish |
+| `checks_failing` | Needs you | Its checks are failing |
+| `review_requested` | Needs you | Asked for your review |
+| `changes_requested` | Needs you | Someone asked for changes |
+| `ready_to_merge` | Needs you | Ready to merge |
+| any state Halcyonic doesn't know yet | Needs you | Needs a look |
+| `agent_running` | Working now | An agent is working on it (a line, never a character) |
+| `session_complete` | Recent | An agent finished |
+| `active` | Recent | Changed recently |
+| `inactive` | Quiet | Quiet for a while |
+| `archived` | Quiet | Archived |
+| `access_lost` | Quiet | Can't reach it now |
+
+A Halcyonic project keeps its tasks' words ("1 task waiting for you, 2 paused"), or "No work yet",
+always, as this computer observed them. Linked to a catalog project, it shows the catalog's line
+beside them, marked as the catalog's, and the more urgent of the two places it in a group.
+
+| Where | Words |
+| --- | --- |
+| Where a Halcyonic project is | On your computer · No folder on your computer yet |
+| Where a catalog project is, as far as Halcyonic knows | Not linked to a project here · Maybe on your computer: {a folder the computer matched by a rule, leaning} (inferred, never a link) |
+| How old the catalog is, on the gallery's header line | Checked today at 14:50 · Checked 27 Oct at 09:05 · Couldn't check just now; last checked today at 14:50 · Couldn't check just now · Not checked yet |
+| Over a sample or simulated catalog, kept apart from real projects | Sample projects |
+| No catalog: not set up | Your other projects can show here too once Phat Porcupine is set up on your computer. |
+| No catalog: not running | Your other projects show here while Phat Porcupine is running on your computer. |
+| No catalog: still gathering | Phat Porcupine is still gathering your projects. Press Refresh in a moment. |
+| No catalog: credential refused | Phat Porcupine no longer lets Halcyonic read your projects. Set it up again on your computer. |
+| No catalog: a version Halcyonic can't read | This version of Phat Porcupine doesn't work with Halcyonic yet. |
+| No catalog: any other reason | Couldn't read your other projects just now. Press Refresh in a moment. |
+| This headset's own read failed | Couldn't read your other projects: {why, as Help me understand says it} |
+| No catalog in a recording (the demonstration, the judge build, a recorded run) | Your other projects aren't part of this recording. |
+
+The lines without a catalog that name Phat Porcupine appear only where a real control plane
+answered, never over sample projects or in a recording, so neither the judge build nor the
+competition video shows "Phat Porcupine" or "GitHub". "Phat Porcupine" is one
+constant (`GalleryText.Source`) until the owner settles the name.

@@ -1543,6 +1543,34 @@ the kit's spine.
 what each control raises in the plane's own terms: the frame's action with that frame, Hold to talk's own prompt held
 and let go, a context row's key with its owner, and the frame drawn once every control has settled.
 
+### The projects gallery's core (2026-10-29)
+
+The projects gallery ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md))
+keeps what it shows in the client core; no Unity view draws it yet. `Gallery.Build` merges every
+Halcyonic project, from the snapshot and `WorkOverview`, with the latest catalog read: a catalog
+project the person linked to a Halcyonic project becomes one item under the person's name, at the more
+urgent of the two states (`SectionFrom` says whose, this computer's on a tie). The item keeps both lines:
+its tasks as this computer observed them (`ObservedLine`, always, for every Halcyonic project) and the
+catalog's state as Phat Porcupine reported it (`ReportedLine`); a catalog-only item has only the
+reported one, and `LineReported` says the first line is the catalog's, for the view to mark. Items are grouped as `GallerySection` says, what needs the person first, then
+what is working now, what changed recently and what is quiet; within a group a Halcyonic project with
+work comes first, since only those have a character, never an agent the catalog reports, then the
+newest. Search finds a name or an owner in any case. A sample or simulated catalog stays apart in
+`Samples` under "Sample projects" and is never merged with a real project. Names, owners, groups and
+pull request titles from the catalog lean, by `LabelText`'s rule (`LineWords.TheirName`, `Theirs`);
+the state's line is Halcyonic's own, from `GalleryText.State`, where a state the catalog adds later
+"Needs a look". `GalleryText` also says where a project is, as far as the client knows: "On your computer" or
+"No folder on your computer yet" for a Halcyonic project; for a catalog-only item never that it isn't
+there, but "Not linked to a project here", or "Maybe on your computer:" and a folder the computer
+matched by a rule (`PlaceInferred`), which is never a link; how old the catalog is ("Checked today at 14:50", or that the last check failed), and, when
+there is no catalog, why, by the control plane's answer, the gallery then holding Halcyonic's own
+projects; a recorded answer says only "Your other projects aren't part of this recording.", so the
+source is named only where a real control plane answered. `CatalogFeed` asks `GET /api/catalog` (`ControlPlaneApi.ReadCatalogAsync`) when the gallery
+opens without an answer younger than a minute, on Refresh, and each minute while it stays open; the
+last answer stays shown while a new one is read and after the gallery closes. `CommandFactory`'s
+`LinkCatalog` and `UnlinkCatalog` send the person's link. The route itself, and the recorded
+demonstration's sample catalog, are not built yet. Tests: `GalleryTests`, `CatalogReadsTests`.
+
 ## Verification
 
 `apps/xr/dotnet` compiles the two packages' sources as .NET Standard 2.1 with C# 9 and warnings as
