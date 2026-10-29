@@ -205,6 +205,31 @@ namespace Halcyonic.Client
         /// <summary>The band under a line a checkpoint diff shows added.</summary>
         public static GlazeColor AddedBand => GlazeColor.Hex(0x1B3324);
 
+        /// <summary>A pressed primary action: the accent deepened, mixed in linear light 18 percent toward black.</summary>
+        public static GlazeColor PressedAccent => GlazeColor.Hex(0x53B3DA);
+
+        /// <summary>A pointed primary action: the accent lifted, mixed in linear light 16 percent toward white.</summary>
+        public static GlazeColor HoveredAccent => GlazeColor.Hex(0x88CFF1);
+
+        // The room's parts (ADR 0040), as angles at the eye; where each stands is the placement's, never the part's.
+
+        /// <summary>A picked project's screen, across.</summary>
+        public const float ScreenDegrees = 56f;
+
+        /// <summary>The screen's width over its height: a film's 16 by 9.</summary>
+        public const float ScreenAspect = 16f / 9f;
+
+        /// <summary>The screen's height, from its width and aspect.</summary>
+        public static float ScreenHeightDegrees => ScreenDegrees / ScreenAspect;
+
+        /// <summary>The bar beneath the screen, high: a whole target and the padding round it. Its width is the screen's.</summary>
+        public const float BarDegrees = 5.4f;
+
+        /// <summary>The bar folded while nothing is wanted: a handle this long and this thin.</summary>
+        public const float HandleDegrees = 6f;
+
+        public const float HandleThicknessDegrees = 0.45f;
+
         // Motion (ADR 0040), only on events; Keep things still lands each state at once.
 
         /// <summary>A moment coming out of the character: a spring this long with <see cref="PopBounce"/>.</summary>
