@@ -2343,6 +2343,39 @@ They check, for every shot the kit draws:
   words and targets held to the same rules;
 - the composer's fallback to the file's views and back.
 
+### The room of projects' placement (2026-10-29)
+
+ADR 0040's surfaces stand where `RoomLayout` (client core, no Unity) puts them. Sizes in degrees
+are the kit's and live only in `SpatialKit`; `RoomLayout` takes them as arguments and holds only
+distances and poses. Each `RoomPose` is a flat surface's centre, bearing from the eyes, tilt and
+size in metres, facing back along its bearing. No surface the person points at stands nearer than
+0.8 m or farther than 3 m (Meta's ray-cast reach); a distance outside that is refused.
+
+- **Screen.** A picked project's screen stands 2 m away on the bearing it is given, its middle at
+  eye height, as wide as the kit's angle there.
+- **Bar.** The bar has the screen's width, so its edges are the screen's and it is never wider. It
+  stands parallel to the screen, 2 cm nearer, its top a given angle under the screen's bottom.
+- **Moment slot.** The slot stands beside the task's character, at the character's distance held
+  to the reach above, a little above the character's point. It sits on the side toward where the
+  person looks, its nearer edge 1.5 degrees from the character (the workspace's clearance). It is
+  tilted to face the eyes, so it spans the kit's angle as they see it. The same character always
+  gets the same slot.
+- **Reading surface.** The reading surface stands 1 m along the look, its pitch held to 25 degrees
+  either way, square to the eyes. `RoomLayout.Between` unfolds it from the moment and folds it back,
+  turning the short way round.
+- **Heads-up items.** `HeadsUpLeash` holds at most two, 1 m away, 35 degrees to either side and
+  20 degrees low.
+  - They move with the person's position.
+  - A turn inside a 30-degree dead zone moves nothing; past it, the leash eases (7 a second, the
+    Core SDK's AlertViewHUD smoothing) to the dead zone's edge.
+  - They fade over 0.25 s while the person moves faster than the workspace's calm speed, and come
+    back once still.
+  - A third item is refused.
+
+The dead zone, side and low angles, the slot's height above the character and the fade are
+candidates that need a wearer. Nothing in the Unity layer reads `RoomLayout` yet; the plane places
+the kit's new views with it as DESIGN's units land. `RoomLayoutTests` covers it.
+
 ### The room
 
 `Assets/Halcyonic/Room` is the separate `Halcyonic.XR.Room` assembly, the only one that references
