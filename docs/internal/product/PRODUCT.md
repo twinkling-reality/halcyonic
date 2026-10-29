@@ -75,6 +75,9 @@ The workspace is the front door, including return visits. Projects and Tasks rem
 before the first task exists. Existing projects, Connect project and New project lead to the same
 ordinary Project and Workstream model; creation does not require an introductory questionnaire.
 The local companion may help develop an idea, but is an optional creation path.
+Before a person connects a computer, the headset shows what directing an agent looks like: a
+recorded real run, labeled Recorded, then a demonstration they can answer, both saying that nothing
+in them reaches an agent ([ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md)).
 
 Each task has a readable state and project context. Its detail exposes relevant Activity, Changes,
 Tests, requests and supported actions. An approval or question receives enough room to read it
