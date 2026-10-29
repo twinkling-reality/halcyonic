@@ -761,6 +761,8 @@ namespace Halcyonic.Client
         public bool BeginInput()
         {
             if (draft == null || Reviewing || ExplainingAmbiguity || QuestionPart != null || !draft.Prompts[Prompt].FreeText) return false;
+            // Typed words are journaled (ADR 0022): a question asking for a secret takes none here.
+            if (draft.Prompts.Any(prompt => prompt.Secret)) return false;
             Writing = true;
             input = draft.Typed(Prompt) ?? "";
             inputMeasured = null;

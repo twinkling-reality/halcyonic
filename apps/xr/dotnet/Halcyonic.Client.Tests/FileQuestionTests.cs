@@ -766,6 +766,21 @@ public class FileQuestionTests
     }
 
     [Test]
+    public void ASecretPromptBeginsNoTypingEvenWhereItTakesFreeText()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts[0].Secret = true;
+        Assert.That(question.Prompts[0].FreeText, Is.True, "the adapter says it takes typed words");
+        var work = new AskingWork(question);
+        var screen = new FileScreen();
+        screen.ReadQuestion(new QuestionDraft("e1", work.Question), Short(work.Question), new RowBudget(8), new RowBudget(3));
+        ShowAnswers(screen);
+        // Typed words would be journaled (ADR 0022), so the question refuses them itself, whatever a frame offers.
+        Assert.That(screen.Question.BeginInput(), Is.False);
+        Assert.That(screen.Question.Writing, Is.False);
+    }
+
+    [Test]
     public void WhileAnAnswerSentMayStillTakeEffectSendAnswerKeepsItsPlaceTakingNoPress()
     {
         var work = new AskingWork();

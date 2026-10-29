@@ -975,6 +975,21 @@ public class FileColumnTests
         Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null);
     }
 
+    [Test]
+    public void TypeAnswerOnASecretPromptOpensNoKeyboard()
+    {
+        var host = new FileMenuHost();
+        var column = AskingOn(host, null, new QuestionPrompt
+        {
+            Key = "q0", Header = "Password", Text = "What is the database password?", Multiple = false, FreeText = true, Secret = true,
+            Options = new List<QuestionOption>(),
+        });
+        // Pressed directly, as no frame offers it for a secret: the column refuses it itself.
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That(host.Keyboard, Is.Null, "no keyboard for a secret");
+        Assert.That(column.Screen.Question.Writing, Is.False);
+    }
+
     private static string LongWords(string what) =>
         string.Join(" ", Enumerable.Range(1, 120).Select(step => what + " " + step));
 
