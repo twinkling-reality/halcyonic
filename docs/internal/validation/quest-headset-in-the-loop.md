@@ -61,6 +61,10 @@
   `HEADSET_UNMOUNTED` within 2 s. Why the first one did not end it is unknown. A reading taken
   straight after the broadcast can also still show the old value. So the tool reads twice, 5 s
   apart, and sends it again while either says on.
+- 2026-10-29 09:36Z: while the Guardian dialog held the headset, two `give-back` runs (four
+  `automation_disable` broadcasts) each read `set_proximity_close=true`; about ten seconds after the
+  last, the headset was asleep and read `false`. Observed once: the override reads on until the
+  headset sleeps. So `give-back` names the dialog instead of failing for that reading.
 
 ### Installing and putting back
 
