@@ -350,7 +350,7 @@ export class CheckpointStore {
     const real = await realpath(folder);
     for (const path of this.#protect) {
       const protectedPath = await resolvedThroughExisting(path);
-      if (protectedPath === real || protectedPath.startsWith(real + sep)) return true;
+      if (within(real, protectedPath)) return true;
     }
     return false;
   }
@@ -704,6 +704,11 @@ export async function removeInside(folder: string, relative: string): Promise<vo
   if (realParent !== realFolder && !realParent.startsWith(realFolder + sep))
     throw new Error('a folder in the project now leads outside it');
   await rm(path, { recursive: true, force: true });
+}
+
+/** Whether `path` is `base` or inside it, `/` included. Exported for its tests. */
+export function within(base: string, path: string): boolean {
+  return path === base || path.startsWith(base.endsWith(sep) ? base : base + sep);
 }
 
 /** The path as the file system resolves it, through its nearest folder that exists. */

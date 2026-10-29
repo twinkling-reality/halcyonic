@@ -17,7 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { CheckpointStore, removeInside } from './store.ts';
+import { CheckpointStore, removeInside, within } from './store.ts';
 
 // The system's git, as the owner's Mac has it; the tests need a real one.
 const GIT = '/usr/bin/git';
@@ -302,6 +302,15 @@ describe("a folder that holds Halcyonic's own data", () => {
     mkdirSync(join(folder, 'data'));
     const taken = await guarded.take(PROJECT, folder, nextId());
     assert.equal(!taken.ok && taken.code, 'holds_host_data');
+  });
+});
+
+describe('a project folder at the root of the disk', () => {
+  // `/` followed by a separator would be `//`, which no real path starts with (AUDIT L1 note).
+  test('holds every protected folder', () => {
+    assert.equal(within('/', '/Users/someone/.halcyonic'), true);
+    assert.equal(within('/Users/someone', '/Users/someone/.halcyonic'), true);
+    assert.equal(within('/Users/some', '/Users/someone/.halcyonic'), false);
   });
 });
 

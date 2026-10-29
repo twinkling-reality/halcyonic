@@ -48,7 +48,14 @@ import { createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import { capturingLogger } from '../testing/harness.ts';
-import { compareReadings, FileObserver, readEntry, readFolder } from './file-observer.ts';
+import {
+  compareReadings,
+  FileObserver,
+  listFolder,
+  readEntry,
+  readFolder,
+  within,
+} from './file-observer.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-observer-')));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -154,6 +161,25 @@ describe('reading one file, as it is when opened', () => {
       await readEntry(join(root, 'big.bin'), undefined, { files: 10, countLinesUpTo: 1024 }, 1024),
       'too_large',
     );
+  });
+});
+
+describe('a subfolder swapped for a link while the folder is read', () => {
+  // The folder is listed before its subfolders are, so one can be swapped for a link in between (AUDIT L1 C1b).
+  test('is not listed through the link', async () => {
+    const root = folder('swap-dir');
+    const outside = folder('swap-dir-outside');
+    writeFileSync(join(outside, 'secret.txt'), 'x\n');
+    symlinkSync(outside, join(root, 'src'));
+    assert.equal(await listFolder(root, 'src'), null);
+  });
+
+  test('nor is a folder below it, reached through the link', async () => {
+    const root = folder('swap-parent');
+    const outside = folder('swap-parent-outside');
+    mkdirSync(join(outside, 'inner'));
+    symlinkSync(outside, join(root, 'src'));
+    assert.equal(await listFolder(root, 'src/inner'), null);
   });
 });
 
@@ -569,6 +595,34 @@ describe("a folder that holds Halcyonic's own data", () => {
     const turn = await observer.turnEnded(id, root);
     assert.equal(turn.skipped, null);
     assert.deepEqual(turn.created.files, [{ path: 'b.ts', lines: 1, bytes: 2 }]);
+  });
+});
+
+describe('a file changed with its size kept and its time set back', () => {
+  // touch -m -t can put a file's modification time back; its change time cannot be (AUDIT L1 C6).
+  test('is read again and shows as changed', async () => {
+    const root = folder('same-size');
+    const path = join(root, 'game.ts');
+    writeFileSync(path, 'aaaa\n');
+    const then = 1_790_000_000;
+    utimesSync(path, then, then);
+    const before = await readFolder(root);
+    assert.ok(before.ok);
+    writeFileSync(path, 'bbbb\n');
+    utimesSync(path, then, then);
+    const afterReading = await readFolder(root, before.reading);
+    assert.ok(afterReading.ok);
+    assert.deepEqual(compareReadings(before.reading, afterReading.reading).changed, [
+      { path: 'game.ts', lines_before: 1, lines_after: 1, bytes: 5 },
+    ]);
+  });
+});
+
+describe('a project folder at the root of the disk', () => {
+  test('holds every protected folder', () => {
+    assert.equal(within('/', '/Users/someone/.halcyonic'), true);
+    assert.equal(within('/Users/someone', '/Users/someone/.halcyonic'), true);
+    assert.equal(within('/Users/some', '/Users/someone/.halcyonic'), false);
   });
 });
 
