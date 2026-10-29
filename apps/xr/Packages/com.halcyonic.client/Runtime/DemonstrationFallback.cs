@@ -84,10 +84,13 @@ namespace Halcyonic.Client
             : controlPlane == null ? DemonstrationReason.NotConfigured
             : DemonstrationReason.Unreachable;
 
-        /// <summary>What the line above the stage says while the demonstration is shown; null while it is not.</summary>
+        /// <summary>
+        /// What the line above the stage says while the demonstration is shown; null while it is not.
+        /// While a recording is still being read, or once it has failed to be read, it names that recording.
+        /// </summary>
         public string? Line => Reason is DemonstrationReason reason
             ? Describe(reason, controlPlane?.Status, (player?.Ended ?? false) || (player?.Finished ?? false),
-                player?.Recording?.IsRecordedRun ?? false, next: RecordedRunFollows)
+                player?.Recording?.IsRecordedRun ?? showingRecordedRun, next: RecordedRunFollows)
             : null;
 
         /// <summary>

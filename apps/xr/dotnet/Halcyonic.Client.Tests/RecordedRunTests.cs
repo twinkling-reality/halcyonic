@@ -298,6 +298,21 @@ public class RecordedRunHandOffTests
     }
 
     [Test]
+    public async Task WhileTheRecordedRunIsReadTheLineSaysItIsTheRecordedRun()
+    {
+        var reading = new TaskCompletionSource<DemonstrationRecording>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fallback = Start(ShortDemonstration, () => new DemonstrationPlayer(reading.Task, Samples.Client, Once()));
+        fallback.Pump();
+        Assert.That(fallback.Player?.Recording, Is.Null, "the run is still being read");
+        Assert.That(fallback.Line, Does.StartWith("Recorded: real agent work"), "while it is read");
+
+        reading.SetException(new InvalidDataException("not a recording"));
+        Assert.That(fallback.Line, Does.StartWith("Recorded: real agent work"), "once it has failed, until the demonstration takes its place");
+        await Until(fallback, () => Playing(fallback, recordedRun: false), "the demonstration plays instead");
+        Assert.That(fallback.Line, Does.StartWith("Demo: recorded work"));
+    }
+
+    [Test]
     public async Task ARecordedRunThatCannotBeReadIsNotReadAgainWhenNoDemonstrationCanBeMade()
     {
         var runs = 0;
