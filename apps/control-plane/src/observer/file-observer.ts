@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, type Dirent } from 'node:fs';
 import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { basename, dirname, join, sep } from 'node:path';
 import {
@@ -42,7 +42,11 @@ export const DEFAULT_READING_LIMITS: ReadingLimits = {
 
 interface Entry {
   readonly bytes: number;
+  // Reused only while all four are unchanged: a modification time can be set back, a change time cannot.
   readonly mtimeMs: number;
+  readonly ctimeMs: number;
+  readonly ino: number;
+  readonly dev: number;
   readonly hash: string;
   readonly lines: number | null;
 }
@@ -88,6 +92,12 @@ export async function readFolder(
   } catch {
     return { ok: false, code: 'location_missing', message: "The task's folder is not there." };
   }
+  let root: string;
+  try {
+    root = await realpath(folder);
+  } catch {
+    return { ok: false, code: 'location_missing', message: "The task's folder is not there." };
+  }
   const reading = new Map<string, Entry>();
   const pending: string[] = [''];
   let bytes = 0;
@@ -95,7 +105,14 @@ export async function readFolder(
   try {
     while (pending.length > 0) {
       const relative = pending.pop() as string;
-      for (const entry of await readdir(join(folder, relative), { withFileTypes: true })) {
+      const entries = await listFolder(root, relative);
+      if (entries === null) {
+        // The folder itself changed while it was read: nothing below it can be trusted.
+        if (relative === '') throw new Error('the folder changed while it was read');
+        notRead += 1;
+        continue;
+      }
+      for (const entry of entries) {
         if (relative === '' && SKIPPED_NAMES.has(entry.name)) continue;
         const path = relative === '' ? entry.name : `${relative}/${entry.name}`;
         if (entry.isDirectory()) pending.push(path);
@@ -107,7 +124,7 @@ export async function readFolder(
               message: `The folder holds more than the ${limits.files} files the Mac reads for a turn.`,
             };
           const read = await readEntry(
-            join(folder, path),
+            join(root, path),
             previous?.get(path),
             limits,
             (limits.bytes ?? Number.POSITIVE_INFINITY) - bytes,
@@ -132,6 +149,27 @@ export async function readFolder(
     return { ok: false, code: 'unreadable', message: 'A file or folder in it could not be read.' };
   }
   return { ok: true, reading, notRead };
+}
+
+/**
+ * A folder's entries, only while it is the folder it was listed as: a real folder, not a link, at its
+ * real path below `root` (a real path), checked before and after it is listed; `null` otherwise. This
+ * narrows the time a folder swapped for a link could be walked; it does not close it. Exported for its
+ * tests.
+ */
+export async function listFolder(root: string, relative: string): Promise<Dirent[] | null> {
+  const path = relative === '' ? root : join(root, relative);
+  if (!(await isFolderAt(path))) return null;
+  const entries = await readdir(path, { withFileTypes: true });
+  return (await isFolderAt(path)) ? entries : null;
+}
+
+async function isFolderAt(path: string): Promise<boolean> {
+  try {
+    return (await lstat(path)).isDirectory() && (await realpath(path)) === path;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -161,7 +199,10 @@ export async function readEntry(
     if (
       previous !== undefined &&
       previous.bytes === stats.size &&
-      previous.mtimeMs === stats.mtimeMs
+      previous.mtimeMs === stats.mtimeMs &&
+      previous.ctimeMs === stats.ctimeMs &&
+      previous.ino === stats.ino &&
+      previous.dev === stats.dev
     )
       return previous;
     const hash = createHash('sha256');
@@ -191,7 +232,15 @@ export async function readEntry(
     }
     // A last line without a newline still counts.
     const counted = countLines && !binary ? lines + (last !== -1 && last !== 0x0a ? 1 : 0) : null;
-    return { bytes: position, mtimeMs: stats.mtimeMs, hash: hash.digest('hex'), lines: counted };
+    return {
+      bytes: position,
+      mtimeMs: stats.mtimeMs,
+      ctimeMs: stats.ctimeMs,
+      ino: stats.ino,
+      dev: stats.dev,
+      hash: hash.digest('hex'),
+      lines: counted,
+    };
   } finally {
     await handle.close();
   }
@@ -389,9 +438,14 @@ async function holdsHostData(folder: string, protect: readonly string[]): Promis
   }
   for (const path of protect) {
     const protectedPath = await resolvedThroughExisting(path);
-    if (protectedPath === real || protectedPath.startsWith(real + sep)) return true;
+    if (within(real, protectedPath)) return true;
   }
   return false;
+}
+
+/** Whether `path` is `base` or inside it, `/` included. Exported for its tests. */
+export function within(base: string, path: string): boolean {
+  return path === base || path.startsWith(base.endsWith(sep) ? base : base + sep);
 }
 
 /** The path as the file system resolves it, through its nearest folder that exists. */
