@@ -56,6 +56,9 @@ words never on the room, state never by colour alone, Keep things still landing 
    host's check opened the VR version, and that check may render the laptop version in the host's sandboxed headless
    browser, which is a check, never play. Playing a VR game on the laptop is not decided here: agent-written code
    runs only in the headset's browser ([ADR 0037](0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)).
+   Amended 2026-10-29: the bar stays parallel to the screen across, but it tilts in pitch to face the eyes. About 19
+   degrees below eye level and upright, its buttons read 3.3 to 3.5 degrees; tilted, they keep the 3.75-degree floor.
+   The wearer judges the tilt. [XR_CLIENT.md](../architecture/XR_CLIENT.md) has the measures.
 3. **The task's character is its home in the room** (a Workstream, never a vendor session or a catalog project, ADR
    0039), and it is shown by default: the owner accepted the room with characters beside the projects that have a task
    going and moments coming from them. ADR 0029's lesson stays whole
