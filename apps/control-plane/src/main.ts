@@ -127,7 +127,8 @@ async function main(): Promise<void> {
             }),
           },
         }),
-    observeFiles: true,
+    // A project folder holding the journal and token is never read, as it is never checkpointed.
+    observeFiles: { protect: [config.dataDir] },
     starters: new HostStarters({
       trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
       installedDir: join(config.dataDir, 'starters'),

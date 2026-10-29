@@ -31,7 +31,8 @@ export type FileDeleted = Static<typeof FileDeleted>;
 
 /**
  * Why the Mac could not say what changed: no earlier reading of the folder (a restart lost it),
- * more files than it reads, the folder gone, or a file it could not read.
+ * more files than it reads, the folder gone, a file it could not read, or a folder that holds
+ * Halcyonic's own data (its journal and token), which it never reads.
  */
 export const FilesObservedSkip = Type.Object(
   {
@@ -40,6 +41,7 @@ export const FilesObservedSkip = Type.Object(
       Type.Literal('too_large'),
       Type.Literal('location_missing'),
       Type.Literal('unreadable'),
+      Type.Literal('holds_host_data'),
     ]),
     message: Type.String({ minLength: 1, maxLength: 2000 }),
   },
@@ -77,6 +79,13 @@ export const FilesObserved = Type.Object(
       },
       strict,
     ),
+    /**
+     * Entries found in the folder and not read, so the lists cannot show them: links (other than
+     * the top-level `node_modules`), FIFOs, sockets and devices, and files swapped for one of those
+     * after the folder was listed. The top-level `.git` and `node_modules` are never read and are
+     * not counted. 0 when the turn was skipped.
+     */
+    not_read: Type.Integer({ minimum: 0 }),
     skipped: Type.Union([FilesObservedSkip, Type.Null()]),
   },
   strict,

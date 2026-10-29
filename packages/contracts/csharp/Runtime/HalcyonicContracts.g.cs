@@ -1494,6 +1494,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "too_large")] TooLarge,
         [EnumMember(Value = "location_missing")] LocationMissing,
         [EnumMember(Value = "unreadable")] Unreadable,
+        [EnumMember(Value = "holds_host_data")] HoldsHostData,
     }
 
     public sealed class FilesObservedSkipped
@@ -1518,6 +1519,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("deleted", Required = Required.Always)]
         public FilesObservedDeleted Deleted { get; set; } = default!;
+
+        [JsonProperty("not_read", Required = Required.Always)]
+        public long NotRead { get; set; }
 
         [JsonProperty("skipped", Required = Required.AllowNull)]
         public FilesObservedSkipped? Skipped { get; set; }

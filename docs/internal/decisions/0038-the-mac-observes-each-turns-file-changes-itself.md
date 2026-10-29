@@ -24,9 +24,14 @@ execution it starts in a folder:
   runtime reports a turn completed, failed or interrupted. Each reading keeps, per file, the path
   relative to the folder, its size, its modification time, its SHA-256 and its line count; never its
   contents. A file whose size and time are unchanged is not read again.
-- It skips `.git` and `node_modules` at any depth and never follows a link. It reads at most 20,000
-  files and 256 MB; a larger folder, a folder that has gone, or a file it cannot read gives a turn's
-  record with `skipped` and the reason instead of lists. A start waits at most 10 seconds for the
+- It skips `.git` and `node_modules` at the folder's top level only; deeper, folders of those names
+  are the agent's own and are read. It opens each file without following a link and reads it only if
+  what it opened is a file, so it never reads through a link or waits on a FIFO or device; each record
+  counts in `not_read` what it found and did not read. It reads at most 20,000 files and 256 MB,
+  refusing a file past the byte bound before reading it; a larger folder, a folder that has gone, or a
+  file it cannot read gives a turn's record with `skipped` and the reason instead of lists. A folder
+  that holds Halcyonic's own data (its journal and token) is never read, as undo never checkpoints
+  it: each turn says `holds_host_data`. A start waits at most 10 seconds for the
   first reading; past that it goes ahead, the late reading is not used, and the first turn says
   `no_baseline`.
 - The control plane's own start turns it on; it is off by default for recorded traces and tests.
