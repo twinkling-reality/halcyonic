@@ -159,7 +159,7 @@ describe('sanitizing a recorded real run', () => {
     assert.deepEqual(start.client, RECORDED_CLIENT);
   });
 
-  test('agent text is never edited', () => {
+  test("agent text is never edited beyond the project folder's path", () => {
     const before = realShaped();
     const after = sanitizeRecordedRun(before, OPTIONS);
     const said = (events: EventEnvelope[]) =>
@@ -238,6 +238,39 @@ describe('sanitizing a recorded real run', () => {
       assert.ok(!error.message.includes(text), 'the error never repeats the text');
     });
   }
+
+  // A folder beside the project, or one whose name only starts with the project's, is not the project:
+  // its path stays as it is, so the scan finds the home folder in it and refuses the run.
+  const siblings: readonly { name: string; text: string }[] = [
+    { name: 'a sibling with a suffix', text: `Read ${PROJECT}-old/notes/plan.md.` },
+    { name: 'a sibling with a number', text: `Copied ${PROJECT}2/src/main.ts.` },
+    { name: 'a folder the root is a prefix of', text: `Opened ${PROJECT}front/index.html.` },
+    { name: 'a sibling with a dotted suffix', text: `Kept ${PROJECT}.old/main.ts.` },
+  ];
+  for (const { name, text } of siblings) {
+    test(`refuses ${name} of the project instead of calling it the project folder`, () => {
+      const events = realShaped();
+      const message = first(events, 'runtime.agent_message');
+      message.payload.text = text;
+      const error = errorOf(() => sanitizeRecordedRun(events, OPTIONS));
+      const finding = error.findings.find((entry) => entry.field === 'payload.text');
+      assert.ok(finding, `a finding on payload.text: ${error.message}`);
+      assert.match(finding.reason, /home/);
+    });
+  }
+
+  test('the project folder is rewritten only as a whole path', () => {
+    const events = realShaped();
+    const message = first(events, 'runtime.agent_message');
+    message.payload.text = `Read ${PROJECT}/src/main.ts in ${PROJECT}. Then "${PROJECT}", (${PROJECT}) and ${PROJECT}`;
+    const cleaned = sanitizeRecordedRun(events, OPTIONS);
+    const after = cleaned[events.indexOf(message as EventEnvelope)];
+    assert.ok(after?.event_type === 'runtime.agent_message');
+    assert.equal(
+      after.payload.text,
+      'Read src/main.ts in the project folder. Then "the project folder", (the project folder) and the project folder',
+    );
+  });
 
   test('every key is scanned, and a refusal never prints it', () => {
     const events = realShaped();

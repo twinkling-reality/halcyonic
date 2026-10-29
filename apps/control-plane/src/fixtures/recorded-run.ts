@@ -197,15 +197,22 @@ export class RecordedRunError extends OwnWordsError {
 }
 
 /**
- * Makes a real run's journal fit to be read by anyone: the only changes are where files live
- * (paths under the project's folder become relative to it), the runtime's identity (a neutral id,
- * kind and name, also in native types and commands), the model the runtime reported, the client
- * that sent the commands, and the output of commands, which is left out (`omitted_scope`, exit
- * codes kept) because tools print their makers' names. Instructions, agent messages, approval
- * requests, tool titles, patches, provenance, identifiers and times are never edited: if any of
- * them still carries a name a judge must not read, a home or private path, an address, a URL,
- * an email, a credential or a denied word, this throws with every place it found, naming the field
- * and the kind of text but never the text, and the run must be recorded again.
+ * Prepares a real run's journal to be shown. The only changes are where files live, the runtime's
+ * identity (a neutral id, kind and name, also in native types and commands), the model the runtime
+ * reported, the client that sent the commands, and the output of commands, which is left out
+ * (`omitted_scope`, exit codes kept) because tools print their makers' names.
+ *
+ * Where files live: the project folder's path is rewritten in every string, what the person and the
+ * agent said included, wherever it stands as a whole path, that is followed by `/`, the end of the
+ * text, white space, a quote, a bracket or punctuation that ends a sentence. A path under it becomes
+ * relative to it, and the folder itself reads "the project folder". A folder that only starts with
+ * its path, such as `<root>-old`, `<root>2` or `<root>.old`, is another folder and is left as it is.
+ *
+ * Nothing else in instructions, agent messages, approval requests, tool titles, patches, provenance,
+ * identifiers or times is edited: if any of them still carries a name a judge must not read, a home
+ * or private path, an address, a URL, an email, a credential or a denied word, this throws with
+ * every place it found, naming the field and the kind of text but never the text, and the run must
+ * be recorded again. The rules find only what they list, so a person reads the whole recording too.
  */
 export function sanitizeRecordedRun(
   events: readonly EventEnvelope[],
@@ -231,8 +238,13 @@ export function sanitizeRecordedRun(
   }
   if (runtimes.size === 0) throw new RecordedRunError('The run started no execution.');
 
+  // The root, then `/` (taken away with it) or a lookahead for what ends a whole path.
+  const whole = new RegExp(
+    `${literal(root)}(?:(/)|(?=$|[\\s"'\`,;:!?)\\]}>]|\\.(?:$|[\\s"'\`)\\]}>])))`,
+    'g',
+  );
   const relative = (text: string) =>
-    text.split(`${root}/`).join('').split(root).join(PROJECT_FOLDER);
+    text.replace(whole, (_match, slash: string | undefined) => (slash ? '' : PROJECT_FOLDER));
   const cleaned = events.map((event) => {
     const copy = rewrite(structuredClone(event), (text) => relative(text)) as EventEnvelope;
     if (copy.source.kind === 'runtime' && runtimes.has(copy.source.runtime_id)) {
