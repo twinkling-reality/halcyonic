@@ -145,8 +145,157 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.Add(name + ": the bar's top is " + Degrees(gap) + " degrees " + (below ? "under" : "over") + " the screen's bottom, not " + Degrees(RoomLayout.BarGapDegrees) + " under");
             if (open == bar.Handle.gameObject.activeSelf) failures.Add(name + ": the bar is " + (open ? "folded" : "open") + " against the model");
 
-            // Every word at the reading floor as the eyes see it where it stands.
-            foreach (var label in screen.GetComponentsInChildren<TMP_Text>(false).Concat(bar.GetComponentsInChildren<TMP_Text>(false)))
+            failures.AddRange(SeenAtTheFloor(name, eyes, screen.GetComponentsInChildren<TMP_Text>(false).Concat(bar.GetComponentsInChildren<TMP_Text>(false)),
+                bar.Targets.ToList(), bar.transform, "the bar"));
+            if (open && !bar.Targets.Any()) failures.Add(name + ": the open bar shows no target");
+            if (!screen.ReadsWhole) failures.Add(name + ": the screen's title chip is cut");
+            if (!model.ShowsPicture && (screen.Mark.text != model.Monogram || !screen.Mark.gameObject.activeInHierarchy))
+                failures.Add(name + ": the screen shows no neutral mark where no picture exists");
+
+            return failures;
+        }
+
+        /// <summary>
+        /// A task's moment where the plane stands it beside a real character (ADR 0040, rule 4), measured as Unity laid it
+        /// out: on the character's side toward the look, 23 degrees across at the character's distance, its nearer edge
+        /// 1.5 degrees clear of the character's body and label, facing the eyes, its growing corner toward the character,
+        /// the same slot for the same character, every glyph at the floor and every target whole as the eyes get them, the
+        /// carrier opaque. The character stands right of the look and left of it, at both text sizes. A card moved onto the
+        /// character and one on the far side of it must each be caught. Every name is synthetic.
+        /// </summary>
+        public static void RoomMomentCheck()
+        {
+            InstrumentFontAtlas.ValidateSaved();
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "RoomRenders", variant));
+                Directory.CreateDirectory(folder);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var found = new List<string>();
+                try
+                {
+                    foreach (var bearing in new[] { 25f, -25f }) found.AddRange(RenderRoomMoment(folder, bearing));
+                }
+                finally { KeepFontAssetsAsCommitted(); }
+                foreach (var failure in found) Debug.LogError("Halcyonic: room moment: " + failure);
+                if (found.Count == 0) Debug.Log("Halcyonic: room moment: every check passed; " + folder);
+                return found;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        private static IEnumerable<string> RenderRoomMoment(string folder, float bearing)
+        {
+            var name = "moment-" + (bearing > 0f ? "right" : "left");
+            var failures = new List<string>();
+            var root = new GameObject("Room moment witness");
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32);
+            try
+            {
+                var eyes = new Vector3(0f, EyeHeight, 0f);
+                var camera = MakeCamera(root.transform, eyes, texture);
+                camera.transform.rotation = Quaternion.Euler(12f, bearing / 2f, 0f);
+                camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+                var work = Work.Running();
+                var view = CharacterView.Create(root.transform, work.Workstream.WorkstreamId);
+                view.Show(work.Present().Character);
+                var (height, scale) = CharacterStage.Stance(view, CharacterStage.DefaultDistance, 0f, CharacterStage.DefaultHeightFromEyes);
+                var toward = Quaternion.Euler(0f, bearing, 0f) * Vector3.forward;
+                view.transform.SetPositionAndRotation(eyes + toward * CharacterStage.DefaultDistance + Vector3.up * height, Quaternion.LookRotation(-toward));
+                view.transform.localScale = Vector3.one * scale;
+                var target = CharacterTarget.Attach(view, work.Workstream.WorkstreamId);
+                var body = WorkspaceLayout.InView(target, eyes);
+                var at = new DateTimeOffset(2026, 10, 29, 10, 38, 0, TimeSpan.Zero);
+                var slot = new KitMomentSlot(new[] { KitMoment.Sent("Codex"),
+                    KitMoment.Question("Codex", "npm install matter-js", KitSandbox.MayLeave, complete: true, at) }, working: true);
+                var plane = MenuPlane.Create(root.transform);
+                plane.ShowMoment(slot, eyes, 0f, target.RestPosition, body.HalfWidth);
+                var card = plane.Moment!;
+                card.Pop(1f);
+                failures.AddRange(RoomMomentState(name, eyes, plane, card, body, target.RestPosition));
+                var first = plane.MomentPose;
+                plane.ShowMoment(slot, eyes, 0f, target.RestPosition, body.HalfWidth);
+                card.Pop(1f);
+                if (!Equals(plane.MomentPose, first)) failures.Add(name + ": the same character's moment moved to another slot");
+
+                // The witnesses: each must be caught by the same checks.
+                var holder = card.transform.parent;
+                var stood = (holder.position, holder.rotation);
+                var bodyAt = target.RestPosition;
+                holder.position = new Vector3(bodyAt.x, holder.position.y, bodyAt.z);
+                if (!RoomMomentState(name, eyes, plane, card, body, bodyAt).Any(failure => failure.Contains("clear of the character")))
+                    failures.Add(name + ": the clearance check accepted a moment moved onto the character");
+                var across = Quaternion.AngleAxis(2f * Mathf.DeltaAngle(Bearing(stood.position - eyes), body.Yaw), Vector3.up);
+                holder.SetPositionAndRotation(eyes + across * (stood.position - eyes), across * stood.rotation);
+                if (!RoomMomentState(name, eyes, plane, card, body, bodyAt).Any(failure => failure.Contains("grows away from") || failure.Contains("on the far side")))
+                    failures.Add(name + ": the corner check accepted a moment on the far side of its character");
+                holder.SetPositionAndRotation(stood.position, stood.rotation);
+
+                var image = Render(camera, texture);
+                var seen = camera.WorldToViewportPoint(card.Carrier.Face.transform.position);
+                if (seen.z <= 0f || seen.x < 0f || seen.x > 1f || seen.y < 0f || seen.y > 1f)
+                    failures.Add(name + ": the moment stands outside the render");
+                else if (image.GetPixel(Mathf.RoundToInt(seen.x * (Size - 1)), Mathf.RoundToInt(seen.y * (Size - 1))).a < 254f / 255f)
+                    failures.Add(name + ": the moment's carrier is not opaque in the pixels");
+                File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(image);
+                plane.HideMoment();
+                if (plane.Moment != null || plane.MomentPose != null) failures.Add(name + ": the moment stayed after it was taken away");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
+        private static float Bearing(Vector3 offset) => Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg;
+
+        private static List<string> RoomMomentState(string name, Vector3 eyes, MenuPlane plane, KitMomentCard card, BodyInView body, Vector3 character)
+        {
+            var failures = new List<string>();
+            static string Degrees(float value) => value.ToString("0.00", CultureInfo.InvariantCulture);
+            var holder = card.transform.parent;
+            var face = card.Carrier.Face.transform.position;
+            var half = holder.right * (card.Size.x * holder.lossyScale.x / 2f);
+            Vector3 left = face - half, right = face + half;
+            var across = Vector3.Angle(left - eyes, right - eyes);
+            if (Mathf.Abs(across - SpatialKit.MomentDegrees) > 0.1f)
+                failures.Add(name + ": the moment spans " + Degrees(across) + " degrees, not " + Degrees(SpatialKit.MomentDegrees));
+            if (Vector3.Dot(holder.forward, (face - eyes).normalized) < 0.9999f) failures.Add(name + ": the moment does not face the eyes");
+            // Toward the look: the slot stands between the character and where the person looks (straight ahead here).
+            var characterSide = Mathf.Sign(body.Yaw);
+            var nearer = Mathf.Abs(Mathf.DeltaAngle(Bearing(left - eyes), body.Yaw)) < Mathf.Abs(Mathf.DeltaAngle(Bearing(right - eyes), body.Yaw)) ? left : right;
+            // Apart, not only the nearer edge: the card's span and the body's with its label must not meet.
+            float a = Mathf.DeltaAngle(body.Yaw, Bearing(left - eyes)), b = Mathf.DeltaAngle(body.Yaw, Bearing(right - eyes));
+            var clear = Mathf.Max(Mathf.Min(a, b) - body.HalfWidth, -body.HalfWidth - Mathf.Max(a, b));
+            var between = Mathf.Sign(Mathf.DeltaAngle(Bearing(face - eyes), body.Yaw)) == characterSide;
+            if (!between || clear < RoomLayout.MomentClearanceDegrees - 0.05f)
+                failures.Add(name + ": the moment's nearer edge is " + Degrees(clear) + " degrees " + (between ? "" : "on the far side, not ") + "clear of the character's body and label, under "
+                    + Degrees(RoomLayout.MomentClearanceDegrees));
+            var flatCard = new Vector2(face.x - eyes.x, face.z - eyes.z).magnitude;
+            var flatCharacter = new Vector2(character.x - eyes.x, character.z - eyes.z).magnitude;
+            if (Mathf.Abs(flatCard - Mathf.Clamp(flatCharacter, RoomLayout.NearestSurface, RoomLayout.FarthestSurface)) > 0.001f)
+                failures.Add(name + ": the moment stands " + flatCard.ToString("0.000", CultureInfo.InvariantCulture) + " m across the floor, not the character's distance");
+            // It grows from one lower corner: that corner must be the one toward the character.
+            if (nearer != (card.GrowsFromLeft ? left : right)) failures.Add(name + ": the moment grows away from its character");
+            failures.AddRange(SeenAtTheFloor(name, eyes, card.GetComponentsInChildren<TMP_Text>(false), card.Targets.ToList(), holder, "the moment"));
+            if (!card.ReadsWhole) failures.Add(name + ": the moment's words are cut");
+            return failures;
+        }
+
+        /// <summary>
+        /// Every word at the reading floor and every target whole, each as the eyes get it at its own distance, and every
+        /// two targets 12 mm apart edge to edge in <paramref name="space"/>; the least target is also logged along
+        /// <paramref name="what"/>'s normal, the kit's KitTargets convention.
+        /// </summary>
+        private static List<string> SeenAtTheFloor(string name, Vector3 eyes, IEnumerable<TMP_Text> labels, List<KitPress> targets, Transform space, string what)
+        {
+            var failures = new List<string>();
+            static string Degrees(float value) => value.ToString("0.00", CultureInfo.InvariantCulture);
+            foreach (var label in labels)
             {
                 if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label)) continue;
                 var em = label.fontSize * 0.1f * label.transform.lossyScale.y;
@@ -154,14 +303,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (seen < Glaze.MinimumTextDegrees * 0.9999f)
                     failures.Add(name + ": " + PathOf(label.transform) + " reads " + seen.ToString("0.000", CultureInfo.InvariantCulture) + " degrees, under the reading floor");
             }
-            if (!screen.ReadsWhole) failures.Add(name + ": the screen's title chip is cut");
-            if (!model.ShowsPicture && (screen.Mark.text != model.Monogram || !screen.Mark.gameObject.activeInHierarchy))
-                failures.Add(name + ": the screen shows no neutral mark where no picture exists");
-
             // Every target whole as the eyes see it, and 12 mm from the next.
-            var targets = bar.Targets.ToList();
-            if (open && targets.Count == 0) failures.Add(name + ": the open bar shows no target");
-            // As the eyes get it: at the target's own distance from them, not along the bar's normal (the kit's
+            // As the eyes get it: at the target's own distance from them, not along the part's normal (the kit's
             // KitTargets convention), which reads a 56-degree bar's end targets about a tenth larger. Both are logged.
             float leastTrue = float.PositiveInfinity, leastNormal = float.PositiveInfinity;
             foreach (var press in targets)
@@ -175,16 +318,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 leastNormal = Mathf.Min(leastNormal, alongNormal);
                 if (Mathf.Min(tall, wide) < SpatialKit.TargetDegrees * 0.96f - 0.01f)
                     failures.Add(name + ": " + PathOf(press.transform) + " is " + Degrees(wide) + " by " + Degrees(tall) + " degrees as the eyes get it, under "
-                        + Degrees(SpatialKit.TargetDegrees) + " (" + Degrees(alongNormal) + " along the bar's normal)");
+                        + Degrees(SpatialKit.TargetDegrees) + " (" + Degrees(alongNormal) + " along " + what + "'s normal)");
             }
             if (targets.Count > 0)
-                Debug.Log("Halcyonic: room screen: " + name + ": the least target " + Degrees(leastTrue) + " degrees as the eyes get it, "
-                    + Degrees(leastNormal) + " along the bar's normal.");
+                Debug.Log("Halcyonic: room: " + name + ": the least target " + Degrees(leastTrue) + " degrees as the eyes get it, "
+                    + Degrees(leastNormal) + " along " + what + "'s normal.");
             var rects = targets.Select(press =>
             {
                 var half = press.Size / 2f;
-                var a = bar.transform.InverseTransformPoint(press.transform.TransformPoint(new Vector3(-half.x, -half.y, 0f)));
-                var b = bar.transform.InverseTransformPoint(press.transform.TransformPoint(new Vector3(half.x, half.y, 0f)));
+                var a = space.InverseTransformPoint(press.transform.TransformPoint(new Vector3(-half.x, -half.y, 0f)));
+                var b = space.InverseTransformPoint(press.transform.TransformPoint(new Vector3(half.x, half.y, 0f)));
                 return (press, Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y)));
             }).ToList();
             for (var i = 0; i < rects.Count; i++)
@@ -194,7 +337,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var (second, b) = rects[j];
                 var dx = Mathf.Max(0f, Mathf.Max(a.xMin - b.xMax, b.xMin - a.xMax));
                 var dy = Mathf.Max(0f, Mathf.Max(a.yMin - b.yMax, b.yMin - a.yMax));
-                var apart = Mathf.Sqrt(dx * dx + dy * dy) * bar.transform.lossyScale.x;
+                var apart = Mathf.Sqrt(dx * dx + dy * dy) * space.lossyScale.x;
                 if (apart < Glaze.TargetGapMeters - 0.0003f)
                     failures.Add(name + ": " + first.name + " and " + second.name + " are " + (apart * 1000f).ToString("0.0", CultureInfo.InvariantCulture) + " mm apart, under 12");
             }
