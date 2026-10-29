@@ -53,6 +53,11 @@ namespace Halcyonic.XR
 
         private const float EyeSwitchSeconds = 0.18f;
 
+        /// <summary>An idle glance: how often it comes, how long it holds, and how far aside it looks. Candidates, for a wearer.</summary>
+        private const float GlanceEverySeconds = 6.5f;
+        private const float GlanceSeconds = 0.8f;
+        private const float GlanceLook = 0.6f;
+
         private static readonly int BodyColorId = Shader.PropertyToID("_BodyColor");
         private static readonly int ClockId = Shader.PropertyToID("_Clock");
         private static readonly int FlowId = Shader.PropertyToID("_Flow");
@@ -114,6 +119,9 @@ namespace Halcyonic.XR
 
         // The animation, advanced every frame toward the cues' targets.
         private float clock;
+
+        /// <summary>When the current motion began, on <see cref="clock"/>: a hop that happens once counts from here.</summary>
+        private float motionSince;
 
         /// <summary>The clock its surface's flow and fog and its sweep ring run on: it stands while things are kept still.</summary>
         private float surfaceClock;
@@ -274,11 +282,20 @@ namespace Halcyonic.XR
             return view;
         }
 
-        public void Show(CharacterPresentation next)
+        public void Show(CharacterPresentation next) => Show(next, CharacterCues.Of(next));
+
+        /// <summary>
+        /// Shows <paramref name="next"/> as it answers the moment its task shows in the room (ADR 0040, rule 4):
+        /// <see cref="CharacterCues.Of(CharacterPresentation, KitMoment)"/>.
+        /// </summary>
+        public void Show(CharacterPresentation next, KitMoment? shown) => Show(next, CharacterCues.Of(next, shown));
+
+        private void Show(CharacterPresentation next, CharacterCues nextCues)
         {
             var first = presentation == null;
             presentation = next;
-            cues = CharacterCues.Of(next);
+            if (cues == null || cues.Motion != nextCues.Motion) motionSince = clock;
+            cues = nextCues;
             var kind = EyeKindOf(cues.Eyes);
             if (first)
             {
@@ -312,6 +329,9 @@ namespace Halcyonic.XR
 
         /// <summary>For the editor's renders: how its eyes stand and how strong its light is now.</summary>
         public (float Open, float LookX, float LookY, float Ink, float Halo, float Uneven) PoseForRender => (eyeOpen, lookX, lookY, eyeInk, haloStrength, eyeUneven);
+
+        /// <summary>For the editor's renders: the eyes' drawn shape, 0 open, 1 closed, 2 crossed, 3 flat, as the shader takes it.</summary>
+        public float EyeKindForRender => eyeKind;
 
         /// <summary>The feature's actual renderer and authored colour, for editor witnesses.</summary>
         public (MeshRenderer? Renderer, Color Colour) FeatureForRender => (featureRenderer, new Color(featureColor.x, featureColor.y, featureColor.z));
@@ -459,6 +479,15 @@ namespace Halcyonic.XR
                     targetLift = Mathf.Sin(t * 0.7f) * 0.002f;
                     yaw = Mathf.Sin(t * 0.31f) * 0.1f;
                     break;
+                case CharacterMotion.HopOnce:
+                {
+                    // One hop over a pop's time, then still: the work is ready.
+                    var since = (clock - motionSince) / SpatialKit.PopSeconds;
+                    var hop = since < 1f ? Mathf.Sin(since * Mathf.PI) : 0f;
+                    targetLift = hop * 0.0145f;
+                    targetSquash = since < 1f && hop < 0.22f ? (0.22f - hop) * 0.35f : 0f;
+                    break;
+                }
                 case CharacterMotion.Frozen:
                     // Stopped mid-hop, a little turned.
                     targetLift = FrozenLift;
@@ -531,6 +560,9 @@ namespace Halcyonic.XR
                     targetLookX = 0.25f;
                     break;
             }
+            // Idle, it glances aside now and then, one side then the other; never while kept still or facing the person.
+            if (cues.Glances && openEyes && !still && !lookAtPerson && !cues.FacesPerson && t % GlanceEverySeconds < GlanceSeconds)
+                targetLookX = (Mathf.FloorToInt(t / GlanceEverySeconds) % 2 == 0 ? 1f : -1f) * GlanceLook;
             if (lookAtPerson && openEyes && cues.Eyes != CharacterEyes.Unfocused)
             {
                 targetLookX = 0f;

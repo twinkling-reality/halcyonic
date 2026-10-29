@@ -61,6 +61,9 @@ namespace Halcyonic.Client
 
         /// <summary>Stopped in the middle of a hop.</summary>
         Frozen,
+
+        /// <summary>One hop, then still: a check of the computer's own passed and the work is ready (ADR 0040).</summary>
+        HopOnce,
     }
 
     /// <summary>The light around a character.</summary>
@@ -102,7 +105,8 @@ namespace Halcyonic.Client
             bool fogged,
             bool facesPerson,
             bool paused,
-            bool ghosted)
+            bool ghosted,
+            bool glances = false)
         {
             Eyes = eyes;
             Motion = motion;
@@ -114,6 +118,7 @@ namespace Halcyonic.Client
             FacesPerson = facesPerson;
             Paused = paused;
             Ghosted = ghosted;
+            Glances = glances;
         }
 
         public CharacterEyes Eyes { get; }
@@ -148,6 +153,44 @@ namespace Halcyonic.Client
         /// into a halftone of dots.
         /// </summary>
         public bool Ghosted { get; }
+
+        /// <summary>Glances around now and then while idle, small and restrained.</summary>
+        public bool Glances { get; }
+
+        /// <summary>
+        /// How a character answers the moment its task shows in the room (ADR 0040, rule 4), over what its state says:
+        /// sent, it turns to the person as if listening; a question waiting, it turns to them with the waiting light (its
+        /// label's badge carries the glyph); a check of the computer's own that failed, it droops with its eyes open, since
+        /// a failure is the task's state and not the character's end; ready, it hops once and faces the person, eyes open.
+        /// Idle, it breathes and glances now and then. The state wins where the two disagree: a stale or stopped character
+        /// stays as it was, one that can't be told or whose run failed keeps its own cues, and a Ready or a failed check
+        /// answers only a turn that has stopped (idle or finished), since the newest moment can be either while the runtime
+        /// still works. Nothing here is an action: every action lives in the moment or the bar.
+        /// </summary>
+        public static CharacterCues Of(CharacterPresentation presentation, KitMoment? shown)
+        {
+            var cues = Of(presentation);
+            var activity = presentation.Activity;
+            if (cues.Paused || cues.Ghosted || activity == CharacterActivity.Unknown || activity == CharacterActivity.Failed) return cues;
+            var idle = activity == CharacterActivity.Idle;
+            var stopped = idle || activity == CharacterActivity.TurnFinished;
+            switch (shown?.Kind)
+            {
+                case KitMomentKind.Sent:
+                    return cues.With(CharacterEyes.OnPerson, cues.Motion, cues.Halo, cues.Cracked, facesPerson: true);
+                case KitMomentKind.Question:
+                    return cues.With(CharacterEyes.OnPerson, CharacterMotion.Rise, CharacterHalo.NeedsYou, cues.Cracked, facesPerson: true);
+                case KitMomentKind.HostCheck when stopped && shown!.Passed == false:
+                    return cues.With(CharacterEyes.Open, CharacterMotion.Slump, CharacterHalo.Failed, cracked: false, facesPerson: false);
+                case KitMomentKind.Ready when stopped:
+                    return cues.With(CharacterEyes.OnPerson, CharacterMotion.HopOnce, CharacterHalo.Finished, cracked: false, facesPerson: true);
+                default:
+                    return idle ? cues.With(cues.Eyes, cues.Motion, cues.Halo, cues.Cracked, cues.FacesPerson, glances: true) : cues;
+            }
+        }
+
+        private CharacterCues With(CharacterEyes eyes, CharacterMotion motion, CharacterHalo halo, bool cracked, bool facesPerson, bool glances = false) =>
+            new CharacterCues(eyes, motion, halo, Flowing, Ring, cracked, Fogged, facesPerson, Paused, Ghosted, glances);
 
         public static CharacterCues Of(CharacterPresentation presentation)
         {
