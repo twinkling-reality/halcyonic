@@ -361,7 +361,8 @@ async function giveBack(): Promise<void> {
   if (reverse) console.log(`reverse rules left: ${reverse}`);
   if (forward) console.log(`forward rules left: ${forward}`);
   replaced();
-  if (problem !== null) fail(problem);
+  if (problem !== null)
+    fail(`${problem} A clip may still be on the headset in ${VIDEOS}; collect it by name.`);
   if (on !== false) process.exit(1);
 }
 
