@@ -1,6 +1,6 @@
 # ADR 0039: The projects gallery reads the person's catalog from Phat Porcupine, and Halcyonic never signs in to GitHub
 
-- Status: Accepted; nothing built, and Phat Porcupine's catalog API is not yet published
+- Status: Accepted; contract, link, gallery core, route and client built; live read not wired
 - Date: 2026-10-29
 - Complements ADR 0010 and ADR 0020
 

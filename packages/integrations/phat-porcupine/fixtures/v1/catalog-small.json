@@ -1,0 +1,196 @@
+{
+  "apiVersion": "1.0",
+  "instanceId": "fixture-instance",
+  "generatedAt": "2026-10-29T12:00:00.000Z",
+  "sample": false,
+  "testGitHub": false,
+  "user": { "login": "fixture-person", "name": null },
+  "sync": {
+    "repositoriesAt": "2026-10-29T11:55:00.000Z",
+    "repositoriesError": null,
+    "activityAt": "2026-10-29T11:55:00.000Z",
+    "activityError": "The activity of one installation could not be read."
+  },
+  "accounts": [
+    {
+      "login": "lantern-lab",
+      "type": "Organization",
+      "permissions": { "pullRequests": "read", "checks": "read", "statuses": null }
+    }
+  ],
+  "groups": [{ "id": "7c1f2a10-0d1e-4b5a-9f00-000000000001", "name": "Toys", "order": 0 }],
+  "projects": [
+    {
+      "id": "1b4d0c2e-0000-4000-8000-000000000001",
+      "name": "Wind chimes",
+      "nameIsOverride": true,
+      "groupId": "7c1f2a10-0d1e-4b5a-9f00-000000000001",
+      "groupOrder": 0,
+      "repositories": [
+        {
+          "id": 8100001,
+          "nodeId": "R_fixture1",
+          "primary": true,
+          "owner": "lantern-lab",
+          "ownerType": "Organization",
+          "name": "wind-chimes",
+          "fullName": "lantern-lab/wind-chimes",
+          "htmlUrl": "https://example.invalid/lantern-lab/wind-chimes",
+          "defaultBranch": "main",
+          "visibility": "private",
+          "fork": false,
+          "archived": false,
+          "language": null,
+          "description": "Chimes that ring when the wind blows.",
+          "pushedAt": "2026-10-29T10:00:00.000Z",
+          "access": "ok",
+          "unreachableSince": null,
+          "activity": {
+            "lastActivityAt": "2026-10-29T10:00:00.000Z",
+            "openPullRequests": 1,
+            "draftPullRequests": 0,
+            "openIssues": 0,
+            "checks": {
+              "head": "success",
+              "lastCompleted": { "conclusion": "success", "at": "2026-10-29T10:05:00.000Z" }
+            }
+          }
+        },
+        {
+          "id": 8100002,
+          "nodeId": "R_fixture2",
+          "primary": false,
+          "owner": "lantern-lab",
+          "ownerType": "Organization",
+          "name": "wind-chimes-notes",
+          "fullName": "lantern-lab/wind-chimes-notes",
+          "htmlUrl": "https://example.invalid/lantern-lab/wind-chimes-notes",
+          "defaultBranch": "main",
+          "visibility": "private",
+          "fork": false,
+          "archived": false,
+          "language": null,
+          "description": "",
+          "pushedAt": null,
+          "access": "ok",
+          "unreachableSince": null,
+          "activity": null
+        }
+      ],
+      "state": {
+        "state": "review_requested",
+        "reason": {
+          "kind": "pull_request",
+          "repoId": 8100001,
+          "number": 4,
+          "at": "2026-10-29T09:00:00.000Z"
+        },
+        "states": ["review_requested", "active"],
+        "active": true,
+        "lastActivityAt": "2026-10-29T10:00:00.000Z",
+        "sessions": { "running": 0, "awaitingInput": 0 },
+        "unknown": ["agent_sessions"]
+      },
+      "attention": [
+        {
+          "kind": "review_requested",
+          "repositoryId": 8100001,
+          "pullRequest": {
+            "number": 4,
+            "title": "Add a softer chime",
+            "url": "https://example.invalid/lantern-lab/wind-chimes/pull/4"
+          },
+          "at": "2026-10-29T09:00:00.000Z"
+        }
+      ],
+      "updatedAt": "2026-10-29T10:00:00.000Z"
+    },
+    {
+      "id": "1b4d0c2e-0000-4000-8000-000000000002",
+      "name": "pinwheel",
+      "nameIsOverride": false,
+      "groupId": null,
+      "groupOrder": null,
+      "repositories": [
+        {
+          "id": 8100003,
+          "nodeId": "R_fixture3",
+          "primary": true,
+          "owner": "fixture-person",
+          "ownerType": "User",
+          "name": "pinwheel",
+          "fullName": "fixture-person/pinwheel",
+          "htmlUrl": "https://example.invalid/fixture-person/pinwheel",
+          "defaultBranch": "main",
+          "visibility": "public",
+          "fork": false,
+          "archived": false,
+          "language": null,
+          "description": null,
+          "pushedAt": "2026-08-01T10:00:00.000Z",
+          "access": "ok",
+          "unreachableSince": null,
+          "activity": {
+            "lastActivityAt": null,
+            "openPullRequests": null,
+            "draftPullRequests": null,
+            "openIssues": null,
+            "checks": null
+          }
+        }
+      ],
+      "state": {
+        "state": "inactive",
+        "reason": { "kind": "activity", "source": null, "at": null },
+        "states": ["inactive"],
+        "active": false,
+        "lastActivityAt": null,
+        "sessions": { "running": 0, "awaitingInput": 0 },
+        "unknown": ["pull_requests", "checks", "agent_sessions"]
+      },
+      "attention": [],
+      "updatedAt": "2026-08-01T10:00:00.000Z"
+    },
+    {
+      "id": "1b4d0c2e-0000-4000-8000-000000000003",
+      "name": "Kite tails",
+      "nameIsOverride": false,
+      "groupId": "7c1f2a10-0d1e-4b5a-9f00-000000000001",
+      "groupOrder": 1,
+      "repositories": [
+        {
+          "id": 8100004,
+          "nodeId": "R_fixture4",
+          "primary": true,
+          "owner": "lantern-lab",
+          "ownerType": null,
+          "name": "kite-tails",
+          "fullName": "lantern-lab/kite-tails",
+          "htmlUrl": "https://example.invalid/lantern-lab/kite-tails",
+          "defaultBranch": null,
+          "visibility": "internal",
+          "fork": true,
+          "archived": true,
+          "language": null,
+          "description": null,
+          "pushedAt": null,
+          "access": "removed",
+          "unreachableSince": "2026-09-01T00:00:00.000Z",
+          "activity": null
+        }
+      ],
+      "state": {
+        "state": "access_lost",
+        "reason": { "kind": "repository", "repoId": 8100004, "at": "2026-09-01T00:00:00.000Z" },
+        "states": ["access_lost", "archived"],
+        "active": false,
+        "lastActivityAt": null,
+        "sessions": { "running": 0, "awaitingInput": 0 },
+        "unknown": []
+      },
+      "attention": [],
+      "updatedAt": "2026-09-01T00:00:00.000Z"
+    }
+  ],
+  "truncated": null
+}
