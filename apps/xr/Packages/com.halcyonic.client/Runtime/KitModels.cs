@@ -187,7 +187,11 @@ namespace Halcyonic.Client
         public string ReadFirst { get; }
     }
 
-    /// <summary>The question the work waits on the person to answer: production's heading over the agent's own words.</summary>
+    /// <summary>
+    /// The question the work waits on the person to answer: production's heading over the agent's own words, or, bound to
+    /// a task's file (D3.6), the lines of the question's page as the file drew them: its caption, the question whole or a
+    /// part, what can't be answered and why, the person's answers, or what sending them asks.
+    /// </summary>
     public sealed class KitAsk
     {
         public KitAsk(LineWords heading, string question)
@@ -196,11 +200,25 @@ namespace Halcyonic.Client
             Question = question;
         }
 
+        public KitAsk(IReadOnlyList<PageLine> lines, bool confirming)
+        {
+            Heading = LineWords.None;
+            Question = "";
+            Lines = lines;
+            Confirming = confirming;
+        }
+
         /// <summary>Halcyonic's heading, such as It asks you, or the agent's own header leaning.</summary>
         public LineWords Heading { get; }
 
         /// <summary>The question as the agent wrote it: outside text.</summary>
         public string Question { get; }
+
+        /// <summary>The page's own lines that don't act, in its order, each with its rows and the row it starts from; none unbound.</summary>
+        public IReadOnlyList<PageLine> Lines { get; } = new PageLine[0];
+
+        /// <summary>The page asks whether to send the answers shown: its Cancel and Yes stand for them.</summary>
+        public bool Confirming { get; }
     }
 
     /// <summary>The task's place: its character, or why none stands there and the one real way back.</summary>
