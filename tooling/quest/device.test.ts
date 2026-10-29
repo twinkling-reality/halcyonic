@@ -76,6 +76,10 @@ else if (said.startsWith('shell content call')) {
 }
 else if (args[0] === 'shell' && args[1] === 'am' && args[2] === 'start') out('Status: ok');
 else if (args[0] === 'shell' && args[1] === 'rm') {}
+else if (said === 'shell dumpsys power') out('  mWakefulness=Awake');
+else if (said === 'shell dumpsys battery') out('  AC powered: true\\n  level: 100\\n  scale: 100\\n  temperature: 300');
+else if (said === 'shell dumpsys thermalservice') out('Thermal Status: 0');
+else if (said === 'shell pidof com.halcyonic.xr' || said === 'reverse --list' || said === 'forward --list') {}
 else {
   process.stderr.write('stand-in adb: not modelled: ' + said + '\\n');
   process.exit(2);
@@ -367,6 +371,45 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       stopped.calls.filter((call) => call.startsWith('shell rm')),
       ['shell rm /sdcard/Oculus/VideoShots/com.oculus.vrshell-20261029-011231-0.mp4'],
     );
+  });
+
+  test('status says a recording is in progress, and since when', async () => {
+    const off =
+      '10-29 01:15:51.642 11156 11237 I SimpleMediaSyncUtils: media sync preference is enabled: false';
+    const state = join(directory, 'state-status.json');
+    await device({ syncLog: off }, 'record', 'start', '--sync-is-off', '--state', state);
+    const { code, said } = await device({ syncLog: off }, 'status', '--state', state);
+    assert.equal(code, 0, said);
+    assert.match(said, /A recording is in progress since \d{4}-\d{2}-\d{2}T/);
+  });
+
+  test('give-back stops and collects a recording a cut-off run left going', async () => {
+    const off =
+      '10-29 01:15:51.642 11156 11237 I SimpleMediaSyncUtils: media sync preference is enabled: false';
+    const state = join(directory, 'state-giveback.json');
+    const out = join(directory, 'footage-giveback');
+    await device(
+      { syncLog: off, pullMatches: true },
+      'record',
+      'start',
+      '--sync-is-off',
+      '--state',
+      state,
+    );
+    const { code, said, calls } = await device(
+      { syncLog: off, pullMatches: true, proximity: ['false'] },
+      'give-back',
+      '--state',
+      state,
+      '--out',
+      out,
+    );
+    assert.equal(code, 0, said);
+    assert.ok(
+      calls.some((call) => call.includes('STOP_INTERNAL_CAPTURE_TO_DISK')),
+      calls.join('\n'),
+    );
+    assert.ok(existsSync(join(out, 'com.oculus.vrshell-20261029-011231-0.mp4.sha256')), said);
   });
 
   test('record stop with no recording in progress stops nothing', async () => {
