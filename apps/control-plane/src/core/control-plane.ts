@@ -38,10 +38,11 @@ export interface ControlPlaneOptions {
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
   /**
-   * Whether the Mac reads each task's folder and journals what every turn changed (ADR 0038). Off
-   * by default, as for recorded traces and most tests; the control plane's own start turns it on.
+   * Whether the Mac reads each task's folder and journals what every turn changed (ADR 0038), and
+   * the folders of its own data that a task's folder must not hold for it to be read. Off by
+   * default, as for recorded traces and most tests; the control plane's own start turns it on.
    */
-  readonly observeFiles?: boolean;
+  readonly observeFiles?: { readonly protect: readonly string[] };
   /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
@@ -112,7 +113,10 @@ export class ControlPlane {
           });
     this.checkpoints?.attach(this.publisher);
     this.starters = options.starters ?? null;
-    this.files = options.observeFiles === true ? new FileObserver() : null;
+    this.files =
+      options.observeFiles === undefined
+        ? null
+        : new FileObserver({ protect: options.observeFiles.protect });
     this.files?.attach({
       publisher: this.publisher,
       recorder: this.recorder,

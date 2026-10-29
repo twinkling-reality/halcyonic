@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { lstat, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { constants } from 'node:fs';
+import { lstat, open, readdir, realpath } from 'node:fs/promises';
+import { basename, dirname, join, sep } from 'node:path';
 import {
   type FileChanged,
   type FileCreated,
@@ -51,18 +51,31 @@ interface Entry {
 export type Reading = ReadonlyMap<string, Entry>;
 
 export type ReadResult =
-  | { readonly ok: true; readonly reading: Reading }
+  | {
+      readonly ok: true;
+      readonly reading: Reading;
+      /** Entries found and not read: links, FIFOs, sockets, devices, files swapped for one of those. */
+      readonly notRead: number;
+    }
   | { readonly ok: false; readonly code: FilesObservedSkip['code']; readonly message: string };
 
-/** Never read: a repository's own records, and installed dependencies (in M1.3 a shared link). */
+/**
+ * Never read, at the folder's top level only: a repository's own records, and installed dependencies
+ * (in M1.3 a shared link). Deeper, a folder of either name is the agent's own and is read like any other,
+ * so nothing it writes there is left out of the record.
+ */
 const SKIPPED_NAMES = new Set(['.git', 'node_modules']);
+
+/** How many bytes are read at a time. */
+const CHUNK_BYTES = 64 * 1024;
 
 /** How many bytes are looked at to tell a binary file from text. */
 const SNIFF_BYTES = 8192;
 
 /**
  * Reads every file of the folder, links never followed. A file whose size and modification time
- * are as in `previous` is taken from it rather than read again.
+ * are as in `previous` is taken from it rather than read again. The bytes bound counts what is read
+ * or taken from `previous`, and a file past it is refused before it is read.
  */
 export async function readFolder(
   folder: string,
@@ -78,11 +91,12 @@ export async function readFolder(
   const reading = new Map<string, Entry>();
   const pending: string[] = [''];
   let bytes = 0;
+  let notRead = 0;
   try {
     while (pending.length > 0) {
       const relative = pending.pop() as string;
       for (const entry of await readdir(join(folder, relative), { withFileTypes: true })) {
-        if (SKIPPED_NAMES.has(entry.name)) continue;
+        if (relative === '' && SKIPPED_NAMES.has(entry.name)) continue;
         const path = relative === '' ? entry.name : `${relative}/${entry.name}`;
         if (entry.isDirectory()) pending.push(path);
         else if (entry.isFile()) {
@@ -92,55 +106,95 @@ export async function readFolder(
               code: 'too_large',
               message: `The folder holds more than the ${limits.files} files the Mac reads for a turn.`,
             };
-          const read = await readEntry(join(folder, path), previous?.get(path), limits);
-          bytes += read.bytes;
-          if (bytes > (limits.bytes ?? Number.POSITIVE_INFINITY))
+          const read = await readEntry(
+            join(folder, path),
+            previous?.get(path),
+            limits,
+            (limits.bytes ?? Number.POSITIVE_INFINITY) - bytes,
+          );
+          if (read === 'too_large')
             return {
               ok: false,
               code: 'too_large',
               message: 'The folder holds more bytes than the Mac reads for a turn.',
             };
+          // Swapped since the listing for a link or something other than a file: not read.
+          if (read === null) {
+            notRead += 1;
+            continue;
+          }
+          bytes += read.bytes;
           reading.set(path, read);
-        }
+        } else notRead += 1;
       }
     }
   } catch {
     return { ok: false, code: 'unreadable', message: 'A file or folder in it could not be read.' };
   }
-  return { ok: true, reading };
+  return { ok: true, reading, notRead };
 }
 
-async function readEntry(
+/**
+ * One file's entry, from the file as it is when opened: a link is never followed (the open refuses it),
+ * a FIFO or device is never waited on, and nothing other than a file is read. `null` when what is at the
+ * path is not a file; `'too_large'` when the file holds more than `remaining` bytes, refused before any
+ * of it is read. At most the size the opened file had is read. Exported for its tests.
+ */
+export async function readEntry(
   path: string,
   previous: Entry | undefined,
   limits: ReadingLimits,
-): Promise<Entry> {
-  const stats = await lstat(path);
-  if (previous !== undefined && previous.bytes === stats.size && previous.mtimeMs === stats.mtimeMs)
-    return previous;
-  const hash = createHash('sha256');
-  let lines = 0;
-  let last = -1;
-  let binary = false;
-  let seen = 0;
-  const countLines = stats.size <= limits.countLinesUpTo;
-  await new Promise<void>((resolveRead, reject) => {
-    createReadStream(path)
-      .on('data', (chunk: Buffer | string) => {
-        const bytes = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
-        hash.update(bytes);
-        if (!countLines || binary) return;
-        if (seen < SNIFF_BYTES && bytes.subarray(0, SNIFF_BYTES - seen).includes(0)) binary = true;
-        seen += bytes.length;
-        for (const byte of bytes) if (byte === 0x0a) lines += 1;
-        if (bytes.length > 0) last = bytes[bytes.length - 1] as number;
-      })
-      .on('error', reject)
-      .on('end', () => resolveRead());
-  });
-  // A last line without a newline still counts.
-  const counted = countLines && !binary ? lines + (last !== -1 && last !== 0x0a ? 1 : 0) : null;
-  return { bytes: stats.size, mtimeMs: stats.mtimeMs, hash: hash.digest('hex'), lines: counted };
+  remaining = Number.POSITIVE_INFINITY,
+): Promise<Entry | null | 'too_large'> {
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch (error) {
+    // A link where the file was listed.
+    if ((error as NodeJS.ErrnoException).code === 'ELOOP') return null;
+    throw error;
+  }
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) return null;
+    if (stats.size > remaining) return 'too_large';
+    if (
+      previous !== undefined &&
+      previous.bytes === stats.size &&
+      previous.mtimeMs === stats.mtimeMs
+    )
+      return previous;
+    const hash = createHash('sha256');
+    let lines = 0;
+    let last = -1;
+    let binary = false;
+    let seen = 0;
+    const countLines = stats.size <= limits.countLinesUpTo;
+    const buffer = Buffer.alloc(Math.min(CHUNK_BYTES, Math.max(stats.size, 1)));
+    let position = 0;
+    while (position < stats.size) {
+      const { bytesRead } = await handle.read(
+        buffer,
+        0,
+        Math.min(buffer.length, stats.size - position),
+        position,
+      );
+      if (bytesRead === 0) break;
+      position += bytesRead;
+      const bytes = buffer.subarray(0, bytesRead);
+      hash.update(bytes);
+      if (!countLines || binary) continue;
+      if (seen < SNIFF_BYTES && bytes.subarray(0, SNIFF_BYTES - seen).includes(0)) binary = true;
+      seen += bytes.length;
+      for (const byte of bytes) if (byte === 0x0a) lines += 1;
+      last = bytes[bytes.length - 1] as number;
+    }
+    // A last line without a newline still counts.
+    const counted = countLines && !binary ? lines + (last !== -1 && last !== 0x0a ? 1 : 0) : null;
+    return { bytes: position, mtimeMs: stats.mtimeMs, hash: hash.digest('hex'), lines: counted };
+  } finally {
+    await handle.close();
+  }
 }
 
 /** What differs between two readings, each list in path order. */
@@ -179,6 +233,8 @@ export interface FileObserverAttachment {
 /** Keeps the latest reading of each execution's folder and journals what each turn changed. */
 export class FileObserver {
   readonly #limits: ReadingLimits;
+  /** Folders of Halcyonic's own data: a task's folder that holds one is never read (as undo, ADR 0036). */
+  readonly #protect: readonly string[];
   readonly #readings = new Map<string, Reading>();
   /**
    * Executions started through this control plane, whose turns it observes. Turn events of any other
@@ -189,14 +245,21 @@ export class FileObserver {
   readonly #abandoned = new Set<string>();
   readonly #queues = new Map<string, Promise<unknown>>();
 
-  constructor(options: { readonly limits?: ReadingLimits } = {}) {
+  constructor(
+    options: { readonly limits?: ReadingLimits; readonly protect?: readonly string[] } = {},
+  ) {
     this.#limits = options.limits ?? DEFAULT_READING_LIMITS;
+    this.#protect = options.protect ?? [];
   }
 
   /** The reading before a task's runtime is asked. A folder that cannot be read leaves none. */
   baseline(executionId: string, directory: string): Promise<void> {
     this.#watching.add(executionId);
     return this.#serially(directory, async () => {
+      if (await holdsHostData(directory, this.#protect)) {
+        this.#readings.delete(executionId);
+        return;
+      }
       const read = await readFolder(directory, undefined, this.#limits);
       if (read.ok && !this.#abandoned.has(executionId))
         this.#readings.set(executionId, read.reading);
@@ -220,6 +283,13 @@ export class FileObserver {
     turnId: string | null = null,
   ): Promise<FilesObserved> {
     return this.#serially(directory, async () => {
+      if (await holdsHostData(directory, this.#protect)) {
+        this.#readings.delete(executionId);
+        return skipped(turnId, {
+          code: 'holds_host_data',
+          message: "The task's folder holds Halcyonic's own data, so the Mac does not read it.",
+        });
+      }
       const before = this.#readings.get(executionId);
       const read = await readFolder(directory, before, this.#limits);
       if (read.ok) this.#readings.set(executionId, read.reading);
@@ -237,6 +307,7 @@ export class FileObserver {
         created: listed(created),
         changed: listed(changed),
         deleted: listed(deleted),
+        not_read: read.notRead,
         skipped: null,
       };
     });
@@ -294,7 +365,49 @@ export class FileObserver {
 
 function skipped(turnId: string | null, skip: FilesObservedSkip): FilesObserved {
   const none = { files: [], total: 0 };
-  return { turn_id: turnId, created: none, changed: none, deleted: none, skipped: skip };
+  return {
+    turn_id: turnId,
+    created: none,
+    changed: none,
+    deleted: none,
+    not_read: 0,
+    skipped: skip,
+  };
+}
+
+/**
+ * Whether the folder is, or holds, one of the protected folders, compared by real path; a protected
+ * folder not made yet is resolved through its nearest folder that exists (as undo's store does).
+ */
+async function holdsHostData(folder: string, protect: readonly string[]): Promise<boolean> {
+  if (protect.length === 0) return false;
+  let real: string;
+  try {
+    real = await realpath(folder);
+  } catch {
+    return false;
+  }
+  for (const path of protect) {
+    const protectedPath = await resolvedThroughExisting(path);
+    if (protectedPath === real || protectedPath.startsWith(real + sep)) return true;
+  }
+  return false;
+}
+
+/** The path as the file system resolves it, through its nearest folder that exists. */
+async function resolvedThroughExisting(path: string): Promise<string> {
+  const rest: string[] = [];
+  let existing = path;
+  while (true) {
+    try {
+      return join(await realpath(existing), ...rest.reverse());
+    } catch {
+      const parent = dirname(existing);
+      if (parent === existing) return path;
+      rest.push(basename(existing));
+      existing = parent;
+    }
+  }
 }
 
 /** The first files of a list that the contract can carry, and how many the list holds. */

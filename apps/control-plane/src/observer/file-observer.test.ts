@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
@@ -10,7 +11,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, describe, test } from 'node:test';
+import { after, describe, mock, test } from 'node:test';
 import type {
   CommandEnvelope,
   CommandId,
@@ -36,7 +37,7 @@ function observingPlane(locations: HostLocations, adapters: RuntimeAdapter[]) {
     logger: capturingLogger().logger,
     commandTimeoutMs: 30_000,
     locations,
-    observeFiles: true,
+    observeFiles: { protect: [] },
   });
   return { controlPlane, journal };
 }
@@ -47,7 +48,7 @@ import { createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import { capturingLogger } from '../testing/harness.ts';
-import { compareReadings, readFolder } from './file-observer.ts';
+import { compareReadings, FileObserver, readEntry, readFolder } from './file-observer.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-observer-')));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -59,7 +60,7 @@ function folder(name: string): string {
 }
 
 describe('reading a folder', () => {
-  test('counts the lines of text files, gives binary files none, and skips .git, node_modules and links', async () => {
+  test('counts the lines of text files, gives binary files none, and skips the top-level .git and node_modules and links', async () => {
     const root = folder('read');
     writeFileSync(join(root, 'a.ts'), 'one\ntwo\nthree');
     writeFileSync(join(root, 'empty.txt'), '');
@@ -68,14 +69,38 @@ describe('reading a folder', () => {
     writeFileSync(join(root, '.git', 'HEAD'), 'ref\n');
     mkdirSync(join(root, 'src', 'node_modules'), { recursive: true });
     writeFileSync(join(root, 'src', 'node_modules', 'x.js'), 'x\n');
+    mkdirSync(join(root, 'game', '.git'), { recursive: true });
+    writeFileSync(join(root, 'game', '.git', 'hidden.js'), 'y\n');
     symlinkSync(join(base), join(root, 'node_modules'));
     symlinkSync('a.ts', join(root, 'link.ts'));
     const read = await readFolder(root);
     assert.ok(read.ok);
-    assert.deepEqual([...read.reading.keys()].sort(), ['a.ts', 'empty.txt', 'image.png']);
+    // Below the top level, a folder named node_modules or .git is the agent's own and is read like any other:
+    // skipping it would hide code from the record (AUDIT L1 C2).
+    assert.deepEqual([...read.reading.keys()].sort(), [
+      'a.ts',
+      'empty.txt',
+      'game/.git/hidden.js',
+      'image.png',
+      'src/node_modules/x.js',
+    ]);
     assert.equal(read.reading.get('a.ts')?.lines, 3);
     assert.equal(read.reading.get('empty.txt')?.lines, 0);
     assert.equal(read.reading.get('image.png')?.lines, null);
+    // The record says what it left out (AUDIT L1 C2): the link, not the top-level skips.
+    assert.equal(read.notRead, 1);
+  });
+
+  test('counts what it found and did not read: links, FIFOs and files swapped for them', async () => {
+    const root = folder('not-read');
+    writeFileSync(join(root, 'a.ts'), 'a\n');
+    symlinkSync('a.ts', join(root, 'link.ts'));
+    mkdirSync(join(root, 'src'));
+    execFileSync('/usr/bin/mkfifo', [join(root, 'src', 'pipe')]);
+    const read = await readFolder(root);
+    assert.ok(read.ok);
+    assert.deepEqual([...read.reading.keys()], ['a.ts']);
+    assert.equal(read.notRead, 2);
   });
 
   test('a folder with more files than it reads is refused as too large', async () => {
@@ -88,6 +113,47 @@ describe('reading a folder', () => {
   test('a folder that is not there is said so', async () => {
     const read = await readFolder(join(base, 'gone'));
     assert.equal(!read.ok && read.code, 'location_missing');
+  });
+});
+
+describe('reading one file, as it is when opened', () => {
+  // The folder is listed first and each file opened after, so a file can be swapped in between (AUDIT L1 C1):
+  // what is opened must itself be a file, reached without following a link.
+  test('a link put where a file was listed is not read through', async () => {
+    const root = folder('swap-link');
+    writeFileSync(join(base, 'outside.txt'), 'secret\nlines\n');
+    symlinkSync(join(base, 'outside.txt'), join(root, 'a.txt'));
+    assert.equal(
+      await readEntry(join(root, 'a.txt'), undefined, { files: 10, countLinesUpTo: 1024 }),
+      null,
+    );
+  });
+
+  test('a link to an endless device is not read through', { timeout: 5000 }, async () => {
+    const root = folder('swap-zero');
+    symlinkSync('/dev/zero', join(root, 'a.txt'));
+    assert.equal(
+      await readEntry(join(root, 'a.txt'), undefined, { files: 10, countLinesUpTo: 1024 }),
+      null,
+    );
+  });
+
+  test('a FIFO put where a file was listed is not waited on', { timeout: 5000 }, async () => {
+    const root = folder('swap-fifo');
+    execFileSync('/usr/bin/mkfifo', [join(root, 'a.txt')]);
+    assert.equal(
+      await readEntry(join(root, 'a.txt'), undefined, { files: 10, countLinesUpTo: 1024 }),
+      null,
+    );
+  });
+
+  test('a file larger than the bytes left is refused before it is read', async () => {
+    const root = folder('bound-first');
+    writeFileSync(join(root, 'big.bin'), Buffer.alloc(2048));
+    assert.equal(
+      await readEntry(join(root, 'big.bin'), undefined, { files: 10, countLinesUpTo: 1024 }, 1024),
+      'too_large',
+    );
   });
 });
 
@@ -244,6 +310,7 @@ describe('observing each turn through the control plane', () => {
       total: 1,
     });
     assert.equal(first.payload.skipped, null);
+    assert.equal(first.payload.not_read, 0);
 
     // The start completes once the runtime confirms it, after the folder's first reading.
     assert.equal(started.disposition, 'accepted');
@@ -334,6 +401,174 @@ describe('observing each turn through the control plane', () => {
     const [execution] = controlPlane.projection.executions();
     assert.equal(execution?.status, 'failed', 'a start that never happened, not an unknown one');
     await controlPlane.close();
+  });
+});
+
+/**
+ * The start's wait for the folder's first reading ends before the reading does (AUDIT L1 C3): the start
+ * goes ahead, the first turn says it has no earlier reading, and the reading is never used, whether it
+ * was taken before the wait ended (`finished`) or only begins after (`late`).
+ */
+async function slowFirstReading(order: 'finished' | 'late'): Promise<void> {
+  const root = folder(`slow-${order}`);
+  mkdirSync(join(root, 'app'));
+  writeFileSync(join(root, 'app', 'index.ts'), 'start\n');
+  let release = () => {};
+  const gate = new Promise<void>((resolveGate) => {
+    release = resolveGate;
+  });
+  const original = FileObserver.prototype.baseline;
+  let reading: Promise<void> = Promise.resolve();
+  let begin = () => {};
+  const slow = mock.method(
+    FileObserver.prototype,
+    'baseline',
+    function (this: FileObserver, id: string, directory: string) {
+      if (order === 'finished') {
+        // The reading is taken at once, as in the plane; only the promise the start waits on is held.
+        reading = original.call(this, id, directory);
+        return gate.then(() => reading);
+      }
+      // The reading begins only once the start has stopped waiting for it.
+      return new Promise<void>((resolveLate) => {
+        begin = () => {
+          reading = original.call(this, id, directory);
+          void reading.then(resolveLate);
+        };
+      });
+    },
+  );
+  // The start's wait is a real timer; the control plane's own time is virtual.
+  mock.timers.enable({ apis: ['setTimeout'] });
+  const settle = async (check: () => boolean, what: string) => {
+    for (let tries = 0; tries < 2000; tries += 1) {
+      if (check()) return;
+      await new Promise((resolveTick) => setImmediate(resolveTick));
+    }
+    assert.fail(`timed out waiting for ${what}`);
+  };
+  try {
+    const { controlPlane, journal } = observingPlane(createHostLocations([root]), [
+      writingRuntime([
+        (dir) => writeFileSync(join(dir, 'game.ts'), 'a\nb\n'),
+        (dir) => writeFileSync(join(dir, 'game.ts'), 'a\nb\nc\n'),
+      ]),
+    ]);
+    let ids = 0;
+    const envelope = (type: CommandEnvelope['command_type'], payload: unknown): CommandEnvelope => {
+      ids += 1;
+      return {
+        schema_version: 1,
+        command_id: `00000000-0000-4000-8000-${String(ids).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-10-29T10:00:00.000Z',
+        client: { name: 'test', version: null, device_label: null },
+        command_type: type,
+        payload,
+      } as CommandEnvelope;
+    };
+    const submit = (command: CommandEnvelope) => controlPlane.commands.submit(command, 'internal');
+    const project = submit(
+      envelope('project.create', {
+        name: 'Slow',
+        location: { kind: 'existing_folder', root, folder_name: 'app' },
+      }),
+    ).command?.result;
+    const projectId = project?.kind === 'project_created' ? project.project_id : '';
+    const work = submit(
+      envelope('workstream.create', { project_id: projectId, title: 'Slow', objective: null }),
+    ).command?.result;
+    const workstreamId = work?.kind === 'workstream_created' ? work.workstream_id : '';
+    submit(
+      envelope('execution.start', {
+        workstream_id: workstreamId,
+        runtime_id: 'writer',
+        instruction: 'Make a game.',
+        options: {},
+        model_ref: null,
+      }),
+    );
+    const observed = (): EventEnvelope[] =>
+      [...journal.readAll()]
+        .map((stored) => stored.event)
+        .filter((event) => event.event_type === 'execution.files.observed');
+    await settle(() => slow.mock.callCount() === 1, 'the first reading asked for');
+    if (order === 'finished') await reading;
+    mock.timers.tick(10_000);
+    if (order === 'late') begin();
+    await settle(
+      () => observed().length === 1,
+      'the first turn observed without waiting for the reading',
+    );
+    const first = observed()[0];
+    if (first?.event_type !== 'execution.files.observed') return assert.fail('no first');
+    assert.equal(first.payload.skipped?.code, 'no_baseline');
+    // The start's wait ends only now, after the first turn: nothing changes, and later turns compare as usual.
+    release();
+    await reading;
+    const executionId = first.execution_id;
+    await settle(
+      () => controlPlane.projection.execution(executionId)?.status === 'completed',
+      'rest',
+    );
+    submit(envelope('execution.send_instruction', { execution_id: executionId, text: 'More.' }));
+    await settle(() => observed().length === 2, 'the second turn observed');
+    const second = observed()[1];
+    if (second?.event_type !== 'execution.files.observed') return assert.fail('no second');
+    assert.equal(second.payload.skipped, null);
+    assert.deepEqual(second.payload.changed.files, [
+      { path: 'game.ts', lines_before: 2, lines_after: 3, bytes: 6 },
+    ]);
+    await controlPlane.close();
+  } finally {
+    mock.timers.reset();
+    slow.mock.restore();
+  }
+}
+
+describe('a first reading slower than the start waits for', () => {
+  test('taken before the wait ended: the start goes ahead, the first turn says no_baseline, the reading is dropped', () =>
+    slowFirstReading('finished'));
+
+  test('begun after the wait ended: the start goes ahead, the first turn says no_baseline, the reading is never kept', () =>
+    slowFirstReading('late'));
+});
+
+describe("a folder that holds Halcyonic's own data", () => {
+  // As undo refuses to checkpoint it (ADR 0036): its journal and token are never read (AUDIT L1 C4).
+  test('is never read, and each turn says why', async () => {
+    const root = folder('host-data');
+    mkdirSync(join(root, 'data'));
+    writeFileSync(join(root, 'data', 'access-token'), 'not read\n');
+    const observer = new FileObserver({ protect: [join(root, 'data')] });
+    const id = '01920000-0000-7000-8000-000000000002';
+    await observer.baseline(id, root);
+    const turn = await observer.turnEnded(id, root);
+    assert.equal(turn.skipped?.code, 'holds_host_data');
+    assert.deepEqual(turn.created, { files: [], total: 0 });
+    assert.equal(turn.not_read, 0);
+  });
+
+  test('is recognised before the protected folder exists, and through a link to the project', async () => {
+    const root = folder('host-data-later');
+    symlinkSync(root, join(base, 'host-data-link'));
+    const observer = new FileObserver({ protect: [join(root, 'not', 'made', 'yet')] });
+    const turn = await observer.turnEnded(
+      '01920000-0000-7000-8000-000000000003',
+      join(base, 'host-data-link'),
+    );
+    assert.equal(turn.skipped?.code, 'holds_host_data');
+  });
+
+  test('a protected folder outside the project changes nothing', async () => {
+    const root = folder('host-data-elsewhere');
+    writeFileSync(join(root, 'a.ts'), 'a\n');
+    const observer = new FileObserver({ protect: [folder('elsewhere-data')] });
+    const id = '01920000-0000-7000-8000-000000000004';
+    await observer.baseline(id, root);
+    writeFileSync(join(root, 'b.ts'), 'b\n');
+    const turn = await observer.turnEnded(id, root);
+    assert.equal(turn.skipped, null);
+    assert.deepEqual(turn.created.files, [{ path: 'b.ts', lines: 1, bytes: 2 }]);
   });
 });
 
