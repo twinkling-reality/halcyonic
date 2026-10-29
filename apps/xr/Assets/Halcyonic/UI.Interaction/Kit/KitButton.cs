@@ -151,7 +151,6 @@ namespace Halcyonic.XR.UI
             var hairline = KitType.Units(SpatialKit.HairlineDegrees);
             var frame = KitType.Units(0.09f);
             var radius = KitType.Units(SpatialKit.ControlRadiusDegrees);
-            var accent = Glaze.Tone(GlazeTone.Accent);
             Color fill, edge, text;
             var edgeWidth = hairline;
             if (!available)
@@ -165,14 +164,14 @@ namespace Halcyonic.XR.UI
                 switch (role)
                 {
                     case KitButtonRole.Primary:
-                        fill = pressed ? KitType.Mix(accent.Strong, GlazeColor.Hex(0x000000), 0.18f)
-                            : hovered ? KitType.Mix(accent.Strong, GlazeColor.Hex(0xFFFFFF), 0.16f) : KitType.Colour(accent.Strong);
+                        // The room's one accent (ADR 0040): deeper pressed, lifter pointed, its ink on every fill.
+                        fill = KitType.Colour(pressed ? SpatialKit.PressedAccent : hovered ? SpatialKit.HoveredAccent : SpatialKit.Accent);
                         edge = hovered ? Color.white : fill;
-                        text = KitType.Colour(accent.OnStrong);
+                        text = KitType.Colour(SpatialKit.AccentInk);
                         break;
                     case KitButtonRole.Secondary:
                         // Its raised fill is its boundary; only a pointed one is framed.
-                        fill = pressed ? KitType.Mix(SpatialKit.Raised, GlazeColor.Hex(0xFFFFFF), 0.12f) : KitType.Colour(SpatialKit.Raised);
+                        fill = KitType.Colour(pressed ? SpatialKit.Control : SpatialKit.Raised);
                         edge = hovered ? Color.white : fill;
                         text = KitType.Text;
                         break;

@@ -182,6 +182,28 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void ButtonsKeepTheirWordsInEveryState()
+    {
+        // A secondary button presses to the control step, a primary one to the deepened accent (AUDIT's V1 note): the words a
+        // button carries keep their contrast pointed and pressed, and the quieter words never stand on a button.
+        foreach (var fill in new[] { SpatialKit.Raised, SpatialKit.Control })
+            Assert.That(GlazeColor.Contrast(SpatialKit.Text, fill), Is.GreaterThanOrEqualTo(7), $"a button's words on {fill}");
+        foreach (var fill in new[] { SpatialKit.Accent, SpatialKit.HoveredAccent, SpatialKit.PressedAccent })
+            Assert.That(GlazeColor.Contrast(SpatialKit.AccentInk, fill), Is.GreaterThanOrEqualTo(7), $"a primary action's words on {fill}");
+        Assert.That(SpatialKit.PressedAccent.Luminance, Is.LessThan(SpatialKit.Accent.Luminance), "pressed deepens");
+        Assert.That(SpatialKit.HoveredAccent.Luminance, Is.GreaterThan(SpatialKit.Accent.Luminance), "pointed lifts");
+    }
+
+    [Test]
+    public void TheScreenAndItsBarHaveTheDecidedSizes()
+    {
+        Assert.That(SpatialKit.ScreenDegrees, Is.EqualTo(56f));
+        Assert.That(SpatialKit.ScreenHeightDegrees, Is.EqualTo(31.5f).Within(1e-4));
+        Assert.That(SpatialKit.BarDegrees, Is.GreaterThanOrEqualTo(SpatialKit.TargetDegrees + 2 * SpatialKit.GridDegrees), "the bar holds a whole target with room round it");
+        Assert.That(SpatialKit.ScreenDegrees, Is.LessThan(110f - 2 * 15f), "the screen leaves the field's edges to the room");
+    }
+
+    [Test]
     public void OneAccentAndColourOnlyForMeaning()
     {
         var hues = new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed };
