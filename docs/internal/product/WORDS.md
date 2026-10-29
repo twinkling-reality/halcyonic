@@ -437,14 +437,17 @@ sentence) is theirs and drawn as theirs. Nothing here is built yet.
 | The screen's picture | Last checked build, {time}, on the host's check screenshot; no picture and no label until the check takes one | Last checked build, 10:38 |
 | The one clear action | Make a VR version, for a project that is not VR yet. It only asks the agent. | Make a VR version |
 | A request sent | Sent to {runtime}. Waiting for it to start. Never "started" on acceptance. | Sent to Codex. Waiting for it to start. |
-| The runtime's report of an edit | {runtime} says, then Edited {path}, then Not seen on your computer yet. | Codex says · Edited src/towers.ts · Not seen on your computer yet. |
-| The Mac's reading at the turn's end | Changed {path}, {before} to {after} lines, seen {time}. Never the lines themselves. | Changed src/towers.ts, 41 to 54 lines, seen 10:42 |
+| The runtime's report of an edit | {runtime} says, then Edited {path} (Made or Removed for a new or removed file), then Not seen on your computer yet. | Codex says · Edited src/towers.ts · Not seen on your computer yet. |
+| The Mac's reading at the turn's end | Seen on your computer, then Changed {path}, {before} to {after} lines, seen {time}; Made {path}, {lines} lines, seen {time}; Removed {path}, seen {time}. Never the lines themselves. | Changed src/towers.ts, 41 to 54 lines, seen 10:42 |
 | Lines added and removed | +{added} −{removed} lines, only from a checkpoint diff when undo is on | +14 −3 lines |
-| Earlier moments | Earlier: {n} more, counting only the moments stacked behind the newest | Earlier: 4 more |
-| A check the Mac ran | Checked by your computer: {outcome} | Checked by your computer: it builds and opens |
+| Earlier moments | Earlier: {n} more, counting only the moments before the shown one | Earlier: 4 more |
+| Moments after a waiting question | {n} newer, counting the moments that came after a question that stays shown | 1 newer |
+| A check the Mac ran | Checked by your computer, then Checking it builds while no exit is seen, then Checked it builds: passed or failed. "and opens" only where the check opened the build. | Checked by your computer · Checked it builds: passed |
 | A check the agent ran | {runtime} ran {command}, then its outcome as theirs | Codex ran npm run build: exit 1 |
 | A check that ended with no outcome | Ran a check: result not known | Ran a check: result not known |
 | A command to approve | {runtime} asks, Run this command?, the command, then ADR 0033's line when the runtime declares it, then Nothing runs until you answer. | Codex asks · Run this command? · npm install matter-js · If you approve, it may run outside its sandbox, with your access to your computer. |
 | The answers | Yes, run it · No · Say something else | Yes, run it |
-| Ready | {project} is ready, then Built in {duration}, checked it builds and opens. Try it appears only after the host's check opened the build; for a VR version, after it opened the VR version. | Tower Toss is ready · Built in 6 min 40 s, checked it builds and opens. |
+| Ready | {project} is ready, then Built in {duration}, checked it builds. (checked it builds and opens. where the check opened it). Only after a check of the computer's own passed; Try it only where a route to try it exists; for a VR version, only after the check opened the VR version. | Tower Toss is ready · Built in 6 min 40 s, checked it builds and opens. |
+| A skipped reading | Skipped by your computer, then Not observed: {reason}. Never "no changes". | Not observed: too many files |
+| A package the starter doesn't hold | Wanted {package}, which isn't in this starter, then The install didn't run | Wanted matter-js, which isn't in this starter |
 | Reading | Read it, Fold, Whole file (unavailable until the Mac has read the file) | Read it |
