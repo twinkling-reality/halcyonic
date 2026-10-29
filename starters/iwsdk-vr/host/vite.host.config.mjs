@@ -4,16 +4,22 @@
 // that keep the page to its own origin.
 //
 // Environment: HALCYONIC_PREVIEW_ROOT (the project folder), HALCYONIC_PREVIEW_PORT, HALCYONIC_PREVIEW_CACHE
-// (a folder outside the project for Vite's cache).
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+// (a folder outside the project for Vite's cache), HALCYONIC_PREVIEW_DEPS (the host's own path to the shared
+// dependencies; folders separated by `:`).
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { isAbsolute, join, sep } from 'node:path';
 import { assertValidIwsdkProjectManifest } from '@iwsdk/core/project';
 import { defineConfig } from 'vite';
 
 const root = process.env.HALCYONIC_PREVIEW_ROOT;
 const port = Number(process.env.HALCYONIC_PREVIEW_PORT);
 const cacheDir = process.env.HALCYONIC_PREVIEW_CACHE;
-if (!root || !Number.isInteger(port) || !cacheDir) throw new Error('preview root, port and cache are required');
+// The shared dependencies as the host installed them (folders separated by `:`), named by the host, never read
+// from the project's own node_modules link.
+const deps = (process.env.HALCYONIC_PREVIEW_DEPS ?? '').split(':').filter((path) => path !== '');
+if (!root || !Number.isInteger(port) || !cacheDir || deps.length === 0)
+  throw new Error('preview root, port, cache and dependencies are required');
+const allowed = [root, ...deps, cacheDir].map((path) => realpathSync(path));
 
 const csp = [
   "default-src 'self'",
@@ -68,6 +74,31 @@ function iwsdkProject() {
   };
 }
 
+/**
+ * Refuses, for the build and the dev server alike, any file whose real path is outside the project, the shared
+ * dependencies and the cache: an import like `../../.ssh/id_rsa?raw` would otherwise put any readable file into
+ * the page, and the build does not apply the dev server's own file rules.
+ */
+function confine() {
+  return {
+    name: 'halcyonic-confine',
+    enforce: 'pre',
+    load(id) {
+      if (id.startsWith('\0') || id.startsWith('virtual:')) return null;
+      const file = id.split('?')[0];
+      if (!isAbsolute(file)) return null;
+      let real;
+      try {
+        real = realpathSync(file);
+      } catch {
+        return null;
+      }
+      if (allowed.some((base) => real === base || real.startsWith(base + sep))) return null;
+      throw new Error('The app may only load files from its own folder and its dependencies.');
+    },
+  };
+}
+
 export default defineConfig({
   root,
   cacheDir,
@@ -75,14 +106,17 @@ export default defineConfig({
   envDir: cacheDir,
   publicDir: 'public',
   base: './',
-  plugins: [iwsdkProject()],
+  plugins: [confine(), iwsdkProject()],
+  // Inline, so Vite never looks for the project's own postcss.config.*, which would run on the Mac.
+  css: { postcss: { plugins: [] } },
   server: {
     host: '127.0.0.1',
     port,
     strictPort: true,
     open: false,
     headers: { 'Content-Security-Policy': csp },
-    fs: { strict: true, allow: [root, join(import.meta.dirname, '..', 'node_modules')] },
+    // The project's own files, and the shared dependencies the host names.
+    fs: { strict: true, allow: [root, ...deps] },
   },
   preview: { host: '127.0.0.1', port, strictPort: true, headers: { 'Content-Security-Policy': csp } },
   build: { target: 'esnext', sourcemap: false, rollupOptions: { input: join(root, 'index.html') } },
