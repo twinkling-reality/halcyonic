@@ -231,6 +231,40 @@ namespace Halcyonic.Client
         public DateTimeOffset UsageLimitsReadAt { get; private set; }
 
         /// <summary>
+        /// The gallery's sample catalog as the control plane answered it at <see cref="CatalogReadAt"/>, the
+        /// recording's own start; null in a recording without one, as a recorded run always is.
+        /// </summary>
+        public AvailableCatalog? Catalog { get; private set; }
+
+        public DateTimeOffset CatalogReadAt { get; private set; }
+
+        /// <summary>
+        /// The recorded catalog as if read at <paramref name="now"/>, every time in it moved as
+        /// <see cref="UsageLimitsAt"/> moves the limits', so its projects read as active as long ago as
+        /// they were. A copy each time; null when the recording holds none.
+        /// </summary>
+        public AvailableCatalog? CatalogAt(DateTimeOffset now)
+        {
+            if (Catalog == null) return null;
+            var shift = now - CatalogReadAt;
+            string? Moved(string? at) =>
+                at != null && IntelligenceText.TryParse(at, out var parsed)
+                    ? (parsed + shift).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)
+                    : at;
+            var copy = (AvailableCatalog)HalcyonicJson.Deserialize<CatalogResponse>(HalcyonicJson.Serialize(Catalog));
+            copy.GeneratedAt = Moved(copy.GeneratedAt)!;
+            copy.Sync.RepositoriesAt = Moved(copy.Sync.RepositoriesAt);
+            copy.Sync.ActivityAt = Moved(copy.Sync.ActivityAt);
+            foreach (var project in copy.Projects)
+            {
+                project.State.LastActivityAt = Moved(project.State.LastActivityAt);
+                foreach (var repository in project.Repositories) repository.PushedAt = Moved(repository.PushedAt);
+                foreach (var attention in project.Attention) attention.At = Moved(attention.At);
+            }
+            return copy;
+        }
+
+        /// <summary>
         /// The recorded usage limits as if read at <paramref name="now"/>: every time in them moved by as
         /// long as has passed since the recording read them, so a limit is seen as long ago and resets as
         /// far ahead as it did then, whenever the demonstration plays. Null when the recording holds none.
@@ -331,9 +365,10 @@ namespace Halcyonic.Client
             {
                 throw new InvalidDataException("A recording of version " + version + " can't be of kind " + (kind ?? "none") + ".");
             }
-            if (recordedRun && (document["understanding"] != null || document["evaluation"] != null || document["usage_limits"] != null))
+            if (recordedRun && (document["understanding"] != null || document["evaluation"] != null || document["usage_limits"] != null
+                || document["catalog"] != null))
             {
-                throw new InvalidDataException("A recorded run holds nothing simulated: no stand-in answers and no usage limits.");
+                throw new InvalidDataException("A recorded run holds nothing simulated: no stand-in answers, no usage limits and no catalog.");
             }
             var serializer = JsonSerializer.Create(HalcyonicJson.Tolerant);
             var source = document.Value<string>("source") ?? throw Missing("source");
@@ -366,7 +401,37 @@ namespace Halcyonic.Client
             recording.Evaluation = ReadAnswers<EvaluationResponse>(document["evaluation"], "evaluation", serializer, nodes,
                 (response, key) => response.ExecutionId == key && Simulated(response.Result));
             ReadUsageLimits(document["usage_limits"], serializer, recording);
+            ReadCatalog(document["catalog"], serializer, recording);
             return recording;
+        }
+
+        /// <summary>
+        /// The recorded catalog, when there is one (ADR 0039): only the stand-in's invented projects,
+        /// available and marked synthetic, with every time readable, so no catalog passes for a person's.
+        /// </summary>
+        private static void ReadCatalog(JToken? token, JsonSerializer serializer, DemonstrationRecording recording)
+        {
+            if (token == null) return;
+            var readAt = token.Value<string>("read_at") ?? throw Missing("read_at of the catalog");
+            if (!IntelligenceText.TryParse(readAt, out var read)) throw new InvalidDataException("The demonstration's catalog has no readable read_at.");
+            var answer = token["answer"]?.ToObject<CatalogResponse>(serializer) ?? throw Missing("answer of the catalog");
+            if (!(answer is AvailableCatalog available) || !available.Source.Synthetic)
+            {
+                throw new InvalidDataException("The demonstration's catalog is not the stand-in's projects marked as simulated.");
+            }
+            var times = new List<string?> { available.GeneratedAt, available.Sync.RepositoriesAt, available.Sync.ActivityAt };
+            foreach (var project in available.Projects)
+            {
+                times.Add(project.State.LastActivityAt);
+                foreach (var repository in project.Repositories) times.Add(repository.PushedAt);
+                foreach (var attention in project.Attention) times.Add(attention.At);
+            }
+            foreach (var time in times)
+            {
+                if (time != null && !IntelligenceText.TryParse(time, out _)) throw new InvalidDataException("A time in the recorded catalog can't be read.");
+            }
+            recording.Catalog = available;
+            recording.CatalogReadAt = read;
         }
 
         /// <summary>

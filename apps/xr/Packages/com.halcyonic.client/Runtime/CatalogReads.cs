@@ -116,4 +116,33 @@ namespace Halcyonic.Client
             Version++;
         }
     }
+
+    /// <summary>
+    /// Answers the gallery's catalog reads from what is played (<see cref="DemonstrationFallback.CatalogAt"/>):
+    /// the demonstration's sample catalog, recorded and marked simulated; while a recorded run plays, or
+    /// before a recording is read, an answer that there is none, also recorded, so the gallery says the
+    /// other projects aren't part of this recording and names no source. Nothing leaves the device.
+    /// </summary>
+    public sealed class DemonstrationCatalogReads : ICatalogReader
+    {
+        /// <summary>Why a recording has no catalog to give.</summary>
+        public const string NotRecorded = "This recording holds no catalog.";
+
+        private readonly Func<DateTimeOffset, AvailableCatalog?> catalogAt;
+        private readonly Func<DateTimeOffset> clock;
+
+        public DemonstrationCatalogReads(Func<DateTimeOffset, AvailableCatalog?> catalogAt, Func<DateTimeOffset>? clock = null)
+        {
+            this.catalogAt = catalogAt;
+            this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+        }
+
+        public Task<IntelligenceRead<CatalogResponse>> ReadCatalogAsync(CancellationToken cancellationToken = default)
+        {
+            var now = clock();
+            CatalogResponse answer = catalogAt(now)
+                ?? (CatalogResponse)new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_recorded", Message = NotRecorded } };
+            return Task.FromResult(new IntelligenceRead<CatalogResponse>(answer, now, recorded: true));
+        }
+    }
 }
