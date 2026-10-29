@@ -8,8 +8,8 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The bar beneath a picked project's screen (ADR 0040, rule 2; R03 YouTube VR, R04 visionOS ornaments, R17 hidden until
-    /// wanted): one opaque bar as wide as the screen, its primary action and the other actions at the left, the quiet doors at
-    /// the right, a second row only where the person's text size needs it. Folded, it is a handle alone. Each button only asks
+    /// wanted): one opaque bar as wide as the screen, its actions gathered toward its middle, the primary first and the quiet
+    /// doors after a wider gap, a second row only where the person's text size needs it. Folded, it is a handle alone. Each button only asks
     /// its owner (<see cref="KitPress"/>). Centred on its transform; where it stands is the placement's.
     /// </summary>
     public sealed class KitScreenBar : MonoBehaviour
@@ -54,8 +54,14 @@ namespace Halcyonic.XR.UI
         private static bool IsDoor(KitScreenAction action) =>
             action == KitScreenAction.Steps || action == KitScreenAction.Why || action == KitScreenAction.HowItWent;
 
-        /// <summary>Shows the bar <paramref name="width"/> wide, the screen's own width, for <paramref name="model"/>.</summary>
-        public void Show(KitScreenModel model, float width)
+        /// <summary>
+        /// Shows the bar <paramref name="width"/> wide, the screen's own width, for <paramref name="model"/>. Its actions gather
+        /// toward its middle, as YouTube VR's controls do, and each grows by how much farther and more slanted its outer
+        /// corner stands than the point where the bar faces the eyes, <paramref name="facing"/> from the bar's centre in units
+        /// of the distance (zero where the bar is turned to face the eyes itself): every target holds the floor at its true
+        /// distance, not only along the bar's normal.
+        /// </summary>
+        public void Show(KitScreenModel model, float width, Vector2 facing = default)
         {
             foreach (var button in buttons.Values) button.Hide();
             shown.Clear();
@@ -79,38 +85,56 @@ namespace Halcyonic.XR.UI
 
             var lead = model.Shown.Where(action => !IsDoor(action)).ToList();
             var doors = model.Shown.Where(IsDoor).ToList();
-            float Measure(KitScreenAction action) => ButtonFor(action).Measure(KitScreenModel.Words(action), null);
-            float Span(IEnumerable<KitScreenAction> actions) => actions.Sum(Measure) + gap * System.Math.Max(0, actions.Count() - 1);
+            var natural = model.Shown.ToDictionary(action => action, action => ButtonFor(action).Measure(KitScreenModel.Words(action), null));
+            var scale = model.Shown.ToDictionary(action => action, _ => 1f);
+            var groupGap = 3f * gap;
             var inner = width - 2f * padX;
-            var leadSpan = Span(lead);
-            var doorSpan = Span(doors);
-            Rows = leadSpan + doorSpan + 2f * gap <= inner ? 1 : 2;
+            float Span(IList<KitScreenAction> row, bool split) =>
+                row.Sum(action => natural[action] * scale[action]) + gap * Mathf.Max(0, row.Count - 1) + (split ? groupGap - gap : 0f);
+            Rows = Span(model.Shown.ToList(), lead.Count > 0 && doors.Count > 0) <= inner ? 1 : 2;
+            var rows = Rows == 1 ? new List<List<KitScreenAction>> { model.Shown.ToList() } : new List<List<KitScreenAction>> { lead, doors };
+            var centres = new Dictionary<KitScreenAction, Vector2>();
             var padY = (KitType.Units(SpatialKit.BarDegrees) - target) / 2f;
-            var height = Rows * target + (Rows - 1) * gap + 2f * padY;
+            var height = 0f;
+
+            // Lay out, grow each button for where it stands, and lay out again: three rounds settle it.
+            for (var round = 0; round < 3; round++)
+            {
+                var rowHeights = rows.Select(row => row.Count == 0 ? 0f : row.Max(action => target * scale[action])).ToList();
+                height = rowHeights.Sum() + gap * (rows.Count - 1) + 2f * padY;
+                var y = height / 2f - padY;
+                for (var r = 0; r < rows.Count; r++)
+                {
+                    var row = rows[r];
+                    var split = Rows == 1 && lead.Count > 0 && doors.Count > 0;
+                    var x = -Span(row, split) / 2f;
+                    var rowY = y - rowHeights[r] / 2f;
+                    for (var k = 0; k < row.Count; k++)
+                    {
+                        var action = row[k];
+                        var w = natural[action] * scale[action];
+                        centres[action] = new Vector2(x + w / 2f, rowY);
+                        x += w + (split && k == lead.Count - 1 ? groupGap : gap);
+                    }
+                    y -= rowHeights[r] + gap;
+                }
+                foreach (var action in model.Shown)
+                {
+                    var c = centres[action];
+                    var outer = Mathf.Abs(c.x - facing.x) + natural[action] * scale[action] / 2f;
+                    var edge = Mathf.Abs(c.y - facing.y) + target * scale[action] / 2f;
+                    scale[action] = Mathf.Max(1f, 1f / PlaneComposition.ShrinkAt(outer, edge));
+                }
+            }
             Size = new Vector2(width, height);
             carrier.Draw(Size, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
-
-            var top = height / 2f - padY - target / 2f;
-            var x = -width / 2f + padX;
-            foreach (var action in lead)
+            foreach (var action in lead.Concat(doors))
             {
                 var button = ButtonFor(action);
-                button.Role = action == model.Primary ? KitButtonRole.Primary : KitButtonRole.Secondary;
-                var w = Measure(action);
-                button.Show(KitScreenModel.Words(action), null, new Vector2(x + w / 2f, top), w);
+                button.Role = action == model.Primary ? KitButtonRole.Primary : lead.Contains(action) ? KitButtonRole.Secondary : KitButtonRole.Quiet;
+                button.Show(KitScreenModel.Words(action), null, centres[action], natural[action]);
+                button.transform.localScale = Vector3.one * scale[action];
                 shown.Add((action, button));
-                x += w + gap;
-            }
-            var doorsY = Rows == 1 ? top : top - target - gap;
-            var right = width / 2f - padX;
-            foreach (var action in Enumerable.Reverse(doors))
-            {
-                var button = ButtonFor(action);
-                button.Role = KitButtonRole.Quiet;
-                var w = Measure(action);
-                button.Show(KitScreenModel.Words(action), null, new Vector2(right - w / 2f, doorsY), w);
-                shown.Insert(lead.Count, (action, button));
-                right -= w + gap;
             }
             gameObject.SetActive(true);
         }

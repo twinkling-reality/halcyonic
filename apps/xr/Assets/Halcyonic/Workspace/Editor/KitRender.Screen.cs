@@ -49,14 +49,19 @@ namespace Halcyonic.XR.Workspace.Editor
             var screen = KitScreen.Create(view);
             screen.Show(model);
             var bar = KitScreenBar.Create(view);
-            bar.Show(model, screen.Size.x);
             var gap = KitType.Units(BarGapDegrees);
-            // Beneath the screen, slightly in front of it, as visionOS stands an ornament (R04).
-            bar.transform.localPosition = new Vector3(0f, -screen.Size.y / 2f - gap - bar.Size.y / 2f, -KitType.Units(0.1f));
+            // The plane faces the eyes at the screen's centre, as the room stands it; the bar hangs beneath, slightly in front, as
+            // visionOS stands an ornament (R04), and sizes its targets for where it stands from that point.
+            var facing = Vector2.zero;
+            for (var round = 0; round < 2; round++)
+            {
+                bar.Show(model, screen.Size.x, facing);
+                var below = new Vector2(0f, -screen.Size.y / 2f - gap - bar.Size.y / 2f);
+                bar.transform.localPosition = new Vector3(below.x, below.y, -KitType.Units(0.1f));
+                facing = -below;
+            }
             var total = new Vector2(screen.Size.x, screen.Size.y + gap + bar.Size.y);
-            screen.transform.localPosition = new Vector3(0f, total.y / 2f - screen.Size.y / 2f, 0f);
-            bar.transform.localPosition += new Vector3(0f, total.y / 2f - screen.Size.y / 2f, 0f);
-            shot.Elevation = CentreFor(total.y);
+            shot.Elevation = 0f;
             shot.Centre = Place(view, eyes, 0f, shot.Elevation);
             var carriers = screen.Carriers.Concat(bar.Carriers).ToList();
             Stand(shot, view, eyes, carriers, total);
@@ -66,6 +71,21 @@ namespace Halcyonic.XR.Workspace.Editor
             shot.Witness = (screen.Face.Face, new Vector3(0.42f, 0.18f, 0f), SpatialKit.IdentityField(model.IdentityHue));
             shot.OpacityNegative = screen.Face.Face;
 
+            // Every target holds the floor at its true distance from the eyes, not only along the bar's normal (the lead's rule).
+            foreach (var (action, button) in bar.Shown)
+            {
+                var t = button.transform;
+                var half = button.Size / 2f;
+                var tall = Vector3.Angle(t.TransformPoint(new Vector3(0f, half.y, 0f)) - eyes, t.TransformPoint(new Vector3(0f, -half.y, 0f)) - eyes);
+                var wide = Vector3.Angle(t.TransformPoint(new Vector3(half.x, 0f, 0f)) - eyes, t.TransformPoint(new Vector3(-half.x, 0f, 0f)) - eyes);
+                Require(Mathf.Min(tall, wide) >= SpatialKit.TargetDegrees - 0.005f,
+                    KitScreenModel.Words(action) + " reads " + Mathf.Min(tall, wide).ToString("0.00") + " degrees at its true distance, under " + SpatialKit.TargetDegrees);
+            }
+            Debug.Log("Halcyonic: spatial kit: " + state + " bar targets at their true distance: the least " + bar.Shown.Select(each =>
+            {
+                var t = each.Button.transform; var half = each.Button.Size / 2f;
+                return Vector3.Angle(t.TransformPoint(new Vector3(0f, half.y, 0f)) - eyes, t.TransformPoint(new Vector3(0f, -half.y, 0f)) - eyes);
+            }).DefaultIfEmpty(0f).Min().ToString("0.00") + " degrees.");
             // The bar's edges are the screen's (ADR 0040, rule 2; ADR 0026's aligned edges).
             Require(Mathf.Abs(bar.Size.x - screen.Size.x) < 1e-5f, "the bar is not as wide as the screen");
             // The one clear action only where it applies, first; Try it only after a passed check of the computer's own, with a route.
