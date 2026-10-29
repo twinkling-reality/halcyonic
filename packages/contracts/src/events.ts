@@ -18,6 +18,7 @@ import {
   ReceivedVia,
 } from './commands.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
+import { FilesObserved } from './file-changes.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
 import {
   DeviceId,
@@ -327,6 +328,13 @@ export const ExecutionCreated = executionEvent(
   ),
 );
 
+/**
+ * The Mac read the execution's folder at the end of a turn and compared it with its reading before
+ * (ADR 0038): created, changed and deleted files with sizes and line counts, observed by the Mac,
+ * never claimed by the agent.
+ */
+export const ExecutionFilesObserved = executionEvent('execution.files.observed', FilesObserved);
+
 /** The adapter reported that the runtime could not start the execution. */
 export const ExecutionStartFailed = executionEvent(
   'execution.start_failed',
@@ -634,6 +642,7 @@ export const EVENT_VARIANTS = [
   ProjectRestoreIncomplete,
   WorkstreamCreated,
   ExecutionCreated,
+  ExecutionFilesObserved,
   ExecutionStartFailed,
   ExecutionStateUnknown,
   CommandAccepted,

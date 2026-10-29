@@ -1424,6 +1424,105 @@ namespace Halcyonic.Contracts
         public string? Directory { get; set; }
     }
 
+    public sealed class FileCreated
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("lines", Required = Required.AllowNull)]
+        public long? Lines { get; set; }
+
+        [JsonProperty("bytes", Required = Required.Always)]
+        public long Bytes { get; set; }
+    }
+
+    public sealed class FilesObservedCreated
+    {
+        [JsonProperty("files", Required = Required.Always)]
+        public List<FileCreated> Files { get; set; } = new List<FileCreated>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    public sealed class FileChanged
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("lines_before", Required = Required.AllowNull)]
+        public long? LinesBefore { get; set; }
+
+        [JsonProperty("lines_after", Required = Required.AllowNull)]
+        public long? LinesAfter { get; set; }
+
+        [JsonProperty("bytes", Required = Required.Always)]
+        public long Bytes { get; set; }
+    }
+
+    public sealed class FilesObservedChanged
+    {
+        [JsonProperty("files", Required = Required.Always)]
+        public List<FileChanged> Files { get; set; } = new List<FileChanged>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    public sealed class FileDeleted
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("lines_before", Required = Required.AllowNull)]
+        public long? LinesBefore { get; set; }
+    }
+
+    public sealed class FilesObservedDeleted
+    {
+        [JsonProperty("files", Required = Required.Always)]
+        public List<FileDeleted> Files { get; set; } = new List<FileDeleted>();
+
+        [JsonProperty("total", Required = Required.Always)]
+        public long Total { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum FilesObservedSkippedCode
+    {
+        [EnumMember(Value = "no_baseline")] NoBaseline,
+        [EnumMember(Value = "too_large")] TooLarge,
+        [EnumMember(Value = "location_missing")] LocationMissing,
+        [EnumMember(Value = "unreadable")] Unreadable,
+    }
+
+    public sealed class FilesObservedSkipped
+    {
+        [JsonProperty("code", Required = Required.Always)]
+        public FilesObservedSkippedCode Code { get; set; }
+
+        [JsonProperty("message", Required = Required.Always)]
+        public string Message { get; set; } = default!;
+    }
+
+    public sealed class FilesObserved
+    {
+        [JsonProperty("turn_id", Required = Required.AllowNull)]
+        public string? TurnId { get; set; }
+
+        [JsonProperty("created", Required = Required.Always)]
+        public FilesObservedCreated Created { get; set; } = default!;
+
+        [JsonProperty("changed", Required = Required.Always)]
+        public FilesObservedChanged Changed { get; set; } = default!;
+
+        [JsonProperty("deleted", Required = Required.Always)]
+        public FilesObservedDeleted Deleted { get; set; } = default!;
+
+        [JsonProperty("skipped", Required = Required.AllowNull)]
+        public FilesObservedSkipped? Skipped { get; set; }
+    }
+
     public sealed class ExecutionStartFailedPayload
     {
         [JsonProperty("error", Required = Required.Always)]
@@ -2345,6 +2444,7 @@ namespace Halcyonic.Contracts
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
+                "execution.files.observed" => new ExecutionFilesObservedEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
                 "execution.state_unknown" => new ExecutionStateUnknownEvent(),
                 "command.accepted" => new CommandAcceptedEvent(),
@@ -2464,6 +2564,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ExecutionCreatedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionFilesObservedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.files.observed";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public FilesObserved Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedEvent : EventEnvelope

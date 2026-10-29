@@ -68,6 +68,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `project.restore_incomplete` | project | control plane | A restore did not end equal to the checkpoint: whether anything was written, and what still differs |
 | `workstream.created` | workstream | control plane | A workstream exists |
 | `execution.created` | execution | control plane | A start was accepted; the runtime has not confirmed yet. Carries the folder the runtime was given (`directory`), null for a runtime that uses none |
+| `execution.files.observed` | execution | control plane | What changed in the execution's folder by the end of a turn, as the Mac read it ([ADR 0038](../decisions/0038-the-mac-observes-each-turns-file-changes-itself.md)): files created, changed and deleted, with sizes and line counts, at most 100 of each with totals; never contents; or `skipped` with a reason (`no_baseline`, `too_large`, `location_missing`, `unreadable`). Provenance `observed`; it cannot tell who changed a file |
 | `execution.start_failed` | execution | control plane | The runtime refused to start |
 | `execution.state_unknown` | execution | control plane | The execution can no longer be observed (`control_plane_restarted`, `start_outcome_unknown`) |
 | `command.accepted` | as resolved | control plane | Admitted; carries the full command, its policy, how it arrived and its principal |
