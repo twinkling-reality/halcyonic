@@ -310,6 +310,9 @@ async function status(): Promise<void> {
   console.log(`Halcyonic running: ${running}`);
   console.log(`reverse rules: ${(await adbSaid('reverse', '--list')).trim() || 'none'}`);
   console.log(`forward rules: ${(await adbSaid('forward', '--list')).trim() || 'none'}`);
+  const recording = readState().recording;
+  if (recording)
+    console.log(`A recording is in progress since ${recording.startedAt}; record stop ends it.`);
   replaced();
 }
 
@@ -329,6 +332,11 @@ async function awake(): Promise<void> {
 }
 
 async function giveBack(): Promise<void> {
+  // A recording a cut-off run left going keeps the microphone on until something stops it.
+  if (readState().recording) {
+    console.log('A recording is still in progress: stopping and collecting it first.');
+    await recordStop();
+  }
   for (const name of readState().started) {
     await adb('shell', 'am', 'force-stop', name);
     console.log(`Stopped ${name}, which this tool started.`);
