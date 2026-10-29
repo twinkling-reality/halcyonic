@@ -99,7 +99,7 @@ public class SpatialKitTests
                     $"Body x{scale} at the corner ({right:0.000}, {up:0.000}) reads {SpatialKit.SeenDegrees(SpatialKit.BodyDp * scale, right, up):0.000} degrees");
             }
         }
-        // Anything smaller would fail out there: the kit has no smaller size on purpose.
+        // Anything smaller would fail out there: the instrument has no smaller size on purpose; Label lives only on the room's small surfaces.
         Assert.That(SpatialKit.Reads(16f, SpatialKit.WorkHalfWidth - padding, SpatialKit.MostHalfHeight(1f) - padding), Is.False);
     }
 
@@ -144,6 +144,85 @@ public class SpatialKitTests
         // Meta's 96 degrees across less 1.5 at each edge, with the head turned to the instrument's centre.
         foreach (var half in new[] { SpatialKit.WorkHalfWidth, SpatialKit.OverviewHalfWidth })
             Assert.That(half * 180f / MathF.PI, Is.LessThan(48f - 1.5f));
+    }
+
+    // The room of projects (ADR 0040).
+
+    private static readonly GlazeColor BrightWall = GlazeColor.Hex(0xE4DFD6);
+
+    private static GlazeColor[] RoomCarriers => new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control };
+
+    [Test]
+    public void TheRampStepsByRole()
+    {
+        var carriers = RoomCarriers;
+        for (var i = 1; i < carriers.Length; i++)
+            Assert.That(carriers[i].Luminance, Is.GreaterThan(carriers[i - 1].Luminance), $"carrier step {i} is lighter than the one below");
+        Assert.That(SpatialKit.Hairline.Luminance, Is.GreaterThan(SpatialKit.Control.Luminance), "a hairline stands above the controls");
+        Assert.That(SpatialKit.TextTertiary.Luminance, Is.LessThan(SpatialKit.TextSecondary.Luminance));
+        Assert.That(SpatialKit.TextSecondary.Luminance, Is.LessThan(SpatialKit.Text.Luminance));
+        foreach (var carrier in carriers.Append(SpatialKit.AddedBand))
+        {
+            Assert.That(carrier.Luminance, Is.GreaterThanOrEqualTo(DarkestShown.Luminance), $"{carrier} is darker than the display shows");
+            Assert.That(Math.Min(carrier.R, Math.Min(carrier.G, carrier.B)), Is.GreaterThan(13), $"{carrier} has a channel the display cannot separate");
+        }
+    }
+
+    [Test]
+    public void EveryWordInTheRoomReadsOnEveryCarrier()
+    {
+        var words = new[] { SpatialKit.Text, SpatialKit.TextSecondary, SpatialKit.TextTertiary, SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed };
+        foreach (var carrier in RoomCarriers)
+            foreach (var word in words)
+                Assert.That(GlazeColor.Contrast(word, carrier), Is.GreaterThanOrEqualTo(4.5), $"{word} on {carrier}");
+        foreach (var fill in new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed })
+            Assert.That(GlazeColor.Contrast(SpatialKit.AccentInk, fill), Is.GreaterThanOrEqualTo(4.5), $"the ink on {fill}");
+        Assert.That(GlazeColor.Contrast(SpatialKit.Text, SpatialKit.AddedBand), Is.GreaterThanOrEqualTo(7), "code on an added line's band");
+        Assert.That(GlazeColor.Contrast(SpatialKit.Carrier, BrightWall), Is.GreaterThanOrEqualTo(7), "a carrier stands off a bright wall");
+    }
+
+    [Test]
+    public void OneAccentAndColourOnlyForMeaning()
+    {
+        var hues = new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed };
+        Assert.That(hues.Distinct().Count(), Is.EqualTo(hues.Length), "each meaning has its own colour");
+        foreach (var neutral in RoomCarriers.Concat(new[] { SpatialKit.Hairline, SpatialKit.TextTertiary, SpatialKit.TextSecondary, SpatialKit.Text }))
+            Assert.That(Chroma(neutral), Is.LessThan(0.12), $"{neutral} is a neutral step");
+        foreach (var hue in hues)
+            Assert.That(Chroma(hue), Is.GreaterThan(0.3), $"{hue} reads as a colour");
+    }
+
+    private static double Chroma(GlazeColor c) => (Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B))) / 255.0;
+
+    [Test]
+    public void FiveTypeRolesStepDownToTheFloor()
+    {
+        Assert.That(SpatialKit.IdentityDp, Is.EqualTo(30f));
+        Assert.That(SpatialKit.HeadingDp, Is.EqualTo(22f));
+        Assert.That(SpatialKit.BodyDp, Is.EqualTo(18f));
+        Assert.That(SpatialKit.MonoDp, Is.EqualTo(16f));
+        Assert.That(SpatialKit.LabelDp, Is.EqualTo(15f));
+        Assert.That(SpatialKit.Degrees(SpatialKit.LabelDp), Is.GreaterThanOrEqualTo(Glaze.MinimumTextDegrees), "the smallest role is above Meta's 14 dp floor");
+        // A moment card is 23 degrees wide where the person looks at it; Label must read at its corners at either text size.
+        var right = PlaneComposition.Units(23f / 2f - SpatialKit.PaddingDegrees);
+        var up = PlaneComposition.Units(10f);
+        foreach (var scale in new[] { 1f, Comfort.LargerTextScale })
+            Assert.That(SpatialKit.Reads(SpatialKit.LabelDp * scale, right, up), Is.True, $"Label x{scale} at a moment's corner");
+    }
+
+    [Test]
+    public void MotionIsTheDecidedTokens()
+    {
+        Assert.That(SpatialKit.PopSeconds, Is.EqualTo(0.5f));
+        Assert.That(SpatialKit.PopBounce, Is.EqualTo(0.15f), "a small overshoot, under Apple's caution of 0.4");
+        Assert.That(SpatialKit.UnfoldSeconds, Is.EqualTo(0.5f));
+        Assert.That(SpatialKit.FoldSeconds, Is.EqualTo(0.25f));
+        Assert.That(SpatialKit.FoldSeconds, Is.LessThan(SpatialKit.UnfoldSeconds), "leaving is quicker than arriving");
+        Assert.That(SpatialKit.MoveSeconds, Is.EqualTo(0.6f));
+        Assert.That(SpatialKit.BreathSeconds, Is.EqualTo(3.2f));
+        Assert.That(SpatialKit.UnfoldCurve, Is.EqualTo((0.05f, 0.7f, 0.1f, 1f)), "Material 3 emphasized decelerate");
+        Assert.That(SpatialKit.FoldCurve, Is.EqualTo((0.3f, 0f, 0.8f, 0.15f)), "Material 3 emphasized accelerate");
+        Assert.That(SpatialKit.MoveCurve, Is.EqualTo((0.2f, 0f, 0f, 1f)), "Material 3 standard");
     }
 
     [Test]

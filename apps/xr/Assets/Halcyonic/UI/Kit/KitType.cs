@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>The spatial kit's type roles (<see cref="SpatialKit"/>): two sizes of the instrument face for names, one reading size for everything read.</summary>
+    /// <summary>The spatial kit's type roles (<see cref="SpatialKit"/>): two sizes of the instrument face for names, one reading size for everything read, and the room's Label and Mono.</summary>
     public enum KitRole
     {
         /// <summary>The selected work's or the place's name, once an instrument: 30 dp in the instrument face.</summary>
@@ -19,6 +19,15 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A control's words and a chosen row's words: Body, drawn heavier by its material.</summary>
         Strong,
+
+        /// <summary>A fact beside a subject on the room's small surfaces (ADR 0040): 15 dp in the reading face.</summary>
+        Label,
+
+        /// <summary>
+        /// Code, paths and commands, which are the runtime's: 16 dp. Drawn in the reading face until a monospace
+        /// face is chosen, which needs a download the owner has not approved.
+        /// </summary>
+        Mono,
     }
 
     /// <summary>
@@ -56,6 +65,8 @@ namespace Halcyonic.XR.UI
         {
             KitRole.Identity => SpatialKit.IdentityDp,
             KitRole.Heading => SpatialKit.HeadingDp,
+            KitRole.Label => SpatialKit.LabelDp,
+            KitRole.Mono => SpatialKit.MonoDp,
             _ => SpatialKit.BodyDp,
         }) * GlazeText.Scale;
 
