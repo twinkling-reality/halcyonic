@@ -2437,6 +2437,27 @@ plane, and `HideScreen` takes them away.
   - the neutral mark.
 - A bar made 5% wider and a title shrunk under the floor must each be caught.
 
+`MenuPlane.ShowMoment` stands DESIGN's `KitMomentCard` in `RoomLayout.MomentSlot`, beside the task's
+character at rest, or beside the task mark that stands in its place while characters are off
+(`TaskIdentityAvatarView` until the kit draws one). `HideMoment` takes it away.
+
+- The card is 23 degrees across (`SpatialKit.MomentDegrees`) and as high as its words need.
+- It stands under a holder scaled by its true distance, with its carrier on the slot's middle. The card
+  scales only its inner body as it pops, so the holder's scale stays.
+- It grows from the lower corner toward what it comes out of (`KitMomentCard.GrowsFromLeft`): from
+  the left when the character stands left of the look and the slot is on its right.
+- The journey `RoomMomentCheck` stands it beside a real `CharacterView` right and left of the look,
+  at both text sizes. It checks:
+  - the 23 degrees and the facing;
+  - the slot on the character's side toward the look;
+  - the card's span apart from the body and label by 1.5 degrees (`BodyInView`);
+  - the character's distance across the floor;
+  - the growing corner toward the character;
+  - the same slot for the same character;
+  - every glyph and target as the eyes get them;
+  - the carrier opaque in the pixels.
+- A card moved onto the character and one on its far side must each be caught.
+
 ### The room
 
 `Assets/Halcyonic/Room` is the separate `Halcyonic.XR.Room` assembly, the only one that references
