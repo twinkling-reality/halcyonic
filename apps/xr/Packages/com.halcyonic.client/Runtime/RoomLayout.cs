@@ -82,6 +82,9 @@ namespace Halcyonic.Client
         /// <summary>How much nearer than the screen its bar stands: parallel, slightly in front (visionOS's ornament).</summary>
         public const float BarForward = 0.02f;
 
+        /// <summary>The angle between the screen's bottom edge and its bar's top, as DESIGN's storyboard stands them.</summary>
+        public const float BarGapDegrees = 0.75f;
+
         /// <summary>The reading surface (ADR 0040 rule 5), from the eyes.</summary>
         public const float ReadingDistance = 1f;
 
@@ -96,32 +99,34 @@ namespace Halcyonic.Client
         public const float MomentClearanceDegrees = WorkspacePlacement.ClearanceDegrees;
 
         /// <summary>
-        /// A picked project's screen: <paramref name="widthDegrees"/> across at <paramref name="distance"/> on
-        /// <paramref name="bearing"/>, its middle at eye height, <paramref name="aspect"/> wide to high.
+        /// A picked project's screen: <paramref name="widthDegrees"/> across and <paramref name="heightDegrees"/> high, as the
+        /// eyes see it square on, at <paramref name="distance"/> on <paramref name="bearing"/>, its middle at eye height.
         /// </summary>
-        public static RoomPose Screen(Vector3 eyes, float bearing, float widthDegrees, float aspect, float distance = ScreenDistance)
+        public static RoomPose Screen(Vector3 eyes, float bearing, float widthDegrees, float heightDegrees, float distance = ScreenDistance)
         {
             Reach(distance, nameof(distance));
-            if (!(aspect > 0f) || float.IsInfinity(aspect)) throw new ArgumentOutOfRangeException(nameof(aspect), aspect, "A screen needs a positive aspect.");
-            var width = Span(widthDegrees, distance);
-            return new RoomPose(eyes + Direction(bearing, 0f) * distance, bearing, 0f, width, width / aspect);
+            return new RoomPose(eyes + Direction(bearing, 0f) * distance, bearing, 0f, Span(widthDegrees, distance), Span(heightDegrees, distance));
         }
 
         /// <summary>
-        /// The screen's bar: its edges the screen's, <see cref="BarForward"/> nearer, its top
-        /// <paramref name="gapDegrees"/> under the screen's bottom and <paramref name="heightDegrees"/> high, as the eyes see it.
+        /// The screen's bar: as wide as the screen, on its bearing and <see cref="BarForward"/> nearer, its top
+        /// <paramref name="gapDegrees"/> under the screen's bottom and <paramref name="heightDegrees"/> high, as the eyes see
+        /// it. It stands low in the view, so it tilts up to face the eyes there: upright, its targets would read short of
+        /// the kit's floor at that slant and distance.
         /// </summary>
-        public static RoomPose Bar(Vector3 eyes, RoomPose screen, float heightDegrees, float gapDegrees)
+        public static RoomPose Bar(Vector3 eyes, RoomPose screen, float heightDegrees, float gapDegrees = BarGapDegrees)
         {
             if (!(gapDegrees >= 0f)) throw new ArgumentOutOfRangeException(nameof(gapDegrees), gapDegrees, "A gap can't be negative.");
             var screenDistance = Flat(screen.Centre - eyes);
             var distance = screenDistance - BarForward;
             Reach(distance, nameof(screen));
             var top = MathF.Atan2(screen.Bottom - eyes.Y, screenDistance) - gapDegrees * RadiansPerDegree;
-            var bottom = top - Angle(heightDegrees, nameof(heightDegrees));
-            var (topY, bottomY) = (eyes.Y + distance * MathF.Tan(top), eyes.Y + distance * MathF.Tan(bottom));
-            var middle = eyes + Direction(screen.Bearing, 0f) * distance;
-            return new RoomPose(new Vector3(middle.X, (topY + bottomY) / 2f, middle.Z), screen.Bearing, 0f, screen.Width, topY - bottomY);
+            var tall = Angle(heightDegrees, nameof(heightDegrees));
+            var middle = top - tall / 2f;
+            // Its middle on the bearing, as far across the floor as the screen less BarForward, raised or lowered to its angle.
+            var along = distance / MathF.Cos(middle);
+            var pitch = middle / RadiansPerDegree;
+            return new RoomPose(eyes + Direction(screen.Bearing, pitch) * along, screen.Bearing, pitch, screen.Width, 2f * along * MathF.Tan(tall / 2f));
         }
 
         /// <summary>
