@@ -416,3 +416,35 @@ task portraits name a device-wide local preference, separate from per-task colou
 root omits Close; a task retains Close because that action removes its context and does not
 always navigate to a task list. Blue marks the main action, while amber still means waiting for
 you. These words describe the isolated candidate; wearer acceptance remains open.
+
+## The room of projects
+
+The words of [ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md)'s room, decided with its storyboard on
+2026-10-29 and its truth read. {runtime} is the agent app's name; anything the runtime wrote (a path, a command, its
+sentence) is theirs and drawn as theirs. Nothing here is built yet.
+
+| Kind | Words | Example |
+| --- | --- | --- |
+| The gallery's title | Your projects, then the count | Your projects · 214 projects in 6 groups |
+| A newcomer's line | Say what you want to make, or open what you made. "Say" only when speech is set up on the Mac; otherwise Type what you want to make, or open what you made. | Say what you want to make, or open what you made. |
+| Making something | Make something new, on the first tile and at the top of the gallery | Make something new |
+| What needs the person | Needs you first, then the count | Needs you first · 3 |
+| The rest of a shelf | +{n} more | +42 more |
+| Finding | Find a project | Find a project |
+| A catalog state | Halcyonic's plain words mapped from the catalog's states (the mapping lives with the gallery's client core, ADR 0039), beside the catalog's mark and "reported by {catalog}"; an attention kind Halcyonic does not know reads needs a look | Review requested · reported by Sample projects |
+| A catalog project linked to no Project here | Not linked to a project here. Never "Not on this computer yet": Halcyonic cannot know what is on the computer. Maybe on your computer: {folder} only from the host's own suggestion, once there is one. | Not linked to a project here |
+| A linked project with both states | Halcyonic's line with its state dot, then the catalog's line with its mark and "reported by {catalog}"; neither hides the other | Working · Asked for your review, reported by Sample projects |
+| The screen's picture | Last checked build, {time}, on the host's check screenshot; no picture and no label until the check takes one | Last checked build, 10:38 |
+| The one clear action | Make a VR version, for a project that is not VR yet. It only asks the agent. | Make a VR version |
+| A request sent | Sent to {runtime}. Waiting for it to start. Never "started" on acceptance. | Sent to Codex. Waiting for it to start. |
+| The runtime's report of an edit | {runtime} says, then Edited {path}, then Not seen on your computer yet. | Codex says · Edited src/towers.ts · Not seen on your computer yet. |
+| The Mac's reading at the turn's end | Changed {path}, {before} to {after} lines, seen {time}. Never the lines themselves. | Changed src/towers.ts, 41 to 54 lines, seen 10:42 |
+| Lines added and removed | +{added} −{removed} lines, only from a checkpoint diff when undo is on | +14 −3 lines |
+| Earlier moments | Earlier: {n} more, counting only the moments stacked behind the newest | Earlier: 4 more |
+| A check the Mac ran | Checked by your computer: {outcome} | Checked by your computer: it builds and opens |
+| A check the agent ran | {runtime} ran {command}, then its outcome as theirs | Codex ran npm run build: exit 1 |
+| A check that ended with no outcome | Ran a check: result not known | Ran a check: result not known |
+| A command to approve | {runtime} asks, Run this command?, the command, then ADR 0033's line when the runtime declares it, then Nothing runs until you answer. | Codex asks · Run this command? · npm install matter-js · If you approve, it may run outside its sandbox, with your access to your computer. |
+| The answers | Yes, run it · No · Say something else | Yes, run it |
+| Ready | {project} is ready, then Built in {duration}, checked it builds and opens. Try it appears only after the host's check opened the build; for a VR version, after it opened the VR version. | Tower Toss is ready · Built in 6 min 40 s, checked it builds and opens. |
+| Reading | Read it, Fold, Whole file (unavailable until the Mac has read the file) | Read it |

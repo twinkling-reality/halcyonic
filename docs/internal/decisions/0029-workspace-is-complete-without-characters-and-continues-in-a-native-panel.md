@@ -1,6 +1,9 @@
 # ADR 0029: The workspace is complete without characters and continues in a native panel
 
 - Status: Accepted; implementation and device acceptance are separate checks
+- Superseded in part on 2026-10-29 by [ADR 0040](0040-the-headset-is-a-room-of-projects.md): in the room of projects
+  a task's character is shown by default; the workspace stays complete without characters, no action needs one, and a
+  person can turn them off
 - Date: 2026-10-12
 - Supersedes the mandatory character entry and closed-on-return behavior of ADR 0026, and the
   automatic whole-stage placement and floating fallback of ADR 0015. Their unrelated reading,

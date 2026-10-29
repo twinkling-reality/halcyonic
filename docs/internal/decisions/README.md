@@ -37,18 +37,19 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0023](0023-the-headset-interface-is-one-system-of-tokens-and-components.md) | The headset's interface is one system of tokens, components and render-checked rules | Accepted; its panels and workspace superseded by 0026 |
 | [0024](0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md) | The Mac's settings live in one file only its owner can write, and never start paid model use | Proposed |
 | [0025](0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md) | Create's companion is a local model the control plane asks one reply at a time, and its exchange stays on the headset | Accepted |
-| [0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md) | The headset's interface is a game menu of places, sections and prompts, on one plane facing the eyes | Accepted |
+| [0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md) | The headset's interface is a game menu of places, sections and prompts, on one plane facing the eyes | Accepted; main presentation superseded by 0040 |
 | [0027](0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md) | The headset moves only to answer the person or to show a wait | Accepted; amended 2026-10-08 |
 | [0028](0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md) | OpenCode runs inside a macOS sandbox of Halcyonic's own | Accepted; amended 2026-10-08 |
-| [0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md) | Complete character-free workspace, optional deliberate agent placement and native continuity | Accepted; device acceptance pending |
+| [0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md) | Complete character-free workspace, optional deliberate agent placement and native continuity | Accepted; device acceptance pending; off by default superseded by 0040 |
 | [0030](0030-workspace-requests-use-a-journaled-agent-tool-loop.md) | Open-ended workspace requests use a journaled model/tool/result loop with existing runtime authority | Accepted design; implementation and acceptance pending |
 | [0031](0031-record-bounded-native-tool-results-in-the-owner-journal.md) | Record bounded final native tool results as owner-journal evidence, with scoped read-only consumers | Accepted design; device acceptance unverified |
 
 | [0032](0032-recover-the-workspace-when-it-leaves-view.md) | Recover the workspace when it leaves view | Accepted direction; candidate thresholds require wearer validation |
 | [0033](0033-approvals-declare-whether-commands-leave-the-sandbox.md) | An agent app declares whether approving a command can let it leave the sandbox | Accepted |
-| [0034](0034-the-workspace-is-one-continuous-gentle-curve-centred-on-the-eyes.md) | The workspace is one continuous gentle curve centred on the eyes | Accepted as direction on Editor renders; implementation and wearer review pending |
+| [0034](0034-the-workspace-is-one-continuous-gentle-curve-centred-on-the-eyes.md) | The workspace is one continuous gentle curve centred on the eyes | Accepted as direction on Editor renders; superseded in part by 0040 |
 | [0035](0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md) | A recorded real run lets anyone try Halcyonic before connecting a computer, and plays before the demonstration | Accepted; no recorded run bundled yet |
 | [0036](0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md) | Halcyonic undoes a task's changes itself, from checkpoints it keeps outside the project | Accepted; headset screens pending |
 | [0037](0037-new-vr-apps-start-from-a-host-vetted-web-starter.md) | New VR apps start from a web starter the host vets, and their code runs only in the headset's browser | Accepted; control plane, preview and headset screens pending |
 | [0038](0038-the-mac-observes-each-turns-file-changes-itself.md) | The Mac observes each turn's file changes itself | Accepted; headset build view pending |
 | [0039](0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md) | The projects gallery reads the person's catalog from Phat Porcupine, and Halcyonic never signs in to GitHub | Accepted; nothing built, Phat Porcupine's catalog API not yet published |
+| [0040](0040-the-headset-is-a-room-of-projects.md) | The headset is a room of projects: a gallery home, one screen per project, and moments from the task's character | Accepted on a storyboard; nothing built |

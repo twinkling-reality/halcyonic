@@ -12,6 +12,69 @@ and rules.
 Every surface is reviewed from the eyes against the owner's test: one thing at a time, fixed
 controls, clean. `DirectionsRender` shows each rule below on the moments it was decided for.
 
+## Spatial system, 2026-10-29
+
+[ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md) makes the headset a room: a gallery of projects as
+home, one screen per picked project with its bar beneath, moments from the task's character, reading that unfolds on
+demand. Nothing of it is built yet. The sections after this one describe what the headset draws today (the plane, the
+curve, the 2026-10-15 and 2026-10-16 candidates); each is rewritten as the build unit that replaces it lands. Values
+below are the accepted storyboard's; the client core will hold them (`SpatialKit`), and renders check them.
+
+**Where things stand** (degrees at the eye, with the head level; the Quest 3's field is 110 by 96):
+
+| Part | Where | Size |
+| --- | --- | --- |
+| Gallery tiles | Facing the person at reading distance, shelves from about 22 above to 18 below eye level | 14 by 7.9 a tile with many projects; 28 by 15.8 for a newcomer's |
+| A picked project's screen | About 2 m away, centred a little above eye level | 56 by 31.5 |
+| Its bar | Under the screen, parallel and slightly in front, the screen's edges | 5.4 high; folds to a handle while idle |
+| The character | Beside the screen's right edge, standing at its foot | About 5 by 6 |
+| The moment slot | Above the character, one moment at a time, actions beneath | 23 wide; height follows content |
+| The reading surface | About 1 m ahead of where the person looks, a little below eye level | 44 by 33 |
+| Heads-up items | Low at the sides, about 31 below eye level and 31 to either side, on a leash | At most two, 2.8 high |
+| Compact | Beside the other app, on the existing route | About 20 by 10 |
+
+**Colour.** Opaque carriers only; words never sit on the room. Contrast is measured as a WCAG ratio.
+
+| Step | Value | For |
+| --- | --- | --- |
+| n0 | #1B1E24 | A well, code, the screen's edge |
+| n1 | #1F242C | Every carrier with words |
+| n2 | #272D37 | Raised: a chip, the stacked edge |
+| n3 | #363E4B | A button; hover |
+| n4 | #4A5361 | A hairline; the dotted gutter |
+| n5 | #A4AEBB | Tertiary words: a time, a count |
+| n6 | #B7C0CC | Secondary words |
+| n7 | #EEF1F5 | Primary words |
+| Accent | #5BC4EE, its words #0A1B24 | The one primary action; live work |
+| Amber | #F2B54E | Needs you: a question, an approval |
+| Red | #F98F88 | Failed |
+| Green | #62CF8F | Passed; added lines from a checkpoint diff, on the band #1B3324 |
+
+Measured on n1: n7 13.8, n6 8.5, n5 6.9, the accent 7.9, amber 8.5, red 6.9, green 8.0; every word at least 4.8 on n3;
+the accent's words on it 8.8; n1 against a bright wall 11.7. No step is darker than #1A1A1A, the darkest the display
+separates. No hue per kind of step, no coloured edge on a card, every state a glyph and words as well as a tone.
+
+**Type.** Liberation Sans until the owner chooses a face; Larger multiplies by 1.15 and reflows, nothing zooms.
+
+| Role | dp | Degrees | For |
+| --- | --- | --- | --- |
+| Identity | 30 | 1.875 | A project or a place, once |
+| Heading | 22 | 1.375 | A moment's subject |
+| Body | 18 | 1.125 | Everything read, and buttons |
+| Label | 15 | 0.9375 | A fact beside a subject |
+| Mono | 16 | 1.0 | Code, paths and commands, which are theirs; in the reading face until a monospace face is chosen |
+
+**Motion.** Only on events; Keep things still lands each state at once.
+
+| Event | Duration | Curve |
+| --- | --- | --- |
+| A moment comes out of the character | 500 ms | A spring with a small overshoot (bounce 0.15) |
+| Read it unfolds the moment into the reading surface | 500 ms | Decelerating (Material 3 emphasized decelerate) |
+| Fold returns it | 250 ms | Accelerating (Material 3 emphasized accelerate) |
+| A tile grows into the screen; a part moves | 600 ms | Material 3 standard |
+| Pointing at a tile | At once | It grows 5 percent and its edge lights, with one light controller tick |
+| The character idles | 3.2 s a breath | A few millimetres; one hop at ready |
+
 ## Design acceptance status — 2026-10-15
 
 The installed interface and the subsequent floating-panel composition were rejected in product

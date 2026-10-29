@@ -4,6 +4,9 @@
   on 2026-10-08.
 - Date: 2026-10-02
 
+Superseded in part on 2026-10-29 by [ADR 0040](0040-the-headset-is-a-room-of-projects.md): the menu on one plane is
+no longer the headset's main presentation, which is a room of projects; its reading and input safeguards stay.
+
 Superseded in part on 2026-10-17 by [ADR 0034](0034-the-workspace-is-one-continuous-gentle-curve-centred-on-the-eyes.md):
 rule 1, one plane facing the eyes, gives way to one continuous gentle curve centred on the eyes, with this
 plane as the documented fallback.
