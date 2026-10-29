@@ -32,7 +32,7 @@ namespace Halcyonic.Client
     public sealed class KitScreenModel
     {
         public KitScreenModel(string project, string runtime, string state, bool isVr, KitMoment? lastCheck, bool tryRoute,
-            DateTimeOffset? pictureTakenAt, bool barOpen, bool working, DateTimeOffset? newestChangeAt = null)
+            DateTimeOffset? pictureTakenAt, bool barOpen, bool working, DateTimeOffset? newestChangeAt)
         {
             NewestChangeAt = newestChangeAt;
             Project = project;
@@ -73,7 +73,10 @@ namespace Halcyonic.Client
         /// <summary>The runtime's own state says the work goes on.</summary>
         public bool Working { get; }
 
-        /// <summary>When the computer last saw a file of the project change (ADR 0038); null where it saw none.</summary>
+        /// <summary>
+        /// When the computer last saw a file of the project change (ADR 0038); null only where it saw none. Required, so a
+        /// caller that forgets it does not leave Try it standing over unchecked files.
+        /// </summary>
         public DateTimeOffset? NewestChangeAt { get; }
 
         public bool ShowsPicture => PictureTakenAt != null;
@@ -84,6 +87,20 @@ namespace Halcyonic.Client
 
         /// <summary>The neutral mark in place of a picture.</summary>
         public string Monogram => MonogramOf(Project);
+
+        /// <summary>The project's identity hue, from its name alone: the same name always the same hue.</summary>
+        public double IdentityHue => HueOf(Project);
+
+        /// <summary>A hue from 0 to 360 from the name's characters (FNV-1a), so it needs nothing but the name and claims nothing.</summary>
+        public static double HueOf(string name)
+        {
+            unchecked
+            {
+                var hash = 2166136261u;
+                foreach (var character in name ?? "") hash = (hash ^ character) * 16777619u;
+                return hash % 3600u / 10.0;
+            }
+        }
 
         public bool Folded => !BarOpen;
 

@@ -195,6 +195,22 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void AProjectsIdentityFieldIsQuietAndReadableInEveryHue()
+    {
+        for (var hue = 0; hue < 360; hue++)
+        {
+            var field = SpatialKit.IdentityField(hue);
+            Assert.That(GlazeColor.Contrast(SpatialKit.Text, field), Is.GreaterThanOrEqualTo(7), $"the name on hue {hue}");
+            Assert.That(GlazeColor.Contrast(SpatialKit.Raised, field), Is.LessThan(2), $"the mark's disc sits quietly on hue {hue}");
+            Assert.That(field.Luminance, Is.GreaterThanOrEqualTo(DarkestShown.Luminance), $"hue {hue} is darker than the display shows");
+            Assert.That(Math.Min(field.R, Math.Min(field.G, field.B)), Is.GreaterThan(13), $"hue {hue} has a channel the display cannot separate");
+            Assert.That(Chroma(field), Is.LessThan(0.12), $"hue {hue} is a quiet field, not a colour that means something");
+        }
+        Assert.That(SpatialKit.IdentityField(0), Is.Not.EqualTo(SpatialKit.IdentityField(180)), "the hue shows");
+        Assert.That(SpatialKit.Degrees(SpatialKit.DisplayDp), Is.GreaterThan(SpatialKit.Degrees(SpatialKit.IdentityDp)), "display type is the largest");
+    }
+
+    [Test]
     public void TheScreenAndItsBarHaveTheDecidedSizes()
     {
         Assert.That(SpatialKit.ScreenDegrees, Is.EqualTo(56f));
