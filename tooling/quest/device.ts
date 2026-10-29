@@ -18,7 +18,9 @@
  *   pnpm quest:device -- stop [--package <p>]
  *   pnpm quest:device -- shot [--out <dir>]          a frame of both eyes, through screenrecord
  *   pnpm quest:device -- shot --service --sync-is-off    Meta's capture service, one eye
- *   pnpm quest:device -- record --seconds <n> --sync-is-off
+ *   pnpm quest:device -- record --seconds <n> --sync-is-off [--out <dir>]
+ *   pnpm quest:device -- record start --sync-is-off, later record stop [--out <dir>]
+ *     a recording through Meta's capture service, pulled into --out with <clip>.sha256 beside it
  *   pnpm quest:device -- logs [--out <file>]         Halcyonic's own lines, its process only
  *
  * A check build (QuestBuild's test application id, `com.halcyonic.xr.check`) installs beside the
@@ -75,7 +77,15 @@ import { readBattery, readThermal } from './readings.ts';
 const run = promisify(execFile);
 const command = process.argv[2] ?? '';
 /** Options that take a value, so the value is never taken for the command's own argument. */
-const VALUED = new Set(['--package', '--saved', '--out', '--seconds', '--extra', '--extra-bool']);
+const VALUED = new Set([
+  '--package',
+  '--saved',
+  '--out',
+  '--seconds',
+  '--extra',
+  '--extra-bool',
+  '--state',
+]);
 
 /** The command's own argument, such as the APK or the permission: the first word that is neither an option nor an option's value. */
 const positional = process.argv
@@ -84,7 +94,7 @@ const positional = process.argv
 const flag = (name: string) => process.argv.includes(`--${name}`);
 const packageName = textOption('package', PACKAGE);
 const out = textOption('out', '.private/quest');
-const STATE = process.env.HALCYONIC_QUEST_STATE ?? '.private/quest/state.json';
+const STATE = textOption('state', process.env.HALCYONIC_QUEST_STATE ?? '.private/quest/state.json');
 const CHECK_PACKAGE = `${PACKAGE}.check`;
 
 /** What `grant` may give the check build: the scene, and the microphone for hold to talk. */
@@ -99,12 +109,18 @@ interface State {
   installs: Record<string, { saved: string; savedSha256: string; installedSha256: string }>;
   /** The apps this tool started and has not stopped. */
   started: string[];
+  /** A recording `record start` began and `record stop` has not ended: the capture folders' names before it. */
+  recording?: { before: string[]; startedAt: string };
 }
 
 function readState(): State {
   try {
     const read = JSON.parse(readFileSync(STATE, 'utf8')) as Partial<State>;
-    return { installs: read.installs ?? {}, started: read.started ?? [] };
+    return {
+      installs: read.installs ?? {},
+      started: read.started ?? [],
+      ...(read.recording ? { recording: read.recording } : {}),
+    };
   } catch {
     return { installs: {}, started: [] };
   }
@@ -204,13 +220,22 @@ async function requireSyncOff(): Promise<void> {
       "Meta's capture service uploads captures to the headset's account while its media sync is on. Run with --sync-is-off once the owner has turned sync off, or use `shot` without --service.",
     );
   }
-  if (isMediaSyncOn(await adbSaid('logcat', '-d', '-s', 'SimpleMediaSyncUtils:I'))) {
+  if ((await syncPreference()) === true) {
     fail("The headset's log says its media sync is on, so the capture service is not used.");
   }
 }
 
+/** The capture service's latest word on media sync: true, false, or null when its log holds none. */
+async function syncPreference(): Promise<boolean | null> {
+  const lines = (await adbSaid('logcat', '-d', '-s', 'SimpleMediaSyncUtils:I'))
+    .split(/\r?\n/)
+    .filter((line) => /media sync preference is enabled: (true|false)/.test(line));
+  const latest = lines.at(-1);
+  return latest === undefined ? null : isMediaSyncOn(latest);
+}
+
 async function warnIfSyncOn(): Promise<void> {
-  if (isMediaSyncOn(await adbSaid('logcat', '-d', '-s', 'SimpleMediaSyncUtils:I'))) {
+  if ((await syncPreference()) === true) {
     console.error(
       'Warning: the headset says media sync is on, so this capture was uploaded to its account.',
     );
@@ -527,9 +552,29 @@ async function shot(): Promise<void> {
   console.log(frame ?? local);
 }
 
-async function record(): Promise<void> {
+/** Where the clip and its <clip>.sha256 go: --out, else .private/quest. ffprobe's summary of it, when ffprobe is there. */
+async function keepClip(remote: string): Promise<string> {
+  const local = await collect(remote, out);
+  writeFileSync(`${local}.sha256`, `${sha256File(local)}  ${basename(local)}\n`);
+  const ffprobe = process.env.HALCYONIC_FFPROBE ?? '/opt/homebrew/bin/ffprobe';
+  if (existsSync(ffprobe)) {
+    const { stdout } = await run(ffprobe, [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration:stream=codec_type,width,height,avg_frame_rate,sample_rate,channels',
+      '-of',
+      'compact',
+      local,
+    ]);
+    console.log(stdout.trim());
+  }
+  return local;
+}
+
+async function recordStart(): Promise<void> {
   await requireSyncOff();
-  const seconds = option('seconds', 10);
+  if (readState().recording) fail('A recording is already in progress: record stop ends it.');
   console.log('Recording includes the headset microphone, mixed with the app sound.');
   const before = await captureFolders();
   await adb(
@@ -541,7 +586,15 @@ async function record(): Promise<void> {
     '-a',
     'START_INTERNAL_CAPTURE_TO_DISK',
   );
-  await sleep(seconds * 1000);
+  writeState((state) => {
+    state.recording = { before, startedAt: new Date().toISOString() };
+  });
+  console.log('Recording.');
+}
+
+async function recordStop(): Promise<void> {
+  const recording = readState().recording;
+  if (!recording) fail('No recording is in progress.');
   await adb(
     'shell',
     'am',
@@ -554,12 +607,32 @@ async function record(): Promise<void> {
   let made: string[] = [];
   for (let i = 0; i < 20 && made.length === 0; i++) {
     await sleep(500);
-    made = newCaptures(before, await captureFolders()).filter((name) => name.endsWith('.mp4'));
+    made = newCaptures(recording.before, await captureFolders()).filter((name) =>
+      name.endsWith('.mp4'),
+    );
   }
+  writeState((state) => {
+    delete state.recording;
+  });
   if (made.length !== 1 || made[0] === undefined)
     fail('The capture service made no single new recording.');
-  console.log(await collect(`${VIDEOS}/${made[0]}`, out));
-  await warnIfSyncOn();
+  const local = await keepClip(`${VIDEOS}/${made[0]}`);
+  console.log(local);
+  if ((await syncPreference()) === true) {
+    fail(
+      "The headset's media sync is on: this recording was uploaded to its account. Tell the owner.",
+    );
+  }
+}
+
+async function record(): Promise<void> {
+  if (positional === 'start') return recordStart();
+  if (positional === 'stop') return recordStop();
+  if (positional !== undefined) fail('record takes start, stop, or --seconds <n>.');
+  const seconds = option('seconds', 10);
+  await recordStart();
+  await sleep(seconds * 1000);
+  await recordStop();
 }
 
 /** Halcyonic's own lines, its OpenXR session's states and the compositor's frame line: its process only. */

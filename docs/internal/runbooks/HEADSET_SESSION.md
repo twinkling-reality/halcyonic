@@ -619,6 +619,18 @@ Record in quest-3-device.md as its own session; the owner's words beside each st
 consequences; and the OPEN_QUESTIONS.md rows on calm motion, outside words over a bright room, and the
 shimmer under Keep things still, each resolved or narrowed as its own rule says.
 
+## Recording what the headset shows
+
+Put the headset on and say "record" in chat when you're ready, and "stop" when you're done; the
+clip lands in the footage folder with its sha256, nothing else to do.
+
+A lane runs `pnpm quest:device -- record start --sync-is-off` on "record" and
+`pnpm quest:device -- record stop --out <footage folder>` on "stop" (or `record --seconds <n>` for a
+fixed length), only after the headset's own log has said its media sync is off: Meta's capture
+service records one eye at 1920 by 1080 and 30 fps, about 48 MB a minute, with the app's sound and
+the headset microphone, and a clip of 200 s was recorded whole
+([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)).
+
 ## Checking the headset without wearing it
 
 `pnpm quest:device` reads the headset and drives what a check needs without anyone wearing it
