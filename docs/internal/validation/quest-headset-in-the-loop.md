@@ -131,7 +131,10 @@
   `lib/arm64-v8a/libXrApiLayer_METAX_operator.so` nor
   `assets/openxr/1/api_layers/implicit.d/XrApiLayer_METAX_operator.json`; with
   `HALCYONIC_OPERATOR=1` it held both. `BuildDevelopmentApk` passed both builds.
-- Not yet checked on the headset: that an app built without it opens no listener on 8720.
+- On the headset (2026-10-29), with check builds installed beside the owner's app: a check build
+  without `HALCYONIC_OPERATOR` running showed no listener on port 8720 in `/proc/net/tcp` or
+  `/proc/net/tcp6`; a journey check build running showed one in each, under the check package's
+  uid, gone once it stopped. The owner's app's bytes were unchanged throughout.
 
 ### A check build beside the owner's app (2026-10-28)
 
@@ -144,8 +147,9 @@
   affinity `com.halcyonic.xr.check.panel`. The manifest merger filled `${applicationId}` in each.
 - The check builds left the development APK's bytes, and a file put at the release APK's path, as
   they were, and no build changed ProjectSettings.asset.
-- Not yet checked on the headset: installing the check package beside the owner's app, its first
-  start (which permissions it asks for, and whether the microphone's needs a grant), and removing it.
+- On the headset (2026-10-29) the check package installed beside the owner's app with an appId of
+  its own, started straight into its demonstration with no permission dialog in front 12 s later,
+  so nothing was granted, and was uninstalled at the end; `pm path` then listed nothing for it.
 - `pnpm quest:device -- install` reads an APK's own package with `aapt2 dump badging` before anything
   reaches the headset and refuses unless it is the package named, so an APK of the owner's package
   given as the check build is refused; a check install also fails if the owner's app's bytes changed.
