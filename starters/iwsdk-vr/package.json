@@ -1,0 +1,22 @@
+{
+  "name": "halcyonic-iwsdk-vr-starter",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The runtime set a project made from this starter uses: pinned, installed by the host with no install scripts.",
+  "dependencies": {
+    "@iwsdk/core": "1.0.1",
+    "@pmndrs/uikit": "1.0.78",
+    "@pmndrs/uikit-horizon": "1.0.78",
+    "@pmndrs/uikit-lucide": "1.0.78",
+    "three": "npm:super-three@0.181.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.181.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  },
+  "overrides": {
+    "three": "$three"
+  }
+}

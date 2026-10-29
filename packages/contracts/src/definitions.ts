@@ -123,6 +123,7 @@ import {
   RuntimeModel,
   RuntimeRef,
 } from './runtime.ts';
+import { StartersResponse, StarterView } from './starters.ts';
 import {
   ToolResult,
   ToolResultBody,
@@ -232,6 +233,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   RestorePreview,
   CheckpointsResponse,
   RestorePreviewResponse,
+  StarterView,
+  StartersResponse,
   LocationsResponse,
   LocationRoot,
   LocationFolder,

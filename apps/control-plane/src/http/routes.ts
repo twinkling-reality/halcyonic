@@ -23,6 +23,7 @@ import {
   type RuntimeModelsResponse,
   type RuntimesResponse,
   type Snapshot,
+  type StartersResponse,
   ToolResultsQuery,
   TRANSCRIPTION_MAX_BYTES,
   UnderstandingResponse,
@@ -260,6 +261,14 @@ export function registerRoutes(
     const body: RuntimeModelsResponse = { runtime_id: adapter.descriptor.runtime_id, result };
     return body;
   });
+
+  // The starters a new project can begin from (ADR 0037), read from disk on request.
+  app.get(
+    '/api/starters',
+    async (): Promise<StartersResponse> => ({
+      starters: controlPlane.starters?.list() ?? [],
+    }),
+  );
 
   // Halcyonic's own undo (ADR 0036): read through, never journaled.
   const undoOff = {

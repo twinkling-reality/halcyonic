@@ -674,6 +674,140 @@
             },
             "event_type": {
               "type": "string",
+              "const": "project.starter_applied"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "starter_id",
+                "lockfile",
+                "files",
+                "template"
+              ],
+              "properties": {
+                "starter_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
+                },
+                "lockfile": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "template": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
               "const": "project.checkpoint.recorded"
             },
             "source": {
@@ -7166,6 +7300,7 @@
         "project_id",
         "name",
         "location",
+        "starter",
         "created_at",
         "updated_at"
       ],
@@ -7184,6 +7319,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/ProjectLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "starter": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
             },
             {
               "type": "null"
@@ -7285,6 +7431,36 @@
             "folder_name": {
               "type": "string",
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "root",
+            "folder_name",
+            "starter_id"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "new_from_starter"
+            },
+            "root": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "folder_name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+            },
+            "starter_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
             }
           },
           "additionalProperties": false
@@ -7532,6 +7708,45 @@
               "additionalProperties": false
             }
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "StarterView": {
+      "type": "object",
+      "required": [
+        "starter_id",
+        "title",
+        "installed"
+      ],
+      "properties": {
+        "starter_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "\\S"
+        },
+        "installed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "StartersResponse": {
+      "type": "object",
+      "required": [
+        "starters"
+      ],
+      "properties": {
+        "starters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StarterView"
+          }
         }
       },
       "additionalProperties": false

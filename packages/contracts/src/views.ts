@@ -22,6 +22,7 @@ import {
 } from './primitives.ts';
 import { QuestionPrompts } from './questions.ts';
 import { ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
+import { StarterId } from './starters.ts';
 import { CommandStatus, ExecutionStatus, WorkstreamStatus } from './statuses.ts';
 
 export { CommandStatus, ExecutionStatus, WorkstreamStatus } from './statuses.ts';
@@ -70,6 +71,8 @@ export const ProjectView = Type.Object(
     name: Text(200),
     /** Where the project's work runs on the host; null when it has no folder. */
     location: Nullable(ProjectLocation),
+    /** The starter its folder began with (ADR 0037), or null. */
+    starter: Nullable(StarterId),
     created_at: Timestamp,
     updated_at: Timestamp,
   },

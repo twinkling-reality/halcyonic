@@ -7,6 +7,7 @@ import type { IdGenerator } from '../ids.ts';
 import type { EventJournal } from '../journal/journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
+import type { HostStarters } from '../starters.ts';
 import { CommandService } from './command-service.ts';
 import { EventPublisher } from './publisher.ts';
 import { Recorder } from './recorder.ts';
@@ -33,6 +34,8 @@ export interface ControlPlaneOptions {
    * undo is off: no checkpoint is taken and `project.restore` is refused.
    */
   readonly checkpoints?: { readonly store: CheckpointStore; readonly restoreHooks?: RestoreHooks };
+  /** The starters a new project can begin from (ADR 0037); none by default. */
+  readonly starters?: HostStarters;
   /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
@@ -58,6 +61,8 @@ export class ControlPlane {
   readonly commands: CommandService;
   /** Halcyonic's own undo, or null when it is off. */
   readonly checkpoints: Checkpointer | null;
+  /** The starters a new project can begin from, or null when there are none. */
+  readonly starters: HostStarters | null;
   readonly locations: HostLocations;
   readonly clock: Clock;
   /** How a runtime's or a provider's text loses credentials before a device sees it. */
@@ -98,6 +103,7 @@ export class ControlPlane {
               : { restoreHooks: options.checkpoints.restoreHooks }),
           });
     this.checkpoints?.attach(this.publisher);
+    this.starters = options.starters ?? null;
     this.commands = new CommandService({
       projection: this.projection,
       recorder: this.recorder,
@@ -110,6 +116,7 @@ export class ControlPlane {
       commandTimeoutMs: options.commandTimeoutMs,
       redaction: this.redaction,
       checkpoints: this.checkpoints,
+      starters: this.starters,
     });
     this.#rebuild();
   }

@@ -424,6 +424,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("location", Required = Required.AllowNull)]
         public ProjectLocation? Location { get; set; }
 
+        [JsonProperty("starter", Required = Required.AllowNull)]
+        public string? Starter { get; set; }
+
         [JsonProperty("created_at", Required = Required.Always)]
         public string CreatedAt { get; set; } = default!;
 
@@ -1270,6 +1273,21 @@ namespace Halcyonic.Contracts
         public ProjectLocation Location { get; set; } = default!;
     }
 
+    public sealed class ProjectStarterAppliedPayload
+    {
+        [JsonProperty("starter_id", Required = Required.Always)]
+        public string StarterId { get; set; } = default!;
+
+        [JsonProperty("lockfile", Required = Required.Always)]
+        public string Lockfile { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public long Files { get; set; }
+
+        [JsonProperty("template", Required = Required.Always)]
+        public string Template { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum CheckpointReason
     {
@@ -1471,6 +1489,7 @@ namespace Halcyonic.Contracts
             {
                 "existing_folder" => new ExistingFolderChoice(),
                 "new_folder" => new NewFolderChoice(),
+                "new_from_starter" => new NewFromStarterChoice(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "ProjectLocationChoice has no string kind."
                     : "Unknown kind \"" + tag + "\" for ProjectLocationChoice."),
@@ -1499,6 +1518,14 @@ namespace Halcyonic.Contracts
     public sealed class NewFolderChoice : ProjectLocationChoice
     {
         protected override string Discriminator => "new_folder";
+    }
+
+    public sealed class NewFromStarterChoice : ProjectLocationChoice
+    {
+        protected override string Discriminator => "new_from_starter";
+
+        [JsonProperty("starter_id", Required = Required.Always)]
+        public string StarterId { get; set; } = default!;
     }
 
     public sealed class ProjectCreatePayload
@@ -2311,6 +2338,7 @@ namespace Halcyonic.Contracts
             {
                 "project.created" => new ProjectCreatedEvent(),
                 "project.location_set" => new ProjectLocationSetEvent(),
+                "project.starter_applied" => new ProjectStarterAppliedEvent(),
                 "project.checkpoint.recorded" => new ProjectCheckpointRecordedEvent(),
                 "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
@@ -2380,6 +2408,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectLocationSetPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectStarterAppliedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.starter_applied";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectStarterAppliedPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectCheckpointRecordedEvent : EventEnvelope
@@ -3118,6 +3154,24 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("roots", Required = Required.Always)]
         public List<LocationRoot> Roots { get; set; } = new List<LocationRoot>();
+    }
+
+    public sealed class StarterView
+    {
+        [JsonProperty("starter_id", Required = Required.Always)]
+        public string StarterId { get; set; } = default!;
+
+        [JsonProperty("title", Required = Required.Always)]
+        public string Title { get; set; } = default!;
+
+        [JsonProperty("installed", Required = Required.Always)]
+        public bool Installed { get; set; }
+    }
+
+    public sealed class StartersResponse
+    {
+        [JsonProperty("starters", Required = Required.Always)]
+        public List<StarterView> Starters { get; set; } = new List<StarterView>();
     }
 
     public sealed class StoredEvent

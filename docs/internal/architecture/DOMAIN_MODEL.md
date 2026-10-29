@@ -11,6 +11,9 @@ in `packages/domain`.
   A client chooses it from the folders the host lists, or names a new folder the host makes; it
   never sends a path. `project.set_location` binds the project to another folder, for example after
   the folder was moved; executions already started keep the folder they started in.
+  A new project may begin from a **starter** the host vets and keeps, such as a VR app for the
+  headset's browser: its folder starts with the starter's files and a link to the starter's shared,
+  read-only dependencies, and the project's view names the starter ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)).
 - **Checkpoint**: every file of a project's folder as it was at one moment, kept by the host for
   Halcyonic's own undo when the host has set it up: before a task starts, after each turn the
   runtime reports ended, and before a restore. `project.restore` puts one back, and completes only

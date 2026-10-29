@@ -24,6 +24,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Device pairing and serving paired devices on the local network: SRP with a code, pinned TLS, per-device credentials, `pnpm pair` and `pnpm devices` | `apps/control-plane/src/network`, the client core, `apps/xr/Assets/Halcyonic/Pairing` | Built, verified off the headset; [ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), [SECURITY.md](SECURITY.md) |
 | Voice: a held clip of speech becomes a draft, transcribed on the Mac by whisper.cpp; hold to talk in development builds | `apps/control-plane/src/speech`, the client core (`SpeechClip`, `VoiceText`), `apps/xr/Assets/Halcyonic/Workspace/HoldToTalk.cs` | Control plane verified on this Mac with synthetic speech; client core tested against a real control plane; the headset's capture built and rendered, not run on a Quest; [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md), [record](../validation/voice-transcription.md) |
 | Undo: checkpoints of project folders before a task, after each turn and before a restore, and a restore the host checks file by file; off unless `HALCYONIC_GIT_BIN` is set | `apps/control-plane/src/checkpoints` | Built and tested against the system's git in temporary folders; [ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md). Not yet measured on a large project, not run with a real runtime, and no headset screen yet |
+| Starters: a new project's folder begins with a vetted starter's files and a link to its shared, read-only dependencies | `starters/` (tracked), `apps/control-plane/src/starters.ts` | Built and tested; the Immersive Web SDK VR starter is tracked, its dependencies installed by hand on the owner's Mac so far ([iwsdk-starter.md](../validation/iwsdk-starter.md)); no install step, preview or check yet; [ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md) |
 | Remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 
 ## Dependency rules
@@ -116,7 +117,8 @@ Files in the data directory besides the journal and the access token, all option
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
 `seorak-credential`, the integration credential the owner issued for Halcyonic, and
 `anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
-`checkpoints/`, the store of Halcyonic's undo when it is set up, and
+`checkpoints/`, the store of Halcyonic's undo when it is set up, and `starters/<id>/`, each
+starter's installed dependencies with `installed.json`, the SHA-256 of the lockfile they came from, and
 `opencode-server.json`, `codex-server.json` and `claude-agent-processes.json`, the records of the
 running OpenCode and Codex servers and Claude Code processes (no secrets) that let the next start
 stop anything a crash left behind, and `network-key.pem` and `network-certificate.pem`, the network

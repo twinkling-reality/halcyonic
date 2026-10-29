@@ -35,6 +35,7 @@ import type { Checkpointer } from '../checkpoints/checkpointer.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
+import type { HostStarters } from '../starters.ts';
 import {
   type Cause,
   causedBy,
@@ -73,6 +74,8 @@ export interface CommandServiceDeps {
   readonly redaction: Redaction;
   /** Halcyonic's own undo (ADR 0036), or null when the host has not set it up. */
   readonly checkpoints?: Checkpointer | null;
+  /** The starters a new project can begin from (ADR 0037), or null when there are none. */
+  readonly starters?: HostStarters | null;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -348,6 +351,15 @@ export class CommandService {
       case 'project.set_location': {
         const choice = command.payload.location;
         if (choice === null) return admission;
+        if (choice.kind === 'new_from_starter') {
+          if (command.command_type === 'project.set_location')
+            return refuse('capability_unsupported', 'A starter can only begin a new project.');
+          const starter = this.#deps.starters?.check(choice.starter_id) ?? {
+            ok: false,
+            message: 'This computer has no starters.',
+          };
+          if (!starter.ok) return refuse('capability_unsupported', starter.message);
+        }
         const checked = this.#deps.locations.check(choice);
         return checked.ok ? admission : refuse(checked.code, checked.message);
       }
@@ -433,6 +445,33 @@ export class CommandService {
           }
           location = bound.location;
         }
+        const choice = command.payload.location;
+        let applied: {
+          starter_id: string;
+          lockfile: string;
+          files: number;
+          template: string;
+        } | null = null;
+        if (choice?.kind === 'new_from_starter' && location !== null) {
+          const result = this.#deps.starters?.apply(choice.starter_id, location.path) ?? {
+            ok: false as const,
+            message: 'This computer has no starters.',
+          };
+          if (!result.ok) {
+            this.#fail(command, admission.scope, {
+              code: 'starter_not_applied',
+              message: `A folder was made at ${location.path}, but the starter's files could not be put in it, so no project was created: ${result.message}`,
+              effect: 'unknown',
+            });
+            return;
+          }
+          applied = {
+            starter_id: choice.starter_id,
+            lockfile: result.lockfile,
+            files: result.files,
+            template: result.template,
+          };
+        }
         const projectId = this.#deps.ids.next() as ProjectId;
         const scope = { project_id: projectId, workstream_id: null, execution_id: null };
         recorder.record(
@@ -444,6 +483,10 @@ export class CommandService {
             cause,
           ),
         );
+        if (applied !== null)
+          recorder.record(
+            controlPlaneDraft('project.starter_applied', scope, applied, this.#now(), cause),
+          );
         this.#complete(command, scope, { kind: 'project_created', project_id: projectId });
         return;
       }

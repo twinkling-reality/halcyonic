@@ -484,6 +484,18 @@ describe('binding a project to an existing folder', () => {
     assert.equal(taken.ok ? 'ok' : taken.code, 'location_exists');
   });
 
+  test("a starter's folder is a new folder: made by the host, refused when its name is taken", () => {
+    const { root, locations } = layout('starter');
+    const choice = { kind: 'new_from_starter', root, starter_id: 'iwsdk-vr' } as const;
+    const taken = locations.check({ ...choice, folder_name: 'app' });
+    assert.equal(taken.ok ? 'ok' : taken.code, 'location_exists');
+    const bound = locations.bind({ ...choice, folder_name: 'garden' });
+    assert.deepEqual(bound, {
+      ok: true,
+      location: { path: join(root, 'garden'), name: 'garden', created: true },
+    });
+  });
+
   test('a root is named as the host lists it, or as it was configured', () => {
     const top = join(base, 'configured');
     const real = join(top, 'real');

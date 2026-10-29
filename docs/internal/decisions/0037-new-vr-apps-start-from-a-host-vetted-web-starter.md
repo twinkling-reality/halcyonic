@@ -21,8 +21,11 @@ plugin of the project's, it would run with the person's access.
 **A starter is vetted once and kept by the host.** Its source is tracked in this repository under `starters/`: the
 template, adapted from Meta's with its licence and notices, the pinned `package.json` and lockfile, and the host's
 own build configuration. Its dependencies are installed on each Mac, from the registry only, with no install scripts
-and the lockfile's integrity hashes, into the host's data directory. A starter fetches nothing at run time: the
-template's models from a content network are left out.
+and the lockfile's integrity hashes, into the host's data directory. A starter's own files fetch nothing at run
+time: the template's models from a content network are left out. Two of its libraries still name outside hosts:
+`@iwsdk/xr-input` loads controller profiles from a content network when a controller connects, and `@iwsdk/core`'s
+glTF loader loads Draco and KTX2 decoders from another for a model compressed that way. The preview's
+Content-Security-Policy blocks both until local copies are served.
 
 **A project made from a starter** is an ordinary project in a folder the host makes (ADR 0020): the template's
 files are copied in, and `node_modules` is a link to the shared, read-only set. No agent can change a dependency:

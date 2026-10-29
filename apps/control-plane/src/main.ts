@@ -1,6 +1,7 @@
 import { chmod, mkdir } from 'node:fs/promises';
 import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
@@ -39,6 +40,7 @@ import {
 import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
+import { HostStarters } from './starters.ts';
 import { OllamaWorkspaceModel } from './workspace-agent/ollama.ts';
 import { WorkspaceRequests } from './workspace-agent/requests.ts';
 
@@ -125,6 +127,10 @@ async function main(): Promise<void> {
             }),
           },
         }),
+    starters: new HostStarters({
+      trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
+      installedDir: join(config.dataDir, 'starters'),
+    }),
     secrets: heldSecrets(
       config,
       { environment: process.env, dataDir: config.dataDir },
