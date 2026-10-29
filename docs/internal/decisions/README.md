@@ -48,3 +48,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0033](0033-approvals-declare-whether-commands-leave-the-sandbox.md) | An agent app declares whether approving a command can let it leave the sandbox | Accepted |
 | [0034](0034-the-workspace-is-one-continuous-gentle-curve-centred-on-the-eyes.md) | The workspace is one continuous gentle curve centred on the eyes | Accepted as direction on Editor renders; implementation and wearer review pending |
 | [0036](0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md) | Halcyonic undoes a task's changes itself, from checkpoints it keeps outside the project | Accepted; headset screens pending |
+| [0037](0037-new-vr-apps-start-from-a-host-vetted-web-starter.md) | New VR apps start from a web starter the host vets, and their code runs only in the headset's browser | Accepted; control plane, preview and headset screens pending |
