@@ -54,3 +54,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0039](0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md) | The projects gallery reads the person's catalog from Phat Porcupine, and Halcyonic never signs in to GitHub | Accepted; contract, link, gallery core, route and client built; live read not wired |
 | [0040](0040-the-headset-is-a-room-of-projects.md) | The headset is a room of projects: a gallery home, one screen per project, and moments from the task's character | Accepted on a storyboard; nothing built |
 | [0041](0041-a-new-apps-agent-is-confined-to-its-project.md) | A new app's agent is confined to its project | Accepted; built for Codex on macOS, not yet run with a real model |
+| [0042](0042-a-person-may-run-a-task-on-a-hosted-model-with-their-own-key.md) | A person may run a task on a hosted model, with their own key, when they turn it on | Proposed; nothing built |
