@@ -42,6 +42,7 @@ import {
   WorkspaceRequestView,
 } from './requests.ts';
 import { ModelRef, RuntimeRef } from './runtime.ts';
+import { StarterId } from './starters.ts';
 import { ToolResult } from './tool-results.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
 
@@ -215,6 +216,24 @@ export const ProjectCreated = projectEvent(
 export const ProjectLocationSet = projectEvent(
   'project.location_set',
   Type.Object({ location: ProjectLocation }, strict),
+);
+
+/**
+ * The project's new folder began with a starter's files (ADR 0037): which starter, the SHA-256 of
+ * the lockfile its shared dependencies were installed from, how many files were copied, and the
+ * SHA-256 over their paths and contents.
+ */
+export const ProjectStarterApplied = projectEvent(
+  'project.starter_applied',
+  Type.Object(
+    {
+      starter_id: StarterId,
+      lockfile: Sha256Hex,
+      files: Type.Integer({ minimum: 0 }),
+      template: Sha256Hex,
+    },
+    strict,
+  ),
 );
 
 /**
@@ -608,6 +627,7 @@ export const RuntimeModelUsed = runtimeEvent('runtime.model.used', P['runtime.mo
 export const EVENT_VARIANTS = [
   ProjectCreated,
   ProjectLocationSet,
+  ProjectStarterApplied,
   ProjectCheckpointRecorded,
   ProjectCheckpointFailed,
   ProjectRestored,

@@ -14,7 +14,8 @@
       "!apps/xr/Assets/Halcyonic/Resources/HalcyonicCompanionDemonstration.json",
       "!packages/contracts/schema",
       "!apps/xr/Packages/packages-lock.json",
-      "!apps/xr/ProjectSettings"
+      "!apps/xr/ProjectSettings",
+      "!starters"
     ]
   },
   "formatter": {

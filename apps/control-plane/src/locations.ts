@@ -144,7 +144,8 @@ export function createHostLocations(
     const found = target(choice);
     if ('ok' in found) return found;
     const entry = entryAt(found.path);
-    if (choice.kind === 'new_folder') {
+    // A starter's folder is a new folder; the starter's files go in once it is made.
+    if (choice.kind === 'new_folder' || choice.kind === 'new_from_starter') {
       if (!NEW_FOLDER_NAME.test(choice.folder_name)) {
         return {
           ok: false,

@@ -1,5 +1,6 @@
 import Type, { type Static } from 'typebox';
 import { Nullable, ProjectId, Timestamp } from './primitives.ts';
+import { StarterId } from './starters.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -47,6 +48,19 @@ export const ProjectLocationChoice = Type.Union([
   ),
   Type.Object(
     { kind: Type.Literal('new_folder'), root: HostPath, folder_name: FolderName },
+    strict,
+  ),
+  /**
+   * A new folder, as `new_folder`, that begins with a starter's files and its shared, read-only
+   * dependencies (ADR 0037).
+   */
+  Type.Object(
+    {
+      kind: Type.Literal('new_from_starter'),
+      root: HostPath,
+      folder_name: FolderName,
+      starter_id: StarterId,
+    },
     strict,
   ),
 ]);

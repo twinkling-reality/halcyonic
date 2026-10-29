@@ -1,0 +1,3 @@
+Adapted by Halcyonic from Meta's Immersive Web SDK starter (@iwsdk/create 1.0.1, MIT, see LICENSE): the sample robot,
+desk, plant, banner and sound were removed so the app fetches nothing at run time; the build configuration, types,
+iwsdk.config.json, README.md and AGENTS.md are Halcyonic's own.

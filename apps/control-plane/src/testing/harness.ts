@@ -79,6 +79,8 @@ export interface TestControlPlaneOptions {
   readonly locations?: HostLocations;
   /** Halcyonic's own undo (ADR 0036); off by default, as on a host that has not set it up. */
   readonly checkpoints?: ControlPlaneOptions['checkpoints'];
+  /** The starters a new project can begin from; none by default. */
+  readonly starters?: ControlPlaneOptions['starters'];
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -104,6 +106,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.locations !== undefined && { locations: options.locations }),
     ...(options.secrets !== undefined && { secrets: options.secrets }),
     ...(options.checkpoints !== undefined && { checkpoints: options.checkpoints }),
+    ...(options.starters !== undefined && { starters: options.starters }),
   });
   const commands = createCommandFactory(
     createUuidV7Generator({ now: () => time.now().getTime() }),

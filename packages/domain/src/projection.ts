@@ -80,6 +80,7 @@ interface ProjectState {
   readonly projectId: ProjectId;
   readonly name: string;
   location: ProjectLocation | null;
+  starter: string | null;
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -644,6 +645,7 @@ export class Projection {
           projectId: event.project_id,
           name: event.payload.name,
           location: event.payload.location,
+          starter: null,
           createdAt: event.occurred_at,
           updatedAt: event.ingested_at,
         });
@@ -657,6 +659,17 @@ export class Projection {
           return;
         }
         project.location = event.payload.location;
+        project.updatedAt = event.ingested_at;
+        changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.starter_applied': {
+        const project = this.#projects.get(event.project_id);
+        if (project === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        project.starter = event.payload.starter_id;
         project.updatedAt = event.ingested_at;
         changes.projects.add(event.project_id);
         return;
@@ -1082,6 +1095,7 @@ function toProjectView(state: ProjectState): ProjectView {
     project_id: state.projectId,
     name: state.name,
     location: state.location,
+    starter: state.starter,
     created_at: state.createdAt,
     updated_at: state.updatedAt,
   };
