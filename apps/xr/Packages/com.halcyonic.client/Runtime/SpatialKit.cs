@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The spatial kit's tokens, a candidate that no production view draws yet: one opaque instrument
+    /// The spatial kit's tokens. Its colours, type and motion are the room of projects' (ADR 0040), the instrument's
+    /// roles repointed onto that ramp. The instrument below, a candidate that no production view draws yet: one opaque instrument
     /// whose regions follow what their words are. The context spine at the left says where the person
     /// is, the reading slate holds what was said and what the person says, the evidence rail at the
     /// right holds what was recorded, and the same pieces fold into one compact presence. Sizes are
@@ -54,7 +55,8 @@ namespace Halcyonic.Client
 
         public const float PresenceElevationDegrees = -28f;
 
-        // Type, in Meta's dp. Three sizes and one reading size: nothing anywhere is smaller than Body.
+        // Type, in Meta's dp. On the instrument nothing is smaller than Body; the room (ADR 0040) adds Label and Mono
+        // for its small surfaces, a moment and a tile, where they still read at the floor.
 
         /// <summary>The selected work's or the place's name, once an instrument, in the instrument face.</summary>
         public const float IdentityDp = 30f;
@@ -64,6 +66,12 @@ namespace Halcyonic.Client
 
         /// <summary>Everything read: prose, rows, facts, chips and controls, in the reading face.</summary>
         public const float BodyDp = 18f;
+
+        /// <summary>A fact beside a subject in the room's small surfaces (a moment, a tile); never a line of its own far out.</summary>
+        public const float LabelDp = 15f;
+
+        /// <summary>Code, paths and commands, which are the runtime's, in a monospace face.</summary>
+        public const float MonoDp = 16f;
 
         /// <summary>From one line of reading prose to the next, in ems: room to read a long report.</summary>
         public const float ReadingLeading = 1.4f;
@@ -135,36 +143,99 @@ namespace Halcyonic.Client
 
         // Carriers. Every surface that carries words is opaque: nothing of the room shows through a word.
 
-        /// <summary>The reading slate, nearest the person.</summary>
-        public static GlazeColor Slate => GlazeColor.Hex(0x202936);
+        /// <summary>The reading slate, nearest the person: the room's carrier.</summary>
+        public static GlazeColor Slate => Carrier;
 
-        /// <summary>The recessed spine and rail.</summary>
-        public static GlazeColor Side => GlazeColor.Hex(0x171C23);
+        /// <summary>The recessed spine and rail: the room's well step, below the carrier.</summary>
+        public static GlazeColor Side => Well;
 
-        /// <summary>A chip, a secondary control, and the lift under what is chosen.</summary>
-        public static GlazeColor Raised => GlazeColor.Hex(0x2D3746);
+        /// <summary>n2: a chip, a secondary control, and the lift under what is chosen.</summary>
+        public static GlazeColor Raised => GlazeColor.Hex(0x272D37);
 
-        /// <summary>The person's own words, sunk into the slate.</summary>
-        public static GlazeColor Well => GlazeColor.Hex(0x171D25);
+        /// <summary>n0: the person's own words sunk into the slate, code, a screen's edge.</summary>
+        public static GlazeColor Well => GlazeColor.Hex(0x1B1E24);
 
         /// <summary>The switch's thumb, raised above its track.</summary>
-        public static GlazeColor Thumb => GlazeColor.Hex(0x3D4859);
+        public static GlazeColor Thumb => Control;
 
         /// <summary>
         /// A quiet control's outline, an unavailable control's, and the trail's line: drawn opaque so it blends the same
         /// in any colour space. Regions carry no outline: tone, depth and the slate's shade on its neighbours separate them.
         /// </summary>
-        public static GlazeColor Edge => GlazeColor.Hex(0x3D4858);
+        public static GlazeColor Edge => Hairline;
 
         /// <summary>The slate's lit top edge: the one light the instrument carries.</summary>
-        public static GlazeColor EdgeLight => GlazeColor.Hex(0x6B7889);
+        public static GlazeColor EdgeLight => TextTertiary;
 
-        public static GlazeColor Text => GlazeColor.Hex(0xEEF2F6);
+        /// <summary>n7: primary words.</summary>
+        public static GlazeColor Text => GlazeColor.Hex(0xEEF1F5);
 
-        public static GlazeColor TextSecondary => GlazeColor.Hex(0xB0BBC8);
+        /// <summary>n6: secondary words.</summary>
+        public static GlazeColor TextSecondary => GlazeColor.Hex(0xB7C0CC);
 
-        /// <summary>Every carrier the kit lays words on.</summary>
-        public static IReadOnlyList<GlazeColor> Carriers { get; } = new[] { Slate, Side, Raised, Well, Thumb };
+        // The room's ramp (ADR 0040): eight opaque steps by role, one accent, and colour only where it means something.
+
+        /// <summary>n1: every surface in the room that carries words.</summary>
+        public static GlazeColor Carrier => GlazeColor.Hex(0x1F242C);
+
+        /// <summary>n3: a button's fill; what the pointer rests on.</summary>
+        public static GlazeColor Control => GlazeColor.Hex(0x363E4B);
+
+        /// <summary>n4: a hairline and the dotted gutter of code still only reported.</summary>
+        public static GlazeColor Hairline => GlazeColor.Hex(0x4A5361);
+
+        /// <summary>n5: a time, a count.</summary>
+        public static GlazeColor TextTertiary => GlazeColor.Hex(0xA4AEBB);
+
+        /// <summary>Kingfisher: the one primary action, and live work.</summary>
+        public static GlazeColor Accent => GlazeColor.Hex(0x5BC4EE);
+
+        /// <summary>Words on a coloured fill.</summary>
+        public static GlazeColor AccentInk => GlazeColor.Hex(0x0A1B24);
+
+        /// <summary>Needs the person: a question, an approval.</summary>
+        public static GlazeColor Attention => GlazeColor.Hex(0xF2B54E);
+
+        /// <summary>Failed.</summary>
+        public static GlazeColor Failure => GlazeColor.Hex(0xF98F88);
+
+        /// <summary>Passed, and lines added in a checkpoint diff.</summary>
+        public static GlazeColor Passed => GlazeColor.Hex(0x62CF8F);
+
+        /// <summary>The band under a line a checkpoint diff shows added.</summary>
+        public static GlazeColor AddedBand => GlazeColor.Hex(0x1B3324);
+
+        // Motion (ADR 0040), only on events; Keep things still lands each state at once.
+
+        /// <summary>A moment coming out of the character: a spring this long with <see cref="PopBounce"/>.</summary>
+        public const float PopSeconds = 0.5f;
+
+        /// <summary>The spring's bounce: a small overshoot, under Apple's caution of 0.4.</summary>
+        public const float PopBounce = 0.15f;
+
+        /// <summary>Read it turning a moment into the reading surface, on <see cref="UnfoldCurve"/>.</summary>
+        public const float UnfoldSeconds = 0.5f;
+
+        /// <summary>Fold returning it, on <see cref="FoldCurve"/>: leaving is quicker than arriving.</summary>
+        public const float FoldSeconds = 0.25f;
+
+        /// <summary>A tile growing into the screen, a part moving, on <see cref="MoveCurve"/>.</summary>
+        public const float MoveSeconds = 0.6f;
+
+        /// <summary>One breath of an idle character.</summary>
+        public const float BreathSeconds = 3.2f;
+
+        /// <summary>Material 3's emphasized decelerate, as a cubic Bezier's two control points.</summary>
+        public static (float X1, float Y1, float X2, float Y2) UnfoldCurve => (0.05f, 0.7f, 0.1f, 1f);
+
+        /// <summary>Material 3's emphasized accelerate.</summary>
+        public static (float X1, float Y1, float X2, float Y2) FoldCurve => (0.3f, 0f, 0.8f, 0.15f);
+
+        /// <summary>Material 3's standard.</summary>
+        public static (float X1, float Y1, float X2, float Y2) MoveCurve => (0.2f, 0f, 0f, 1f);
+
+        /// <summary>Every carrier the kit lays words on (the recessed <see cref="Side"/> is the well's step).</summary>
+        public static IReadOnlyList<GlazeColor> Carriers { get; } = new[] { Slate, Raised, Well, Thumb };
 
         /// <summary>
         /// How large text of <paramref name="dp"/> reads as the eyes see it at a point on the plane
