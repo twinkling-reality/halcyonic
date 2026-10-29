@@ -375,7 +375,8 @@ namespace Halcyonic.Client
                     break;
                 case FileScreens.TypeAnswer:
                     instructionVoiceValid = false;
-                    if (draft != null && question.BeginInput()) OpenAnswerKeyboard();
+                    // Refused here too, whatever a frame offers: a secret typed would be journaled (ADR 0022).
+                    if (draft != null && Now?.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true && question.BeginInput()) OpenAnswerKeyboard();
                     Rebuild();
                     return;
                 case FileScreens.HoldToTalk:
