@@ -42,6 +42,135 @@ namespace Halcyonic.XR.Workspace.Editor
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
+        /// <summary>
+        /// The character answers the moment its task shows in the room (ADR 0040, rule 4), as the view steps it: idle it
+        /// glances aside now and then; sent and a question waiting, its eyes stay open on the person, the question with the
+        /// waiting badge and its glyph; a failed check of the computer's own droops with its eyes open; ready hops once and
+        /// rests with its eyes open. Kept still, every one holds a static pose. A Ready with closed eyes and a badge without
+        /// its glyph must each be caught. Every name is synthetic.
+        /// </summary>
+        public static void CharacterMomentCheck()
+        {
+            var failures = GlazeChecks.AtEachTextSize(variant =>
+            {
+                var result = new List<string>();
+                var wasStill = GlazeMotion.Still;
+                try
+                {
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    result.AddRange(CharacterMoments(still: false));
+                    result.AddRange(CharacterMoments(still: true));
+                }
+                catch (Exception error) { result.Add(error.ToString()); }
+                finally { GlazeMotion.Still = wasStill; WorkspaceRender.KeepFontAssetsAsCommitted(); }
+                foreach (var failure in result) Debug.LogError("Halcyonic: character moments: " + failure);
+                if (result.Count == 0) Debug.Log("Halcyonic: character moments: every check passed");
+                return result;
+            });
+            EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
+        }
+
+        private sealed class MomentRun
+        {
+            public readonly List<float> Lifts = new List<float>();
+            public readonly List<float> Looks = new List<float>();
+            public float Open;
+            public float Kind;
+        }
+
+        private static MomentRun RunMoment(CharacterView view, float seconds)
+        {
+            var run = new MomentRun();
+            for (var frame = 0; frame < Mathf.RoundToInt(seconds * 72f); frame++)
+            {
+                view.AdvanceForRender(1f / 72f);
+                run.Lifts.Add(view.Body.localPosition.y);
+                run.Looks.Add(view.PoseForRender.LookX);
+            }
+            run.Open = view.PoseForRender.Open;
+            run.Kind = view.EyeKindForRender;
+            return run;
+        }
+
+        private static IEnumerable<string> CharacterMoments(bool still)
+        {
+            var failures = new List<string>();
+            var at = new DateTimeOffset(2026, 10, 29, 10, 38, 0, TimeSpan.Zero);
+            var passed = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, at);
+            var cases = new (string Name, CharacterActivity Activity, KitMoment? Moment)[]
+            {
+                ("idle", CharacterActivity.Idle, null),
+                ("sent", CharacterActivity.Working, KitMoment.Sent("Codex")),
+                ("question", CharacterActivity.WaitingForHuman, KitMoment.Question("Codex", "npm install matter-js", KitSandbox.MayLeave, complete: true, at)),
+                ("failed check", CharacterActivity.TurnFinished, KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, at)),
+                ("ready", CharacterActivity.TurnFinished, KitMoment.Ready("Tower Toss", TimeSpan.FromMinutes(4), passed, tryRoute: true)),
+            };
+            var mode = still ? " kept still" : "";
+            foreach (var (name, activity, moment) in cases)
+            {
+                var root = new GameObject("Character moment witness");
+                try
+                {
+                    GlazeMotion.Still = still;
+                    var presentation = new CharacterPresentation("w-moment", "Make the towers wobble", activity, CharacterPresenter.LabelOf(activity),
+                        AttentionLevel.None, new List<string>(), 0, synthetic: true, recorded: false, stale: false);
+                    var view = CharacterView.Create(root.transform, "w-moment");
+                    view.Show(presentation, moment);
+                    var run = RunMoment(view, name == "idle" ? 14f : 3f);
+                    var what = name + mode;
+                    var spread = run.Lifts.Max() - run.Lifts.Min();
+                    if (still && spread > 1e-5f) failures.Add(what + ": the body moved " + spread.ToString("0.00000", CultureInfo.InvariantCulture) + " while kept still");
+                    if (name != "idle") failures.AddRange(EyesOpen(what, run));
+                    switch (name)
+                    {
+                        case "idle":
+                            var glance = run.Looks.Max(look => Mathf.Abs(look));
+                            if (!still && glance < 0.42f) failures.Add(what + ": idle never glanced aside, the widest look " + glance.ToString("0.00", CultureInfo.InvariantCulture));
+                            if (still && glance > 0.05f) failures.Add(what + ": idle glanced while kept still");
+                            break;
+                        case "question":
+                            failures.AddRange(WaitingBadge(what, view));
+                            view.Label.Badge.Icon.gameObject.SetActive(false);
+                            if (!WaitingBadge(what, view).Any()) failures.Add(what + ": the badge check accepted a waiting badge without its glyph");
+                            view.Label.Badge.Icon.gameObject.SetActive(true);
+                            break;
+                        case "failed check":
+                            if (Mathf.Abs(run.Lifts.Last() - view.HeldLift) > 1e-4f || view.HeldLift >= 0f)
+                                failures.Add(what + ": a failed check did not droop and hold its place");
+                            break;
+                        case "ready":
+                            var hopFrames = Mathf.RoundToInt(SpatialKit.PopSeconds * 72f);
+                            // The lift eases at 8 a second, so it has settled a second after the hop.
+                            var hop = run.Lifts.Take(hopFrames).Max() - run.Lifts.Skip(hopFrames + 72).Max();
+                            if (!still && hop < 0.005f) failures.Add(what + ": ready did not hop");
+                            var after = run.Lifts.Skip(hopFrames + 72).ToList();
+                            if (after.Max() - after.Min() > 1e-4f) failures.Add(what + ": ready kept hopping after its one hop");
+                            // The witness: the same view as a finished turn shows it, eyes closed, must be caught.
+                            view.Show(presentation);
+                            if (!EyesOpen(what, RunMoment(view, 1f)).Any()) failures.Add(what + ": the eyes check accepted a Ready with closed eyes");
+                            break;
+                    }
+                }
+                finally { UnityEngine.Object.DestroyImmediate(root); }
+            }
+            return failures;
+        }
+
+        private static IEnumerable<string> EyesOpen(string what, MomentRun run)
+        {
+            // Open is the eyes' shape, not only their lids: closed, crossed and flat are drawn shapes of their own.
+            if (run.Kind != 0f) yield return what + ": the eyes are drawn as shape " + run.Kind.ToString("0", CultureInfo.InvariantCulture) + ", not open";
+            if (run.Open < 0.5f) yield return what + ": the eyes are " + run.Open.ToString("0.00", CultureInfo.InvariantCulture) + " open, not open";
+        }
+
+        private static IEnumerable<string> WaitingBadge(string what, CharacterView view)
+        {
+            var badge = view.Label.Badge;
+            if (badge.Shown?.State != WorkState.WaitingForYou || badge.Shown.Tone != GlazeTone.Attention)
+                yield return what + ": the label does not wear the waiting badge in the attention tone";
+            if (!badge.ShowsIcon) yield return what + ": the waiting badge carries no glyph, so its colour stands alone";
+        }
+
         /// <summary>Same-frame isolation of the captured idle residuals, before any production stillness repair.</summary>
         public static void CharacterStillConvergenceCheck()
         {

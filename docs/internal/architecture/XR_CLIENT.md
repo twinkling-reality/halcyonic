@@ -2458,6 +2458,34 @@ character at rest, or beside the task mark that stands in its place while charac
   - the carrier opaque in the pixels.
 - A card moved onto the character and one on its far side must each be caught.
 
+The character can answer the moment its task shows. `CharacterView.Show(presentation, shown)` takes
+`CharacterCues.Of(presentation, shown)`: what the task's state says, with the moment over it. No
+stage calls it yet; only the Editor check below does. The unit that wires the room's route into
+`MenuDirector` (`ShowScreen`, `ShowMoment` and this) makes it live, and that unit is not yet listed.
+
+- Sent: it turns to the person, eyes on them, as if listening.
+- A question waiting: it turns to them, rises, with the waiting light. Its label's badge carries
+  the WaitingForYou glyph, so colour never stands alone.
+- A failed check of the computer's own: it droops (`Slump`) with its eyes open, uncracked. A
+  failure is the task's state, not the character's end.
+- Ready: one hop over `SpatialKit.PopSeconds` (`HopOnce`), then still, facing the person, eyes open,
+  never a finished turn's closed eyes.
+- Idle: it breathes and glances aside now and then. The glance timings (every 6.5 s, for 0.8 s) are
+  candidates for a wearer.
+- The state wins where the two disagree:
+  - A stale or stopped character stays as it was.
+  - One that can't be told (Unknown), or whose run failed, keeps its own cues.
+  - A Ready or a failed check answers only a turn that has stopped (Idle or TurnFinished), since
+    the newest moment can be either while the runtime still works.
+- Nothing on the character is an action.
+- Kept still, each holds a static pose.
+- `Show(presentation)` alone keeps the old cues, so every other stage is unchanged.
+
+The Editor check `StageRender.CharacterMomentCheck` steps each case at both text sizes, moving and
+kept still. A Ready with closed eyes and a waiting badge without its glyph must each be caught. The
+eyes are read by their drawn shape (`EyeKindForRender`), not only their lids. This is behaviour only:
+the card's, bar's and label's look waits for DESIGN's visual language (VL).
+
 ### The room
 
 `Assets/Halcyonic/Room` is the separate `Halcyonic.XR.Room` assembly, the only one that references
