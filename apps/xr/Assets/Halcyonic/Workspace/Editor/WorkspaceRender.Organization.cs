@@ -76,6 +76,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var retainedTitle = LineWords.TheirName("Verified retained task title");
                 var director = MenuDirector.Create(holder.transform, new MenuDirector.Setup
                 {
+                    // The director opens on Projects, which sends only through the host's factory; this witness sends nothing.
+                    Commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }),
                     File = (_, _) => new StubColumn(() => new MenuFrame(retainedTitle, new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)))),
                 });
                 director.OpenFile("known-task-missing-from-latest-state");
