@@ -250,6 +250,12 @@ namespace Halcyonic.Client
 
         public const float HandleThicknessDegrees = 0.45f;
 
+        /// <summary>The moment slot beside the character, across; a moment's height follows its content.</summary>
+        public const float MomentDegrees = 23f;
+
+        /// <summary>The stacked moments behind the shown one: one edge this high above its top.</summary>
+        public const float StackEdgeDegrees = 1.2f;
+
         // Motion (ADR 0040), only on events; Keep things still lands each state at once.
 
         /// <summary>A moment coming out of the character: a spring this long with <see cref="PopBounce"/>.</summary>

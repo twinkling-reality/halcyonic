@@ -16,7 +16,8 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 
 [ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md) makes the headset a room: a gallery of projects as
 home, one screen per picked project with its bar beneath, moments from the task's character, reading that unfolds on
-demand. Nothing of it is built yet. The sections after this one describe what the headset draws today (the plane, the
+demand. Built so far, as kit components checked in Editor renders: the colours, type and motion below, a picked
+project's screen and its bar (placed in the room 2 m away), and the moment card; the rest are not yet. The sections after this one describe what the headset draws today (the plane, the
 curve, the 2026-10-15 and 2026-10-16 candidates); each is rewritten as the build unit that replaces it lands. Values
 below are the accepted storyboard's; the client core will hold them (`SpatialKit`), and renders check them.
 
