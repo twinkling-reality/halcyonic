@@ -28,11 +28,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var passed = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, ScreenAt);
             var model = state switch
             {
-                "20-screen-picked" => new KitScreenModel("Tower Toss", "Codex", "Ready for a change", true, passed, true, null, barOpen: true, working: false),
-                "20-screen-idle" => new KitScreenModel("Tower Toss", "Codex", "Ready for a change", true, passed, true, null, barOpen: false, working: false),
+                "20-screen-picked" => new KitScreenModel("Tower Toss", "Codex", "Ready for a change", true, passed, true, null, barOpen: true, working: false, newestChangeAt: null),
+                "20-screen-idle" => new KitScreenModel("Tower Toss", "Codex", "Ready for a change", true, passed, true, null, barOpen: false, working: false, newestChangeAt: null),
                 "20-screen-working" => new KitScreenModel("Tower Toss", "Codex", "Working", true,
-                    KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, ScreenAt), true, null, barOpen: true, working: true),
-                _ => new KitScreenModel("Recipe Box", "Codex", "Finished this round", false, null, true, null, barOpen: true, working: false),
+                    KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, ScreenAt), true, null, barOpen: true, working: true, newestChangeAt: null),
+                _ => new KitScreenModel("Recipe Box", "Codex", "Finished this round", false, null, true, null, barOpen: true, working: false, newestChangeAt: null),
             };
             var caption = state switch
             {
@@ -62,7 +62,8 @@ namespace Halcyonic.XR.Workspace.Editor
             Stand(shot, view, eyes, carriers, total);
             shot.Targets.Add(("screen bar", bar.transform, bar.Targets));
             shot.Faces.AddRange(carriers.Select(carrier => carrier.Face));
-            shot.Witness = (screen.Face.Face, new Vector3(0.4f, -0.3f, 0f), SpatialKit.Well);
+            // A bare point of the face, clear of the title chip, the mark and the name: the project's identity field.
+            shot.Witness = (screen.Face.Face, new Vector3(0.42f, 0.18f, 0f), SpatialKit.IdentityField(model.IdentityHue));
             shot.OpacityNegative = screen.Face.Face;
 
             // The bar's edges are the screen's (ADR 0040, rule 2; ADR 0026's aligned edges).
@@ -82,7 +83,12 @@ namespace Halcyonic.XR.Workspace.Editor
             var everything = view.GetComponentsInChildren<TextMeshPro>(false).Select(label => label.text ?? "").ToList();
             Require(!everything.Any(text => text.IndexOf("checked build", StringComparison.OrdinalIgnoreCase) >= 0), "the screen speaks of a build it does not show");
             Require(screen.Mark.text == model.Monogram, "the neutral mark is not the name's two letters");
-            Require(screen.ReadsWhole, "the screen's title chip is cut");
+            Require(screen.ReadsWhole, "the screen's name or its title chip is cut");
+            // Its identity: the name across the face in display type, the field in the project's own quiet hue.
+            Require(screen.Name.text == LabelText.ForTextMeshPro(model.Project), "the screen does not carry the project's name");
+            screen.Name.ForceMeshUpdate(true);
+            Require(screen.Name.gameObject.activeInHierarchy && !screen.Name.isTextTruncated && screen.Name.textInfo.lineCount == 1
+                && screen.Name.textBounds.size.x > KitType.Units(SpatialKit.Degrees(SpatialKit.DisplayDp)), "the project's name is not drawn whole");
             FacesTheEyes(shot, view, carriers, eyes);
             Debug.Log("Halcyonic: spatial kit: screen " + Spread(shot, eyes) + "; bar " + bar.Rows + " row(s), " + bar.Shown.Count + " actions.");
             return shot;

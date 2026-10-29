@@ -7,17 +7,18 @@ using UnityEngine;
 namespace Halcyonic.XR.UI
 {
     /// <summary>
-    /// A picked project's screen (ADR 0040, rule 2; R03 YouTube VR, R04 visionOS windows): one large opaque face, the
-    /// project's title chip at its top left with the runtime and the state, and a neutral two-letter mark where no picture
-    /// stands. A picture comes only from the computer's own check screenshot, which no check takes yet, so none is drawn
+    /// A picked project's screen (ADR 0040, rule 2; R03 YouTube VR, R04 visionOS windows, R01 Wii channels): one large opaque
+    /// face, the project's title chip at its top left with the runtime and the state, and, where no picture stands, the
+    /// project's identity: a quiet field in its own hue, its two-letter mark and its name in display type. A picture comes only from the computer's own check screenshot, which no check takes yet, so none is drawn
     /// here; nothing on the screen ever says "last checked build" without one. Sizes are <see cref="SpatialKit"/>'s, in units
     /// of the viewing distance; it is centred on its transform and never places or faces itself.
     /// </summary>
     public sealed class KitScreen : MonoBehaviour
     {
         private const float RadiusDegrees = 1.2f;
-        private const float MarkDegrees = 10f;
-        private const float MarkEmDegrees = 4.5f;
+        private const float MarkDegrees = 14f;
+        private const float MarkEmDegrees = 6f;
+        private const float NameGapDegrees = 1.5f;
         private const float ChipInsetDegrees = 1.5f;
         private const float ChipPadDegrees = 0.9f;
 
@@ -27,6 +28,7 @@ namespace Halcyonic.XR.UI
         private KitCarrier chip = null!;
         private TextMeshPro title = null!;
         private TextMeshPro facts = null!;
+        private TextMeshPro name = null!;
 
         public Vector2 Size { get; private set; }
 
@@ -39,6 +41,9 @@ namespace Halcyonic.XR.UI
         public TextMeshPro Title => title;
 
         public TextMeshPro Facts => facts;
+
+        /// <summary>The project's name across the face, in display type, while no picture stands.</summary>
+        public TextMeshPro Name => name;
 
         public IEnumerable<KitCarrier> Carriers => new[] { face, chip };
 
@@ -55,6 +60,9 @@ namespace Halcyonic.XR.UI
             screen.mark = KitType.Create(go.transform, "Mark", KitRole.Identity, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Center);
             screen.mark.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             screen.mark.textWrappingMode = TextWrappingModes.NoWrap;
+            screen.name = KitType.Create(go.transform, "Name", KitRole.Display, KitType.Text, KitType.Order.Words, TextAlignmentOptions.Center);
+            screen.name.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            screen.name.textWrappingMode = TextWrappingModes.NoWrap;
             screen.chip = KitCarrier.Create(go.transform, "Title chip", KitType.Order.Plate);
             screen.title = KitType.Create(screen.chip.transform, "Title", KitRole.Heading, KitType.Text, KitType.Order.Words);
             screen.title.textWrappingMode = TextWrappingModes.NoWrap;
@@ -69,21 +77,30 @@ namespace Halcyonic.XR.UI
             var width = 2f * KitType.Units(SpatialKit.ScreenDegrees / 2f);
             var height = 2f * KitType.Units(SpatialKit.ScreenHeightDegrees / 2f);
             Size = new Vector2(width, height);
-            face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.Well);
+            face.Draw(Size, KitType.Units(RadiusDegrees), SpatialKit.IdentityField(model.IdentityHue));
 
-            // No picture source exists yet: the neutral mark stands in its place.
+            // No picture source exists yet: the project's identity stands in its place, the mark above its name.
+            KitType.Size(name, KitRole.Display);
+            GlazeText.SetLiteral(name, model.Project);
+            var (nameLines, nameWidth, nameHeight) = KitType.Lay(name, width * 0.8f, 1);
+            var diameter = KitType.Units(MarkDegrees);
+            var block = diameter + KitType.Units(NameGapDegrees) + nameHeight;
             var markShown = model.Monogram.Length > 0;
+            var markY = markShown ? block / 2f - diameter / 2f : 0f;
+            // Lay sized the name's box to its line with room below; it is centred where the name stands, never shrunk after.
+            name.transform.localPosition = new Vector3(0f, markShown ? -block / 2f + nameHeight / 2f : 0f, -0.0006f);
+            name.ForceMeshUpdate(true);
+            var nameWhole = nameLines == 1 && !name.isTextTruncated && nameWidth <= width * 0.8f && name.textBounds.size.x > 0f;
             disc.gameObject.SetActive(markShown);
             mark.gameObject.SetActive(markShown);
             if (markShown)
             {
-                var diameter = KitType.Units(MarkDegrees);
                 disc.Draw(new Vector2(diameter, diameter), diameter / 2f, KitType.Colour(SpatialKit.Raised));
-                disc.transform.localPosition = new Vector3(0f, 0f, -0.0003f);
+                disc.transform.localPosition = new Vector3(0f, markY, -0.0003f);
                 GlazeText.SetLiteral(mark, model.Monogram);
                 mark.fontSize = GlazeTokens.FontSize(KitType.Units(MarkEmDegrees));
                 mark.rectTransform.sizeDelta = new Vector2(diameter, diameter);
-                mark.transform.localPosition = new Vector3(0f, 0f, -0.0006f);
+                mark.transform.localPosition = new Vector3(0f, markY, -0.0006f);
             }
 
             // The title chip: the project's name, then the runtime and the state, on one opaque carrier.
@@ -97,7 +114,7 @@ namespace Halcyonic.XR.UI
             var room = width - 2f * inset - 3f * pad;
             var (titleLines, titleWidth, titleHeight) = KitType.Lay(title, room * 0.6f, 1);
             var (factLines, factWidth, _) = KitType.Lay(facts, room - titleWidth, 1);
-            ReadsWhole = titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
+            ReadsWhole = nameWhole && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
             var chipSize = new Vector2(titleWidth + factWidth + 3f * pad, titleHeight + 2f * pad * 0.6f);
             chip.Draw(chipSize, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
             chip.transform.localPosition = new Vector3(-width / 2f + inset + chipSize.x / 2f, height / 2f - inset - chipSize.y / 2f, -0.0004f);

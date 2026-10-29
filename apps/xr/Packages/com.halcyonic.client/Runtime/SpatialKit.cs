@@ -73,6 +73,9 @@ namespace Halcyonic.Client
         /// <summary>Code, paths and commands, which are the runtime's, in a monospace face.</summary>
         public const float MonoDp = 16f;
 
+        /// <summary>A picked project's name across its screen while no picture stands: the largest type, once a room.</summary>
+        public const float DisplayDp = 48f;
+
         /// <summary>From one line of reading prose to the next, in ems: room to read a long report.</summary>
         public const float ReadingLeading = 1.4f;
 
@@ -210,6 +213,23 @@ namespace Halcyonic.Client
 
         /// <summary>A pointed primary action: the accent lifted, mixed in linear light 16 percent toward white.</summary>
         public static GlazeColor HoveredAccent => GlazeColor.Hex(0x88CFF1);
+
+        /// <summary>
+        /// A project's identity field: its screen's face while no picture stands, in the project's own hue (0 to 360) at a
+        /// low chroma and the carrier's darkness, so it reads as whose screen it is and never as a meaning.
+        /// </summary>
+        public static GlazeColor IdentityField(double hue)
+        {
+            const double value = 0.17, saturation = 0.3;
+            var h = ((hue % 360) + 360) % 360 / 60.0;
+            var chroma = value * saturation;
+            var x = chroma * (1 - Math.Abs(h % 2 - 1));
+            var (r, g, b) = h < 1 ? (chroma, x, 0.0) : h < 2 ? (x, chroma, 0.0) : h < 3 ? (0.0, chroma, x)
+                : h < 4 ? (0.0, x, chroma) : h < 5 ? (x, 0.0, chroma) : (chroma, 0.0, x);
+            var m = value - chroma;
+            byte Channel(double c) => (byte)Math.Round((c + m) * 255);
+            return new GlazeColor(Channel(r), Channel(g), Channel(b));
+        }
 
         // The room's parts (ADR 0040), as angles at the eye; where each stands is the placement's, never the part's.
 

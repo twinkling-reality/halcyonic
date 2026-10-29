@@ -96,6 +96,16 @@ public class KitScreenTests
     }
 
     [Test]
+    public void TheIdentityHueComesFromTheNameAlone()
+    {
+        Assert.That(KitScreenModel.HueOf("Tower Toss"), Is.EqualTo(KitScreenModel.HueOf("Tower Toss")));
+        Assert.That(KitScreenModel.HueOf("Tower Toss"), Is.Not.EqualTo(KitScreenModel.HueOf("Recipe Box")));
+        foreach (var name in new[] { "", "a", "Tower Toss", "Moon Garden", "\u00e9t\u00e9" })
+            Assert.That(KitScreenModel.HueOf(name), Is.InRange(0.0, 359.999));
+        Assert.That(Screen().IdentityHue, Is.EqualTo(KitScreenModel.HueOf("Tower Toss")));
+    }
+
+    [Test]
     public void TheMonogramIsTwoLettersOfTheName()
     {
         Assert.That(KitScreenModel.MonogramOf("Tower Toss"), Is.EqualTo("TT"));

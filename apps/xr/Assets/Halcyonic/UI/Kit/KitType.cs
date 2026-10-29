@@ -23,6 +23,9 @@ namespace Halcyonic.XR.UI
         /// <summary>A fact beside a subject on the room's small surfaces (ADR 0040): 15 dp in the reading face.</summary>
         Label,
 
+        /// <summary>A picked project's name across its screen (ADR 0040): 48 dp in the instrument face, once a room.</summary>
+        Display,
+
         /// <summary>
         /// Code, paths and commands, which are the runtime's: 16 dp. Drawn in the reading face until a monospace
         /// face is chosen, which needs a download the owner has not approved.
@@ -66,6 +69,7 @@ namespace Halcyonic.XR.UI
             KitRole.Identity => SpatialKit.IdentityDp,
             KitRole.Heading => SpatialKit.HeadingDp,
             KitRole.Label => SpatialKit.LabelDp,
+            KitRole.Display => SpatialKit.DisplayDp,
             KitRole.Mono => SpatialKit.MonoDp,
             _ => SpatialKit.BodyDp,
         }) * GlazeText.Scale;
@@ -86,7 +90,7 @@ namespace Halcyonic.XR.UI
         public static TextMeshPro Create(Transform parent, string name, KitRole role, Color colour, int order,
             TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft, float leading = SpatialKit.ListLeading)
         {
-            var instrument = role == KitRole.Identity || role == KitRole.Heading;
+            var instrument = role == KitRole.Identity || role == KitRole.Heading || role == KitRole.Display;
             var label = GlazeText.Create(parent, name, instrument ? GlazeType.Hero : GlazeType.Body, colour, alignment, order, strong: role == KitRole.Strong);
             label.rectTransform.pivot = new Vector2(0f, 1f);
             Size(label, role, leading);
