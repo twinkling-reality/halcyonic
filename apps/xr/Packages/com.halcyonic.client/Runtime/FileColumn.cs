@@ -64,6 +64,7 @@ namespace Halcyonic.Client
         private MenuFrame? drawnPresetFrame;
         private double noticeUntil;
         private double nextRefresh;
+        private bool builtConnected;
         private bool answering;
         private int answerPrompt;
 
@@ -757,8 +758,9 @@ namespace Halcyonic.Client
             }
             if (Screen.Section == FileSection.Checks) evaluation.Show(execution?.ExecutionId, execution?.UpdatedAt, clock);
             var read = understanding.Poll() | evaluation.Poll();
-            // A text size changed in Settings packs the page again at once, so it never stands taller than fits.
-            if (read || host.Now >= nextRefresh || Resized()) Rebuild();
+            // A text size changed in Settings packs the page again at once, so it never stands taller than fits; a
+            // connection lost or back does too, so Send is never offered while nothing can be sent.
+            if (read || host.Now >= nextRefresh || Resized() || builtConnected != host.Connected) Rebuild();
         }
 
         /// <summary>Retains the exact local page and buffer while dropping every interaction authorization.</summary>
@@ -824,6 +826,7 @@ namespace Halcyonic.Client
             drawnColourFrame = null;
             drawnPresetFrame = null;
             nextRefresh = host.Now + RefreshSeconds;
+            builtConnected = host.Connected;
             drawnResultsFrame = null;
             drawnShowTaskFrame = null;
             var presentation = present();

@@ -102,6 +102,30 @@ public class FileColumnTests
     }
 
     [Test]
+    public void SendIsWithdrawnTheMomentTheConnectionDrops()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        work.Change(execution => { execution.PendingApprovals.Clear(); execution.Status = ExecutionStatus.Running; }, WorkstreamStatus.Running);
+        // Live, the task takes instructions; disconnected, its presentation offers nothing, as production's does.
+        var column = Column(host, () => host.Live ? FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct) : work.Present(live: false));
+        column.ConfigureActivityComposer(() => new RowBudget(8), () => new RowBudget(8));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Carry on carefully");
+        ReadInstructionDraft(host, column);
+        Prompt Send() => column.Frame!.Footer[PromptSlot.FarRight]!;
+        column.Tick(); // Any refresh already due is spent here, at this moment.
+        Assert.That((Send().Id, Send().Available), Is.EqualTo((FileScreens.SendInstruction, true)));
+        host.Live = false;
+        // The same moment: no refresh timer has passed, so only the connection's change can renew the frame.
+        column.Tick();
+        Assert.That(Send().Available, Is.False, "an instruction that cannot be sent is not offered");
+        Assert.That(Send().Reason, Is.EqualTo(FileScreens.WhyNoInstruction(column.Now!)).And.Not.Null, "and the frame says why");
+        column.Act(FileScreens.SendInstruction, null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
     public void PassiveActivityNeverReadsTheEditorOrItsFrozenReview()
     {
         var (host, _, column) = ComposingTask();
