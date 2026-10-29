@@ -89,6 +89,7 @@ import {
   RuntimeSource,
   StoredEvent,
 } from './events.ts';
+import { FileChanged, FileCreated, FileDeleted, FilesObserved } from './file-changes.ts';
 import {
   LocationFolder,
   LocationRoot,
@@ -235,6 +236,10 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   RestorePreviewResponse,
   StarterView,
   StartersResponse,
+  FilesObserved,
+  FileCreated,
+  FileChanged,
+  FileDeleted,
   LocationsResponse,
   LocationRoot,
   LocationFolder,

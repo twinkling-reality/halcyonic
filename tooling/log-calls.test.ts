@@ -71,6 +71,11 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: 'ids, the command type and the failure code',
     },
     {
+      file: 'apps/control-plane/src/observer/file-observer.ts',
+      args: '{ err: error, execution_id: event.execution_id }, "" ,',
+      why: "an id and the error, which the logger's serializer reduces to its type and where it happened",
+    },
+    {
       file: 'apps/control-plane/src/checkpoints/checkpointer.ts',
       args: '{ err: error, project_id: projectId }, "" ,',
       why: "an id and the error, which the logger's serializer reduces to its type and where it happened",

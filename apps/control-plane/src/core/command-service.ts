@@ -35,6 +35,7 @@ import type { Checkpointer } from '../checkpoints/checkpointer.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
+import type { FileObserver } from '../observer/file-observer.ts';
 import type { HostStarters } from '../starters.ts';
 import {
   type Cause,
@@ -76,6 +77,8 @@ export interface CommandServiceDeps {
   readonly checkpoints?: Checkpointer | null;
   /** The starters a new project can begin from (ADR 0037), or null when there are none. */
   readonly starters?: HostStarters | null;
+  /** The Mac's own reading of what each turn changed (ADR 0038); none, as in some tests. */
+  readonly files?: FileObserver | null;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -84,6 +87,9 @@ interface ActionOutcome {
   succeeded(): void;
   failed(failure: CommandFailure): void;
 }
+
+/** How long a start waits for the Mac's first reading of its folder before going ahead without it. */
+const BASELINE_WAIT_MS = 10_000;
 
 /** How many refused answers' digests are kept to tell a resent answer from another one. */
 const REFUSED_ANSWERS_KEPT = 1000;
@@ -625,13 +631,36 @@ export class CommandService {
               failed: (failure) => this.#recordStartFailure(command, scope, failure),
             },
           );
-        // With undo set up, the folder is kept before the runtime is asked, outside its timeout.
-        const checkpoints = this.#deps.checkpoints;
-        if (checkpoints && directory !== null)
-          void checkpoints
-            .beforeTask(project_id, execution.execution_id, directory, cause)
-            .then(run, run);
-        else void run();
+        // Before the runtime is asked, outside its timeout: the folder's first reading for what each
+        // turn changes (ADR 0038) and, with undo set up, a checkpoint of it (ADR 0036).
+        const before: Promise<void>[] = [];
+        if (directory !== null) {
+          const files = this.#deps.files;
+          if (files) {
+            // Bounded, so a slow reading never holds the start up; a late one is not used.
+            const id = execution.execution_id;
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            const late = new Promise<void>((resolveLate) => {
+              timer = setTimeout(() => {
+                files.abandon(id);
+                resolveLate();
+              }, BASELINE_WAIT_MS);
+            });
+            before.push(
+              Promise.race([
+                files.baseline(id, directory).finally(() => clearTimeout(timer)),
+                late,
+              ]),
+            );
+          }
+          const checkpoints = this.#deps.checkpoints;
+          if (checkpoints)
+            before.push(
+              checkpoints.beforeTask(project_id, execution.execution_id, directory, cause),
+            );
+        }
+        if (before.length === 0) void run();
+        else void Promise.all(before).then(run, run);
         return;
       }
       case 'execution.send_instruction':

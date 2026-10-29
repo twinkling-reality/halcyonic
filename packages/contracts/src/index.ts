@@ -5,6 +5,7 @@ export * from './companion.ts';
 export * from './devices.ts';
 export * from './evaluation.ts';
 export * from './events.ts';
+export * from './file-changes.ts';
 export * from './locations.ts';
 export * from './primitives.ts';
 export * from './questions.ts';

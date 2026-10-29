@@ -758,6 +758,13 @@ export class Projection {
         changes.workstreams.add(event.workstream_id);
         return;
       }
+      case 'execution.files.observed':
+        // A record of what the Mac saw in the folder; clients read it from the events.
+        if (!this.#executions.has(event.execution_id))
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+        return;
       case 'execution.start_failed':
       case 'execution.state_unknown': {
         const execution = this.#executions.get(event.execution_id);

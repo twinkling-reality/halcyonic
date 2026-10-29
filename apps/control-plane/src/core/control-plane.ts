@@ -7,6 +7,7 @@ import type { IdGenerator } from '../ids.ts';
 import type { EventJournal } from '../journal/journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
+import { FileObserver } from '../observer/file-observer.ts';
 import type { HostStarters } from '../starters.ts';
 import { CommandService } from './command-service.ts';
 import { EventPublisher } from './publisher.ts';
@@ -37,6 +38,11 @@ export interface ControlPlaneOptions {
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
   /**
+   * Whether the Mac reads each task's folder and journals what every turn changed (ADR 0038). Off
+   * by default, as for recorded traces and most tests; the control plane's own start turns it on.
+   */
+  readonly observeFiles?: boolean;
+  /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
    * credential shapes still go from error text.
@@ -63,6 +69,8 @@ export class ControlPlane {
   readonly checkpoints: Checkpointer | null;
   /** The starters a new project can begin from, or null when there are none. */
   readonly starters: HostStarters | null;
+  /** The Mac's own reading of what each turn changed in its folder (ADR 0038), or null when off. */
+  readonly files: FileObserver | null;
   readonly locations: HostLocations;
   readonly clock: Clock;
   /** How a runtime's or a provider's text loses credentials before a device sees it. */
@@ -104,6 +112,14 @@ export class ControlPlane {
           });
     this.checkpoints?.attach(this.publisher);
     this.starters = options.starters ?? null;
+    this.files = options.observeFiles === true ? new FileObserver() : null;
+    this.files?.attach({
+      publisher: this.publisher,
+      recorder: this.recorder,
+      projection: this.projection,
+      clock: options.clock,
+      logger: options.logger,
+    });
     this.commands = new CommandService({
       projection: this.projection,
       recorder: this.recorder,
@@ -117,6 +133,7 @@ export class ControlPlane {
       redaction: this.redaction,
       checkpoints: this.checkpoints,
       starters: this.starters,
+      files: this.files,
     });
     this.#rebuild();
   }

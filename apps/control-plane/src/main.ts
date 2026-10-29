@@ -127,6 +127,7 @@ async function main(): Promise<void> {
             }),
           },
         }),
+    observeFiles: true,
     starters: new HostStarters({
       trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
       installedDir: join(config.dataDir, 'starters'),
