@@ -277,6 +277,14 @@ describe('sanitizing a recorded real run', () => {
     { name: 'a coding model', text: 'Tried deepseek-coder.', reason: /deepseek/ },
     { name: "the owner's other project", text: 'As Exulanica does.', reason: /exulanica/ },
     { name: 'a computer by its product name', text: 'On a MacBook Pro.', reason: /macbook/ },
+    // The owner's unreleased product, in any case (2026-10-29), and a host in lower case.
+    {
+      name: "the owner's unreleased product",
+      text: 'Read by Phat Porcupine.',
+      reason: /porcupine/,
+    },
+    { name: 'that product in lower case', text: 'the porcupine catalog', reason: /porcupine/ },
+    { name: 'a code host in lower case', text: 'Pushed to github.', reason: /github/ },
   ];
   for (const { name, text, reason } of cases) {
     test(`fails closed, naming the field and never the text, on ${name}`, () => {

@@ -171,6 +171,9 @@ const NAMES_IN_ANY_CASE = [
   'deepseek',
   'exulanica',
   'macbook',
+  // The owner's unreleased product (2026-10-29). An English word too: a run that mentions the
+  // animal is refused and recorded again, which is the safe side.
+  'porcupine',
 ];
 
 /** Text a recorded run must not carry, by what it is; each test runs on one string value. */
