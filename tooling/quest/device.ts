@@ -138,6 +138,30 @@ function fail(line: string): never {
 
 const sha256File = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
+const AAPT2 =
+  process.env.HALCYONIC_AAPT2 ??
+  '/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/build-tools/36.0.0/aapt2';
+
+/** The package an APK on the Mac declares, read with aapt2 before anything reaches the headset; null when unreadable. */
+async function apkPackage(path: string): Promise<string | null> {
+  try {
+    const { stdout } = await run(AAPT2, ['dump', 'badging', path]);
+    return /^package: name='([^']+)'/m.exec(stdout)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Stops unless the APK on the Mac declares exactly `name`. */
+async function requirePackage(path: string, name: string): Promise<void> {
+  const declared = await apkPackage(path);
+  if (declared !== name) {
+    fail(
+      `${basename(path)} is ${declared ?? 'not an APK aapt2 can read'}, not ${name}; nothing was installed.`,
+    );
+  }
+}
+
 async function front() {
   return readTopActivity(await adb('shell', 'dumpsys', 'activity', 'activities'));
 }
@@ -318,13 +342,19 @@ async function save(): Promise<void> {
 async function install(): Promise<void> {
   if (positional === undefined || !existsSync(positional))
     fail('install needs the APK to install.');
+  await requirePackage(positional, packageName);
   if (packageName === CHECK_PACKAGE) {
     await refuseSystemDialog('installing');
     const wanted = sha256File(positional);
+    const owner = await installed(PACKAGE);
     await adb('install', '-r', positional);
     const after = await installed(CHECK_PACKAGE);
     if (after?.sha256 !== wanted)
       fail(`${CHECK_PACKAGE} on the headset is not ${basename(positional)} after install -r.`);
+    if ((await installed(PACKAGE))?.sha256 !== owner?.sha256)
+      fail(
+        `The owner's ${PACKAGE} on the headset changed during the check install; restore it from its saved copy.`,
+      );
     console.log(
       `Installed ${basename(positional)} (${wanted.slice(0, 12)}) as ${CHECK_PACKAGE}, beside the owner's app.`,
     );
@@ -358,6 +388,7 @@ async function install(): Promise<void> {
 
 async function restore(): Promise<void> {
   if (positional === undefined || !existsSync(positional)) fail('restore needs the saved APK.');
+  await requirePackage(positional, packageName);
   await refuseSystemDialog('restoring');
   const before = await installed(packageName);
   const wanted = sha256File(positional);

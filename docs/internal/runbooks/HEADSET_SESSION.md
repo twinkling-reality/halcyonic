@@ -654,6 +654,8 @@ pnpm quest:device -- give-back
   of the owner's is replaced. `grant <permission> --package com.halcyonic.xr.check` gives it the
   scene or the microphone where its first start would otherwise ask, and
   `uninstall --package com.halcyonic.xr.check` removes it at the end. Both act on that package only.
+  `install` and `restore` first read the APK's own package with `aapt2` and refuse unless it is the
+  one named, and a check install fails if the owner's app's bytes changed.
 - `launch` fails, and stops the app again, when a system dialog holds the launch. Launching the
   owner's own Halcyonic rewrites one of its files; never run it with a real runtime behind it.
   `--extra key=text` and `--extra-bool key=true|false` pass intent extras, letters, digits and

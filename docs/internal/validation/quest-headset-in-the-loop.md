@@ -146,6 +146,12 @@
   they were, and no build changed ProjectSettings.asset.
 - Not yet checked on the headset: installing the check package beside the owner's app, its first
   start (which permissions it asks for, and whether the microphone's needs a grant), and removing it.
+- `pnpm quest:device -- install` reads an APK's own package with `aapt2 dump badging` before anything
+  reaches the headset and refuses unless it is the package named, so an APK of the owner's package
+  given as the check build is refused; a check install also fails if the owner's app's bytes changed.
+- Granting the check build `android.permission.RECORD_AUDIO` lets its hold to talk record the room:
+  development builds only, and what it hears stays private. An `adb reverse` on 47800 serves every
+  app on the headset, not only the check build, so it exists only while a step needs it.
 
 ## Consequences
 

@@ -79,6 +79,13 @@ describe('pnpm quest:device, against a stand-in adb', () => {
   after(() => rmSync(directory, { recursive: true, force: true }));
   const adb = join(directory, 'adb');
   writeFileSync(adb, `#!${process.execPath}\n${STAND_IN}`);
+  // A stand-in for aapt2: an APK here is a text file whose first line is `package <name>`.
+  const aapt2 = join(directory, 'aapt2');
+  writeFileSync(
+    aapt2,
+    `#!${process.execPath}\nconst name = /^package (\\S+)/.exec(require('node:fs').readFileSync(process.argv[process.argv.length - 1], 'utf8'))?.[1];\nif (!name) process.exit(1);\nconsole.log("package: name='" + name + "' versionCode='1'");\n`,
+  );
+  chmodSync(aapt2, 0o755);
   chmodSync(adb, 0o755);
   let runs = 0;
 
@@ -92,6 +99,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     const env = {
       ...process.env,
       HALCYONIC_ADB: adb,
+      HALCYONIC_AAPT2: aapt2,
       HALCYONIC_QUEST_SERIAL: 'TEST-SERIAL',
       HALCYONIC_QUEST_STATE: join(directory, `state-${at}.json`),
       HALCYONIC_FFMPEG: join(directory, 'no-ffmpeg'),
@@ -135,8 +143,8 @@ describe('pnpm quest:device, against a stand-in adb', () => {
   test('install refuses a saved copy that is not the installed APK, and installs nothing', async () => {
     const apk = join(directory, 'new.apk');
     const saved = join(directory, 'saved.apk');
-    writeFileSync(apk, 'the new build');
-    writeFileSync(saved, 'some other build');
+    writeFileSync(apk, 'package com.halcyonic.xr\nthe new build');
+    writeFileSync(saved, 'package com.halcyonic.xr\nsome other build');
     const { code, said, calls } = await device(
       { installedSha256: 'a'.repeat(64) },
       'install',
@@ -275,7 +283,7 @@ describe('pnpm quest:device, against a stand-in adb', () => {
 
   test("the check build installs without a saved copy and is never taken for the owner's app", async () => {
     const apk = join(directory, 'check.apk');
-    writeFileSync(apk, 'a check build');
+    writeFileSync(apk, 'package com.halcyonic.xr.check\na check build');
     const { code, said, calls } = await device(
       {},
       'install',
@@ -289,6 +297,32 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     const state = join(directory, `state-${runs - 1}.json`);
     const installs = existsSync(state) ? JSON.parse(readFileSync(state, 'utf8')).installs : {};
     assert.deepEqual(installs, {});
+  });
+
+  test("an APK of the owner's package given as the check build is refused before any install", async () => {
+    const apk = join(directory, 'owner-as-check.apk');
+    writeFileSync(apk, 'package com.halcyonic.xr\nthe owner package by mistake');
+    const { code, said, calls } = await device(
+      {},
+      'install',
+      apk,
+      '--package',
+      'com.halcyonic.xr.check',
+    );
+    assert.equal(code, 1, said);
+    assert.match(said, /is com\.halcyonic\.xr, not com\.halcyonic\.xr\.check/);
+    assert.ok(!calls.some((call) => call.startsWith('install')), calls.join('\n'));
+  });
+
+  test('an APK whose package is not the one named is refused on the saved-copy path too', async () => {
+    const apk = join(directory, 'other.apk');
+    const saved = join(directory, 'saved-other.apk');
+    writeFileSync(apk, 'package com.example.other\nsome app');
+    writeFileSync(saved, 'package com.halcyonic.xr\nsaved');
+    const { code, said, calls } = await device({}, 'install', apk, '--saved', saved);
+    assert.equal(code, 1, said);
+    assert.match(said, /is com\.example\.other, not com\.halcyonic\.xr/);
+    assert.ok(!calls.some((call) => call.startsWith('install')), calls.join('\n'));
   });
 
   test("the capture service is not used while the headset's log says media sync is on", async () => {
