@@ -90,6 +90,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [claude-code-capabilities.md](validation/claude-code-capabilities.md) | Claude Code CLI and Agent SDK |
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
 | [local-models.md](validation/local-models.md) | Open models served by Ollama on the Mac, through the real runtimes and the control plane: flows, network, speed and memory, and choosing a model from a runtime's list |
+| [meta-models.md](validation/meta-models.md) | Meta's Model API, Muse Code and Muse Glimmer from Meta's own pages: models, prices, limits and data terms, how each runtime would name them, and Muse Code's session protocol (documentation read, nothing run) |
 | [companion-model.md](validation/companion-model.md) | Where Create's companion runs, and what a local model keeps to |
 | [agent-questions.md](validation/agent-questions.md) | How OpenCode, Codex and the Claude Agent SDK ask the person questions, how each is answered, dismissed and interrupted, on the pinned binaries and a local model |
 
