@@ -1455,10 +1455,14 @@ launch/return, process recreation and current-frame action behavior need separat
   control plane that drops later shows its last known state as usual. Each switch reaches consumers
   as a resynchronization, like a journal change. Its `Line` is what the line above the stage says
   while the demonstration is shown: "Demo: recorded work played on this headset. Nothing here is
-  live." and "It follows your answers. Nothing reaches an agent.", and, while it holds
-  an end, that it starts again shortly. While a recorded run plays it says "Recorded: real agent
-  work, played back on this headset. Nothing here is live." and "It waits for you where the agent
-  waited. Nothing reaches an agent."
+  live." and "It follows your answers. Nothing reaches an agent." While a recorded run plays it
+  says "Recorded: real agent work, played back here. Nothing here is live." and "It waits only
+  where the agent waited. Nothing reaches an agent." At an end an end line takes the second
+  sentence's place and still says "Nothing reaches an agent.": alone, "Demo ended. It starts again
+  soon."; with a recorded run, "Run ended. Next, a demo you can answer." and "Demo ended. Next,
+  the recorded run." (a run that ends with no demonstration to follow, "Run ended. It starts again
+  soon."). The banner has four rows and a task waiting takes one, so every state keeps to three
+  (GlazeRender, 2026-10-29).
 - **A recorded run** is one real run played the same way (`pnpm judge:record`,
   [EVENTS.md](EVENTS.md), "Recorded runs"): format version 3, kind `recorded_run`, read by
   `DemonstrationRecording` with `IsRecordedRun` true. Its journal is a fixture, so its work is
@@ -1477,9 +1481,9 @@ launch/return, process recreation and current-frame action behavior need separat
     finished, the demonstration from its beginning, and once that has finished, the recorded run
     again, each a new player and each switch a resynchronization. A recorded run that can't be read
     gives way to the demonstration and is not read again while the app runs: from then on, as without
-    the file, the demonstration plays alone and starts again by itself, and its end line says so. Each file must hold its own kind, or it is refused. At an end the line says
-    what follows: "This run has ended. A demo you can answer comes next." or "This demo has ended.
-    The recorded run comes next."
+    the file, the demonstration plays alone and starts again by itself, and its end line says so.
+    Each file must hold its own kind, or it is refused. At an end the line says what follows, as
+    above.
 - **The room placement's decisions** ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)),
   on plain floor plan geometry the Unity layer converts to and from its vectors:
   - `StageSurfaces.Choose` picks where the characters stand from the room's surfaces facing up

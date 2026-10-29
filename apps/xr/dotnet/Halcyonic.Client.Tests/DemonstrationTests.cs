@@ -831,7 +831,7 @@ public class DemonstrationFallbackTests
         await Until(fallback, () => fallback.Current!.State.Runtimes.Count == 0, "the recording ends");
 
         Assert.That(fallback.Player!.Ended, Is.True);
-        Assert.That(fallback.Line, Does.EndWith("\nThis recording has ended and starts again shortly."));
+        Assert.That(fallback.Line, Does.EndWith("\nDemo ended. It starts again soon. Nothing reaches an agent."));
     }
 
     [Test]
