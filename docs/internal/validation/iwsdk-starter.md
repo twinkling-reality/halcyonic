@@ -187,6 +187,11 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   to 30 read seen. Two causes were possible and neither was shown: a picture taken before the held frame was drawn, and
   the 30 s step limit. Pictures of a held frame are now taken again until two in a row match, and an unknown read
   records its reason (`response_unknown`).
+- **Loaded before stepping (M1.8g-c):** with the reason recorded, a moving scene whose click does nothing read
+  `controls_differ` once in two runs beside a looping `pnpm check` (load 15 to 42): its two no-input loads differed. A
+  twin load held the clock at frame 0 for a fixed 3 s; it now holds it until Chrome reports the document loaded and no
+  request has been in flight or begun for 1 s (Page and Network domains, observed in the host), for at most the 10 s
+  stall limit, after which it steps anyway and a later change shows as a mismatch.
 - **Tried on this Mac** (opt-in tests in `check.test.ts`): a box that answers a click beside a spinning cube is seen
   and ready; the same scene whose click does nothing is not; a page that steps itself with synthetic F24 keys and
   calls every binding-shaped global gets the same verdict; a cube turned by a worker's own clock reads unknown; a still
