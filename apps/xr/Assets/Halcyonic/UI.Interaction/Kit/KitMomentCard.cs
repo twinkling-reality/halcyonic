@@ -18,7 +18,9 @@ namespace Halcyonic.XR.UI
     public sealed class KitMomentCard : MonoBehaviour
     {
         private const float GapDegrees = 0.6f;
-        private const int HeadlineLines = 3;
+        // A stopgap (the lead, 2026-10-30): the subject in Title 28 at the larger size can need a fourth line until A3 rebuilds the
+        // card to the handoff (a short Title, counts and time in the Label line) and returns this to the handoff's count.
+        private const int HeadlineLines = 4;
 
         private KitCarrier carrier = null!;
         private Surface stack = null!;

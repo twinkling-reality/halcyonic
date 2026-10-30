@@ -1792,7 +1792,10 @@ scripts use only long-stable core Unity APIs:
   the workspace use and which knows nothing of input: the tokens in Unity's terms (`GlazeTokens`),
   one shader for every flat shape (`Halcyonic/Glaze Surface`: a rounded rectangle with a fill, an
   edge inside its outline, solid or dashed, and a halftone, its properties instanced, shipped
-  through a material in `UI/Resources`), text by type role (`GlazeText`: TextMeshPro in Liberation
+  through a material in `UI/Resources`), and a second for the room's panels (`Halcyonic/Kit Glass`,
+  drawn by `KitGlass`: the art direction's quiet glass in one pass, each panel's values instanced,
+  the material-wide values set once from the client core's `KitGlassMaterial`, shipped the same way;
+  flat only, not bent onto the instrument's curve), text by type role (`GlazeText`: TextMeshPro in Liberation
   Sans, rich text off, escape parsing on, every text through `LabelText.ForTextMeshPro`, strong text
   thickened by its material, never TextMeshPro's bold, which finds no ellipsis in this font; a
   label's mesh is built again only when its words, look or box change, since panels lay every label

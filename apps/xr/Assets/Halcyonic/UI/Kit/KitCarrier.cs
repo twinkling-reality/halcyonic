@@ -10,7 +10,8 @@ namespace Halcyonic.XR.UI
     /// through the words on it, and as it needs, the one light the instrument carries, along the forward region's
     /// top in the state tone of the work it shows, and the shade the slate in front casts along the join it shares
     /// with a recessed band. Regions are told apart by tone, depth and that shade, never by outlines. Every part is
-    /// a <see cref="Surface"/>: the kit adds no shader.
+    /// a <see cref="Surface"/>; a room's panel may instead draw in the quiet glass (<see cref="DrawGlass"/>), the kit's one
+    /// shader of its own.
     /// </summary>
     /// <remarks>
     /// The shade is a short ramp of black bands over the opaque face, so the face stays whole; it reads as the
@@ -25,6 +26,7 @@ namespace Halcyonic.XR.UI
         private Surface face = null!;
         private Surface edgeLight = null!;
         private readonly List<Surface> shade = new List<Surface>();
+        private KitGlass? glass;
         private int order;
 
         /// <summary>The face's size, in its parent's units.</summary>
@@ -32,8 +34,11 @@ namespace Halcyonic.XR.UI
 
         public float Radius { get; private set; }
 
-        /// <summary>The face that carries words: its fill is opaque.</summary>
+        /// <summary>The face that carries words: its fill is opaque. Hidden while the carrier draws in glass.</summary>
         public Surface Face => face;
+
+        /// <summary>The quiet glass, while the carrier draws in it (<see cref="DrawGlass"/>); otherwise none.</summary>
+        public KitGlass? Glass => glass != null && glass.gameObject.activeSelf ? glass : null;
 
         public static KitCarrier Create(Transform parent, string name, int order = KitType.Order.Carrier)
         {
@@ -57,6 +62,8 @@ namespace Halcyonic.XR.UI
         {
             Size = size;
             Radius = radius;
+            if (glass != null) glass.Hide();
+            face.gameObject.SetActive(true);
             var hairline = KitType.Units(SpatialKit.HairlineDegrees);
             face.Draw(size, radius, KitType.Colour(fill));
             face.Selection = SurfaceSelection.None;
@@ -69,6 +76,23 @@ namespace Halcyonic.XR.UI
                 edgeLight.Draw(new Vector2(run, thick), thick / 2f, light ?? KitType.Colour(SpatialKit.EdgeLight));
                 edgeLight.transform.localPosition = new Vector3(0f, size.y / 2f - hairline - thick / 2f, -0.0002f);
             }
+        }
+
+        /// <summary>
+        /// Draws the carrier as a panel of the room in the quiet glass (<see cref="KitGlass"/>): <paramref name="size"/> and
+        /// <paramref name="radius"/> are its outer edge, the rim of <paramref name="rimDp"/> inside them carries no words, and
+        /// a <paramref name="tone"/>, said in the panel's words too, lights its edge and blooms its face by
+        /// <paramref name="bloom"/>. The opaque face, its lit edge and its shade stand aside while it does.
+        /// </summary>
+        public void DrawGlass(Vector2 size, float radius, float rimDp = KitGlassMaterial.RimDp, GlazeColor? tone = null, float bloom = 0f, bool glow = true)
+        {
+            Size = size;
+            Radius = radius;
+            if (glass == null) glass = KitGlass.Create(transform, "Quiet glass", order);
+            face.gameObject.SetActive(false);
+            edgeLight.gameObject.SetActive(false);
+            foreach (var band in shade) band.gameObject.SetActive(false);
+            glass.Draw(size, radius, rimDp, tone, bloom, glow);
         }
 
         /// <summary>

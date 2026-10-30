@@ -61,7 +61,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates))
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates))
                     {
                         try { found.AddRange(RenderState(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
@@ -94,6 +94,9 @@ namespace Halcyonic.XR.Workspace.Editor
             public List<Vector3> Corners = new List<Vector3>();
             public List<string> Failures = new List<string>();
             public Action<List<string>>? AfterRender;
+
+            /// <summary>Reads the eye buffer as rendered, before any room is laid under it: the camera, its pixels, and where to add failures.</summary>
+            public Action<Camera, Color32[], List<string>>? AfterEye;
             public string Caption = "";
 
             /// <summary>Objects the shot made outside its root, as the existing director, destroyed with it.</summary>
@@ -164,6 +167,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     _ when ScreenStates.Contains(state) => ScreenShot(state, root.transform, eyes),
                     _ when MomentStates.Contains(state) => MomentShot(state, root.transform, eyes),
                     _ when FontStates.Contains(state) => FontShot(state, root.transform, eyes),
+                    _ when GlassStates.Contains(state) => GlassShot(state, root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
@@ -198,6 +202,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(JoinsClosed(shot, camera, eye, name));
                     if (shot.Witness is (Surface witnessFace, Vector3 witnessLocal, GlazeColor witnessColour))
                         failures.AddRange(StoredAsTheHeadsetStores(witnessFace, witnessLocal, witnessColour, camera, eye, name, shot.Seen));
+                    if (shot.AfterEye != null)
+                    {
+                        var read = new List<string>();
+                        shot.AfterEye(camera, eye, read);
+                        failures.AddRange(read.Select(failure => name + ": " + failure));
+                    }
                     bright = Composite(image, BrightRoom(Width, Height, camera), Color.white);
                     dark = Composite(image, null, DarkRoom);
                     if (!shot.Moving)

@@ -39,7 +39,7 @@ art direction's ("Quiet glass, living light", the owner's yes on 2026-10-30): ei
 
 | Step | Value | For |
 | --- | --- | --- |
-| n0 | #1B1E22 | A well (a command, code), the empty screen; the primary capsule's word |
+| n0 | #1B1E22 | A well (a command, code), the empty screen; the primary capsule's word, and its band when pointed (12.3 on n7) |
 | n1 | #21252A | Every face with words, lit from above: #262A30 at its top, #1E2226 at its foot |
 | n2 | #2B2F35 | Raised: a chip, the stacked edge, a poster's centre |
 | n3 | #363B41 | A button's pressed fill. The kit's step: the art direction's #3A3F45 leaves tertiary words at 4.29 and red at 4.35 on it, so the kit takes OKLCH 0.35. #3A3F45 raises the switch's thumb, which carries only primary and secondary words |
@@ -77,6 +77,23 @@ its run, so who said it is still known to every check. Larger multiplies by 1.15
 
 The screen's two-letter mark is in Display's face at its own size. Identity (30 dp) and Heading (22 dp) are the instrument
 candidate's only, in its own face and a 1.2 line pitch; no part of the room uses them.
+
+**Material.** The room's panels are one quiet glass (`KitGlassMaterial` in the client core, `KitGlass` and the
+`Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): an opaque face lit from
+above (#262A30, n1 at 36 percent, #1E2226) that carries every word; a see-through rim round it, 10 dp on a panel, 8 on
+the lost plate and the earlier edge, 6 on a tile and the tag, that carries no word, ring or line; a 2 dp light along the
+outer edge; a faint 18 dp glow; a 1 dp highlight inside the face's top; two soft shadows; and on a moment its state edge
+and the bloom of its arrival, both said in the moment's words too and never standing for progress. One pass, no
+textures, no blur; the glow is the first thing dropped for frame time. The quad reaches 51 dp past the panel's sides,
+39 above and 63 below, so the glass fills 1.34 times the screen's area and more on smaller panels; the kit render
+reports each part's cost.
+
+The prototype blends in sRGB and Unity in linear light, so a layer over the room lands exactly on one room only: the rim
+is solved for the lit room (#B9AE9E) and the edge for the dark room (#1E1C1A), where it keeps 3:1. Over the other rooms
+the glass drifts as measured: the rim up to 37/255 lighter over the dark room, the edge up to 13 off over the lit room and
+24 over the white wall. In the dark room the edge stays a line of its own over the rim beside it, at least 1.4:1 (2.36 at
+worst, where the prototype holds 3.1). Layers over the face mix in sRGB inside the shader and match exactly. The bloom peaks at 11
+percent, not the art direction's 14, so tertiary words keep 4.5:1 on the face's lit top (at 14 they fall to 4.26).
 
 **Motion.** Only on events; Keep things still lands each state at once.
 
