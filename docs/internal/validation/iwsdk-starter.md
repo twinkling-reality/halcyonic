@@ -173,13 +173,20 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Two controls (AUDIT M18G-M1, 2026-10-30):** matching before input does not show the twin holds at the frame
   compared. A page that starts something late on a time the clock does not hold (a CSS animation at frame 330, a
   worker's clock used only later, an asset that finishes loading late) differs between loads with no input at all,
-  which a single twin would read as a response. The step now loads the page twice with no input; the two must match
-  within 0.01% at frame 300 and at frame 360, or the response is unknown. A press seen is loaded once more, and must end
+  which a single twin would read as a response. The step now loads the page twice with no input, the second after the
+  presses (AUDIT M18G-S1); the two must match within 0.01% at frame 300 and at frame 360, or the response is unknown. A press seen is loaded once more, and must end
   within 0.01% of its first run. A second control samples load-to-load change; it does not prove there is none: a
   page whose late change lands alike in two loads and otherwise in a third could still pass, and is unknown to us.
-- **Time (AUDIT M18G-M2):** a step to a frame counted 50 ms waits rather than time, and on a throttled Mac one step ran
-  about 906 s. Each step now has 30 s by the wall clock and the whole twin step three minutes; past either the step
-  reads unknown and its Chrome is stopped before the check goes on.
+- **Time (AUDIT M18G-M2, M18G-S2):** a step to a frame counted 50 ms waits rather than time, and on a throttled Mac one
+  step ran about 906 s. The whole twin step now has three minutes by the wall clock, of which the last 25 s are kept
+  for a load told to stop to end (a DevTools answer's 20 s, Chrome's 3 s); past it the step reads unknown and its Chrome
+  is stopped before the check goes on. A fixed 30 s per step (first amend) also cut off pages whose frames had slowed on
+  a busy Mac; instead the page must reach a further frame at least every 10 s, and the clock reports every frame.
+- **The null under load (M1.8g-b):** on 2026-10-30 a full e2e run beside other suites (load about 23 to 26 on 18 cores)
+  read two moving scenes unknown that read seen when the Mac was quiet, with no reason recorded; three reruns at load 20
+  to 30 read seen. Two causes were possible and neither was shown: a picture taken before the held frame was drawn, and
+  the 30 s step limit. Pictures of a held frame are now taken again until two in a row match, and an unknown read
+  records its reason (`response_unknown`).
 - **Tried on this Mac** (opt-in tests in `check.test.ts`): a box that answers a click beside a spinning cube is seen
   and ready; the same scene whose click does nothing is not; a page that steps itself with synthetic F24 keys and
   calls every binding-shaped global gets the same verdict; a cube turned by a worker's own clock reads unknown; a still

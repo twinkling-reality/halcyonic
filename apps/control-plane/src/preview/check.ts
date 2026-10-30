@@ -6,7 +6,15 @@ import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { CheckLaptop, CheckNotes, CheckVr } from '@halcyonic/contracts';
 import { launchChrome } from './chrome.ts';
-import { laptopStep, layerState, pipeDriver, twinLoad, twinStep, vrStep } from './laptop-probe.ts';
+import {
+  laptopStep,
+  layerState,
+  pipeDriver,
+  type TwinVerdict,
+  twinLoad,
+  twinStep,
+  vrStep,
+} from './laptop-probe.ts';
 import { decodePng, type Pixels } from './png.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
 import { scanSource } from './scan.ts';
@@ -283,7 +291,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     if (laptop.layer === 'starter' && laptop.screen_changed !== true && laptop.targets > 0) {
       const chrome = options.chrome;
       let loads = 0;
-      const response = await twinStep(async (target, signal) => {
+      const verdict = await twinStep(async (target, signal) => {
         loads += 1;
         // A Chrome of its own for each load, so nothing of one carries into the next.
         const run = await launchChrome({
@@ -302,11 +310,12 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
           signal.removeEventListener('abort', stop);
           await run.stop();
         }
-      }, options.twinStepMs).catch(() => null);
+      }, options.twinStepMs).catch((): TwinVerdict => ({ seen: null, unknown: 'failed' }));
       laptop = {
         ...laptop,
-        response_seen: response,
-        ready: laptop.ready || response === true,
+        response_seen: verdict.seen,
+        ...(verdict.unknown === null ? {} : { response_unknown: verdict.unknown }),
+        ready: laptop.ready || verdict.seen === true,
       };
     }
     const passed = passes(tsc, build, page);
