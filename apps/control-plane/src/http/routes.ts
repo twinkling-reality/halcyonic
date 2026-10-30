@@ -34,6 +34,7 @@ import {
   type WorkstreamsResponse,
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
+import type { FolderOrigin } from '../catalog-match.ts';
 import type { Companion } from '../companion/companion.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { type Redaction, withinLimit } from '../core/redaction.ts';
@@ -73,6 +74,11 @@ const COMPANION_BODY_LIMIT = 256 * 1024;
  */
 export interface CatalogSource {
   read(): Promise<CatalogResponse>;
+  /**
+   * Which listed folders are clones of which repositories, by the folders' own git configuration
+   * (catalog-match.ts); absent, no folder is suggested.
+   */
+  match?(listing: LocationsResponse): Promise<readonly FolderOrigin[]>;
 }
 
 export interface RouteSources {
@@ -457,21 +463,75 @@ export function registerRoutes(
         project.project_id,
       ]);
     }
+    // Suggestions are the host's own, inferred by rule, and never for a sample: a folder whose
+    // origin is the repository, or else one named like it whose origin is no repository found here.
+    const listing = controlPlane.locations.list(
+      controlPlane.projection
+        .projects()
+        .flatMap((project) =>
+          project.location === null
+            ? []
+            : [{ project_id: project.project_id, path: project.location.path }],
+        ),
+    );
+    const origins =
+      answer.source.sample || sources.catalog?.match === undefined
+        ? []
+        : await sources.catalog.match(listing);
+    const matchedPaths = new Set(origins.map((origin) => origin.path));
+    const folders = listing.roots.flatMap((root) =>
+      root.folders.map((folder) => ({ root: root.path, folder })),
+    );
+    const suggest = (repository: { readonly full_name: string }) => {
+      const fullName = repository.full_name.toLowerCase();
+      const name = fullName.slice(fullName.indexOf('/') + 1);
+      return [
+        ...origins
+          .filter((origin) => origin.fullName === fullName)
+          .map((origin) => ({
+            root: origin.root,
+            folder_name: origin.folderName,
+            rule: 'github_origin_full_name' as const,
+          })),
+        ...(answer.source.sample || sources.catalog?.match === undefined
+          ? []
+          : folders
+              .filter(
+                ({ folder }) =>
+                  !matchedPaths.has(folder.path) && folder.name.toLowerCase() === name,
+              )
+              .map(({ root, folder }) => ({
+                root,
+                folder_name: folder.name,
+                rule: 'folder_name_equals_repository_name' as const,
+              }))),
+      ];
+    };
     return {
       ...answer,
-      projects: answer.projects.map((project) => ({
-        ...project,
-        local: {
-          project_ids: [
-            ...new Set(
-              project.repositories.flatMap(
-                (repository) => linked.get(repository.repository_id) ?? [],
-              ),
+      projects: answer.projects.map((project) => {
+        const projectIds = [
+          ...new Set(
+            project.repositories.flatMap(
+              (repository) => linked.get(repository.repository_id) ?? [],
             ),
-          ].slice(0, 100) as typeof project.local.project_ids,
-          suggestions: [],
-        },
-      })),
+          ),
+        ].slice(0, 100) as typeof project.local.project_ids;
+        const seen = new Set<string>();
+        const suggestions =
+          projectIds.length > 0
+            ? []
+            : project.repositories
+                .flatMap(suggest)
+                .filter((suggestion) => {
+                  const key = `${suggestion.root}\u0000${suggestion.folder_name}`;
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                })
+                .slice(0, 20);
+        return { ...project, local: { project_ids: projectIds, suggestions } };
+      }),
     };
   });
 

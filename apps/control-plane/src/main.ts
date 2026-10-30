@@ -22,6 +22,7 @@ import { registerRoutes } from './http/routes.ts';
 import { loadOrCreateAccessToken } from './http/security.ts';
 import { createHttpServer } from './http/server.ts';
 import { createUuidV7Generator } from './ids.ts';
+import { phatPorcupineCatalogFor } from './intelligence/catalog.ts';
 import { seorakEvaluationFor } from './intelligence/evaluation.ts';
 import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
@@ -109,6 +110,8 @@ async function main(): Promise<void> {
     );
   }
 
+  // The person's catalog (ADR 0039): its last answer checks links, so it exists before the control plane.
+  const catalog = phatPorcupineCatalogFor(config.dataDir);
   const controlPlane = new ControlPlane({
     journal,
     adapters,
@@ -132,6 +135,7 @@ async function main(): Promise<void> {
         }),
     // A project folder holding the journal and token is never read, as it is never checkpointed.
     observeFiles: { protect: [config.dataDir] },
+    catalogLinks: catalog,
     starters: new HostStarters({
       trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
       installedDir: join(config.dataDir, 'starters'),
@@ -163,6 +167,7 @@ async function main(): Promise<void> {
   const sources = {
     understanding,
     evaluation,
+    catalog,
     transcriptions,
     companion,
     workspaceRequests,

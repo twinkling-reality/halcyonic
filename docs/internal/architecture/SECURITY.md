@@ -330,7 +330,22 @@ logged or passed to launched agents:
 
 - Salidium's consumer credential, in `<data dir>/salidium-credential`, reads Salidium's reports
   and nothing else. It is sent only after Salidium's discovery file and endpoint prove the same
-  instance on loopback.
+  instance on loopback. That proof is the instance id alone, which Salidium's discovery endpoint
+  gives any local process, so an account that read it once could pose as Salidium on its port
+  after an unclean stop left the file behind, and receive the credential.
+- Phat Porcupine's consumer credential, in `<data dir>/phat-porcupine-credential`, reads the
+  person's catalog and nothing else, read from a regular file of at most 1 KiB opened without
+  following a link or waiting on a pipe ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)). It is never journaled or sent to a client.
+  Phat Porcupine's discovery file is read only when it is a regular file, not a link, owned by this
+  user and writable by nobody else. The instance must then answer a fresh 32-byte challenge with its
+  HMAC-SHA256 under a secret only that file holds, compared in constant time, before the credential
+  is sent, so a listener that took the port, even one that read an earlier discovery answer, gets
+  nothing. The catalog request goes only on the connection the proof came back on, kept open between
+  them: the client opens one connection per read and refuses a second, so if Phat Porcupine closes
+  that connection after the proof, the credential is sent on no other and the gallery hears that the
+  connection closed. It is sent only in Phat Porcupine's `ppc_`
+  form, only to 127.0.0.1 on the port the file names, over `node:http` with no proxy and no
+  redirect followed, and an answer past 8 MiB is not read.
 - Seorak's integration credential, in `<data dir>/seorak-credential`, reads Seorak's content-free
   measurements with the `sessions:read` and `replay:read` scopes, and the provider usage limits
   Seorak last observed, account wide, with `limits:read`, for the audience
@@ -513,7 +528,8 @@ What a client sees and can do about folders on the host
   them as they are and the headset shows them by `LabelText`'s rule, as it does every name. Projects
   are named, and look-alikes compared, by `name`.
 - **What the listing tells about a folder** comes from the folder's own entry and from one name
-  inside it, never from a file's contents: whether a `.git` folder or file sits directly inside it
+  inside it, never from a file's contents (the catalog's folder match, below, is the one read of a
+  file inside a folder, and only when a client opens the person's projects): whether a `.git` folder or file sits directly inside it
   (`repository`), the newer modification time of the folder and of that `.git` entry
   (`changed_at`), and the projects bound to it (`used_by`): a project counts while its recorded
   path is still its own real path, the rule every start applies, matched to the folder by device
@@ -533,6 +549,20 @@ What a client sees and can do about folders on the host
   folder replaced by another between the listing and Connect is bound with no word of the change.
   Cost: one `lstat` per distinct bound path inside the roots, so a device that makes many projects
   in one folder adds one read, not one per project.
+- **The catalog's folder match** ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md), `catalog-match.ts`) reads one file in a listed
+  folder, its `.git/config`, to suggest which catalog repository the folder is a clone of. It runs
+  only when a client reads `GET /api/catalog` with a catalog that is the person's own, never a
+  sample, reading at most 400 folders and stopping after 2 seconds. It reads only a folder whose
+  `.git` is a directory, never a link or a `.git` file naming another place, and a folder holding
+  Halcyonic's own data not at all. It opens `config` without following a link or waiting on a pipe,
+  checks through the handle that it is the same regular file of at most 64 KiB, and never runs git.
+  It takes only the one `url` of `[remote "origin"]` (several, or none, is no match) and applies no
+  `include`, `includeIf` or `insteadOf`. It drops any user information first, where a credential in
+  a remote's URL would sit, accepts only https, ssh and scp-like forms on exactly github.com with
+  GitHub's own characters for the owner and name, and keeps only `owner/name` folded to lower case.
+  The URL is never kept, returned, logged or journaled. A match is `inferred` and grants nothing: an
+  agent can write a folder's `.git/config`, so the person's link, checked against the catalog this
+  computer last read, is the only thing that ties a project to a catalog repository.
 - **Folder names are someone else's words.** Anything that can write in a root (an agent working
   there, for one) can name a folder to look like another or to read as Halcyonic's sentence. Connect
   a folder's words (`ConnectText`) show names by `LabelText`'s rule, quote them inside Halcyonic's

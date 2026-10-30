@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
-import { request } from 'node:http';
+import { type Agent, request } from 'node:http';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { CatalogResponse } from '@halcyonic/contracts';
@@ -170,7 +170,11 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
  */
 export async function connect(
   home: string,
-  options: { readonly timeoutMs?: number; readonly signal?: AbortSignal } = {},
+  options: {
+    readonly timeoutMs?: number;
+    readonly signal?: AbortSignal;
+    readonly agent?: Agent;
+  } = {},
 ): Promise<Instance | CatalogFailure> {
   const file = await readDiscoveryFile(home);
   if (isFailure(file)) return file;
@@ -182,6 +186,8 @@ export async function connect(
     options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     DISCOVERY_MAX_BYTES,
     options.signal,
+    {},
+    options.agent,
   );
   if (!isReply(reply)) return unanswered(reply);
   if (reply.status === 400)
@@ -262,6 +268,7 @@ export function get(
   maxBytes: number,
   signal?: AbortSignal,
   extraHeaders: Readonly<Record<string, string>> = {},
+  agent?: Agent,
 ): Promise<Reply | typeof TIMED_OUT | typeof TOO_LARGE | null> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -278,7 +285,8 @@ export function get(
         port,
         path,
         method: 'GET',
-        agent: false,
+        // A read's own agent keeps one socket for the proof and the catalog; otherwise a fresh one.
+        agent: agent ?? false,
         headers: {
           accept: 'application/json',
           ...extraHeaders,
@@ -381,7 +389,10 @@ export function refusal(status: number, body: unknown): CatalogFailure {
 }
 
 /** A consumer credential in its one form, `ppc_` and 32 bytes in base64url; anything else is never sent. */
-export function checkCredential(credential: string | null): string | CatalogFailure {
+export function checkCredential(
+  credential: string | null | CatalogFailure,
+): string | CatalogFailure {
+  if (credential !== null && typeof credential === 'object') return credential;
   if (credential === null || credential === '')
     return fail(
       'unauthorized',

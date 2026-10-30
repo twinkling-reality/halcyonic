@@ -12,7 +12,7 @@
  *   pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac
  *   pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it
  *
- * It never opens a credential: of the Seorak, Salidium and Anthropic files it reads only whether
+ * It never opens a credential: of the Seorak, Salidium, Phat Porcupine and Anthropic files it reads only whether
  * they exist and who may read them. By default it reads no access token and asks the running
  * Halcyonic only its public health check; with --with-token it reads the token and sends it only
  * after the server proves it holds it. It never turns on an agent app that spends model credit,
@@ -58,6 +58,7 @@ import {
   provenBase,
   serverProvesToken,
 } from '../http/security.ts';
+import { PHAT_PORCUPINE_CREDENTIAL_FILE } from '../intelligence/catalog.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
@@ -264,6 +265,7 @@ class MacSetup {
     steps.push(await this.#companionStep(env, ollama, running));
     steps.push(this.#usageLeftStep(running));
     steps.push(this.#understandStep());
+    steps.push(this.#catalogStep());
     steps.push(this.#runningStep(env, running));
     steps.push(this.#headsetStep(env, running));
 
@@ -784,6 +786,41 @@ class MacSetup {
       status: 'ready',
       lines: [
         "A Salidium credential is saved. Each task's Understand tab says whether Salidium could answer.",
+        about,
+      ],
+    };
+  }
+
+  #catalogStep(): Step {
+    const title = 'Your other projects';
+    const path = join(this.#dataDir, PHAT_PORCUPINE_CREDENTIAL_FILE);
+    const about =
+      'Phat Porcupine shows the headset every project you have across your accounts, beside the ones Halcyonic made.';
+    const state = this.#fileState(PHAT_PORCUPINE_CREDENTIAL_FILE);
+    if (state === 'missing') {
+      return {
+        title,
+        status: 'optional',
+        lines: [
+          'Not set up.',
+          about,
+          `It needs Phat Porcupine running on this Mac and a credential saved as ${this.#tilde(path)} with mode 600: see “Connect Phat Porcupine” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.`,
+        ],
+      };
+    }
+    if (state === 'exposed') {
+      return {
+        title,
+        status: 'todo',
+        lines: [`Other users can read ${this.#tilde(path)}, so Halcyonic won't use it.`],
+        next: [`chmod 600 ${quote(this.#tilde(path))}`],
+      };
+    }
+    return {
+      title,
+      status: 'ready',
+      lines: [
+        'A Phat Porcupine credential is saved. The headset says whether Phat Porcupine could answer when you open your projects.',
         about,
       ],
     };

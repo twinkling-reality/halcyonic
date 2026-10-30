@@ -41,6 +41,9 @@ importers:
       '@halcyonic/integration-opencode':
         specifier: workspace:*
         version: link:../../packages/integrations/opencode
+      '@halcyonic/integration-phat-porcupine':
+        specifier: workspace:*
+        version: link:../../packages/integrations/phat-porcupine
       '@halcyonic/integration-salidium':
         specifier: workspace:*
         version: link:../../packages/integrations/salidium

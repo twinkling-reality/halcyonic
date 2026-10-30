@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type {
+  CatalogRepositoryRef,
   CommandEnvelope,
   CommandFailure,
   CommandOf,
@@ -59,6 +60,16 @@ export interface WorkspaceRequestHandler {
   handle(command: WorkspaceRequestCommand, principal: Principal | null): CommandResult | null;
 }
 
+/**
+ * Whether a link names a repository of the person's catalog as this computer last read it (ADR 0039),
+ * so a client can link only what the person was shown. The catalog itself stays outside the core.
+ */
+export interface CatalogLinks {
+  check(
+    ref: CatalogRepositoryRef,
+  ): { readonly ok: true } | { readonly ok: false; readonly message: string };
+}
+
 export interface CommandServiceDeps {
   readonly projection: Projection;
   readonly recorder: Recorder;
@@ -79,6 +90,8 @@ export interface CommandServiceDeps {
   readonly starters?: HostStarters | null;
   /** The Mac's own reading of what each turn changed (ADR 0038); none, as in some tests. */
   readonly files?: FileObserver | null;
+  /** The person's catalog, as last read, for checking links; none when no catalog is set up. */
+  readonly catalogLinks?: CatalogLinks | null;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -353,6 +366,16 @@ export class CommandService {
       rejection: { code, message },
     });
     switch (command.command_type) {
+      case 'project.link_catalog': {
+        const links = this.#deps.catalogLinks;
+        if (!links)
+          return refuse(
+            'capability_unsupported',
+            'No catalog of your projects is set up on this computer.',
+          );
+        const known = links.check(command.payload.catalog);
+        return known.ok ? admission : refuse('invalid_state', known.message);
+      }
       case 'project.create':
       case 'project.set_location': {
         const choice = command.payload.location;

@@ -21,7 +21,7 @@ export const RepositoryId = Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_
 
 /**
  * One repository of the person's catalog, as a Project's link names it (ADR 0039): GitHub's id
- * beside its `owner/name` as the client sent it, taken from the catalog's answer; checked neither against the catalog nor GitHub.
+ * beside its `owner/name` as the client sent it, taken from the catalog's answer; checked against the catalog this computer last read, never against GitHub.
  */
 export const CatalogRepositoryRef = Type.Object(
   {

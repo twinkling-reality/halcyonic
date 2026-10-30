@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import {
   type CatalogProject,
@@ -8,6 +11,8 @@ import {
   compileValidator,
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
+import type { FolderOrigin } from '../catalog-match.ts';
+import { createHostLocations } from '../locations.ts';
 import { createTestControlPlane, TEST_CLIENT } from '../testing/harness.ts';
 import { type CatalogSource, registerRoutes } from './routes.ts';
 import { createHttpServer } from './server.ts';
@@ -50,7 +55,9 @@ function project(
   };
 }
 
-function available(projects: CatalogProject[]): CatalogResponse {
+function available(
+  projects: CatalogProject[],
+): Extract<CatalogResponse, { availability: 'available' }> {
   return {
     availability: 'available',
     provenance: 'reported',
@@ -71,7 +78,13 @@ function available(projects: CatalogProject[]): CatalogResponse {
 /** A control plane whose catalog source answers what the test sets, served over loopback. */
 class Server {
   answer: CatalogResponse | (() => Promise<CatalogResponse>) | null = null;
-  readonly harness = createTestControlPlane();
+  /** What the host's folder match finds; null for a source without one. */
+  origins: FolderOrigin[] | null = null;
+  readonly root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-catalog-route-')));
+  readonly harness = createTestControlPlane({
+    locations: createHostLocations([this.root]),
+    catalogLinks: { check: () => ({ ok: true }) },
+  });
   readonly token = randomBytes(32).toString('base64url');
   #app: FastifyInstance | null = null;
   base = '';
@@ -82,6 +95,10 @@ class Server {
         const answer = this.answer;
         if (answer === null) throw new Error('no answer set');
         return typeof answer === 'function' ? answer() : structuredClone(answer);
+      },
+      match: async () => {
+        if (this.origins === null) throw new Error('no match set');
+        return this.origins;
       },
     };
     const app = await createHttpServer({ logLevel: 'silent', token: this.token });
@@ -126,6 +143,7 @@ class Server {
   async stop(): Promise<void> {
     await this.#app?.close();
     await this.harness.controlPlane.close();
+    rmSync(this.root, { recursive: true, force: true });
   }
 }
 
@@ -149,7 +167,8 @@ describe('GET /api/catalog read through a catalog source', () => {
   before(() => server.start(true));
   after(() => server.stop());
 
-  test("fills each project's links from this computer's own journal, and no folder suggestion", async () => {
+  test("fills each project's links from this computer's own journal, never the source's", async () => {
+    server.origins = [];
     await server.command('project.create', { name: 'Linked', location: null });
     const projectId = server.harness.controlPlane
       .snapshot()
@@ -181,6 +200,45 @@ describe('GET /api/catalog read through a catalog source', () => {
       ],
     );
     assert.equal(body.provenance, 'reported');
+  });
+
+  test('suggests a folder by its own origin or else by its name, never for a linked project or a sample', async () => {
+    mkdirSync(join(server.root, 'app-20'));
+    mkdirSync(join(server.root, 'cloned-here'));
+    server.origins = [
+      {
+        root: server.root,
+        folderName: 'cloned-here',
+        path: join(server.root, 'cloned-here'),
+        fullName: 'acme/app-21',
+      },
+    ];
+    server.answer = available([project('c20', 20), project('c21', 21), project('c7', 7)]);
+    const { body } = await server.get();
+    assert.ok(valid(body).ok);
+    if (body.availability !== 'available') assert.fail('available');
+    const local = Object.fromEntries(
+      body.projects.map((entry) => [entry.catalog_id, entry.local.suggestions]),
+    );
+    assert.deepEqual(local.c20, [
+      { root: server.root, folder_name: 'app-20', rule: 'folder_name_equals_repository_name' },
+    ]);
+    assert.deepEqual(local.c21, [
+      { root: server.root, folder_name: 'cloned-here', rule: 'github_origin_full_name' },
+    ]);
+    assert.deepEqual(local.c7, [], 'a project linked here is not offered a folder');
+
+    server.answer = {
+      ...available([project('c20', 20), project('c21', 21)]),
+      source: { system: 'phat-porcupine', api_version: '1', synthetic: false, sample: true },
+    };
+    const sample = await server.get();
+    if (sample.body.availability !== 'available') assert.fail('available');
+    assert.deepEqual(
+      sample.body.projects.map((entry) => entry.local.suggestions),
+      [[], []],
+      'a sample is never matched to folders',
+    );
   });
 
   test('is never journaled', async () => {
