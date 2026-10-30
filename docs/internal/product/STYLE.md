@@ -116,7 +116,17 @@ narrower, rising 36 dp above the card, rim 8; their count stands at the eyebrow'
 card, Label read under the 14 dp floor). No locked answer stands in the card's
 top 40 percent, where the bloom peaks. The render names any part that does not read whole.
 
-**Motion.** Only on events; Keep things still lands each state at once.
+**Motion.** Only on events; Keep things still lands each change as a 120 ms fade, with nothing moving and nothing looping.
+A moment arrives in about 700 ms (`KitMomentTimeline` in the client core, read by time alone; `KitMomentChoreography`
+plays it): at 60 ms a 2 dp light line rises from the character's head to the card's lower corner in 120 ms (decelerate),
+its tone from 15 percent to full, and fades 260 ms after; at 160 ms the card opens from 86 percent about 14 percent across
+its bottom edge on the spring (damping ratio 0.75, 15.5 rad/s: inside 2 percent by 420 ms, about 3 percent overshoot) and
+fades in over 200 ms, its bloom full for a quarter of 1400 ms and then out, from the clock alone, never from progress; from
+300 ms its parts rise 6 dp into place and fade in over 200 ms (decelerate), 40 ms apart, in reading order (eyebrow, Title,
+metadata, command, risk, answers); a pass's check draws itself 420 ms after the open, over 300 ms; at 700 ms the character
+turns to the person (its beats are its own view's). It retires by scaling to 0.2 and fading over 260 ms (accelerate) as
+the line drops back in 160. Curves: standard cubic-bezier(0.2, 0, 0, 1), decelerate (0.05, 0.7, 0.1, 1), accelerate (0.3,
+0, 0.8, 0.15). A mark's sign is "?" for a question and "!" for a failure, in the face's own type, and a check for a pass.
 
 | Event | Duration | Curve |
 | --- | --- | --- |
