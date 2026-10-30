@@ -11,8 +11,9 @@ using UnityEngine.TextCore.LowLevel;
 namespace Halcyonic.XR.UI.Editor
 {
     /// <summary>
-    /// Builds the room's static faces (the owner's yes, 2026-10-30): Archivo Expanded for titles, Inter for reading and its
-    /// strong weight, JetBrains Mono for commands and code. Each is a static SDF atlas of the glyphs the kit draws, its
+    /// Builds the room's six static faces (the owner's yes, 2026-10-30; ART's cuts): Archivo Expanded Regular for display and
+    /// SemiBold for titles, Inter Regular for reading, Medium for labels and SemiBold for strong words, JetBrains Mono for
+    /// commands and code. Each is a static SDF atlas of the glyphs the kit draws, its
     /// licence shipped beside the app byte for byte, Liberation Sans its fallback for anything outside the atlas.
     /// </summary>
     public static class KitFontAtlas
@@ -23,9 +24,11 @@ namespace Halcyonic.XR.UI.Editor
         /// <summary>Every face: its asset name, its source file, its licence and the licence's shipped copy.</summary>
         public static readonly (string Name, string Font, string License, string Shipped)[] Faces =
         {
+            ("KitDisplay", "Assets/Halcyonic/UI/Fonts/Archivo/ArchivoExpanded-Regular.ttf", "Assets/Halcyonic/UI/Fonts/Archivo/OFL.txt", Licenses + "Archivo-OFL.txt"),
             ("KitTitle", "Assets/Halcyonic/UI/Fonts/Archivo/ArchivoExpanded-SemiBold.ttf", "Assets/Halcyonic/UI/Fonts/Archivo/OFL.txt", Licenses + "Archivo-OFL.txt"),
             ("KitReading", "Assets/Halcyonic/UI/Fonts/Inter/Inter-Regular.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
             ("KitReadingStrong", "Assets/Halcyonic/UI/Fonts/Inter/Inter-SemiBold.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
+            ("KitLabel", "Assets/Halcyonic/UI/Fonts/Inter/Inter-Medium.ttf", "Assets/Halcyonic/UI/Fonts/Inter/OFL.txt", Licenses + "Inter-OFL.txt"),
             ("KitMono", "Assets/Halcyonic/UI/Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf", "Assets/Halcyonic/UI/Fonts/JetBrainsMono/OFL.txt", Licenses + "JetBrainsMono-OFL.txt"),
         };
 

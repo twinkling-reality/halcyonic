@@ -103,8 +103,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!card.Shown.Any(each => each.Action == KitMomentAction.YesRunIt) && card.Shown.Any(each => each.Action == KitMomentAction.No),
                     "a command shown cut can be approved");
             Require(card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) <= 1, "more than one primary action");
-            // Their names lean wherever they stand; nothing reads as no changes.
-            Require(GlazeRuns.Of(card.Headline).Theirs.Count == moment.Headline.Runs.Count(run => run.Theirs), "the subject does not lean exactly where it is theirs");
+            // Their names keep their run wherever they stand; nothing reads as no changes.
+            Require(GlazeRuns.Of(card.Headline).Theirs.Count == moment.Headline.Runs.Count(run => run.Theirs), "the subject's outside text is not exactly where it is theirs");
             var everything = card.GetComponentsInChildren<TextMeshPro>(false).Select(label => label.text ?? "").ToList();
             Require(!everything.Any(text => text.IndexOf("no change", StringComparison.OrdinalIgnoreCase) >= 0), "something reads as no changes");
             // Every moment reads whole, except the long command, which must show cut (with Read it) for the proof above.

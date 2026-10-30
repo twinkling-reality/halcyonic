@@ -75,14 +75,15 @@ namespace Halcyonic.XR.UI
 
         public static float Height => KitType.Units(SpatialKit.TargetDegrees);
 
-        public static KitButton Create(Transform parent, string name, KitButtonRole role, int order = KitType.Order.Control)
+        /// <summary>A button of <paramref name="role"/>; a <paramref name="room"/> button's words are in the room's faces (<see cref="KitType.Create"/>).</summary>
+        public static KitButton Create(Transform parent, string name, KitButtonRole role, int order = KitType.Order.Control, bool room = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var button = go.AddComponent<KitButton>();
             button.role = role;
             button.plate = Surface.Create(go.transform, "Boundary", order);
-            button.words = KitType.Create(go.transform, "Words", KitRole.Strong, KitType.Text, order + 2, TextAlignmentOptions.Left);
+            button.words = KitType.Create(go.transform, "Words", KitRole.Strong, KitType.Text, order + 2, TextAlignmentOptions.Left, room: room);
             button.words.rectTransform.pivot = new Vector2(0f, 0.5f);
             button.words.textWrappingMode = TextWrappingModes.NoWrap;
             button.icon = GlazeIcons.Create(go.transform, "Icon", SpatialKit.IconDegrees, KitType.Text, order + 2);

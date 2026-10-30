@@ -706,7 +706,7 @@ namespace Halcyonic.XR.Workspace.Editor
             RequireRequest(view, Require);
         }
 
-        /// <summary>The request reads whole and literal, leaning as outside text; where it runs, Halcyonic's words, upright and first.</summary>
+        /// <summary>The request reads whole and literal, outside text in its run; where it runs, Halcyonic's words, first.</summary>
         private static void RequireRequest(KitWorkView view, System.Action<bool, string> require)
         {
             require(view.Request.gameObject.activeSelf && view.Request.Theirs.Count > 0 && view.Request.Words.text == LabelText.ForTextMeshPro(ApprovalCommand),
@@ -714,7 +714,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var scope = view.Notes.FirstOrDefault(note => note.gameObject.activeSelf);
             require(scope != null && scope.text == WorkspaceText.ApprovedCommandNote(new RuntimeDescriptor { ApprovalMayLeaveSandbox = true }),
                 "where an approved command runs is not said first, in ADR 0033's words");
-            require(scope != null && GlazeRuns.Of(scope).Theirs.Count == 0, "where an approved command runs leans as if outside words");
+            require(scope != null && GlazeRuns.Of(scope).Theirs.Count == 0, "where an approved command runs reads as if outside words");
         }
 
         private static void RequireFailed(KitWorkView view, Shot shot)
@@ -744,7 +744,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (!view.Composer.Answering || view.Composer.Send.Words.text != WorkspaceText.Label(WorkspaceAction.Answer))
                 shot.Failures.Add("the composer does not ask for the answer");
             if (!view.AskedQuestion.gameObject.activeSelf || GlazeRuns.Of(view.AskedQuestion).Theirs.Count == 0)
-                shot.Failures.Add("the agent's question does not lean as its own words");
+                shot.Failures.Add("the agent's question is not held as its own words");
         }
     }
 }

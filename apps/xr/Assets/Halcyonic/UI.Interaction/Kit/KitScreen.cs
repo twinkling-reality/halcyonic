@@ -57,16 +57,16 @@ namespace Halcyonic.XR.UI
             var screen = go.AddComponent<KitScreen>();
             screen.face = KitCarrier.Create(go.transform, "Screen face");
             screen.disc = Surface.Create(go.transform, "Mark disc", KitType.Order.Plate);
-            screen.mark = KitType.Create(go.transform, "Mark", KitRole.Identity, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Center);
+            screen.mark = KitType.Create(go.transform, "Mark", KitRole.Identity, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Center, room: true);
             screen.mark.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             screen.mark.textWrappingMode = TextWrappingModes.NoWrap;
-            screen.name = KitType.Create(go.transform, "Name", KitRole.Display, KitType.Text, KitType.Order.Words, TextAlignmentOptions.Center);
+            screen.name = KitType.Create(go.transform, "Name", KitRole.Display, KitType.Text, KitType.Order.Words, TextAlignmentOptions.Center, room: true);
             screen.name.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             screen.name.textWrappingMode = TextWrappingModes.NoWrap;
             screen.chip = KitCarrier.Create(go.transform, "Title chip", KitType.Order.Plate);
-            screen.title = KitType.Create(screen.chip.transform, "Title", KitRole.Heading, KitType.Text, KitType.Order.Words);
+            screen.title = KitType.Create(screen.chip.transform, "Title", KitRole.Heading, KitType.Text, KitType.Order.Words, room: true);
             screen.title.textWrappingMode = TextWrappingModes.NoWrap;
-            screen.facts = KitType.Create(screen.chip.transform, "Runtime and state", KitRole.Body, KitType.Secondary, KitType.Order.Words);
+            screen.facts = KitType.Create(screen.chip.transform, "Runtime and state", KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true);
             screen.facts.textWrappingMode = TextWrappingModes.NoWrap;
             return screen;
         }

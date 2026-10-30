@@ -169,6 +169,52 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void TheRampIsQuietGlass()
+    {
+        // ART's handoff (2026-10-30): eight neutral steps on one cool hue and four state tones. n3 is the kit's own: ART's
+        // #3A3F45 leaves tertiary words at 4.29 and failed words at 4.35 on a control, so the kit takes OKLCH 0.35; ART's
+        // value raises the switch's thumb, which carries only primary and secondary words.
+        var ramp = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control, SpatialKit.Hairline, SpatialKit.TextTertiary, SpatialKit.TextSecondary, SpatialKit.Text };
+        Assert.That(ramp, Is.EqualTo(new uint[] { 0x1B1E22, 0x21252A, 0x2B2F35, 0x363B41, 0x6D7279, 0xA0A5AC, 0xBABEC4, 0xDADDE0 }.Select(GlazeColor.Hex)));
+        Assert.That(new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed },
+            Is.EqualTo(new uint[] { 0x59CFF1, 0xFABA59, 0xF7857D, 0x69D98D }.Select(GlazeColor.Hex)), "live, needs, failed, passed");
+        Assert.That(SpatialKit.OnFill, Is.EqualTo(SpatialKit.Well), "words on the primary capsule are n0");
+        Assert.That(SpatialKit.Thumb, Is.EqualTo(GlazeColor.Hex(0x3A3F45)), "ART's n3 raises the switch's thumb");
+        Assert.That((SpatialKit.FaceTop, SpatialKit.FaceBottom), Is.EqualTo((GlazeColor.Hex(0x262A30), GlazeColor.Hex(0x1E2226))), "the face's light from above");
+    }
+
+    [Test]
+    public void ThePrimaryCapsuleCarriesItsWord()
+    {
+        // The one primary in view is an n7 capsule with its word in n0, pressed to n6.
+        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.Text), Is.GreaterThanOrEqualTo(12), "at rest (ART measured 12.3)");
+        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.TextSecondary), Is.GreaterThanOrEqualTo(7), "pressed");
+        Assert.That(GlazeColor.Contrast(SpatialKit.Text, SpatialKit.Carrier), Is.GreaterThanOrEqualTo(7), "the capsule stands off its face as its word does");
+    }
+
+    [Test]
+    public void EveryWordReadsAcrossTheFacesLight()
+    {
+        var words = new[] { SpatialKit.Text, SpatialKit.TextSecondary, SpatialKit.TextTertiary, SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed };
+        foreach (var face in new[] { SpatialKit.FaceTop, SpatialKit.Carrier, SpatialKit.FaceBottom })
+        {
+            foreach (var word in words)
+                Assert.That(GlazeColor.Contrast(word, face), Is.GreaterThanOrEqualTo(4.5), $"{word} on {face}");
+            Assert.That(GlazeColor.Contrast(SpatialKit.Text, face), Is.GreaterThanOrEqualTo(7), $"primary words on {face}");
+        }
+        Assert.That(SpatialKit.FaceTop.Luminance, Is.GreaterThan(SpatialKit.Carrier.Luminance), "lit from above");
+        Assert.That(SpatialKit.FaceBottom.Luminance, Is.LessThan(SpatialKit.Carrier.Luminance));
+    }
+
+    [Test]
+    public void ALockedOutlineShowsWithoutReadingAsWords()
+    {
+        // n4 draws a locked answer's ring and the kit's hairlines: a boundary at WCAG's 3:1 for non-text, quieter than any word.
+        Assert.That(GlazeColor.Contrast(SpatialKit.Hairline, SpatialKit.Carrier), Is.GreaterThanOrEqualTo(3), "a locked ring on its face");
+        Assert.That(GlazeColor.Contrast(SpatialKit.Hairline, SpatialKit.Carrier), Is.LessThan(GlazeColor.Contrast(SpatialKit.TextTertiary, SpatialKit.Carrier)));
+    }
+
+    [Test]
     public void EveryWordInTheRoomReadsOnEveryCarrier()
     {
         var words = new[] { SpatialKit.Text, SpatialKit.TextSecondary, SpatialKit.TextTertiary, SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed };
@@ -242,6 +288,8 @@ public class SpatialKitTests
         Assert.That(SpatialKit.BodyDp, Is.EqualTo(18f));
         Assert.That(SpatialKit.MonoDp, Is.EqualTo(16f));
         Assert.That(SpatialKit.LabelDp, Is.EqualTo(15f));
+        Assert.That(SpatialKit.DisplayDp, Is.EqualTo(48f), "the room's Display");
+        Assert.That(SpatialKit.TitleDp, Is.EqualTo(28f), "the room's Title: a moment's, the reader's, Projects");
         Assert.That(SpatialKit.Degrees(SpatialKit.LabelDp), Is.GreaterThanOrEqualTo(Glaze.MinimumTextDegrees), "the smallest role is above Meta's 14 dp floor");
         // A moment card is 23 degrees wide where the person looks at it; Label must read at its corners at either text size.
         var right = PlaneComposition.Units(23f / 2f - SpatialKit.PaddingDegrees);

@@ -76,6 +76,9 @@ namespace Halcyonic.Client
         /// <summary>A picked project's name across its screen while no picture stands: the largest type, once a room.</summary>
         public const float DisplayDp = 48f;
 
+        /// <summary>A moment's and the reader's title, Projects, the lost plate: the room's Title, in Archivo Expanded SemiBold.</summary>
+        public const float TitleDp = 28f;
+
         /// <summary>From one line of reading prose to the next, in ems: room to read a long report.</summary>
         public const float ReadingLeading = 1.4f;
 
@@ -153,13 +156,16 @@ namespace Halcyonic.Client
         public static GlazeColor Side => Well;
 
         /// <summary>n2: a chip, a secondary control, and the lift under what is chosen.</summary>
-        public static GlazeColor Raised => GlazeColor.Hex(0x272D37);
+        public static GlazeColor Raised => GlazeColor.Hex(0x2B2F35);
 
         /// <summary>n0: the person's own words sunk into the slate, code, a screen's edge.</summary>
-        public static GlazeColor Well => GlazeColor.Hex(0x1B1E24);
+        public static GlazeColor Well => GlazeColor.Hex(0x1B1E22);
 
-        /// <summary>The switch's thumb, raised above its track.</summary>
-        public static GlazeColor Thumb => Control;
+        /// <summary>
+        /// The switch's thumb, raised above its n0 track: ART's n3, a step over the kit's <see cref="Control"/> so it stands off
+        /// the track at 1.5:1. It carries only primary and secondary words.
+        /// </summary>
+        public static GlazeColor Thumb => GlazeColor.Hex(0x3A3F45);
 
         /// <summary>
         /// A quiet control's outline, an unavailable control's, and the trail's line: drawn opaque so it blends the same
@@ -171,48 +177,57 @@ namespace Halcyonic.Client
         public static GlazeColor EdgeLight => TextTertiary;
 
         /// <summary>n7: primary words.</summary>
-        public static GlazeColor Text => GlazeColor.Hex(0xEEF1F5);
+        public static GlazeColor Text => GlazeColor.Hex(0xDADDE0);
 
         /// <summary>n6: secondary words.</summary>
-        public static GlazeColor TextSecondary => GlazeColor.Hex(0xB7C0CC);
+        public static GlazeColor TextSecondary => GlazeColor.Hex(0xBABEC4);
 
-        // The room's ramp (ADR 0040): eight opaque steps by role, one accent, and colour only where it means something.
+        // The room's ramp (ADR 0040; ART's quiet glass, 2026-10-30): eight opaque steps on one cool hue by role, one accent,
+        // and colour only where it means something. n3 is the kit's, a step under ART's #3A3F45 so every word holds 4.5 on a control.
 
         /// <summary>n1: every surface in the room that carries words.</summary>
-        public static GlazeColor Carrier => GlazeColor.Hex(0x1F242C);
+        public static GlazeColor Carrier => GlazeColor.Hex(0x21252A);
 
-        /// <summary>n3: a button's fill; what the pointer rests on.</summary>
-        public static GlazeColor Control => GlazeColor.Hex(0x363E4B);
+        /// <summary>n3: a button's fill; what the pointer rests on. OKLCH 0.35, the lightest step on which every word holds 4.5.</summary>
+        public static GlazeColor Control => GlazeColor.Hex(0x363B41);
 
-        /// <summary>n4: a hairline and the dotted gutter of code still only reported.</summary>
-        public static GlazeColor Hairline => GlazeColor.Hex(0x4A5361);
+        /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: 3.18:1 on n1.</summary>
+        public static GlazeColor Hairline => GlazeColor.Hex(0x6D7279);
 
         /// <summary>n5: a time, a count.</summary>
-        public static GlazeColor TextTertiary => GlazeColor.Hex(0xA4AEBB);
+        public static GlazeColor TextTertiary => GlazeColor.Hex(0xA0A5AC);
 
-        /// <summary>Kingfisher: the one primary action, and live work.</summary>
-        public static GlazeColor Accent => GlazeColor.Hex(0x5BC4EE);
+        /// <summary>Live: an agent running, and the one accent.</summary>
+        public static GlazeColor Accent => GlazeColor.Hex(0x59CFF1);
+
+        /// <summary>The primary capsule's word, on its n7 fill: n0.</summary>
+        public static GlazeColor OnFill => Well;
+
+        /// <summary>The face's light from above: its top, with <see cref="Carrier"/> at 36 percent and <see cref="FaceBottom"/> below.</summary>
+        public static GlazeColor FaceTop => GlazeColor.Hex(0x262A30);
+
+        public static GlazeColor FaceBottom => GlazeColor.Hex(0x1E2226);
 
         /// <summary>Words on a coloured fill.</summary>
         public static GlazeColor AccentInk => GlazeColor.Hex(0x0A1B24);
 
         /// <summary>Needs the person: a question, an approval.</summary>
-        public static GlazeColor Attention => GlazeColor.Hex(0xF2B54E);
+        public static GlazeColor Attention => GlazeColor.Hex(0xFABA59);
 
         /// <summary>Failed.</summary>
-        public static GlazeColor Failure => GlazeColor.Hex(0xF98F88);
+        public static GlazeColor Failure => GlazeColor.Hex(0xF7857D);
 
         /// <summary>Passed, and lines added in a checkpoint diff.</summary>
-        public static GlazeColor Passed => GlazeColor.Hex(0x62CF8F);
+        public static GlazeColor Passed => GlazeColor.Hex(0x69D98D);
 
         /// <summary>The band under a line a checkpoint diff shows added.</summary>
         public static GlazeColor AddedBand => GlazeColor.Hex(0x1B3324);
 
         /// <summary>A pressed primary action: the accent deepened, mixed in linear light 18 percent toward black.</summary>
-        public static GlazeColor PressedAccent => GlazeColor.Hex(0x53B3DA);
+        public static GlazeColor PressedAccent => GlazeColor.Hex(0x51BDDD);
 
         /// <summary>A pointed primary action: the accent lifted, mixed in linear light 16 percent toward white.</summary>
-        public static GlazeColor HoveredAccent => GlazeColor.Hex(0x88CFF1);
+        public static GlazeColor HoveredAccent => GlazeColor.Hex(0x87D8F3);
 
         /// <summary>
         /// A project's identity field: its screen's face while no picture stands, in the project's own hue (0 to 360) at a
