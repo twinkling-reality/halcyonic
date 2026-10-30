@@ -191,8 +191,8 @@ namespace Halcyonic.Client
         /// <summary>n3: a button's fill; what the pointer rests on. OKLCH 0.35, the lightest step on which every word holds 4.5.</summary>
         public static GlazeColor Control => GlazeColor.Hex(0x363B41);
 
-        /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: 3.18:1 on n1.</summary>
-        public static GlazeColor Hairline => GlazeColor.Hex(0x6D7279);
+        /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: at least 3:1 on every surface a locked control sits on (3.16 on n2, 3.61 on n1).</summary>
+        public static GlazeColor Hairline => GlazeColor.Hex(0x767B82);
 
         /// <summary>n5: a time, a count.</summary>
         public static GlazeColor TextTertiary => GlazeColor.Hex(0xA0A5AC);

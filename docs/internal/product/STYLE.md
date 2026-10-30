@@ -43,7 +43,7 @@ art direction's ("Quiet glass, living light", the owner's yes on 2026-10-30): ei
 | n1 | #21252A | Every face with words, lit from above: #262A30 at its top, #1E2226 at its foot |
 | n2 | #2B2F35 | Raised: a chip, the stacked edge, a poster's centre |
 | n3 | #363B41 | A button's pressed fill. The kit's step: the art direction's #3A3F45 leaves tertiary words at 4.29 and red at 4.35 on it, so the kit takes OKLCH 0.35. #3A3F45 raises the switch's thumb, which carries only primary and secondary words |
-| n4 | #6D7279 | A locked answer's ring, a hairline, the dotted gutter |
+| n4 | #767B82 | A locked answer's ring, a hairline, the dotted gutter. The kit's step: the art direction's #6D7279 leaves a locked ring at 2.98 on a face's lit top and 2.78 on n2, so the kit lifts it on the same hue |
 | n5 | #A0A5AC | Tertiary words: a time, a count, Reported |
 | n6 | #BABEC4 | Secondary words; every answer word at rest |
 | n7 | #DADDE0 | Primary words; the primary capsule's fill |
@@ -53,7 +53,7 @@ art direction's ("Quiet glass, living light", the owner's yes on 2026-10-30): ei
 | Passed | #69D98D | Passed, checked by your computer; added lines from a checkpoint diff, on the band #1B3324 |
 
 Measured on n1: n7 11.3, n6 8.3, n5 6.2, live 8.5, needs 9.0, failed 6.3, passed 8.7; every word at least 4.56 on n3
-and 5.8 across the face's light; n0 on n7 12.3; live's words on it 9.7; n4 on n1 3.18 (a boundary, WCAG's 3:1 for
+and 5.8 across the face's light; n0 on n7 12.3; live's words on it 9.7; n4 at least 3.16 on every surface a locked ring sits on, n1 3.61 (a boundary, WCAG's 3:1 for
 non-text); the thumb against its n0 track 1.57; n1 against a bright wall 11.6. No step is darker than #1A1A1A, the
 darkest the display separates. State colour only on the character's own light and the moment that carries it; every
 state a glyph and words as well as a tone.
