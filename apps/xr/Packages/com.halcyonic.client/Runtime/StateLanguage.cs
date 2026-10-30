@@ -195,7 +195,7 @@ namespace Halcyonic.Client
         /// <summary>The state is the last known one while the session is not live: the badge is ghosted and still.</summary>
         public bool LastKnown { get; }
 
-        /// <summary>The word with its count, as the badge shows it: "Waiting for you · 2".</summary>
+        /// <summary>The word with its count, as the badge shows it: "Needs You · 2".</summary>
         public string Text => Count > 1 ? Word + " · " + Count : Word;
     }
 
@@ -301,16 +301,16 @@ namespace Halcyonic.Client
         /// <summary>The state's word, the same on the badge, in the peek, the workspace and every list.</summary>
         public static string WordOf(WorkState state) => state switch
         {
-            WorkState.NotStarted => "Not started",
+            WorkState.NotStarted => "Not Started",
             WorkState.Starting => "Starting",
-            WorkState.Working => "Working",
-            WorkState.CheckingItsWork => "Checking its work",
-            WorkState.WaitingForYou => "Waiting for you",
-            WorkState.FinishedThisRound => "Finished this round",
-            WorkState.ChecksFailed => "Checks failed",
-            WorkState.CouldNotFinish => "Couldn't finish",
+            WorkState.Working => "Running",
+            WorkState.CheckingItsWork => "Checking",
+            WorkState.WaitingForYou => "Needs You",
+            WorkState.FinishedThisRound => "Round Ended",
+            WorkState.ChecksFailed => "Checks Failed",
+            WorkState.CouldNotFinish => "Failed",
             WorkState.Stopped => "Stopped",
-            WorkState.CantTellYet => "Can't tell yet",
+            WorkState.CantTellYet => "Unknown",
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unhandled state."),
         };
 

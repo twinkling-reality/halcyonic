@@ -359,7 +359,7 @@ namespace Halcyonic.XR.Workspace.Editor
             : new[]
             {
                 ("What it needs", page == Page.Confirm ? "Approval to run a command" : "An answer about lockouts", true),
-                ("What it's doing", "Waiting for you", false),
+                ("What it's doing", "Needs You", false),
                 ("What it changed", "2 files so far", false),
                 ("What it checked", "Nothing yet", false),
             };

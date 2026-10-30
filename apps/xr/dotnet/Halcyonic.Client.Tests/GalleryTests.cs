@@ -139,7 +139,7 @@ public class GalleryTests
             Assert.That(GalleryText.State(state), Is.EqualTo((section, line)), state);
         }
         // A reported state never borrows the words of a task's own observed state.
-        foreach (var ours in new[] { "Waiting for you", "Checks failed", "Working", "Finished this round", "Couldn't finish" })
+        foreach (var ours in new[] { "Needs You", "Checks Failed", "Running", "Round Ended", "Failed" })
         {
             Assert.That(expected.Values.Select(value => value.Item2), Has.None.EqualTo(ours), ours);
         }

@@ -34,7 +34,7 @@ public class CharacterPresenterTests
     public void ACompletedTurnDoesNotClaimTheWorkIsCorrect()
     {
         Assert.That(CharacterPresenter.ActivityOf(WorkstreamStatus.Completed), Is.EqualTo(CharacterActivity.TurnFinished));
-        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.TurnFinished), Is.EqualTo("Finished this round"));
+        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.TurnFinished), Is.EqualTo("Round Ended"));
     }
 
     [Test]
@@ -58,7 +58,7 @@ public class CharacterPresenterTests
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, execution), live: true);
 
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.WaitingForHuman));
-        Assert.That(character.StatusLabel, Is.EqualTo("Waiting for you"));
+        Assert.That(character.StatusLabel, Is.EqualTo("Needs You"));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.PendingApprovals, Is.EqualTo(1));
         Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "It wants to run: Run the migration" }));

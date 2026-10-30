@@ -252,7 +252,7 @@ public class JudgeMenuWalkTests
         foreach (var task in beginning.Workstreams.Values)
         {
             var character = CharacterPresenter.Present(task, beginning, live: true);
-            Assert.That((character.StatusLabel, StateLanguage.MarksOf(character).Single().Word), Is.EqualTo(("Not started", "Demo")));
+            Assert.That((character.StatusLabel, StateLanguage.MarksOf(character).Single().Word), Is.EqualTo(("Not Started", "Demo")));
         }
 
         // The directed work comes to wait: the closed bar says so, with Tasks' amber dot, and nothing opens by itself.
@@ -310,7 +310,7 @@ public class JudgeMenuWalkTests
         var file = host.File!;
         var (_, frame) = host.Draw();
         Assert.That(navigator.Beside, Is.SameAs(file));
-        Assert.That(StateLanguage.WordOf(frame!.Pill!.State), Is.EqualTo("Waiting for you"));
+        Assert.That(StateLanguage.WordOf(frame!.Pill!.State), Is.EqualTo("Needs You"));
         Assert.That((frame.Focused, file.Screen.Section), Is.EqualTo((true, FileSection.Waiting)));
         Assert.That(frame.Sections, Is.Empty, "answering is focused, with no competing file tabs");
 

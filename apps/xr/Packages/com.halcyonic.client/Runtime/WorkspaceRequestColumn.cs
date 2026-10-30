@@ -203,7 +203,7 @@ namespace Halcyonic.Client
         };
         private static string StatusWords(string status) => status switch
         {
-            "running" => "Working", "waiting_for_human" => "Needs your reply", "waiting_for_runtime" => "Waiting for the task",
+            "running" => "Running", "waiting_for_human" => "Needs your reply", "waiting_for_runtime" => "Waiting for the task",
             "responded" => "Reply ready", "stopped" => "Planning stopped", "interrupted" => "Interrupted", "failed" => "Failed", _ => "Unknown",
         };
         public void Act(string id, string? key)

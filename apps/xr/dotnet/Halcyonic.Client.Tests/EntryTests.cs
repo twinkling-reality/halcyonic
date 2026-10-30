@@ -891,7 +891,7 @@ public class EntryWordsTests
     public void EachQuestionHasAShortTabAndKeepsItsWholeQuestion()
     {
         var labels = Enum.GetValues<WorkspaceQuestion>().Select(WorkspaceText.TabLabel).ToList();
-        Assert.That(labels, Is.EqualTo(new[] { "Doing", "Understand", "Checked", "Waiting for you" }));
+        Assert.That(labels, Is.EqualTo(new[] { "Doing", "Understand", "Checked", "Needs You" }));
         Assert.That(labels.Distinct().Count(), Is.EqualTo(labels.Count));
         Assert.That(WorkspaceText.TabLabel(WorkspaceQuestion.NeedFromYou), Is.EqualTo(StateLanguage.WordOf(WorkState.WaitingForYou)), "the state's own word");
         foreach (var question in Enum.GetValues<WorkspaceQuestion>())
@@ -942,7 +942,7 @@ public class QuestionLedWorkspaceTests
         work.Workstream.Objective = "Migrate\nthe database";
         var waiting = work.Present();
         Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal: Migrate the database"));
-        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "It wants your approval. See it under Waiting for you." }),
+        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "It wants your approval. See it under Needs You." }),
             "the request itself shows whole under its tab");
 
         work.Change(execution =>
@@ -950,7 +950,7 @@ public class QuestionLedWorkspaceTests
             execution.PendingApprovals.Clear();
             execution.Status = ExecutionStatus.Running;
         }, WorkstreamStatus.Running);
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing is waiting for you.", "Latest: Working" }));
-        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last known. Latest: Working"));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing is waiting for you.", "Latest: Running" }));
+        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last known. Latest: Running"));
     }
 }

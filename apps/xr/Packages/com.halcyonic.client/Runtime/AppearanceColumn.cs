@@ -81,11 +81,11 @@ namespace Halcyonic.Client
             3 => new[]
             {
                 new PageLine("Unavailable action", action: Example, control: LineControl.Action, available: false),
-                new PageLine("Waiting for you", icon: GlazeIcon.WaitingForYou, tone: LineTone.Waiting),
+                new PageLine(StateLanguage.WordOf(WorkState.WaitingForYou), icon: GlazeIcon.WaitingForYou, tone: LineTone.Waiting),
             },
             _ => new[]
             {
-                new PageLine("Finished this round", icon: GlazeIcon.FinishedThisRound, tone: LineTone.Good),
+                new PageLine(StateLanguage.WordOf(WorkState.FinishedThisRound), icon: GlazeIcon.FinishedThisRound, tone: LineTone.Good),
                 new PageLine(LineWords.Ours("Agent says: ") + LineWords.Theirs("The example is ready.")),
             },
         };

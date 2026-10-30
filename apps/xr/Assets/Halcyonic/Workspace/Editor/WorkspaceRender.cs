@@ -1263,7 +1263,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var root = view.Root;
             var name = view.Name;
             var peek = PeekLabel.Create(root.transform);
-            var peeked = new CharacterPresentation(view.Characters[0].View.WorkstreamId, Hostile("title"), CharacterActivity.WaitingForHuman, "Waiting for you",
+            var peeked = new CharacterPresentation(view.Characters[0].View.WorkstreamId, Hostile("title"), CharacterActivity.WaitingForHuman, "Needs You",
                 AttentionLevel.ActionRequired, new[] { "It wants to run: " + Hostile("peek") }, 1, true, false, false);
             peek.Show(view.Characters[0].Target, view.Characters.ConvertAll(character => character.Target), PeekCard.Of(new WorkspacePresentation(peeked, null, null, null,
                 Array.Empty<WorkspaceAction>(), Array.Empty<WorkspaceAction>(), Array.Empty<CommandFeedback>(), Array.Empty<ActivityEntry>())), 1f, aboveCharacter: true);
@@ -1283,7 +1283,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // What is it doing?: what needs the person, what was sent, the log's caption and lines, where claims lean.
             var running = Work.Running();
             running.Workstream.Title = Hostile("title");
-            var failed = new CharacterPresentation("render-work", Hostile("title"), CharacterActivity.Failed, "Couldn't finish", AttentionLevel.Notice,
+            var failed = new CharacterPresentation("render-work", Hostile("title"), CharacterActivity.Failed, "Failed", AttentionLevel.Notice,
                 new[] { "Couldn't finish: " + Hostile("failure") }, 0, true, false, false);
             var hostileActivity = new[]
             {
@@ -1752,7 +1752,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             var view = CharacterView.Create(root.transform, "render-hostile");
             view.transform.SetPositionAndRotation(camera.transform.position + Vector3.forward * 1.2f, Quaternion.identity);
-            view.Show(new CharacterPresentation(view.WorkstreamId, Hostile("title"), CharacterActivity.Failed, "Couldn't finish", AttentionLevel.Notice,
+            view.Show(new CharacterPresentation(view.WorkstreamId, Hostile("title"), CharacterActivity.Failed, "Failed", AttentionLevel.Notice,
                 new[] { "Couldn't finish: " + Hostile("note") }, 0, true, false, false));
             ForceMeshes(view.gameObject);
             foreach (var label in view.GetComponentsInChildren<TMP_Text>(false))
@@ -1948,11 +1948,11 @@ namespace Halcyonic.XR.Workspace.Editor
             };
             return slot switch
             {
-                3 => new CharacterPresentation(id, titles[slot], CharacterActivity.WaitingForHuman, "Waiting for you", AttentionLevel.ActionRequired,
+                3 => new CharacterPresentation(id, titles[slot], CharacterActivity.WaitingForHuman, "Needs You", AttentionLevel.ActionRequired,
                     new[] { "It wants to run: Run make migrate" }, 1, true, false, false),
-                1 or 4 => new CharacterPresentation(id, titles[slot], CharacterActivity.TurnFinished, "Finished this round", AttentionLevel.None,
+                1 or 4 => new CharacterPresentation(id, titles[slot], CharacterActivity.TurnFinished, "Round Ended", AttentionLevel.None,
                     Array.Empty<string>(), 0, true, false, false),
-                _ => new CharacterPresentation(id, titles[slot], CharacterActivity.Working, "Working", AttentionLevel.None,
+                _ => new CharacterPresentation(id, titles[slot], CharacterActivity.Working, "Running", AttentionLevel.None,
                     Array.Empty<string>(), 0, true, false, false),
             };
         }

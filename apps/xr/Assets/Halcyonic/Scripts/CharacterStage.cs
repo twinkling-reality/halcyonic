@@ -123,7 +123,7 @@ namespace Halcyonic.XR
                 shelfMeasure.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
                 shelfMeasure.Show(new CharacterPresentation("shelf-label-measurement",
                     "A complete task title with two full lines of readable words", CharacterActivity.Verifying,
-                    "Checking its work", Halcyonic.Contracts.AttentionLevel.None, System.Array.Empty<string>(), 0,
+                    "Checking", Halcyonic.Contracts.AttentionLevel.None, System.Array.Empty<string>(), 0,
                     marks.Synthetic, marks.Recorded, false));
                 shelfMeasure.PlaceShelfLabel(viewer);
                 foreach (var renderer in shelfMeasure.Label.GetComponentsInChildren<Renderer>(false))
