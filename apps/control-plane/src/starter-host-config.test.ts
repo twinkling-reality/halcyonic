@@ -139,11 +139,11 @@ describe("the IWSDK starter's controller models (from the host, never the CDN)",
     assert.match(source, /process\.env\.HALCYONIC_PREVIEW_PROFILES/);
     assert.match(
       source,
-      /configureServer\(server\) \{\n\s+server\.middlewares\.use\(refuseServiceWorkers\);\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
+      /configureServer\(server\) \{\n\s+server\.middlewares\.use\(freshOrigin\);\n\s+server\.middlewares\.use\(refuseServiceWorkers\);\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
     );
     assert.match(
       source,
-      /configurePreviewServer\(server\) \{\n\s+server\.middlewares\.use\(refuseServiceWorkers\);\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
+      /configurePreviewServer\(server\) \{\n\s+server\.middlewares\.use\(freshOrigin\);\n\s+server\.middlewares\.use\(refuseServiceWorkers\);\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
     );
   });
 
@@ -300,13 +300,72 @@ describe('no service worker on a preview origin (AUDIT M16A-C1)', () => {
     assert.equal(page.res.statusCode, 200);
   });
 
-  test('the host config puts it first, for the preview server and the dev server, and the check copies it', () => {
+  test('the host config puts it right after the fresh-origin headers, for the preview server and the dev server, and the check copies it', () => {
     const uses = source.match(/server\.middlewares\.use\(refuseServiceWorkers\)/g) ?? [];
     assert.equal(uses.length, 2);
     for (const hook of ['configureServer(server) {', 'configurePreviewServer(server) {']) {
       const body = source.slice(source.indexOf(hook) + hook.length);
-      assert.match(body, /^\s*server\.middlewares\.use\(refuseServiceWorkers\);/, hook);
+      assert.match(
+        body,
+        /^\s*server\.middlewares\.use\(freshOrigin\);\s*server\.middlewares\.use\(refuseServiceWorkers\);/,
+        hook,
+      );
     }
     assert.ok((HOST_FILES as readonly string[]).includes('service-workers.mjs'));
+  });
+});
+
+interface FreshModule {
+  freshOrigin(
+    req: { headers: Record<string, string | string[] | undefined> },
+    res: { setHeader(name: string, value: string): void },
+    next: () => void,
+  ): void;
+}
+const fresh = (await import(new URL('fresh-origin.mjs', hostFolder).href)) as FreshModule;
+
+describe("a preview's origin starts fresh in every browser (AUDIT M16A-C2)", () => {
+  const handle = (headers: Record<string, string>) => {
+    const set: Record<string, string> = {};
+    let passed = false;
+    fresh.freshOrigin(
+      { headers },
+      {
+        setHeader: (name, value) => {
+          set[name] = value;
+        },
+      },
+      () => {
+        passed = true;
+      },
+    );
+    return { set, passed };
+  };
+
+  test('every response is sent never to be cached; only a top-level page load clears what the origin kept', () => {
+    const page = handle({ 'sec-fetch-dest': 'document' });
+    assert.deepEqual(page.set, {
+      'Cache-Control': 'no-store',
+      'Clear-Site-Data': '"storage", "cache"',
+    });
+    assert.equal(page.passed, true);
+    for (const dest of ['script', 'image', 'empty', 'iframe', 'worker', '']) {
+      const other = handle(dest === '' ? {} : { 'sec-fetch-dest': dest });
+      assert.deepEqual(other.set, { 'Cache-Control': 'no-store' }, dest);
+      assert.equal(other.passed, true, dest);
+    }
+  });
+
+  test('the host config puts it before everything else, for the preview server and the dev server, and the check copies it', () => {
+    for (const hook of ['configureServer(server) {', 'configurePreviewServer(server) {']) {
+      const body = source.slice(source.indexOf(hook) + hook.length);
+      assert.match(body, /^\s*server\.middlewares\.use\(freshOrigin\);/, hook);
+    }
+    assert.ok((HOST_FILES as readonly string[]).includes('fresh-origin.mjs'));
+    // Vite sends index.html with its own Cache-Control, then the configured headers: no-store is configured too.
+    const configured =
+      source.match(/headers: \{ 'Content-Security-Policy': csp, 'Cache-Control': 'no-store' \}/g) ??
+      [];
+    assert.equal(configured.length, 2, 'the dev server and the preview server');
   });
 });

@@ -160,3 +160,15 @@ preview, on the headset too, with bytes the check never saw. The host's preview 
 with no body, to any request carrying the `Service-Worker` header, which a browser sends with every worker script
 fetch, so no registration succeeds (AUDIT M16A-C1). Storage a game leaves on the origin is not cleared by this; that
 is a separate unit, once a browser is shown to honour clearing it over plain HTTP on 127.0.0.1.
+
+## Amendment, 2026-10-30: a preview's origin starts fresh in every browser
+
+A port's origin is shared with every earlier project served on it, and a browser keeps that origin's HTTP cache and
+storage between them. The preview and dev servers therefore send every response with `Cache-Control: no-store`, and
+every top-level page load with `Clear-Site-Data: "storage", "cache"`, so local storage, IndexedDB, the Cache API and
+any service worker an earlier game left are gone before the page runs, in whichever browser loads it, the headset's
+or the Mac's (AUDIT M16A-C2). The cost, accepted: a game's own saves do not survive a reload of its preview. Cookies
+are not cleared, because on 127.0.0.1 they span every port and clearing them would reset every other preview's; a
+game's cookies remain visible to later projects, a stated limit. Verified in Chrome on this Mac; the Quest Browser is
+checked when the headset is back.
+

@@ -25,6 +25,7 @@ export const HOST_FILES = [
   'input-profiles.mjs',
   'input-profiles.json',
   'service-workers.mjs',
+  'fresh-origin.mjs',
 ] as const;
 
 /**

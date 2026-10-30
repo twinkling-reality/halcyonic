@@ -165,6 +165,19 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.passed, false);
   });
 
+  test("the preview's every response is never cached: its page and its script both say no-store (AUDIT M16A-C2)", {
+    timeout: 180_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        '',
+        "Promise.all([fetch('./'), fetch(new URL(import.meta.url).href)]).then((answers) => { const bad = answers.filter((answer) => answer.headers.get('cache-control') !== 'no-store').map((answer) => answer.url + ' ' + answer.headers.get('cache-control')); if (bad.length > 0) setTimeout(() => { throw new Error('marker-cached ' + bad.join(', ')); }); });",
+      ),
+    );
+    assert.equal(result.page?.exception_count, 0, JSON.stringify(result.page?.exceptions));
+  });
+
   test('a page cannot register a service worker on the preview origin: the server refuses its script (AUDIT M16A-C1)', {
     timeout: 180_000,
   }, async (t) => {
