@@ -84,13 +84,20 @@ export async function confinedPreview(
   if (before.length === 0) return refuse(`nothing listens on 127.0.0.1:${port}.`);
   if (before.some((pid) => pid !== record.pid))
     return refuse(`what listens on 127.0.0.1:${port} is not the host's preview server.`);
-  const body = await indexOf(port);
-  if (body === null || !body.equals(expected))
+  const page = await indexOf(port);
+  if (page === null || !page.body.equals(expected))
     return refuse(`127.0.0.1:${port} does not serve the checked copy.`);
+  // The headset's cache keeps one origin's pages across projects on the same port.
+  if (!noStore(page.cacheControl))
+    return refuse(
+      `127.0.0.1:${port} does not send Cache-Control: no-store, so the headset could show an earlier check's copy from its cache.`,
+    );
   // Every preview of every project that later gets this port shares the headset browser's origin
   // http://127.0.0.1:<port>: a service worker one registered could answer the next one's loads with
   // bytes this gate never checked, so the server must refuse to serve a service worker script.
-  if (!(await refusesWorkerScript(port)))
+  // At / and at a path no starter has: the server must refuse the script wherever it is asked for.
+  const refusals = await Promise.all(WORKER_PROBES.map((path) => refusesWorkerScript(port, path)));
+  if (refusals.some((refused) => !refused))
     return refuse(
       `127.0.0.1:${port} does not refuse a service worker script, which could answer later previews on this address.`,
     );
@@ -178,13 +185,24 @@ function listenersOf(port: number): Promise<number[]> {
   });
 }
 
+/** Where the gate asks for a service worker script: the page, and a path no starter file has. */
+const WORKER_PROBES = ['/', '/halcyonic-sw-probe.js'] as const;
+
+/** Whether a Cache-Control value carries the no-store directive. */
+function noStore(cacheControl: string | null): boolean {
+  return (cacheControl ?? '')
+    .split(',')
+    .some((directive) => directive.trim().toLowerCase() === 'no-store');
+}
+
 /**
- * Whether 127.0.0.1:port refuses (4xx) a request that a browser sends when it fetches a service
- * worker script (`Service-Worker: script`); anything else, an error included, counts as not refused.
+ * Whether 127.0.0.1:port refuses (4xx) at `path` a request that a browser sends when it fetches a
+ * service worker script (`Service-Worker: script`); anything else, an error included, counts as
+ * not refused.
  */
-async function refusesWorkerScript(port: number): Promise<boolean> {
+async function refusesWorkerScript(port: number, path: string): Promise<boolean> {
   try {
-    const response = await fetch(previewUrl(port), {
+    const response = await fetch(`http://127.0.0.1:${port}${path}`, {
       headers: { 'service-worker': 'script' },
       redirect: 'error',
       signal: AbortSignal.timeout(3000),
@@ -196,15 +214,18 @@ async function refusesWorkerScript(port: number): Promise<boolean> {
   }
 }
 
-/** The bytes 127.0.0.1:port answers for `/`, or null. */
-async function indexOf(port: number): Promise<Buffer | null> {
+/** What 127.0.0.1:port answers for `/`: its bytes and its Cache-Control, or null. */
+async function indexOf(
+  port: number,
+): Promise<{ body: Buffer; cacheControl: string | null } | null> {
   try {
     const response = await fetch(previewUrl(port), {
       redirect: 'error',
       signal: AbortSignal.timeout(3000),
     });
     if (!response.ok) return null;
-    return Buffer.from(await response.arrayBuffer());
+    const body = Buffer.from(await response.arrayBuffer());
+    return { body, cacheControl: response.headers.get('cache-control') };
   } catch {
     return null;
   }

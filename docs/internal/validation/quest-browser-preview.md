@@ -30,12 +30,15 @@ On the Mac:
 - the host's preview record (`<data dir>/previews/<project>.json`) names that check and port;
 - the only process listening on `127.0.0.1:<port>` (`lsof`) is the one that record names, before
   and after the page is read;
-- `/` there answers with exactly the bytes of the check's built `index.html`;
+- `/` there answers with exactly the bytes of the check's built `index.html`, with
+  `Cache-Control` carrying `no-store`, so the headset's cache never keeps an earlier check's copy
+  for the same address;
 - a request carrying `Service-Worker: script`, which a browser sends when it fetches a service
-  worker script, is refused there with a 4xx. Every project that later gets the same port shares
-  Quest Browser's origin `http://127.0.0.1:<port>`, and a service worker one preview registered
-  could answer the next one's loads with bytes the gate never checked. The host's preview server
-  does not refuse that request yet, so until it does the tool refuses every preview.
+  worker script, is refused with a 4xx both at `/` and at `/halcyonic-sw-probe.js`, a path no
+  starter has. Every project that later gets the same port shares Quest Browser's origin
+  `http://127.0.0.1:<port>`, and a service worker one preview registered could answer the next
+  one's loads with bytes the gate never checked. Until the host's preview server sends `no-store`
+  and refuses that request, the tool refuses every preview.
 
 Any other answer refuses in plain words, and no adb command beyond finding the headset runs.
 
@@ -48,7 +51,9 @@ Any other answer refuses in plain words, and no adb command beyond finding the h
 2. Refuses while a system dialog is in front, as `launch` does.
 3. Notes whether Quest Browser (`com.oculus.browser`) runs (`pidof`).
 4. Refuses when `adb reverse --list` cannot be read, or shows a reverse of the headset's port that
-   this tool did not make. Otherwise records the port in the tool's state, then
+   is not this tool's: a rule is this tool's only when the port is in its state and the rule's line
+   is exactly `<transport> tcp:<port> tcp:<port>` (that line shape is read from adb's output, not
+   yet seen on this headset for a preview port). Otherwise records the port in the tool's state, then
    `adb reverse --no-rebind tcp:<port> tcp:<port>`, so it never replaces anyone's rule; if that
    fails the port is forgotten again. Android's adb page does not document `reverse`; plain
    `reverse` ran on this headset for 47800 ([xr-loopback-proof.md](xr-loopback-proof.md),
