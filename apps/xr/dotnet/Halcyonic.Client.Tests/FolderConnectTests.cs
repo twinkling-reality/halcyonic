@@ -125,7 +125,7 @@ public class FolderConnectTests
             Rejection = new CommandRejection { Code = RejectionCode.LocationMissing, Message = "/Users/person/Projects/shop is not there." },
         }));
         Assert.That(connection.CanRetry, Is.True);
-        Assert.That(ConnectText.Outcome(connection), Does.StartWith("Couldn't connect: "));
+        Assert.That(ConnectText.Outcome(connection), Does.StartWith("Couldn't connect · "));
         Assert.That(ConnectText.Outcome(connection), Does.Not.Contain("/Users/person"), "the next step from the code, not the host's path");
         var again = connection.Retry();
         Assert.That(again.CommandId, Is.Not.EqualTo(command.CommandId));
@@ -170,9 +170,9 @@ public class FolderConnectTests
         // With no effect, the outcome is what Halcyonic knows of the code, else that nothing changed.
         foreach (var (code, words) in new[]
         {
-            ("internal_error", "Couldn't connect: nothing changed. Try again."),
-            ("runtime_unreachable", "Couldn't connect: your computer lost touch with the agent app. Check it's running there, then try again."),
-            ("location_not_created", "Couldn't connect: your computer couldn't make that folder, so nothing changed. Choose another name or place."),
+            ("internal_error", "Couldn't connect · Nothing Changed · Retry"),
+            ("runtime_unreachable", "Couldn't connect · Agent App Unreachable · Check App and Retry"),
+            ("location_not_created", "Couldn't connect · Your computer couldn't make that folder, so nothing changed. Choose another name or place."),
         })
         {
             var connection = Begun(out var command);

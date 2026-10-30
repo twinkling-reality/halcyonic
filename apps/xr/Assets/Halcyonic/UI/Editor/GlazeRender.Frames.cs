@@ -117,7 +117,7 @@ namespace Halcyonic.XR.UI.Editor
         {
             var file = columns[1].View!;
             file.PaintSubjectForRender(pointed: true, pressed);
-            file.Targets.First(target => target.Label.text == "Hold to talk").PaintForRender(true, pressed);
+            file.Targets.First(target => target.Label.text == VoiceText.HoldToTalk).PaintForRender(true, pressed);
         }
 
         /// <summary>
@@ -135,7 +135,7 @@ namespace Halcyonic.XR.UI.Editor
                 PaintHeld(columns, pressed: false);
                 var file = columns[1].View!;
                 var move = file.Targets.First(target => target.Label.text == "Move");
-                var talk = file.Targets.First(target => target.Label.text == "Hold to talk");
+                var talk = file.Targets.First(target => target.Label.text == VoiceText.HoldToTalk);
                 var started = 0;
                 talk.HoldStarted += () => started++;
                 if (!move.GetComponentsInChildren<Surface>(false).Any(surface => surface.Selection == SurfaceSelection.Pointed)) failures.Add("component render: the file's named Move target, pointed at, shows no pointed frame.");
@@ -233,7 +233,7 @@ namespace Halcyonic.XR.UI.Editor
                     new PageLine("Send an order confirmation email", wordsAreData: true, icon: GlazeIcon.FinishedThisRound, fact: "Storefront API", factIsData: true, tone: LineTone.Good, action: "open-task", key: "t3", opens: true),
                     new PageLine("Refresh the checkout copy", wordsAreData: true, icon: GlazeIcon.CheckingItsWork, fact: "Docs site", factIsData: true, action: "open-task", key: "t4", opens: true),
                 }.Take(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false)).ToList());
-            var file = new MenuFrame(task, new Footer(CloseFrame, secondary: new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true),
+            var file = new MenuFrame(task, new Footer(CloseFrame, secondary: new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true),
                     farRight: new Prompt("send", "Send answer", GlazeIcon.SendAnswer, main: true)),
                 subjectIsData: true, pill: Waiting, sections: FileSections("Waiting", waits: true),
                 lines: new[]
@@ -298,7 +298,7 @@ namespace Halcyonic.XR.UI.Editor
                 new PageLine("src/orders/confirmation.ts", wordsAreData: true, icon: GlazeIcon.CodeFile, fact: "+57"),
                 new PageLine("Sends the email once the order is paid.", chip: "Agent says", claim: true, rows: 2),
             }, source: "From the changes on your computer");
-            var file = new MenuFrame(task, new Footer(CloseFrame, secondary: new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true),
+            var file = new MenuFrame(task, new Footer(CloseFrame, secondary: new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true),
                     farRight: new Prompt("tell", "Tell it", GlazeIcon.TellIt, main: true, available: false, reason: "It finished; start it again to tell it more.")),
                 subjectIsData: true, pill: StateLanguage.BadgeOf(Character(CharacterActivity.TurnFinished, AttentionLevel.None)), sections: FileSections("Changes", waits: false),
                 lines: new[]
@@ -322,14 +322,14 @@ namespace Halcyonic.XR.UI.Editor
             const string task = "Move sessions into their own table";
             var before = new Footer(CloseFrame, rare: new Prompt("stop", "Stop", GlazeIcon.Stop), secondary: new Prompt("deny", "Deny", GlazeIcon.Deny),
                 farRight: new Prompt("approve", "Approve", GlazeIcon.Approve, main: true));
-            var footer = Footer.Confirm(before, PromptSlot.FarRight, new Prompt("yes", "Yes, approve", GlazeIcon.Approve, PromptKind.Yes),
+            var footer = Footer.Confirm(before, PromptSlot.FarRight, new Prompt("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes),
                 new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel));
             var file = new MenuFrame(task, footer, subjectIsData: true, pill: Waiting, sections: FileSections("Waiting", waits: true),
                 lines: new[]
                 {
                     new PageLine("It wants to run a command, part 2 of 2:"),
                     new PageLine(Request, wordsAreData: true, icon: GlazeIcon.ScriptFile, rows: 2, fromRow: 2),
-                    new PageLine("Approve lets it go ahead. Deny refuses; it may try another way.", tone: LineTone.Secondary, rows: 2),
+                    new PageLine("Approve · Agent Proceeds · Deny · Agent May Try Another Way", tone: LineTone.Secondary, rows: 2),
                 });
             var view = View(holder, "File");
             view.Show(file, Glaze.Menu.FileColumnDegrees, Subject(true, (file.Subject, Glaze.Menu.FileColumnDegrees)), pillRoom: true);
@@ -365,7 +365,7 @@ namespace Halcyonic.XR.UI.Editor
         {
             var holder = Holder("Footer that does not fit", 0f, 0f);
             var view = View(holder, "New project");
-            var footer = new Footer(CloseFrame, rare: new Prompt("over", "Start over", GlazeIcon.Refresh), secondary: new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true),
+            var footer = new Footer(CloseFrame, rare: new Prompt("over", "Start over", GlazeIcon.Refresh), secondary: new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true),
                 farRight: new Prompt("recap", "Make the recap", GlazeIcon.Next, main: true));
             view.Show(new MenuFrame("What would you like to work on?", footer), Glaze.Menu.FileColumnDegrees, Subject(false, ("x", Glaze.Menu.FileColumnDegrees)), pillRoom: false);
             var fits = view.Footer.Fits;

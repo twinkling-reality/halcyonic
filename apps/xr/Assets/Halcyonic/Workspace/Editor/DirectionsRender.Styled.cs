@@ -421,7 +421,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ProtoGlyph(file, "Command icon", "", left + U(IconColumn) / 2f + U(0.3f), y - well / 2f, Secondary, 1.1f);
             Body(file, "Command words", "make migrate", left + U(IconColumn) + U(Grid), y - well / 2f + U(BodySize) * 0.6f, right - left - U(IconColumn) - U(1f));
             y -= well + U(GroupGap);
-            y -= Fact(file, "Consequence", "Approve lets it go ahead. Deny refuses; it may try another way.", left, y, right - left).Height + U(GroupGap);
+            y -= Fact(file, "Consequence", "Approve · Agent Proceeds · Deny · Agent May Try Another Way", left, y, right - left).Height + U(GroupGap);
             y = Footer(file, left, right, y, new Prompt("Close", GlazeIcon.Close), null, new Prompt("Deny", GlazeIcon.Deny),
                 new Prompt("Approve", GlazeIcon.Approve, main: true, pointedAt: true));
             y -= U(PanelPadding) - U(Grid);

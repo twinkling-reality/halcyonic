@@ -1098,14 +1098,14 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// On the independent surface, upright prose is the ordinary instruction field, its input label
-        /// supplying the context, and agent prose attributed whole: runs all theirs, beside an Agent says
-        /// or Subagent says chip and Halcyonic's quote mark. A mixed line, Halcyonic's words leading into
+        /// supplying the context, and agent prose attributed whole: runs all theirs, beside a chip that
+        /// attributes it whole (<see cref="SectionLine.AttributesWhole"/>) and Halcyonic's quote mark. A mixed line, Halcyonic's words leading into
         /// theirs, keeps its lean, ground and grounded colour, so the chip is never the only mark
         /// (ADR 0026). Outputs, names, decisions and unattributed outside text keep their treatment.
         /// </summary>
         public static bool UsesUprightProse(bool independent, PageLine line) => independent
             && (line.Control == LineControl.Input && line.Action == FileScreens.EditInstruction
-                || line.Action == null && line.Runs.AllTheirs && (line.Chip == "Agent says" || line.Chip == "Subagent says"));
+                || line.Action == null && line.Runs.AllTheirs && SectionLine.AttributesWhole(line.Chip));
 
         /// <summary>
         /// Lays a page line from <paramref name="top"/> between the content lines at

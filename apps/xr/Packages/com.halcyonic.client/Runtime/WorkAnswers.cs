@@ -605,29 +605,29 @@ namespace Halcyonic.Client
                 var lead = item.Status switch
                 {
                     UnderstandingRemainingItemStatus.Failing => "Failing",
-                    UnderstandingRemainingItemStatus.InProgress => "In progress",
-                    _ => "To do",
+                    UnderstandingRemainingItemStatus.InProgress => "In Progress",
+                    _ => "To Do",
                 };
-                return new SectionLine("reported", lead + ", the agent says: “" + text + "”", SectionTone.Claim,
-                    chip: "Agent says", said: Ours(lead + ": ") + Theirs(text));
+                return new SectionLine("reported", lead + " · " + SectionLine.AgentChip + " · " + text, SectionTone.Claim,
+                    chip: SectionLine.AgentChip, said: Ours(lead + " · ") + Theirs(text));
             }
             if (item.Source == UnderstandingRemainingItemSource.Agent)
             {
-                return new SectionLine("reported", "Still to do, the agent says: “" + text + "”", SectionTone.Claim, chip: "Agent says", said: Ours("Still to do: ") + Theirs(text));
+                return new SectionLine("reported", ToDo + " · " + SectionLine.AgentChip + " · " + text, SectionTone.Claim, chip: SectionLine.AgentChip, said: Ours(ToDo + " · ") + Theirs(text));
             }
             return item.Status switch
             {
                 // Said to be the agent's, so reported whichever source passed it on.
-                UnderstandingRemainingItemStatus.Reported => new SectionLine("reported", "Still to do, the agent says: “" + text + "”", SectionTone.Claim,
-                    chip: "Agent says", said: Ours("Still to do: ") + Theirs(text)),
-                UnderstandingRemainingItemStatus.Failing => new SectionLine(Word(item.Epistemic), "Failing: " + text, SectionTone.Problem, said: Ours("Failing: ") + Theirs(text)),
-                UnderstandingRemainingItemStatus.InProgress => new SectionLine(Word(item.Epistemic), "In progress: " + text, SectionTone.Normal,
-                    said: Ours("In progress: ") + Theirs(text)),
+                UnderstandingRemainingItemStatus.Reported => new SectionLine("reported", ToDo + " · " + SectionLine.AgentChip + " · " + text, SectionTone.Claim,
+                    chip: SectionLine.AgentChip, said: Ours(ToDo + " · ") + Theirs(text)),
+                UnderstandingRemainingItemStatus.Failing => new SectionLine(Word(item.Epistemic), "Failing · " + text, SectionTone.Problem, said: Ours("Failing · ") + Theirs(text)),
+                UnderstandingRemainingItemStatus.InProgress => new SectionLine(Word(item.Epistemic), "In Progress · " + text, SectionTone.Normal,
+                    said: Ours("In Progress · ") + Theirs(text)),
                 _ => new SectionLine(Word(item.Epistemic),
-                    (item.Source == UnderstandingRemainingItemSource.Plan ? "Planned, not done: " : "To do: ") + text, SectionTone.Normal,
+                    (item.Source == UnderstandingRemainingItemSource.Plan ? "Planned · Not Done · " : ToDo + " · ") + text, SectionTone.Normal,
                     said: Ours(item.Source == UnderstandingRemainingItemSource.Plan && SectionLine.EvidenceOf(Word(item.Epistemic)) == Evidence.Planned
-                        ? "Not done: "
-                        : item.Source == UnderstandingRemainingItemSource.Plan ? "Planned, not done: " : "To do: ") + Theirs(text)),
+                        ? "Not Done · "
+                        : item.Source == UnderstandingRemainingItemSource.Plan ? "Planned · Not Done · " : ToDo + " · ") + Theirs(text)),
             };
         }
 
@@ -646,15 +646,18 @@ namespace Halcyonic.Client
             var chip = evidence == Evidence.Reported
                 ? statement.Author switch
                 {
-                    UnderstandingStatementAuthor.Agent => "Agent says",
-                    UnderstandingStatementAuthor.Subagent => "Subagent says",
-                    _ => "Author unknown",
+                    UnderstandingStatementAuthor.Agent => SectionLine.AgentChip,
+                    UnderstandingStatementAuthor.Subagent => SectionLine.SubagentChip,
+                    _ => SectionLine.AuthorUnknownChip,
                 }
                 : SectionLine.ChipOf(evidence);
             // Beside its chip, the words alone, leaning on Halcyonic's ground, never quoted (settled 2026-10-08).
             return new SectionLine(tag, (lead ?? "") + Quote(statement), SectionTone.Claim, rows: rows, evidence: evidence,
                 chip: chip, said: Ours(lead ?? "") + Theirs(statement.Text));
         }
+
+        /// <summary>What is left to do, before the words that say what.</summary>
+        private const string ToDo = "To Do";
 
         /// <summary>Halcyonic's own words as a run, upright.</summary>
         private static LineWords Ours(string words) => LineWords.Written(words);
@@ -672,11 +675,11 @@ namespace Halcyonic.Client
         {
             var who = statement.Author switch
             {
-                UnderstandingStatementAuthor.Agent => "Agent says",
-                UnderstandingStatementAuthor.Subagent => "Subagent says",
-                _ => "Author unknown",
+                UnderstandingStatementAuthor.Agent => SectionLine.AgentChip,
+                UnderstandingStatementAuthor.Subagent => SectionLine.SubagentChip,
+                _ => SectionLine.AuthorUnknownChip,
             };
-            return who + ": “" + IntelligenceText.Plain(statement.Text) + "”";
+            return who + " · " + IntelligenceText.Plain(statement.Text);
         }
 
         /// <summary>An instant the contract guarantees is a timestamp; one that does not read sorts last.</summary>

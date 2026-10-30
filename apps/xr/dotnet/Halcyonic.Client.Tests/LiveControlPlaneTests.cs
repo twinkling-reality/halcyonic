@@ -167,7 +167,7 @@ public class LiveControlPlaneTests
         Assert.That(session.State.Workstreams[workstreamId].Attention.Level, Is.EqualTo(AttentionLevel.None));
         var workspace = WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true);
         Assert.That(workspace.Actions, Is.EqualTo(new[] { WorkspaceAction.Instruct }));
-        Assert.That(workspace.Commands.First().Text, Is.EqualTo("Confirmed: it has your decision."));
+        Assert.That(workspace.Commands.First().Text, Is.EqualTo("Confirmed · Decision Received"));
 
         // A client that joins now gets current state from the snapshot and the history over REST.
         using var history = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
@@ -246,7 +246,7 @@ public class LiveControlPlaneTests
 
         await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes", seconds: 20);
         var answered = Workspace().Commands.First();
-        Assert.That(answered.Text, Is.EqualTo("Confirmed: it has your decision."));
+        Assert.That(answered.Text, Is.EqualTo("Confirmed · Decision Received"));
         Assert.That(answered.Status, Is.EqualTo(CommandStatus.Completed), "completion comes from the control plane's record");
 
         Assert.That(steering.Press(WorkspaceAction.Instruct, Workspace()).Step, Is.EqualTo(SteeringStep.Type));
@@ -256,7 +256,7 @@ public class LiveControlPlaneTests
         await Until(
             s => s.State.Commands.TryGetValue(instruct.Command!.CommandId, out var view) && view.Status == CommandStatus.Completed,
             "the runtime takes the instruction");
-        Assert.That(Workspace().Commands.First().Text, Is.EqualTo("Confirmed: it has your instruction."));
+        Assert.That(Workspace().Commands.First().Text, Is.EqualTo("Confirmed · Instruction Received"));
         Assert.That(activity.For(executionId).Last(entry => entry.Kind == ActivityKind.Command).Text,
             Is.EqualTo("Asked to send an instruction"));
     }
@@ -333,7 +333,7 @@ public class LiveControlPlaneTests
         Assert.That(WorkspacePresenter.Present(session!.State.Workstreams[workstreamId], session.State, activity, live: true, submissions).Actions,
             Does.Not.Contain(WorkspaceAction.Answer), "no second answer races the first");
         await Until(s => s.State.Commands.TryGetValue(outcome.Command!.CommandId, out var view) && view.Status == CommandStatus.Completed, "the answer completes");
-        Assert.That(WorkspacePresenter.Feedback(session!.State.Commands[outcome.Command!.CommandId]).Text, Is.EqualTo("Confirmed: it has your answer."));
+        Assert.That(WorkspacePresenter.Feedback(session!.State.Commands[outcome.Command!.CommandId]).Text, Is.EqualTo("Confirmed · Answer Received"));
         await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes after the answer");
         Assert.That(Now().QuestionToAnswer, Is.Null);
         var lines = activity.For(executionId).Select(entry => entry.Text).ToList();
@@ -556,7 +556,7 @@ public class LiveControlPlaneTests
         var character = CharacterPresenter.Present(session.State.Workstreams[workstreamId], session.State, session.Status.IsLive);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Unknown));
         Assert.That(character.Stale, Is.False);
-        Assert.That(character.AttentionNotes.Single(), Does.StartWith("Can't tell what it's doing"));
+        Assert.That(character.AttentionNotes.Single(), Does.StartWith("Status Unknown"));
 
         AssertEveryServerMessageRoundTrips();
     }

@@ -31,7 +31,7 @@ public class FirstQuestionTests
         }), "both rows choose and neither opens a side panel, so neither shows a chevron");
         Assert.That(frame.Lines.Select(line => line.Icon), Is.EqualTo(new GlazeIcon?[] { GlazeIcon.CreateProject, GlazeIcon.Folder }));
         Assert.That(frame.Footer[PromptSlot.Close]!.Words, Is.EqualTo("Close"));
-        Assert.That((frame.Footer[PromptSlot.Secondary]!.Words, frame.Footer[PromptSlot.Secondary]!.Holds), Is.EqualTo(("Hold to talk", true)));
+        Assert.That((frame.Footer[PromptSlot.Secondary]!.Words, frame.Footer[PromptSlot.Secondary]!.Holds), Is.EqualTo(("Hold to Talk", true)));
         Assert.That((frame.Footer[PromptSlot.FarRight]!.Words, frame.Footer[PromptSlot.FarRight]!.DrawnAsMain), Is.EqualTo(("Start a project", true)));
         Assert.That(frame.Reason, Is.Null, "nothing is drawn quiet");
     }
@@ -118,6 +118,6 @@ public class FirstQuestionTests
         column.Changed += () => changed++;
         column.Tick();
         column.Tick();
-        Assert.That((changed, column.Frame!.Footer[PromptSlot.Secondary]?.Words), Is.EqualTo((1, "Hold to talk")));
+        Assert.That((changed, column.Frame!.Footer[PromptSlot.Secondary]?.Words), Is.EqualTo((1, "Hold to Talk")));
     }
 }

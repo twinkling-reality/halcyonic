@@ -103,7 +103,7 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Chip { get; }
 
-        /// <summary>What it says beside its chip: the quote alone beside "Agent says", for one.</summary>
+        /// <summary>What it says beside its chip: the words alone beside their chip, for one.</summary>
         public string Words { get; }
 
         /// <summary>The evidence a tag names: a source's class word, else a measurement's part, else Halcyonic's own.</summary>
@@ -121,16 +121,38 @@ namespace Halcyonic.Client
         /// <summary>The chip for a class, null where the line goes without one.</summary>
         public static string? ChipOf(Evidence evidence) => evidence switch
         {
-            Client.Evidence.Reported => "Agent says",
+            Client.Evidence.Reported => AgentChip,
             Client.Evidence.Inferred => "Inferred",
             Client.Evidence.Planned => "Planned",
-            Client.Evidence.Explained => "Model explains",
+            Client.Evidence.Explained => ExplanationChip,
             _ => null,
         };
 
+        /// <summary>The chip beside an agent's own words: who said it, and that it is reported (WORDS.md).</summary>
+        public const string AgentChip = "Agent · Reported";
+
+        /// <summary>The chip beside a subagent's own words.</summary>
+        public const string SubagentChip = "Subagent · Reported";
+
+        /// <summary>The chip beside words whose author the source does not know.</summary>
+        public const string AuthorUnknownChip = "Author Unknown";
+
+        /// <summary>The chip beside a model's account of the work, after it.</summary>
+        public const string ExplanationChip = "Explanation · Reported";
+
+        /// <summary>The kit's own chip on an agent's report, which keeps its earlier words until the kit's words move.</summary>
+        private const string KitAgentSays = "Agent says";
+
+        /// <summary>
+        /// Whether a chip attributes an agent's or a subagent's words whole, so the words beside it may
+        /// stand upright (ADR 0026): <see cref="AgentChip"/>, <see cref="SubagentChip"/>, or the kit's own
+        /// "Agent says" until the kit's words move.
+        /// </summary>
+        public static bool AttributesWhole(string? chip) => chip == AgentChip || chip == SubagentChip || chip == KitAgentSays;
+
         /// <summary>
         /// The same line with some of it changed, keeping its evidence, its words and its chip as they
-        /// are: a subagent's quote copied stays "Subagent says".
+        /// are: a subagent's words copied keep the subagent's chip.
         /// </summary>
         public SectionLine With(string? tag = null, string? text = null, string? words = null, string? chip = null, bool? startsPage = null,
             bool? repeats = null) =>

@@ -74,25 +74,24 @@ public class CharacterPresenterTests
         var failedStream = Samples.Workstream("w1", WorkstreamStatus.Failed, "e1", AttentionLevel.ActionRequired, new ExecutionFailedReason { ExecutionId = "e1" });
         Assert.That(
             CharacterPresenter.Present(failedStream, StateWith(failedStream, failed), live: true).AttentionNotes,
-            Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "the way on, never the agent app's own error");
+            Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "the way on, never the agent app's own error");
 
         var unknown = Samples.Execution("e2", "w2", ExecutionStatus.Unknown);
         unknown.StatusReason = new ErrorInfo { Code = "control_plane_restarted", Message = "The control plane restarted." };
         var unknownStream = Samples.Workstream("w2", WorkstreamStatus.Unknown, "e2", AttentionLevel.Notice, new ExecutionStateUnknownReason { ExecutionId = "e2" });
         var character = CharacterPresenter.Present(unknownStream, StateWith(unknownStream, unknown), live: true);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Unknown));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Can't tell what it's doing: your computer restarted and lost touch with the agent app." }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Status Unknown · Computer Restarted" }));
     }
 
     /// <summary>
     /// Why it can't tell is said by the reason's code, never its message: an agent app's diagnostic names
     /// the app, a request and a path, as an old task's did on the headset on 2026-10-04.
     /// </summary>
-    [TestCase("runtime_connection_lost", "Can't tell what it's doing: your computer lost touch with the agent app.", "Your computer lost touch with the agent app.")]
-    [TestCase("control_plane_restarted", "Can't tell what it's doing: your computer restarted and lost touch with the agent app.",
-        "Your computer restarted and lost touch with the agent app.")]
-    [TestCase("start_outcome_unknown", "Can't tell what it's doing: not sure it started.", "Not sure it started.")]
-    [TestCase("a_code_from_later", "Can't tell what it's doing right now.", "")]
+    [TestCase("runtime_connection_lost", "Status Unknown · Agent App Unreachable", "Agent App Unreachable")]
+    [TestCase("control_plane_restarted", "Status Unknown · Computer Restarted", "Computer Restarted")]
+    [TestCase("start_outcome_unknown", "Status Unknown · Start Unconfirmed", "Start Unconfirmed")]
+    [TestCase("a_code_from_later", "Status Unknown", "")]
     public void WhyItCantTellIsSaidByTheReasonsCodeNeverTheAgentAppsDiagnostic(string code, string note, string why)
     {
         var unknown = Samples.Execution("e2", "w2", ExecutionStatus.Unknown);
@@ -121,7 +120,7 @@ public class CharacterPresenterTests
         workstream.Title = "<color=#00000000>Tidy</color>\tthe notes\\n";
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, failed), live: true);
         Assert.That(character.Title, Is.EqualTo("<color=#00000000>Tidy</color> the notes\\n"));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "the reason's message is never shown");
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "the reason's message is never shown");
     }
 
     /// <summary>
@@ -139,14 +138,24 @@ public class CharacterPresenterTests
                 Assert.That(why, Is.Null);
                 continue;
             }
-            Assert.That(why, Is.Not.Null.And.EndsWith("."), code.ToString());
-            // Every refusal ends in a way on (WORDS.md rule 7): a second sentence saying what to do.
-            Assert.That(why!.Split(new[] { ". " }, StringSplitOptions.None).Length, Is.GreaterThan(1), code.ToString());
+            Assert.That(why, Is.Not.Null, code.ToString());
+            // Every refusal ends in a way on (WORDS.md rule 7): in the cadence, a cause and a last segment saying
+            // what to do; a folder's or a pairing's refusal, still in the menu's sentences, a second sentence.
+            if (why!.Contains(" · "))
+            {
+                Assert.That(why, Does.Not.EndWith("."), code.ToString());
+                Assert.That(why.Split(new[] { " · " }, StringSplitOptions.None).Length, Is.GreaterThan(1), code.ToString());
+            }
+            else
+            {
+                Assert.That(why, Does.EndWith("."), code.ToString());
+                Assert.That(why.Split(new[] { ". " }, StringSplitOptions.None).Length, Is.GreaterThan(1), code.ToString());
+            }
             Assert.That(why, Does.Not.Contain("runtime").IgnoreCase.And.Not.Contain("control plane").IgnoreCase.And.Not.Contain("execution").IgnoreCase, code.ToString());
         }
-        Assert.That(WorkspaceText.Couldnt("Couldn't connect", null), Is.EqualTo("Couldn't connect."), "no why: the lead alone, ended");
+        Assert.That(WorkspaceText.Couldnt("Couldn't connect", null), Is.EqualTo("Couldn't connect"), "no why: the lead alone");
         Assert.That(WorkspaceText.Couldnt("Couldn't connect", WorkspaceText.WhyRefused(RejectionCode.ProjectNotFound)),
-            Is.EqualTo("Couldn't connect: this project isn't on your computer any more. Choose another in Projects."));
+            Is.EqualTo("Couldn't connect · Project Missing · Choose Another"));
     }
 
     /// <summary>
@@ -176,12 +185,12 @@ public class CharacterPresenterTests
             return execution;
         }
 
-        Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "Tell it is offered after a failed round");
+        Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "Tell it is offered after a failed round");
         Assert.That(Notes(Failed("location_missing", started: false)), Is.EqualTo(new[]
         {
-            "Couldn't start: your computer can't use that folder now. Choose it again, or fix it on your computer.",
+            "Start Failed · Your computer can't use that folder now. Choose it again, or fix it on your computer.",
         }), "a folder's problem, by its code");
-        Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Couldn't start. Add the task again in Projects to try again." }));
+        Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Start Failed · Re-Add Task in Projects" }));
 
         // Where the agent app isn't on the computer now, nothing can be told to it.
         var gone = Failed("opencode_execution_failed", started: true);
@@ -190,7 +199,7 @@ public class CharacterPresenterTests
         var snapshot = Samples.Snapshot(1, new[] { stream }, new[] { gone });
         snapshot.Runtimes.Clear();
         state.ApplySnapshot(snapshot, new StateChanges());
-        Assert.That(Notes(gone, state), Is.EqualTo(new[] { "Couldn't finish this round. Add the task again in Projects to try again." }));
+        Assert.That(Notes(gone, state), Is.EqualTo(new[] { "Round Failed · Re-Add Task in Projects" }));
     }
 
     /// <summary>

@@ -86,7 +86,7 @@ namespace Halcyonic.Client
             _ => new[]
             {
                 new PageLine(StateLanguage.WordOf(WorkState.FinishedThisRound), icon: GlazeIcon.FinishedThisRound, tone: LineTone.Good),
-                new PageLine(LineWords.Ours("Agent says: ") + LineWords.Theirs("The example is ready.")),
+                new PageLine(LineWords.Ours(SectionLine.AgentChip + " · ") + LineWords.Theirs("The example is ready.")),
             },
         };
 

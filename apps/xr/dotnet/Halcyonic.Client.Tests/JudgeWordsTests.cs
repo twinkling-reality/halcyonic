@@ -38,7 +38,7 @@ public class JudgeWordsTests
         TestContext.Out.WriteLine(report);
         Assert.That(found.Keys, Is.Empty, report);
         Assert.That(words.Count, Is.GreaterThan(100), "the walk reached the words");
-        Assert.That(words, Is.SupersetOf(new[] { FileScreens.AgentSource, "Yes, approve", "Yes, deny", "Yes, stop", "Checks", WorkspaceText.WhatWasChecked }),
+        Assert.That(words, Is.SupersetOf(new[] { FileScreens.AgentSource, "Confirm Approve", "Confirm Deny", "Confirm Stop", "Checks", WorkspaceText.WhatWasChecked }),
             "the walk reached every file, its confirmations and its side panels");
         Assert.That(words, Is.SupersetOf(new[]
         {

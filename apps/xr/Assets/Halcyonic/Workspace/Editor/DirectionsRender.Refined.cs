@@ -546,7 +546,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Body(file, "Command words", "make migrate", left + U(IconColumn) + U(Grid), y - well / 2f + U(BodySize) * 0.6f, right - left - U(IconColumn) - U(1f));
             y -= well + U(GroupGap);
             // What each answer does is the content, at its size: type never grows toward the prompts.
-            y -= Body(file, "Consequence", "Approve lets it go ahead. Deny refuses; it may try another way.", left, y, right - left, Secondary, lines: 2).Height;
+            y -= Body(file, "Consequence", "Approve · Agent Proceeds · Deny · Agent May Try Another Way", left, y, right - left, Secondary, lines: 2).Height;
             var height = -y + U(GroupGap) + FooterRoom(file);
             ContentShape(file, width, height, new Prompt("Close", GlazeIcon.Close), null, new Prompt("Deny", GlazeIcon.Deny),
                 new Prompt("Approve", GlazeIcon.Approve, main: true, pointedAt: true));

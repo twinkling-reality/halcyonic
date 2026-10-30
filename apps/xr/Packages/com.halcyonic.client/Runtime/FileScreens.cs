@@ -31,7 +31,7 @@ namespace Halcyonic.Client
         public const string TellIt = WorkspaceScreens.TellIt;
 
         /// <summary>What Activity says while nothing has been recorded for the task.</summary>
-        public const string NoActivityYet = "No recorded activity yet.";
+        public const string NoActivityYet = "No Activity";
 
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
         internal static bool FocusesAnswer(WorkspacePresentation workspace, bool questionPage, WorkspaceSteering steering) =>
@@ -201,7 +201,7 @@ namespace Halcyonic.Client
         /// The source line of the work's own state. An app's name arrives only as data, never in
         /// Halcyonic's sentence (WORDS.md), so it names the agent.
         /// </summary>
-        public const string AgentSource = "Reported by agent";
+        public const string AgentSource = "Reported";
 
         /// <summary>
         /// Activity: what it is doing, what this headset sent last, and what the work did, the newest
@@ -264,7 +264,7 @@ namespace Halcyonic.Client
             if (lines.Count == 0)
             {
                 if (room.Rows < 1 || budget.Words(1) > budget.Room + 1e-6f)
-                    lines.Add(new PageLine("Move the workspace to make room for Activity.", tone: LineTone.Secondary, rows: 2));
+                    lines.Add(new PageLine("No Room · Move Workspace", tone: LineTone.Secondary, rows: 2));
                 else if (workspace.Activity.Count == 0)
                 {
                     var note = screen.ActivityNote.TrimStart(' ', '·');
@@ -274,7 +274,7 @@ namespace Halcyonic.Client
                 }
             }
             return new MenuFrame(LineWords.TheirName(workspace.Character.Title), new Footer(), pill: StateLanguage.BadgeOf(workspace.Character),
-                lines: lines, source: "Recent activity", identityKind: MenuIdentityKind.Task);
+                lines: lines, source: "Recent Activity", identityKind: MenuIdentityKind.Task);
         }
 
         private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room, PageBudget? budget)
@@ -290,10 +290,10 @@ namespace Halcyonic.Client
                 if (screen.ShowingPresetNotice && screen.PresetNotice != null)
                     return new Page(new[]
                     {
-                        new PageLine("What happened", tone: LineTone.Secondary),
+                        new PageLine("What Happened", tone: LineTone.Secondary),
                         new PageLine(screen.PresetNotice, rows: Math.Min(screen.PresetNoticePartRows, screen.PresetNoticeRows - screen.PresetNoticePart * screen.PresetNoticePartRows),
                             fromRow: screen.PresetNoticePart * screen.PresetNoticePartRows),
-                    }, null, new Footer(CloseFile, secondary: new Prompt(BackPresetNotice, "Back to choices", GlazeIcon.Back),
+                    }, null, new Footer(CloseFile, secondary: new Prompt(BackPresetNotice, "Back to Choices", GlazeIcon.Back),
                         farRight: screen.PresetNoticeParts > 1 ? new Prompt(NextPresetNotice, Footer.NextPageWords(screen.PresetNoticePart, screen.PresetNoticeParts), GlazeIcon.Next, PromptKind.NextPage) : null));
                 // Rows only choose, showing the very words Tell it sends; Tell it, the main action, sends
                 // them, and nothing is sent by the press that chooses.
@@ -301,10 +301,10 @@ namespace Halcyonic.Client
                 var indices = screen.PresetRows.Count == presets.Count ? screen.PresetIndices : Enumerable.Range(0, presets.Count).ToList();
                 var rows = indices.Select(index => PresetLine(presets[index], index, recorded, screen.ChosenPreset == index,
                     screen.PresetRows.Count == presets.Count ? screen.PresetRows[index] : 2)).ToList();
-                if (screen.PresetPages > 1) rows.Add(new PageLine("Next choices, " + (screen.PresetPage + 1).ToString(CultureInfo.InvariantCulture) + " of " + screen.PresetPages.ToString(CultureInfo.InvariantCulture),
+                if (screen.PresetPages > 1) rows.Add(new PageLine("Next Choices · " + (screen.PresetPage + 1).ToString(CultureInfo.InvariantCulture) + " of " + screen.PresetPages.ToString(CultureInfo.InvariantCulture),
                     icon: GlazeIcon.Next, action: NextPresetPage, control: LineControl.Action));
                 var chosen = screen.ChosenPreset != null;
-                var tell = new Prompt(TellIt, "Review instruction", WorkspaceText.IconOf(WorkspaceAction.Instruct), main: true,
+                var tell = new Prompt(TellIt, "Review Instruction", WorkspaceText.IconOf(WorkspaceAction.Instruct), main: true,
                     available: chosen, reason: chosen ? null : ChooseAnInstruction);
                 return new Page(rows, source, new Footer(CloseFile, rare: CancelChoice, farRight: tell));
             }
@@ -379,7 +379,7 @@ namespace Halcyonic.Client
             // A full Activity footer owns voice as well as writing. Keep that action in place
             // and use the existing body pager pattern rather than replacing Hold to talk.
             var bodyPager = needsPages && normal[PromptSlot.Secondary] != null;
-            var pager = new PageLine("Next page", icon: GlazeIcon.Next, action: Footer.NextPage, control: LineControl.Action);
+            var pager = new PageLine("Next Page", icon: GlazeIcon.Next, action: Footer.NextPage, control: LineControl.Action);
             var pages = new List<List<PageLine>> { new List<PageLine>() };
             foreach (var line in lines)
             {
@@ -394,7 +394,7 @@ namespace Halcyonic.Client
                     // Like the project chooser, refuse an impossible allocation explicitly.
                     // The offered routes and draft state remain intact for a later reflow.
                     screen.Page = 0; screen.Pages = 1;
-                    return new Page(new[] { new PageLine("Move the workspace to make room for Activity.", tone: LineTone.Secondary, rows: 2) },
+                    return new Page(new[] { new PageLine("No Room · Move Workspace", tone: LineTone.Secondary, rows: 2) },
                         source, normal);
                 }
                 page.Add(line);
@@ -416,8 +416,8 @@ namespace Halcyonic.Client
         private static IReadOnlyList<PageLine> Doing(WorkspacePresentation workspace, LineTone tone)
         {
             PageLine Said(string words) => new PageLine(words, tone: tone, rows: 2);
-            if (workspace.ApprovalToAnswer != null) return new[] { Said("Approval requested. Open " + Word(FileSection.Waiting) + ".") };
-            if (workspace.QuestionToAnswer != null) return new[] { Said("Agent question. Open " + Word(FileSection.Waiting) + ".") };
+            if (workspace.ApprovalToAnswer != null) return new[] { Said("Approval Requested · Open " + Word(FileSection.Waiting)) };
+            if (workspace.QuestionToAnswer != null) return new[] { Said("Question Asked · Open " + Word(FileSection.Waiting)) };
             // A tool's name, a command, a question or a check's summary in a reason leans, last (lane V's treatment).
             var attention = workspace.Character.AttentionNoteRuns;
             if (attention.Count > 0) return attention.Select(note => note.AnyTheirs ? new PageLine(note, tone: tone, rows: 2) : Said(note.Text)).ToList();
@@ -427,7 +427,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The chip on the agent's own words in Activity and Doing: its class, beside its words, which lean.</summary>
-        private const string AgentSays = "Agent says";
+        private const string AgentSays = SectionLine.AgentChip;
 
         /// <summary>Activity's footer: Close, Stop beside it, Hold to talk beside Tell it, and Tell it as the main action.</summary>
         private static Footer ActivityFooter(WorkspacePresentation workspace, FileScreen screen)
@@ -472,13 +472,13 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Why Tell it waits while the instructions offered show and none is chosen.</summary>
-        public const string ChooseAnInstruction = "Choose an instruction first.";
+        public const string ChooseAnInstruction = "Choose Instruction";
 
         /// <summary>What a section says while its answer is still being read: plainly so, never an empty page.</summary>
         public static string StillReading(FileSection section) => section switch
         {
-            FileSection.Changes => "Still reading what changed. While the work runs, this can take a few seconds.",
-            FileSection.Checks => "Still reading what was checked. While the work runs, this can take a few seconds.",
+            FileSection.Changes => "Reading Changes",
+            FileSection.Checks => "Reading Checks",
             _ => throw new ArgumentOutOfRangeException(nameof(section), section, "Only Changes and Checks read an answer."),
         };
 

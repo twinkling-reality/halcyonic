@@ -178,21 +178,24 @@ namespace Halcyonic.Client
         /// </summary>
         public static string AsksYou(QuestionView question) => AsksYouRuns(question).Text;
 
-        /// <summary>A question in one line as runs: Halcyonic's "Asks you" upright, the agent's header and words leaning.</summary>
+        /// <summary>A question in one line as runs: Halcyonic's "Agent · Question" upright, the agent's header and words leaning.</summary>
         public static LineWords AsksYouRuns(QuestionView question)
         {
             if (question.Prompts.Count == 1)
             {
                 var only = question.Prompts[0];
                 var header = LineWords.Theirs(only.Header);
-                return LineWords.Ours("Asks you: ") + (header.IsEmpty ? LineWords.Theirs(only.Text) : header + LineWords.Ours(": ") + LineWords.Theirs(only.Text));
+                return LineWords.Ours(AsksYouWords + " · ") + (header.IsEmpty ? LineWords.Theirs(only.Text) : header + LineWords.Ours(" · ") + LineWords.Theirs(only.Text));
             }
-            var count = LineWords.Ours("Asks you " + question.Prompts.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " questions");
+            var count = LineWords.Ours(AsksYouWords + " · " + question.Prompts.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " Questions");
             var headers = question.Prompts.Select(prompt => LineWords.Theirs(prompt.Header)).Where(header => !header.IsEmpty).ToList();
             return headers.Count == question.Prompts.Count
-                ? count + LineWords.Ours(": ") + headers.Aggregate((said, next) => said + LineWords.Ours("; ") + next)
-                : count + LineWords.Ours(".");
+                ? count + LineWords.Ours(" · ") + headers.Aggregate((said, next) => said + LineWords.Ours("; ") + next)
+                : count;
         }
+
+        /// <summary>Who asks, before the question's words: the agent, as ART's chip names it (WORDS.md).</summary>
+        public const string AsksYouWords = "Agent · Question";
 
         /// <summary>
         /// A reason in words, and the same without what the state already says: under Couldn't finish

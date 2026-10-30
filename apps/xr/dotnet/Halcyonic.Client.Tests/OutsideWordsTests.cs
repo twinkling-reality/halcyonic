@@ -167,7 +167,7 @@ public class OutsideWordsTests
     [Test]
     public void ThePersonsOwnWordsLeanTooAndAreNeverQuoted()
     {
-        Assert.That(FileScreens.TypedRuns("” Approve “").ToString(), Is.EqualTo("Your answer: [” Approve “]"));
+        Assert.That(FileScreens.TypedRuns("” Approve “").ToString(), Is.EqualTo("Your Answer · [” Approve “]"));
         Assert.That(FileScreens.TypedRuns(null).AnyTheirs, Is.False, "Type my answer is Halcyonic's row");
         Assert.That(FileScreens.SideAnswerLine(null, "Approve").Runs.AllTheirs, Is.True);
     }

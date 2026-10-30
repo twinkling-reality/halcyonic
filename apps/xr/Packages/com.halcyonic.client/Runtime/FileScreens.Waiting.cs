@@ -23,11 +23,11 @@ namespace Halcyonic.Client
 
         /// <summary>The words on a part's last row: the next part, or from the last back to the first, as a list's pager goes.</summary>
         public static string NextPartWords(int part, int parts) => part + 1 < parts
-            ? "Next part, " + (part + 2).ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture)
-            : "First part, 1 of " + parts.ToString(CultureInfo.InvariantCulture);
+            ? "Next Part · " + (part + 2).ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture)
+            : "First Part · 1 of " + parts.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>Said, with the page's source line, while nothing waits for the person.</summary>
-        public const string NothingWaits = "Nothing is waiting for you.";
+        public const string NothingWaits = "Nothing Waiting";
 
         private static Page Waiting(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
@@ -87,7 +87,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Said while a question waits but isn't laid out on this page yet.</summary>
-        public const string QuestionNotReady = "Getting the question ready.";
+        public const string QuestionNotReady = "Loading Question";
 
         /// <summary>
         /// A question that waits but isn't laid out here yet: what it asks, cut, and Send answer waiting in
@@ -219,13 +219,13 @@ namespace Halcyonic.Client
         }
 
         // A question's words, as the coordinator settled them on 2026-10-02.
-        public const string SendFromYourAnswers = "Answer each question, then send from Your answers.";
-        public const string TypeMyAnswer = "Type my answer";
-        public const string YourAnswers = "Your answers";
-        public const string OnToTheAnswers = "On to the answers";
-        public const string ReadTheQuestion = "Read the whole question first.";
-        public const string ReadTheAnswer = "Read the whole answer you chose first, or choose another.";
-        public const string ReadYourAnswers = "Read all your answers first.";
+        public const string SendFromYourAnswers = "Answer Each Question";
+        public const string TypeMyAnswer = "Write Answer";
+        public const string YourAnswers = "Your Answers";
+        public const string OnToTheAnswers = "See Answers";
+        public const string ReadTheQuestion = "Read Full Question";
+        public const string ReadTheAnswer = "Read Full Answer";
+        public const string ReadYourAnswers = "Read All Answers";
 
         /// <summary>What a row on the question's page raises: more answers, the next question, or a prompt from the person's answers, by its index.</summary>
         public const string MoreAnswers = "more-answers";
@@ -233,21 +233,21 @@ namespace Halcyonic.Client
         public const string GoToQuestion = "go-to-question";
 
         /// <summary>The words on the row for more answers: the next page, or from the last back to the first.</summary>
-        public static string MoreAnswersWords(int page, int pages) => page + 1 < pages ? "More choices" : "First choices";
+        public static string MoreAnswersWords(int page, int pages) => page + 1 < pages ? "More Choices" : "First Choices";
 
         /// <summary>The words on the row turning the person's answers, where they take more than one page.</summary>
         public static string YourAnswersWords(int page, int pages) =>
-            YourAnswers + ", " + (page + 1 < pages ? page + 2 : 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture);
+            YourAnswers + " · " + (page + 1 < pages ? page + 2 : 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>The words on the row after a prompt: the next question, or after the last, the person's answers.</summary>
         public static string NextQuestionWords(int prompt, int prompts) => prompt + 1 < prompts
-            ? "Next question, " + (prompt + 2).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture)
+            ? "Next Question · " + (prompt + 2).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture)
             : YourAnswers;
 
         /// <summary>The words on the row ending a long question's part: the next part, or after the last, on to its answers.</summary>
         public static string QuestionPartWords(int part, int parts, int answerPages) => part + 1 < parts
             ? NextPartWords(part, parts)
-            : answerPages > 1 ? OnToTheAnswers + ", 1 of " + answerPages.ToString(CultureInfo.InvariantCulture) : OnToTheAnswers;
+            : answerPages > 1 ? OnToTheAnswers + " · 1 of " + answerPages.ToString(CultureInfo.InvariantCulture) : OnToTheAnswers;
 
         /// <summary>The row for the person's own answer: Type my answer, or once typed, their words as written, chosen.</summary>
         public static string TypedWords(string? typed) => TypedRuns(typed).Text;
@@ -258,7 +258,7 @@ namespace Halcyonic.Client
         /// (lane V's ruling, 2026-10-08).
         /// </summary>
         public static LineWords TypedRuns(string? typed) =>
-            typed == null || LineWords.Theirs(typed).IsEmpty ? LineWords.Ours(TypeMyAnswer) : LineWords.Ours("Your answer: ") + LineWords.Theirs(typed);
+            typed == null || LineWords.Theirs(typed).IsEmpty ? LineWords.Ours(TypeMyAnswer) : LineWords.Ours("Your Answer · ") + LineWords.Theirs(typed);
 
         /// <summary>The row for the person's own answer, as the page draws it and the layout measures it.</summary>
         public static PageLine TypedRow(string? typed, string key, bool besideNext = false, int rows = 1) => typed == null
@@ -277,7 +277,7 @@ namespace Halcyonic.Client
         /// leaning as the person's own words.
         /// </summary>
         public static LineWords ReviewRuns(QuestionDraft draft, int prompt) =>
-            NameRuns(draft.Question, prompt) + LineWords.Ours(": ") + Given(draft, prompt, LineWords.Ours("Not answered"));
+            NameRuns(draft.Question, prompt) + LineWords.Ours(": ") + Given(draft, prompt, LineWords.Ours("Not Answered"));
 
         /// <summary>The answers given to a prompt, the agent's labels and the person's words leaning, or <paramref name="none"/>.</summary>
         private static LineWords Given(QuestionDraft draft, int prompt, LineWords none)
@@ -296,7 +296,7 @@ namespace Halcyonic.Client
         {
             var question = screen.Question;
             if (!(question.Draft is QuestionDraft draft)) return QuestionNotReady;
-            if (!question.Reviewing || question.Writing) return "Review your answers first.";
+            if (!question.Reviewing || question.Writing) return "Review Answers First";
             if (draft.Problem is string problem) return problem;
             if (Enumerable.Range(0, draft.Prompts.Count).Any(prompt => !question.AnswersRead(prompt))) return ReadTheAnswer;
             if (!question.ReviewRead) return ReadYourAnswers;
@@ -307,8 +307,8 @@ namespace Halcyonic.Client
         {
             if (!(question.Draft is QuestionDraft draft) || question.Reviewing || question.ExplainingAmbiguity) return QuestionNotReady;
             if (!draft.WasShownWhole(question.Prompt)) return ReadTheQuestion;
-            if (!draft.IsAnswered(question.Prompt)) return draft.Prompts[question.Prompt].Options.Count == 0 ? "Write an answer first."
-                : draft.Prompts[question.Prompt].FreeText ? "Choose or write an answer first." : "Choose an answer first.";
+            if (!draft.IsAnswered(question.Prompt)) return draft.Prompts[question.Prompt].Options.Count == 0 ? "Write Answer First"
+                : draft.Prompts[question.Prompt].FreeText ? "Choose or Write First" : "Choose Answer First";
             return question.AnswersRead(question.Prompt) ? null : ReadTheAnswer;
         }
 
@@ -316,11 +316,11 @@ namespace Halcyonic.Client
         {
             var question = screen.Question;
             if (question.ExplainingAmbiguity) return question.AmbiguityPart + 1 < question.AmbiguityParts
-                ? question.AmbiguityPageRead ? null : "Read this part first." : question.AmbiguityRead ? null : "Read the whole explanation first.";
+                ? question.AmbiguityPageRead ? null : "Read This Part" : question.AmbiguityRead ? null : "Read Full Explanation";
             if (question.Writing) return question.InputReading && question.InputPart < question.InputParts - 1
-                ? question.InputPageRead ? null : "Read this part first." : question.WhyUseWaits(false);
-            if (question.Reviewing) return question.Page < question.Pages - 1 ? question.ReviewPageRead ? null : "Read this part first." : WhySendWaits(screen);
-            return question.QuestionPart != null ? question.QuestionPartRead ? null : "Read this part first." : WhyNextWaits(question);
+                ? question.InputPageRead ? null : "Read This Part" : question.WhyUseWaits(false);
+            if (question.Reviewing) return question.Page < question.Pages - 1 ? question.ReviewPageRead ? null : "Read This Part" : WhySendWaits(screen);
+            return question.QuestionPart != null ? question.QuestionPartRead ? null : "Read This Part" : WhyNextWaits(question);
         }
 
         internal static bool ChoiceReasonExplained(FileQuestion question) => question.Draft is QuestionDraft draft
@@ -356,9 +356,9 @@ namespace Halcyonic.Client
         public const string NextInputPart = "next-answer-input-part";
         public const string PreviousInputPart = "previous-answer-input-part";
         public const string PreviousReviewPart = "previous-answer-review-part";
-        public const string ReviewAnswers = "Review answers";
-        public const string WriteAnswer = "Write an answer";
-        public const string EditAnswer = "Edit answer";
+        public const string ReviewAnswers = "Review Answers";
+        public const string WriteAnswer = "Write Answer";
+        public const string EditAnswer = "Edit Answer";
 
         /// <summary>The current stage's explicit forward footer, within three targets; final Send alone submits the saved draft.</summary>
         private static Footer QuestionFooter(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft)
@@ -374,7 +374,7 @@ namespace Halcyonic.Client
                     ? new Prompt(NextAmbiguityPart, NextPartWords(question.AmbiguityPart, question.AmbiguityParts), GlazeIcon.Next, main: true,
                         available: available, reason: QuestionForwardReason(workspace, screen))
                     : workspace.Actions.Contains(WorkspaceAction.Interrupt)
-                        ? new Prompt(Stop, "Stop task", GlazeIcon.Stop, main: true, available: available, reason: QuestionForwardReason(workspace, screen)) : null;
+                        ? new Prompt(Stop, "Stop Task", GlazeIcon.Stop, main: true, available: available, reason: QuestionForwardReason(workspace, screen)) : null;
                 return new Footer(CloseFile, rare: new Prompt(BackAmbiguity, "Back", GlazeIcon.Back), farRight: escape);
             }
             if (question.Writing)
@@ -382,22 +382,22 @@ namespace Halcyonic.Client
                 var reason = question.WhyUseWaits(false);
                 var reading = question.InputReading;
                 var next = reading && question.InputPart < question.InputParts - 1
-                    ? new Prompt(NextInputPart, NextPartWords(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: available, reason: question.InputPageRead ? null : "Read this part first.")
-                    : new Prompt(UseInput, "Use this answer", GlazeIcon.Approve, main: true, available: available, reason: reason);
+                    ? new Prompt(NextInputPart, NextPartWords(question.InputPart, question.InputParts), GlazeIcon.Next, main: true, available: available, reason: question.InputPageRead ? null : "Read This Part")
+                    : new Prompt(UseInput, "Use Answer", GlazeIcon.Approve, main: true, available: available, reason: reason);
                 return new Footer(new Prompt(CancelInput, "Cancel", GlazeIcon.Close, PromptKind.Close),
-                    rare: reading && question.InputPart > 0 ? new Prompt(PreviousInputPart, "Previous part", GlazeIcon.Back) : null,
+                    rare: reading && question.InputPart > 0 ? new Prompt(PreviousInputPart, "Previous Part", GlazeIcon.Back) : null,
                     secondary: !reading && screen.Speak && draft.Prompts[question.Prompt].FreeText && workspace.Actions.Contains(WorkspaceAction.Answer)
                         ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null,
                     farRight: next);
             }
-            var back = question.Reviewing && question.Page > 0 ? new Prompt(PreviousReviewPart, "Previous part", GlazeIcon.Back)
+            var back = question.Reviewing && question.Page > 0 ? new Prompt(PreviousReviewPart, "Previous Part", GlazeIcon.Back)
                 : question.Reviewing || question.Prompt > 0 ? new Prompt(BackQuestion, "Back", GlazeIcon.Back) : null;
             Prompt forward;
             if (question.Reviewing)
             {
                 if (question.Page < question.Pages - 1)
                     forward = new Prompt(MoreAnswers, NextPartWords(question.Page, question.Pages), GlazeIcon.Next, main: true,
-                        available: available, reason: question.ReviewPageRead ? null : "Read this part first.");
+                        available: available, reason: question.ReviewPageRead ? null : "Read This Part");
                 else
                 {
                     var reason = WhySendWaits(screen);
@@ -406,19 +406,19 @@ namespace Halcyonic.Client
                 }
             }
             else if (question.QuestionPart is int part)
-                forward = new Prompt(NextPart, part + 1 < question.QuestionParts(question.Prompt) ? NextPartWords(part, question.QuestionParts(question.Prompt)) : "See answers",
-                    GlazeIcon.Next, main: true, available: available, reason: question.QuestionPartRead ? null : "Read this part first.");
+                forward = new Prompt(NextPart, part + 1 < question.QuestionParts(question.Prompt) ? NextPartWords(part, question.QuestionParts(question.Prompt)) : "See Answers",
+                    GlazeIcon.Next, main: true, available: available, reason: question.QuestionPartRead ? null : "Read This Part");
             else
             {
                 var reason = WhyNextWaits(question);
-                var words = question.ReturningToReview || question.Prompt == draft.Prompts.Count - 1 ? ReviewAnswers : "Next question";
+                var words = question.ReturningToReview || question.Prompt == draft.Prompts.Count - 1 ? ReviewAnswers : "Next Question";
                 forward = new Prompt(NextQuestion, words, GlazeIcon.Next, main: true, available: available, reason: reason, pageExplains: ChoiceReasonExplained(question));
             }
             return new Footer(CloseFile, rare: back, farRight: forward);
         }
 
         /// <summary>Why Send answer takes no press while an answer sent may still take effect.</summary>
-        public const string SentWaiting = "Sent. Waiting for the agent…";
+        public const string SentWaiting = "Sent · Awaiting Agent";
 
         /// <summary>One complete question with ordered marked choices, scoped editor navigation and a visible forward footer; longer content reads through measured parts.</summary>
         private static Page Question(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
@@ -459,7 +459,7 @@ namespace Halcyonic.Client
             {
                 var rows = question.HeadRows(prompt);
                 lines.Add(rows < question.QuestionMeasured(prompt)
-                    ? new PageLine(text, fact: LineWords.Ours("Read question"), action: ReadQuestion, opens: true, control: LineControl.Action, rows: rows)
+                    ? new PageLine(text, fact: LineWords.Ours("Read Question"), action: ReadQuestion, opens: true, control: LineControl.Action, rows: rows)
                     : new PageLine(text, rows: rows));
             }
             if (!WorkspaceText.Answerable(draft.Question))
@@ -544,7 +544,7 @@ namespace Halcyonic.Client
         }
 
         public static string QuestionCaption(int prompt, int prompts, QuestionPrompt asked, int page = 0, int pages = 1) =>
-            QuestionNumber(prompt, prompts) + " · " + (asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose one or more" : "Choose one")
+            QuestionNumber(prompt, prompts) + " · " + (asked.Options.Count == 0 ? WriteAnswer : asked.Multiple ? "Choose Any" : "Choose One")
                 + (pages > 1 ? " · Choices " + (page + 1).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture) : "");
 
         public static string QuestionNumber(int prompt, int prompts) => "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture);
@@ -557,7 +557,7 @@ namespace Halcyonic.Client
             new PageLine(TypedRuns(typed), fact: LineWords.Ours("Selected"), rows: rows);
 
         public static PageLine OptionRow(QuestionPrompt prompt, int option, bool chosen = false, int rows = 1) => WorkspaceText.ReadsAlike(prompt, option)
-            ? new PageLine(AnswerRuns(prompt.Options[option]), fact: LineWords.Ours("Unavailable · Read why"), action: ReadWhy,
+            ? new PageLine(AnswerRuns(prompt.Options[option]), fact: LineWords.Ours("Unavailable · Read Why"), action: ReadWhy,
                 key: option.ToString(CultureInfo.InvariantCulture), opens: true, control: LineControl.Action, rows: rows)
             : AnswerRow(prompt.Options[option], option.ToString(CultureInfo.InvariantCulture), chosen, rows: rows, multiple: prompt.Multiple);
 
@@ -566,7 +566,7 @@ namespace Halcyonic.Client
             var asked = draft.Prompts[prompt];
             var shown = WorkspaceText.AsShown(asked.Options[option].Label);
             var matches = asked.Options.Where(each => WorkspaceText.AsShown(each.Label) == shown).ToList();
-            var words = LineWords.Ours("These choices have the same name, so they cannot be selected here: ");
+            var words = LineWords.Ours("Same Name · Not Selectable · ");
             for (var index = 0; index < matches.Count; index++)
                 words = words + (index > 0 ? LineWords.Ours(" / ") : LineWords.None) + AnswerRuns(matches[index]);
             return words;
@@ -578,7 +578,7 @@ namespace Halcyonic.Client
         private static Page AmbiguityPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source) =>
             new Page(new[]
             {
-                new PageLine("Unavailable choice", tone: LineTone.Secondary),
+                new PageLine("Duplicate Choices", tone: LineTone.Secondary),
                 AmbiguityLine(screen.Question, screen.Question.AmbiguityPartRows, screen.Question.AmbiguityPart * screen.Question.AmbiguityPartRows),
             }, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
 
@@ -587,10 +587,10 @@ namespace Halcyonic.Client
                 action: TypeAnswer, chosen: edit, control: LineControl.Action, besideNext: besideNext);
 
         public static PageLine ChoicePager(bool first = false) =>
-            new PageLine(first ? "First choices" : "More choices", icon: GlazeIcon.Next, action: MoreAnswers, control: LineControl.Action);
+            new PageLine(first ? "First Choices" : "More Choices", icon: GlazeIcon.Next, action: MoreAnswers, control: LineControl.Action);
 
         public static PageLine InputLine(FileQuestion question, bool keyboard = true, int rows = 1, int? fromRow = null) =>
-            new PageLine(question.Input.Length == 0 ? LineWords.Ours(keyboard ? "Type your answer" : "Hold to talk below") : LineWords.TheirName(question.Input), icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,
+            new PageLine(question.Input.Length == 0 ? LineWords.Ours(keyboard ? "Answer" : "Hold to Talk") : LineWords.TheirName(question.Input), icon: keyboard ? GlazeIcon.Type : GlazeIcon.Change,
                 action: EditInput, control: LineControl.Input, inputFocused: question.InputFocused, rows: rows, fromRow: fromRow);
 
         private static Page InputPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
@@ -598,7 +598,7 @@ namespace Halcyonic.Client
             var question = screen.Question;
             var lines = new List<PageLine>
             {
-                new PageLine("Your answer", tone: LineTone.Secondary),
+                new PageLine("Your Answer", tone: LineTone.Secondary),
                 InputLine(question, screen.KeyboardOffered, question.InputPartRows, question.InputPart * question.InputPartRows),
             };
             if (question.InputReading) lines.Add(new PageLine(EditAnswer, icon: screen.KeyboardOffered ? GlazeIcon.Type : GlazeIcon.Change, action: EditInput, control: LineControl.Action));

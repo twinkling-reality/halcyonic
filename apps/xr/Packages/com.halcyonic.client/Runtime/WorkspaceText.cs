@@ -141,7 +141,7 @@ namespace Halcyonic.Client
         {
             var shown = workspace.Execution?.PendingQuestions.Count ?? 0;
             if (shown <= 1) return "";
-            return shown >= 3 ? "At least 2 more questions wait after this one." : "1 more question waits after this one.";
+            return shown >= 3 ? "At Least 2 More Questions" : "1 More Question";
         }
 
         /// <summary>Which prompt of the question shows, with its header as the agent wrote it.</summary>
@@ -154,7 +154,7 @@ namespace Halcyonic.Client
         public static LineWords PromptHeadingRuns(QuestionView question, int prompt)
         {
             var heading = LineWords.Theirs(question.Prompts[prompt].Header);
-            if (question.Prompts.Count <= 1) return heading.IsEmpty ? LineWords.Ours("It asks you") : heading;
+            if (question.Prompts.Count <= 1) return heading.IsEmpty ? LineWords.Ours("Agent · Question") : heading;
             var count = LineWords.Ours("Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + question.Prompts.Count.ToString(CultureInfo.InvariantCulture));
             return heading.IsEmpty ? count : count + LineWords.Ours(" · ") + heading;
         }
@@ -163,13 +163,13 @@ namespace Halcyonic.Client
         public static string PromptHow(QuestionPrompt prompt)
         {
             var offers = prompt.Options.Count > 0;
-            if (!offers) return prompt.FreeText ? "Type your answer." : "It offers no answers to choose.";
-            if (prompt.Multiple) return prompt.FreeText ? "Choose any that apply, and type more if you like." : "Choose any that apply.";
-            return prompt.FreeText ? "Choose one, or type your own." : "Choose one.";
+            if (!offers) return prompt.FreeText ? "Write Answer" : "No Answers Offered";
+            if (prompt.Multiple) return prompt.FreeText ? "Choose Any · Or Write" : "Choose Any";
+            return prompt.FreeText ? "Choose One · Or Write" : "Choose One";
         }
 
         /// <summary>The typed answer's button: what it says before and after typing.</summary>
-        public static string TypedLabel(string? typed) => typed == null ? "Type an answer" : "Typed: " + OneLine(typed);
+        public static string TypedLabel(string? typed) => typed == null ? "Write Answer" : "Typed · " + OneLine(typed);
 
         /// <summary>
         /// Why Halcyonic cannot send an answer to a question it shows, with the way on: stopping the
@@ -177,13 +177,13 @@ namespace Halcyonic.Client
         /// </summary>
         public static string CannotAnswer(QuestionView question)
         {
-            if (question.Prompts.Any(prompt => prompt.Secret)) return "It asks for something secret, which can't be sent from here. Press Stop to go on.";
+            if (question.Prompts.Any(prompt => prompt.Secret)) return "Secret Requested · Not Sendable Here · Stop Task";
             if (!question.Prompts.All(HasAWayToAnswer)) return SameAnswersTwice;
             if (question.Prompts.Any(prompt => IsCut(prompt.Header) || IsCut(prompt.Text) || prompt.Options.Any(option => IsCut(option.Label) || IsCut(option.Description))))
             {
-                return "This question is too long to show in full, so it can't be answered here. Press Stop to go on.";
+                return "Question Too Long · Not Answerable Here · Stop Task";
             }
-            return "This question can't be answered from here. Press Stop to go on.";
+            return "Not Answerable Here · Stop Task";
         }
 
         /// <summary>
@@ -232,11 +232,11 @@ namespace Halcyonic.Client
         /// is the only way to the one meant (settled by the coordinator, 2026-10-07).
         /// </summary>
         public static string AlikeCantBeChosen(bool stop) =>
-            "Answers that read the same can't be chosen here." + (stop ? " Press Stop if you meant one of them." : "");
+            "Duplicate Answers · Not Selectable" + (stop ? " · Stop Task" : "");
 
         /// <summary>Why words typed or heard weren't taken, as a notice (settled by the coordinator, 2026-10-07).</summary>
         public static string TypedReadsAlike(bool stop) =>
-            "Your answer reads the same as answers that can't be chosen here. " + (stop ? "Answer another way, or press Stop if you meant one of them." : "Answer another way.");
+            "Matches Duplicate Answers · " + (stop ? "Answer Differently or Stop Task" : "Answer Differently");
 
         /// <summary>
         /// The prompt offers two answers whose labels read the same (<see cref="AsShown"/>). An answer names
@@ -272,10 +272,10 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Why a question with a prompt whose answers read alike and no other way to answer can't be answered here (settled by the coordinator, 2026-10-04).</summary>
-        public const string SameAnswersTwice = "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.";
+        public const string SameAnswersTwice = "Duplicate Answers · Not Answerable Here · Stop Task";
 
         /// <summary>The agent waits while nobody can answer here: said under a question Halcyonic cannot answer.</summary>
-        public const string AgentWaits = "It's waiting for an answer.";
+        public const string AgentWaits = "Awaiting Answer";
 
         /// <summary>
         /// A command whose effect can't be ruled out, by what it asked, in WORDS.md's unknown-effect pattern:
@@ -284,20 +284,20 @@ namespace Halcyonic.Client
         /// </summary>
         public static string NotSure(CommandType type) => type switch
         {
-            CommandType.ExecutionSendInstruction => "Not sure the instruction reached it. " + CheckFirst,
-            CommandType.ExecutionInterrupt => "Not sure it stopped. " + CheckFirst,
-            CommandType.ExecutionRespondToApproval => "Not sure it has your decision. " + CheckFirst,
+            CommandType.ExecutionSendInstruction => "Delivery Unconfirmed · " + CheckFirst,
+            CommandType.ExecutionInterrupt => "Stop Unconfirmed · " + CheckFirst,
+            CommandType.ExecutionRespondToApproval => "Decision Unconfirmed · " + CheckFirst,
             CommandType.ExecutionAnswerQuestion => AnswerNotConfirmed,
-            CommandType.ExecutionStart => "Not sure it started. " + CheckFirst,
+            CommandType.ExecutionStart => "Start Unconfirmed · " + CheckFirst,
             CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume or CommandType.WorkspaceRequestCancel
-                => "Not sure this request reached your computer. Refresh this request to check its saved result.",
-            _ => "Not sure it happened. " + CheckFirst,
+                => "Request Unconfirmed · Refresh Request",
+            _ => "Effect Unconfirmed · " + CheckFirst,
         };
 
-        private const string CheckFirst = "Check its activity before you try again.";
+        private const string CheckFirst = "Check Activity";
 
         /// <summary>An answer sent whose effect the runtime never confirmed (Codex's question_unconfirmed, answer_ambiguous).</summary>
-        public const string AnswerNotConfirmed = "Not sure it has your answer. Check its activity before you answer again.";
+        public const string AnswerNotConfirmed = "Answer Unconfirmed · Check Activity";
 
         private static bool IsCut(string? text) => text != null && text.Contains("[truncated]");
 
@@ -315,9 +315,9 @@ namespace Halcyonic.Client
                     ? CommandNotKnown
                     : RequestNotKnown;
 
-        public const string TooLongToShow = "This command is too long to show you whole, so you can only deny it.";
-        public const string CommandNotKnown = "Your computer couldn't get the whole command, so you can only deny it.";
-        public const string RequestNotKnown = "Your computer couldn't get all of this request, so you can only deny it.";
+        public const string TooLongToShow = "Command Too Long · Deny Only";
+        public const string CommandNotKnown = "Command Incomplete · Deny Only";
+        public const string RequestNotKnown = "Request Incomplete · Deny Only";
 
         /// <summary>The goal line under the status: the workstream's objective.</summary>
         public static string Goal(WorkspacePresentation workspace) => "Goal: " + Objective(workspace);
@@ -329,14 +329,14 @@ namespace Halcyonic.Client
         public static IReadOnlyList<string> Answer(WorkspacePresentation workspace)
         {
             // The request or question shows whole under Waiting for you, so the answer names it once.
-            if (workspace.ApprovalToAnswer != null) return new[] { "It wants your approval. See it under " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
-            if (workspace.QuestionToAnswer != null) return new[] { "It asks you a question. See it under " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
+            if (workspace.ApprovalToAnswer != null) return new[] { "Approval Requested · See " + TabLabel(WorkspaceQuestion.NeedFromYou) };
+            if (workspace.QuestionToAnswer != null) return new[] { "Question Asked · See " + TabLabel(WorkspaceQuestion.NeedFromYou) };
             var attention = Attention(workspace);
             if (attention.Count > 0) return attention;
             var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
-            var line = "Latest: " + (latest == null ? workspace.Character.StatusLabel : Describe(latest));
-            if (workspace.Character.Stale) line = "Last known. " + line;
-            return new[] { "Nothing is waiting for you.", line };
+            var line = "Latest · " + (latest == null ? StateLanguage.LineWordOf(workspace.Character) : Describe(latest));
+            if (workspace.Character.Stale) line = "Last Known · " + line;
+            return new[] { "Nothing Waiting", line };
         }
 
         /// <summary>The tools whose approvals run a command, as the agent apps name them: the request reads as a command.</summary>
@@ -351,8 +351,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? ApprovedCommandNote(RuntimeDescriptor? runtime) => runtime?.ApprovalMayLeaveSandbox switch
         {
-            true => "If you approve, it may run outside its sandbox, with your access to your computer.",
-            false => "If you approve, it still runs inside a sandbox.",
+            true => "May Run Outside Sandbox · Your Access",
+            false => "Runs Inside Sandbox",
             _ => null,
         };
 
@@ -368,24 +368,23 @@ namespace Halcyonic.Client
             var tool = approval.Subject as ToolUseSubject;
             var notes = new List<string>();
             var waiting = workspace.Execution?.PendingApprovals.Count ?? 0;
-            if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests are waiting. This is the oldest.");
+            if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " Requests Waiting · Oldest First");
             if (OnlyDeny(approval) is string onlyDeny)
             {
                 notes.Add(onlyDeny);
-                notes.Add("Deny refuses; it may try another way.");
-                notes.Add("Your answer counts once the agent confirms it.");
+                notes.Add("Deny · Agent May Try Another Way");
+                notes.Add("Counts Once Agent Confirms");
             }
             else
             {
                 // Where an approved command runs, as its agent app declares it, never read from the request (ADR 0033).
                 if (tool != null && RunsCommand(tool.ToolName) && ApprovedCommandNote(workspace.Runtime) is string where) notes.Add(where);
-                notes.Add("Approve lets it go ahead. Deny refuses; it may try another way.");
-                notes.Add("Your answer counts once the agent confirms it.");
-                notes.Add("Approve and Deny both show the whole request before you confirm.");
+                notes.Add("Approve · Agent Proceeds · Deny · Agent May Try Another Way");
+                notes.Add("Counts Once Agent Confirms");
             }
             return new NeedAnswer(
-                tool == null ? LineWords.Ours("It wants your approval.") : RunsCommand(tool.ToolName) ? LineWords.Ours("It wants to run a command:")
-                    : LineWords.Ours("It wants to use ") + LineWords.TheirName(tool.ToolName) + LineWords.Ours(":"),
+                tool == null ? LineWords.Ours("Approval Requested") : RunsCommand(tool.ToolName) ? LineWords.Ours("Run Command ·")
+                    : LineWords.Ours("Use ") + LineWords.TheirName(tool.ToolName) + LineWords.Ours(" ·"),
                 tool == null ? null : LabelText.Exact(tool.Summary),
                 notes);
         }
@@ -398,17 +397,17 @@ namespace Halcyonic.Client
         {
             new PresetInstruction("Continue", "Continue."),
             new PresetInstruction("Summarize", "Summarize what you changed and why."),
-            new PresetInstruction("Run checks again", "Run the tests again and report the results."),
+            new PresetInstruction("Run Checks Again", "Run the tests again and report the results."),
         };
 
         /// <summary>The system keyboard's prompt for an instruction: Halcyonic's words alone, since the keyboard draws it with no lean (settled 2026-10-08).</summary>
-        public const string TellItPrompt = "What to tell it";
+        public const string TellItPrompt = "Instruction";
 
         /// <summary>What the workspace says while the system keyboard is open.</summary>
-        public const string TypingPrompt = "Type what to tell it, then press Enter.";
+        public const string TypingPrompt = "Type Instruction";
 
         /// <summary>The caption over the workspace's log of what the work did.</summary>
-        public const string RecentActivity = "Recent activity";
+        public const string RecentActivity = "Recent Activity";
 
         /// <summary>Reads a section's source again: Understand's or Checked's.</summary>
         public const string Refresh = "Refresh";
@@ -423,7 +422,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>Stands, taking no press, where Send answer was while the answer sent may still take effect.</summary>
-        public const string Sent = "Sent…";
+        public const string Sent = "Sending";
 
         /// <summary>
         /// The first-time hint beside a pinch cue, three words that teach look and pinch: rest the gaze
@@ -432,16 +431,16 @@ namespace Halcyonic.Client
         public const string OpenHint = "Look, then pinch";
 
         /// <summary>What the confirmation asks while part of the request it answers has not been shown yet.</summary>
-        public const string ReadRequestFirst = "Read the whole request above before approving it.";
+        public const string ReadRequestFirst = "Read Full Request";
 
         /// <summary>An answer armed to send, cancelled as words heard or typed changed it (settled by the coordinator, 2026-10-04).</summary>
-        public const string AnswerChanged = "Nothing was sent: your answer changed. Read it again.";
+        public const string AnswerChanged = "Not Sent · Answer Changed · Reread";
 
         /// <summary>An answer armed to send, cancelled as the text size changed (settled by the coordinator, 2026-10-04).</summary>
-        public const string TextSizeChanged = "Nothing was sent: the text size changed. Read it again.";
+        public const string TextSizeChanged = "Not Sent · Text Size Changed · Reread";
 
         /// <summary>A confirmation dropped because focus went to another window.</summary>
-        public const string ConfirmAfresh = "You went to another window, so nothing was sent. Press it again to confirm.";
+        public const string ConfirmAfresh = "Not Sent · Window Changed · Press Again";
 
         /// <summary>
         /// Why your computer refused a command, from its code alone, with the way on; null where the code
@@ -452,22 +451,22 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? WhyRefused(RejectionCode? code) => code switch
         {
-            RejectionCode.RequestNotFound => "This request isn't available for this task. Refresh the task to check its current request.",
-            RejectionCode.ProjectNotFound => "This project isn't on " + HostText.Your + " any more. Choose another in Projects.",
-            RejectionCode.WorkstreamNotFound => "This task isn't on " + HostText.Your + " any more. Choose another in Tasks.",
-            RejectionCode.ExecutionNotFound => "This work isn't on " + HostText.Your + " any more. " + StateLanguage.AddItAgain,
-            RejectionCode.RuntimeNotFound => "Its agent app isn't on " + HostText.Your + " now. Set it up there, then try again.",
-            RejectionCode.ApprovalNotFound => "It no longer waits for that decision. See what it's doing now.",
-            RejectionCode.ApprovalNotWhole => "This request was never shown to you whole. Deny it, or stop the task.",
-            RejectionCode.QuestionNotFound => "It's no longer waiting for this answer. See what it's doing now.",
-            RejectionCode.InvalidAnswer => "It couldn't take that answer. Read the question again, then answer it.",
-            RejectionCode.ModelRequired => "Its agent app needs a model. Choose one, then try again.",
-            RejectionCode.CapabilityUnsupported => "Its agent app can't do that. See what it's doing, then try something it offers.",
-            RejectionCode.InvalidState => "It can't take that right now. See what it's doing, then try again.",
-            RejectionCode.InvalidRuntimeOptions => "Its agent app didn't accept those settings. Choose them again.",
+            RejectionCode.RequestNotFound => "Request Missing · Refresh Task",
+            RejectionCode.ProjectNotFound => "Project Missing · Choose Another",
+            RejectionCode.WorkstreamNotFound => "Task Missing · Choose Another",
+            RejectionCode.ExecutionNotFound => "Work Missing · " + StateLanguage.AddItAgain,
+            RejectionCode.RuntimeNotFound => "Agent App Missing · Set Up and Retry",
+            RejectionCode.ApprovalNotFound => "Decision Closed · See Activity",
+            RejectionCode.ApprovalNotWhole => "Never Shown Whole · Deny or Stop Task",
+            RejectionCode.QuestionNotFound => "Question Closed · See Activity",
+            RejectionCode.InvalidAnswer => "Answer Refused · Reread Question",
+            RejectionCode.ModelRequired => "Model Required · Choose Model",
+            RejectionCode.CapabilityUnsupported => "Unsupported · See Activity",
+            RejectionCode.InvalidState => "Not Possible Now · See Activity",
+            RejectionCode.InvalidRuntimeOptions => "Settings Refused · Choose Again",
             RejectionCode.LocationRequired or RejectionCode.LocationMissing or RejectionCode.LocationNotAllowed or RejectionCode.LocationExists
                 => EntryText.FolderProblem(code, null),
-            RejectionCode.CheckpointNotFound => "That earlier version isn't kept for this project anymore. Choose another one.",
+            RejectionCode.CheckpointNotFound => "Version Not Kept · Choose Another",
             // One sentence for a revoked pairing, wherever it is said.
             RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
             _ => null,
@@ -490,20 +489,20 @@ namespace Halcyonic.Client
             "no_running_turn" => WhyRefused(RejectionCode.InvalidState),
             // One code covers a blip and an agent app's ended process or lost thread, where trying again can't succeed.
             "runtime_unreachable" or "runtime_closed" => StateLanguage.LostTouch
-                + (running ? " See what it's doing; if it can't go on, add the task again in Projects."
-                    : step ? " Check it's running there, then try again." : " Check that the agent app is running on " + HostText.Your + ", then try again."),
+                + (running ? " · See Activity · Re-Add Task if Stuck"
+                    : step ? " · Check App and Retry" : " · Check Agent App and Retry"),
             "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
             "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
             "capability_unimplemented" => running ? WhyRefused(RejectionCode.CapabilityUnsupported)
-                : step ? "Its agent app doesn't support it. " + InHowItRuns : "Its agent app can't do that. " + WithAnotherAgentApp,
+                : step ? "Unsupported · " + InHowItRuns : "Unsupported · " + WithAnotherAgentApp,
             // A start that would fail the same way again (the review's L5, settled by the coordinator, 2026-10-07).
             // A step's lines are New project's, within its 110 characters (settled by the coordinator, 2026-10-07).
             "runtime_unavailable" when !running => step
-                ? "The agent app isn't available on " + HostText.Your + ". Check its setup, then try again."
-                : "The agent app isn't available on " + HostText.Your + ". Check its setup there, then add the task again in Projects.",
+                ? "Agent App Unavailable · Check Setup and Retry"
+                : "Agent App Unavailable · Check Setup · Re-Add Task",
             "runtime_version_unsupported" when !running => step
-                ? "This agent app's version isn't supported yet. Choose another in How it runs."
-                : "This agent app's version on " + HostText.Your + " isn't supported yet. " + WithAnotherAgentApp,
+                ? "Version Unsupported · " + InHowItRuns
+                : "Version Unsupported · " + WithAnotherAgentApp,
             // Something other than Halcyonic changed what the task may do, so the agent app's adapter stopped it; a
             // turn's failure, never a step's, which no start command fails with (settled by the coordinator, 2026-10-08).
             "runtime_tampered" when !step => Tampered,
@@ -511,38 +510,38 @@ namespace Halcyonic.Client
         };
 
         /// <summary>A task stopped because something on the computer changed what it was allowed to do (runtime_tampered).</summary>
-        public const string Tampered = "Something on " + HostText.Your + " changed what this task was allowed to do, so it was stopped. See what it ran in Activity.";
+        public const string Tampered = "Task Stopped · Permissions Changed · See Activity";
 
-        private const string WithAnotherAgentApp = "Add the task again in Projects with another agent app.";
-        private const string InHowItRuns = "Choose another agent app in How it runs, then try again.";
+        private const string WithAnotherAgentApp = "Re-Add Task with Another App";
+        private const string InHowItRuns = "Change Agent App";
 
         /// <summary>Said of a step of Start building or Connect that failed with no effect and no cause a person can act on.</summary>
-        public const string NothingChanged = "Nothing changed. Try again.";
+        public const string NothingChanged = "Nothing Changed · Retry";
 
         /// <summary>
         /// Said of a command on a task that failed with no effect and no cause a person can act on. Trying
         /// again at once can fail the same way, as when the agent app isn't answering, so the way on looks
         /// at the task first (the coordinator, 2026-10-04).
         /// </summary>
-        public const string NothingChangedSeeIt = "Nothing changed. See what it's doing, then try again.";
+        public const string NothingChangedSeeIt = "Nothing Changed · See Activity";
 
         /// <summary>
         /// "{lead}: {why}", or <paramref name="lead"/> alone, ended, where there is no why: a refusal or a
         /// failure as a person reads it, never its message.
         /// </summary>
-        public static string Couldnt(string lead, string? why) => why == null ? lead + "." : StateLanguage.Lead(lead, why);
+        public static string Couldnt(string lead, string? why) => why == null ? lead : StateLanguage.Lead(lead, why);
 
         /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>
-        public const string RequestNotRead = "Nothing was sent: read the whole request before approving it.";
+        public const string RequestNotRead = "Not Sent · Read Full Request";
 
         /// <summary>What a press on an instruction's confirmation says before all its words have been shown (settled by the coordinator, 2026-10-04).</summary>
-        public const string InstructionNotRead = "Nothing was sent: read to the last part first.";
+        public const string InstructionNotRead = "Not Sent · Read to Last Part";
 
         /// <summary>
         /// What an instruction's confirmation asks once all its words, shown above in parts where they are
         /// long, have been read: as heard on the computer, or as typed (settled by the coordinator, 2026-10-04).
         /// </summary>
-        public static string SendWordsAbove(bool heard) => heard ? "Review the transcribed instruction above. Send it?" : "Send the instruction above?";
+        public static string SendWordsAbove(bool heard) => heard ? "Send Heard Instruction?" : "Send Instruction?";
 
         /// <summary>What the Doing tab says before anything was sent to the work from here.</summary>
         public const string NothingSentYet = "Nothing sent from here yet.";
@@ -631,8 +630,8 @@ namespace Halcyonic.Client
             WorkspaceAction.Approve => "Approve",
             WorkspaceAction.Deny => "Deny",
             WorkspaceAction.Interrupt => "Stop",
-            WorkspaceAction.Instruct => "Write instruction",
-            WorkspaceAction.Answer => "Send answer",
+            WorkspaceAction.Instruct => "Write Instruction",
+            WorkspaceAction.Answer => "Send Answer",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
@@ -642,11 +641,11 @@ namespace Halcyonic.Client
         /// </summary>
         public static string ConfirmationPrompt(WorkspaceAction action, string? instruction) => action switch
         {
-            WorkspaceAction.Approve => "Approve the request above?",
-            WorkspaceAction.Deny => "Deny the request above?",
-            WorkspaceAction.Interrupt => "Stop what it's doing now? It counts as stopped once the agent confirms.",
-            WorkspaceAction.Instruct => "Send this instruction? “" + OneLine(instruction ?? "") + "”",
-            WorkspaceAction.Answer => "Send these answers?",
+            WorkspaceAction.Approve => "Approve Request?",
+            WorkspaceAction.Deny => "Deny Request?",
+            WorkspaceAction.Interrupt => "Stop Task? · Stopped Once Agent Confirms",
+            WorkspaceAction.Instruct => "Send Instruction? · " + OneLine(instruction ?? ""),
+            WorkspaceAction.Answer => "Send Answers?",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
@@ -665,20 +664,20 @@ namespace Halcyonic.Client
         /// The request read before Yes where an approval names no tool: Halcyonic's own sentence. A tool's request
         /// always holds its name and ": ", so it never reads as this one.
         /// </summary>
-        public const string ApprovalWithoutTool = "It wants your approval.";
+        public const string ApprovalWithoutTool = "Approval Requested";
 
         /// <summary>The caption over a request shown whole, with which part shows when it takes more than one.</summary>
         public static string RequestCaption(int part, int parts) => parts <= 1
-            ? "The whole request"
-            : "The whole request, part " + part.ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture);
+            ? "Full Request"
+            : "Full Request · Part " + part.ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture);
 
         public static string ConfirmLabel(WorkspaceAction action) => action switch
         {
-            WorkspaceAction.Approve => "Yes, approve",
-            WorkspaceAction.Deny => "Yes, deny",
-            WorkspaceAction.Interrupt => "Yes, stop",
-            WorkspaceAction.Instruct => "Yes, send",
-            WorkspaceAction.Answer => "Yes, send answer",
+            WorkspaceAction.Approve => "Confirm Approve",
+            WorkspaceAction.Deny => "Confirm Deny",
+            WorkspaceAction.Interrupt => "Confirm Stop",
+            WorkspaceAction.Instruct => "Confirm Send",
+            WorkspaceAction.Answer => "Confirm Answer",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
@@ -686,14 +685,14 @@ namespace Halcyonic.Client
         public static string? WhyNoActions(WorkspacePresentation workspace)
         {
             if (workspace.Actions.Count > 0) return null;
-            if (workspace.Character.Stale) return "Nothing can be sent until " + HostText.Your + " reconnects.";
-            if (workspace.Execution == null) return "Nothing to send until it starts.";
-            if (workspace.Runtime == null) return "Nothing can be sent: it isn't available on " + HostText.Your + " now.";
+            if (workspace.Character.Stale) return "Not Sendable · Awaiting Reconnect";
+            if (workspace.Execution == null) return "Not Sendable · Not Started";
+            if (workspace.Runtime == null) return "Not Sendable · Agent App Missing";
             return workspace.Character.Activity switch
             {
-                CharacterActivity.Starting => "Nothing to send while it starts.",
-                CharacterActivity.Unknown => "Can't tell yet what it's doing, so nothing can be sent.",
-                _ => "Nothing you can send right now.",
+                CharacterActivity.Starting => "Not Sendable · Starting",
+                CharacterActivity.Unknown => "Not Sendable · Status Unknown",
+                _ => "Not Sendable Now",
             };
         }
 
@@ -741,13 +740,13 @@ namespace Halcyonic.Client
         public static (LineWords Words, bool Reported) Latest(WorkspacePresentation workspace)
         {
             var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
-            var line = LineWords.Written("Latest: ") + (latest == null ? LineWords.Written(workspace.Character.StatusLabel) : latest.Words);
-            if (workspace.Character.Stale) line = LineWords.Written("Last known. ") + line;
+            var line = LineWords.Written("Latest · ") + (latest == null ? LineWords.Written(StateLanguage.LineWordOf(workspace.Character)) : latest.Words);
+            if (workspace.Character.Stale) line = LineWords.Written("Last Known · ") + line;
             return (line, latest?.Reported == true);
         }
 
         /// <summary>An activity entry in one line, agent text quoted as the agent's.</summary>
         public static string Describe(ActivityEntry entry) =>
-            entry.Reported ? "It says: “" + OneLine(entry.Text) + "”" : OneLine(entry.Text);
+            entry.Reported ? "Reported · " + OneLine(entry.Text) : OneLine(entry.Text);
     }
 }

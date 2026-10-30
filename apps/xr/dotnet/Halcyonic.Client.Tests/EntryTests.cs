@@ -489,7 +489,7 @@ public class BuildSequenceTests
         };
         Assert.That(sequence.Advance(With(refused)), Is.Null);
         Assert.That(sequence.Stopped, Is.True);
-        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Couldn't do that: its agent app didn't accept those settings. Choose them again."),
+        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Couldn't do that · Settings Refused · Choose Again"),
             "by the refusal's code, never the control plane's message");
         Assert.That(sequence.CanRetry, Is.True, "a refused command cannot have run");
         var again = sequence.Retry(Samples.Reviewed(sequence));
@@ -911,13 +911,13 @@ public class QuestionLedWorkspaceTests
         Assert.That(WorkspaceText.Questions(waiting), Does.Contain(WorkspaceQuestion.NeedFromYou));
         Assert.That(WorkspaceText.FirstQuestion(waiting), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         var need = WorkspaceText.NeedFromYou(waiting)!;
-        Assert.That(need.Asks, Is.EqualTo("It wants to run a command:"));
+        Assert.That(need.Asks, Is.EqualTo("Run Command ·"));
         Assert.That(need.Request, Is.EqualTo("Run the migration"));
-        Assert.That(need.Notes, Has.Some.Contains("once the agent confirms"), "an answer counts once confirmed, not when sent");
+        Assert.That(need.Notes, Has.Some.Contains("Once Agent Confirms"), "an answer counts once confirmed, not when sent");
 
         work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", "2026-09-26T09:05:00.000Z")));
         Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Request, Is.EqualTo("Run the migration"), "the oldest, which an answer goes to");
-        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Notes, Has.Some.EqualTo("2 requests are waiting. This is the oldest."));
+        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Notes, Has.Some.EqualTo("2 Requests Waiting · Oldest First"));
 
         work.Change(execution => execution.PendingApprovals[0].Subject = new ToolUseSubject { ToolName = "sh\u202Eell", Summary = "Line one\nline two <b>x</b>" });
         var plain = WorkspaceText.NeedFromYou(work.Present())!;
@@ -942,7 +942,7 @@ public class QuestionLedWorkspaceTests
         work.Workstream.Objective = "Migrate\nthe database";
         var waiting = work.Present();
         Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal: Migrate the database"));
-        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "It wants your approval. See it under Needs You." }),
+        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "Approval Requested · See Needs You" }),
             "the request itself shows whole under its tab");
 
         work.Change(execution =>
@@ -950,7 +950,12 @@ public class QuestionLedWorkspaceTests
             execution.PendingApprovals.Clear();
             execution.Status = ExecutionStatus.Running;
         }, WorkstreamStatus.Running);
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing is waiting for you.", "Latest: Running" }));
-        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last known. Latest: Running"));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing Waiting", "Latest · Running" }));
+        Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last Known · Latest · Running"));
+
+        // While the agent checks its own work, the line says the agent reported it (AUDIT's X17A-S1).
+        work.Change(execution => execution.Status = ExecutionStatus.Verifying, WorkstreamStatus.Verifying);
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing Waiting", "Latest · Checking · Reported" }));
+        Assert.That(WorkspaceText.Latest(work.Present()).Words.Text, Is.EqualTo("Latest · Checking · Reported"));
     }
 }

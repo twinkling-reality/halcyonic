@@ -236,15 +236,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!probeRuns.IsAttributedProse && probeRuns.IsNamedIdentity, "identity reuse retained prose treatment");
                 Require(!MenuFrameView.UsesUprightProse(true, new PageLine("synthetic tool output", wordsAreData: true))
                     && !MenuFrameView.UsesUprightProse(true, new PageLine("synthetic decision", claim: true))
-                    && !MenuFrameView.UsesUprightProse(false, new PageLine("synthetic report", chip: "Agent says")),
+                    && !MenuFrameView.UsesUprightProse(false, new PageLine("synthetic report", chip: SectionLine.AgentChip)),
                     "prose eligibility leaked into data, decisions or legacy consumers");
                 UnityEngine.Object.DestroyImmediate(proseProbe.gameObject);
                 // A mixed line, Halcyonic's words leading into the agent's, keeps lean, ground and grounded
                 // colour beside its chip on a real pooled label: the chip is never the only mark (ADR 0026).
                 // The same report whole stays upright prose with its quote mark.
-                var mixed = new PageLine(LineWords.Ours("Failing: ") + LineWords.Theirs("synthetic remaining item"), chip: "Agent says");
-                var whole = new PageLine(LineWords.Theirs("synthetic whole report"), chip: "Agent says");
-                Require(!MenuFrameView.UsesUprightProse(true, mixed) && MenuFrameView.UsesUprightProse(true, whole),
+                var mixed = new PageLine(LineWords.Ours("Failing · ") + LineWords.Theirs("synthetic remaining item"), chip: SectionLine.AgentChip);
+                var whole = new PageLine(LineWords.Theirs("synthetic whole report"), chip: SectionLine.AgentChip);
+                // The subagent's chip and the kit's own "Agent says", until the kit's words move, attribute words whole too.
+                Require(!MenuFrameView.UsesUprightProse(true, mixed) && MenuFrameView.UsesUprightProse(true, whole)
+                    && MenuFrameView.UsesUprightProse(true, new PageLine(LineWords.Theirs("synthetic subagent report"), chip: SectionLine.SubagentChip))
+                    && MenuFrameView.UsesUprightProse(true, new PageLine(LineWords.Theirs("synthetic kit report"), chip: "Agent says")),
                     "upright prose eligibility no longer separates mixed lines from agent prose attributed whole");
                 var attributionProbe = MenuFrameView.Create(root.transform, "Mixed attribution probe");
                 try
@@ -270,7 +273,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var runs = GlazeRuns.Of(shown.Words);
                         if (ReferenceEquals(shown.Model, mixed))
                             Require(!runs.IsAttributedProse && runs.Theirs.Count > 0 && Leans(shown.Words) && runs.Grounded != null && shown.Grounds.Any(),
-                                "a mixed Agent says line lost its lean, ground or grounded colour beside its chip");
+                                "a mixed agent line lost its lean, ground or grounded colour beside its chip");
                         else if (ReferenceEquals(shown.Model, whole))
                             Require(runs.IsAttributedProse && !Leans(shown.Words) && shown.Icon != null && shown.Icon.gameObject.activeInHierarchy,
                                 "agent prose attributed whole lost its upright treatment or its quote mark");

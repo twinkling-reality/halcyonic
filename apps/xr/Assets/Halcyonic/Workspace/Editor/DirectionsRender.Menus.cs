@@ -280,9 +280,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Plate(board, "Command", (left + right) / 2f, y - well / 2f, right - left, well, U(SleekRadius), GlazeTokens.ColorOf(Glaze.Well), GlazeTokens.ColorOf(Glaze.Outline, 0.35f), U(Hairline), 52);
                     Text(board, "Command words", "make migrate", GlazeType.Body, GlazeTokens.Text, left + U(0.9f), y - (well - U(Glaze.BodyDegrees) * 1.15f) / 2f, right - left - U(1.8f), order: 56);
                     y -= well + U(1.1f);
-                    y -= Text(board, "Asks to confirm", "Approve the request above?", GlazeType.Title, GlazeTokens.Text, left, y, right - left, strong: false).Height;
+                    y -= Text(board, "Asks to confirm", "Approve Request?", GlazeType.Title, GlazeTokens.Text, left, y, right - left, strong: false).Height;
                     // Confirming: Yes stands where no button stood, Cancel where Approve was pressed; Deny waits.
-                    return (CloseSlot, new Slot("Yes, approve", GlazeIcon.Approve, ButtonRole.Primary), null, new Slot("Cancel", GlazeIcon.Close));
+                    return (CloseSlot, new Slot("Confirm Approve", GlazeIcon.Approve, ButtonRole.Primary), null, new Slot("Cancel", GlazeIcon.Close));
                 }
                 default:
                 {

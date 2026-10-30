@@ -149,7 +149,7 @@ public class NewProjectScreensTests
         var frame = Questions(idea);
         Assert.That(Answers(frame).Single(line => line.Chosen).Words, Is.EqualTo("One organiser"));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.SendAnswer));
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Send answer"));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Send Answer"));
         Assert.That(exchange.Turns, Has.Count.EqualTo(2), "drawing the page sent nothing");
 
         exchange.Write("Only me", heard: true);

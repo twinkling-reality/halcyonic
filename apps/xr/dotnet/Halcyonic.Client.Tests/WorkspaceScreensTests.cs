@@ -107,7 +107,7 @@ public class WorkspaceScreensTests
         Assert.That(model.Marks.Select(mark => mark.Word), Is.EqualTo(new[] { "Practice" }), "simulated work says so beside its state");
         Assert.That((model.Movable, model.Notice), Is.EqualTo((false, (string?)null)), "it stays beside its character: Close only");
 
-        var screen = new WorkspaceScreen { Notice = "Nothing was sent: you didn't confirm in time. Press it again." };
+        var screen = new WorkspaceScreen { Notice = "Not Sent · Confirm Timed Out · Press Again" };
         Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Notice, Is.EqualTo(screen.Notice));
     }
 
@@ -228,7 +228,7 @@ public class WorkspaceScreensTests
         var activity = Enumerable.Range(1, 6)
             .Select(index => new ActivityEntry(index, "2026-09-26T09:00:0" + index + ".000Z", ActivityKind.Message, "line " + index, reported: index == 5))
             .ToList();
-        var commands = new[] { "Sent. Waiting for it to stop…", "Confirmed: it has your instruction.", "Confirmed: started." }
+        var commands = new[] { "Sent · Awaiting Stop", "Confirmed · Instruction Received", "Confirmed · Started" }
             .Select((text, index) => new CommandFeedback("c" + index, CommandType.ExecutionInterrupt, null, text))
             .ToList();
         var workspace = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime,
@@ -238,9 +238,9 @@ public class WorkspaceScreensTests
         Assert.That(Titles(model).Take(2), Is.EqualTo(WorkspaceText.Answer(workspace)), "one plain answer first");
         Assert.That(model.Rows.Take(2).Select(row => row.Tone), Is.All.EqualTo(GlazeTone.Neutral), "quiet while nothing waits");
         Assert.That(Titles(model).Skip(2).Take(2), Is.EqualTo(commands.Take(2).Select(command => command.Text)), "what this headset sent, newest first");
-        Assert.That(Titles(model)[4], Is.EqualTo("Recent activity (times in UTC)"));
+        Assert.That(Titles(model)[4], Is.EqualTo("Recent Activity (times in UTC)"));
         var log = model.Rows.Skip(5).ToList();
-        Assert.That(log.Select(row => row.Title), Is.EqualTo(new[] { "09:00:03  line 3", "09:00:04  line 4", "09:00:05  It says: “line 5”", "09:00:06  line 6" }),
+        Assert.That(log.Select(row => row.Title), Is.EqualTo(new[] { "09:00:03  line 3", "09:00:04  line 4", "09:00:05  Reported · line 5", "09:00:06  line 6" }),
             "the newest four, oldest first, the newest last");
         Assert.That(log.Select(row => row.Claim), Is.EqualTo(new[] { false, false, true, false }), "the agent's words lean");
         Assert.That(model.Rows.Skip(4).All(row => row.Droppable && row.Line), Is.True, "older lines give way where there is no room; the log never pages");
@@ -256,7 +256,7 @@ public class WorkspaceScreensTests
     {
         var work = new WaitingWork();
         var model = Screen(work.Present(), new WorkspaceSteering(factory), new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou });
-        Assert.That(Titles(model), Is.EqualTo(new[] { "It wants to run a command:", "Run the migration" }.Concat(WorkspaceText.NeedFromYou(work.Present())!.Notes)));
+        Assert.That(Titles(model), Is.EqualTo(new[] { "Run Command ·", "Run the migration" }.Concat(WorkspaceText.NeedFromYou(work.Present())!.Notes)));
         Assert.That(model.Rows[0].Tone, Is.EqualTo(GlazeTone.Attention));
         Assert.That((model.Rows[1].TitleIsData, model.Rows[1].TitleLines, model.Rows[1].Continues), Is.EqualTo((true, 3, true)));
         Assert.That(model.Rows.All(row => row.Line && !row.Pressable), Is.True, "only words; Approve and Deny are on the bar");
@@ -274,20 +274,20 @@ public class WorkspaceScreensTests
         {
             (WorkspaceScreens.Stop, "Stop", PanelActionRole.Destructive),
             (WorkspaceScreens.Deny, "Deny", PanelActionRole.Secondary),
-            (WorkspaceScreens.TellIt, "Write instruction", PanelActionRole.Secondary),
+            (WorkspaceScreens.TellIt, "Write Instruction", PanelActionRole.Secondary),
             (WorkspaceScreens.Approve, "Approve", PanelActionRole.Primary),
         }), "hold to talk is left out where Deny and Tell it fill the bar");
 
         var instructable = Offering(Running().Present(), WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
         var running = Screen(instructable, steering, new WorkspaceScreen { Speak = true }).Actions;
-        Assert.That(running.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Hold to talk", "Write instruction" }));
-        Assert.That((running.Primary!.Label, running.Secondary.Single().Holds), Is.EqualTo(("Write instruction", true)), "Tell it leads while nothing waits");
-        Assert.That(Screen(instructable, steering).Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Write instruction" }),
+        Assert.That(running.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Hold to Talk", "Write Instruction" }));
+        Assert.That((running.Primary!.Label, running.Secondary.Single().Holds), Is.EqualTo(("Write Instruction", true)), "Tell it leads while nothing waits");
+        Assert.That(Screen(instructable, steering).Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Write Instruction" }),
             "hold to talk only where it is offered");
 
         var away = Screen(new WaitingWork().Present(live: false), steering);
         Assert.That(away.Actions.All, Is.Empty);
-        Assert.That(away.BarNote, Is.EqualTo("Nothing can be sent until your computer reconnects."));
+        Assert.That(away.BarNote, Is.EqualTo("Not Sendable · Awaiting Reconnect"));
         foreach (var action in waiting.All) Assert.That(WorkspaceScreens.ActionOf(action.Id), Is.Not.Null, action.Id);
         Assert.That(WorkspaceScreens.ActionOf(WorkspaceScreens.HoldToTalk), Is.Null);
     }
@@ -306,15 +306,15 @@ public class WorkspaceScreensTests
         _ = submissions.SubmitAsync(_ => new System.Threading.Tasks.TaskCompletionSource<CommandAckMessage>().Task, answer, "e1");
         var workspace = WorkspacePresenter.Present(work.Workstream, work.State, new ActivityLog(), true, submissions);
         var bar = Screen(workspace, new WorkspaceSteering(factory), new WorkspaceScreen { Speak = true }).Actions;
-        Assert.That(bar.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Sent…" }));
+        Assert.That(bar.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Sending" }));
         Assert.That((bar.Primary!.Id, bar.Primary.Available, bar.Primary.Reason), Is.EqualTo((WorkspaceScreens.Sent, false, (string?)null)), "it takes no press");
         Assert.That(WorkspaceScreens.ActionOf(WorkspaceScreens.Sent), Is.Null);
 
         var open = Screen(work.Present(), new WorkspaceSteering(factory)).Actions;
-        Assert.That(open.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Send answer" }));
+        Assert.That(open.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Send Answer" }));
         var instructable = Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
         Assert.That(Screen(instructable, new WorkspaceSteering(factory), new WorkspaceScreen { Speak = true }).Actions.All.Select(action => action.Label),
-            Is.EqualTo(new[] { "Stop", "Hold to talk", "Write instruction", "Send answer" }), "Tell it gives way to the answer, hold to talk beside it");
+            Is.EqualTo(new[] { "Stop", "Hold to Talk", "Write Instruction", "Send Answer" }), "Tell it gives way to the answer, hold to talk beside it");
     }
 
     [Test]
@@ -327,7 +327,7 @@ public class WorkspaceScreensTests
         var model = Screen(work.Present(), steering, screen);
         Assert.That(model.Tabs, Is.Empty, "the request shows in the tabs' place");
         Assert.That((Titles(model).Single(), model.Rows[0].TitleLines), Is.EqualTo(("bash: Run the ", 5)));
-        Assert.That((model.Parts, model.PartsCaption), Is.EqualTo(((0, 2), "The whole request, part 1 of 2")));
+        Assert.That((model.Parts, model.PartsCaption), Is.EqualTo(((0, 2), "Full Request · Part 1 of 2")));
         Assert.That(model.Confirm!.Question, Is.EqualTo(WorkspaceText.ReadRequestFirst));
         Assert.That((model.Confirm.Yes.Label, model.Confirm.Yes.Available), Is.EqualTo(("Read to part 2 first", false)));
         Assert.That((model.Confirm.Cancel.Id, model.Confirm.Cancel.Label), Is.EqualTo((WorkspaceScreens.Cancel, "Cancel")));
@@ -338,7 +338,7 @@ public class WorkspaceScreensTests
         model = Screen(work.Present(), steering, screen);
         Assert.That(Titles(model).Single(), Is.EqualTo("migration"));
         Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label, model.Confirm.Yes.Available, model.Confirm.Yes.Role),
-            Is.EqualTo(("Approve the request above?", "Yes, approve", true, PanelActionRole.Primary)));
+            Is.EqualTo(("Approve Request?", "Confirm Approve", true, PanelActionRole.Primary)));
 
         steering.Cancel();
         Assert.That(steering.Press(WorkspaceAction.Deny, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
@@ -353,8 +353,8 @@ public class WorkspaceScreensTests
         Assert.That(steering.Press(WorkspaceAction.Interrupt, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         var model = Screen(work.Present(), steering);
         Assert.That(model.Tabs, Is.Not.Empty, "nothing pages, so the tabs stay");
-        Assert.That((model.Confirm!.Yes.Label, model.Confirm.Yes.Role), Is.EqualTo(("Yes, stop", PanelActionRole.Destructive)));
-        Assert.That(model.Confirm.Question, Does.StartWith("Stop what it's doing now?"));
+        Assert.That((model.Confirm!.Yes.Label, model.Confirm.Yes.Role), Is.EqualTo(("Confirm Stop", PanelActionRole.Destructive)));
+        Assert.That(model.Confirm.Question, Does.StartWith("Stop Task?"));
         Assert.That(model.Parts, Is.Null);
     }
 
@@ -369,7 +369,7 @@ public class WorkspaceScreensTests
 
         steering.StopTyping();
         var presets = Screen(work, steering, new WorkspaceScreen { Presets = WorkspaceText.PresetInstructions });
-        Assert.That(Titles(presets), Is.EqualTo(new[] { "Continue", "Summarize", "Run checks again" }));
+        Assert.That(Titles(presets), Is.EqualTo(new[] { "Continue", "Summarize", "Run Checks Again" }));
         Assert.That(presets.Rows.All(row => row.Pressable && !row.TitleIsData && row.Action == WorkspaceScreens.Preset), Is.True);
         Assert.That((presets.Columns, presets.Heading, presets.BarNote), Is.EqualTo((2, (string?)null, (string?)null)), "shown without a line");
         Assert.That(presets.Actions.All.Single().Id, Is.EqualTo(WorkspaceScreens.Cancel));
@@ -395,23 +395,23 @@ public class WorkspaceScreensTests
         }));
         Assert.That((model.Columns, model.Rows[0].TitleLines, model.Rows[0].TitleIsData), Is.EqualTo((2, WorkspaceScreens.QuestionLines, true)));
         Assert.That(model.Rows.Skip(1).All(row => row.Action == WorkspaceScreens.Choose && row.TitleLines == 2), Is.True);
-        Assert.That((model.PartsHeading, model.PartsNote), Is.EqualTo(("Question 1 of 2 · Colour scheme", "Choose one, or type your own.")));
+        Assert.That((model.PartsHeading, model.PartsNote), Is.EqualTo(("Question 1 of 2 · Colour scheme", "Choose One · Or Write")));
         Assert.That((model.Parts, model.PartsCaption), Is.EqualTo(((0, 4), "1 of 4")));
 
         draft.Choose(0, "Dark");
         screen.Place.Turn(1);
         model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
         var typed = model.Rows.Last();
-        Assert.That((typed.Title, typed.Action, typed.Side!.Label, typed.Side.Holds), Is.EqualTo(("Type an answer", WorkspaceScreens.TypeAnswer, "Hold to talk", true)));
+        Assert.That((typed.Title, typed.Action, typed.Side!.Label, typed.Side.Holds), Is.EqualTo(("Write Answer", WorkspaceScreens.TypeAnswer, "Hold to Talk", true)));
 
         // One Hold to talk a screen: beside the answers it speaks the answer, so the bar offers none of its own.
         var instructable = Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
         var asking = Screen(instructable, new WorkspaceSteering(factory), screen);
-        Assert.That(asking.Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Write instruction", "Send answer" }));
+        Assert.That(asking.Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Write Instruction", "Send Answer" }));
         Assert.That(asking.Rows.Count(row => row.Side?.Holds == true), Is.EqualTo(1));
         screen.Question = WorkspaceQuestion.Doing;
         Assert.That(Screen(instructable, new WorkspaceSteering(factory), screen).Actions.All.Select(action => action.Label),
-            Is.EqualTo(new[] { "Stop", "Hold to talk", "Write instruction", "Send answer" }), "away from the question, hold to talk speaks an instruction");
+            Is.EqualTo(new[] { "Stop", "Hold to Talk", "Write Instruction", "Send Answer" }), "away from the question, hold to talk speaks an instruction");
         screen.Question = WorkspaceQuestion.NeedFromYou;
         screen.Place.Turn(-1);
         model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
@@ -440,7 +440,7 @@ public class WorkspaceScreensTests
         cut.Answerable = false;
         cut.Prompts[0].Text = "Which colour scheme [truncated]";
         var cutWork = Offering(new AskingWork(cut).Present(), WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
-        Assert.That(Screen(cutWork, new WorkspaceSteering(factory)).Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Write instruction" }),
+        Assert.That(Screen(cutWork, new WorkspaceSteering(factory)).Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Write Instruction" }),
             "a question cut to fit asks for nothing secret");
     }
 
@@ -460,7 +460,7 @@ public class WorkspaceScreensTests
         Assert.That(steering.SendAnswer(draft, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         var model = Screen(work.Present(), steering, screen);
         Assert.That(Titles(model), Is.EqualTo(new[] { "Question 1 of 2 · Colour scheme: Dark", "Question 2 of 2 · Pages: Sign in, Settings" }));
-        Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label), Is.EqualTo(("Send these answers?", "Yes, send answer")));
+        Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label), Is.EqualTo(("Send Answers?", "Confirm Answer")));
     }
 
     [Test]
@@ -530,13 +530,13 @@ public class WorkspaceScreensTests
         var waiting = Screen(Offering(new WaitingWork().Present(), all), steering, new WorkspaceScreen { Speak = true }).Actions;
         Assert.That(waiting.All.Select(action => (action.Label, action.Icon)), Is.EqualTo(new (string, GlazeIcon?)[]
         {
-            ("Stop", GlazeIcon.Stop), ("Deny", GlazeIcon.Deny), ("Write instruction", GlazeIcon.TellIt), ("Approve", GlazeIcon.Approve),
+            ("Stop", GlazeIcon.Stop), ("Deny", GlazeIcon.Deny), ("Write Instruction", GlazeIcon.TellIt), ("Approve", GlazeIcon.Approve),
         }));
         var instructable = Offering(Running().Present(), WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
         var running = Screen(instructable, steering, new WorkspaceScreen { Speak = true }).Actions;
         Assert.That(running.All.Select(action => (action.Label, action.Icon)), Is.EqualTo(new (string, GlazeIcon?)[]
         {
-            ("Stop", GlazeIcon.Stop), ("Hold to talk", GlazeIcon.HoldToTalk), ("Write instruction", GlazeIcon.TellIt),
+            ("Stop", GlazeIcon.Stop), ("Hold to Talk", GlazeIcon.HoldToTalk), ("Write Instruction", GlazeIcon.TellIt),
         }));
 
         // Each confirmation's Yes shows its own action's icon, or the lock while the request is unread, and Cancel the close icon.
@@ -563,7 +563,7 @@ public class WorkspaceScreensTests
         Assert.That(hearing.Spoken("Add a test", instructable).Step, Is.EqualTo(SteeringStep.Confirm));
         hearing.RequestShown(1, 1);
         models.Add(Screen(instructable, hearing, new WorkspaceScreen { Speak = true }));
-        Assert.That((models[^1].Confirm!.Yes.Label, models[^1].Confirm!.Yes.Icon), Is.EqualTo(("Yes, send", (GlazeIcon?)GlazeIcon.TellIt)),
+        Assert.That((models[^1].Confirm!.Yes.Label, models[^1].Confirm!.Yes.Icon), Is.EqualTo(("Confirm Send", (GlazeIcon?)GlazeIcon.TellIt)),
             "an instruction the Mac heard is confirmed with Tell it's icon, not the microphone");
         foreach (var model in models) Assert.That(model.Confirm!.Cancel.Icon, Is.EqualTo(GlazeIcon.Close));
 

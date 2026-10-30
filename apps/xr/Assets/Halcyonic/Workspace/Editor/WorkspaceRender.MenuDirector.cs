@@ -344,7 +344,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The characters hop and rise, as they do while they work or wait: the plane, placed against them
                 // at rest, stays where it is, its prompts take presses, and a press under way goes on.
                 if (director.Plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View is MenuFrameView bobbing
-                    && bobbing.Targets.FirstOrDefault(button => button.Available && button.Label.text == "Hold to talk") is GlazeButton pressing)
+                    && bobbing.Targets.FirstOrDefault(button => button.Available && button.Label.text == VoiceText.HoldToTalk) is GlazeButton pressing)
                 {
                     var still = director.Plane.Direction;
                     var waited = bobbing.Unsettles;
@@ -682,7 +682,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     director.DrawNow();
                     var frame = plane.Showing(MenuColumn.File);
-                    var prompt = frame?.Footer.All.FirstOrDefault(each => (each.Prompt.Words == words || each.Prompt.Words.StartsWith(words + ", ", StringComparison.Ordinal))).Prompt;
+                    var prompt = frame?.Footer.All.FirstOrDefault(each => (each.Prompt.Words == words || each.Prompt.Words.StartsWith(words + ", ", StringComparison.Ordinal) || each.Prompt.Words.StartsWith(words + " · ", StringComparison.Ordinal))).Prompt;
                     if (prompt != null) return prompt.Available && Press(prompt.Id);
                     var line = frame?.Lines.FirstOrDefault(each => each.Action != null && (each.Words == words || each.Words.StartsWith(words + " · ", StringComparison.Ordinal)));
                     return line?.Action != null && line.Available && Press(line.Action, line.Key);
@@ -708,7 +708,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                             return true;
                         }
-                        if (!PressWords("More choices") && !PressWords("First choices")) return false;
+                        if (!PressWords("More Choices") && !PressWords("First Choices")) return false;
                     }
                     return false;
                 }
@@ -862,16 +862,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (file.Screen.Question.Writing) PressWords("Cancel");
                 if (!ChooseWords("Dark")) failures.Add(name + ": Dark was not reachable by its visible answer label.");
                 Capture("question1-dark-selected");
-                if (!PressWords("Next question")) failures.Add(name + ": visible Next question took no press.");
+                if (!PressWords("Next Question")) failures.Add(name + ": visible Next question took no press.");
                 ReadQuestion();
                 if (!ChooseWords("Orders")) failures.Add(name + ": Orders was not reachable by its visible answer label.");
                 Capture("question2-orders-selected");
                 if (!PressWords(FileScreens.ReviewAnswers)) failures.Add(name + ": visible Review answers took no press.");
-                for (var part = 0; part < 30 && file.Screen.Question.Page + 1 < file.Screen.Question.Pages; part++) PressWords("Next part");
+                for (var part = 0; part < 30 && file.Screen.Question.Page + 1 < file.Screen.Question.Pages; part++) PressWords("Next Part");
                 if (!file.Screen.Question.Reviewing) failures.Add(name + ": Review answers did not bring the mandatory review.");
                 Capture("review-dark-orders");
                 if (FileScreens.WhySendWaits(file.Screen) is string waits) failures.Add(name + ": review drawn, Send answer still waits: \"" + waits + "\"");
-                if (!PressWords("Send answer")) failures.Add(name + ": visible Send answer took no press.");
+                if (!PressWords("Send Answer")) failures.Add(name + ": visible Send answer took no press.");
                 if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add(name + ": review sent " + sent.OfType<ExecutionAnswerQuestionCommand>().Count() + " answers, not one.");
 
                 // Independent production question columns exercise saved custom answers without a duplicate preview row.
@@ -943,21 +943,21 @@ namespace Halcyonic.XR.Workspace.Editor
 
                     for (var part = 0; part < 60 && file!.Screen.Question.InputPart + 1 < file.Screen.Question.InputParts; part++)
                     {
-                        if (!PressWords("Next part")) { failures.Add(name + ": custom read-through Next part took no press."); break; }
+                        if (!PressWords("Next Part")) { failures.Add(name + ": custom read-through Next part took no press."); break; }
                         Capture("editor-" + length + "-part" + (file.Screen.Question.InputPart + 1));
                     }
-                    if (!PressWords("Use this answer")) failures.Add(name + ": read custom answer could not be saved by Use this answer.");
+                    if (!PressWords("Use Answer")) failures.Add(name + ": read custom answer could not be saved by Use this answer.");
                     Capture("custom-" + length + "-selected");
                     if (file!.Frame!.Lines.Count(line => line.Action == FileScreens.TypeAnswer && line.Chosen && line.Fact == "Selected") != 1)
                         failures.Add(name + ": saved custom answer has no single selected Edit answer control.");
-                    if (!PressWords("Next question")) failures.Add(name + ": saved custom answer could not advance to the next question.");
+                    if (!PressWords("Next Question")) failures.Add(name + ": saved custom answer could not advance to the next question.");
                     ReadQuestion();
                     ChooseWords("Orders");
                     PressWords(FileScreens.ReviewAnswers);
                     Capture("review-custom-" + length + "-part1");
                     for (var part = 0; part < 60 && file.Screen.Question.Page + 1 < file.Screen.Question.Pages; part++)
                     {
-                        if (!PressWords("Next part")) { failures.Add(name + ": custom review Next part took no press."); break; }
+                        if (!PressWords("Next Part")) { failures.Add(name + ": custom review Next part took no press."); break; }
                         Capture("review-custom-" + length + "-part" + (file.Screen.Question.Page + 1));
                     }
                     if (FileScreens.WhySendWaits(file.Screen) != null || file.Frame!.Footer[PromptSlot.FarRight]?.Available != true)
@@ -970,8 +970,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 ReadQuestion();
                 ChooseWords("Dark");
                 Capture("long-question-context");
-                var context = file!.Frame!.Lines.FirstOrDefault(line => line.Fact == "Read question");
-                if (context == null || !Press(context.Action!, context.Key)) failures.Add(name + ": clipped question had no usable Read question control.");
+                var context = file!.Frame!.Lines.FirstOrDefault(line => line.Fact == "Read Question");
+                if (context == null || !Press(context.Action!, context.Key)) failures.Add(name + ": clipped question had no usable Read Question control.");
                 else
                 {
                     Capture("long-question-reread");
@@ -990,16 +990,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 ReadQuestion();
                 Capture("alike-stop-escape");
                 var why = file!.Frame!.Lines.FirstOrDefault(line => line.Action == FileScreens.ReadWhy);
-                if (why == null || why.Choice || why.AnswerMark != AnswerMark.None || why.Fact != "Unavailable · Read why")
+                if (why == null || why.Choice || why.AnswerMark != AnswerMark.None || why.Fact != "Unavailable · Read Why")
                     failures.Add(name + ": unavailable choice has no explicit Read why navigation.");
                 else if (!Press(why.Action!, why.Key)) failures.Add(name + ": unavailable choice Read why took no press.");
                 else
                 {
                     Capture("unavailable-choice-explanation-part1");
                     for (var part = 0; part < 60 && file.Screen.Question.AmbiguityPart + 1 < file.Screen.Question.AmbiguityParts; part++)
-                        PressWords("Next part");
+                        PressWords("Next Part");
                     Capture("unavailable-choice-explanation-stop");
-                    if (file.Frame!.Footer[PromptSlot.FarRight]?.Words != "Stop task" || file.Frame.Footer[PromptSlot.FarRight]?.Available != true)
+                    if (file.Frame!.Footer[PromptSlot.FarRight]?.Words != "Stop Task" || file.Frame.Footer[PromptSlot.FarRight]?.Available != true)
                         failures.Add(name + ": explanation has no available explicit Stop task after its words were read.");
                     if (!PressWords("Back")) failures.Add(name + ": explanation Back did not return to choices.");
                     Capture("unavailable-choice-return");
@@ -1082,7 +1082,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (director.PressForRender(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null)) failures.Add(name + ": a press counted mid-drag.");
             var begun = 0;
             director.VoiceForRender(new MenuVoice(() => false, () => begun++, () => { }, () => { }));
-            var talk = new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
+            var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
             director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
             if (begun > 0) failures.Add(name + ": a held prompt started the voice mid-drag.");
             failures.AddRange(DragAllocatesNothing(name, director, step => Turned(held, 4f + (step % 2) * 0.5f, 0f)));
@@ -1220,7 +1220,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var dragged = plane.Moved;
                     if (dragged == default) Debug.Log("Halcyonic: workspace render: " + name + " takes no drag " + way + " at the standard text.");
                     var oldFrame = plane.Showing(MenuColumn.File);
-                    var oldHeld = subject.Targets.FirstOrDefault(button => button.Holds && button.Label.text == "Hold to talk");
+                    var oldHeld = subject.Targets.FirstOrDefault(button => button.Holds && button.Label.text == VoiceText.HoldToTalk);
                     oldHeld?.HoldPressForRender();
                     textAt(Comfort.LargerTextScale);
                     director.Navigator.Renew();
@@ -1277,7 +1277,7 @@ namespace Halcyonic.XR.Workspace.Editor
             director.DrawNow();
 
             // Hold to talk pressed under the moving plane: let go, its hold ends with the drag, so no voice starts after.
-            var talking = subject.Targets.FirstOrDefault(button => button.Holds && button.Label.text == "Hold to talk");
+            var talking = subject.Targets.FirstOrDefault(button => button.Holds && button.Label.text == VoiceText.HoldToTalk);
             if (talking == null) failures.Add(name + ": the file offers no held prompt to press under a drag.");
             else
             {

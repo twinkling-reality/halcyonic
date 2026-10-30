@@ -109,7 +109,7 @@ public class FileQuestionTests
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
-            "Question 1 of 2 · Choose one",
+            "Question 1 of 2 · Choose One",
             "Which colour scheme should the dashboard use?",
             "Light · Dark text on a light background",
             "Dark · Light text on a dark background",
@@ -123,7 +123,7 @@ public class FileQuestionTests
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, null, null, FileScreens.NextQuestion }));
         Assert.That(FileScreens.SpeakAnswer, Is.Not.EqualTo(FileScreens.HoldToTalk), "a spoken answer is never raised as an instruction");
         var next = frame.Footer[PromptSlot.FarRight]!;
-        Assert.That((next.Words, next.Available, next.Reason), Is.EqualTo(("Next question", false, FileScreens.ReadTheQuestion)));
+        Assert.That((next.Words, next.Available, next.Reason), Is.EqualTo(("Next Question", false, FileScreens.ReadTheQuestion)));
         Assert.That(frame.Reason, Is.EqualTo(FileScreens.ReadTheQuestion), "the immediate missing step is shown adjacent to its quiet control");
         Draw(screen);
         screen.Question.Choose(1);
@@ -152,9 +152,9 @@ public class FileQuestionTests
         Assert.That(answers.Lines.Where(line => line.Action == FileScreens.GoToQuestion).Select(line => (line.Words, line.Action, line.Key, line.Rows)), Is.EqualTo(new[]
         {
             ("Colour scheme: Dark", FileScreens.GoToQuestion, "0", 1),
-            ("Pages: Not answered", FileScreens.GoToQuestion, "1", 1),
+            ("Pages: Not Answered", FileScreens.GoToQuestion, "1", 1),
         }), "each answer whole, by its prompt's name");
-        Assert.That(answers.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Answer every question first: 1 of 2 answered."));
+        Assert.That(answers.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Answer All Questions · 1 of 2 Answered"));
 
         screen.Question.GoTo(1);
         Draw(screen);
@@ -190,14 +190,14 @@ public class FileQuestionTests
         screen.Question.MeasureReview(new[] { 3, 3 });
         var first = Screen(workspace, screen);
         Assert.That(first.Lines.Select(line => line.Words), Is.EqualTo(new[] { FileScreens.YourAnswers, "Colour scheme: Dark" }));
-        Assert.That(first.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next part, 2 of 2"));
+        Assert.That(first.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Part · 2 of 2"));
         Assert.That(first.Lines.Single(line => line.Action == FileScreens.GoToQuestion).Rows, Is.EqualTo(3), "an answer shows whole, in the rows it takes");
         Draw(screen);
         Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(FileScreens.MoreAnswers), "review navigation is the only forward action before its final part");
         screen.Question.MoreAnswers(Later(screen));
         var last = Screen(workspace, screen);
         Assert.That(last.Lines.Select(line => line.Words), Is.EqualTo(new[] { FileScreens.YourAnswers, "Pages: Sign in" }));
-        Assert.That(last.Footer[PromptSlot.Rare]!.Words, Is.EqualTo("Previous part"));
+        Assert.That(last.Footer[PromptSlot.Rare]!.Words, Is.EqualTo("Previous Part"));
         Assert.That(draft.IsChosen(1, "Sign in"), Is.True, "turning the person's answers clears nothing");
         Draw(screen);
         Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Available, Is.True);
@@ -227,7 +227,7 @@ public class FileQuestionTests
             screen.Question.MoreAnswers(Later(screen));
         }
         Assert.That(seen, Is.EqualTo(Enumerable.Range(0, labels.Length)), "every answer the agent offered, in its order");
-        Assert.That(FileScreens.MoreAnswersWords(4, 5), Is.EqualTo("First choices"));
+        Assert.That(FileScreens.MoreAnswersWords(4, 5), Is.EqualTo("First Choices"));
 
         Draw(screen);
         screen.Question.Choose(0);
@@ -418,7 +418,7 @@ public class FileQuestionTests
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0));
         var first = Screen(workspace, screen);
         Assert.That((first.Lines.Single(line => line.Runs.AllTheirs).Rows, first.Lines.Single(line => line.Runs.AllTheirs).FromRow), Is.EqualTo((4, (int?)0)));
-        Assert.That((first.Footer[PromptSlot.FarRight]!.Words, first.Footer[PromptSlot.FarRight]!.Id), Is.EqualTo(("Next part, 2 of 3", FileScreens.NextPart)));
+        Assert.That((first.Footer[PromptSlot.FarRight]!.Words, first.Footer[PromptSlot.FarRight]!.Id), Is.EqualTo(("Next Part · 2 of 3", FileScreens.NextPart)));
         Assert.That(first.Side, Is.Null, "the question has pages of its own, not a side panel");
         Assert.That(first.Lines.Any(line => line.Choice), Is.False, "nothing to answer before it is read");
 
@@ -431,7 +431,7 @@ public class FileQuestionTests
         Assert.That(Screen(workspace, screen).Lines.Single(line => line.Runs.AllTheirs).FromRow, Is.EqualTo(4));
         screen.Question.NextPart(Later(screen));
         var last = Screen(workspace, screen);
-        Assert.That((last.Lines.Single(line => line.Runs.AllTheirs).FromRow, last.Footer[PromptSlot.FarRight]!.Words), Is.EqualTo(((int?)8, "See answers")));
+        Assert.That((last.Lines.Single(line => line.Runs.AllTheirs).FromRow, last.Footer[PromptSlot.FarRight]!.Words), Is.EqualTo(((int?)8, "See Answers")));
         Assert.That(draft.WasShownWhole(0), Is.False, "the last part, but not yet drawn");
         screen.Question.NextPart(Later(screen));
         Assert.That(draft.WasShownWhole(0), Is.True, "every part drawn");
@@ -452,7 +452,7 @@ public class FileQuestionTests
         screen.ReadQuestion(draft, new[] { new PromptMeasure(9, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "laid out long before it was read, its first part shows");
         var frame = Screen(workspace, screen);
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next part, 2 of 3"), "with a visible way on through the complete question");
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Part · 2 of 3"), "with a visible way on through the complete question");
         for (var part = 0; part < 3; part++) screen.Question.NextPart(Later(screen));
         Assert.That(draft.WasShownWhole(0), Is.True);
         screen.ReadQuestion(draft, new[] { new PromptMeasure(12, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));
@@ -504,9 +504,9 @@ public class FileQuestionTests
         Draw(screen);
         draft.Choose(0, "Postgres");
         Assert.That(FileScreens.WhyNextWaits(screen.Question), Is.EqualTo(FileScreens.ReadTheQuestion));
-        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo("Review your answers first."));
+        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo("Review Answers First"));
         Assert.That(new WorkspaceSteering(factory).SendAnswer(draft, workspace).Step, Is.EqualTo(SteeringStep.Explain), "the send rule itself refuses too");
-        Assert.That(new WorkspaceSteering(factory).SendAnswer(draft, workspace, FileScreens.WhySendWaits(screen)).Message, Is.EqualTo("Review your answers first."));
+        Assert.That(new WorkspaceSteering(factory).SendAnswer(draft, workspace, FileScreens.WhySendWaits(screen)).Message, Is.EqualTo("Review Answers First"));
     }
 
     [Test]
@@ -822,7 +822,7 @@ public class FileQuestionTests
         screen.Question.NextQuestion(Later(screen));
         Assert.That(steering.SendAnswer(draft, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
         var frame = Screen(workspace, screen, steering);
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Question 1 of 2 · Colour scheme: Dark", "Question 2 of 2 · Pages: Orders", "Send these answers?" }));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Question 1 of 2 · Colour scheme: Dark", "Question 2 of 2 · Pages: Orders", "Send Answers?" }));
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, null, FileScreens.Cancel }));
         Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.Send));
         Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.None), "Yes sends once");
@@ -845,7 +845,7 @@ public class FileQuestionTests
         var workspace = FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer);
         var frame = Screen(workspace, screen, steering);
         Assert.That(frame.Footer.Confirming, Is.False, "no Yes over answers to a question no longer asked");
-        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Nothing was sent: the question changed. Read it again."));
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Not Sent · Question Changed · Reread"));
         Assert.That(steering.Armed, Is.Null);
     }
 }

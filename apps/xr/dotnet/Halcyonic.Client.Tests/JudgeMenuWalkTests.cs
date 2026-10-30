@@ -374,7 +374,7 @@ public class JudgeMenuWalkTests
         Assert.That(frame!.Sections.Single(section => section.Waits).Words, Is.EqualTo("Waiting"));
         host.Press(MenuColumn.File, FileScreens.Deny);
         (_, frame) = host.Draw();
-        Assert.That(frame!.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, deny"));
+        Assert.That(frame!.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Deny"));
         host.Press(MenuColumn.File, FileScreens.Cancel);
         Assert.That(host.Sent, Has.Count.EqualTo(1), "Cancel sent nothing");
 
@@ -392,7 +392,7 @@ public class JudgeMenuWalkTests
             parts++;
             Assert.That(parts, Is.LessThan(20));
         }
-        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, approve"));
+        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Approve"));
         // Laid out again once read, as the question under it changes, a request read whole stays read.
         Assert.That(parts, Is.GreaterThanOrEqualTo(file.Screen.RequestParts), "Yes came with the last part, not before");
         Assert.That(file.Screen.RequestDrawnWhole, Is.True);
@@ -629,6 +629,6 @@ public class JudgeMenuWalkTests
         foreach (var drawn in host.Drawn) words.UnionWith(JudgeWordsTests.WordsOf(drawn));
         foreach (var drawnSide in host.DrawnSides) words.UnionWith(JudgeWordsTests.WordsOf(drawnSide));
         Assert.That(JudgeWordsTests.Branded(words), Is.Empty);
-        Assert.That(words, Is.SupersetOf(new[] { "Yes, approve", "Yes, deny", "Part of the recording", UsageLeftPresenter.Recorded, Comfort.Heading, SettingsText.YourSpace }));
+        Assert.That(words, Is.SupersetOf(new[] { "Confirm Approve", "Confirm Deny", "Part of the recording", UsageLeftPresenter.Recorded, Comfort.Heading, SettingsText.YourSpace }));
     }
 }
