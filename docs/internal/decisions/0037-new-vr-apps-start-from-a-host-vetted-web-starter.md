@@ -114,6 +114,19 @@ built copy's bytes; otherwise the server is stopped and nothing is recorded. Por
 a project has one start at a time and none while its check runs, and closing the host stops every server it spawned.
 Clients open `http://127.0.0.1:port`, never `localhost`.
 
+## Amendment, 2026-10-30: the check presses the game and offers VR to a stand-in (M1.8b)
+
+The check records three more findings, each optional so checks recorded before them still read, as not checked:
+`laptop` (a real mouse press on a target the starter's layer reports, Space and E, the layer's files compared with
+the template's, and whether the screen changed after the press, observed in the host against a control pair taken
+with no input), `vr` (whether the page offered `immersive-vr` to a stand-in WebXR in a second load) and `notes`
+(a scan of the project's `src/` for listeners and controller reads around the layer, never a pass or a fail). `ready`
+is `passed` and both steps ready, and is carried on `project_checked`. What the layer reports is `reported`; only the
+screen change is the computer's own, so only it may be worded as checked by your computer. Offered to a stand-in on
+the Mac is never shown on a headset. Thresholds and cases: [validation/iwsdk-starter.md](../validation/iwsdk-starter.md).
+So that the C# bindings can carry them, the generator now declares an optional member of any type as nullable (it
+allowed only strings and booleans before); the rule is in [EVENTS.md](../architecture/EVENTS.md).
+
 Nothing the check concludes is computed in the page, which is the agent's code (AUDIT M18B-M1, M18B-M2): the
 edges are counted in the host from the PNGs Chrome returns (`preview/png.ts` decodes 8-bit RGB and RGBA; any other
 picture is unknown), canvases are counted through the DevTools DOM domain, at most 100 exception texts are kept

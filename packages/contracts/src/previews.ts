@@ -48,10 +48,79 @@ export const CheckPage = Type.Object(
 export type CheckPage = Static<typeof CheckPage>;
 
 /**
+ * The laptop step (M1.8b): the check's own mouse presses and keys, sent to the page. `mouse` and `key`
+ * are what the page's input layer reports (`reported`); `screen_changed` is observed in the host from
+ * the pictures, against a pair taken with no input: null when the scene moves on its own. `ready`
+ * needs the starter's own layer, the mouse reported reached, and the screen observed changed.
+ */
+export const CheckLaptop = Type.Object(
+  {
+    layer: Type.Enum(['starter', 'changed', 'missing']),
+    targets: Type.Integer({ minimum: 0, maximum: 32 }),
+    mouse: Type.Enum(['reached', 'not_reached', 'no_target', 'unknown']),
+    key: Type.Enum(['reached', 'not_reached', 'unknown']),
+    screen_changed: Nullable(Type.Boolean()),
+    ready: Type.Boolean(),
+  },
+  strict,
+);
+export type CheckLaptop = Static<typeof CheckLaptop>;
+
+/**
+ * The VR-entry step (M1.8b): whether the page called `offerSession` or `requestSession` for
+ * `immersive-vr` on a stand-in WebXR on the computer. Never that it enters VR on a headset.
+ */
+export const CheckVr = Type.Object(
+  {
+    offered: Type.Enum(['offered', 'not_offered', 'unknown']),
+    how: Nullable(Type.Enum(['offer_session', 'request_session'])),
+    exceptions: Type.Integer({ minimum: 0 }),
+    ready: Type.Boolean(),
+  },
+  strict,
+);
+export type CheckVr = Static<typeof CheckVr>;
+
+/** What the scan of the project's source noticed about input read around the starter's layer. */
+export const CheckNoteKind = Type.Enum([
+  'window_listener',
+  'document_listener',
+  'canvas_listener',
+  'xr_input_read',
+  'gamepad_read',
+]);
+export type CheckNoteKind = Static<typeof CheckNoteKind>;
+
+/**
+ * The scan's notes, never a pass or a fail by themselves. `file` is the path in the project only
+ * when it is made of plain characters; nothing of a file's contents is kept.
+ */
+export const CheckNotes = Type.Object(
+  {
+    scanned: Type.Enum(['full', 'partial']),
+    items: Type.Array(
+      Type.Object(
+        {
+          kind: CheckNoteKind,
+          file: Nullable(Type.String({ pattern: '^[A-Za-z0-9._/-]{1,120}$' })),
+          line: Type.Integer({ minimum: 1 }),
+        },
+        strict,
+      ),
+      { maxItems: 5 },
+    ),
+  },
+  strict,
+);
+export type CheckNotes = Static<typeof CheckNotes>;
+
+/**
  * A finished check, as the host observed it. `passed` is every finding at once: type check 0, build
  * 0, the page opened, no uncaught exception, something drawn; never that the game works.
  * `reads_confined` says whether every execution in the project ran on a runtime that confines a
- * starter project's agent to its folder (ADR 0041).
+ * starter project's agent to its folder (ADR 0041). `laptop`, `vr`, `notes` and `ready` are absent
+ * on checks recorded before M1.8b, which reads as not checked. `ready` is `passed` and both steps
+ * ready; never that the game plays well, or plays on a headset.
  */
 export const CheckFindings = Type.Object(
   {
@@ -62,6 +131,10 @@ export const CheckFindings = Type.Object(
     unknown: Nullable(Text(300)),
     passed: Type.Boolean(),
     reads_confined: Type.Boolean(),
+    laptop: Type.Optional(Nullable(CheckLaptop)),
+    vr: Type.Optional(Nullable(CheckVr)),
+    notes: Type.Optional(CheckNotes),
+    ready: Type.Optional(Type.Boolean()),
   },
   strict,
 );

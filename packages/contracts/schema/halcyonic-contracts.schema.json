@@ -7550,6 +7550,9 @@
             },
             "passed": {
               "type": "boolean"
+            },
+            "ready": {
+              "type": "boolean"
             }
           },
           "additionalProperties": false
@@ -8771,6 +8774,141 @@
         },
         "reads_confined": {
           "type": "boolean"
+        },
+        "laptop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckLaptop"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vr": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckVr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "$ref": "#/$defs/CheckNotes"
+        },
+        "ready": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CheckLaptop": {
+      "type": "object",
+      "required": [
+        "layer",
+        "targets",
+        "mouse",
+        "key",
+        "screen_changed",
+        "ready"
+      ],
+      "properties": {
+        "layer": {
+          "enum": [
+            "starter",
+            "changed",
+            "missing"
+          ]
+        },
+        "targets": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "mouse": {
+          "enum": [
+            "reached",
+            "not_reached",
+            "no_target",
+            "unknown"
+          ]
+        },
+        "key": {
+          "enum": [
+            "reached",
+            "not_reached",
+            "unknown"
+          ]
+        },
+        "screen_changed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CheckNotes": {
+      "type": "object",
+      "required": [
+        "scanned",
+        "items"
+      ],
+      "properties": {
+        "scanned": {
+          "enum": [
+            "full",
+            "partial"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "file",
+              "line"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "window_listener",
+                  "document_listener",
+                  "canvas_listener",
+                  "xr_input_read",
+                  "gamepad_read"
+                ]
+              },
+              "file": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._/-]{1,120}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 5
         }
       },
       "additionalProperties": false
@@ -8880,6 +9018,45 @@
         "seconds": {
           "type": "number",
           "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "CheckVr": {
+      "type": "object",
+      "required": [
+        "offered",
+        "how",
+        "exceptions",
+        "ready"
+      ],
+      "properties": {
+        "offered": {
+          "enum": [
+            "offered",
+            "not_offered",
+            "unknown"
+          ]
+        },
+        "how": {
+          "anyOf": [
+            {
+              "enum": [
+                "offer_session",
+                "request_session"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exceptions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ready": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

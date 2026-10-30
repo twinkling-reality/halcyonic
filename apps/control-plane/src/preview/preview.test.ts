@@ -30,6 +30,17 @@ const PASSED: CheckResult = {
   },
   unknown: null,
   passed: true,
+  laptop: {
+    layer: 'starter',
+    targets: 1,
+    mouse: 'reached',
+    key: 'reached',
+    screen_changed: true,
+    ready: true,
+  },
+  vr: { offered: 'offered', how: 'offer_session', exceptions: 0, ready: true },
+  notes: { scanned: 'full', items: [{ kind: 'window_listener', file: 'src/game.ts', line: 12 }] },
+  ready: true,
 };
 
 async function until(check: () => boolean, what: string): Promise<void> {
@@ -174,6 +185,13 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(check?.findings.page?.drawn, true);
     // No execution in the project ran on anything but Codex, on a host that confines it.
     assert.equal(check?.findings.reads_confined, true);
+    // The steps of M1.8b are journaled as found; ready is passed and both steps ready.
+    assert.equal(check?.findings.ready, true);
+    assert.equal(check?.findings.laptop?.screen_changed, true);
+    assert.equal(check?.findings.vr?.how, 'offer_session');
+    assert.deepEqual(check?.findings.notes?.items, [
+      { kind: 'window_listener', file: 'src/game.ts', line: 12 },
+    ]);
     // The pictures stay on the computer: only their hashes are journaled.
     assert.deepEqual(check?.findings.page?.pictures, [{ at_ms: 10_000, sha256: 'c'.repeat(64) }]);
     assert.ok(types().includes('project.check.recorded'));

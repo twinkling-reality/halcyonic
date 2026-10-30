@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import Type from 'typebox';
 import Schema from 'typebox/schema';
-import { renderCSharpContracts } from './csharp.ts';
+import { renderCSharpContracts, renderObjectMembers } from './csharp.ts';
 import {
   buildSchemaDocument,
   CatalogResponse,
@@ -411,10 +412,61 @@ describe('the language-neutral schema document', () => {
     assert.equal(validator.Check(bad), parseEventEnvelope(bad).ok);
   });
 
+  /** The names of definitions whose body also appears inlined somewhere else in the document. */
+  function inlinedDefinitions(
+    document: { $defs: Record<string, unknown> } & Record<string, unknown>,
+  ): string[] {
+    const canonical = (value: unknown): string =>
+      JSON.stringify(value, (_key, inner: unknown) =>
+        inner !== null && typeof inner === 'object' && !Array.isArray(inner)
+          ? Object.fromEntries(Object.entries(inner).sort(([a], [b]) => a.localeCompare(b)))
+          : inner,
+      );
+    const bodies = new Map(
+      Object.entries(document.$defs).map(([name, body]) => [canonical(body), name]),
+    );
+    const found = new Set<string>();
+    const visit = (value: unknown, isDefinition: boolean) => {
+      if (value === null || typeof value !== 'object') return;
+      if (!isDefinition) {
+        const name = bodies.get(canonical(value));
+        if (name !== undefined) found.add(name);
+      }
+      for (const inner of Array.isArray(value) ? value : Object.values(value)) visit(inner, false);
+    };
+    for (const [key, value] of Object.entries(document)) {
+      if (key !== '$defs') visit(value, false);
+    }
+    for (const body of Object.values(document.$defs)) visit(body, true);
+    return [...found].sort();
+  }
+
+  test('a definition inlined anywhere instead of referenced is found', () => {
+    const point = { type: 'object', properties: { x: { type: 'number' } } };
+    const synthetic = {
+      $defs: {
+        Point: point,
+        Line: { type: 'object', properties: { from: { $ref: '#/$defs/Point' } } },
+      },
+      properties: {
+        a: structuredClone(point),
+        b: { properties: { x: { type: 'number' } }, type: 'object' },
+      },
+    };
+    assert.deepEqual(inlinedDefinitions(synthetic), ['Point']);
+    assert.deepEqual(inlinedDefinitions({ $defs: synthetic.$defs, properties: {} }), []);
+  });
+
   test('shared definitions are referenced rather than repeated', () => {
     const text = renderSchemaDocument();
     assert.ok(text.includes('"$ref": "#/$defs/CommandEnvelope"'));
-    assert.ok(text.length < 400_000, `document is ${text.length} bytes`);
+    // Repetition is checked directly; the bound only guards the document's growth (raised from
+    // 400,000 for M1.8b's check findings, which repeat nothing).
+    assert.deepEqual(
+      inlinedDefinitions(buildSchemaDocument() as { $defs: Record<string, unknown> }),
+      [],
+    );
+    assert.ok(text.length < 420_000, `document is ${text.length} bytes`);
   });
 });
 
@@ -429,6 +481,31 @@ describe('the C# bindings', () => {
     assert.equal(committed, generated, 'run pnpm contracts:emit and commit the result');
   });
 
+  test('an optional member of any type reads as null when missing and is omitted when null', () => {
+    const members = renderObjectMembers(
+      'Probe',
+      Type.Object({
+        found: Type.Optional(Type.Object({ count: Type.Integer() })),
+        names: Type.Optional(Type.Array(Type.String())),
+        level: Type.Optional(Type.Integer()),
+      }),
+    ).join('\n');
+    assert.match(
+      members,
+      /\[JsonProperty\("found", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public ProbeFound\? Found \{ get; set; \}/,
+    );
+    assert.match(
+      members,
+      /\[JsonProperty\("names", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public List<string>\? Names \{ get; set; \}/,
+    );
+    assert.match(members, /public long\? Level \{ get; set; \}/);
+    // A constant still cannot be optional: its absence would read as a different value.
+    assert.throws(
+      () => renderObjectMembers('Probe', Type.Object({ kind: Type.Optional(Type.Literal('x')) })),
+      /a constant cannot be optional/,
+    );
+  });
+
   test('optional strings and declaration booleans read as null when missing and are omitted when null', () => {
     assert.match(
       generated,
@@ -436,9 +513,11 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      4,
-      'only location label, completed tool turn, results support declaration and approval sandbox declaration are optional',
+      9,
+      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b) and project_checked's ready",
     );
+    for (const member of ['Laptop', 'Vr', 'Notes', 'Ready'])
+      assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(
       generated,
       /\[JsonProperty\("reports_tool_results", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public bool\? ReportsToolResults \{ get; set; \}/,

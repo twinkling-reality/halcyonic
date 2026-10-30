@@ -1028,6 +1028,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("passed", Required = Required.Always)]
         public bool Passed { get; set; }
+
+        [JsonProperty("ready", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Ready { get; set; }
     }
 
     public sealed class PreviewStartedResult : CommandResult
@@ -1504,6 +1507,63 @@ namespace Halcyonic.Contracts
         public List<CheckPagePicturesItem> Pictures { get; set; } = new List<CheckPagePicturesItem>();
     }
 
+    public sealed class CheckLaptop
+    {
+        [JsonProperty("layer", Required = Required.Always)]
+        public JToken Layer { get; set; } = default!;
+
+        [JsonProperty("targets", Required = Required.Always)]
+        public long Targets { get; set; }
+
+        [JsonProperty("mouse", Required = Required.Always)]
+        public JToken Mouse { get; set; } = default!;
+
+        [JsonProperty("key", Required = Required.Always)]
+        public JToken Key { get; set; } = default!;
+
+        [JsonProperty("screen_changed", Required = Required.AllowNull)]
+        public bool? ScreenChanged { get; set; }
+
+        [JsonProperty("ready", Required = Required.Always)]
+        public bool Ready { get; set; }
+    }
+
+    public sealed class CheckVr
+    {
+        [JsonProperty("offered", Required = Required.Always)]
+        public JToken Offered { get; set; } = default!;
+
+        [JsonProperty("how", Required = Required.AllowNull)]
+        public JToken? How { get; set; }
+
+        [JsonProperty("exceptions", Required = Required.Always)]
+        public long Exceptions { get; set; }
+
+        [JsonProperty("ready", Required = Required.Always)]
+        public bool Ready { get; set; }
+    }
+
+    public sealed class CheckNotesItemsItem
+    {
+        [JsonProperty("kind", Required = Required.Always)]
+        public JToken Kind { get; set; } = default!;
+
+        [JsonProperty("file", Required = Required.AllowNull)]
+        public string? File { get; set; }
+
+        [JsonProperty("line", Required = Required.Always)]
+        public long Line { get; set; }
+    }
+
+    public sealed class CheckNotes
+    {
+        [JsonProperty("scanned", Required = Required.Always)]
+        public JToken Scanned { get; set; } = default!;
+
+        [JsonProperty("items", Required = Required.Always)]
+        public List<CheckNotesItemsItem> Items { get; set; } = new List<CheckNotesItemsItem>();
+    }
+
     public sealed class CheckFindings
     {
         [JsonProperty("tsc", Required = Required.Always)]
@@ -1523,6 +1583,18 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("reads_confined", Required = Required.Always)]
         public bool ReadsConfined { get; set; }
+
+        [JsonProperty("laptop", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public CheckLaptop? Laptop { get; set; }
+
+        [JsonProperty("vr", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public CheckVr? Vr { get; set; }
+
+        [JsonProperty("notes", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public CheckNotes? Notes { get; set; }
+
+        [JsonProperty("ready", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Ready { get; set; }
     }
 
     public sealed class ProjectCheckRecordedPayload
