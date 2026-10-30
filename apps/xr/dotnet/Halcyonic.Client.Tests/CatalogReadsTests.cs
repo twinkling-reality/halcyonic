@@ -30,44 +30,52 @@ public class CatalogReadsTests
     }
 
     [Test]
-    public void OpeningAsksOnceAndTheAnswerIsKept()
+    public void OpeningAsksAndTheAnswerIsKeptAfterTheGalleryCloses()
     {
         var reader = new Reader();
         var feed = new CatalogFeed(reader.Read);
         Assert.That(feed.Loading, Is.False);
         feed.Open(Start);
         feed.Open(Start.AddSeconds(1));
-        Assert.That(reader.Asked, Is.EqualTo(1));
+        Assert.That(reader.Asked, Is.EqualTo(1), "a read under way is not asked again");
         Assert.That(feed.Loading, Is.True);
         reader.Answer();
         Assert.That(feed.Poll(), Is.True);
         Assert.That(feed.Last?.Response, Is.InstanceOf<UnavailableCatalog>());
         feed.Close();
-        feed.Open(Start.AddSeconds(5));
-        Assert.That(reader.Asked, Is.EqualTo(1), "reopening shows the last answer until the interval passes");
-        Assert.That(feed.Last, Is.Not.Null);
+        Assert.That(feed.Last, Is.Not.Null, "the last answer stays shown");
     }
 
     [Test]
-    public void WhileOpenItAsksAgainOnceTheIntervalPassesAndNeverWhileClosed()
+    public void ItAsksEachTimeThePersonOpensTheirProjectsAndNeverAsTimePasses()
     {
         var reader = new Reader();
         var feed = new CatalogFeed(reader.Read);
         feed.Open(Start);
         reader.Answer();
         feed.Poll();
-        feed.Tick(Start + CatalogFeed.Interval - TimeSpan.FromSeconds(1));
+        // However long the gallery stays open, nothing more is asked (AUDIT's S2): no timer reads it.
+        for (var minute = 1; minute <= 30; minute++) feed.Poll();
         Assert.That(reader.Asked, Is.EqualTo(1));
-        feed.Tick(Start + CatalogFeed.Interval);
-        Assert.That(reader.Asked, Is.EqualTo(2));
-        Assert.That(feed.Last, Is.Not.Null, "the last answer stays shown while a new one is read");
-        reader.Answer("not_ready");
-        feed.Poll();
         feed.Close();
-        feed.Tick(Start + CatalogFeed.Interval + CatalogFeed.Interval + CatalogFeed.Interval);
-        Assert.That(reader.Asked, Is.EqualTo(2));
-        feed.Open(Start + CatalogFeed.Interval + CatalogFeed.Interval + CatalogFeed.Interval);
-        Assert.That(reader.Asked, Is.EqualTo(3), "reopened after the interval, it asks");
+        feed.Open(Start.AddSeconds(5));
+        Assert.That(reader.Asked, Is.EqualTo(2), "opening it again asks again, however soon");
+        Assert.That(feed.Last, Is.Not.Null, "the last answer stays shown while a new one is read");
+    }
+
+    [Test]
+    public void OpeningAnAlreadyOpenGalleryAsksNothing()
+    {
+        // A caller that says the gallery is open on every frame must not turn it into back-to-back reads.
+        var reader = new Reader();
+        var feed = new CatalogFeed(reader.Read);
+        feed.Open(Start);
+        reader.Answer();
+        feed.Poll();
+        for (var frame = 1; frame <= 90; frame++) feed.Open(Start.AddSeconds(frame / 90.0));
+        Assert.That(reader.Asked, Is.EqualTo(1));
+        feed.Refresh(Start.AddSeconds(2));
+        Assert.That(reader.Asked, Is.EqualTo(2), "only the person's Refresh asks while it stays open");
     }
 
     [Test]

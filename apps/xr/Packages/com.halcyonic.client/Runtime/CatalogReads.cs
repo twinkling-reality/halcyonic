@@ -16,16 +16,14 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// When the gallery asks for the catalog, on the main thread: when it opens holding no answer or one
-    /// older than <see cref="Interval"/>, when the person refreshes, and again each interval while it stays
-    /// open. The source syncs on its own schedule, so asking more often shows nothing newer. The last
-    /// answer stays shown while a new one is read and after the gallery closes, and a failed read says why.
+    /// When the gallery asks for the catalog, on the main thread: each time the person opens their projects,
+    /// and when they refresh, never on a timer (AUDIT's S2): each read can make the computer read folders
+    /// and ask Phat Porcupine, and the source syncs on its own schedule, so asking more often shows nothing
+    /// newer. The last answer stays shown while a new one is read and after the gallery closes, and a
+    /// failed read says why.
     /// </summary>
     public sealed class CatalogFeed
     {
-        /// <summary>How long an answer is kept before an open gallery asks again.</summary>
-        public static readonly TimeSpan Interval = TimeSpan.FromSeconds(60);
-
         private readonly Func<CancellationToken, Task<IntelligenceRead<CatalogResponse>>> read;
         private readonly Func<string> accessRefused;
         private Task<IntelligenceRead<CatalogResponse>>? pending;
@@ -54,25 +52,21 @@ namespace Halcyonic.Client
         /// <summary>Changes whenever anything the gallery shows from it changes.</summary>
         public int Version { get; private set; }
 
-        /// <summary>The gallery is shown.</summary>
+        /// <summary>
+        /// The person opened their projects: asks once as the gallery goes from closed to open, unless a
+        /// read is already under way. Saying it is open again while it is open asks nothing.
+        /// </summary>
         public void Open(DateTimeOffset now)
         {
+            if (IsOpen) return;
             IsOpen = true;
-            Tick(now);
-        }
-
-        /// <summary>Called as time passes while the gallery is shown: asks once the interval has passed.</summary>
-        public void Tick(DateTimeOffset now)
-        {
-            if (!IsOpen || pending != null) return;
-            if (AskedAt is DateTimeOffset asked && now - asked < Interval) return;
-            Ask(now);
+            if (pending == null) Ask(now);
         }
 
         /// <summary>The person asked again.</summary>
         public void Refresh(DateTimeOffset now) => Ask(now);
 
-        /// <summary>The gallery is hidden: nothing more is asked until it opens again.</summary>
+        /// <summary>The gallery is hidden: nothing is asked until it opens again.</summary>
         public void Close()
         {
             IsOpen = false;

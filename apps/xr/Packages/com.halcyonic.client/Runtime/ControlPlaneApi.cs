@@ -159,8 +159,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Every project the person has across their accounts, from Phat Porcupine, read through by the
-        /// control plane and never journaled (ADR 0039). Asked when the gallery opens, never faster than
-        /// <see cref="CatalogFeed.Interval"/>.
+        /// control plane and never journaled (ADR 0039). Asked when the person opens their projects and on
+        /// Refresh, never on a timer (<see cref="CatalogFeed"/>).
         /// </summary>
         public async Task<CatalogResponse> GetCatalogAsync(CancellationToken cancellationToken = default)
         {
