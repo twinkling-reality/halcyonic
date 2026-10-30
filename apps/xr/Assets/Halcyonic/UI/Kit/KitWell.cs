@@ -46,6 +46,8 @@ namespace Halcyonic.XR.UI
             var well = go.AddComponent<KitWell>();
             well.plate = Surface.Create(go.transform, "Well", order);
             well.words = KitType.Create(go.transform, "Command", KitRole.Mono, KitType.Text, KitType.Order.Words, room: true);
+            // Cut by its lines, never sideways: its long lines wrap, and only the fade and the cut line say what is hidden (ART).
+            well.words.overflowMode = TextOverflowModes.Truncate;
             well.rest = KitType.Create(go.transform, "Cut", KitRole.Label, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, room: true);
             well.rest.textWrappingMode = TextWrappingModes.NoWrap;
             return well;

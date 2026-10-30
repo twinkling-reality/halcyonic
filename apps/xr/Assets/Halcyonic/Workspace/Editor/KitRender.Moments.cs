@@ -128,9 +128,27 @@ namespace Halcyonic.XR.Workspace.Editor
             var disc = card.Mark.Fill.a > 0.5f;
             Require(disc == (moment.Provenance == KitProvenance.Observed), "the mark is a disc on the runtime's report, or a ring on what the computer saw");
             // Colour only for its meaning: amber on a question, red on a failure, green on a pass, each with its glyph.
-            Require(card.Tone.gameObject.activeSelf == (moment.Tone != KitMomentTone.Neutral), "a tone stands where nothing means it, or is missing");
-            if (card.Tone.gameObject.activeSelf)
+            // The mark's sign (ART's A3a review): "?" for a question, "!" for a failure, a check for a pass; nothing else.
+            Require((card.Tone.gameObject.activeSelf || card.Symbol.gameObject.activeSelf) == (moment.Tone != KitMomentTone.Neutral), "a tone stands where nothing means it, or is missing");
+            Require(card.Tone.gameObject.activeSelf == (moment.Tone == KitMomentTone.Passed), "a pass's check stands where nothing passed, or is missing");
+            Require(!card.Symbol.gameObject.activeSelf || card.Symbol.text == (moment.Tone == KitMomentTone.Attention ? "?" : "!"), "the mark's sign is not its meaning's");
+            if (card.Symbol.gameObject.activeSelf)
+            {
+                card.Symbol.ForceMeshUpdate(true);
+                var sign = card.Symbol.textInfo;
+                Require(sign.characterCount == 1 && sign.characterInfo[0].isVisible && sign.characterInfo[0].character == card.Symbol.text[0], "the mark's sign is not drawn whole");
+            }
+            if (moment.Tone != KitMomentTone.Neutral)
                 Require((moment.Tone == KitMomentTone.Attention) == (moment.Kind == KitMomentKind.Question), "amber stands on something that is not a question");
+            // A command is cut by its lines, never sideways: no ellipsis drawn in a well (ART's A3a review; a gap the cut check let through).
+            if (card.Well.gameObject.activeSelf)
+            {
+                card.Well.Words.ForceMeshUpdate(true);
+                var info = card.Well.Words.textInfo;
+                Require(!info.characterInfo.Take(info.characterCount).Any(character => character.isVisible && character.character == '\u2026'), "the well cuts its command sideways with an ellipsis");
+            }
+            // Where a moment offers a next step, one primary carries it (a failure's Read Output among them).
+            Require(!card.Actions.Any(KitMomentCard.IsPrimary) || card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == 1, "the next step is not the one primary");
             // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question.
             var counted = string.Join(" · ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             Require(card.Count.gameObject.activeSelf == (counted.Length > 0) && (counted.Length == 0 || card.Count.text == counted), "the count is not the model's earlier and newer moments");

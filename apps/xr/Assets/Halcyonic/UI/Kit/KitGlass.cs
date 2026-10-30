@@ -117,6 +117,14 @@ namespace Halcyonic.XR.UI
             gameObject.SetActive(true);
         }
 
+        /// <summary>Sets the bloom alone, 0 to 1 of its peak, without drawing the panel again: the arrival's clock drives it.</summary>
+        public void SetBloom(float bloom)
+        {
+            Bloom = Mathf.Clamp01(bloom);
+            block.SetVector(LightId, new Vector4(Bloom, Glow ? 1f : 0f, opacity, 0f));
+            glassRenderer.SetPropertyBlock(block);
+        }
+
         /// <summary>Draws the whole panel at <paramref name="to"/> of its opacity: for the renders' witness that a faded face is caught.</summary>
         public void Fade(float to)
         {

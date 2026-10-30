@@ -208,7 +208,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         var local = carrier.transform.InverseTransformPoint(label.transform.TransformPoint(corner));
                         if (Mathf.Abs(local.x) > face.x + 1e-5f || Mathf.Abs(local.y) > face.y + 1e-5f)
                         {
-                            yield return carrier.name + "'s words \"" + label.text + "\" reach onto its rim";
+                            yield return carrier.name + "'s words \"" + label.text + "\" reach onto its rim (a corner at " + local.x.ToString("0.0000") + ", " + local.y.ToString("0.0000") + "; the face to " + face.x.ToString("0.0000") + ", " + face.y.ToString("0.0000") + ")";
                             break;
                         }
                     }

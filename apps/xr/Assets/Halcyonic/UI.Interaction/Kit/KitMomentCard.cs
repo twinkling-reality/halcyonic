@@ -28,6 +28,7 @@ namespace Halcyonic.XR.UI
         private KitCarrier earlier = null!;
         private Surface mark = null!;
         private TextMeshPro tone = null!;
+        private TextMeshPro symbol = null!;
         private TextMeshPro eyebrow = null!;
         private TextMeshPro count = null!;
         private TextMeshPro title = null!;
@@ -52,8 +53,11 @@ namespace Halcyonic.XR.UI
         /// <summary>The mark: a ring for the runtime's report, a disc for what the computer saw, in the tone where one stands.</summary>
         public Surface Mark => mark;
 
-        /// <summary>The glyph of a question, a failure or a pass inside the mark, in its colour; hidden for every other moment.</summary>
+        /// <summary>A pass's check inside the mark; hidden for every other moment.</summary>
         public TextMeshPro Tone => tone;
+
+        /// <summary>A question's "?" or a failure's "!" inside the mark; hidden for every other moment.</summary>
+        public TextMeshPro Symbol => symbol;
 
         /// <summary>Who says it, Halcyonic's words: "Codex says", "Seen on your computer".</summary>
         public TextMeshPro Eyebrow => eyebrow;
@@ -93,6 +97,32 @@ namespace Halcyonic.XR.UI
         /// <summary>Every word laid whole and the command, if any, whole in its well.</summary>
         public bool ReadsWhole => cut.Count == 0 && !WellCut;
 
+        /// <summary>The card's inner body, which its arrival scales about its growing corner (<see cref="KitMomentChoreography"/>).</summary>
+        public Transform Body => body;
+
+        /// <summary>
+        /// The parts shown, in reading order, each the objects that rise and fade in together as the card arrives: the eyebrow
+        /// row, the Title, the metadata, their prose, the fact, the well, the risk lines, the answers.
+        /// </summary>
+        public IReadOnlyList<IReadOnlyList<Transform>> Parts
+        {
+            get
+            {
+                var parts = new List<IReadOnlyList<Transform>>
+                {
+                    new[] { mark.transform, tone.transform, symbol.transform, eyebrow.transform, count.transform },
+                    new[] { title.transform },
+                    meta.Select(label => label.transform).ToArray(),
+                    new[] { prose.transform },
+                    new[] { fact.transform },
+                    new[] { well.transform },
+                    lines.Select(line => line.transform).ToArray(),
+                    shown.Select(each => each.Button.transform).ToArray(),
+                };
+                return parts.Select(group => (IReadOnlyList<Transform>)group.Where(part => part.gameObject.activeSelf).ToList()).Where(group => group.Count > 0).ToList();
+            }
+        }
+
         /// <summary>How far the card has come out of the character, 0 to 1; 1 at rest.</summary>
         public float Popped => popAt;
 
@@ -113,6 +143,11 @@ namespace Halcyonic.XR.UI
             card.carrier = KitCarrier.Create(card.body, "Carrier");
             card.mark = Surface.Create(card.body, "Mark", KitType.Order.Plate);
             card.tone = GlazeIcons.Create(card.body, "Tone", SpatialKit.IconDegrees, KitType.Text, KitType.Order.Words);
+            card.symbol = KitType.Create(card.body, "Mark symbol", KitRole.Strong, KitType.Text, KitType.Order.Words, TextAlignmentOptions.Center, room: true);
+            card.symbol.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            card.symbol.textWrappingMode = TextWrappingModes.NoWrap;
+            // Its line is taller than the 20 dp mark: let it stand over its box rather than be cut to an ellipsis.
+            card.symbol.overflowMode = TextOverflowModes.Overflow;
             card.eyebrow = KitType.Create(card.body, "Eyebrow", KitRole.Label, KitType.Secondary, KitType.Order.Words, room: true);
             card.eyebrow.textWrappingMode = TextWrappingModes.NoWrap;
             card.count = KitType.Create(card.body, "Earlier and newer", KitRole.Label, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, room: true);
@@ -163,17 +198,20 @@ namespace Halcyonic.XR.UI
             _ => (GlazeColor?)null,
         };
 
-        private static GlazeIcon? ToneGlyph(KitMomentTone tone) => tone switch
+        /// <summary>A pass's mark: a check, drawn as an icon (it draws itself as the card settles).</summary>
+        private static GlazeIcon? ToneGlyph(KitMomentTone tone) => tone == KitMomentTone.Passed ? GlazeIcon.Approve : (GlazeIcon?)null;
+
+        /// <summary>A question's and a failure's mark: the bare symbol in the face's own type, never an icon that reads as another act.</summary>
+        private static string? ToneSymbol(KitMomentTone tone) => tone switch
         {
-            KitMomentTone.Attention => GlazeIcon.WaitingForYou,
-            KitMomentTone.Failure => GlazeIcon.ChecksFailed,
-            KitMomentTone.Passed => GlazeIcon.FinishedThisRound,
+            KitMomentTone.Attention => "?",
+            KitMomentTone.Failure => "!",
             _ => null,
         };
 
         /// <summary>The one primary of a moment: the next sensible step (handoff, Answers); every other answer is its word.</summary>
         public static bool IsPrimary(KitMomentAction action) =>
-            action is KitMomentAction.YesRunIt or KitMomentAction.TryIt or KitMomentAction.ReadIt;
+            action is KitMomentAction.YesRunIt or KitMomentAction.TryIt or KitMomentAction.ReadIt or KitMomentAction.SeeTheOutput;
 
         /// <summary>Shows <paramref name="slot"/>'s shown moment, coming out of the character where it is new.</summary>
         public void Show(KitMomentSlot slot)
@@ -213,6 +251,18 @@ namespace Halcyonic.XR.UI
                 GlazeIcons.Show(tone, shownGlyph);
                 tone.color = disc ? KitType.Colour(SpatialKit.OnFill) : markColour;
                 tone.transform.localPosition = new Vector3(left + markSize / 2f, y - markSize / 2f, -0.0006f);
+            }
+            var shownSymbol = ToneSymbol(moment.Tone);
+            symbol.gameObject.SetActive(shownSymbol != null);
+            if (shownSymbol != null)
+            {
+                KitType.Size(symbol, KitRole.Strong);
+                GlazeText.SetLiteral(symbol, shownSymbol);
+                symbol.rectTransform.sizeDelta = new Vector2(markSize, markSize);
+                symbol.ForceMeshUpdate(true);
+                if (symbol.isTextTruncated) cut.Add("mark sign");
+                symbol.color = disc ? KitType.Colour(SpatialKit.OnFill) : markColour;
+                symbol.transform.localPosition = new Vector3(left + markSize / 2f, y - markSize / 2f, -0.0006f);
             }
             var eyebrowLeft = left + markSize + Dp(SpatialKit.MarkGapDp);
             KitType.Size(eyebrow, KitRole.Label);
