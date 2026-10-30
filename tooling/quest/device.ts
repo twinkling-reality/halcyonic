@@ -22,6 +22,17 @@
  *   pnpm quest:device -- record start --sync-is-off, later record stop [--out <dir>]
  *     a recording through Meta's capture service, pulled into --out with <clip>.sha256 beside it
  *   pnpm quest:device -- logs [--out <file>]         Halcyonic's own lines, its process only
+ *   pnpm quest:device -- preview <project id>        the project's checked copy in Quest Browser
+ *   pnpm quest:device -- preview stop                the reverse removed, the browser stopped if started
+ *
+ * `preview` opens only what preview.ts allows: the host's own server of the project's latest
+ * check, passed, with every agent's reads confined to the project (`reads_confined`), at
+ * `http://127.0.0.1:<port>/` over an `adb reverse` of that port. It refuses while anything on the
+ * headset listens on 8720 (Meta XR Operator), when that cannot be read, when a system dialog is in
+ * front, or when the headset already has someone else's reverse of the port. The reverse is made
+ * with --no-rebind and recorded before it is made, so `preview stop` and `give-back` remove it even
+ * after a cut-off run; Quest Browser is stopped only when this tool started it. The check holds
+ * when the page opens, not after. No browser log, no DevTools.
  *
  * A check build (QuestBuild's test application id, `com.halcyonic.xr.check`) installs beside the
  * owner's app with data of its own, so it needs no saved copy, and it is the only package `grant`
@@ -72,6 +83,7 @@ import {
   readTopActivity,
   readWakefulness,
 } from './headset.ts';
+import { controlPlaneGate, listensOn } from './preview.ts';
 import { readBattery, readThermal } from './readings.ts';
 
 const run = promisify(execFile);
@@ -111,6 +123,8 @@ interface State {
   started: string[];
   /** A recording `record start` began and `record stop` has not ended: the capture folders' names before it. */
   recording?: { before: string[]; startedAt: string; stopSentAt?: string };
+  /** The ports `preview` reversed (or was about to) and has not removed. */
+  reverses: number[];
 }
 
 function readState(): State {
@@ -120,9 +134,10 @@ function readState(): State {
       installs: read.installs ?? {},
       started: read.started ?? [],
       ...(read.recording ? { recording: read.recording } : {}),
+      reverses: read.reverses ?? [],
     };
   } catch {
-    return { installs: {}, started: [] };
+    return { installs: {}, started: [], reverses: [] };
   }
 }
 
@@ -346,6 +361,7 @@ async function giveBack(): Promise<void> {
     console.log('A recording is still in progress: stopping and collecting it first.');
     problem = await stopRecording().catch((error: unknown) => (error as Error).message);
   }
+  await removeReverses();
   for (const name of readState().started) {
     await adb('shell', 'am', 'force-stop', name);
     console.log(`Stopped ${name}, which this tool started.`);
@@ -699,6 +715,121 @@ async function logs(): Promise<void> {
   }
 }
 
+const BROWSER = 'com.oculus.browser';
+
+/** Removes every reverse `preview` recorded, and forgets each one the headset no longer lists. */
+/** The headset's reverse rules, one line each; throws when `reverse --list` fails. */
+async function reverseList(): Promise<string[]> {
+  return (await adb('reverse', '--list')).split(/\r?\n/).filter((line) => line.trim() !== '');
+}
+
+/** Whether a rule reverses the headset's own `port`, whoever made it and wherever it leads on the Mac. */
+function reversesPort(rules: readonly string[], port: number): boolean {
+  return rules.some((line) => line.trim().split(/\s+/)[1] === `tcp:${port}`);
+}
+
+async function removeReverses(): Promise<void> {
+  for (const port of readState().reverses) {
+    await adbSaid('reverse', '--remove', `tcp:${port}`);
+    let rules: string[];
+    try {
+      rules = await reverseList();
+    } catch {
+      // Forgotten only once a list that was read shows it gone.
+      console.log(
+        `reverse --list could not be read, so the reverse of port ${port} stays recorded.`,
+      );
+      continue;
+    }
+    if (reversesPort(rules, port)) {
+      console.log(`The reverse of port ${port} is still there.`);
+      continue;
+    }
+    writeState((state) => {
+      state.reverses = state.reverses.filter((kept) => kept !== port);
+    });
+    console.log(`Removed the reverse of port ${port}.`);
+  }
+}
+
+async function preview(): Promise<void> {
+  if (positional === 'stop') return previewStop();
+  if (positional === undefined) fail('Say which project: preview <project id>, or preview stop.');
+  const gate = await controlPlaneGate(positional);
+  if (!gate.ok) fail(`Not opening the preview: ${gate.reason}`);
+  // Fails closed: a listener on 8720 is ruled out only by both tables, read whole.
+  const sockets = await adb('shell', 'cat', '/proc/net/tcp', '/proc/net/tcp6').catch(() => '');
+  if ((sockets.match(/^\s*sl\s+local_address/gm) ?? []).length < 2) {
+    fail(
+      "Not opening the preview: the headset's /proc/net/tcp and tcp6 could not be read, so a listener on 8720 (Meta XR Operator) is not ruled out.",
+    );
+  }
+  if (listensOn(sockets, 8720)) {
+    fail('Not opening the preview: something on the headset listens on 8720 (Meta XR Operator).');
+  }
+  await refuseSystemDialog('opening the preview');
+  const rules = await reverseList().catch(() =>
+    fail("Not opening the preview: the headset's reverse rules could not be read."),
+  );
+  const ours = readState().reverses.includes(gate.port);
+  if (reversesPort(rules, gate.port) && !ours) {
+    fail(
+      `Not opening the preview: the headset already has a reverse on port ${gate.port} that this tool did not make.`,
+    );
+  }
+  const ran = (await adbSaid('shell', 'pidof', BROWSER)).trim() !== '';
+  if (!reversesPort(rules, gate.port)) {
+    // Recorded before it is made, so a cut-off run still removes it; never made over anyone's.
+    writeState((state) => {
+      if (!state.reverses.includes(gate.port)) state.reverses.push(gate.port);
+    });
+    try {
+      await adb('reverse', '--no-rebind', `tcp:${gate.port}`, `tcp:${gate.port}`);
+    } catch {
+      if (!ours) {
+        writeState((state) => {
+          state.reverses = state.reverses.filter((kept) => kept !== gate.port);
+        });
+      }
+      fail(`Not opening the preview: the reverse of port ${gate.port} could not be made.`);
+    }
+  }
+  const said = await adbSaid(
+    'shell',
+    'am',
+    'start',
+    '-W',
+    '-a',
+    'android.intent.action.VIEW',
+    '-d',
+    gate.url,
+    BROWSER,
+  );
+  if (!ran) {
+    writeState((state) => {
+      if (!state.started.includes(BROWSER)) state.started.push(BROWSER);
+    });
+  }
+  console.log(
+    /Status: ok/.test(said)
+      ? `Opened ${gate.url} (check ${gate.checkId}) in Quest Browser.`
+      : `am start did not say ok for ${gate.url}.`,
+  );
+  console.log(`front: ${describeFront(await front(), BROWSER)}`);
+}
+
+async function previewStop(): Promise<void> {
+  await removeReverses();
+  if (readState().started.includes(BROWSER)) {
+    await adb('shell', 'am', 'force-stop', BROWSER);
+    writeState((state) => {
+      state.started = state.started.filter((name) => name !== BROWSER);
+    });
+    console.log('Stopped Quest Browser, which this tool started.');
+  }
+  if (readState().reverses.length > 0) process.exit(1);
+}
+
 const commands: Record<string, () => Promise<void>> = {
   status,
   awake,
@@ -713,6 +844,7 @@ const commands: Record<string, () => Promise<void>> = {
   shot,
   record,
   logs,
+  preview,
 };
 
 const chosen = commands[command];

@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, describe, test } from 'node:test';
+import { after, before, describe, test } from 'node:test';
 import { promisify } from 'node:util';
+import { controlPlaneDraft, NO_CAUSE } from '../../apps/control-plane/src/core/drafts.ts';
+import { startTestServer } from '../../apps/control-plane/src/testing/harness.ts';
+import { PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST } from '../../packages/contracts/src/index.ts';
 
 const run = promisify(execFile);
 const DEVICE = new URL('./device.ts', import.meta.url).pathname;
@@ -27,6 +39,16 @@ interface Headset {
   readonly proximity?: readonly string[];
   /** Meta's Guardian dialog is in front: the headset can't find its position in the room. */
   readonly guardian?: boolean;
+  /** Something listens on 8720 (Meta XR Operator's port), as /proc/net/tcp or tcp6 shows it. */
+  readonly operator?: 'tcp' | 'tcp6';
+  /** Quest Browser runs before the tool does anything. */
+  readonly browserRunning?: boolean;
+  /** Reverse rules someone else made, as `reverse --list` prints them. */
+  readonly otherReverses?: readonly string[];
+  /** `cat /proc/net/tcp /proc/net/tcp6` answers nothing. */
+  readonly procNetSilent?: boolean;
+  /** `reverse --list` fails. */
+  readonly listFails?: boolean;
 }
 
 /**
@@ -85,7 +107,52 @@ else if (args[0] === 'shell' && args[1] === 'rm') {}
 else if (said === 'shell dumpsys power') out('  mWakefulness=Awake');
 else if (said === 'shell dumpsys battery') out('  AC powered: true\\n  level: 100\\n  scale: 100\\n  temperature: 300');
 else if (said === 'shell dumpsys thermalservice') out('Thermal Status: 0');
-else if (said === 'shell pidof com.halcyonic.xr' || said === 'reverse --list' || said === 'forward --list') {}
+else if (said === 'shell cat /proc/net/tcp /proc/net/tcp6' && scenario.procNetSilent) {}
+else if (said === 'shell cat /proc/net/tcp /proc/net/tcp6') {
+  out('  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode');
+  out('   0: 0100007F:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 1 1 0');
+  if (scenario.operator === 'tcp') out('   1: 00000000:2210 00000000:0000 0A 00000000:00000000 00:00000000 00000000 10123        0 2 1 0');
+  out('  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode');
+  out('   0: 00000000000000000000000000000000:2210 00000000000000000000000000000000:0000 ' + (scenario.operator === 'tcp6' ? '0A' : '06') + ' 00000000:00000000 00:00000000 00000000 10123        0 3 1 0');
+} else if (said === 'shell pidof com.oculus.browser') {
+  if (scenario.browserRunning || fs.existsSync((process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.browser')) out('4242');
+} else if (args[0] === 'shell' && args[1] === 'am' && args[2] === 'start' && args.includes('com.oculus.browser')) {
+  fs.writeFileSync((process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.browser', '');
+  out('Status: ok');
+} else if (said === 'reverse --list' && scenario.listFails) {
+  process.stderr.write('error: closed\\n');
+  process.exit(1);
+} else if (said === 'reverse --list') {
+  const ours = fs.existsSync((process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.reverses') ? fs.readFileSync((process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.reverses', 'utf8').split('\\n').filter(Boolean) : [];
+  for (const rule of [...(scenario.otherReverses ?? []), ...ours]) out('UsbFfs ' + rule);
+} else if (args[0] === 'reverse' && args[1] === '--remove') {
+  const file = (process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.reverses';
+  const ours = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\\n').filter(Boolean) : [];
+  fs.writeFileSync(file, ours.filter((rule) => !rule.startsWith(args[2] + ' ')).join('\\n'));
+} else if (args[0] === 'reverse' && args[1] === '--no-rebind' && /^tcp:\\d+$/.test(args[2] ?? '') && args[3] === args[2]) {
+  const file = (process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.reverses';
+  const ours = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\\n').filter(Boolean) : [];
+  if ([...(scenario.otherReverses ?? []), ...ours].some((rule) => rule.startsWith(args[2] + ' '))) {
+    process.stderr.write("adb: error: cannot rebind existing socket\\n");
+    process.exit(1);
+  }
+  const state = JSON.parse(fs.existsSync(process.env.QUEST_STATE_FILE) ? fs.readFileSync(process.env.QUEST_STATE_FILE, 'utf8') : '{}');
+  // The tool records a reverse before it makes it, so a cut-off run still removes it.
+  if (!(state.reverses ?? []).includes(Number(args[2].slice(4)))) {
+    process.stderr.write('stand-in adb: a reverse made before it was recorded\\n');
+    process.exit(3);
+  }
+  fs.appendFileSync(file, args[2] + ' ' + args[3] + '\\n');
+} else if (args[0] === 'reverse' && /^tcp:\\d+$/.test(args[1] ?? '') && args[2] === args[1]) {
+  const file = (process.env.ADB_HEADSET ?? process.env.ADB_CALLS) + '.reverses';
+  const state = JSON.parse(fs.existsSync(process.env.QUEST_STATE_FILE) ? fs.readFileSync(process.env.QUEST_STATE_FILE, 'utf8') : '{}');
+  // The tool records a reverse before it makes it, so a cut-off run still removes it.
+  if (!(state.reverses ?? []).includes(Number(args[1].slice(4)))) {
+    process.stderr.write('stand-in adb: a reverse made before it was recorded\\n');
+    process.exit(3);
+  }
+  fs.appendFileSync(file, args[1] + ' ' + args[2] + '\\n');
+} else if (said === 'shell pidof com.halcyonic.xr' || said === 'forward --list') {}
 else {
   process.stderr.write('stand-in adb: not modelled: ' + said + '\\n');
   process.exit(2);
@@ -106,6 +173,8 @@ describe('pnpm quest:device, against a stand-in adb', () => {
   chmodSync(aapt2, 0o755);
   chmodSync(adb, 0o755);
   let runs = 0;
+  /** More of the tool's environment, for the preview's control plane. */
+  let extra: Record<string, string> = {};
 
   /** Runs the device tool on `headset`, giving its exit code, what it printed and every adb command it ran. */
   async function device(headset: Headset, ...args: string[]) {
@@ -126,6 +195,8 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       HALCYONIC_QUEST_CLIP_WAIT_MS: '1000',
       ADB_SCENARIO: scenario,
       ADB_CALLS: calls,
+      QUEST_STATE_FILE: join(directory, `state-${at}.json`),
+      ...extra,
     };
     let code = 0;
     let said = '';
@@ -568,5 +639,253 @@ describe('pnpm quest:device, against a stand-in adb', () => {
     assert.equal(code, 1, said);
     assert.match(said, /media sync is on/);
     assert.ok(!calls.some((call) => call.includes('startservice')), calls.join('\n'));
+  });
+
+  describe('preview: a checked copy on the headset, only when its agent reads were confined', () => {
+    const CHECK = '01a19000-0000-7000-8000-0000000000c1';
+    const COPY = '<!doctype html><title>the checked copy</title>';
+    let server: Awaited<ReturnType<typeof startTestServer>>;
+    let previewPort = 0;
+    let page: Server;
+
+    before(async () => {
+      server = await startTestServer();
+      // The checked copy, served in this process on the first free port of the preview range.
+      for (
+        let port = PREVIEW_PORT_FIRST;
+        port <= PREVIEW_PORT_LAST && previewPort === 0;
+        port += 1
+      ) {
+        const candidate = createServer((request, response) => {
+          // As the host's preview server is to: no service worker script.
+          if (request.headers['service-worker'] === 'script') response.statusCode = 403;
+          response.end(request.headers['service-worker'] === 'script' ? '' : COPY);
+        });
+        const bound = await new Promise<boolean>((resolve) => {
+          candidate.once('error', () => resolve(false));
+          candidate.listen(port, '127.0.0.1', () => resolve(true));
+        });
+        if (bound) {
+          page = candidate;
+          previewPort = port;
+        }
+      }
+      assert.notEqual(previewPort, 0, 'every preview port is in use on this Mac');
+    });
+    after(async () => {
+      await new Promise<void>((resolve) => page.close(() => resolve()));
+      await server.stop();
+    });
+
+    let stories = 0;
+    /**
+     * A data directory with the control plane's token, the host's preview record and the checked
+     * copy, and a journal that says what `findings` says; the tool's environment points at both.
+     */
+    function story(findings: { passed?: boolean; reads_confined?: boolean } = {}) {
+      const at = stories++;
+      const dataDir = join(directory, `data-${at}`);
+      // A project of its own in each story: a fresh id keeps the stories apart in the one journal.
+      const project = `01a19000-0000-7000-8000-${String(at + 1).padStart(12, '0')}`;
+      const dist = join(dataDir, 'checks', project, CHECK, 'dist');
+      mkdirSync(dist, { recursive: true });
+      mkdirSync(join(dataDir, 'previews'), { recursive: true });
+      writeFileSync(join(dataDir, 'access-token'), `${server.token}\n`, { mode: 0o600 });
+      writeFileSync(join(dist, 'index.html'), COPY);
+      writeFileSync(
+        join(dataDir, 'previews', `${project}.json`),
+        JSON.stringify({ pid: process.pid, port: previewPort, check_id: CHECK }),
+      );
+      const scope = { project_id: project, workstream_id: null, execution_id: null };
+      const now = '2026-10-30T16:00:00.000Z' as never;
+      const record = (type: string, payload: unknown) =>
+        server.controlPlane.recorder.record(
+          controlPlaneDraft(type as never, scope as never, payload as never, now, NO_CAUSE),
+        );
+      record('project.created', {
+        name: 'Garden',
+        location: { path: '/Users/someone/dev/garden', name: 'garden', created: true },
+      });
+      record('project.check.recorded', {
+        check_id: CHECK,
+        findings: {
+          tsc: { exit: 0, seconds: 1 },
+          build: { exit: 0, seconds: 9 },
+          page: null,
+          unknown: null,
+          passed: findings.passed ?? true,
+          reads_confined: findings.reads_confined ?? true,
+        },
+      });
+      record('project.preview.started', { check_id: CHECK, port: previewPort });
+      const state = join(directory, `preview-state-${at}.json`);
+      extra = {
+        HALCYONIC_DATA_DIR: dataDir,
+        HALCYONIC_HOST: '127.0.0.1',
+        HALCYONIC_PORT: String(server.port),
+        HALCYONIC_QUEST_STATE: state,
+        QUEST_STATE_FILE: state,
+        ADB_HEADSET: join(directory, `preview-headset-${at}`),
+      };
+      return { project, state };
+    }
+
+    const url = () => `http://127.0.0.1:${previewPort}/`;
+    const reverse = () => `reverse --no-rebind tcp:${previewPort} tcp:${previewPort}`;
+    const reverses = (call: string) => /^reverse (--no-rebind )?tcp:/.test(call);
+
+    test('a passed, confined check opens in Quest Browser at 127.0.0.1, after the reverse is recorded', async () => {
+      const { project, state } = story();
+      const { code, said, calls } = await device({}, 'preview', project);
+      assert.equal(code, 0, said);
+      assert.ok(calls.includes(reverse()), calls.join('\n'));
+      const opened = calls.filter((call) => call.startsWith('shell am start'));
+      assert.deepEqual(opened, [
+        `shell am start -W -a android.intent.action.VIEW -d ${url()} com.oculus.browser`,
+      ]);
+      assert.ok(!calls.some((call) => call.includes('localhost')), calls.join('\n'));
+      const kept = JSON.parse(readFileSync(state, 'utf8')) as {
+        reverses: number[];
+        started: string[];
+      };
+      assert.deepEqual(kept.reverses, [previewPort]);
+      assert.deepEqual(kept.started, ['com.oculus.browser']);
+      extra = {};
+    });
+
+    test("a check whose agent's reads were not confined is refused, and nothing reaches the headset", async () => {
+      const { project } = story({ reads_confined: false });
+      const { code, said, calls } = await device({}, 'preview', project);
+      assert.equal(code, 1, said);
+      assert.match(said, /reads were not confined/);
+      assert.ok(
+        !calls.some((call) => call.startsWith('reverse') || call.startsWith('shell am')),
+        calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test('a check that did not pass is refused', async () => {
+      const { project } = story({ passed: false });
+      const { code, said, calls } = await device({}, 'preview', project);
+      assert.equal(code, 1, said);
+      assert.match(said, /did not pass/);
+      assert.ok(
+        !calls.some((call) => call.startsWith('reverse') || call.startsWith('shell am')),
+        calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    for (const where of ['tcp', 'tcp6'] as const) {
+      test(`nothing opens while something on the headset listens on 8720 (${where})`, async () => {
+        const { project } = story();
+        const { code, said, calls } = await device({ operator: where }, 'preview', project);
+        assert.equal(code, 1, said);
+        assert.match(said, /8720/);
+        assert.ok(
+          !calls.some((call) => reverses(call) || call.startsWith('shell am start')),
+          calls.join('\n'),
+        );
+        extra = {};
+      });
+    }
+
+    test('nothing opens under a system dialog', async () => {
+      const { project } = story();
+      const { code, said, calls } = await device({ guardian: true }, 'preview', project);
+      assert.equal(code, 1, said);
+      assert.match(said, /Not opening the preview/);
+      assert.ok(
+        !calls.some((call) => reverses(call) || call.startsWith('shell am start')),
+        calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test('preview stop removes the reverse and stops the browser this tool started', async () => {
+      const { project, state } = story();
+      assert.equal((await device({}, 'preview', project)).code, 0);
+      const { code, said, calls } = await device({}, 'preview', 'stop');
+      assert.equal(code, 0, said);
+      assert.ok(calls.includes(`reverse --remove tcp:${previewPort}`), calls.join('\n'));
+      assert.ok(calls.includes('shell am force-stop com.oculus.browser'), calls.join('\n'));
+      const kept = JSON.parse(readFileSync(state, 'utf8')) as {
+        reverses: number[];
+        started: string[];
+      };
+      assert.deepEqual(kept.reverses, []);
+      assert.deepEqual(kept.started, []);
+      extra = {};
+    });
+
+    test("preview stop leaves a browser that was running before, and other people's reverse rules", async () => {
+      const { project } = story();
+      const headset = { browserRunning: true, otherReverses: ['tcp:9000 tcp:9000'] };
+      assert.equal((await device(headset, 'preview', project)).code, 0);
+      const { code, said, calls } = await device(headset, 'preview', 'stop');
+      assert.equal(code, 0, said);
+      assert.ok(
+        !calls.some((call) => call.includes('force-stop com.oculus.browser')),
+        calls.join('\n'),
+      );
+      assert.ok(
+        !calls.some((call) => call.includes('tcp:9000') && call.startsWith('reverse --remove')),
+        calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test("someone else's reverse on the preview's own port is refused, and survives preview stop", async () => {
+      const { project } = story();
+      const headset = { otherReverses: [`tcp:${previewPort} tcp:${previewPort}`] };
+      const opened = await device(headset, 'preview', project);
+      assert.equal(opened.code, 1, opened.said);
+      assert.match(opened.said, /already has a reverse/);
+      assert.ok(
+        !opened.calls.some((call) => reverses(call) || call.startsWith('shell am start')),
+        opened.calls.join('\n'),
+      );
+      const stopped = await device(headset, 'preview', 'stop');
+      assert.equal(stopped.code, 0, stopped.said);
+      assert.ok(
+        !stopped.calls.some((call) => call.startsWith('reverse --remove')),
+        stopped.calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test('nothing opens when the headset answers nothing for /proc/net/tcp', async () => {
+      const { project } = story();
+      const { code, said, calls } = await device({ procNetSilent: true }, 'preview', project);
+      assert.equal(code, 1, said);
+      assert.match(said, /8720/);
+      assert.ok(
+        !calls.some((call) => reverses(call) || call.startsWith('shell am start')),
+        calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test('a reverse stays recorded while reverse --list cannot be read', async () => {
+      const { project, state } = story();
+      assert.equal((await device({}, 'preview', project)).code, 0);
+      const { code, said } = await device({ listFails: true }, 'preview', 'stop');
+      assert.equal(code, 1, said);
+      const kept = JSON.parse(readFileSync(state, 'utf8')) as { reverses: number[] };
+      assert.deepEqual(kept.reverses, [previewPort]);
+      extra = {};
+    });
+
+    test('give-back removes a reverse a cut-off preview left', async () => {
+      const { project, state } = story();
+      assert.equal((await device({}, 'preview', project)).code, 0);
+      const { code, said, calls } = await device({}, 'give-back');
+      assert.equal(code, 0, said);
+      assert.ok(calls.includes(`reverse --remove tcp:${previewPort}`), calls.join('\n'));
+      const kept = JSON.parse(readFileSync(state, 'utf8')) as { reverses: number[] };
+      assert.deepEqual(kept.reverses, []);
+      extra = {};
+    });
   });
 });

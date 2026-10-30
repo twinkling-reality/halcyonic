@@ -114,6 +114,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [quest-headset-in-the-loop.md](validation/quest-headset-in-the-loop.md) | Checking a Quest without wearing it: state, install and restore, launch, captures, recording, logs, the adb servers kept apart, and Meta XR Operator on 8720 |
 | [quest-3-performance.md](validation/quest-3-performance.md) | What the headset interface costs to draw, measured off the device and left for the headset |
 | [iwsdk-starter.md](validation/iwsdk-starter.md) | The Immersive Web SDK starter on the Mac: what the vetted download brought, and a type check, build and serve with no network |
+| [quest-browser-preview.md](validation/quest-browser-preview.md) | Opening a checked preview in Quest Browser at 127.0.0.1: what the tool checks first, the device commands, not yet run on the headset |
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, background limits |
 | [native-panel-voice.md](validation/native-panel-voice.md) | Development-only native held dictation, consent/editor lifetime, bounded audio disposal and source/API evidence versus device acceptance |
 | [native-project-output.md](validation/native-project-output.md) | Explicit headset-local project links to exact installed launchers, private persistence, authority and build correspondence limits |

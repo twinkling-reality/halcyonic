@@ -681,6 +681,10 @@ pnpm quest:device -- give-back
   removed from the headset by name. Captures show the room: keep them out of the repository.
 - `logs` keeps Halcyonic's own lines, its OpenXR session's states and the compositor's frame line,
   from Halcyonic's process only.
+- `preview <project id>` opens a project's checked copy in Quest Browser at `http://127.0.0.1:<port>/`, only when its
+  latest check passed with the agents' reads confined and the host's own server serves it
+  ([quest-browser-preview.md](../validation/quest-browser-preview.md)). The check holds when the page opens, not after:
+  run `preview stop` as soon as the look is done, which removes its reverse.
 
 ## Where time allows
 
