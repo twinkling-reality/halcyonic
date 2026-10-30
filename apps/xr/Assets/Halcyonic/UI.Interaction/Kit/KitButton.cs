@@ -17,14 +17,20 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A local action that changes only what shows, such as Hide composer: its outline alone at rest.</summary>
         Quiet,
+
+        /// <summary>
+        /// An answer that is its word alone (the art direction's handoff): no shape at rest, Body Strong in n6; pointed, a soft
+        /// capsule with a quiet ring and the word in n7; pressed, a deeper capsule.
+        /// </summary>
+        Word,
     }
 
     /// <summary>
     /// A button of the spatial kit: one whole hand target (<see cref="SpatialKit.TargetDegrees"/> tall) whose visible
     /// boundary is its target, its words in a verb first, an icon of Halcyonic's before them where the action has one,
-    /// never in their place. It says each state: at rest by its role, pointed at by a white frame, pressed by a deeper
-    /// fill, unavailable by quiet words on its outline alone (taking no press), and set aside while the app lacks
-    /// focus. Its press is <see cref="KitPress"/>'s: it asks its owner, it decides nothing. Centred on its transform.
+    /// never in their place. It says each state: at rest by its role, pointed at by a white frame (an answer by its ring or
+    /// soft capsule), pressed by a deeper fill, unavailable by quiet words on its outline alone (taking no press), and set
+    /// aside while the app lacks focus. The answers, the primary and a word, are capsules. Its press is <see cref="KitPress"/>'s: it asks its owner, it decides nothing. Centred on its transform.
     /// </summary>
     public sealed class KitButton : MonoBehaviour
     {
@@ -33,6 +39,7 @@ namespace Halcyonic.XR.UI
         private const float AwayOpacity = 0.45f;
 
         private Surface plate = null!;
+        private Surface ring = null!;
         private TextMeshPro words = null!;
         private TextMeshPro icon = null!;
         private KitPress press = null!;
@@ -45,6 +52,19 @@ namespace Halcyonic.XR.UI
         public TextMeshPro Words => words;
 
         public Surface Plate => plate;
+
+        /// <summary>A pointed primary's ring outside its capsule; hidden otherwise.</summary>
+        public Surface Ring => ring;
+
+        /// <summary>The answers, the primary and a word, are capsules (the art direction's "one style everywhere").</summary>
+        private bool Capsule => role == KitButtonRole.Primary || role == KitButtonRole.Word;
+
+        private float Pad => KitType.Units(role switch
+        {
+            KitButtonRole.Primary => SpatialKit.Degrees(SpatialKit.PrimaryPadDp),
+            KitButtonRole.Word => SpatialKit.Degrees(SpatialKit.WordPadDp),
+            _ => PadDegrees,
+        });
 
         public Vector2 Size => size;
 
@@ -82,6 +102,8 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var button = go.AddComponent<KitButton>();
             button.role = role;
+            button.ring = Surface.Create(go.transform, "Pointed ring", order - 1);
+            button.ring.gameObject.SetActive(false);
             button.plate = Surface.Create(go.transform, "Boundary", order);
             button.words = KitType.Create(go.transform, "Words", KitRole.Strong, KitType.Text, order + 2, TextAlignmentOptions.Left, room: room);
             button.words.rectTransform.pivot = new Vector2(0f, 0.5f);
@@ -98,7 +120,7 @@ namespace Halcyonic.XR.UI
         {
             KitType.Size(words, KitRole.Strong);
             var iconRoom = glyph.HasValue ? KitType.Units(SpatialKit.IconDegrees * GlazeText.Scale) + KitType.Scaled(GapDegrees) : 0f;
-            return Mathf.Max(Height, 2f * KitType.Units(PadDegrees) + iconRoom + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x);
+            return Mathf.Max(Height, 2f * Pad + iconRoom + words.GetPreferredValues(LabelText.ForTextMeshPro(text)).x);
         }
 
         /// <summary>Shows the button centred at <paramref name="centre"/>, <paramref name="width"/> wide, its words and icon centred together.</summary>
@@ -110,7 +132,7 @@ namespace Halcyonic.XR.UI
             size = new Vector2(Mathf.Max(width, Height), Height);
             var iconEm = KitType.Units(SpatialKit.IconDegrees * GlazeText.Scale);
             var iconRoom = glyph.HasValue ? iconEm + KitType.Scaled(GapDegrees) : 0f;
-            var (_, wordsWidth, _) = KitType.Lay(words, size.x - 2f * KitType.Units(PadDegrees) - iconRoom, 1);
+            var (_, wordsWidth, _) = KitType.Lay(words, size.x - 2f * Pad - iconRoom, 1);
             var left = -(iconRoom + wordsWidth) / 2f;
             icon.gameObject.SetActive(glyph.HasValue);
             if (glyph is GlazeIcon shown)
@@ -151,26 +173,40 @@ namespace Halcyonic.XR.UI
             painted = state;
             var hairline = KitType.Units(SpatialKit.HairlineDegrees);
             var frame = KitType.Units(0.09f);
-            var radius = KitType.Units(SpatialKit.ControlRadiusDegrees);
+            var radius = Capsule ? size.y / 2f : KitType.Units(SpatialKit.ControlRadiusDegrees);
+            var answerRing = KitType.Units(SpatialKit.Degrees(SpatialKit.AnswerRingDp));
             Color fill, edge, text;
             var edgeWidth = hairline;
+            var ringShown = false;
+            var scale = 1f;
             if (!available)
             {
+                // Locked: a 2 dp n4 ring round a quiet word, its reason being its word; a word answer keeps no shape.
                 fill = Color.clear;
-                edge = KitType.Colour(SpatialKit.Edge);
-                text = KitType.Secondary;
+                edge = role == KitButtonRole.Word ? Color.clear : KitType.Colour(SpatialKit.Edge);
+                text = Capsule ? KitType.Colour(SpatialKit.TextTertiary) : KitType.Secondary;
+                if (role == KitButtonRole.Primary) edgeWidth = answerRing;
             }
             else
             {
                 switch (role)
                 {
                     case KitButtonRole.Primary:
-                        // The one primary is filled with light (ADR 0040 as amended 2026-10-30): n7, pressed to n6, its word
-                        // in n0; the accent is only for live work.
+                        // The one primary is filled with light (ADR 0040 as amended 2026-10-30): n7, pressed to n6 and 97 percent,
+                        // its word in n0; pointed, 2.5 percent larger with a 3 dp ring outside it, 3:1 or more on every face (AUDIT's
+                        // A1C-S1). The accent is only for live work.
                         fill = KitType.Colour(pressed ? SpatialKit.TextSecondary : SpatialKit.Text);
-                        // Pointed, an n0 band inside its edge: 12:1 against the resting fill, where white read 1.36 (AUDIT's A1C-S1).
-                        edge = hovered ? KitType.Colour(SpatialKit.OnFill) : fill;
+                        edge = fill;
                         text = KitType.Colour(SpatialKit.OnFill);
+                        ringShown = hovered && !pressed;
+                        scale = pressed ? 0.97f : hovered ? 1.025f : 1f;
+                        break;
+                    case KitButtonRole.Word:
+                        fill = pressed ? KitType.Colour(SpatialKit.WordPressed) : hovered ? KitType.Colour(SpatialKit.WordPointed) : Color.clear;
+                        edge = hovered || pressed ? KitType.Colour(SpatialKit.WordRing) : Color.clear;
+                        edgeWidth = answerRing;
+                        text = hovered || pressed ? KitType.Text : KitType.Secondary;
+                        scale = pressed ? 0.97f : 1f;
                         break;
                     case KitButtonRole.Secondary:
                         // Its raised fill is its boundary; only a pointed one is framed.
@@ -184,11 +220,20 @@ namespace Halcyonic.XR.UI
                         text = KitType.Text;
                         break;
                 }
-                if (hovered) edgeWidth = frame;
+                if (hovered && !Capsule) edgeWidth = frame;
             }
             var opacity = away ? AwayOpacity : 1f;
             plate.Draw(size, radius, fill, edge, edgeWidth);
             plate.Fade(opacity);
+            ring.gameObject.SetActive(ringShown);
+            if (ringShown)
+            {
+                var reach = KitType.Units(SpatialKit.Degrees(SpatialKit.PrimaryRingDp));
+                ring.Draw(size + 2f * reach * Vector2.one, radius + reach, KitType.Colour(SpatialKit.PrimaryRing));
+                ring.transform.localPosition = new Vector3(0f, 0f, 0.0001f);
+                ring.Fade(opacity);
+            }
+            transform.localScale = Vector3.one * scale;
             plate.Selection = hovered ? SurfaceSelection.Pointed : role == KitButtonRole.Primary && available ? SurfaceSelection.MainCap : SurfaceSelection.None;
             words.color = new Color(text.r, text.g, text.b, opacity);
             icon.color = words.color;
