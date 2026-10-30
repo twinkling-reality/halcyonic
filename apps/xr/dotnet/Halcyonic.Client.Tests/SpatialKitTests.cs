@@ -175,7 +175,7 @@ public class SpatialKitTests
         // #3A3F45 leaves tertiary words at 4.29 and failed words at 4.35 on a control, so the kit takes OKLCH 0.35; ART's
         // value raises the switch's thumb, which carries only primary and secondary words.
         var ramp = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control, SpatialKit.Hairline, SpatialKit.TextTertiary, SpatialKit.TextSecondary, SpatialKit.Text };
-        Assert.That(ramp, Is.EqualTo(new uint[] { 0x1B1E22, 0x21252A, 0x2B2F35, 0x363B41, 0x6D7279, 0xA0A5AC, 0xBABEC4, 0xDADDE0 }.Select(GlazeColor.Hex)));
+        Assert.That(ramp, Is.EqualTo(new uint[] { 0x1B1E22, 0x21252A, 0x2B2F35, 0x363B41, 0x767B82, 0xA0A5AC, 0xBABEC4, 0xDADDE0 }.Select(GlazeColor.Hex)));
         Assert.That(new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed },
             Is.EqualTo(new uint[] { 0x59CFF1, 0xFABA59, 0xF7857D, 0x69D98D }.Select(GlazeColor.Hex)), "live, needs, failed, passed");
         Assert.That(SpatialKit.OnFill, Is.EqualTo(SpatialKit.Well), "words on the primary capsule are n0");
@@ -210,8 +210,13 @@ public class SpatialKitTests
     public void ALockedOutlineShowsWithoutReadingAsWords()
     {
         // n4 draws a locked answer's ring and the kit's hairlines: a boundary at WCAG's 3:1 for non-text, quieter than any word.
-        Assert.That(GlazeColor.Contrast(SpatialKit.Hairline, SpatialKit.Carrier), Is.GreaterThanOrEqualTo(3), "a locked ring on its face");
-        Assert.That(GlazeColor.Contrast(SpatialKit.Hairline, SpatialKit.Carrier), Is.LessThan(GlazeColor.Contrast(SpatialKit.TextTertiary, SpatialKit.Carrier)));
+        // A locked control has no fill, so its ring sits on whatever is behind it: a face from its lit top to its foot, a well,
+        // or a raised plate (the earlier stack, a notice, a pill). Never on Control, which is only a pressed fill.
+        foreach (var surface in new[] { SpatialKit.Well, SpatialKit.FaceBottom, SpatialKit.Carrier, SpatialKit.FaceTop, SpatialKit.Raised })
+        {
+            Assert.That(GlazeColor.Contrast(SpatialKit.Hairline, surface), Is.GreaterThanOrEqualTo(3), $"a locked ring on {surface}");
+            Assert.That(GlazeColor.Contrast(SpatialKit.Hairline, surface), Is.LessThan(GlazeColor.Contrast(SpatialKit.TextTertiary, surface)), $"quieter than words on {surface}");
+        }
     }
 
     [Test]
