@@ -146,3 +146,11 @@ edges are counted in the host from the PNGs Chrome returns (`preview/png.ts` dec
 picture is unknown), canvases are counted through the DevTools DOM domain, at most 100 exception texts are kept
 (each clipped; the rest only counted), and a message from Chrome over 16 MB ends the run as unknown.
 
+## Amendment, 2026-10-30: no service worker on a preview's origin
+
+Previews share a few ports on 127.0.0.1, so every project that lands on a port shares its origin with every earlier
+one there. A service worker registered by one game would outlive its preview and could answer a later project's
+preview, on the headset too, with bytes the check never saw. The host's preview and dev servers therefore answer 404,
+with no body, to any request carrying the `Service-Worker` header, which a browser sends with every worker script
+fetch, so no registration succeeds (AUDIT M16A-C1). Storage a game leaves on the origin is not cleared by this; that
+is a separate unit, once a browser is shown to honour clearing it over plain HTTP on 127.0.0.1.

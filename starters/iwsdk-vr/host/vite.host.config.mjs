@@ -20,6 +20,7 @@ import {
   readManifest,
   rewriteProfilesModule,
 } from './input-profiles.mjs';
+import { refuseServiceWorkers } from './service-workers.mjs';
 
 const root = process.env.HALCYONIC_PREVIEW_ROOT;
 const port = Number(process.env.HALCYONIC_PREVIEW_PORT);
@@ -124,9 +125,11 @@ function inputProfiles() {
       return isProfilesModule(id) ? { code: rewriteProfilesModule(code), map: null } : null;
     },
     configureServer(server) {
+      server.middlewares.use(refuseServiceWorkers);
       server.middlewares.use(`/${PROFILES_PREFIX}`, profilesMiddleware(profiles, profilesListing));
     },
     configurePreviewServer(server) {
+      server.middlewares.use(refuseServiceWorkers);
       server.middlewares.use(`/${PROFILES_PREFIX}`, profilesMiddleware(profiles, profilesListing));
     },
     generateBundle() {

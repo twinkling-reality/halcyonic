@@ -190,6 +190,20 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   process left within 5 s, on 4 of 4 runs (an earlier run that looked at once found one process of it still exiting).
 - **Not tried:** agent-built games through the whole check with the twin; a game with late-loading assets.
 
+## No service worker on a preview's origin (AUDIT M16A-C1)
+
+- **Question:** can a game register a service worker on a preview's origin, which later projects on the same port share?
+- **Date:** 2026-10-30.
+- **Found:** with the host as it was, a page of the starter registered `./sw.js` from its own `public/` in the check's
+  headless Chrome (156.0.8078.76) over http://127.0.0.1: registration resolved (opt-in test, failing first).
+- **Now:** the host's preview and dev servers answer 404 to any request with the `Service-Worker` header, which the
+  Service Workers specification puts on every worker script fetch (W3C Service Workers editor's draft, read
+  2026-10-30: the Update algorithm's fetch hook appends `Service-Worker`/`script` to the request); the same page's
+  registration is refused.
+- **Not tried:** the Quest Browser (the headset is away). A worker registered before this change stays: when an update
+  fetch fails, the same algorithm removes the registration only if it has no worker yet. Clearing storage on a reused
+  port, which would remove it, is the next unit.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

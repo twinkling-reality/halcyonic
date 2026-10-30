@@ -16,6 +16,7 @@ export const HOST_FILES = [
   'vite.host.config.mjs',
   'input-profiles.mjs',
   'input-profiles.json',
+  'service-workers.mjs',
 ] as const;
 
 /**
