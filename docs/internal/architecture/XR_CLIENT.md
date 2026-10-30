@@ -1569,9 +1569,9 @@ there, but "Not linked to a project here", or "Maybe on your computer:" and a fo
 matched by a rule (`PlaceInferred`), which is never a link; how old the catalog is ("Checked today at 14:50", or that the last check failed), and, when
 there is no catalog, why, by the control plane's answer, the gallery then holding Halcyonic's own
 projects; a recorded answer says only "Your other projects aren't part of this recording.", so the
-source is named only where a real control plane answered. `CatalogFeed` asks `GET /api/catalog` (`ControlPlaneApi.ReadCatalogAsync`) when the gallery
-opens without an answer younger than a minute, on Refresh, and each minute while it stays open; the
-last answer stays shown while a new one is read and after the gallery closes. `CommandFactory`'s
+source is named only where a real control plane answered. `CatalogFeed` asks `GET /api/catalog` (`ControlPlaneApi.ReadCatalogAsync`) each time the person
+opens their projects and on Refresh, never on a timer, since each read can make the computer read
+folders and ask Phat Porcupine; the last answer stays shown while a new one is read and after the gallery closes. `CommandFactory`'s
 `LinkCatalog` and `UnlinkCatalog` send the person's link. While the demonstration plays,
 `DemonstrationCatalogReads` answers from `DemonstrationFallback.CatalogAt`: the recording's sample
 catalog, invented projects the stand-in served, marked synthetic and recorded, with every time moved by
