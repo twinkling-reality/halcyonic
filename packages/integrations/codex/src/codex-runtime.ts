@@ -178,6 +178,13 @@ interface Slot {
   launching: Promise<Connection> | null;
 }
 
+/** Whether two confinements give a server the same scope, so its profile still holds (AUDIT S2-S1). */
+function sameScope(a: Confinement | null, b: Confinement): boolean {
+  const scope = (c: Confinement | null) =>
+    c === null ? null : JSON.stringify([c.project, c.readable, c.originals ?? [], c.hidden ?? []]);
+  return scope(a) === scope(b);
+}
+
 /** The file a confined server must fail to read or write at launch (ADR 0041). */
 const CONFINEMENT_CANARY = 'confinement-canary.txt';
 /** Where each confined server's own Codex home is kept, beside the open server's. */
@@ -805,7 +812,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       );
     }
     const known = this.#confined.get(directory);
-    if (known !== undefined) return known;
+    if (known !== undefined) {
+      if (sameScope(known.confinement, confinement)) return known;
+      this.#retire(directory, known);
+    }
     const slot: Slot = {
       confinement,
       recordFile: `${this.#open.recordFile}-${confinementKey(directory)}`,
@@ -814,6 +824,35 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     };
     this.#confined.set(directory, slot);
     return slot;
+  }
+
+  /**
+   * Retires a folder's confined server whose scope has changed since it was made (AUDIT S2-S1): its
+   * threads ran under the old scope, so they are given up rather than continued, and the server is
+   * stopped, so a new one starts under the new profile. Never while a turn runs on it or it is
+   * launching: that start is refused, to be made again once the turn ends.
+   */
+  #retire(directory: string, slot: Slot): void {
+    const threads = [...this.#threads.values()].filter(
+      (thread) => !thread.lost && thread.connection.slot === slot,
+    );
+    if (slot.launching !== null || threads.some((thread) => thread.state.activeTurnId !== null)) {
+      throw new RuntimeActionError(
+        'runtime_refused',
+        "This project's scope changed while a turn runs on its confined server, so nothing new was started. Start again once that turn ends.",
+      );
+    }
+    for (const thread of threads)
+      this.#lose(
+        thread,
+        "the project's scope changed, so its earlier confined server was stopped.",
+      );
+    const current = slot.current;
+    if (current !== null) {
+      this.#halt(current);
+      void current.server.stop().catch(() => undefined);
+    }
+    this.#confined.delete(directory);
   }
 
   async #connection(relaunch = false, slot: Slot = this.#open): Promise<Connection> {

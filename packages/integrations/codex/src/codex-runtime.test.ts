@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { compileValidator, RuntimeDescriptor } from '@halcyonic/contracts';
 import {
   capabilityProblems,
+  type ExecutionContext,
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
@@ -1771,6 +1772,71 @@ describe('a confined project (ADR 0041)', () => {
     assert.ok(existsSync(own));
     assert.ok(!existsSync(recordFile));
     assert.match(readFileSync(`${own}.sb`, 'utf8'), /\n\(deny default\)\n/);
+  });
+
+  const SECOND: ExecutionContext = {
+    ...TEST_EXECUTION,
+    execution_id: '01920000-0000-7000-8000-000000000013' as ExecutionContext['execution_id'],
+  };
+
+  test('a folder whose scope changed gets a new server with the new profile; its idle threads are given up (S2-S1)', {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    let readable: string[] = [];
+    const added = temporary(t);
+    const { runtime, recordFile, start, directory, launched, observations } = fake(t, [], {
+      ...confinedTo(t, (folder) => ({ project: folder, readable })),
+    });
+    await start('COMPLETE the work.');
+    await until(
+      () => observations.some((item) => item.type === 'runtime.turn.completed'),
+      'the first turn to complete',
+    );
+    const profile = `${recordFile}-${confinementKey(directory)}.sb`;
+    assert.ok(!readFileSync(profile, 'utf8').includes(added));
+    // The folder's scope changes, as when an original is added or refused.
+    readable = [added];
+    await runtime.startExecution({
+      execution: SECOND,
+      instruction: 'COMPLETE again.',
+      options: {},
+      model_ref: null,
+      directory,
+      emit: () => undefined,
+    });
+    assert.equal(launched().length, 2, 'a new server, launched under the new profile');
+    assert.ok(readFileSync(profile, 'utf8').includes(added));
+    // The earlier thread ran under the old scope; it is given up, never continued on either server.
+    await assert.rejects(runtime.sendInstruction({ execution: TEST_EXECUTION, text: 'More.' }));
+  });
+
+  test('a scope that changed while a turn runs on its server refuses the new start, and the turn keeps its server (S2-S1)', {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    let readable: string[] = [];
+    const added = temporary(t);
+    const { runtime, start, directory, launched } = fake(t, [], {
+      ...confinedTo(t, (folder) => ({ project: folder, readable })),
+    });
+    // Without COMPLETE the fake's turn runs until interrupted.
+    await start('Do the work.');
+    readable = [added];
+    await assert.rejects(
+      runtime.startExecution({
+        execution: SECOND,
+        instruction: 'Do more.',
+        options: {},
+        model_ref: null,
+        directory,
+        emit: () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'runtime_refused' &&
+        /scope changed/.test(error.message),
+    );
+    assert.equal(launched().length, 1, 'the running turn keeps its server');
+    await runtime.interrupt({ execution: TEST_EXECUTION });
   });
 
   test("runs any other project on the open server, with Codex's own sandbox", async (t) => {
