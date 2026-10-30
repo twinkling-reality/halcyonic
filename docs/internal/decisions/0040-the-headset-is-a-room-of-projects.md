@@ -93,6 +93,10 @@ words never on the room, state never by colour alone, Keep things still landing 
     Body 18, Label 15, Mono 16 dp); motion only on events: a moment pops in 500 ms with a small overshoot, a surface
     unfolds in 500 ms and folds in 250 ms, a move takes 600 ms. [STYLE.md](../product/STYLE.md) holds the values;
     [WORDS.md](../product/WORDS.md) the words.
+    Amended 2026-10-30 (the owner's yes at 04:45Z to the art direction "Quiet glass, living light"): the accent is for
+    live work only; the one primary is filled with light, a neutral n7 capsule with its word in n0, pressed to n6. The
+    room's type scale is the art direction's six roles: Display 48, Title 28, Body 18, Body Strong 18, Label 15 and
+    Mono 16 dp, each with its own line pitch; Identity 30 and Heading 22 stay only on the instrument candidate.
 
 What stays from ADR 0026: one MenuDirector, guarded routes, the file as the authoritative reading object, the footer's
 fixed places, StateLanguage's words, and its reading and input safeguards. What gives way: the menu and a file side by

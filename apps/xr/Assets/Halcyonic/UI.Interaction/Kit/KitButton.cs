@@ -9,7 +9,7 @@ namespace Halcyonic.XR.UI
     /// <summary>What a kit button does, which sets its look: roles, never screens, choose colours.</summary>
     public enum KitButtonRole
     {
-        /// <summary>The one action its region leads to, filled with the accent.</summary>
+        /// <summary>The one action its region leads to: filled with light, n7 with its word in n0.</summary>
         Primary,
 
         /// <summary>Any other action, on a raised fill.</summary>
@@ -165,10 +165,11 @@ namespace Halcyonic.XR.UI
                 switch (role)
                 {
                     case KitButtonRole.Primary:
-                        // The room's one accent (ADR 0040): deeper pressed, lifter pointed, its ink on every fill.
-                        fill = KitType.Colour(pressed ? SpatialKit.PressedAccent : hovered ? SpatialKit.HoveredAccent : SpatialKit.Accent);
+                        // The one primary is filled with light (ADR 0040 as amended 2026-10-30): n7, pressed to n6, its word
+                        // in n0; the accent is only for live work.
+                        fill = KitType.Colour(pressed ? SpatialKit.TextSecondary : SpatialKit.Text);
                         edge = hovered ? Color.white : fill;
-                        text = KitType.Colour(SpatialKit.AccentInk);
+                        text = KitType.Colour(SpatialKit.OnFill);
                         break;
                     case KitButtonRole.Secondary:
                         // Its raised fill is its boundary; only a pointed one is framed.

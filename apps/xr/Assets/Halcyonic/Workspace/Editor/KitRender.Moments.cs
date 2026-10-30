@@ -50,6 +50,26 @@ namespace Halcyonic.XR.Workspace.Editor
             };
         }
 
+        /// <summary>The one primary is filled with light, n7 or n6 pressed, its word in n0; never the accent (ADR 0040 as amended 2026-10-30).</summary>
+        private static bool PrimaryIsLight(KitButton button)
+        {
+            var fill = button.Plate.Fill;
+            var word = button.Words.color;
+            bool Same(Color a, Color b) => Mathf.Approximately(a.r, b.r) && Mathf.Approximately(a.g, b.g) && Mathf.Approximately(a.b, b.b);
+            return (Same(fill, KitType.Colour(SpatialKit.Text)) || Same(fill, KitType.Colour(SpatialKit.TextSecondary))) && Same(word, KitType.Colour(SpatialKit.OnFill));
+        }
+
+        /// <summary>
+        /// A label in one of the room's faces keeps that face's role's line pitch (<see cref="KitType.RoomLeading"/>); each
+        /// face carries one role in the room, so the face says which. Labels in any other face are the instrument's.
+        /// </summary>
+        private static bool LeadsAsItsRole(TMP_Text label)
+        {
+            if (!KitType.IsRoomFace(label.font)) return true;
+            var role = new[] { KitRole.Display, KitRole.Title, KitRole.Body, KitRole.Strong, KitRole.Label, KitRole.Mono }.First(each => KitType.Face(each) == label.font);
+            return Mathf.Abs(label.lineSpacing - KitType.LineSpacingFor(label, KitType.RoomLeading(role))) < 0.01f;
+        }
+
         private static Shot MomentShot(string state, Transform root, Vector3 eyes)
         {
             var slot = MomentSlot(state);
@@ -103,6 +123,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!card.Shown.Any(each => each.Action == KitMomentAction.YesRunIt) && card.Shown.Any(each => each.Action == KitMomentAction.No),
                     "a command shown cut can be approved");
             Require(card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) <= 1, "more than one primary action");
+            Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not filled with light, its word in n0");
+            // The room's type scale (ART's handoff): the subject in Title, every room label at its role's own line pitch.
+            Require(card.Headline.font == KitType.Face(KitRole.Title) && Mathf.Approximately(card.Headline.fontSize, GlazeTokens.FontSize(KitType.Em(KitRole.Title))), "the subject is not in Title");
+            foreach (var label in card.GetComponentsInChildren<TextMeshPro>(true))
+                Require(LeadsAsItsRole(label), label.name + " does not keep its role's line pitch");
             // Their names keep their run wherever they stand; nothing reads as no changes.
             Require(GlazeRuns.Of(card.Headline).Theirs.Count == moment.Headline.Runs.Count(run => run.Theirs), "the subject's outside text is not exactly where it is theirs");
             var everything = card.GetComponentsInChildren<TextMeshPro>(false).Select(label => label.text ?? "").ToList();

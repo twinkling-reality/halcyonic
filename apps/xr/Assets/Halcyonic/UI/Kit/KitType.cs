@@ -9,17 +9,17 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The spatial kit's type roles (<see cref="SpatialKit"/>). On the room's parts (<see cref="KitType.Create"/> with
-    /// <c>room</c>) each takes one of ART's six static faces (2026-10-30): Display in Archivo Expanded Regular; Title, and
-    /// Identity and Heading until those parts move to Title, in Archivo Expanded SemiBold; Body in Inter Regular, Strong in
-    /// Inter SemiBold, Label in Inter Medium, Mono in JetBrains Mono Regular. The instrument candidate (the workspace's spine,
+    /// <c>room</c>) each takes one of ART's six static faces (2026-10-30) and its own line pitch: Display in Archivo Expanded
+    /// Regular; Title in Archivo Expanded SemiBold; Body in Inter Regular, Strong in Inter SemiBold, Label in Inter Medium,
+    /// Mono in JetBrains Mono Regular. Identity and Heading are the instrument candidate's only. The instrument candidate (the workspace's spine,
     /// slate and rail, the overview, the presence) keeps the instrument face and Liberation Sans until the room replaces it.
     /// </summary>
     public enum KitRole
     {
-        /// <summary>The selected work's or the place's name, once an instrument: 30 dp in the instrument face, the title face in the room.</summary>
+        /// <summary>The selected work's or the place's name on the instrument candidate: 30 dp in the instrument face. The room's parts take Title or Display.</summary>
         Identity,
 
-        /// <summary>A region's heading, and a project's name on the overview: 22 dp in the instrument face, the title face in the room.</summary>
+        /// <summary>A region's heading, and a project's name on the overview, on the instrument candidate: 22 dp in the instrument face. The room's parts take Title.</summary>
         Heading,
 
         /// <summary>Everything read: 18 dp in the reading face.</summary>
@@ -111,11 +111,15 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// Sizes a label for its role at the person's text size, with a line pitch of <paramref name="leading"/> ems; a
-        /// room label also takes the role's face and tracking.
+        /// room label instead takes the role's face, tracking and own line pitch (<see cref="RoomLeading"/>).
         /// </summary>
         public static void Size(TMP_Text label, KitRole role, float leading = SpatialKit.ListLeading)
         {
-            if (IsRoomFace(label.font)) Dress(label, role);
+            if (IsRoomFace(label.font))
+            {
+                Dress(label, role);
+                leading = RoomLeading(role);
+            }
             var size = GlazeTokens.FontSize(Em(role));
             if (!Mathf.Approximately(label.fontSize, size)) label.fontSize = size;
             var spacing = LineSpacingFor(label, leading);
@@ -161,6 +165,17 @@ namespace Halcyonic.XR.UI
                 if (Face(role) == font) return true;
             return false;
         }
+
+        /// <summary>A role's line pitch in the room, in ems (ART's handoff): Display 1.06, Title 1.18, Body 1.40, Strong and Label 1.30, Mono 1.50.</summary>
+        public static float RoomLeading(KitRole role) => role switch
+        {
+            KitRole.Display => SpatialKit.DisplayLeading,
+            KitRole.Title or KitRole.Identity or KitRole.Heading => SpatialKit.TitleLeading,
+            KitRole.Strong => SpatialKit.StrongLeading,
+            KitRole.Label => SpatialKit.LabelLeading,
+            KitRole.Mono => SpatialKit.MonoLeading,
+            _ => SpatialKit.ReadingLeading,
+        };
 
         /// <summary>A role's tracking, in hundredths of an em: Display -1, the title face -0.5, Label +0.5.</summary>
         public static float Tracking(KitRole role) => role switch

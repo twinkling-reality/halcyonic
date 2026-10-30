@@ -58,10 +58,10 @@ namespace Halcyonic.Client
         // Type, in Meta's dp. On the instrument nothing is smaller than Body; the room (ADR 0040) adds Label and Mono
         // for its small surfaces, a moment and a tile, where they still read at the floor.
 
-        /// <summary>The selected work's or the place's name, once an instrument, in the instrument face.</summary>
+        /// <summary>The selected work's or the place's name on the instrument candidate only; the room's parts take Title or Display.</summary>
         public const float IdentityDp = 30f;
 
-        /// <summary>A region's heading, and a project's name on the overview, in the instrument face.</summary>
+        /// <summary>A region's heading, and a project's name on the overview, on the instrument candidate only; the room's parts take Title.</summary>
         public const float HeadingDp = 22f;
 
         /// <summary>Everything read: prose, rows, facts, chips and controls, in the reading face.</summary>
@@ -84,6 +84,24 @@ namespace Halcyonic.Client
 
         /// <summary>From one line of a row or a fact to the next, in ems.</summary>
         public const float ListLeading = 1.2f;
+
+        // The room's roles each keep their own line pitch, in ems (ART's handoff, 2026-10-30); Body reads at ReadingLeading.
+        // The instrument candidate keeps ListLeading.
+
+        /// <summary>Display's line pitch: a project's name on its empty screen.</summary>
+        public const float DisplayLeading = 1.06f;
+
+        /// <summary>Title's line pitch: a moment's subject, the reader's title, the screen's chip.</summary>
+        public const float TitleLeading = 1.18f;
+
+        /// <summary>Strong's line pitch: names and the primary capsule's word.</summary>
+        public const float StrongLeading = 1.3f;
+
+        /// <summary>Label's line pitch: metadata lines, eyebrows, tile lines.</summary>
+        public const float LabelLeading = 1.3f;
+
+        /// <summary>Mono's line pitch: commands, paths and output.</summary>
+        public const float MonoLeading = 1.5f;
 
         /// <summary>A size in dp as an angle at the eye.</summary>
         public static float Degrees(float dp) => dp * Glaze.DegreesPerDp;
@@ -197,7 +215,7 @@ namespace Halcyonic.Client
         /// <summary>n5: a time, a count.</summary>
         public static GlazeColor TextTertiary => GlazeColor.Hex(0xA0A5AC);
 
-        /// <summary>Live: an agent running, and the one accent.</summary>
+        /// <summary>Live: an agent running, and the one accent; never a button's fill (the one primary is an n7 capsule).</summary>
         public static GlazeColor Accent => GlazeColor.Hex(0x59CFF1);
 
         /// <summary>The primary capsule's word, on its n7 fill: n0.</summary>
@@ -207,9 +225,6 @@ namespace Halcyonic.Client
         public static GlazeColor FaceTop => GlazeColor.Hex(0x262A30);
 
         public static GlazeColor FaceBottom => GlazeColor.Hex(0x1E2226);
-
-        /// <summary>Words on a coloured fill.</summary>
-        public static GlazeColor AccentInk => GlazeColor.Hex(0x0A1B24);
 
         /// <summary>Needs the person: a question, an approval.</summary>
         public static GlazeColor Attention => GlazeColor.Hex(0xFABA59);
@@ -222,12 +237,6 @@ namespace Halcyonic.Client
 
         /// <summary>The band under a line a checkpoint diff shows added.</summary>
         public static GlazeColor AddedBand => GlazeColor.Hex(0x1B3324);
-
-        /// <summary>A pressed primary action: the accent deepened, mixed in linear light 18 percent toward black.</summary>
-        public static GlazeColor PressedAccent => GlazeColor.Hex(0x51BDDD);
-
-        /// <summary>A pointed primary action: the accent lifted, mixed in linear light 16 percent toward white.</summary>
-        public static GlazeColor HoveredAccent => GlazeColor.Hex(0x87D8F3);
 
         /// <summary>
         /// A project's identity field: its screen's face while no picture stands, in the project's own hue (0 to 360) at a

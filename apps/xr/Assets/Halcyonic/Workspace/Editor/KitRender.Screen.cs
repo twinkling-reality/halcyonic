@@ -97,6 +97,11 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(actions.Contains(KitScreenAction.MakeAVrVersion) == (!model.IsVr && !model.Folded), "Make a VR version stands where it does not apply, or is missing");
             if (!model.Folded) Require(bar.Shown[0].Action == model.Primary && bar.Shown[0].Button.Role == KitButtonRole.Primary, "the primary action is not first or not filled");
             Require(bar.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == (model.Folded ? 0 : 1), "more or less than one primary action");
+            Require(bar.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not filled with light, its word in n0");
+            // The room's type scale (ART's handoff): the chip's title in Title, every room label at its role's own line pitch.
+            Require(screen.Title.font == KitType.Face(KitRole.Title) && Mathf.Approximately(screen.Title.fontSize, GlazeTokens.FontSize(KitType.Em(KitRole.Title))), "the chip's title is not in Title");
+            foreach (var label in view.GetComponentsInChildren<TextMeshPro>(true))
+                Require(LeadsAsItsRole(label), label.name + " does not keep its role's line pitch");
             // Folded, the handle alone.
             Require(model.Folded == bar.Handle.gameObject.activeSelf && model.Folded == !bar.Carrier.gameObject.activeSelf, "the bar is not folded to its handle as the model says");
             // No picture source exists yet: nothing on the screen says it shows a build.
