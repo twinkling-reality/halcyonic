@@ -57,6 +57,7 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 failures.AddRange(ThumbMotion());
+                failures.AddRange(SoundCheck());
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
                 {
                     var size = variant.Length == 0 ? "Standard" : variant;
