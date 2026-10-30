@@ -439,6 +439,16 @@ export function confinedProfile(scope: ConfinedScope): string {
   ];
   const originals = scope.originals ?? [];
   const hidden = scope.hidden ?? [];
+  // The scope's own folders are allowed again after the hidden ones are refused, so none of them may
+  // be or hold a hidden folder, or the re-allow would reopen it (AUDIT M18C1-A-S1).
+  for (const folder of own) {
+    const mine = resolved(folder);
+    for (const path of hidden) {
+      const kept = resolved(path);
+      if (kept === mine || kept.startsWith(mine.endsWith('/') ? mine : `${mine}/`))
+        throw new Error(`the confinement's own folder ${mine} is or holds the hidden ${kept}`);
+    }
+  }
   const readable = [...own, ...originals];
   const each = (filter: string, paths: readonly string[]) =>
     paths.map((path) => `(${filter} ${quote(path)})`).join(' ');
