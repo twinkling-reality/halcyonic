@@ -192,6 +192,32 @@ describe('command admission', () => {
     assert.equal(missing.admitted ? null : missing.rejection.code, 'project_not_found');
   });
 
+  test('making a VR version is admitted only for a known project that has a folder (M1.8c-1)', () => {
+    const { b, projection, scope } = setup();
+    const make = (projectId: string): CommandEnvelope => ({
+      schema_version: 1,
+      command_id: '00000000-0000-4000-8000-0000000000ab' as CommandId,
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'project.make_vr_version',
+      payload: { original_project_id: projectId as never, root: '/work', folder_name: 'garden-vr' },
+    });
+    // The setup project has no folder: there is nothing to read the game from.
+    const noFolder = admitCommand(make(scope.projectId), projection, catalog());
+    assert.equal(noFolder.admitted ? null : noFolder.rejection.code, 'location_required');
+    const garden = b.project('Garden', { path: '/work/garden', name: 'garden', created: false });
+    projection.apply(garden.event);
+    const admitted = admitCommand(make(garden.projectId), projection, catalog());
+    assert.equal(admitted.admitted && admitted.policy, 'low_consequence');
+    assert.equal(admitted.scope.project_id, garden.projectId);
+    const missing = admitCommand(
+      make('01920000-0000-7000-8000-00000000ffff'),
+      projection,
+      catalog(),
+    );
+    assert.equal(missing.admitted ? null : missing.rejection.code, 'project_not_found');
+  });
+
   test('linking a catalog repository is admitted for a known project; unlinking needs a link', () => {
     const { b, projection, scope } = setup();
     let n = 0;

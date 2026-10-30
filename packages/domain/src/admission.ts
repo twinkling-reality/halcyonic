@@ -107,6 +107,21 @@ export function admitCommand(
       };
     }
 
+    case 'project.make_vr_version': {
+      const projectId = command.payload.original_project_id;
+      const original = projection.project(projectId);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (original === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      if (original.location === null)
+        return reject(
+          scope,
+          'location_required',
+          'The game has no folder to make a VR version from.',
+        );
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'project.link_catalog':
     case 'project.unlink_catalog': {
       const projectId = command.payload.project_id;

@@ -86,6 +86,8 @@ interface ProjectState {
   starter: string | null;
   /** The catalog repository the person linked (ADR 0039); kept out of the project's view. */
   catalog: CatalogRepositoryRef | null;
+  /** The project this one was made as a VR version of (M1.8c-1); kept out of the project's view. */
+  madeFrom: ProjectId | null;
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -352,6 +354,11 @@ export class Projection {
   project(projectId: string): ProjectView | undefined {
     const state = this.#projects.get(projectId as ProjectId);
     return state === undefined ? undefined : toProjectView(state);
+  }
+
+  /** The project this one was made as a VR version of (M1.8c-1), or null. */
+  madeFrom(projectId: string): ProjectId | null {
+    return this.#projects.get(projectId as ProjectId)?.madeFrom ?? null;
   }
 
   /**
@@ -690,6 +697,7 @@ export class Projection {
           location: event.payload.location,
           starter: null,
           catalog: null,
+          madeFrom: null,
           createdAt: event.occurred_at,
           updatedAt: event.ingested_at,
         });
@@ -729,6 +737,16 @@ export class Projection {
         project.starter = event.payload.starter_id;
         project.updatedAt = event.ingested_at;
         changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.made_from': {
+        const project = this.#projects.get(event.project_id);
+        if (project === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        project.madeFrom = event.payload.original_project_id;
+        project.updatedAt = event.ingested_at;
         return;
       }
       case 'project.checkpoint.recorded': {

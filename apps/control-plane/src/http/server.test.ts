@@ -345,7 +345,9 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 17);
+    assert.equal(policies.size, 18);
+    // A new project from the starter beside the original, which it only reads; it starts no work (M1.8c-1).
+    assert.equal(policies.get('project.make_vr_version'), 'low_consequence');
     assert.equal(policies.get('execution.answer_question'), 'low_consequence');
     // The host's own check and its serving of the checked copy change no project file (ADR 0037).
     assert.equal(policies.get('project.check'), 'low_consequence');

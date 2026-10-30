@@ -124,6 +124,7 @@ Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `co
 | --- | --- | --- |
 | `project.create` | low consequence | always, and when it names a location, the host can bind it (below) |
 | `project.set_location` | low consequence | the project exists and the host can bind the location |
+| `project.make_vr_version` | low consequence | the original exists and has a folder (`location_required` otherwise), the iwsdk-vr starter is installed (`capability_unsupported` otherwise), and the host can make the new folder; a new project "<name> VR" from the starter, with `project.made_from` naming the original and the instruction the host wrote; it starts no work (M1.8c-1) |
 | `project.link_catalog` | low consequence | the project exists, a catalog of the person's projects is set up on the host (`capability_unsupported` otherwise), and the catalog it last read holds the repository by its id under the same `owner/name` and is the person's own, not a sample (`invalid_state` otherwise) |
 | `project.unlink_catalog` | low consequence | the project exists and is linked (`invalid_state` otherwise) |
 | `project.restore` | review required | undo is set up on the host (`capability_unsupported` otherwise), the checkpoint is the project's (`checkpoint_not_found` otherwise), no task in the project is `starting`, `running`, `verifying` or `waiting_for_human` or `unknown` other than after a restart, and no command in the project waits for its outcome (`invalid_state` otherwise) |

@@ -43,6 +43,11 @@ export interface RuntimeDependencies {
    * confined to its folder (ADR 0041); asked at each start, since projects are made later.
    */
   readonly starterOf?: (directory: string) => string | null;
+  /**
+   * The folder of the project a project folder was made as a VR version of, or null (M1.8c-1): its
+   * agent reads it but cannot change it, and never its version control or secret-shaped files.
+   */
+  readonly originalOf?: (directory: string) => string | null;
 }
 
 /**
@@ -105,7 +110,7 @@ export function createRuntimeAdapters(
  * Elsewhere, none.
  */
 export function codexConfinement(
-  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'dataDir'>,
+  dependencies: Pick<RuntimeDependencies, 'starterOf' | 'originalOf' | 'dataDir'>,
   node: string = process.execPath,
 ): Pick<CodexRuntimeOptions, 'confinement'> {
   const starterOf = dependencies.starterOf;
@@ -114,9 +119,15 @@ export function codexConfinement(
     confinement: {
       forDirectory: (directory) => {
         const starter = starterOf(directory);
-        return starter === null
-          ? null
-          : { project: directory, readable: [join(dependencies.dataDir, 'starters', starter)] };
+        if (starter === null) return null;
+        const original = dependencies.originalOf?.(directory) ?? null;
+        return {
+          project: directory,
+          readable: [join(dependencies.dataDir, 'starters', starter)],
+          // Halcyonic's data folder is refused outright (AUDIT M18C1-M1).
+          hidden: [dependencies.dataDir],
+          ...(original === null ? {} : { originals: [original] }),
+        };
       },
       toolFolders: toolFoldersFor(node),
       loopbackPorts: [OLLAMA_PORT],

@@ -806,3 +806,38 @@ describe("a check's laptop step says why a twin read was unknown (M1.8g-b)", () 
     assert.equal(validate({ ...laptop, response_unknown: 'flaky' }).ok, false);
   });
 });
+
+describe('making a VR version of a project (M1.8c-1)', () => {
+  const ORIGINAL = '0192f1a0-0000-7000-8000-0000000000aa';
+  const make = (payload: Record<string, unknown>) =>
+    parseCommandEnvelope({ ...COMMAND, command_type: 'project.make_vr_version', payload });
+
+  test('the command names the original and where the new folder goes, never a path of its own', () => {
+    const payload = {
+      original_project_id: ORIGINAL,
+      root: '/Users/someone/dev',
+      folder_name: 'garden-vr',
+    };
+    assert.equal(make(payload).ok, true);
+    assert.equal(make({ ...payload, folder_name: 'a/b' }).ok, false);
+    assert.equal(make({ ...payload, starter_id: 'iwsdk-vr' }).ok, false);
+    assert.equal(make({ root: payload.root, folder_name: payload.folder_name }).ok, false);
+  });
+
+  test('the new project records the original it was made from and the instruction the host wrote', () => {
+    const base = sampleEvent('project.created');
+    const event = {
+      ...base,
+      event_type: 'project.made_from',
+      payload: {
+        original_project_id: ORIGINAL,
+        instruction: 'Make a VR version of the web app in /x.',
+      },
+    };
+    assert.equal(parseEventEnvelope(event).ok, true);
+    assert.equal(
+      parseEventEnvelope({ ...event, payload: { original_project_id: ORIGINAL } }).ok,
+      false,
+    );
+  });
+});

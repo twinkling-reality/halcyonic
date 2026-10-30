@@ -10,6 +10,7 @@ import type {
   Principal,
   ProjectId,
   ProjectLocation,
+  ProjectLocationChoice,
   ReceivedVia,
   RejectionCode,
   RuntimeDescriptor,
@@ -38,7 +39,7 @@ import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
 import type { HostPreviews } from '../preview/preview.ts';
-import type { HostStarters } from '../starters.ts';
+import { type HostStarters, VR_STARTER, vrVersionInstruction } from '../starters.ts';
 import {
   type Cause,
   causedBy,
@@ -392,6 +393,39 @@ export class CommandService {
         const known = links.check(command.payload.catalog);
         return known.ok ? admission : refuse('invalid_state', known.message);
       }
+      case 'project.make_vr_version': {
+        const choice = {
+          kind: 'new_from_starter' as const,
+          root: command.payload.root,
+          folder_name: command.payload.folder_name,
+          starter_id: VR_STARTER,
+        };
+        const starter = this.#deps.starters?.check(VR_STARTER) ?? {
+          ok: false,
+          message: 'This computer has no starters.',
+        };
+        if (!starter.ok) return refuse('capability_unsupported', starter.message);
+        // The original must be one game's own folder (AUDIT M18C1-M1); the domain has checked it has one.
+        const folder = this.#deps.projection.project(command.payload.original_project_id)?.location
+          ?.path;
+        const projects = this.#deps.projection
+          .projects()
+          .flatMap((project) => (project.location === null ? [] : [project.location.path]));
+        const starters = this.#deps.starters;
+        const refusal =
+          folder === undefined
+            ? 'The game has no folder to make a VR version from.'
+            : starters === undefined || starters === null
+              ? 'This computer has no starters.'
+              : starters.originalRefusal(
+                  folder,
+                  this.#deps.locations.list().roots.map((root) => root.path),
+                  projects,
+                );
+        if (refusal !== null) return refuse('location_not_allowed', refusal);
+        const checked = this.#deps.locations.check(choice);
+        return checked.ok ? admission : refuse(checked.code, checked.message);
+      }
       case 'project.create':
       case 'project.set_location': {
         const choice = command.payload.location;
@@ -477,62 +511,54 @@ export class CommandService {
         return;
       }
       case 'project.create': {
-        let location: ProjectLocation | null = null;
-        if (command.payload.location !== null) {
-          const bound = this.#deps.locations.bind(command.payload.location);
-          if (!bound.ok) {
-            this.#fail(command, admission.scope, {
-              code: bound.code,
-              message: bound.message,
-              effect: 'effect' in bound ? bound.effect : 'none',
-            });
-            return;
-          }
-          location = bound.location;
+        const made = this.#createProject(
+          command,
+          admission.scope,
+          cause,
+          command.payload.name,
+          command.payload.location,
+        );
+        if (made !== null)
+          this.#complete(command, made, { kind: 'project_created', project_id: made.project_id });
+        return;
+      }
+      case 'project.make_vr_version': {
+        const original = this.#deps.projection.project(command.payload.original_project_id);
+        const folder = original?.location?.path;
+        if (original === undefined || folder === undefined) {
+          this.#fail(command, admission.scope, {
+            code: 'location_required',
+            message: 'The game has no folder to make a VR version from.',
+            effect: 'none',
+          });
+          return;
         }
-        const choice = command.payload.location;
-        let applied: {
-          starter_id: string;
-          lockfile: string;
-          files: number;
-          template: string;
-        } | null = null;
-        if (choice?.kind === 'new_from_starter' && location !== null) {
-          const result = this.#deps.starters?.apply(choice.starter_id, location.path) ?? {
-            ok: false as const,
-            message: 'This computer has no starters.',
-          };
-          if (!result.ok) {
-            this.#fail(command, admission.scope, {
-              code: 'starter_not_applied',
-              message: `A folder was made at ${location.path}, but the starter's files could not be put in it, so no project was created: ${result.message}`,
-              effect: 'unknown',
-            });
-            return;
-          }
-          applied = {
-            starter_id: choice.starter_id,
-            lockfile: result.lockfile,
-            files: result.files,
-            template: result.template,
-          };
-        }
-        const projectId = this.#deps.ids.next() as ProjectId;
-        const scope = { project_id: projectId, workstream_id: null, execution_id: null };
+        const made = this.#createProject(
+          command,
+          admission.scope,
+          cause,
+          `${original.name.slice(0, 197)} VR`,
+          {
+            kind: 'new_from_starter',
+            root: command.payload.root,
+            folder_name: command.payload.folder_name,
+            starter_id: VR_STARTER,
+          },
+        );
+        if (made === null) return;
         recorder.record(
           controlPlaneDraft(
-            'project.created',
-            scope,
-            { name: command.payload.name, location },
+            'project.made_from',
+            made,
+            {
+              original_project_id: original.project_id,
+              instruction: vrVersionInstruction(folder),
+            },
             this.#now(),
             cause,
           ),
         );
-        if (applied !== null)
-          recorder.record(
-            controlPlaneDraft('project.starter_applied', scope, applied, this.#now(), cause),
-          );
-        this.#complete(command, scope, { kind: 'project_created', project_id: projectId });
+        this.#complete(command, made, { kind: 'project_created', project_id: made.project_id });
         return;
       }
       case 'project.set_location': {
@@ -896,6 +922,69 @@ export class CommandService {
       );
     }
     this.#fail(command, scope, failure);
+  }
+
+  /**
+   * Makes a project, in the folder the choice names when there is one, begun from a starter when it
+   * names one, and records it; the project's scope, or null once the command has failed.
+   */
+  #createProject(
+    command: CommandEnvelope,
+    commandScope: CommandScope,
+    cause: Cause,
+    name: string,
+    choice: ProjectLocationChoice | null,
+  ): { project_id: ProjectId; workstream_id: null; execution_id: null } | null {
+    const { recorder } = this.#deps;
+    let location: ProjectLocation | null = null;
+    if (choice !== null) {
+      const bound = this.#deps.locations.bind(choice);
+      if (!bound.ok) {
+        this.#fail(command, commandScope, {
+          code: bound.code,
+          message: bound.message,
+          effect: 'effect' in bound ? bound.effect : 'none',
+        });
+        return null;
+      }
+      location = bound.location;
+    }
+    let applied: {
+      starter_id: string;
+      lockfile: string;
+      files: number;
+      template: string;
+    } | null = null;
+    if (choice?.kind === 'new_from_starter' && location !== null) {
+      const result = this.#deps.starters?.apply(choice.starter_id, location.path) ?? {
+        ok: false as const,
+        message: 'This computer has no starters.',
+      };
+      if (!result.ok) {
+        this.#fail(command, commandScope, {
+          code: 'starter_not_applied',
+          message: `A folder was made at ${location.path}, but the starter's files could not be put in it, so no project was created: ${result.message}`,
+          effect: 'unknown',
+        });
+        return null;
+      }
+      applied = {
+        starter_id: choice.starter_id,
+        lockfile: result.lockfile,
+        files: result.files,
+        template: result.template,
+      };
+    }
+    const projectId = this.#deps.ids.next() as ProjectId;
+    const scope = { project_id: projectId, workstream_id: null, execution_id: null };
+    recorder.record(
+      controlPlaneDraft('project.created', scope, { name, location }, this.#now(), cause),
+    );
+    if (applied !== null)
+      recorder.record(
+        controlPlaneDraft('project.starter_applied', scope, applied, this.#now(), cause),
+      );
+    return scope;
   }
 
   #complete(command: CommandEnvelope, scope: CommandScope, result: CommandResult | null): void {

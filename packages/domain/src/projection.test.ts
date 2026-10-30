@@ -661,6 +661,42 @@ describe('project locations', () => {
   });
 });
 
+describe('a VR version and the original it was made from (M1.8c-1)', () => {
+  test('the projection knows the original, keeps it out of the view, and reports one for an unknown project', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const original = b.project('Garden', { path: '/work/garden', name: 'garden', created: false });
+    const vr = b.project('Garden VR', {
+      path: '/work/garden-vr',
+      name: 'garden-vr',
+      created: true,
+    });
+    projection.apply(original.event);
+    projection.apply(vr.event);
+    const scope = { project_id: vr.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('project.made_from', scope, {
+        original_project_id: original.projectId,
+        instruction: 'Make a VR version of the web app in /work/garden.',
+      }),
+    );
+    assert.equal(projection.madeFrom(vr.projectId), original.projectId);
+    assert.equal(projection.madeFrom(original.projectId), null);
+    assert.equal(Object.hasOwn(projection.project(vr.projectId) ?? {}, 'made_from'), false);
+    const unknown = { project_id: b.id() as ProjectId, workstream_id: null, execution_id: null };
+    const { notes } = projection.apply(
+      b.controlPlane('project.made_from', unknown, {
+        original_project_id: original.projectId,
+        instruction: 'Make a VR version.',
+      }),
+    );
+    assert.deepEqual(
+      notes.map((entry) => entry.code),
+      ['unknown_entity'],
+    );
+  });
+});
+
 describe('catalog links (ADR 0039)', () => {
   const first = { source: 'phat-porcupine' as const, repository_id: 7, full_name: 'acme/app' };
   const second = { source: 'phat-porcupine' as const, repository_id: 8, full_name: 'acme/app-api' };
