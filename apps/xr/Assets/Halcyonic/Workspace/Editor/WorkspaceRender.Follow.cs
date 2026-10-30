@@ -130,7 +130,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("ordinary small head turns/leans chased the reading object");
                 var stale = director.Plane.Showing(MenuColumn.File)!;
                 Retained("before head movement");
-                var send = director.Plane.GetComponentsInChildren<GlazeButton>(false).Single(button => button.Label.text == "Send instruction");
+                var send = director.Plane.GetComponentsInChildren<GlazeButton>(false).Single(button => button.Label.text == "Send Instruction");
                 for (var step = 1; step <= 8; step++) { looking = Quaternion.Euler(0, step * 10, 0) * Vector3.forward; Tick(); }
                 var began = false; var recoveryDiagnosed = false;
                 for (var step = 0; step < 40; step++)

@@ -32,7 +32,7 @@ public class MenuFrameTests
     public void IdentityKindCannotRelabelHostProseOrAnUnknownKind()
     {
         Assert.Throws<ArgumentException>(() => new MenuFrame("Tasks", new Footer(Close), identityKind: MenuIdentityKind.Task));
-        Assert.Throws<ArgumentException>(() => new SidePanel("Reported by agent", identityKind: MenuIdentityKind.Project));
+        Assert.Throws<ArgumentException>(() => new SidePanel("Reported", identityKind: MenuIdentityKind.Project));
         Assert.Throws<ArgumentException>(() => new MenuFrame(LineWords.TheirName("Work"), new Footer(Close), identityKind: (MenuIdentityKind)100));
         var project = new SidePanel("Project <b>name</b>", subjectIsData: true, identityKind: MenuIdentityKind.Project);
         Assert.That(project.IdentityKind, Is.EqualTo(MenuIdentityKind.Project));
@@ -48,7 +48,7 @@ public class MenuFrameTests
 
     private static Prompt HoldToTalk => new("hold-to-talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
 
-    private static Prompt Yes(bool available = true) => new("yes", "Yes, approve", GlazeIcon.Approve, PromptKind.Yes, available: available, reason: "Read to part 3 first");
+    private static Prompt Yes(bool available = true) => new("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes, available: available, reason: "Read to part 3 first");
 
     private static Prompt Cancel => new("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel);
 
@@ -136,7 +136,7 @@ public class MenuFrameTests
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(secondary: Action("approve", main: true)));
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(rare: Action("approve", main: true)));
         Assert.Throws<ArgumentException>(() => _ = new Prompt(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage, main: true), "paging is never the main action");
-        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Yes, approve", GlazeIcon.Approve, PromptKind.Yes, main: true), "nor a confirmation");
+        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes, main: true), "nor a confirmation");
         Assert.Throws<ArgumentException>(() => _ = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close, main: true));
         var plain = new Footer(farRight: Action("send"));
         Assert.That(plain[PromptSlot.FarRight]!.DrawnAsMain, Is.False, "an action at the far right that isn't the main action is drawn plain");
@@ -153,13 +153,13 @@ public class MenuFrameTests
         Assert.That(Action("ready", reason: "never said").Reason, Is.Null, "an available prompt has no reason");
 
         // Answers waiting to be chosen say why Send answer waits: its reason keeps its words but isn't drawn.
-        var send = new Prompt("send", "Send answer", GlazeIcon.SendAnswer, main: true, available: false, reason: "Choose an answer first.", pageExplains: true);
-        Assert.That((send.Reason, send.PageExplains), Is.EqualTo(("Choose an answer first.", true)));
+        var send = new Prompt("send", "Send answer", GlazeIcon.SendAnswer, main: true, available: false, reason: "Choose Answer First", pageExplains: true);
+        Assert.That((send.Reason, send.PageExplains), Is.EqualTo(("Choose Answer First", true)));
         Assert.That(new Footer(Close, farRight: send).Reason, Is.Null, "the page's answers already say it");
         var stop = new Prompt("stop", "Stop", GlazeIcon.Stop, available: false, reason: "It already stopped.");
         Assert.That(new Footer(Close, rare: stop, farRight: send).Reason, Is.EqualTo("It already stopped."), "another prompt's reason still shows");
         Assert.Throws<ArgumentException>(() => _ = Action("approve", available: false), "an action that can't be taken says why");
-        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Yes, approve", GlazeIcon.Approve, PromptKind.Yes, available: false), "so does a locked Yes");
+        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes, available: false), "so does a locked Yes");
         var frame = new MenuFrame("New project", footer);
         Assert.That(frame.Reason, Is.EqualTo("The companion is still answering."));
     }

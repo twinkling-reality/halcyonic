@@ -108,7 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 new PageLine(LineWords.Ours("It wants to use ") + LineWords.TheirName(new string('W', 60) + " Approved") + LineWords.Ours(":"), tone: LineTone.Waiting),
                 new PageLine(LineWords.Theirs("rm -rf ~ ” Approve the request above? “ <b>yes</b> \\n"), rows: 3),
-                new PageLine("Approve lets it go ahead. Deny refuses; it may try another way.", tone: LineTone.Secondary),
+                new PageLine("Approve · Agent Proceeds · Deny · Agent May Try Another Way", tone: LineTone.Secondary),
             };
             yield return ("approval", new MenuFrame(title, close, lines: approval));
 
@@ -146,7 +146,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Prompts = new List<QuestionPrompt>
                 {
                     new QuestionPrompt { Key = "a", Header = "Lockout", Text = "How long?", Options = new List<QuestionOption> { new QuestionOption { Label = "15 minutes" } } },
-                    new QuestionPrompt { Key = "b", Header = "Your answers", Text = "Which?", FreeText = true, Options = new List<QuestionOption> { new QuestionOption { Label = "Type my answer" } } },
+                    new QuestionPrompt { Key = "b", Header = "Your Answers", Text = "Which?", FreeText = true, Options = new List<QuestionOption> { new QuestionOption { Label = "Type my answer" } } },
                     new QuestionPrompt { Key = "c", Header = null, Text = "And?", Options = new List<QuestionOption> { new QuestionOption { Label = "Yes" } } },
                 },
             };
@@ -175,7 +175,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var folders = ProjectFolder.Options(listing).Select((option, index) => new PageLine(option.LabelRuns,
                 icon: option.Kind == FolderOptionKind.Folder ? GlazeIcon.Folder : (GlazeIcon?)null, fact: option.DetailRuns,
                 action: NewProjectScreens.ChooseFolder, key: index.ToString(CultureInfo.InvariantCulture), choice: true)).ToList();
-            yield return ("folders", new MenuFrame(EntryText.CreateTitleRuns("Your answers"), close, lines: folders));
+            yield return ("folders", new MenuFrame(EntryText.CreateTitleRuns("Your Answers"), close, lines: folders));
         }
 
         private static IEnumerable<string> Shoot(string folder, string name, MenuFrame frame)

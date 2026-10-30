@@ -172,6 +172,20 @@ public class StateLanguageTests
 {
     private static CharacterActivity[] Activities => (CharacterActivity[])Enum.GetValues(typeof(CharacterActivity));
 
+    [Test]
+    public void TheAgentsOwnCheckSaysItIsReportedWhereverItsLineStandsAndNoOtherStateDoes()
+    {
+        // The badge says Checking for the agent's own check; in a line it says whose report it is, so it never
+        // reads as your computer's own check (AUDIT's X17A-S1).
+        foreach (var activity in Activities)
+        {
+            var character = Character(activity);
+            var expected = activity == CharacterActivity.Verifying ? "Checking · Reported" : character.StatusLabel;
+            Assert.That(StateLanguage.LineWordOf(character), Is.EqualTo(expected), activity.ToString());
+            if (activity != CharacterActivity.Verifying) Assert.That(StateLanguage.LineWordOf(character), Does.Not.Contain("Reported"), activity.ToString());
+        }
+    }
+
     private static WorkState[] States => (WorkState[])Enum.GetValues(typeof(WorkState));
 
     internal static CharacterPresentation Character(
@@ -348,10 +362,10 @@ public class CharacterLabelTests
     public void ThePeekGivesTheReasonWithoutRepeatingTheState()
     {
         var character = StateLanguageTests.Character(CharacterActivity.Failed, AttentionLevel.Notice,
-            new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }, details: new[] { "Tell it to try again, or what to do instead." });
+            new[] { "Round Failed · Write Instruction" }, details: new[] { "Write Instruction" });
         var peek = PeekCard.Of(Workspace(character));
         Assert.That(peek.Badge.Word, Is.EqualTo("Failed"));
-        Assert.That(peek.Reason, Is.EqualTo("Tell it to try again, or what to do instead."));
+        Assert.That(peek.Reason, Is.EqualTo("Write Instruction"));
         Assert.That(peek.Next, Is.EqualTo("Open it to see what it did."), "its error isn't shown, so opening it shows what it did, not why");
     }
 
@@ -372,7 +386,7 @@ public class CharacterLabelTests
             Entry(1, ActivityKind.Tool, "bash succeeded"),
             Entry(2, ActivityKind.Message, "The migration ran\nand the tests pass.", reported: true),
             Entry(3, ActivityKind.Turn, "Round started")));
-        Assert.That(peek.Reason, Is.EqualTo("It says: “The migration ran and the tests pass.”"), "round boundaries skipped; agent text a claim");
+        Assert.That(peek.Reason, Is.EqualTo("Reported · The migration ran and the tests pass."), "round boundaries skipped; agent text a claim");
         Assert.That(peek.Next, Is.Null);
         Assert.That(PeekCard.Of(Workspace(character)).Reason, Is.Empty, "nothing known yet: the badge says it all");
     }
@@ -391,11 +405,11 @@ public class CharacterLabelTests
     public void ALastKnownPeekOffersNothingToDo()
     {
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
-            new[] { "It wants your approval." }, approvals: 1, stale: true);
+            new[] { "Approval Requested" }, approvals: 1, stale: true);
         var peek = PeekCard.Of(Workspace(character));
         Assert.That(peek.Badge.LastKnown, Is.True);
         Assert.That(peek.Next, Is.Null);
-        Assert.That(peek.ReasonLine, Is.EqualTo("Last known: It wants your approval."), "the words say what the ghosted badge shows");
+        Assert.That(peek.ReasonLine, Is.EqualTo("Last known: Approval Requested"), "the words say what the ghosted badge shows");
         Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, stale: true))).ReasonLine, Is.EqualTo("Last known."));
     }
 
@@ -435,8 +449,8 @@ public class CharacterLabelTests
         state.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { failed }, Samples.Journal()), new StateChanges());
         var character = CharacterPresenter.Present(workstream, state, live: true);
         Assert.That(character.StatusLabel, Is.EqualTo("Failed"));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "the workspace's line keeps the state's words");
-        Assert.That(character.AttentionDetails, Is.EqualTo(new[] { "Tell it to try again, or what to do instead." }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "the workspace's line keeps the state's words");
+        Assert.That(character.AttentionDetails, Is.EqualTo(new[] { "Write Instruction" }));
     }
 }
 

@@ -33,7 +33,7 @@ public class FileWaitingTests
         Assert.That(screen.Section, Is.EqualTo(FileSection.Waiting), "the file opens on what waits");
         Assert.That(frame.Lines.Select(line => (line.Words, line.Tone)).Take(2), Is.EqualTo(new[]
         {
-            ("It wants to run a command:", LineTone.Waiting),
+            ("Run Command ·", LineTone.Waiting),
             ("Run the migration", LineTone.Primary),
         }));
         Assert.That(frame.Lines[1].Rows, Is.EqualTo(2), "as much of the request as fits beside the source line; Approve shows it whole");
@@ -46,7 +46,7 @@ public class FileWaitingTests
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         Assert.That(frame.Footer[PromptSlot.Secondary]!.DrawnAsMain, Is.False);
         Assert.That(frame.Lines.Any(line => line.Pressable), Is.False, "nothing on the page sends anything");
-        Assert.That(frame.Source, Is.EqualTo("Reported by agent"), "the work's own state names the agent, never an app's name");
+        Assert.That(frame.Source, Is.EqualTo("Reported"), "the work's own state names the agent, never an app's name");
     }
 
     private DateTimeOffset clock = DateTimeOffset.Parse("2026-10-02T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
@@ -80,7 +80,7 @@ public class FileWaitingTests
         var first = Screen(workspace, steering, screen);
         Assert.That(first.Lines[0].Words, Is.EqualTo(Migration));
         Assert.That((first.Lines[0].Rows, first.Lines[0].FromRow), Is.EqualTo((3, (int?)0)));
-        Assert.That((first.Lines[1].Words, first.Lines[1].Action, first.Lines[1].Key), Is.EqualTo(("Next part, 2 of 3", FileScreens.NextPart, FileScreens.RequestKey)));
+        Assert.That((first.Lines[1].Words, first.Lines[1].Action, first.Lines[1].Key), Is.EqualTo(("Next Part · 2 of 3", FileScreens.NextPart, FileScreens.RequestKey)));
         Assert.That(first.Lines[2].Words, Is.EqualTo(WorkspaceText.ReadRequestFirst));
         Assert.That(first.Footer[PromptSlot.Free], Is.Null);
         Draw(screen, steering);
@@ -89,19 +89,19 @@ public class FileWaitingTests
 
         Turn(screen, steering);
         var second = Screen(workspace, steering, screen);
-        Assert.That((second.Lines[0].FromRow, second.Lines[1].Words), Is.EqualTo(((int?)3, "Next part, 3 of 3")));
+        Assert.That((second.Lines[0].FromRow, second.Lines[1].Words), Is.EqualTo(((int?)3, "Next Part · 3 of 3")));
         Assert.That(second.Footer[PromptSlot.Free], Is.Null);
 
         Turn(screen, steering);
         Assert.That(Screen(workspace, steering, screen).Footer[PromptSlot.Free], Is.Null, "the last part on the page is not yet the last part seen");
         Draw(screen, steering);
         var last = Screen(workspace, steering, screen);
-        Assert.That((last.Lines[0].FromRow, last.Lines[1].Words), Is.EqualTo(((int?)6, "First part, 1 of 3")));
-        Assert.That(last.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, approve"));
+        Assert.That((last.Lines[0].FromRow, last.Lines[1].Words), Is.EqualTo(((int?)6, "First Part · 1 of 3")));
+        Assert.That(last.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Approve"));
         Assert.That(last.Footer[PromptSlot.Free]!.Kind, Is.EqualTo(PromptKind.Yes));
         Assert.That(FileScreensTests.Slots(last.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, null, FileScreens.Cancel }),
             "while it asks, the other actions step aside");
-        Assert.That(last.Lines[2].Words, Is.EqualTo("Approve the request above?"));
+        Assert.That(last.Lines[2].Words, Is.EqualTo("Approve Request?"));
 
         Turn(screen, steering);
         var again = Screen(workspace, steering, screen);
@@ -202,10 +202,10 @@ public class FileWaitingTests
 
         work.Change(execution => execution.PendingApprovals[0] = WaitingWork.Approval(WaitingWork.ApprovalId, "Drop the database", Samples.Time));
         var changed = Approving(work);
-        Assert.That(other.Confirm(changed).Message, Is.EqualTo("Nothing was sent: the request changed. Read it again."), "Yes itself lapses");
+        Assert.That(other.Confirm(changed).Message, Is.EqualTo("Not Sent · Request Changed · Reread"), "Yes itself lapses");
         var frame = Screen(changed, steering, screen);
         Assert.That(frame.Footer.Confirming, Is.False, "dropped before the file is drawn");
-        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Nothing was sent: the request changed. Read it again."));
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Not Sent · Request Changed · Reread"));
         Assert.That(steering.Armed, Is.Null);
     }
 
@@ -313,8 +313,8 @@ public class FileWaitingTests
             screen.Section = section;
             var frame = Screen(workspace, steering, screen);
             Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Cancel, FileScreens.Yes, null, null }), section.ToString());
-            Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, stop"));
-            Assert.That(frame.Lines.Single().Words, Does.StartWith("Stop what it's doing now?"));
+            Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Stop"));
+            Assert.That(frame.Lines.Single().Words, Does.StartWith("Stop Task?"));
             Assert.That(frame.Sections.Single(each => each.Chosen).Key, Is.EqualTo(FileScreens.Key(section)), "the section stays where the person put it");
         }
         steering.Cancel();
@@ -332,10 +332,10 @@ public class FileWaitingTests
         steering.Press(WorkspaceAction.Deny, workspace);
         screen.ReadRequest(Migration, 6, 3, steering);
         var frame = Screen(workspace, steering, screen);
-        Assert.That((frame.Lines[0].FromRow, frame.Lines[1].Words), Is.EqualTo(((int?)0, "Next part, 2 of 2")), "on the first of two parts");
+        Assert.That((frame.Lines[0].FromRow, frame.Lines[1].Words), Is.EqualTo(((int?)0, "Next Part · 2 of 2")), "on the first of two parts");
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, FileScreens.Cancel, null }));
-        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, deny"));
-        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Deny the request above?"));
+        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Deny"));
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Deny Request?"));
     }
 
     [Test]
@@ -347,7 +347,7 @@ public class FileWaitingTests
             + " || " + frame.Source + " || " + string.Join(" | ", FileScreensTests.Slots(frame.Footer));
         var reading = Screen(workspace, new WorkspaceSteering(factory), new FileScreen { Section = FileSection.Waiting });
         var read = Screen(workspace, new WorkspaceSteering(factory), FileScreensTests.Read(FileSection.Waiting));
-        Assert.That(read.Lines[0].Words, Is.EqualTo("It wants to run a command:"));
+        Assert.That(read.Lines[0].Words, Is.EqualTo("Run Command ·"));
         Assert.That(Drawn(read), Is.EqualTo(Drawn(reading)), "Waiting is the same whether the answers are read or still being read");
         Assert.That(read.Lines.Select(line => line.Words), Has.None.Contains("Still reading").And.None.Contains("files changed"));
         Assert.That(read.Source, Is.EqualTo(FileScreens.AgentSource), "never an answer's source");

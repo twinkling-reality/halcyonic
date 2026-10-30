@@ -269,8 +269,8 @@ namespace Halcyonic.Client
                     text = command.Rejection?.Code == RejectionCode.Demonstration && demonstration
                         ? command.Rejection.Message
                         : command.Rejection?.Code == RejectionCode.QuestionNotFound
-                        ? "Couldn't send: it's no longer waiting for this answer. See what it's doing now."
-                        : WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyRefused(command.Rejection?.Code));
+                        ? "Answer Refused · Question Closed · See Activity"
+                        : WorkspaceText.Couldnt("Refused", WorkspaceText.WhyRefused(command.Rejection?.Code));
                     break;
                 default:
                     var failure = command.Failure;
@@ -282,7 +282,7 @@ namespace Halcyonic.Client
                         ? WorkspaceText.NotSure(command.CommandType)
                         // The failure's message is the agent app's or the control plane's own: a folder's
                         // problem is said by its code, anything else as what is true, since it had no effect.
-                        : WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyFailed(failure?.Code, running) ?? (running ? WorkspaceText.NothingChangedSeeIt : WorkspaceText.NothingChanged));
+                        : WorkspaceText.Couldnt("Failed", WorkspaceText.WhyFailed(failure?.Code, running) ?? (running ? WorkspaceText.NothingChangedSeeIt : WorkspaceText.NothingChanged));
                     break;
             }
             return new CommandFeedback(command.CommandId, command.CommandType, command.Status, text);
@@ -291,25 +291,25 @@ namespace Halcyonic.Client
         /// <summary>Accepted is not done: sent, and what it waits for.</summary>
         internal static string Pending(CommandType type) => type switch
         {
-            CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume => "Request sent. Waiting for confirmation…",
-            CommandType.WorkspaceRequestCancel => "Stop planning requested. Waiting for confirmation…",
-            CommandType.ExecutionInterrupt => "Sent. Waiting for it to stop…",
-            CommandType.ExecutionStart => "Sent. Waiting for it to start…",
-            _ => "Sent. Waiting for the agent…",
+            CommandType.WorkspaceRequestSubmit or CommandType.WorkspaceRequestResume => "Sent · Awaiting Confirmation",
+            CommandType.WorkspaceRequestCancel => "Stop Planning Sent · Awaiting Confirmation",
+            CommandType.ExecutionInterrupt => "Sent · Awaiting Stop",
+            CommandType.ExecutionStart => "Sent · Awaiting Start",
+            _ => "Sent · Awaiting Agent",
         };
 
         /// <summary>Only the control plane's completed record says so.</summary>
         private static string Done(CommandType type) => type switch
         {
-            CommandType.WorkspaceRequestSubmit => "Workspace request recorded.",
-            CommandType.WorkspaceRequestResume => "Request continuation recorded.",
-            CommandType.WorkspaceRequestCancel => "Request planning stopped.",
-            CommandType.ExecutionRespondToApproval => "Confirmed: it has your decision.",
-            CommandType.ExecutionAnswerQuestion => "Confirmed: it has your answer.",
-            CommandType.ExecutionInterrupt => "Confirmed: stopped.",
-            CommandType.ExecutionSendInstruction => "Confirmed: it has your instruction.",
-            CommandType.ExecutionStart => "Confirmed: started.",
-            _ => "Confirmed.",
+            CommandType.WorkspaceRequestSubmit => "Request Recorded",
+            CommandType.WorkspaceRequestResume => "Request Continuation Recorded",
+            CommandType.WorkspaceRequestCancel => "Request Planning Stopped",
+            CommandType.ExecutionRespondToApproval => "Confirmed · Decision Received",
+            CommandType.ExecutionAnswerQuestion => "Confirmed · Answer Received",
+            CommandType.ExecutionInterrupt => "Confirmed · Stopped",
+            CommandType.ExecutionSendInstruction => "Confirmed · Instruction Received",
+            CommandType.ExecutionStart => "Confirmed · Started",
+            _ => "Confirmed",
         };
     }
 }

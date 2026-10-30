@@ -665,7 +665,7 @@ public class DemonstrationSessionTests
         Assert.That(player.Ended, Is.True);
         workspace = WorkspacePresenter.Present(Demonstration.DirectedWorkstream(session), session.State, activity, session.Status.IsLive, submissions);
         Assert.That(workspace.Actions, Is.Empty);
-        Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Nothing can be sent: it isn't available on your computer now."));
+        Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Not Sendable · Agent App Missing"));
         Assert.That(session.State.Commands.Values.Where(command => command.ExecutionId == execution.ExecutionId).Select(command => command.Status),
             Is.All.EqualTo(CommandStatus.Completed), "only the recording's own commands, confirmed by its runtime");
         Assert.That(phases, Is.All.EqualTo(ConnectionPhase.Live), "never disconnected");

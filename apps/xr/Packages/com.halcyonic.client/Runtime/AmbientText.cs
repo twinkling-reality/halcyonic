@@ -27,13 +27,13 @@ namespace Halcyonic.Client
             count <= 0 ? null : count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " more task" : " more tasks") + " not shown here";
 
         /// <summary>
-        /// "Still open: Create a project": the panel that was open when it folded, kept as it was. Its
+        /// "Open · Create a project": the panel that was open when it folded, kept as it was. Its
         /// name can be text from outside, as a task's title, so it is made plain first and then cut short past
         /// <see cref="StillOpenLimit"/>, never inside a code point it shows.
         /// </summary>
-        /// <remarks>As runs: "Still open: " upright, the panel's name leaning on Halcyonic's ground, last.</remarks>
+        /// <remarks>As runs: "Open · " upright, the panel's name leaning on Halcyonic's ground, last.</remarks>
         public static LineWords StillOpen(string panel) =>
-            LineWords.Ours("Still open: ") + LineWords.TheirName(IntelligenceText.Truncate(LabelText.Plain(panel), StillOpenLimit));
+            LineWords.Ours("Open · ") + LineWords.TheirName(IntelligenceText.Truncate(LabelText.Plain(panel), StillOpenLimit));
     }
 
     /// <summary>Where the stage's banner stands (<see cref="BannerPlace"/>).</summary>

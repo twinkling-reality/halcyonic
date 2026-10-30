@@ -783,7 +783,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var commands = new[]
             {
                 new CommandFeedback("c2", CommandType.ExecutionSendInstruction, CommandStatus.Accepted, "Sent. Waiting for the agent…"),
-                new CommandFeedback("c1", CommandType.ExecutionRespondToApproval, CommandStatus.Completed, "Confirmed: it has your decision."),
+                new CommandFeedback("c1", CommandType.ExecutionRespondToApproval, CommandStatus.Completed, "Confirmed · Decision Received"),
             };
             var running = With(Work.Running().Present(), Activity(LongQuote()), commands);
             var screen = new WorkspaceScreen { Zone = TimeZoneInfo.Utc, ActivityNote = " (times in UTC)", Speak = true };
@@ -913,7 +913,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // Three questions shown, the most at once: the note says more wait.
             var three = Work.Asking(Scripted(), more: 2);
             failures.AddRange(QuestionShot(view, three.Present(), Screen(), "question-three"));
-            if (view.Frame.Labels.FirstOrDefault(label => label.name == "Pager note")?.text.Contains("At least 2 more questions") != true)
+            if (view.Frame.Labels.FirstOrDefault(label => label.name == "Pager note")?.text.Contains("At Least 2 More Questions") != true)
             {
                 failures.Add(view.Name + " question-three: the note does not say more questions wait.");
             }
@@ -1067,7 +1067,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (shown.Label.isTextTruncated) failures.Add(what + ": the part is cut short.");
                 failures.AddRange(ShowsLiterally(shown.Label, what));
                 var yes = view.Frame.Yes;
-                if (yes == null || yes.Available != last) failures.Add(what + ": Yes, approve " + (last ? "can't be pressed on the last part." : "can be pressed before the last part."));
+                if (yes == null || yes.Available != last) failures.Add(what + ": Confirm Approve " + (last ? "can't be pressed on the last part." : "can be pressed before the last part."));
                 var next = view.Frame.NextPage;
                 if (parts.Count > 1 && (next == null || PanelFrame.RectOf(next).yMin < view.Frame.ListArea.yMax)) failures.Add(what + ": the pager does not stand at the top.");
                 if (part == 0)

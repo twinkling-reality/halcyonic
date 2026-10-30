@@ -64,8 +64,8 @@ namespace Halcyonic.Client
     {
         public static readonly TimeSpan DefaultConfirmationWindow = TimeSpan.FromSeconds(15);
 
-        private const string QuestionChanged = "Nothing was sent: the question changed. Read it again.";
-        private const string NoInstructions = "Nothing was sent: it no longer takes instructions.";
+        private const string QuestionChanged = "Not Sent · Question Changed · Reread";
+        private const string NoInstructions = "Not Sent · Not Taking Instructions";
 
         private readonly CommandFactory commands;
         private readonly Func<DateTimeOffset> now;
@@ -132,10 +132,10 @@ namespace Halcyonic.Client
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
             // An answer goes only with the answers chosen, through SendAnswer.
-            if (action == WorkspaceAction.Answer) return SteeringOutcome.Explain("Choose your answers, then press Send answer.");
+            if (action == WorkspaceAction.Answer) return SteeringOutcome.Explain("Not Sent · Choose Answers First");
             if (!workspace.Actions.Contains(action))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Nothing was sent: you can't do that now.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not Sent · Not Possible Now");
             }
             if (action == WorkspaceAction.Instruct)
             {
@@ -185,7 +185,7 @@ namespace Halcyonic.Client
             if (waits != null) return SteeringOutcome.Explain(waits);
             if (!workspace.Actions.Contains(WorkspaceAction.Answer))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Nothing was sent: it's no longer waiting for this answer.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Not Sent · Question Closed");
             }
             if (!draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
             {
@@ -240,7 +240,7 @@ namespace Halcyonic.Client
         public SteeringOutcome SendInstruction(FileInstruction draft, WorkspacePresentation workspace)
         {
             if (!draft.Open || draft.ExecutionId != workspace.Execution?.ExecutionId) return SteeringOutcome.Explain(FileScreens.InstructionChanged);
-            if (WorkspaceText.NeedFromYou(workspace) != null) return SteeringOutcome.Explain("The agent needs your approval first.");
+            if (WorkspaceText.NeedFromYou(workspace) != null) return SteeringOutcome.Explain("Not Sent · Answer Approval First");
             if (!draft.Read) return SteeringOutcome.Explain(draft.Words.Length == 0 ? FileScreens.InstructionEmpty : FileScreens.InstructionNotRead);
             StopTyping();
             var result = draft.Spoken ? Spoken(draft.Words, workspace) : Typed(draft.Words, workspace);
@@ -253,7 +253,7 @@ namespace Halcyonic.Client
         {
             Typing = false;
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: nothing was typed.");
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Not Sent · Nothing Typed");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
@@ -276,7 +276,7 @@ namespace Halcyonic.Client
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("I didn't catch anything, so nothing was sent.");
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Not Sent · Nothing Heard");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
@@ -446,19 +446,19 @@ namespace Halcyonic.Client
         /// <summary>Why the armed confirmation no longer holds, or null while it does.</summary>
         private string? Lapse(WorkspacePresentation workspace)
         {
-            if (now() - armedAt > window) return "Nothing was sent: you didn't confirm in time. Press it again.";
+            if (now() - armedAt > window) return "Not Sent · Confirm Timed Out · Press Again";
             if (Armed == WorkspaceAction.Instruct && instructionExecution != null)
             {
                 if (instructionExecution != workspace.Execution?.ExecutionId) return FileScreens.InstructionChanged;
-                if (WorkspaceText.NeedFromYou(workspace) != null) return "Nothing was sent: the agent needs your approval first.";
+                if (WorkspaceText.NeedFromYou(workspace) != null) return "Not Sent · Answer Approval First";
             }
-            if (!workspace.Actions.Contains(Armed!.Value)) return "Nothing was sent: things changed before you confirmed. Check it, then try again.";
+            if (!workspace.Actions.Contains(Armed!.Value)) return "Not Sent · Task Changed · Check and Retry";
             if (IsAnswer(Armed.Value)
                 && workspace.Execution?.PendingApprovals.Any(pending => pending.ApprovalId == ArmedApprovalId) != true)
             {
-                return "Nothing was sent: that request was already answered.";
+                return "Not Sent · Already Answered";
             }
-            // Answers armed for a question no longer shown would ask "Send these answers?" over none.
+            // Answers armed for a question no longer shown would ask "Send Answers?" over none.
             if (Armed == WorkspaceAction.Answer
                 && (armedDraft == null || workspace.Execution == null || !armedDraft.Answers(workspace.Execution.ExecutionId, workspace.QuestionToAnswer)))
             {
@@ -466,7 +466,7 @@ namespace Halcyonic.Client
             }
             if (IsAnswer(Armed.Value) && ArmedRequest != null && Request(workspace) != ArmedRequest)
             {
-                return "Nothing was sent: the request changed. Read it again.";
+                return "Not Sent · Request Changed · Reread";
             }
             return null;
         }

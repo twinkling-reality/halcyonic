@@ -83,7 +83,7 @@ public class FileScreensTests
         {
             ("4 files changed: 4 edited", (string?)null),
             ("1 file not checked after the last change", "Inferred"),
-            ("I will add an idempotency key in ChargeService so a retried charge returns the first one.", "Agent says"),
+            ("I will add an idempotency key in ChargeService so a retried charge returns the first one.", SectionLine.AgentChip),
         }));
         var openers = frame.Lines.Where(line => line.Opens).ToList();
         Assert.That(openers.Select(line => line.Key), Is.EqualTo(new[] { FileScreens.WhatChangedKey, FileScreens.WhyChangedKey, FileScreens.HowBuiltKey }));
@@ -137,7 +137,7 @@ public class FileScreensTests
             Assert.That(frame.Lines[0].Tone, Is.EqualTo(LineTone.Secondary));
             Assert.That(frame.Source, Is.Null, "nothing is read yet, so no source is named");
         }
-        Assert.That(FileScreens.StillReading(FileSection.Changes), Does.StartWith("Still reading what changed"));
+        Assert.That(FileScreens.StillReading(FileSection.Changes), Is.EqualTo("Reading Changes"));
     }
 
     [Test]
@@ -297,10 +297,10 @@ public class FileScreensTests
         var frame = Screen(new FileScreen { Section = FileSection.Activity, Speak = true }, workspace);
         Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.HoldToTalk, FileScreens.TellIt }));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Write instruction"));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Write Instruction"));
         var quote = frame.Lines.Last();
         // The agent's words alone, no quotes, leaning beside Halcyonic's quote mark, "Agent says" their class (settled 2026-10-08).
-        Assert.That((quote.Words, quote.Chip, quote.Runs.AllTheirs, quote.Icon, quote.Fact), Is.EqualTo(("Done with the migration", "Agent says", true, (GlazeIcon?)GlazeIcon.Quote, "09:00")));
+        Assert.That((quote.Words, quote.Chip, quote.Runs.AllTheirs, quote.Icon, quote.Fact), Is.EqualTo(("Done with the migration", SectionLine.AgentChip, true, (GlazeIcon?)GlazeIcon.Quote, "09:00")));
         Assert.That(quote.FactRuns!.AnyTheirs, Is.False, "the time is Halcyonic's");
         Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(Room.Rows));
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(activity.Select(entry => entry.Text)));
@@ -315,7 +315,7 @@ public class FileScreensTests
         var screen = new FileScreen { Section = FileSection.Activity, WorkspaceRequestOffered = true, ResultsOffered = true };
         var frame = Screen(screen, room: new AnswerRoom(rows));
         Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(rows));
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No recorded activity yet.", "Ask workspace", "Read results" }));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No Activity", "Ask workspace", "Read Results" }));
         Assert.That(frame.Lines[0].Action, Is.Null);
         Assert.That(frame.Lines[0].Tone, Is.EqualTo(LineTone.Secondary));
         Assert.That(frame.Lines.Skip(1).Select(line => line.Action), Is.EqualTo(new[] { FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults }));
@@ -340,7 +340,7 @@ public class FileScreensTests
         var notices = 0;
         var seen = new List<string>();
         var first = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), budget);
-        Assert.That(first.Lines.First().Words, Is.EqualTo(notice ? screen.Notice : "No recorded activity yet."));
+        Assert.That(first.Lines.First().Words, Is.EqualTo(notice ? screen.Notice : "No Activity"));
         Assert.That(screen.Pages, Is.GreaterThan(1));
         var count = screen.Pages;
         for (var page = 0; page < count; page++)
@@ -402,7 +402,7 @@ public class FileScreensTests
         var workspace = Offering(Running().Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
         var steering = new WorkspaceSteering(factory);
         var refused = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(3), new RowBudget(3));
-        Assert.That(refused.Lines.Single().Words, Is.EqualTo("Move the workspace to make room for Activity."));
+        Assert.That(refused.Lines.Single().Words, Is.EqualTo("No Room · Move Workspace"));
         Assert.That(refused.Footer.All.Select(entry => entry.Prompt.Id), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, FileScreens.HoldToTalk, FileScreens.TellIt }));
         Assert.That(screen.ResultsOffered && screen.WorkspaceRequestOffered, Is.True);
         var actions = new List<string>();
@@ -433,7 +433,7 @@ public class FileScreensTests
         {
             var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
             seen.AddRange(frame.Lines.Where(line => line.Action == null).Select(line => line.Words));
-            Assert.That(frame.Lines.Where(line => line.Action == null).All(line => line.Runs.AllTheirs && line.Chip == "Agent says"), Is.True);
+            Assert.That(frame.Lines.Where(line => line.Action == null).All(line => line.Runs.AllTheirs && line.Chip == SectionLine.AgentChip), Is.True);
             if (page + 1 < count) screen.NextPage();
         }
         Assert.That(seen, Is.EqualTo(new[] { "Record 3", "Record 4", "Record 5", "Record 6" }));
@@ -452,15 +452,15 @@ public class FileScreensTests
         var workspace = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime,
             present.Actions, present.Actions.Where(present.RequiresConfirmation).ToList(), present.Commands, activity);
         var frame = Screen(new FileScreen { Section = FileSection.Activity, WorkspaceRequestOffered = true, ResultsOffered = true }, workspace);
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Checking the tests", "Ask workspace", "Read results" }));
-        Assert.That((frame.Lines[0].Chip, frame.Lines[0].Runs.AllTheirs), Is.EqualTo(("Agent says", true)));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Checking the tests", "Ask workspace", "Read Results" }));
+        Assert.That((frame.Lines[0].Chip, frame.Lines[0].Runs.AllTheirs), Is.EqualTo((SectionLine.AgentChip, true)));
     }
 
     [Test]
     public void EmptyActivityDoesNotInventAnEventFromTheCurrentState()
     {
         var frame = Screen(new FileScreen { Section = FileSection.Activity });
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No recorded activity yet." }));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No Activity" }));
         Assert.That(frame.Source, Is.Null);
         Assert.That(frame.Pill, Is.Not.Null, "the actual task state remains visible above activity");
         var reading = Screen(new FileScreen { Section = FileSection.Activity, ActivityNote = "Reading activity" });
@@ -472,7 +472,7 @@ public class FileScreensTests
     {
         var work = new WaitingWork();
         var frame = Screen(new FileScreen { Section = FileSection.Activity }, work.Present());
-        Assert.That((frame.Lines[0].Words, frame.Lines[0].Tone), Is.EqualTo(("Approval requested. Open Waiting.", LineTone.Waiting)));
+        Assert.That((frame.Lines[0].Words, frame.Lines[0].Tone), Is.EqualTo(("Approval Requested · Open Waiting", LineTone.Waiting)));
     }
 
     [Test]
@@ -511,15 +511,15 @@ public class FileScreensTests
         Assert.That(steering.Press(WorkspaceAction.Interrupt, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
         var frame = Screen(new FileScreen { Section = FileSection.Activity }, workspace, steering);
         Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Cancel, FileScreens.Yes, null, null }));
-        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, stop"));
-        Assert.That(frame.Lines.Single().Words, Does.StartWith("Stop what it's doing now?"));
+        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Stop"));
+        Assert.That(frame.Lines.Single().Words, Does.StartWith("Stop Task?"));
     }
 
     [Test]
     public void ANoticeIsThePagesLastLine()
     {
-        var frame = Screen(new FileScreen { Section = FileSection.Checks, Notice = "Nothing was sent: you didn't confirm in time. Press it again." });
-        Assert.That(frame.Lines.Last().Words, Does.StartWith("Nothing was sent"));
+        var frame = Screen(new FileScreen { Section = FileSection.Checks, Notice = "Not Sent · Confirm Timed Out · Press Again" });
+        Assert.That(frame.Lines.Last().Words, Does.StartWith("Not Sent"));
     }
 
     /// <summary>
@@ -548,7 +548,7 @@ public class FileScreensTests
         for (var page = 0; page < pages; page++)
         {
             var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4), new RowBudget(4));
-            parts.AddRange(frame.Lines.Where(line => line.Chip == "Agent says"));
+            parts.AddRange(frame.Lines.Where(line => line.Chip == SectionLine.AgentChip));
             outcomes.AddRange(frame.Lines.Where(line => line.Words.StartsWith("Command failed")));
             if (page + 1 < pages) screen.NextPage();
         }
@@ -582,7 +582,7 @@ public class FileScreensTests
         var failed = new ActivityEntry(2, "2026-09-26T09:00:02.000Z", ActivityKind.Tool, "Command failed: node --test (exit 1)", false);
         var lines = Composing(8, reported, failed).ActivityContextFrame!.Lines;
         Assert.That(lines.Select(line => (line.Words, line.Rows, line.Chip)), Is.EqualTo(new[]
-            { (report, 3, (string?)"Agent says"), ("Command failed: node --test (exit 1)", 1, (string?)null) }),
+            { (report, 3, (string?)SectionLine.AgentChip), ("Command failed: node --test (exit 1)", 1, (string?)null) }),
             "the report takes the rows the room leaves after the newer outcome");
         var newest = Composing(8, failed, new ActivityEntry(3, "2026-09-26T09:00:03.000Z", ActivityKind.Message, report, true)).ActivityContextFrame!.Lines;
         Assert.That(newest.Select(line => line.Rows), Is.EqualTo(new[] { 1, 3 }), "a newest report leaves a row for the outcome before it");

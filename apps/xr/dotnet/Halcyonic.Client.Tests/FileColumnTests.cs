@@ -54,7 +54,10 @@ internal sealed class FileMenuHost : IMenuHost
 
     public void OpenKeyboard(string text, string prompt, Action<string> done, Action? dismissed = null) { Keyboard = (text, prompt, done); KeyboardDismissed = dismissed; }
 
-    public int RowsOf(string words, float columnDegrees) => Math.Max(1, (words.Length + 39) / 40);
+    /// <summary>How many characters a row holds: 40 at the standard size; fewer stands in for larger text.</summary>
+    public int RowCharacters { get; set; } = 40;
+
+    public int RowsOf(string words, float columnDegrees) => Math.Max(1, (words.Length + RowCharacters - 1) / RowCharacters);
 
     public int RowsOf(PageLine line, float columnDegrees) => RowsOf(line.Words, columnDegrees);
 
@@ -131,7 +134,7 @@ public class FileColumnTests
         var (host, _, column) = ComposingTask();
         var context = column.ActivityContextFrame!;
         Assert.That(context, Is.Not.Null.And.Not.SameAs(column.Frame));
-        Assert.That(context.Source, Is.EqualTo("Recent activity"));
+        Assert.That(context.Source, Is.EqualTo("Recent Activity"));
         Assert.That(context.Sections, Is.Empty);
         Assert.That(context.Footer.All, Is.Empty);
         Assert.That(context.Side, Is.Null);
@@ -162,7 +165,7 @@ public class FileColumnTests
         column.Act(FileScreens.EditInstruction, null);
         var late = host.Keyboard!.Value.Done;
         Draw(host, column);
-        Assert.That(column.Frame!.Footer[PromptSlot.Close]?.Words, Is.EqualTo("Hide composer"));
+        Assert.That(column.Frame!.Footer[PromptSlot.Close]?.Words, Is.EqualTo("Hide Composer"));
         column.Act(FileScreens.HideInstruction, null);
         Assert.That(column.Screen.Instruction.Hidden, Is.True);
         Assert.That(column.Screen.Instruction.Read, Is.False);
@@ -211,10 +214,10 @@ public class FileColumnTests
         column.Tick();
         Assert.That(column.ActivityContextFrame, Is.Not.SameAs(context));
         var reported = column.ActivityContextFrame!.Lines.Single(line => line.Words == "I checked the tests");
-        Assert.That((reported.Chip, reported.Runs.AllTheirs), Is.EqualTo(("Agent says", true)));
+        Assert.That((reported.Chip, reported.Runs.AllTheirs), Is.EqualTo((SectionLine.AgentChip, true)));
         column.ConfigureActivityComposer(() => new HeightBudget(0), () => new RowBudget(3));
         Assert.That(column.Screen.Instruction.Words, Is.EqualTo("Keep these words"));
-        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Has.Some.Contains("make room for Activity"));
+        Assert.That(column.ActivityContextFrame!.Lines.Select(line => line.Words), Has.Some.Contains("Move Workspace"));
         Assert.That(column.ActivityContextFrame.Footer.All, Is.Empty);
         Assert.That(host.Sent, Is.Empty);
     }
@@ -456,10 +459,10 @@ public class FileColumnTests
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard("Keep my ordinary draft");
         var context = column.ActivityContextFrame!;
-        Assert.That(context.Source, Is.EqualTo("Recent activity"));
+        Assert.That(context.Source, Is.EqualTo("Recent Activity"));
         Assert.That(context.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Couldn't finish this round", "I will retry the check" }));
         Assert.That((context.Lines[0].Chip, context.Lines[0].Runs.AnyTheirs), Is.EqualTo(((string?)null, false)));
-        Assert.That((context.Lines[1].Chip, context.Lines[1].Runs.AllTheirs), Is.EqualTo(("Agent says", true)));
+        Assert.That((context.Lines[1].Chip, context.Lines[1].Runs.AllTheirs), Is.EqualTo((SectionLine.AgentChip, true)));
         Assert.That(context.Lines.All(line => line.Fact != null && line.Action == null && line.Control == LineControl.None), Is.True);
         Assert.That(context.Footer.All, Is.Empty);
         Assert.That((column.Screen.Page, current.Activity.Count), Is.EqualTo((page, 20)));
@@ -600,7 +603,7 @@ public class FileColumnTests
         var work = new WaitingWork();
         var column = Column(host, () => Approving(work));
         Assert.That(column.Screen.Section, Is.EqualTo(FileSection.Waiting));
-        Assert.That(column.Frame!.Lines[0].Words, Is.EqualTo("It wants to run a command:"));
+        Assert.That(column.Frame!.Lines[0].Words, Is.EqualTo("Run Command ·"));
         var changes = 0;
         column.Changed += () => changes++;
         column.Act(MenuFrame.ChooseSection, "activity");
@@ -723,7 +726,8 @@ public class FileColumnTests
     [Test]
     public void ARequestsPartsStayPutWhenItsLastIsReadAndTheQuestionBelowChangesSoNoReadingIsLost()
     {
-        var host = new FileMenuHost();
+        // Rows as at larger text, where the reason before reading wraps and the question after it does not.
+        var host = new FileMenuHost { RowCharacters = 16 };
         var work = new WaitingWork();
         var command = string.Join(" && ", Enumerable.Range(1, 30).Select(step => "psql -c 'ALTER TABLE t" + step + " DROP COLUMN legacy'"));
         work.Change(execution =>
@@ -742,7 +746,7 @@ public class FileColumnTests
             Draw(host, column);
             if (part < parts - 1) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
         }
-        Assert.That(column.Steering.Prompt(column.Now!), Is.EqualTo("Approve the request above?"), "the question below has changed");
+        Assert.That(column.Steering.Prompt(column.Now!), Is.EqualTo("Approve Request?"), "the question below has changed");
         Assert.That((column.Screen.RequestParts, column.Screen.RequestPartRows, column.Screen.RequestPart), Is.EqualTo((parts, rows, parts - 1)),
             "the parts stay as read, on the last one, not back at the first");
         Assert.That((column.Steering.CanConfirm, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo((true, (string?)FileScreens.Yes)));
@@ -2091,13 +2095,13 @@ public class FileColumnTests
         column.HoldStarted(FileScreens.HoldToTalk);
         column.Heard("Carry on");
         Assert.That((column.Screen.Instruction.Words, column.Screen.Instruction.Spoken, column.Steering.Armed, host.Sent.Count), Is.EqualTo(("Carry on", true, (WorkspaceAction?)null, 0)));
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your instruction", "Carry on" }));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your Instruction", "Carry on" }));
         ReadInstructionDraft(host, column);
         column.Act(FileScreens.SendInstruction, null);
         Assert.That((column.Screen.RequestParts, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((1, (Prompt?)null)), "one part, not drawn yet");
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Read to part 1 first" }));
         Draw(host, column);
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Review the transcribed instruction above. Send it?" }));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Send Heard Instruction?" }));
         column.Act(FileScreens.Yes, null);
         column.Act(FileScreens.Yes, null);
         Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"), "the same confirmation sends exactly once");
@@ -2151,7 +2155,7 @@ public class FileColumnTests
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
             "The old table is in the way. What should I do with its data?",
-            "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.",
+            "Duplicate Answers · Not Answerable Here · Stop Task",
             WorkspaceText.AgentWaits,
         }), "what it asks, why, and that it waits, as for a secret");
         Assert.That(frame.Lines.Any(line => line.Action == FileScreens.Choose || line.Action == FileScreens.TypeAnswer), Is.False);
@@ -2242,7 +2246,7 @@ public class FileColumnTests
             foreach (var row in answers.Where(line => line.Action == FileScreens.ReadWhy))
             {
                 Assert.That((row.Available, row.Control, row.Choice, row.AnswerMark, row.Fact, row.Opens),
-                    Is.EqualTo((true, LineControl.Action, false, AnswerMark.None, "Unavailable · Read why", true)), "an unavailable answer offers readable navigation, no selection mark");
+                    Is.EqualTo((true, LineControl.Action, false, AnswerMark.None, "Unavailable · Read Why", true)), "an unavailable answer offers readable navigation, no selection mark");
                 column.Act(FileScreens.Choose, row.Key);
                 Assert.That(draft.IsAnswered(0), Is.False, row.Words + " cannot be forged into a selection");
                 column.Act(FileScreens.ReadWhy, row.Key);
@@ -2266,9 +2270,9 @@ public class FileColumnTests
             ("Yes · Delete the data", false),
             ("Ask me later", true),
         }));
-        Assert.That(draft.Problem, Is.EqualTo("Choose or type an answer first."));
+        Assert.That(draft.Problem, Is.EqualTo("Choose or Write First"));
         // Typed or heard alike words are refused; the editor has no Stop action, so its refusal promises none.
-        const string typedAlike = "Your answer reads the same as answers that can't be chosen here. Answer another way.";
+        const string typedAlike = "Matches Duplicate Answers · Answer Differently";
         column.Act(FileScreens.TypeAnswer, "3");
         host.Keyboard!.Value.Done("Yes\t");
         Assert.That((draft.Typed(0), column.Frame!.Footer[PromptSlot.FarRight]!.Reason), Is.EqualTo(((string?)null, typedAlike)), "alike text is not usable and says why beside Use, without promising Stop absent from the editor");
@@ -2277,12 +2281,12 @@ public class FileColumnTests
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.Heard(" Yes");
         Assert.That(draft.Typed(0), Is.Null, "heard alike, the same");
-        Assert.That(draft.Type(0, "Yes", stopOnPage: false), Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."));
+        Assert.That(draft.Type(0, "Yes", stopOnPage: false), Is.EqualTo("Matches Duplicate Answers · Answer Differently"));
         Assert.That(draft.Type(0, "Yes, but keep a copy"), Is.Null, "other words are an answer");
         // Refused more loosely than answers are told apart: speech writes "Yes." for "Yes", and the agent reads words as it likes.
         foreach (var heard in new[] { " Yes.", "yes", "YES!", "Yes ?", "yes,", "Yes \t" })
         {
-            Assert.That(draft.Type(0, heard), Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."), heard);
+            Assert.That(draft.Type(0, heard), Is.EqualTo("Matches Duplicate Answers · Answer Differently"), heard);
         }
         Assert.That(draft.Type(0, "Yes please"), Is.Null, "other words are an answer");
 
@@ -2316,7 +2320,7 @@ public class FileColumnTests
         Draw(other, unstoppable);
         unstoppable.Act(FileScreens.TypeAnswer, "3");
         other.Keyboard!.Value.Done("Yes.");
-        Assert.That(unstoppable.Frame!.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Your answer reads the same as answers that can't be chosen here. Answer another way."),
+        Assert.That(unstoppable.Frame!.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Matches Duplicate Answers · Answer Differently"),
             "never Stop where the page offers none");
         Assert.That(unstoppable.Screen.Question.Draft!.Typed(0), Is.Null);
 

@@ -21,7 +21,7 @@ public class LineWordsTests
         "Go on without it",
         "More answers, 2 of 3",
         "Next question, 2 of 2",
-        "Your answers",
+        "Your Answers",
         "Nothing is waiting for you.",
         "Your computer refused this headset",
         "New folder in Projects",
@@ -75,7 +75,7 @@ public class LineWordsTests
     public void OutsideTextThatShowsAsNothingAddsNoRunAndABlankNameStillShows()
     {
         Assert.That(LineWords.Theirs("  \n\t ").IsEmpty, Is.True);
-        Assert.That((LineWords.Ours("Still open: ") + LineWords.Theirs(" \n")).Runs.Single().Theirs, Is.False);
+        Assert.That((LineWords.Ours("Open · ") + LineWords.Theirs(" \n")).Runs.Single().Theirs, Is.False);
         Assert.That(LineWords.TheirName("  ").Text, Is.EqualTo("‹U+0020›‹U+0020›"));
         Assert.That(LineWords.TheirName("  ").AllTheirs, Is.True);
         Assert.Throws<ArgumentException>(() => new PageLine(LineWords.Theirs(" ")));

@@ -69,7 +69,7 @@ public class KitPresenterTests
         var ask = KitPresenter.AskOf(workspace)!;
         Assert.That(ask, Is.Not.Null);
         Assert.That(ask.Heading.Text, Is.EqualTo(WorkspaceText.PromptHeadingRuns(question, 0).Text));
-        Assert.That(ask.Heading.Text, Is.EqualTo("It asks you"));
+        Assert.That(ask.Heading.Text, Is.EqualTo("Agent · Question"));
         Assert.That(ask.Question, Is.EqualTo(asked), "the agent's question as it wrote it");
     }
 

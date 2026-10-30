@@ -477,7 +477,7 @@ namespace Halcyonic.XR.UI.Editor
                 ("a file waiting for an answer", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Send answer", true) }),
                 ("a file's Activity", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Stop", false), ("Hold to talk", false), ("Tell it", true) }),
                 ("a file's Activity, without Stop", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Tell it", true) }),
-                ("a file's approval, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Yes, approve", false), ("Cancel", false) }),
+                ("a file's approval, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Confirm Approve", false), ("Cancel", false) }),
                 ("New project's Questions with Start over", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Start over", false), ("Hold to talk", false), ("Make the recap", true) }),
                 ("New project's Questions", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Make the recap", true) }),
                 ("New project's Start over, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Cancel", false), ("Yes, start over", false) }),
@@ -735,7 +735,7 @@ namespace Halcyonic.XR.UI.Editor
                 holder.localScale = Vector3.one * Distance;
                 holder.SetPositionAndRotation(galleryEyes + direction * Distance, upright ? Quaternion.identity : Quaternion.LookRotation(direction, Vector3.up));
                 var words = GlazeText.Create(holder, "Words", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Top, 12);
-                GlazeText.SetLiteral(words, "Approve the request above?");
+                GlazeText.SetLiteral(words, "Approve Request?");
                 GlazeText.Lay(words, GlazeTokens.Units(20f), 1);
                 var seen = GlazeChecks.TextAsSeen(holder.gameObject, galleryEyes, "component render: " + holder.name).ToList();
                 if (upright && seen.Count == 0)

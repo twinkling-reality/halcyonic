@@ -123,10 +123,10 @@ namespace Halcyonic.Client
         /// <summary>Validate an editor buffer without applying it to the saved answer.</summary>
         public string? TextProblem(int prompt, string? text, bool stopOnPage = false)
         {
-            if (!Prompts[prompt].FreeText) return "This question takes only the answers shown. Choose one of them.";
+            if (!Prompts[prompt].FreeText) return "Offered Answers Only · Choose One";
             var trimmed = text?.Trim();
             if (string.IsNullOrEmpty(trimmed)) return null;
-            if (!IsWhole(trimmed!)) return "The typed answer has a character that cannot be sent. Type it again.";
+            if (!IsWhole(trimmed!)) return "Unsendable Character · Type Again";
             return WorkspaceText.ReadsLikeOneThatCantBeChosen(Prompts[prompt], trimmed!) ? WorkspaceText.TypedReadsAlike(stopOnPage) : null;
         }
 
@@ -158,12 +158,12 @@ namespace Halcyonic.Client
                 var unanswered = Enumerable.Range(0, Prompts.Count).Count(prompt => !IsAnswered(prompt));
                 if (unanswered > 0)
                 {
-                    return Prompts.Count == 1 ? "Choose or type an answer first."
-                        : "Answer every question first: " + Count(Prompts.Count - unanswered) + " of " + Count(Prompts.Count) + " answered.";
+                    return Prompts.Count == 1 ? "Choose or Write First"
+                        : "Answer All Questions · " + Count(Prompts.Count - unanswered) + " of " + Count(Prompts.Count) + " Answered";
                 }
                 if (Enumerable.Range(0, Prompts.Count).Any(prompt => !shownWhole[prompt]))
                 {
-                    return "Read each question to the end first. Press Next to see the rest.";
+                    return "Read Each Question";
                 }
                 return null;
             }

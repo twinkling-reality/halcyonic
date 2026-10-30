@@ -88,7 +88,7 @@ public class AnswerFlowTests
         Assert.That(column.Frame.Sections, Is.Empty);
         Assert.That(column.Frame.Footer.All.Any(each => each.Prompt.Id is FileScreens.SendAnswer or FileScreens.SpeakAnswer), Is.False);
         Choose(host, column, "Dark");
-        Primary(host, column, "Next question");
+        Primary(host, column, "Next Question");
         Assert.That(column.Frame!.Footer.All.Any(each => each.Prompt.Id == FileScreens.SpeakAnswer), Is.False, "a non-free-text prompt has no false microphone affordance");
         Choose(host, column, "Orders");
         Review(host, column);
@@ -133,7 +133,7 @@ public class AnswerFlowTests
         old("Late words");
         Assert.That(column.Screen.Question.Input, Is.Empty);
         host.Keyboard!.Value.Done("Green");
-        Primary(host, column, "Use this answer");
+        Primary(host, column, "Use Answer");
         Assert.That(column.Screen.Question.Draft.Typed(0), Is.EqualTo("Green"));
         Assert.That(host.Sent, Is.Empty);
         Draw(host, column);
@@ -296,7 +296,7 @@ public class AnswerFlowTests
         Assert.That(column.Screen.Question.InputFocused, Is.False);
         Assert.That(column.Screen.Question.InputReading, Is.True);
         ReadInput(host, column);
-        Primary(host, column, "Use this answer");
+        Primary(host, column, "Use Answer");
         Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo(LongInput));
         Assert.That(host.Sent, Is.Empty);
     }
@@ -309,7 +309,7 @@ public class AnswerFlowTests
         host.Wait(1); column.Tick();
         ReadQuestion(host, column);
         column.Act(FileScreens.TypeAnswer, null);
-        Assert.That(column.Frame!.Lines.Single(line => line.Control == LineControl.Input).Words, Is.EqualTo("Hold to talk below"));
+        Assert.That(column.Frame!.Lines.Single(line => line.Control == LineControl.Input).Words, Is.EqualTo("Hold to Talk"));
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.Heard(LongInput);
         Assert.That(column.Screen.Question.InputReading, Is.True);
@@ -337,7 +337,7 @@ public class AnswerFlowTests
         Assert.That(column.Screen.Question.Draft.AnswersNow[0].Chosen, Is.EquivalentTo(new[] { "Option 0", "Option 13" }));
         Review(host, column);
         Assert.That(string.Join(" ", column.Frame!.Lines.Select(line => line.Words)), Does.Contain("Option 0").And.Contain("Option 13"));
-        Primary(host, column, "Send answer");
+        Primary(host, column, "Send Answer");
         Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Single().Payload.Answers[0].Selected, Is.EquivalentTo(new[] { "Option 0", "Option 13" }));
     }
 
@@ -349,7 +349,7 @@ public class AnswerFlowTests
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done(LongInput);
         ReadInput(host, column);
-        Primary(host, column, "Use this answer");
+        Primary(host, column, "Use Answer");
         host.TextSize = TextSize.Larger;
         column.Tick();
         Assert.That(column.Screen.Question.Draft!.Typed(0), Is.EqualTo(LongInput), "size change retains the saved draft");
@@ -371,7 +371,7 @@ public class AnswerFlowTests
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done(LongInput);
         ReadInput(host, column);
-        Primary(host, column, "Use this answer");
+        Primary(host, column, "Use Answer");
         Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
         Assert.That(column.Screen.Question.AnswersRead(1), Is.False, "same words do not grant another prompt's reading");
     }
@@ -405,8 +405,8 @@ public class AnswerFlowTests
         Assert.That(Forward(), Is.True, "drawing an intermediate input page must not perpetually clear its own press handles");
         Assert.That(column.Screen.Question.InputPart, Is.EqualTo(1));
         ReadInput(host, column);
-        Primary(host, column, "Use this answer");
-        Primary(host, column, "Next question");
+        Primary(host, column, "Use Answer");
+        Primary(host, column, "Next Question");
         Choose(host, column, "Orders");
         Primary(host, column, FileScreens.ReviewAnswers);
         Assert.That(column.Screen.Question.Pages, Is.GreaterThan(1));
@@ -495,7 +495,7 @@ public class AnswerFlowTests
         Choose(host, column, "Extra 7");
         var page = column.Screen.Question.Page;
         var context = column.Frame!.Lines.Single(line => line.Action == FileScreens.ReadQuestion);
-        Assert.That((context.Control, context.Fact, context.Opens), Is.EqualTo((LineControl.Action, "Read question", true)));
+        Assert.That((context.Control, context.Fact, context.Opens), Is.EqualTo((LineControl.Action, "Read Question", true)));
         column.Act(context.Action!, context.Key);
         ReadQuestion(host, column);
         Assert.That(column.Screen.Question.Page, Is.EqualTo(page));
@@ -514,7 +514,7 @@ public class AnswerFlowTests
         var (host, column, _) = Open(question);
         ReadQuestion(host, column);
         var why = column.Frame!.Lines.First(line => line.Action == FileScreens.ReadWhy);
-        Assert.That((why.Fact, why.Control, why.Choice, why.AnswerMark), Is.EqualTo(("Unavailable · Read why", LineControl.Action, false, AnswerMark.None)));
+        Assert.That((why.Fact, why.Control, why.Choice, why.AnswerMark), Is.EqualTo(("Unavailable · Read Why", LineControl.Action, false, AnswerMark.None)));
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done("Yes.");
         Draw(host, column);
@@ -525,7 +525,7 @@ public class AnswerFlowTests
         column.Act(why.Action!, why.Key);
         for (var part = 0; part < 30 && column.Screen.Question.AmbiguityPart + 1 < column.Screen.Question.AmbiguityParts; part++)
             Primary(host, column, FileScreens.NextPartWords(column.Screen.Question.AmbiguityPart, column.Screen.Question.AmbiguityParts));
-        Primary(host, column, "Stop task");
+        Primary(host, column, "Stop Task");
         Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Interrupt));
         Assert.That(column.Frame!.Focused, Is.False);
         var ordinary = HeightBudget.Of(host.TextSize, 1);
@@ -586,7 +586,7 @@ public class AnswerFlowTests
             new() { Label = "Yes", Description = LongInput }, new() { Label = " Yes ", Description = "A different offered description" }, new() { Label = "No" },
         };
         var (host, column, _) = Open(asked);
-        if (prompt == 1) { Choose(host, column, "Dark"); Primary(host, column, "Next question"); }
+        if (prompt == 1) { Choose(host, column, "Dark"); Primary(host, column, "Next Question"); }
         Choose(host, column, "No");
         for (var page = 0; page < 30 && !column.Frame!.Lines.Any(line => line.Action == FileScreens.ReadWhy); page++)
         {
@@ -599,7 +599,7 @@ public class AnswerFlowTests
         Assert.That(column.Screen.Question.Draft!.IsChosen(prompt, "Yes"), Is.False);
         column.Act(why.Action!, why.Key);
         Assert.That(column.Screen.Question.ExplainingAmbiguity, Is.True);
-        Assert.That(column.Frame!.Lines[0].Words, Is.EqualTo("Unavailable choice"));
+        Assert.That(column.Frame!.Lines[0].Words, Is.EqualTo("Duplicate Choices"));
         Assert.That(column.Frame.Lines[1].Words, Does.Contain("word89").And.Contain("A different offered description"));
         Assert.That(column.Frame.Footer.All.Any(each => each.Prompt.Id == FileScreens.SendAnswer), Is.False);
         column.Act(FileScreens.Choose, "0");

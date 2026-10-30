@@ -92,16 +92,16 @@ public class QuestionTests
         var work = new AskingWork();
         var workspace = work.Present();
         Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Needs You"));
-        Assert.That(PeekCard.Of(workspace).ReasonLine, Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"),
+        Assert.That(PeekCard.Of(workspace).ReasonLine, Is.EqualTo("Agent · Question · 2 Questions · Colour scheme; Pages"),
             "the whole question, never only the prompt the body may not show");
         Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         Assert.That(workspace.QuestionToAnswer, Is.SameAs(work.Question));
         Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt));
         Assert.That(WorkspaceText.QuestionLead(workspace), Is.Empty, "the answer line already names one question");
         Assert.That(WorkspaceText.PromptHeading(work.Question, 0), Is.EqualTo("Question 1 of 2 · Colour scheme"));
-        Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[0]), Is.EqualTo("Choose one, or type your own."));
-        Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[1]), Is.EqualTo("Choose any that apply."));
-        Assert.That(WorkspaceText.Label(WorkspaceAction.Answer), Is.EqualTo("Send answer"));
+        Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[0]), Is.EqualTo("Choose One · Or Write"));
+        Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[1]), Is.EqualTo("Choose Any"));
+        Assert.That(WorkspaceText.Label(WorkspaceAction.Answer), Is.EqualTo("Send Answer"));
     }
 
     [Test]
@@ -127,7 +127,7 @@ public class QuestionTests
         draft.Choose(1, "Sign in");
         draft.Choose(1, "Orders");
         draft.Choose(1, "Orders");
-        Assert.That(draft.Type(1, "Billing"), Is.EqualTo("This question takes only the answers shown. Choose one of them."));
+        Assert.That(draft.Type(1, "Billing"), Is.EqualTo("Offered Answers Only · Choose One"));
         Assert.Throws<ArgumentException>(() => draft.Choose(1, "Billing"), "only labels offered");
         draft.Choose(0, "Dark");
         draft.ShownWhole(0);
@@ -142,11 +142,11 @@ public class QuestionTests
     public void NothingIsSentUntilEveryPromptIsAnsweredAndShownWhole()
     {
         var draft = Draft(new AskingWork());
-        Assert.That(draft.Problem, Is.EqualTo("Answer every question first: 0 of 2 answered."));
+        Assert.That(draft.Problem, Is.EqualTo("Answer All Questions · 0 of 2 Answered"));
         draft.Choose(0, "Dark");
-        Assert.That(draft.Problem, Is.EqualTo("Answer every question first: 1 of 2 answered."));
+        Assert.That(draft.Problem, Is.EqualTo("Answer All Questions · 1 of 2 Answered"));
         draft.Choose(1, "Orders");
-        Assert.That(draft.Problem, Is.EqualTo("Read each question to the end first. Press Next to see the rest."));
+        Assert.That(draft.Problem, Is.EqualTo("Read Each Question"));
         draft.ShownWhole(0);
         draft.ShownWhole(1);
         Assert.That(draft.Problem, Is.Null);
@@ -156,7 +156,7 @@ public class QuestionTests
     public void TypedTextThatCannotBeSentIsRefusedInWords()
     {
         var draft = Draft(new AskingWork());
-        Assert.That(draft.Type(0, "Dark\uD800"), Does.StartWith("The typed answer has a character that cannot be sent"));
+        Assert.That(draft.Type(0, "Dark\uD800"), Is.EqualTo("Unsendable Character · Type Again"));
         Assert.That(draft.Typed(0), Is.Null);
         Assert.That(draft.Type(0, "Dark 🌙"), Is.Null, "whole characters outside the first plane are fine");
         Assert.That(draft.Type(0, "   "), Is.Null);
@@ -169,7 +169,7 @@ public class QuestionTests
         var work = new AskingWork();
         var steering = new WorkspaceSteering(factory);
         var draft = Draft(work);
-        Assert.That(steering.SendAnswer(draft, work.Present()).Message, Is.EqualTo("Answer every question first: 0 of 2 answered."));
+        Assert.That(steering.SendAnswer(draft, work.Present()).Message, Is.EqualTo("Answer All Questions · 0 of 2 Answered"));
         Assert.That(steering.Press(WorkspaceAction.Answer, work.Present()).Step, Is.EqualTo(SteeringStep.Explain), "no answer without the answers");
         draft.Type(0, "Solarized");
         draft.Choose(1, "Sign in");
@@ -196,7 +196,7 @@ public class QuestionTests
         draft.ShownWhole(0);
         draft.ShownWhole(1);
         Assert.That(steering.SendAnswer(draft, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send these answers?"));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send Answers?"));
         Assert.That(steering.FocusLeft().Message, Is.EqualTo(WorkspaceText.ConfirmAfresh));
         Assert.That(steering.Confirm(work.Present()).Step, Is.EqualTo(SteeringStep.None), "the press that returns focus sends nothing");
         Assert.That(draft.IsChosen(0, "Light"), Is.True, "the answers chosen are kept");
@@ -219,9 +219,9 @@ public class QuestionTests
         Assert.That(outcome.Command, Is.Null);
     }
 
-    [TestCase(true, false, "It asks for something secret, which can't be sent from here. Press Stop to go on.")]
-    [TestCase(false, true, "This question is too long to show in full, so it can't be answered here. Press Stop to go on.")]
-    [TestCase(false, false, "This question can't be answered from here. Press Stop to go on.")]
+    [TestCase(true, false, "Secret Requested · Not Sendable Here · Stop Task")]
+    [TestCase(false, true, "Question Too Long · Not Answerable Here · Stop Task")]
+    [TestCase(false, false, "Not Answerable Here · Stop Task")]
     public void AQuestionHalcyonicCannotAnswerShowsTheWayOn(bool secret, bool cut, string words)
     {
         var question = AskingWork.Scripted();
@@ -249,7 +249,7 @@ public class QuestionTests
                 execution.PendingQuestions.Add(more);
             }
         });
-        Assert.That(WorkspaceText.QuestionLead(work.Present()), Is.EqualTo("At least 2 more questions wait after this one."));
+        Assert.That(WorkspaceText.QuestionLead(work.Present()), Is.EqualTo("At Least 2 More Questions"));
     }
 
     [Test]
@@ -260,12 +260,12 @@ public class QuestionTests
             CommandId = "c1", CommandType = CommandType.ExecutionAnswerQuestion, Status = status, ExecutionId = "e1",
             IssuedAt = Samples.Time, Failure = failure, Rejection = rejection,
         };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent. Waiting for the agent…"));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed: it has your answer."));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent · Awaiting Agent"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed · Answer Received"));
         var unconfirmed = new CommandFailure { Code = "question_unconfirmed", Message = "Codex did not confirm.", Effect = FailureEffect.Unknown };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed, unconfirmed)).Text, Is.EqualTo(WorkspaceText.AnswerNotConfirmed));
         var gone = new CommandRejection { Code = RejectionCode.QuestionNotFound, Message = "Question question-1 is not pending." };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected, rejection: gone)).Text, Is.EqualTo("Couldn't send: it's no longer waiting for this answer. See what it's doing now."));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected, rejection: gone)).Text, Is.EqualTo("Answer Refused · Question Closed · See Activity"));
     }
 
     [Test]
@@ -283,15 +283,15 @@ public class QuestionTests
     public void TheAnswerLineNamesTheWholeQuestionWhicheverPromptShows()
     {
         var question = AskingWork.Scripted();
-        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"));
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent · Question · 2 Questions · Colour scheme; Pages"));
         question.Prompts[1].Header = null;
-        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you 2 questions."), "no header named unless every prompt has one");
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent · Question · 2 Questions"), "no header named unless every prompt has one");
         question.Prompts.RemoveAt(1);
-        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you: Colour scheme: Which colour scheme should the dashboard use?"));
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Agent · Question · Colour scheme · Which colour scheme should the dashboard use?"));
         var work = new AskingWork();
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "It asks you a question. See it under Needs You." }),
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Question Asked · See Needs You" }),
             "the answer line points to the tab; the tab's heading names the whole question");
-        Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"));
+        Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("Agent · Question · 2 Questions · Colour scheme; Pages"));
     }
 
     private ExecutionAnswerQuestionCommand Answer(AskingWork work)

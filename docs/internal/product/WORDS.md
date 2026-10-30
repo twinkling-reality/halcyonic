@@ -35,20 +35,20 @@ can do next.
    prepositions ("Codex · 0.9 s · Observed"). Words from outside (names, paths, commands, the
    agent's text) stay exactly as written. Stages are parallel, and a sentence that only explains
    the control beside it is deleted; a sentence that carries a truth stays, in the cadence.
-3. **Only what is true now, and how sure.** Sending, Sent, Waiting for the agent, Confirmed only
-   when the agent confirmed, Couldn't do that, Not sure it happened. A finished round says nothing
+3. **Only what is true now, and how sure.** Sending, Sent · Awaiting Agent, Confirmed only when
+   the agent confirmed, Refused, Unconfirmed, Not Sent wherever a press sent nothing. A finished round says nothing
    about whether the work is right, so nothing celebrates it.
-4. **Lead with the state or the action**, in at most two short sentences.
-5. **Buttons** begin with a verb, in sentence case, in one to three words. A confirmation is
-   "Yes, {verb}" beside Cancel. An icon may stand before a button's words, never in their place.
+4. **Lead with the state or the action**, then the cause, then the way on (Not Sent · Answer Changed · Reread).
+5. **Buttons** begin with a verb, in Title Case, in one to three words. A confirmation is
+   "Confirm {Verb}" beside Cancel. An icon may stand before a button's words, never in their place.
 6. **Use familiar names for the work and its actor.** Projects, Tasks, Approvals, Activity, Changes,
-   Tests and Send instruction say what the person can do. Agent and assistant are ordinary nouns;
+   Tests and Send Instruction say what the person can do. Agent and assistant are ordinary nouns;
    avoid forced pronouns and invented circumlocutions. Your computer identifies the connected host.
    Halcyonic identifies this workspace. Brands supplied as data remain outside text.
-7. **No blame, and a next step.** Every refusal ends with what to do: "Couldn't start: this project
-   has no folder yet. Choose where its files live."
+7. **No blame, and a next step.** Every refusal ends with what to do: "Start Failed · No Folder ·
+   Choose Folder".
 8. **The agent's words are its own**, marked as theirs and never restated as fact: tagged by their
-   claim's chip ("Agent says" in a section) and leaning. Since 2026-10-08 (the owner, ADR 0026)
+   claim's chip ("Agent · Reported" in a section) and leaning. Since 2026-10-08 (the owner, ADR 0026)
    Halcyonic adds no quotes or leads such as "It says:" around them: they lean on a ground only
    Halcyonic draws wherever they meet our words, and they are cut first. The same holds for all text
    Halcyonic didn't write, a title, a name, a label, a source's sentence and the person's own typed or
@@ -70,23 +70,23 @@ can do next.
 One word per state, the same on the badge, in the peek, in the workspace and in every list
 (`StateLanguage.WordOf`). A sentence says the same state in full.
 
-| State | Badge | In a sentence |
+| State | Badge | In a line |
 | --- | --- | --- |
-| No run yet | Not Started | Not started yet. |
-| Asked to start, not yet confirmed | Starting | Starting. Waiting for the agent to confirm. |
-| Running | Running | 2 tasks running. |
-| A test run in progress | Checking | Checking its work. |
-| An approval or a question waits | Needs You | 1 task is waiting for you. “Fix the login” is waiting for you. |
-| The round ended | Round Ended | 1 task finished, ready to look at. |
-| The round ended and its checks did not pass | Checks Failed | Checks: 1 failed, 23 passed. |
-| The run failed | Failed | Couldn't finish this round. Tell it to try again, or what to do instead. (the way on, never the agent app's error) |
-| Stopped, as the agent confirmed | Stopped | Stopped. |
-| Halcyonic cannot see the work | Unknown | Can't tell what it's doing right now. |
+| No run yet | Not Started | Not Started |
+| Asked to start, not yet confirmed | Starting | Starting · Unconfirmed |
+| Running | Running | Running · 2 Tasks |
+| A test run in progress | Checking | Checking · Reported |
+| An approval or a question waits | Needs You | Needs You · 1 Task; Needs You · {title} |
+| The round ended | Round Ended | Round Ended · Ready to Review |
+| The round ended and its checks did not pass | Checks Failed | Checks · 1 Failed · 23 Passed · Observed or Reported |
+| The run failed | Failed | Round Failed · Write Instruction; where nothing can be told to it, Round Failed · Re-Add Task in Projects (the way on, never the agent app's error) |
+| Stopped, as the agent confirmed | Stopped | Stopped · Confirmed |
+| Halcyonic cannot see the work | Unknown | Status Unknown; with a known cause, Status Unknown · Agent App Unreachable |
 
-The badges follow the owner's voice standard (2026-10-30). The sentences change in the word pass's
-next slice, to ART's cadence forms ("Starting · Unconfirmed", "Round Ended · Ready to Review",
-"Status Unknown"); until then they read as above. A finished round never says Done or Complete,
-and Checking stays the agent's report until your computer's own check ran.
+The badges and lines follow the owner's voice standard (2026-10-30). The file and the workspace say
+Round Failed, Status Unknown and, in Latest, Checking · Reported so; the menu's counts, lists and
+sentences still read "2 tasks running" and the like until the menu's words move. A finished round never says Done or Complete. Checking is the agent's
+report: wherever its line stands it says Reported, so it never reads as your computer's own check.
 
 The state badge also counts what waits when more than one thing does ("Needs You · 2"). In
 counts, "paused" covers tasks that ran and rest, neither running nor waiting for you; tasks never
@@ -120,17 +120,19 @@ snapshot, workstream, access token (an access code, only where the person must a
 
 Each line of an answer says how it is known with a chip; an observed fact, a measurement and
 Halcyonic's own words go without one. The words below were settled by the coordinator on
-2026-10-02; the old words are kept beside them so no surface goes back to them.
+2026-10-02 and put in the owner's voice standard on 2026-10-30; the old words are kept beside them
+so no surface goes back to them. The kit's own report chip still reads Agent says until the kit's
+words move; it attributes words whole as the agent's chip does.
 
 | The line is | Chip | Instead of |
 | --- | --- | --- |
-| The agent's own words, whatever the source tagged them, and what it says is left: beside the chip, "Still to do: {x}", "Failing: {x}", "In progress: {x}", "To do: {x}", its words leaning, never quoted (2026-10-08; these mixed lines keep the lean on the independent candidate too, 2026-10-16); where no chip shows, "Failing, the agent says: “…”" and the like (2026-10-07) | Agent says | |
-| A subagent's own words | Subagent says | |
-| Words whose author the source does not know | Author unknown | Quoted |
-| A model's account of the work, after it | Model explains | Explanation |
+| The agent's own words, whatever the source tagged them, and what it says is left: beside the chip, "To Do · {x}", "Failing · {x}", "In Progress · {x}", its words leaning, never quoted (2026-10-08; these mixed lines keep the lean on the independent candidate too, 2026-10-16); where no chip shows, "Failing · Agent · Reported · {x}" and the like | Agent · Reported | Agent says |
+| A subagent's own words | Subagent · Reported | Subagent says |
+| Words whose author the source does not know | Author Unknown | Author unknown; Quoted |
+| A model's account of the work, after it | Explanation · Reported | Model explains; Explanation |
 | The source's own reading of what it observed, not a fact | Inferred | |
 | What the agent planned to do | Planned | |
-| A question the agent asks, on a character's glance, its words leaning on their ground (2026-10-08) | Agent asks | It asks: |
+| A question the agent asks, on a character's glance and as a lone question's heading, its words leaning on their ground (2026-10-08; in the voice standard's cadence, 2026-10-30) | Agent · Question | Agent asks; It asks: |
 
 ### Usage in the demonstration
 
@@ -147,46 +149,47 @@ These words were settled by the coordinator on 2026-10-02.
 ### The agent's question in a file
 
 How a file's Waiting page pages the agent's question (ADR 0026), as settled by the coordinator on
-2026-10-11 for the focused answer sequence.
+2026-10-11 for the focused answer sequence and put in the owner's voice standard on 2026-10-30.
+A locked control's reason names what to read or do, in 1 to 3 words where it can.
 
 | Where | Words | Instead of |
 | --- | --- | --- |
-| The row at the end of a prompt's page of answers | More answers, 2 of 2; from the last page, First answers, 1 of 2 | Next, the old panel's pager |
-| The primary action after a prompt | Next question; after the last, Review answers | Your answers as a plain navigation row |
-| The primary action on a long question | Next part, 2 of 3; after the last, See answers | On to the answers as a plain row |
-| The question's progress and selection rule | Question 1 of 2; Choose one; Choose one or more | A disabled Send answer throughout selection |
-| Choice-page position and navigation | Choices 1 of 2; More choices; First choices | Paging without a visible current position |
-| Clipped long-question context | Read question | A hidden target or no way to reread the question |
-| An unavailable choice with a duplicated displayed name | Unavailable · Read why; explanation title Unavailable choice; These choices have the same name, so they cannot be selected here: {full conflicting words}; Back; Stop task when offered | A selectable radio/checkbox on an ambiguous label or a Stop cue where no Stop control is offered |
-| Empty custom-answer field | Type your answer with a keyboard; Hold to talk below with voice only | Promising an unavailable keyboard |
-| Send answer's reason while a long question isn't read to its end | Read the whole question first. | Open the question to read the rest. |
-| Send answer's reason while a chosen cut answer or a long typed one isn't read whole | Read the whole answer you chose first. | |
-| Send answer's reason while a page of Your answers isn't drawn | Read all your answers first. | |
-| Review and editor part navigation | Next part, 2 of 3; Previous part | Your answers as a plain paging row |
-| Custom-answer navigation | Write an answer; once saved, selected Edit answer with Selected | Type my answer styled as an offered choice |
-| The custom-answer editor | Your answer; Use this answer; Cancel | Saving or sending on keyboard Done or transcription |
-| The saved custom answer | Selected Edit answer control; full saved words in editor and mandatory review, leaning | A duplicate preview row among the choices |
-| A free-text-only question | Write an answer; Write an answer first. | Choose one with no offered choices |
+| The row at the end of a prompt's page of answers | More Choices; from the last page, First Choices | Next, the old panel's pager |
+| The primary action after a prompt | Next Question; after the last, Review Answers | Your answers as a plain navigation row |
+| The primary action on a long question | Next Part · 2 of 3; after the last, See Answers | On to the answers as a plain row |
+| The question's progress and selection rule | Question 1 of 2 · Choose One; Question 1 of 2 · Choose Any; with pages, · Choices 1 of 2 after them | A disabled Send answer throughout selection |
+| Choice-page position and navigation | Choices 1 of 2; More Choices; First Choices | Paging without a visible current position |
+| Clipped long-question context | Read Question | A hidden target or no way to reread the question |
+| An unavailable choice with a duplicated displayed name | Unavailable · Read Why; explanation title Duplicate Choices; Same Name · Not Selectable · {full conflicting words}; Back; Stop Task when offered | A selectable radio/checkbox on an ambiguous label or a Stop cue where no Stop control is offered |
+| Empty custom-answer field | Answer with a keyboard; Hold to Talk with voice only | Promising an unavailable keyboard |
+| Send Answer's reason while a long question isn't read to its end | Read Full Question | Open the question to read the rest. |
+| Send Answer's reason while a chosen cut answer or a long typed one isn't read whole | Read Full Answer | |
+| Send Answer's reason while a page of Your Answers isn't drawn | Read All Answers | |
+| Review and editor part navigation | Next Part · 2 of 3; Previous Part; a part not yet read, Read This Part | Your answers as a plain paging row |
+| Custom-answer navigation | Write Answer; once saved, selected Edit Answer with Selected | Type my answer styled as an offered choice |
+| The custom-answer editor | Your Answer; Use Answer; Cancel | Saving or sending on keyboard Done or transcription |
+| The saved custom answer | Selected Edit Answer control; Your Answer · {their words}, leaning, in editor and mandatory review | A duplicate preview row among the choices |
+| A free-text-only question | Write Answer; Write Answer First | Choose one with no offered choices |
 
 ### Steering from a file
 
 Activity shows recorded events and actual pending decisions or problems. The task's state already
 appears above it: do not invent a latest event from that state or fill the log with "Nothing is
-waiting for you." An empty log says "No recorded activity yet." A loading or unavailable-history
+waiting for you." An empty log says "No Activity". A loading or unavailable-history
 message takes its place when present. Agent messages retain their individual "Agent says" chip
 and outside-text treatment; observed events are not labeled as agent claims. The mixed log has no
-blanket agent source line. Waiting and request pages use "Reported by agent" for their source.
+blanket agent source line. Waiting and request pages use "Reported" for their source.
 
-**Write instruction** opens the draft. **Review instruction** opens its complete review, and
-**Yes, send** sends only after that review. A transcribed draft asks "Review the transcribed
-instruction above. Send it?"; a typed draft asks "Send the instruction above?". These labels do
-not change capability, complete-reading or current-request checks.
+**Write Instruction** opens the draft. **Review Instruction** opens its complete review, and
+**Confirm Send** sends only after that review. A transcribed draft asks "Send Heard Instruction?";
+a typed draft asks "Send Instruction?". These labels do not change capability, complete-reading or
+current-request checks.
 
 | Where | Words |
 | --- | --- |
-| Review instruction while offered instructions show and none is chosen | Choose an instruction first. |
-| A confirmation dropped because the request it asks about now reads differently | Nothing was sent: the request changed. Read it again. |
-| Answers awaiting their Yes, dropped because the question is no longer the one asked | Nothing was sent: the question changed. Read it again. (instead of Check it again) |
+| Review Instruction while offered instructions show and none is chosen | Choose Instruction (locked) |
+| A confirmation dropped because the request it asks about now reads differently | Not Sent · Request Changed · Reread |
+| Answers awaiting their Confirm, dropped because the question is no longer the one asked | Not Sent · Question Changed · Reread (instead of Check it again) |
 
 ### The headset's access code
 
@@ -202,24 +205,35 @@ surface goes back to them.
 
 ## Sentence patterns
 
+Halcyonic's own lines read in the " · " cadence (the owner's voice standard, 2026-10-30): the state
+or the action first, then the cause, then the way on, each segment in Title Case; words from outside
+stay exactly as written and lean.
+
 | Kind | Pattern | Example |
 | --- | --- | --- |
-| A peek | {badge}, then the reason without the state's words | Needs You · It wants to run: make migrate |
-| Nothing waiting | Nothing is waiting for you. Latest: {activity}, a name or the agent's message in it leaning, the agent's beside "Agent says" | Nothing is waiting for you. Latest: Used edit: src/auth/rate-limit.ts |
-| Sent | Sent. Waiting for {who}… | Sent. Waiting for the agent… |
-| Still on its way | Sent…, unavailable, where the action that sent it stood | Sent… |
-| Confirmed | Confirmed: {what}. | Confirmed: it has your answer. |
-| Refusal | Couldn't {verb}: {cause}. {Next step}. | Couldn't start: this project has no folder yet. Choose where its files live. |
-| Unknown effect | Not sure {what may have happened}. {What to check first}. | Not sure the instruction reached it. Check its activity before you try again. |
-| Connection | {What is true}: {plain cause}. {What happens}. | Last known: can't reach your computer. Trying again… |
-| Provenance | From {source} · {when} | From Seorak · 2 min ago |
-| The work's reported request or state | Reported by agent, on Waiting and request pages; Activity identifies each reported message separately | Reported by agent |
-| Confirmation | Yes, {verb}, where no control stood a moment before; Cancel where the first press was | Yes, start building · Change; Yes, clear · Cancel |
-| Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
-| Where an approved command runs | If you approve, it {may run outside its sandbox, with your access to your computer \| still runs inside a sandbox}., only for a command that can be approved and only as its agent app declares it, before what Approve does ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)) | If you approve, it may run outside its sandbox, with your access to your computer. |
-| Locked final press | Read to part {n} first | Read to part 3 first |
-| Kept while away | Still open: {panel} | Still open: Create a project |
+| A peek | {State} · {reason}, the reason without the state's words | Needs You · make migrate |
+| Nothing waiting | Nothing Waiting, then Latest · {activity}, a name or the agent's message in it leaning, the agent's beside its chip | Nothing Waiting · Latest · Used edit: src/auth/rate-limit.ts |
+| Sent | Sent · Awaiting {Who} | Sent · Awaiting Agent |
+| Still on its way | Sending, unavailable, where the action that sent it stood | Sending |
+| Confirmed | Confirmed · {What} | Confirmed · Answer Received |
+| Refusal | {Action} Refused or Failed · {Cause} · {Next Step}, the next step a control's name where one is offered | Start Failed · No Folder · Choose Folder |
+| Unknown effect | {What} Unconfirmed · {What to Check} | Delivery Unconfirmed · Check Activity |
+| Not sent | Not Sent · {Why} · {Next Step}, wherever a press sent nothing | Not Sent · Answer Changed · Reread |
+| Connection | {Truth} · {Cause} · {What Happens} | Computer Unreachable · Retrying |
+| Provenance | {Source} · {When} | Seorak · 2 min ago |
+| The work's reported request or state | Reported, on Waiting and request pages; Activity identifies each reported message separately | Reported |
+| Confirmation | Confirm {Verb}, where no control stood a moment before; Cancel where the first press was | Confirm Approve · Cancel |
+| Asking about what shows | {Verb} {Thing}? | Approve Request? |
+| Where an approved command runs | May Run Outside Sandbox · Your Access, or Runs Inside Sandbox, only for a command that can be approved and only as its agent app declares it, before what Approve does ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)) | May Run Outside Sandbox · Your Access |
+| Locked final press | Read to Part {n} (locked) | Read to Part 3 |
+| Kept while away | Open · {Panel} | Open · New Project |
 | The companion's words | {line}, leaning on its ground under Halcyonic's quote mark, never in our voice; the page's source line names the companion; its view as its opinion, in our words | The companion thinks this is unclear. |
+
+The file, its question and its steering, the workspace's answers and refusals, and voice follow
+these patterns. The menu's own lines (New project, Projects, Connect, the companion and the
+activity log's leads such as "Couldn't do that") still read in the earlier sentences, as "Couldn't
+start: …" and "Read to part 3 first", until the menu's words move; where such a lead meets a reason
+in the cadence it reads "Couldn't do that · Project Missing · Choose Another".
 
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
 the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, the
@@ -232,21 +246,21 @@ replaces the entry panel's screens. Routine wording, settled by the coordinator,
 
 | Where | Old | New | Settled |
 | --- | --- | --- | --- |
-| A file's instruction armed to send, heard through Hold to talk or typed for a policy's review | "Your computer heard: “…” Send it?" or "Tell it this? “…”", the words inside the question, cut at three rows | The words above (since 2026-10-08 leaning, never quoted), in parts as a request is, each but the last ending in "Next part, 2 of 3", then "Read to part 3 first" until the last part has shown, then "Your computer heard the words above. Send them?" or "Tell it the words above?"; a Yes refused before then, as a backstop, says "Nothing was sent: read to the last part first." | 2026-10-04, by the coordinator |
-| A file's question offering two answers by one label, as "Yes" to keep the data and "Yes" to delete it | None: both rows showed, and either sent "Yes" twice, which your computer refused, so it could never be answered | "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.", then "It's waiting for an answer." and Stop, as a question asking for a secret shows; no answer rows and no Hold to talk | 2026-10-04, by the coordinator |
-| A file's question where some answers read the same, as "Yes" to keep the data and "Yes " to delete it, beside other ways to answer | The whole question couldn't be answered here: "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on." | Those rows show and can't be chosen; under them "Answers that read the same can't be chosen here. Press Stop if you meant one of them.", with Stop on the page (without Stop to offer, the first sentence alone); words typed or heard that read the same as one of them, a notice: "Your answer reads the same as answers that can't be chosen here. Answer another way, or press Stop if you meant one of them." ("Answer another way." where Stop isn't on the page); a prompt left with no way to answer keeps the row above | 2026-10-07, by the coordinator |
-| Why it can't tell what a task is doing, on the character, its peek and the file's Activity | "Can't tell what it's doing: {the reason's message}", an agent app's diagnostic, as "After the OpenCode event stream reconnected, the session could not be read (GET /api/session/…)"; in the log "Lost contact with the runtime: {message}" and "State unknown: {message}" | By the reason's code: "Can't tell what it's doing: your computer lost touch with the agent app.", "…: your computer restarted and lost touch with the agent app.", "…: not sure it started."; any other code "Can't tell what it's doing right now."; the log's line for a lost connection "Your computer lost touch with the agent app." | 2026-10-04, by the coordinator |
-| Why a task couldn't start or finish, on the character, its peek and the file's Activity | "Couldn't finish: {the reason's message}", an agent app's own error | "Couldn't finish this round. Tell it to try again, or what to do instead." where Tell it is offered, else "Couldn't finish this round. Add the task again in Projects to try again."; a start refused over its folder, "Couldn't start: {the folder's problem, by its code}"; a start that failed with a code every agent app shares, "Couldn't start: {why}" as the next rows say it (a lost agent app, one not available, a version not supported, one that can't do that); any other start, "Couldn't start. Add the task again in Projects to try again." | 2026-10-04, by the coordinator |
+| A file's instruction armed to send, heard through Hold to talk or typed for a policy's review | The words above (since 2026-10-08 leaning, never quoted), in parts as a request is, each but the last ending in "Next part, 2 of 3", then "Read to part 3 first" until the last part has shown, then "Your computer heard the words above. Send them?" or "Tell it the words above?"; a Yes refused before then, as a backstop, says "Nothing was sent: read to the last part first." | The words above, leaning, in parts as a request is, each but the last ending in Next Part · 2 of 3, Read Full Instruction until the last part is read, then Send Heard Instruction? or Send Instruction?; a press before then, Not Sent · Read to Last Part | The owner's voice standard, 2026-10-30 (ART's form) |
+| A file's question offering two answers by one label, as "Yes" to keep the data and "Yes" to delete it | "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.", then "It's waiting for an answer." and Stop, as a question asking for a secret shows; no answer rows and no Hold to talk | Duplicate Answers · Not Answerable Here · Stop Task, then Awaiting Answer and Stop, as a question asking for a secret shows | The owner's voice standard, 2026-10-30 (ART's form) |
+| A file's question where some answers read the same, as "Yes" to keep the data and "Yes " to delete it, beside other ways to answer | Those rows show and can't be chosen; under them "Answers that read the same can't be chosen here. Press Stop if you meant one of them.", with Stop on the page (without Stop to offer, the first sentence alone); words typed or heard that read the same as one of them, a notice: "Your answer reads the same as answers that can't be chosen here. Answer another way, or press Stop if you meant one of them." ("Answer another way." where Stop isn't on the page); a prompt left with no way to answer keeps the row above | Those rows show and can't be chosen; under them Duplicate Answers · Not Selectable · Stop Task where Stop is offered; words typed or heard that read the same, Matches Duplicate Answers · Answer Differently or Stop Task | The owner's voice standard, 2026-10-30 (ART's form) |
+| Why it can't tell what a task is doing, on the character, its peek and the file's Activity | By the reason's code: "Can't tell what it's doing: your computer lost touch with the agent app.", "…: your computer restarted and lost touch with the agent app.", "…: not sure it started."; any other code "Can't tell what it's doing right now."; the log's line for a lost connection "Your computer lost touch with the agent app." | By the reason's code: Status Unknown · Agent App Unreachable, Status Unknown · Computer Restarted, Status Unknown · Start Unconfirmed; any other code, Status Unknown | The owner's voice standard, 2026-10-30 (ART's form) |
+| Why a task couldn't start or finish, on the character, its peek and the file's Activity | "Couldn't finish this round. Tell it to try again, or what to do instead." where Tell it is offered, else "Couldn't finish this round. Add the task again in Projects to try again."; a start refused over its folder, "Couldn't start: {the folder's problem, by its code}"; a start that failed with a code every agent app shares, "Couldn't start: {why}" as the next rows say it (a lost agent app, one not available, a version not supported, one that can't do that); any other start, "Couldn't start. Add the task again in Projects to try again." | Round Failed · Write Instruction where Write Instruction is offered, else Round Failed · Re-Add Task in Projects; a start refused, Start Failed · {why by its code}, as Start Failed · Agent App Unavailable · Check Setup · Re-Add Task; stopped because its permissions changed, Round Failed · Task Stopped · Permissions Changed · See Activity | The owner's voice standard, 2026-10-30 (ART's form) |
 | A peek's next step under Couldn't finish | "Open it to see why." | "Open it to see what it did.", since the file no longer shows the agent app's error | 2026-10-04, by the coordinator |
 | The activity log's lines for a round and for what failed | "Turn started", "Turn finished", "Turn stopped", "Turn failed: {message}", "Could not start: {message}", "A request failed: {message}", "Asked to stop the turn" | "Round started", "Round finished", "Round stopped", "Couldn't finish this round", "Couldn't start", "Couldn't start: {the folder's problem}" or "Couldn't start work: {why}" by a shared code, "Couldn't {verb}" (as "Couldn't send an instruction") where it had no effect, and where it may have happened anyway what may have, then what to check, never after "Couldn't", which says nothing happened: "Not sure the instruction reached it.", "Not sure it stopped.", "Not sure it has your decision.", "Not sure it started.", each then "Check its activity before you try again."; an answer as before; anything else "Not sure it happened. Check its activity before you try again." (the same on a task's line of what was sent last; settled by the coordinator, 2026-10-04); and "Asked to stop it" | 2026-10-04, by the coordinator (the unknown effect corrected after review) |
 | A command your computer refused, in the activity log, the file's line of what was sent last, and Start building's and Connect's steps | "Refused to {verb}: {message}", "Couldn't do that: {message}", "Couldn't connect: {message}", the control plane's words for developers, as "Runtime mock does not support instruct_while_running." | "Couldn't {verb}: {why}." by the refusal's code: "this project isn't on your computer any more. Choose another in Projects.", "this task isn't on your computer any more. Choose another in Tasks.", "this work isn't on your computer any more. Add the task again in Projects to try again.", "its agent app isn't on your computer now. Set it up there, then try again.", "it no longer waits for that decision. See what it's doing now.", "it's no longer waiting for this answer. See what it's doing now.", "it couldn't take that answer. Read the question again, then answer it.", "its agent app needs a model. Choose one, then try again.", "its agent app can't do that. See what it's doing, then try something it offers.", "it can't take that right now. See what it's doing, then try again.", "its agent app didn't accept those settings. Choose them again.", a folder's problem as before, the pairing line, "your computer no longer accepts this headset's pairing. Forget the computer on the headset and pair again.", one sentence for a revoked pairing wherever it is said (the last three ways on settled by the coordinator, 2026-10-04); a failure with no effect whose code every agent app shares, in words already used for it: approval_not_pending and question_not_pending as their refusals, no_running_turn as invalid_state, execution_unknown_to_runtime as execution_not_found, model_unavailable as model_required, capability_unimplemented as capability_unsupported where a task runs, and runtime_unreachable or runtime_closed "your computer lost touch with the agent app. See what it's doing; if it can't go on, add the task again in Projects." where a task runs, since one code covers a blip and an ended process; where nothing runs yet (a start, in the log and on the line of what was sent last alike) "…lost touch with the agent app. Check that the agent app is running on your computer, then try again.", and a start that would fail the same way again by its way on: runtime_unavailable "the agent app isn't available on your computer. Check its setup there, then add the task again in Projects.", runtime_version_unsupported "this agent app's version on your computer isn't supported yet. Add the task again in Projects with another agent app.", capability_unimplemented "its agent app can't do that. Add the task again in Projects with another agent app." (2026-10-07); Start building's and Connect's own steps by the ways on New project offers, never adding the task again, each within its two rows: runtime_unreachable or runtime_closed "your computer lost touch with the agent app. Check it's running there, then try again.", runtime_unavailable "the agent app isn't available on your computer. Check its setup, then try again.", runtime_version_unsupported "this agent app's version isn't supported yet. Choose another in How it runs.", capability_unimplemented "its agent app doesn't support it. Choose another agent app in How it runs, then try again." (2026-10-07, after review); any other, "Couldn't do that: nothing changed. Try again." on Start building's and Connect's steps and for a start, and on a task's line of what was sent last "Couldn't do that: nothing changed. See what it's doing, then try again." | 2026-10-04, by the coordinator; the start's ways on and the lost agent app's on a task 2026-10-07, after review |
 | Why the headset isn't connected, after "Can't reach your computer; trying again." or "Your computer refused this app." | "The control plane did not answer within 10 s.", "The control plane closed the connection (…)", "The control plane speaks realtime protocol 2.", "The control plane refused the connection: {message}", "The control plane sent a message this app cannot read (…)", "The control plane sent nothing for 30 s.", "The client fell behind; resynchronizing." | "Your computer didn't answer within 10 seconds.", "Your computer closed the connection. The headset tries again by itself.", "Your computer runs another version of this app. Install the same version on both.", by the code your computer turned it away with: the same for another version, the pairing line for a revoked pairing, "This headset already has too many connections open to your computer. Close the app, then open it again.", "Your computer couldn't read what this app sent. Install the same version on both.", else "Your computer ended the connection. The headset tries again by itself."; "Your computer sent something this app can't read. Install the same version on both.", "Your computer sent nothing for 30 seconds. The headset tries again by itself.", "This headset fell behind, so it's catching up." | 2026-10-04, by the coordinator (no product name in our words); the silent line's way on 2026-10-07, by the coordinator |
 | Why the headset isn't connected, when your computer refuses the connection's upgrade for another reason than its credential | "The control plane refused the connection (403): {its message}", "(429): {its message}", as the network listener's "Too many failed credentials; wait a minute." | By its code, on its own and never after "Can't reach your computer", since your computer answered: host_not_allowed, which only the network listener answers and a stored pairing passed once, "Your computer turned away the address this headset uses for it, which may have changed there. The headset tries again by itself; if this keeps happening, pair it again in Settings."; too_many_requests "Your computer is turning this headset away for a minute after too many tries. The headset tries again by itself."; any other, worded for how this headset reaches your computer: paired, "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, pair it again in Settings."; over USB, "...; if this keeps happening, restart this app on your computer." (a revoked pairing comes as 401, a refused credential, never here) | 2026-10-04, by the coordinator; reworded 2026-10-07 after review (no "Can't reach" before it, a way on per target) |
-| A file's Send answer, armed, when words heard or typed change the answer | None: Yes sent the answer as it stood, the new words unread | "Nothing was sent: your answer changed. Read it again.", the confirmation cancelled | 2026-10-04, by the coordinator |
-| A file's Hold to talk while the voice records, then while the computer writes down what was said | "Listening. Let go when you're done." then "Writing down what you said.", each a line added to the page, which grew it and moved the prompt held | "Listening", then "Writing down", on Hold to talk itself, laid at the widest of its words; nothing is added to the page; since 2026-10-07 in every column, New project's too (ADR 0027) | 2026-10-04, by the coordinator |
-| A file's Hold to talk, its words heard after the question it was held for gave way to another | None: the words typed into whatever question showed, "This is what your computer heard. Check it, then press Send answer." | "Nothing was typed: the question changed while you spoke. Read it again.", the words dropped | 2026-10-04, by the coordinator |
-| A file's Send answer, armed, when the text size changes | "Nothing was sent: the question changed. Read it again.", on the Yes pressed after | "Nothing was sent: the text size changed. Read it again.", as the size changes, the confirmation cancelled | 2026-10-04, by the coordinator |
-| The stage's banner while the menu is folded away | "Still open: {panel}", named by the entry panel, Usage left or the Settings sheet | "Still open: {task title}" while a task's file is open, "Still open: New project" while New project is, else the menu's place, as "Still open: Tasks"; nothing with only the closed bar | The coordinator, 2026-10-03 |
+| A file's Send answer, armed, when words heard or typed change the answer | "Nothing was sent: your answer changed. Read it again.", the confirmation cancelled | Not Sent · Answer Changed · Reread, the confirmation cancelled | The owner's voice standard, 2026-10-30 (ART's form) |
+| A file's Hold to talk while the voice records, then while the computer writes down what was said | "Listening", then "Writing down", on Hold to talk itself, laid at the widest of its words; nothing is added to the page; since 2026-10-07 in every column, New project's too (ADR 0027) | Listening, then Transcribing, on Hold to Talk itself, laid at the widest of its words; nothing is added to the page | The owner's voice standard, 2026-10-30 (ART's form) |
+| A file's Hold to talk, its words heard after the question it was held for gave way to another | "Nothing was typed: the question changed while you spoke. Read it again.", the words dropped | Not Typed · Question Changed · Reread, the words dropped | The owner's voice standard, 2026-10-30 (ART's form) |
+| A file's Send answer, armed, when the text size changes | "Nothing was sent: the text size changed. Read it again.", as the size changes, the confirmation cancelled | Not Sent · Text Size Changed · Reread, as the size changes, the confirmation cancelled | The owner's voice standard, 2026-10-30 (ART's form) |
+| The stage's banner while the menu is folded away | "Still open: {task title}" while a task's file is open, "Still open: New project" while New project is, else the menu's place, as "Still open: Tasks"; nothing with only the closed bar | Open · {task title} while a task's file is open, Open · New project while New project is, else the menu's place, as Open · Tasks; nothing with only the closed bar | The owner's voice standard, 2026-10-30 (ART's form) |
 | The menu's row in Settings after the person dragged it | "Where it stands", always | "Where you moved it", as its value and what it is now, until Reset position puts it back, then "Where it stands" again | The coordinator, 2026-10-03 |
 | Tasks with no tasks | None: the entry panel listed no tasks of its own | "No tasks yet.", a quiet line on the page under the subject, which reads "Nothing is waiting for you." | 2026-10-02, by the coordinator |
 | Projects' subject | "Welcome", then "Show projects from your computer, or make a new one. Work already running keeps going." on a first visit; "Connect projects" otherwise | "What would you like to work on?" on every visit, the place's purpose under the lit place's word; it keeps to one line (21.9 of 29.2 degrees), so the fallback "What do you want to work on?" was not needed | 2026-10-02, by the coordinator, every visit by lane V; the stage shows that running work goes on |

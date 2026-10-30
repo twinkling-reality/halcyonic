@@ -446,7 +446,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (file.Screen.RequestParts > 1 && file.Screen.RequestPart == beforePart && !file.Steering.CanConfirm)
                     { failures.Add(name + ": the rendered approval request refused to advance from its current read part."); break; }
                 }
-                if (Shown(MenuColumn.File)?.Footer[PromptSlot.Free]?.Words != "Yes, approve") failures.Add(name + ": the whole request read, there is no Yes, approve.");
+                if (Shown(MenuColumn.File)?.Footer[PromptSlot.Free]?.Words != "Confirm Approve") failures.Add(name + ": the whole request read, there is no Yes, approve.");
                 Shot("7 yes");
 
                 // Where it stands once the approved turn ended: Checks, then Tell it with the recorded instructions.

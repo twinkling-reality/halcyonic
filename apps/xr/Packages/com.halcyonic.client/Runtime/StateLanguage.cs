@@ -256,16 +256,19 @@ namespace Halcyonic.Client
         public static string? CantTellWhy(string? code) => code switch
         {
             "runtime_connection_lost" => LostTouch,
-            "control_plane_restarted" => HostText.YourStart + " restarted and lost touch with the agent app.",
-            "start_outcome_unknown" => "Not sure it started.",
+            "control_plane_restarted" => "Computer Restarted",
+            "start_outcome_unknown" => "Start Unconfirmed",
             _ => null,
         };
 
         /// <summary>Said where the agent app stopped answering about a task (settled by the coordinator, 2026-10-04).</summary>
-        public static readonly string LostTouch = HostText.YourStart + " lost touch with the agent app.";
+        public static readonly string LostTouch = "Agent App Unreachable";
 
-        /// <summary>The state in a sentence, with why where it is known: "Can't tell what it's doing: your computer lost touch with the agent app."</summary>
-        public static string CantTell(string? why) => why == null ? "Can't tell what it's doing right now." : Lead("Can't tell what it's doing", why);
+        /// <summary>The state in a line, with why where it is known: "Status Unknown · Agent App Unreachable".</summary>
+        public static string CantTell(string? why) => why == null ? StatusUnknown : Lead(StatusUnknown, why);
+
+        /// <summary>The unknown state in a line: it guesses no cause.</summary>
+        public const string StatusUnknown = "Status Unknown";
 
         /// <summary>
         /// Why a task couldn't start or finish, with the way on, and the same without the state's own words
@@ -276,27 +279,43 @@ namespace Halcyonic.Client
         /// </summary>
         public static (string Note, string Detail) CouldNotFinish(ExecutionView? execution, RuntimeDescriptor? runtime)
         {
-            if (execution == null) return ("It couldn't finish.", "");
+            if (execution == null) return (RoundFailed, "");
             if (execution.StartedAt == null && execution.TurnCount == 0)
             {
                 var known = WorkspaceText.WhyFailed(execution.StatusReason?.Code, running: false);
-                if (known != null) return (Lead("Couldn't start", known), known);
-                return ("Couldn't start. " + AddItAgain, AddItAgain);
+                if (known != null) return (Lead(StartFailed, known), known);
+                return (Lead(StartFailed, AddItAgain), AddItAgain);
             }
             // Stopped because something else changed what it may do: telling it again can't go on with it.
-            if (execution.StatusReason?.Code == "runtime_tampered") return (Lead("Couldn't finish", WorkspaceText.Tampered), WorkspaceText.Tampered);
+            if (execution.StatusReason?.Code == "runtime_tampered") return (Lead(RoundFailed, WorkspaceText.Tampered), WorkspaceText.Tampered);
             var next = runtime != null && WorkspacePresenter.ActionsFor(execution, runtime).Contains(WorkspaceAction.Instruct) ? TellItAgain : AddItAgain;
-            return ("Couldn't finish this round. " + next, next);
+            return (Lead(RoundFailed, next), next);
         }
 
-        /// <summary>The way on after a round that failed, where Tell it is offered (settled by the coordinator, 2026-10-04).</summary>
-        public const string TellItAgain = "Tell it to try again, or what to do instead.";
+        /// <summary>A failed round in a line, before why and the way on.</summary>
+        public const string RoundFailed = "Round Failed";
+
+        /// <summary>Work that never started, in a line, before why and the way on.</summary>
+        public const string StartFailed = "Start Failed";
+
+        /// <summary>The way on after a round that failed, where Write Instruction is offered: the control's own name.</summary>
+        public const string TellItAgain = "Write Instruction";
 
         /// <summary>The way on after work that couldn't start or finish where nothing can be told to it now.</summary>
-        public const string AddItAgain = "Add the task again in Projects to try again.";
+        public const string AddItAgain = "Re-Add Task in Projects";
 
-        /// <summary>A state's words before a cause in a sentence of its own: "Couldn't start: this project has no folder…".</summary>
-        internal static string Lead(string state, string why) => state + ": " + char.ToLowerInvariant(why[0]) + why.Substring(1);
+        /// <summary>A state's words before a cause, in the " · " cadence: "Start Failed · No Folder · Choose Folder".</summary>
+        internal static string Lead(string state, string why) => state + " · " + why;
+
+        /// <summary>Said beside what someone other than your computer reported: the agent's own check and its words.</summary>
+        public const string Reported = "Reported";
+
+        /// <summary>
+        /// The state's word where it stands in a line. The agent's own check says it is the agent's
+        /// report ("Checking · Reported"), so it never reads as your computer's own check (AUDIT's X17A-S1).
+        /// </summary>
+        public static string LineWordOf(CharacterPresentation presentation) =>
+            StateOf(presentation.Activity, presentation.Attention) == WorkState.CheckingItsWork ? presentation.StatusLabel + " · " + Reported : presentation.StatusLabel;
 
         /// <summary>The state's word, the same on the badge, in the peek, the workspace and every list.</summary>
         public static string WordOf(WorkState state) => state switch

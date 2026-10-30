@@ -196,7 +196,7 @@ public class JudgeFileWalkTests
         Assert.That(steering.Press(WorkspaceAction.Deny, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
         var request = steering.Request(workspace)!;
         screen.ReadRequest(request, 7, 3, steering);
-        Assert.That(Frame(workspace).Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, deny"), "refusing needs no reading to the end");
+        Assert.That(Frame(workspace).Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Deny"), "refusing needs no reading to the end");
         steering.Cancel();
         Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.None), "cancelled, Yes sends nothing");
         Assert.That(Frame(workspace).Footer.Confirming, Is.False);
@@ -216,7 +216,7 @@ public class JudgeFileWalkTests
             if (part + 1 < screen.RequestParts) screen.NextRequestPart(steering, Later());
         }
         frame = Frame(workspace);
-        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, approve"));
+        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Approve"));
         var approving = steering.Confirm(workspace);
         Assert.That(approving.Step, Is.EqualTo(SteeringStep.Send));
         Assert.That(approving.Command, Is.InstanceOf<ExecutionRespondToApprovalCommand>());

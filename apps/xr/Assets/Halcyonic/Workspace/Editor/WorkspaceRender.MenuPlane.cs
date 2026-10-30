@@ -430,7 +430,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var clearing = new MenuFrame(waiting.Subject, new Footer(PlaneClose, farRight: new Prompt(NewProjectScreens.Clear, EntryText.Clear, GlazeIcon.Next, main: true)),
                     waiting.SubjectIsData, waiting.Pill, waiting.Sections, waiting.Lines, waiting.Source, waiting.Side, waiting.SourceIsData, waiting.SubjectWaits);
-                var talk = new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
+                var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
                 foreach (var (frame, asks, what) in new[] { (waiting, "send", "Send answer"), (Confirming(waiting), "yes", "Yes"), (clearing, NewProjectScreens.Clear, "Clear") })
                 {
                     var asking = name + ": a file asking " + what;
@@ -696,7 +696,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var button = GlazeButton.Create(holder.transform, "Prompt", ButtonRole.Prompt);
                 button.Holds = true;
-                button.ShowPrompt("Hold to talk", GlazeIcon.HoldToTalk, Vector2.zero, button.MeasurePrompt("Hold to talk", false), false);
+                button.ShowPrompt(VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, Vector2.zero, button.MeasurePrompt(VoiceText.HoldToTalk, false), false);
                 var presses = 0;
                 button.Pressed += () => presses++;
                 void Tap(System.Action? underTheHand)
@@ -1088,7 +1088,7 @@ namespace Halcyonic.XR.Workspace.Editor
             const string cut = "Lock the account for 15 minutes after five failed sign-ins, then email its owner a link to reset the password and unlock it at once";
             var sections = new[] { "Waiting", "Activity", "Changes", "Checks" }.Select(words => new FrameSection(words, words, chosen: words == "Waiting", waits: words == "Waiting")).ToList();
             var send = new Prompt("send", "Send answer", GlazeIcon.SendAnswer, main: true);
-            var talk = new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
+            var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true);
             return new MenuFrame(title, new Footer(PlaneClose, secondary: talk, farRight: send), subjectIsData: true, pill: badge, sections: sections,
                 lines: Packed(new[]
                 {

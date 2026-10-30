@@ -238,7 +238,7 @@ public class InstructionEditorTests
         column.Said(notice);
         Assert.That(column.Screen.Instruction.ExplainingNotice, Is.True);
         Assert.That(column.Screen.Instruction.Part, Is.Zero, "new packing must restart its ordered reading proof");
-        Assert.That(column.Frame!.Lines.First().Words, Is.EqualTo("What happened"));
+        Assert.That(column.Frame!.Lines.First().Words, Is.EqualTo("What Happened"));
         Assert.That(column.Frame.Lines.Any(line => line.Words == notice && !line.Runs.AnyTheirs), Is.True);
         var page = new HeightBudget(host.PageHeight(1, besideMenu: false, focused: true));
         var height = column.Frame.Lines.Sum(line => page.Words(line.Rows)) + page.LineGap;

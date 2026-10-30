@@ -90,7 +90,7 @@ public class PresetPagingTests
         var notice = string.Join(" ", Enumerable.Range(0, 80).Select(index => "Nothing was sent because condition " + index + " failed."));
         column.Said(notice);
         Assert.That(column.Screen.ShowingPresetNotice, Is.True);
-        Assert.That(column.Frame!.Lines.First().Words, Is.EqualTo("What happened"));
+        Assert.That(column.Frame!.Lines.First().Words, Is.EqualTo("What Happened"));
         Assert.That(column.Frame.Lines.Last().Words, Is.EqualTo(notice));
         Assert.That(column.Frame.Lines.Last().Runs.AnyTheirs, Is.False);
         var budget = new HeightBudget(host.PageHeight(1, false, focused: true));

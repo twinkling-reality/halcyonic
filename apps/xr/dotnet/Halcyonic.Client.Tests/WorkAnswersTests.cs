@@ -160,7 +160,7 @@ public class WhatChangedTests
             ("observed", "Edited: RetryWorker.ts (+8 −2)"),
             ("observed", "Edited: ChargeService.ts (+24 −3)"),
             ("inferred", "1 file not checked after the last change: refunds.ts"),
-            ("planned", "Planned, not done: Document refund behaviour for support"),
+            ("planned", "Planned · Not Done · Document refund behaviour for support"),
         }));
         Assert.That(section.Lines.Any(line => line.Tone == SectionTone.Claim), Is.False, "nothing here is anyone's claim");
     }
@@ -306,7 +306,7 @@ public class WhatChangedTests
             Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"), false, null, Intelligence.At(Answers.Now), Intelligence.Utc,
             new AnswerRoom(9));
         Assert.That(Intelligence.Texts(roomy).Count(text => text.StartsWith("Edited", StringComparison.Ordinal)), Is.EqualTo(6));
-        Assert.That(Intelligence.Texts(roomy), Does.Contain("Planned, not done: Document refund behaviour for support"), "what is not done yet where there is room");
+        Assert.That(Intelligence.Texts(roomy), Does.Contain("Planned · Not Done · Document refund behaviour for support"), "what is not done yet where there is room");
     }
 }
 
@@ -319,7 +319,7 @@ public class WhyChangedTests
 
         Assert.That(section.Lines.Select(line => (line.Tag, line.Text, line.Tone, line.Detail)), Is.EqualTo(new[]
         {
-            ("reported", "Agent says: “I will add an idempotency key in ChargeService so a retried charge returns the first one.”", SectionTone.Claim, false),
+            ("reported", "Agent · Reported · I will add an idempotency key in ChargeService so a retried charge returns the first one.", SectionTone.Claim, false),
             ("", "Said before it changed refunds.ts, RetryWorker.ts and ChargeService.ts", SectionTone.Secondary, true),
             ("", "No reason given before it changed ChargeService.test.ts", SectionTone.Secondary, false),
         }));
@@ -337,9 +337,9 @@ public class WhyChangedTests
         var texts = Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhyChanged, json));
         Assert.That(texts, Is.EqualTo(new[]
         {
-            "Subagent says: “First, a subagent changes a.”",
+            "Subagent · Reported · First, a subagent changes a.",
             "Said before it changed a.ts",
-            "Agent says: “Second, I change b.”",
+            "Agent · Reported · Second, I change b.",
             "Said before it changed b.ts",
         }));
     }
@@ -580,7 +580,7 @@ public class UnderstandingAnswersTests
     [Test]
     public void AnAgentsWordsAreAlwaysAttributedToIt()
     {
-        foreach (var (status, lead) in new[] { ("failing", "Failing"), ("in_progress", "In progress"), ("pending", "To do"), ("reported", "Still to do") })
+        foreach (var (status, lead) in new[] { ("failing", "Failing"), ("in_progress", "In Progress"), ("pending", "To Do"), ("reported", "To Do") })
         {
             var json = Intelligence.Edit(Intelligence.Verified, response =>
             {
@@ -591,13 +591,13 @@ public class UnderstandingAnswersTests
                 item["status"] = status;
                 item["epistemic"] = "observed";
             });
-            var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), lead + ", the agent says: ");
+            var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), lead + " · " + SectionLine.AgentChip + " · ");
             Assert.That((line.Text, line.Words, line.Chip, line.Tone),
-                Is.EqualTo((lead + ", the agent says: “Document refund behaviour for support”", lead + ": Document refund behaviour for support", "Agent says", SectionTone.Claim)), status);
+                Is.EqualTo((lead + " · " + SectionLine.AgentChip + " · Document refund behaviour for support", lead + " · Document refund behaviour for support", SectionLine.AgentChip, SectionTone.Claim)), status);
             // Beside its chip, Halcyonic's lead upright and the agent's words leaning, never quoted (lane V's treatment).
-            Assert.That(line.Runs.ToString(), Is.EqualTo(lead + ": [Document refund behaviour for support]"), status);
-            var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith("Agent says: “All tests pass.", StringComparison.Ordinal));
-            Assert.That((statement.Tag, statement.Chip), Is.EqualTo(("reported", "Agent says")), "a statement the source tagged observed");
+            Assert.That(line.Runs.ToString(), Is.EqualTo(lead + " · [Document refund behaviour for support]"), status);
+            var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith(SectionLine.AgentChip + " · All tests pass.", StringComparison.Ordinal));
+            Assert.That((statement.Tag, statement.Chip), Is.EqualTo(("reported", SectionLine.AgentChip)), "a statement the source tagged observed");
         }
         // Said to be the agent's, whichever source passed it on.
         var passedOn = Intelligence.Edit(Intelligence.Verified, response =>
@@ -607,8 +607,8 @@ public class UnderstandingAnswersTests
             item["status"] = "reported";
             item["epistemic"] = "observed";
         });
-        var still = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, passedOn), "Still to do, the agent says: ");
-        Assert.That((still.Tag, still.Chip), Is.EqualTo(("reported", "Agent says")));
+        var still = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, passedOn), "To Do · " + SectionLine.AgentChip + " · ");
+        Assert.That((still.Tag, still.Chip), Is.EqualTo(("reported", SectionLine.AgentChip)));
     }
 
     [Test]
@@ -675,7 +675,7 @@ public class CheckedTests
             ("", "Then refunds.ts changed, so it no longer covers it", true, false),
             ("inferred", "1 file not checked after the last change: refunds.ts", false, false),
             ("observed", "2 items need attention: Recursive force delete; 1 file changed since the last passing check", false, false),
-            ("reported", "Agent says: “All tests pass. The staging key ghp_[GITHUB_TOKEN#1] was never used by the fix.”", false, false),
+            ("reported", "Agent · Reported · All tests pass. The staging key ghp_[GITHUB_TOKEN#1] was never used by the fix.", false, false),
             ("", "From Seorak, read 1 minute ago", false, true),
             ("Checks", "4 passed of 5 runs (80%): test", false, false),
             ("", "available · 1 of 1 session, complete · fresh, data to 17:58:12", true, false),
@@ -687,7 +687,7 @@ public class CheckedTests
         }));
         Assert.That(Intelligence.Line(section, "Tests passed").Tone, Is.EqualTo(SectionTone.Good));
         Assert.That(Intelligence.Line(section, "Then refunds.ts").Tone, Is.EqualTo(SectionTone.Normal));
-        Assert.That(Intelligence.Line(section, "Agent says").Tone, Is.EqualTo(SectionTone.Claim));
+        Assert.That(Intelligence.Line(section, SectionLine.AgentChip).Tone, Is.EqualTo(SectionTone.Claim));
         Assert.That(section.Lines.Where(line => line.Detail && line.Tag.Length == 0 && line.Text.StartsWith("available", StringComparison.Ordinal)).Select(line => line.Tone),
             Has.All.EqualTo(SectionTone.Secondary));
         Assert.That(Intelligence.Texts(section).Any(text => text.IndexOf("score", StringComparison.OrdinalIgnoreCase) >= 0), Is.False);
@@ -921,7 +921,7 @@ public class BriefAnswersTests
         var why = Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified);
         Assert.That(Answers.Pairs(why.Lines), Is.EqualTo(new[]
         {
-            ("reported", "Agent says: “I will add an idempotency key in ChargeService so a retried charge returns the first one.”"),
+            ("reported", "Agent · Reported · I will add an idempotency key in ChargeService so a retried charge returns the first one."),
         }));
         Assert.That(why.Lines[0].Tone, Is.EqualTo(SectionTone.Claim));
 
@@ -964,7 +964,7 @@ public class BriefAnswersTests
             Answers.File("a.ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:10.000Z", reason: "Earlier.")) + "]");
         several = Intelligence.Edit(several, response =>
             Intelligence.UnderstandingOf(response)["changes"]!["files"]![1]!["reason"]!["at"] = "2026-09-20T15:38:00.000Z");
-        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, several)), Is.EqualTo(new[] { "Agent says: “Later.”", "And 1 more reason it gave" }));
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, several)), Is.EqualTo(new[] { "Agent · Reported · Later.", "And 1 more reason it gave" }));
 
         var off = Answers.Explanation(Intelligence.Verified, "disabled");
         Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.HowBuilt, off)), Is.EqualTo(new[] { "Explanations are turned off on your computer, so there's none for this work." }));
@@ -1011,11 +1011,11 @@ public class EvidenceTests
         }));
         Assert.That(Classes(Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified)), Is.EqualTo(new[]
         {
-            (Evidence.Reported, (string?)"Agent says", "I will add an idempotency key in ChargeService so a retried charge returns the first one."),
+            (Evidence.Reported, (string?)SectionLine.AgentChip, "I will add an idempotency key in ChargeService so a retried charge returns the first one."),
         }), "the agent's words alone beside its chip, leaning, never quoted");
         Assert.That(Classes(Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified)), Is.EqualTo(new[]
         {
-            (Evidence.Explained, (string?)"Model explains", "One idempotency key per order, sent with every charge."),
+            (Evidence.Explained, (string?)SectionLine.ExplanationChip, "One idempotency key per order, sent with every charge."),
             (Evidence.Halcyonic, null, "Explained by a model, up to date"),
         }));
         var checks = CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
@@ -1038,7 +1038,7 @@ public class EvidenceTests
             var bare = line.Evidence == Evidence.Observed || line.Evidence == Evidence.Measured || line.Evidence == Evidence.Halcyonic;
             Assert.That(line.Chip == null, Is.EqualTo(bare), line.Evidence + ": " + line.Text);
             if (line.Evidence == Evidence.Inferred) Assert.That(line.Chip, Is.EqualTo("Inferred"), line.Text);
-            if (line.Evidence == Evidence.Explained) Assert.That(line.Chip, Is.EqualTo("Model explains"), line.Text);
+            if (line.Evidence == Evidence.Explained) Assert.That(line.Chip, Is.EqualTo(SectionLine.ExplanationChip), line.Text);
             if (classWords.Contains(line.Tag)) Assert.That(line.Evidence, Is.EqualTo(SectionLine.EvidenceOf(line.Tag)), "the source's class, never upgraded: " + line.Text);
             if (line.Chip != null) Assert.That(line.Words, Does.Not.StartWith(line.Chip), "the words do not say the chip again: " + line.Words);
             if (line.Source) Assert.That(line.Evidence, Is.EqualTo(Evidence.Halcyonic), "a provenance line is Halcyonic's own");
@@ -1064,14 +1064,14 @@ public class EvidenceTests
             }
         });
         var subagent = Brief(UnderstandPrompt.WhyChanged, With("subagent", "reported")).Lines[0];
-        Assert.That((subagent.Chip, subagent.Tone), Is.EqualTo(("Subagent says", SectionTone.Claim)));
-        Assert.That(Brief(UnderstandPrompt.WhyChanged, With("null", "reported")).Lines[0].Chip, Is.EqualTo("Author unknown"));
+        Assert.That((subagent.Chip, subagent.Tone), Is.EqualTo((SectionLine.SubagentChip, SectionTone.Claim)));
+        Assert.That(Brief(UnderstandPrompt.WhyChanged, With("null", "reported")).Lines[0].Chip, Is.EqualTo(SectionLine.AuthorUnknownChip));
         // A subagent's words are its own, whatever the source tagged them (AGENTS.md; the outside-text audit's gap 2).
         var observed = Brief(UnderstandPrompt.WhyChanged, With("subagent", "observed")).Lines[0];
-        Assert.That((observed.Evidence, observed.Chip, observed.Tone), Is.EqualTo((Evidence.Reported, "Subagent says", SectionTone.Claim)),
+        Assert.That((observed.Evidence, observed.Chip, observed.Tone), Is.EqualTo((Evidence.Reported, SectionLine.SubagentChip, SectionTone.Claim)),
             "a subagent's description the source tagged observed is still reported, and leans as its words");
         var unknown = Brief(UnderstandPrompt.WhyChanged, With("null", "observed")).Lines[0];
-        Assert.That((unknown.Evidence, unknown.Chip), Is.EqualTo((Evidence.Reported, "Author unknown")), "words of no known author are someone's words too");
+        Assert.That((unknown.Evidence, unknown.Chip), Is.EqualTo((Evidence.Reported, SectionLine.AuthorUnknownChip)), "words of no known author are someone's words too");
     }
 
     [Test]
@@ -1086,9 +1086,9 @@ public class EvidenceTests
         })).Lines[0];
         var copy = quote.With(startsPage: true, repeats: true);
         Assert.That((copy.Evidence, copy.Chip, copy.Words, copy.Text), Is.EqualTo((quote.Evidence, quote.Chip, quote.Words, quote.Text)));
-        Assert.That((copy.Chip, copy.StartsPage, copy.Repeats), Is.EqualTo(("Subagent says", true, true)), "never back to Agent says");
+        Assert.That((copy.Chip, copy.StartsPage, copy.Repeats), Is.EqualTo((SectionLine.SubagentChip, true, true)), "never back to the agent's chip");
         var swapped = quote.With(text: "x", words: "y");
-        Assert.That((swapped.Text, swapped.Words, swapped.Chip, swapped.Evidence), Is.EqualTo(("x", "y", "Subagent says", Evidence.Reported)));
+        Assert.That((swapped.Text, swapped.Words, swapped.Chip, swapped.Evidence), Is.EqualTo(("x", "y", SectionLine.SubagentChip, Evidence.Reported)));
 
         // The measurement's provenance line, copied to start its page, becomes that page's provenance (the outside-text audit's gap 8).
         var paged = AnswerPages.Split(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
@@ -1250,5 +1250,26 @@ public class AnswerWordsTests
             Assert.That(text, Does.Not.Contain("—"));
             Assert.That(text.Split(". ").Length, Is.LessThanOrEqualTo(2), "at most two short sentences");
         }
+    }
+}
+
+public class ChipAttributionTests
+{
+    [Test]
+    public void TheAgentsAndTheSubagentsChipsAndTheKitsOwnAttributeWordsWhole()
+    {
+        // Every chip that attributed words whole before the voice standard still does: the agent's and the
+        // subagent's in their new words, and the kit's own "Agent says" until the kit's words move.
+        Assert.That(SectionLine.AttributesWhole(SectionLine.AgentChip), Is.True, "the agent's chip");
+        Assert.That(SectionLine.AttributesWhole(SectionLine.SubagentChip), Is.True, "the subagent's chip");
+        Assert.That(SectionLine.AttributesWhole("Agent says"), Is.True, "the kit's own chip");
+        Assert.That(SectionLine.ChipOf(Evidence.Reported), Is.EqualTo(SectionLine.AgentChip), "a reported line's chip is the agent's");
+    }
+
+    [Test]
+    public void NoOtherChipAttributesWordsWhole()
+    {
+        foreach (var chip in new[] { null, "", SectionLine.AuthorUnknownChip, SectionLine.ExplanationChip, "Inferred", "Planned", "Reported", "Agent", "Subagent says" })
+            Assert.That(SectionLine.AttributesWhole(chip), Is.False, chip ?? "null");
     }
 }
