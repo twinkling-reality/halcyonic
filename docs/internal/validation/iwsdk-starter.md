@@ -192,6 +192,26 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   twin load held the clock at frame 0 for a fixed 3 s; it now holds it until Chrome reports the document loaded and no
   request has been in flight or begun for 1 s (Page and Network domains, observed in the host), for at most the 10 s
   stall limit, after which it steps anyway and a later change shows as a mismatch.
+- **Downloads hold the frames (M1.8g-d):** with that wait, every load of the starter was loaded and quiet before
+  stepping, yet each then began the same 6 requests (the starter's own lazy assets) after stepping started, which
+  finished in real time; a moving scene read `repeat_differs` once in two runs under load. The clock now holds its
+  frames while the page's own downloads are pending: `fetch` and the body reads after it, `XMLHttpRequest`, an image's
+  `src` and `decode`, and `createImageBitmap`. An asset asked for at one frame lands before the next in every load. A
+  hold is a count in the clock's closure and ends only on the browser's answer to that download or a trusted `load`,
+  `error` or `loadend` event of the image or request it was taken on, watched through functions taken before the page
+  runs; nothing the page can call or fire ends one, and a hold whose promise cannot be watched stays. Two limits
+  remain, and both can only make loads differ, so the response reads unknown, never seen: where a page reuses one image
+  or request object before its earlier download ends, a trusted event of the earlier download can end the later
+  hold; and downloads outside these functions are not held at all (a stream reader on a body, another frame's `fetch`
+  or body methods, a worker's, fonts, media). A page that keeps a hold pending forever stalls and reads
+  `out_of_time`. AUDIT's read (M18GD-M1, M18GD-M2) found two ways in, both reaching only unknown: the clock ran
+  sloppy, so a page function the clock called could reach the clock's key handler through `.caller` and step it with a
+  forged event; and the holds sat in a `Set` whose replaced methods the page could use to empty it. The clock now runs
+  in strict mode, calls an event's methods and reads its `code` through copies taken first, takes which key event it
+  is from its own listener rather than the event's `type`, and counts holds in its closure. A second read
+  (M18GD-A-M1) found that a page poisoning promises' species made even the captured `then` throw, and the hold was then
+  released; now a hold whose promise cannot be watched stays, and the stall limit ends the load as
+  `out_of_time`.
 - **Tried on this Mac** (opt-in tests in `check.test.ts`): a box that answers a click beside a spinning cube is seen
   and ready; the same scene whose click does nothing is not; a page that steps itself with synthetic F24 keys and
   calls every binding-shaped global gets the same verdict; a cube turned by a worker's own clock reads unknown; a still

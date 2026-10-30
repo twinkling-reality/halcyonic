@@ -353,10 +353,14 @@ export async function settledPicture(
  * (performance.now, Date, animation frames, timers) moves 1/60 s per frame, and
  * Math.random, crypto.getRandomValues and crypto.randomUUID are seeded, so a page's state depends only
  * on the frames it has run: two loads match at the same frame unless the page has another source of
- * time or chance, which the twin check then sees. No global names any of it.
+ * time or chance, which the twin check then sees. Frames also hold while the page's own downloads
+ * (fetch and its body reads, XMLHttpRequest, an image's src and decode, createImageBitmap) are
+ * pending, so an asset lands at the same frame however long the network takes (M1.8g-d); a page that
+ * keeps one pending forever stalls, which reads out of time. No global names any of it.
  */
 export function clockScript(binding: string): string {
   return `(() => {
+  'use strict';
   const name = ${JSON.stringify(binding)};
   const send = globalThis[name];
   try { delete globalThis[name]; } catch {}
@@ -364,6 +368,16 @@ export function clockScript(binding: string): string {
   const STOPS = ${JSON.stringify(TWIN_FRAMES)};
   const FRAME = 1000 / 60;
   const EPOCH = 1767225600000;
+  // Strict, so no function of the page reaches one of these through .caller (AUDIT M18GD-M1); and
+  // what the clock calls on an event is taken now, before the page can replace it.
+  const apply = Reflect.apply;
+  const eventProto = typeof Event === 'function' ? Event.prototype : null;
+  const stopImmediate = eventProto ? eventProto.stopImmediatePropagation : null;
+  const preventDefault = eventProto ? eventProto.preventDefault : null;
+  const codeGetter = typeof KeyboardEvent === 'function'
+    ? Object.getOwnPropertyDescriptor(KeyboardEvent.prototype, 'code')?.get
+    : undefined;
+  const codeOf = (event) => (typeof codeGetter === 'function' ? apply(codeGetter, event, []) : event.code);
   let frame = 0;
   let target = 0;
   let next = 0;
@@ -391,6 +405,64 @@ export function clockScript(binding: string): string {
     },
   });
   performance.now = now;
+  // The page's own downloads hold the frames until they finish (M1.8g-d), so an asset asked for at
+  // one frame lands before the next in every load, however long the network takes. Everything is
+  // taken before the page runs and called through these copies; a hold ends only on the browser's
+  // own answer or a trusted event, never on anything the page can call or fire.
+  const then = Promise.prototype.then;
+  // A count in the closure, never a collection whose methods the page can replace (AUDIT M18GD-M2).
+  let held = 0;
+  const hold = () => {
+    let open = true;
+    held += 1;
+    return () => { if (open) { open = false; held -= 1; } };
+  };
+  const holdUntil = (promise) => {
+    const release = hold();
+    // A page can make even this copy throw (a poisoned species): then the hold stays, and the
+    // host's stall limit ends the load as out of time (AUDIT M18GD-A-M1).
+    try { apply(then, promise, [release, release]); } catch {}
+    return promise;
+  };
+  const holdUntilEvent = (target, listen, types) => {
+    const release = hold();
+    const done = (event) => { if (event && event.isTrusted === true) release(); };
+    for (const type of types) apply(listen, target, [type, done]);
+    return release;
+  };
+  const wrapCall = (owner, name, self) => {
+    const real = owner && owner[name];
+    if (typeof real !== 'function') return;
+    owner[name] = function (...args) { return holdUntil(apply(real, self ?? this, args)); };
+  };
+  wrapCall(globalThis, 'fetch', globalThis);
+  wrapCall(globalThis, 'createImageBitmap', globalThis);
+  if (typeof Response === 'function')
+    for (const name of ['arrayBuffer', 'blob', 'bytes', 'formData', 'json', 'text']) wrapCall(Response.prototype, name);
+  if (typeof XMLHttpRequest === 'function') {
+    const proto = XMLHttpRequest.prototype;
+    const send = proto.send;
+    const listen = proto.addEventListener;
+    if (typeof send === 'function' && typeof listen === 'function')
+      proto.send = function (...args) {
+        const release = holdUntilEvent(this, listen, ['loadend']);
+        try { return apply(send, this, args); } catch (error) { release(); throw error; }
+      };
+  }
+  if (typeof HTMLImageElement === 'function') {
+    const proto = HTMLImageElement.prototype;
+    const listen = proto.addEventListener;
+    const src = Object.getOwnPropertyDescriptor(proto, 'src');
+    if (src && typeof src.set === 'function' && typeof listen === 'function')
+      Object.defineProperty(proto, 'src', {
+        ...src,
+        set(value) {
+          const release = holdUntilEvent(this, listen, ['load', 'error']);
+          try { apply(src.set, this, [value]); } catch (error) { release(); throw error; }
+        },
+      });
+    wrapCall(proto, 'decode');
+  }
   const RealDate = Date;
   function FixedDate(...args) {
     if (!new.target) return new RealDate(EPOCH + now()).toString();
@@ -421,7 +493,7 @@ export function clockScript(binding: string): string {
     try { if (typeof fn === 'function') fn(...args); } catch (error) { queueMicrotask(() => { throw error; }); }
   };
   const tick = () => {
-    if (frame < target) {
+    if (frame < target && held === 0) {
       frame += 1;
       for (;;) {
         let first = null;
@@ -441,13 +513,17 @@ export function clockScript(binding: string): string {
     realFrame(tick);
   };
   realFrame(tick);
-  const step = (event) => {
-    if (!event.isTrusted || event.code !== 'F24') return;
-    event.stopImmediatePropagation();
-    event.preventDefault();
-    if (event.type === 'keydown' && next < STOPS.length) { target = STOPS[next]; next += 1; }
+  // Which key event it is comes from the listener, never from the event's own type, which the page
+  // can redefine; its code is read through the getter taken above.
+  const step = (event, down) => {
+    if (event.isTrusted !== true || codeOf(event) !== 'F24') return;
+    if (typeof stopImmediate === 'function') apply(stopImmediate, event, []);
+    if (typeof preventDefault === 'function') apply(preventDefault, event, []);
+    if (down && next < STOPS.length) { target = STOPS[next]; next += 1; }
   };
-  for (const type of ['keydown', 'keyup', 'keypress']) addEventListener(type, step, true);
+  addEventListener('keydown', (event) => step(event, true), true);
+  addEventListener('keyup', (event) => step(event, false), true);
+  addEventListener('keypress', (event) => step(event, false), true);
 })();`;
 }
 

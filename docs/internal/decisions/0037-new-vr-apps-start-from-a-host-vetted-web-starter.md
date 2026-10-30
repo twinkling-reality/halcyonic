@@ -140,7 +140,8 @@ does not hold. `response_seen` is observed when a press that reached the layer c
 same press ends the same way; a page with another source of time or chance reads unknown. An unknown read says why
 (`response_unknown`: the controls differed, a press run differed before input, the repeat differed, out of time, or
 failed). The whole twin step has three minutes by the wall clock, a stopped load's settling included, and the page must
-reach a further frame at least every 10 s; past either it reads unknown and its Chrome is stopped. Each picture of a
+reach a further frame at least every 10 s; past either it reads unknown and its Chrome is stopped. The clock holds its
+frames while the page's own downloads are pending, so an asset lands at the same frame in every load. Each picture of a
 held frame is taken again until two in a row match, for up to 2 s. Laptop ready accepts a response seen this way, as
 it accepts a still scene's observed change.
 The host steps the clock with a trusted key event the page never receives and cannot make, and the clock reports

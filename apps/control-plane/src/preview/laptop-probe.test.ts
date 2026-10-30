@@ -287,60 +287,67 @@ describe("the VR-entry step's stand-in WebXR (M1.8b)", () => {
   });
 });
 
+const BINDING = 'h00112233445566778899aabbcc';
+
+/**
+ * Runs the clock as a page would see it, before the page's scripts; the host holds its frames. `setup` runs in the
+ * page's realm first, as the browser's own globals would be there.
+ */
+function page(setup = '') {
+  const sent: string[] = [];
+  type Key = { isTrusted: boolean; code: string; type: string };
+  const listeners: { type: string; fn: (event: Key) => void }[] = [];
+  let tick: (() => void) | null = null;
+  const context = createContext({
+    [BINDING]: (payload: string) => sent.push(payload),
+    performance: { now: () => 12345 },
+    crypto: { getRandomValues: () => 0, randomUUID: () => 'real' },
+    requestAnimationFrame: (cb: () => void) => {
+      tick = cb;
+      return 1;
+    },
+    addEventListener: (type: string, fn: (event: Key) => void, capture: boolean) => {
+      if (capture) listeners.push({ type, fn });
+    },
+    Date,
+    queueMicrotask,
+    setTimeout,
+    setInterval,
+    clearTimeout,
+    clearInterval,
+    cancelAnimationFrame: () => {},
+  });
+  // The browser's Event, whose methods a page can replace.
+  runInContext(
+    'globalThis.Event = class Event { stopImmediatePropagation() {} preventDefault() {} };',
+    context,
+  );
+  if (setup !== '') runInContext(setup, context);
+  const before = new Set(Object.getOwnPropertyNames(context));
+  runInContext(clockScript(BINDING), context);
+  const added = Object.getOwnPropertyNames(context).filter((name) => !before.has(name));
+  // Values from the page's realm, read back as plain data.
+  const run = (code: string) => {
+    const value = runInContext(code, context) as unknown;
+    return typeof value === 'object' && value !== null ? JSON.parse(JSON.stringify(value)) : value;
+  };
+  const frames = (n: number) => {
+    for (let i = 0; i < n; i += 1) (tick as unknown as () => void)();
+  };
+  /** A key event to the listeners for `type`; `shown` is the type the event itself says it is. */
+  const key = (isTrusted: boolean, type = 'keydown', shown = type) => {
+    const proto = runInContext('Event.prototype', context) as object;
+    const event = Object.assign(Object.create(proto), {
+      isTrusted,
+      code: 'F24',
+      type: shown,
+    }) as Key;
+    for (const listener of listeners) if (listener.type === type) listener.fn(event);
+  };
+  return { context, sent, added, run, frames, key };
+}
+
 describe("the twin step's stepped clock (M1.8g)", () => {
-  const BINDING = 'h00112233445566778899aabbcc';
-
-  /** Runs the clock as a page would see it, before the page's scripts; the host holds its frames. */
-  function page() {
-    const sent: string[] = [];
-    type Key = { isTrusted: boolean; code: string; type: string };
-    const listeners: { type: string; fn: (event: Key) => void }[] = [];
-    let tick: (() => void) | null = null;
-    const context = createContext({
-      [BINDING]: (payload: string) => sent.push(payload),
-      performance: { now: () => 12345 },
-      crypto: { getRandomValues: () => 0, randomUUID: () => 'real' },
-      requestAnimationFrame: (cb: () => void) => {
-        tick = cb;
-        return 1;
-      },
-      addEventListener: (type: string, fn: (event: Key) => void, capture: boolean) => {
-        if (capture) listeners.push({ type, fn });
-      },
-      Date,
-      queueMicrotask,
-      setTimeout,
-      setInterval,
-      clearTimeout,
-      clearInterval,
-      cancelAnimationFrame: () => {},
-    });
-    const before = new Set(Object.getOwnPropertyNames(context));
-    runInContext(clockScript(BINDING), context);
-    const added = Object.getOwnPropertyNames(context).filter((name) => !before.has(name));
-    // Values from the page's realm, read back as plain data.
-    const run = (code: string) => {
-      const value = runInContext(code, context) as unknown;
-      return typeof value === 'object' && value !== null
-        ? JSON.parse(JSON.stringify(value))
-        : value;
-    };
-    const frames = (n: number) => {
-      for (let i = 0; i < n; i += 1) (tick as unknown as () => void)();
-    };
-    const key = (isTrusted: boolean, type = 'keydown') => {
-      const event = {
-        isTrusted,
-        code: 'F24',
-        type,
-        stopImmediatePropagation() {},
-        preventDefault() {},
-      };
-      for (const listener of listeners) if (listener.type === type) listener.fn(event);
-    };
-    return { context, sent, added, run, frames, key };
-  }
-
   test('leaves no global behind, takes the binding off the page, and names it nowhere the page can read', () => {
     const { context, added } = page();
     assert.deepEqual(added, []);
@@ -399,6 +406,192 @@ describe("the twin step's stepped clock (M1.8g)", () => {
     const a = draw() as [number, number[], string];
     assert.deepEqual(a, draw());
     assert.match(a[2], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+});
+
+const FRAME = 1000 / 60;
+/**
+ * Stand-ins for the browser's download functions, in the page's realm. Each download waits in `__waiting` until the
+ * test lets it finish with `finish()`; events it fires are trusted, as the browser's are.
+ */
+const DOWNLOADS = `
+  globalThis.__waiting = [];
+  const wait = (what, done) => __waiting.push({ what, done });
+  const fire = (target, type) => { for (const [t, fn] of target.l ?? []) if (t === type) fn({ type, isTrusted: true }); };
+  class Listening { addEventListener(type, fn) { (this.l ??= []).push([type, fn]); } }
+  globalThis.Response = class Response { constructor(url) { this.url = url; }
+    json() { return new Promise((resolve) => wait(this.url + ' body', () => resolve({ from: this.url }))); } };
+  globalThis.fetch = (url) => new Promise((resolve) => wait(url, () => resolve(new Response(url))));
+  globalThis.createImageBitmap = () => new Promise((resolve) => wait('bitmap', () => resolve({})));
+  globalThis.XMLHttpRequest = class extends Listening { open(method, url) { this.url = url; }
+    send() { wait(this.url, () => fire(this, 'loadend')); } };
+  globalThis.HTMLImageElement = class extends Listening {
+    get src() { return this.s; }
+    set src(value) { this.s = value; wait(value, () => fire(this, 'load')); }
+    decode() { return new Promise((resolve) => wait('decode', () => resolve())); } };
+`;
+/** Lets every waiting download finish, then runs the page's callbacks. */
+const finish = async (run: (code: string) => unknown) => {
+  run('for (const item of __waiting.splice(0)) item.done();');
+  for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setImmediate(resolve));
+};
+const stepped = (run: (code: string) => unknown) =>
+  Math.round((run('performance.now()') as number) / FRAME);
+
+describe("the stepped clock holds its frames while the page's own downloads are pending (M1.8g-d)", () => {
+  test('frames hold while a fetch, and the body read after it, are pending; the data lands before the next frame', async () => {
+    const { run, frames, key } = page(DOWNLOADS);
+    key(true);
+    frames(3);
+    run(
+      `fetch('model.glb').then((r) => r.json()).then(() => { globalThis.landed = performance.now(); });`,
+    );
+    frames(10);
+    assert.equal(stepped(run), 3, 'held while the fetch is pending');
+    await finish(run);
+    frames(10);
+    assert.equal(stepped(run), 3, 'held while its body is read');
+    await finish(run);
+    assert.equal(Math.round((run('landed') as number) / FRAME), 3);
+    frames(10);
+    assert.equal(stepped(run), 13);
+  });
+
+  test("an XHR, an image's src, createImageBitmap and an image's decode each hold the frames until they finish", async () => {
+    for (const start of [
+      "const x = new XMLHttpRequest(); x.open('GET', 'a.bin'); x.send();",
+      "new HTMLImageElement().src = 'a.png';",
+      'createImageBitmap({});',
+      'new HTMLImageElement().decode();',
+    ]) {
+      const { run, frames, key } = page(DOWNLOADS);
+      key(true);
+      run(start);
+      frames(10);
+      assert.equal(stepped(run), 0, start);
+      await finish(run);
+      frames(10);
+      assert.equal(stepped(run), 10, start);
+    }
+  });
+
+  test('two loads whose download takes a different real time land it at the same frame', async () => {
+    const landedAt = async (delayMs: number) => {
+      const { run, frames, key } = page(DOWNLOADS);
+      run(
+        `setTimeout(() => fetch('late.json').then((r) => r.json()).then(() => { globalThis.landed = performance.now(); }), 50);`,
+      );
+      key(true);
+      const started = Date.now();
+      for (let i = 0; i < 150; i += 1) {
+        frames(1);
+        await new Promise((resolve) => setTimeout(resolve, 2));
+        if (Date.now() - started > delayMs) await finish(run);
+      }
+      return Math.round((run('landed') as number) / FRAME);
+    };
+    const fast = await landedAt(5);
+    const slow = await landedAt(120);
+    assert.equal(fast, slow);
+    assert.equal(fast, 3);
+  });
+
+  test("the page cannot end a hold early: not by replacing Promise's methods, nor by firing its own load events", async () => {
+    const { run, frames, key } = page(DOWNLOADS);
+    key(true);
+    run(`
+      Promise.prototype.then = function (ok) { if (typeof ok === 'function') ok(); return this; };
+      Promise.prototype.finally = function (fn) { if (typeof fn === 'function') fn(); return this; };
+      fetch('a.glb');
+      const image = new HTMLImageElement();
+      image.src = 'b.png';
+      for (const [type, fn] of image.l ?? []) fn({ type: 'load', isTrusted: false });
+    `);
+    frames(10);
+    assert.equal(stepped(run), 0);
+  });
+});
+
+describe('the stepped clock gives a page nothing to call (AUDIT M18GD-M1, M18GD-M2)', () => {
+  /** A forged F24 key down, as a page would build one. */
+  const FORGE =
+    "({ isTrusted: true, code: 'F24', type: 'keydown', stopImmediatePropagation() {}, preventDefault() {} })";
+
+  test("a forged call through a replaced Event method's caller leaves the clock where the host put it", () => {
+    const { run, frames, key } = page();
+    run(`
+      const forge = function forge() { const caller = forge.caller; if (typeof caller === 'function') caller(${FORGE}); };
+      Event.prototype.stopImmediatePropagation = forge;
+      Event.prototype.preventDefault = forge;
+    `);
+    key(true);
+    frames(400);
+    assert.equal(stepped(run), TWIN_FRAMES[0]);
+  });
+
+  test("a forged call through the caller of a page's timer, animation frame or a replaced collection method does nothing", () => {
+    const { run, frames, key } = page();
+    run(`
+      globalThis.callers = [];
+      const reach = (fn) => { try { const caller = fn.caller; callers.push(typeof caller); if (typeof caller === 'function') caller(${FORGE}); } catch { callers.push('refused'); } };
+      setTimeout(function later() { reach(later); }, 20);
+      requestAnimationFrame(function drawn() { reach(drawn); });
+      for (const C of [Set, Map]) {
+        const size = Object.getOwnPropertyDescriptor(C.prototype, 'size');
+        Object.defineProperty(C.prototype, 'size', { get: function sized() { reach(sized); return size.get.call(this); } });
+      }
+    `);
+    key(true);
+    frames(400);
+    assert.equal(stepped(run), TWIN_FRAMES[0]);
+    const callers = run('callers') as string[];
+    assert.ok(callers.length > 0 && !callers.includes('function'), JSON.stringify(callers));
+  });
+
+  test('a key going up steps nothing, whatever type the event says it is', () => {
+    const { run, frames, key } = page();
+    key(true, 'keyup', 'keydown');
+    key(true, 'keypress', 'keydown');
+    frames(400);
+    assert.equal(stepped(run), 0);
+  });
+
+  test("a page that poisons promises' species cannot end a hold: it stays held, and the stall limit ends it (AUDIT M18GD-A-M1)", async () => {
+    const { run, frames, key } = page(DOWNLOADS);
+    key(true);
+    run(`
+      Object.defineProperty(Promise.prototype, 'constructor', {
+        get() { return { get [Symbol.species]() { throw new Error('poisoned'); } }; },
+      });
+      fetch('model.glb');
+    `);
+    frames(10);
+    assert.equal(stepped(run), 0);
+    await finish(run);
+    frames(10);
+    assert.equal(
+      stepped(run),
+      0,
+      'held for good: the host reads out of time once the page stops reaching frames',
+    );
+  });
+
+  test('a page that replaces Set and Map methods cannot end a hold: it lasts until the browser answers', async () => {
+    const { run, frames, key } = page(DOWNLOADS);
+    key(true);
+    run(`
+      for (const C of [Set, Map]) {
+        C.prototype.add = function () { this.clear(); return this; };
+        C.prototype.delete = function () { return true; };
+        Object.defineProperty(C.prototype, 'size', { get() { return 0; } });
+      }
+      fetch('model.glb');
+    `);
+    frames(10);
+    assert.equal(stepped(run), 0);
+    await finish(run);
+    frames(10);
+    assert.equal(stepped(run), 10);
   });
 });
 
