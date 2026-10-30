@@ -296,8 +296,12 @@ export const RESPONSE_SEEN = 0.0005;
 export const TWINS_MATCH = 0.0001;
 /** How many targets the twin step presses, one load each. */
 export const TWIN_TARGETS = 5;
-/** How long a twin load waits, its clock held at frame 0, for the page and its assets to load. */
-export const TWIN_LOAD_MS = 3_000;
+/**
+ * How long a twin load's page must have been quiet, its clock held at frame 0, before the host steps it:
+ * the document loaded and no request in flight or begun for this long (M1.8g-c). A fixed wait let a page
+ * or its assets finish loading after stepping began on a busy Mac, so two loads differed.
+ */
+export const TWIN_QUIET_MS = 1_000;
 /** How long a twin load may go, by the wall clock, without the page reaching a further frame. */
 export const TWIN_STALL_MS = 10_000;
 /** How long the whole twin step may take, by the wall clock, a stopped load's settling included. */
@@ -471,8 +475,28 @@ export async function twinLoad(
   const binding = `h${randomBytes(12).toString('hex')}`;
   let reached = 0;
   let movedAt = Date.now();
+  // The page's loading, as Chrome's Page and Network domains report it: nothing the page's code says.
+  let loaded = false;
+  let activeAt = Date.now();
+  const inFlight = new Set<string>();
   const off = devtools.onEvent((message) => {
-    if (message.sessionId !== session || message.method !== 'Runtime.bindingCalled') return;
+    if (message.sessionId !== session) return;
+    const requestId = message.params?.requestId;
+    if (message.method === 'Page.loadEventFired') {
+      loaded = true;
+      activeAt = Date.now();
+    } else if (message.method === 'Network.requestWillBeSent' && typeof requestId === 'string') {
+      inFlight.add(requestId);
+      activeAt = Date.now();
+    } else if (
+      (message.method === 'Network.loadingFinished' ||
+        message.method === 'Network.loadingFailed') &&
+      typeof requestId === 'string'
+    ) {
+      inFlight.delete(requestId);
+      activeAt = Date.now();
+    }
+    if (message.method !== 'Runtime.bindingCalled') return;
     if (message.params?.name !== binding || typeof message.params.payload !== 'string') return;
     const match = /^frame (\d{1,4})$/.exec(message.params.payload);
     if (match && Number(match[1]) > reached) {
@@ -481,7 +505,7 @@ export async function twinLoad(
     }
   });
   try {
-    for (const domain of ['Runtime.enable', 'Page.enable'])
+    for (const domain of ['Runtime.enable', 'Page.enable', 'Network.enable'])
       await devtools.send(domain, {}, session);
     await devtools.send('Runtime.addBinding', { name: binding }, session);
     await devtools.send(
@@ -491,7 +515,16 @@ export async function twinLoad(
     );
     await devtools.send('Page.navigate', { url }, session);
     const driver = pipeDriver(devtools, session);
-    await driver.wait(TWIN_LOAD_MS);
+    // Held at frame 0 until the page has loaded and gone quiet, or for at most the stall limit: a page
+    // that never goes quiet is stepped anyway, and a change it makes later shows as a mismatch.
+    const quietBy = Date.now() + stallMs;
+    while (
+      Date.now() < quietBy &&
+      !(loaded && inFlight.size === 0 && Date.now() - activeAt >= TWIN_QUIET_MS)
+    ) {
+      if (signal?.aborted) throw new TwinOutOfTime('the twin step ran out of time');
+      await driver.wait(50);
+    }
     const stepTo = async (frame: number) => {
       for (const type of ['keyDown', 'keyUp'])
         await devtools.send(

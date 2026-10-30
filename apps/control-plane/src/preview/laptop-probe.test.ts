@@ -20,7 +20,7 @@ import {
   settledPicture,
   standInScript,
   TWIN_FRAMES,
-  TWIN_LOAD_MS,
+  TWIN_QUIET_MS,
   TWIN_TARGETS,
   type TwinLoad,
   TwinOutOfTime,
@@ -557,14 +557,25 @@ describe('a picture of a held frame, taken again until two in a row match', () =
 });
 
 describe('a twin load against a page that stops reaching frames (AUDIT M18G-M2)', () => {
+  /** What the page does after it is navigated to: Chrome events, each this many ms after the navigation. */
+  type PageEvent = { at: number; method: string; params?: Record<string, unknown> };
+  /** A page that loads at once and fetches nothing. */
+  const QUIET: PageEvent[] = [{ at: 50, method: 'Page.loadEventFired' }];
   /**
    * A Chrome that answers every command. `pace` is how the page's frames advance after each F24 key: frames per
-   * 100 ms toward the next stop, or 0 for a page that never reaches a frame.
+   * 100 ms toward the next stop, or 0 for a page that never reaches a frame. `page` is what the page does once
+   * navigated to; `firstKeyAt` is when the first F24 went down, in ms after the navigation.
    */
-  const fakeChrome = (pace: number): ChromeRun & { sent: string[] } => {
+  const fakeChrome = (
+    pace: number,
+    page: PageEvent[] = QUIET,
+  ): ChromeRun & { sent: string[]; firstKeyAt: () => number | null } => {
     const toChrome = new PassThrough();
     const fromChrome = new PassThrough();
     const sent: string[] = [];
+    const timers: NodeJS.Timeout[] = [];
+    let navigatedAt = 0;
+    let firstKeyAt: number | null = null;
     let binding = '';
     let frame = 0;
     let target = 0;
@@ -581,6 +592,8 @@ describe('a twin load against a page that stops reaching frames (AUDIT M18G-M2)'
     }, 100);
     // A failing test must not keep the run alive.
     timer.unref();
+    const send = (method: string, params: Record<string, unknown> = {}) =>
+      fromChrome.write(`${JSON.stringify({ method, sessionId: 'page', params })}\0`);
     toChrome.setEncoding('utf8');
     toChrome.on('data', (chunk: string) => {
       for (const text of chunk.split('\0').filter((part) => part !== '')) {
@@ -591,7 +604,16 @@ describe('a twin load against a page that stops reaching frames (AUDIT M18G-M2)'
         };
         sent.push(method);
         if (method === 'Runtime.addBinding') binding = params.name ?? '';
+        if (method === 'Page.navigate') {
+          navigatedAt = Date.now();
+          for (const event of page) {
+            const later = setTimeout(() => send(event.method, event.params), event.at);
+            later.unref();
+            timers.push(later);
+          }
+        }
         if (method === 'Input.dispatchKeyEvent' && params.type === 'keyDown') {
+          firstKeyAt ??= Date.now() - navigatedAt;
           target = TWIN_FRAMES[next] ?? target;
           next += 1;
         }
@@ -602,10 +624,56 @@ describe('a twin load against a page that stops reaching frames (AUDIT M18G-M2)'
       pid: 0,
       devtools: new DevToolsPipe(toChrome, fromChrome),
       session: 'page',
-      stop: async () => clearInterval(timer),
+      stop: async () => {
+        clearInterval(timer);
+        for (const later of timers) clearTimeout(later);
+      },
       sent,
+      firstKeyAt: () => firstKeyAt,
     };
   };
+
+  /** Requests the page makes: one sent at `at` and finished `takes` ms later, as Chrome's Network domain says. */
+  const request = (id: string, at: number, takes: number): PageEvent[] => [
+    { at, method: 'Network.requestWillBeSent', params: { requestId: id } },
+    { at: at + takes, method: 'Network.loadingFinished', params: { requestId: id } },
+  ];
+
+  test('steps once the page has loaded and gone quiet for a second, not after a fixed wait (M1.8g-c)', {
+    timeout: 20_000,
+  }, async () => {
+    const chrome = fakeChrome(400);
+    await twinLoad(chrome, 'http://127.0.0.1:1/?check', null);
+    const at = chrome.firstKeyAt() ?? -1;
+    assert.ok(at >= TWIN_QUIET_MS && at < TWIN_QUIET_MS + 1_000, `first step at ${at} ms`);
+    await chrome.stop();
+  });
+
+  test('waits for an asset that finishes late: the first step comes a quiet second after it (M1.8g-c)', {
+    timeout: 20_000,
+  }, async () => {
+    const chrome = fakeChrome(400, [...QUIET, ...request('late', 200, 3_300)]);
+    await twinLoad(chrome, 'http://127.0.0.1:1/?check', null);
+    const at = chrome.firstKeyAt() ?? -1;
+    assert.ok(
+      at >= 3_500 + TWIN_QUIET_MS && at < 3_500 + TWIN_QUIET_MS + 1_000,
+      `first step at ${at} ms`,
+    );
+    await chrome.stop();
+  });
+
+  test('a page that never goes quiet is stepped once the stall limit has passed (M1.8g-c)', {
+    timeout: 20_000,
+  }, async () => {
+    const busy = Array.from({ length: 30 }, (_, index) =>
+      request(`poll-${index}`, 100 + index * 300, 100),
+    ).flat();
+    const chrome = fakeChrome(400, [...QUIET, ...busy]);
+    await twinLoad(chrome, 'http://127.0.0.1:1/?check', null, undefined, 2_000);
+    const at = chrome.firstKeyAt() ?? -1;
+    assert.ok(at >= 2_000 && at < 2_800, `first step at ${at} ms`);
+    await chrome.stop();
+  });
 
   test('a page that never reaches a frame fails once it has made no progress for the stall limit', {
     timeout: 15_000,
@@ -617,7 +685,7 @@ describe('a twin load against a page that stops reaching frames (AUDIT M18G-M2)'
       /did not reach frame 300/,
     );
     const took = Date.now() - started;
-    assert.ok(took < TWIN_LOAD_MS + 2_000, `took ${took} ms`);
+    assert.ok(took < TWIN_QUIET_MS + 2_000, `took ${took} ms`);
     assert.ok(chrome.sent.includes('Input.dispatchKeyEvent'));
     await chrome.stop();
   });
@@ -637,13 +705,13 @@ describe('a twin load against a page that stops reaching frames (AUDIT M18G-M2)'
   }, async () => {
     const chrome = fakeChrome(0);
     const out = new AbortController();
-    setTimeout(() => out.abort(), TWIN_LOAD_MS + 300);
+    setTimeout(() => out.abort(), TWIN_QUIET_MS + 500);
     const started = Date.now();
     await assert.rejects(
       twinLoad(chrome, 'http://127.0.0.1:1/?check', null, out.signal),
       /ran out of time/,
     );
-    assert.ok(Date.now() - started < TWIN_LOAD_MS + 2_000);
+    assert.ok(Date.now() - started < TWIN_QUIET_MS + 2_000);
     await chrome.stop();
   });
 });
