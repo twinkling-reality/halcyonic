@@ -236,6 +236,24 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   fetch fails, the same algorithm removes the registration only if it has no worker yet. Clearing storage on a reused
   port, which would remove it, is the next unit.
 
+## A preview's origin starts fresh: no-store and Clear-Site-Data (AUDIT M16A-C2)
+
+- **Question:** does a browser honour `Clear-Site-Data` from a preview over plain http://127.0.0.1, and do the preview's
+  answers say `no-store`?
+- **Date:** 2026-10-30.
+- **Chrome 156.0.8078.76 on this Mac** (headless, a profile of its own, a scratch server on 127.0.0.1): a page that
+  stored local storage, a Cache API entry, an IndexedDB database, a cookie and a service worker, then a page answered
+  with `Clear-Site-Data: "storage", "cache"`, then a page that read what was left: local storage, the Cache API and
+  IndexedDB were empty and the service worker gone; the cookie stayed (it needs `"cookies"`, which cleared it too);
+  `isSecureContext` was true. With no header, everything stayed.
+- **The host's preview:** before, `vite preview` answered the page and its script with `Cache-Control: no-cache`
+  (opt-in test, failing first). Vite sends `index.html` with its own `Cache-Control` and then the configured headers,
+  so `no-store` is configured beside the Content-Security-Policy as well as set first by the host's middleware. A real
+  `vite preview` with the host config, asked with `Sec-Fetch-Dest: document`, answered `no-store` and
+  `Clear-Site-Data: "storage", "cache"`; a script, and a GET with no `Sec-Fetch-Dest` (as the host's own checks
+  send), `no-store` only.
+- **Not tried:** the Quest Browser (the headset is away).
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

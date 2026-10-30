@@ -20,6 +20,7 @@ import {
   readManifest,
   rewriteProfilesModule,
 } from './input-profiles.mjs';
+import { freshOrigin } from './fresh-origin.mjs';
 import { refuseServiceWorkers } from './service-workers.mjs';
 
 const root = process.env.HALCYONIC_PREVIEW_ROOT;
@@ -125,10 +126,12 @@ function inputProfiles() {
       return isProfilesModule(id) ? { code: rewriteProfilesModule(code), map: null } : null;
     },
     configureServer(server) {
+      server.middlewares.use(freshOrigin);
       server.middlewares.use(refuseServiceWorkers);
       server.middlewares.use(`/${PROFILES_PREFIX}`, profilesMiddleware(profiles, profilesListing));
     },
     configurePreviewServer(server) {
+      server.middlewares.use(freshOrigin);
       server.middlewares.use(refuseServiceWorkers);
       server.middlewares.use(`/${PROFILES_PREFIX}`, profilesMiddleware(profiles, profilesListing));
     },
@@ -166,11 +169,11 @@ export default defineConfig({
     port,
     strictPort: true,
     open: false,
-    headers: { 'Content-Security-Policy': csp },
+    headers: { 'Content-Security-Policy': csp, 'Cache-Control': 'no-store' },
     // The project's own files, and the shared dependencies the host names.
     fs: { strict: true, allow: [root, ...deps] },
   },
-  preview: { host: '127.0.0.1', port, strictPort: true, headers: { 'Content-Security-Policy': csp } },
+  preview: { host: '127.0.0.1', port, strictPort: true, headers: { 'Content-Security-Policy': csp, 'Cache-Control': 'no-store' } },
   build: { target: 'esnext', sourcemap: false, rollupOptions: { input: join(root, 'index.html') } },
   esbuild: { target: 'esnext' },
   resolve: { dedupe: ['three', '@pmndrs/uikit', '@pmndrs/uikit-horizon', '@pmndrs/uikit-lucide'] },
