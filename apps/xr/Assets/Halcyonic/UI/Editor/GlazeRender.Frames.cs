@@ -456,9 +456,27 @@ namespace Halcyonic.XR.UI.Editor
             if (Mathf.Abs(past - 2f) > 0.05f) yield return "component render: the outline check measured a label 2 degrees above a part's top corner as " + past + ".";
         }
 
-        /// <summary>A content's light that reaches past its top padding, over its first row, fails the glow check.</summary>
+        /// <summary>
+        /// A content's light that reaches past its top padding, over its first row, fails the glow check. While the glass
+        /// carries no light at all (the 2026-10-15 calm plates, <see cref="Glaze.Menu.GlowOpacity"/> 0), there is no light to
+        /// reach a row: the glass must then cast none however far it is asked to, and the proof below runs again unchanged
+        /// whenever a light returns.
+        /// </summary>
         private static IEnumerable<string> GlowCatchesARowUnderIt()
         {
+            if (!(Glaze.Menu.GlowOpacity > 0f))
+            {
+                var calm = Holder("Glass with no light", 0f, 0f);
+                var plate = Surface.Create(calm, "Glass", 1);
+                var area = new Vector2(GlazeTokens.Units(20f), GlazeTokens.Units(12f));
+                plate.DrawGlass(area);
+                var none = plate.GlowReach == 0f;
+                plate.DrawGlass(area, area.y);
+                none &= plate.GlowReach == 0f;
+                UnityEngine.Object.DestroyImmediate(calm.gameObject);
+                if (!none) yield return "component render: the glass casts a light though reading plates carry none.";
+                yield break;
+            }
             var holder = Holder("Glow over a row", 0f, 0f);
             var glass = Surface.Create(holder, "Glass", 1);
             var size = new Vector2(GlazeTokens.Units(20f), GlazeTokens.Units(12f));
