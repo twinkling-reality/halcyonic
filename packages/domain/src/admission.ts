@@ -141,6 +141,47 @@ export function admitCommand(
       return { admitted: true, policy, scope, runtime: null };
     }
 
+    case 'project.check':
+    case 'project.preview.start':
+    case 'project.preview.stop': {
+      const projectId = command.payload.project_id;
+      const project = projection.project(projectId);
+      if (project === undefined) {
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      }
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      if (command.command_type === 'project.check') {
+        if (project.starter === null || project.location === null) {
+          return reject(
+            scope,
+            'invalid_state',
+            'Only a project made from a starter can be checked.',
+          );
+        }
+        // A check of files a runtime is still writing would describe neither before nor after.
+        const busy = projection.projectBusy(projectId);
+        if (busy !== null) return reject(scope, 'invalid_state', `${busy} Check it once it stops.`);
+        return { admitted: true, policy, scope, runtime: null };
+      }
+      const preview = projection.preview(projectId);
+      if (command.command_type === 'project.preview.stop') {
+        if (preview === undefined)
+          return reject(scope, 'invalid_state', 'The project has no preview running.');
+        return { admitted: true, policy, scope, runtime: null };
+      }
+      if (preview !== undefined)
+        return reject(scope, 'invalid_state', 'The project already has a preview running.');
+      const check = projection.latestCheck(projectId);
+      if (check === undefined || !check.findings.passed) {
+        return reject(
+          scope,
+          'invalid_state',
+          'Only the copy of a passed check is served. Check the project first.',
+        );
+      }
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'workstream.create': {
       const projectId = command.payload.project_id;
       if (projection.project(projectId) === undefined) {

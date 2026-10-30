@@ -43,6 +43,13 @@ describe("the preview's Seatbelt profiles (ADR 0037)", () => {
       for (const path of [scope.project, scope.starter])
         assert.ok(!writes.includes(`"${path}"`), path);
       assert.match(profile, new RegExp(`\\(deny file-read\\* \\(subpath "${scope.home}"\\)\\)`));
+      for (const rule of [
+        '(deny lsopen)',
+        '(deny mach-lookup (global-name-regex #"^com\\.apple\\.pasteboard\\."))',
+        '(deny appleevent-send)',
+      ]) {
+        assert.ok(profile.includes(`\n${rule}\n`), rule);
+      }
       // Later rules win in Seatbelt: the exceptions come after the deny.
       assert.ok(profile.indexOf('(deny file-read*') < profile.indexOf('(allow file-read*'));
     } finally {

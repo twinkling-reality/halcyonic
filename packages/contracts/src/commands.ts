@@ -2,6 +2,7 @@ import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId } from './checkpoints.ts';
 import { ProjectLocationChoice } from './locations.ts';
+import { CheckId } from './previews.ts';
 import {
   ClientInfo,
   CommandId,
@@ -67,6 +68,31 @@ export const ProjectSetLocationCommand = defineCommand(
 export const ProjectRestoreCommand = defineCommand(
   'project.restore',
   Type.Object({ project_id: ProjectId, checkpoint_id: CheckpointId }, strict),
+);
+
+/**
+ * Checks a project made from a starter (ADR 0037): type check, build, and the built copy opened for
+ * 10 seconds in the host's sandboxed headless browser. The host does it, never a runtime; it
+ * completes once the findings are recorded, whatever they are.
+ */
+export const ProjectCheckCommand = defineCommand(
+  'project.check',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
+/**
+ * Serves the built copy of the project's latest check on a loopback port, only when that check
+ * passed. The live folder is never served, so nothing changed after the check reaches the page.
+ */
+export const ProjectPreviewStartCommand = defineCommand(
+  'project.preview.start',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
+/** Stops the project's preview. */
+export const ProjectPreviewStopCommand = defineCommand(
+  'project.preview.stop',
+  Type.Object({ project_id: ProjectId }, strict),
 );
 
 /**
@@ -177,6 +203,9 @@ export const COMMAND_VARIANTS = [
   ProjectCreateCommand,
   ProjectSetLocationCommand,
   ProjectRestoreCommand,
+  ProjectCheckCommand,
+  ProjectPreviewStartCommand,
+  ProjectPreviewStopCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
@@ -199,6 +228,9 @@ export const CommandType = Type.Union([
   Type.Literal('project.create'),
   Type.Literal('project.set_location'),
   Type.Literal('project.restore'),
+  Type.Literal('project.check'),
+  Type.Literal('project.preview.start'),
+  Type.Literal('project.preview.stop'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),
@@ -294,6 +326,18 @@ export const CommandResult = Type.Union([
   Type.Object({ kind: Type.Literal('workstream_created'), workstream_id: WorkstreamId }, strict),
   Type.Object({ kind: Type.Literal('execution_created'), execution_id: ExecutionId }, strict),
   Type.Object({ kind: Type.Literal('project_restored'), checkpoint_id: CheckpointId }, strict),
+  Type.Object(
+    { kind: Type.Literal('project_checked'), check_id: CheckId, passed: Type.Boolean() },
+    strict,
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('preview_started'),
+      check_id: CheckId,
+      port: Type.Integer({ minimum: 1, maximum: 65535 }),
+    },
+    strict,
+  ),
 ]);
 export type CommandResult = Static<typeof CommandResult>;
 

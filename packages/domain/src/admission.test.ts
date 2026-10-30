@@ -558,3 +558,92 @@ describe('answering a question', () => {
     assert.equal(admission.admitted ? null : admission.rejection.code, 'invalid_state');
   });
 });
+
+describe('checks and previews of a project made from a starter (ADR 0037)', () => {
+  const findings = (passed: boolean) => ({
+    tsc: { exit: 0, seconds: 1 },
+    build: { exit: 0, seconds: 10 },
+    page: null,
+    unknown: null,
+    passed,
+    reads_confined: true,
+  });
+  const setupStarter = (starter: boolean) => {
+    const { b, projection } = setup();
+    const location = { path: '/Users/someone/dev/garden', name: 'garden', created: true };
+    const project = b.project('Garden', location);
+    projection.apply(project.event);
+    const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    if (starter)
+      projection.apply(b.controlPlane('project.starter_applied', scope, starterApplied()));
+    let n = 0;
+    const command = (
+      type: 'project.check' | 'project.preview.start' | 'project.preview.stop',
+    ): CommandEnvelope => {
+      n += 1;
+      return {
+        schema_version: 1,
+        command_id: `00000000-0000-4000-9000-${String(n).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-10-29T10:00:00.000Z',
+        client: { name: 'test', version: null, device_label: null },
+        command_type: type,
+        payload: { project_id: project.projectId },
+      } as CommandEnvelope;
+    };
+    const checkId = b.id() as never;
+    return { b, projection, scope, command, checkId };
+  };
+
+  test('only a project made from a starter can be checked', () => {
+    const plain = setupStarter(false);
+    const refused = admitCommand(plain.command('project.check'), plain.projection, catalog());
+    assert.equal(refused.admitted, false);
+    assert.equal(!refused.admitted && refused.rejection.code, 'invalid_state');
+    const starter = setupStarter(true);
+    const admitted = admitCommand(starter.command('project.check'), starter.projection, catalog());
+    assert.equal(admitted.admitted, true);
+    assert.equal(admitted.admitted && admitted.policy, 'low_consequence');
+  });
+
+  test('a preview serves only a passed check, one at a time, and stops only one that runs', () => {
+    const { b, projection, scope, command, checkId } = setupStarter(true);
+    const admitted = (type: Parameters<typeof command>[0]) =>
+      admitCommand(command(type), projection, catalog()).admitted;
+    assert.equal(admitted('project.preview.start'), false, 'no check yet');
+    projection.apply(
+      b.controlPlane('project.check.recorded', scope, {
+        check_id: checkId,
+        findings: findings(false),
+      }),
+    );
+    assert.equal(admitted('project.preview.start'), false, 'the latest check did not pass');
+    assert.equal(projection.latestCheck(scope.project_id)?.findings.passed, false);
+    projection.apply(
+      b.controlPlane('project.check.recorded', scope, {
+        check_id: checkId,
+        findings: findings(true),
+      }),
+    );
+    assert.equal(admitted('project.preview.start'), true);
+    assert.equal(admitted('project.preview.stop'), false, 'nothing to stop');
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, { check_id: checkId, port: 47930 }),
+    );
+    assert.deepEqual(projection.preview(scope.project_id), { check_id: checkId, port: 47930 });
+    assert.equal(admitted('project.preview.start'), false, 'one already runs');
+    assert.equal(admitted('project.preview.stop'), true);
+    projection.apply(
+      b.controlPlane('project.preview.stopped', scope, { check_id: checkId, reason: 'asked' }),
+    );
+    assert.equal(projection.preview(scope.project_id), undefined);
+  });
+});
+
+function starterApplied() {
+  return {
+    starter_id: 'iwsdk-vr',
+    lockfile: 'a'.repeat(64),
+    files: 12,
+    template: 'b'.repeat(64),
+  } as never;
+}

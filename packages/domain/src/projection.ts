@@ -1,6 +1,8 @@
 import type {
   ApprovalView,
   CatalogRepositoryRef,
+  CheckFindings,
+  CheckId,
   CheckpointView,
   CommandEnvelope,
   CommandFailure,
@@ -88,6 +90,19 @@ interface ProjectState {
   updatedAt: Timestamp;
 }
 
+/** A project's latest check, as the host recorded it. */
+export interface ProjectCheck {
+  readonly check_id: CheckId;
+  readonly findings: CheckFindings;
+  readonly recorded_at: Timestamp;
+}
+
+/** A project's running preview. */
+export interface ProjectPreview {
+  readonly check_id: CheckId;
+  readonly port: number;
+}
+
 interface WorkstreamState {
   readonly workstreamId: WorkstreamId;
   readonly projectId: ProjectId;
@@ -140,6 +155,10 @@ export class Projection {
   readonly #commands = new Map<CommandId, CommandState>();
   /** Checkpoints the host took, by project, oldest first (ADR 0036). */
   readonly #checkpoints = new Map<ProjectId, CheckpointView[]>();
+  /** Each project's latest check (ADR 0037). */
+  readonly #checks = new Map<ProjectId, ProjectCheck>();
+  /** Each project's running preview, by the check it serves. */
+  readonly #previews = new Map<ProjectId, ProjectPreview>();
   readonly #devices = new DeviceRegistry();
   readonly #resultStarts = new Map<
     string,
@@ -482,6 +501,16 @@ export class Projection {
     return [...(this.#checkpoints.get(projectId as ProjectId) ?? [])];
   }
 
+  /** The project's latest check, or undefined when it has none. */
+  latestCheck(projectId: string): ProjectCheck | undefined {
+    return this.#checks.get(projectId as ProjectId);
+  }
+
+  /** The project's running preview, or undefined when none runs. */
+  preview(projectId: string): ProjectPreview | undefined {
+    return this.#previews.get(projectId as ProjectId);
+  }
+
   /** One of the project's checkpoints, or undefined when it is another project's or none. */
   checkpoint(projectId: string, checkpointId: string): CheckpointView | undefined {
     return this.#checkpoints
@@ -721,6 +750,32 @@ export class Projection {
         this.#checkpoints.set(event.project_id, list);
         return;
       }
+      case 'project.check.recorded':
+        if (!this.#projects.has(event.project_id)) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        this.#checks.set(event.project_id, {
+          check_id: event.payload.check_id,
+          findings: event.payload.findings,
+          recorded_at: event.occurred_at,
+        });
+        return;
+      case 'project.preview.started':
+        if (!this.#projects.has(event.project_id)) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        this.#previews.set(event.project_id, {
+          check_id: event.payload.check_id,
+          port: event.payload.port,
+        });
+        return;
+      case 'project.preview.stopped':
+        if (this.#previews.get(event.project_id)?.check_id === event.payload.check_id) {
+          this.#previews.delete(event.project_id);
+        }
+        return;
       case 'project.checkpoint.failed':
       case 'project.restored':
       case 'project.restore_incomplete':

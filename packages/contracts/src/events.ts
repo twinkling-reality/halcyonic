@@ -21,6 +21,7 @@ import {
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import { FilesObserved } from './file-changes.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
+import { CheckFindings, CheckId, PreviewStopReason } from './previews.ts';
 import {
   DeviceId,
   ErrorInfo,
@@ -322,6 +323,31 @@ export const ProjectRestoreIncomplete = projectEvent(
     },
     strict,
   ),
+);
+
+/**
+ * The host checked the project (ADR 0037): what it observed of the type check, the build and the
+ * built copy in its sandboxed browser. `passed` and `drawn` never say the game works.
+ */
+export const ProjectCheckRecorded = projectEvent(
+  'project.check.recorded',
+  Type.Object({ check_id: CheckId, findings: CheckFindings }, strict),
+);
+
+/**
+ * The host serves the built copy of a passed check on 127.0.0.1 at `port`: recorded only once the
+ * server itself listens there and answers with that copy. Clients open `http://127.0.0.1:port`,
+ * never `localhost`, which can resolve to ::1, where another process may listen.
+ */
+export const ProjectPreviewStarted = projectEvent(
+  'project.preview.started',
+  Type.Object({ check_id: CheckId, port: Type.Integer({ minimum: 1, maximum: 65535 }) }, strict),
+);
+
+/** The project's preview stopped, and why. */
+export const ProjectPreviewStopped = projectEvent(
+  'project.preview.stopped',
+  Type.Object({ check_id: CheckId, reason: PreviewStopReason }, strict),
 );
 
 export const WorkstreamCreated = workstreamEvent(
@@ -659,6 +685,9 @@ export const EVENT_VARIANTS = [
   ProjectCheckpointFailed,
   ProjectRestored,
   ProjectRestoreIncomplete,
+  ProjectCheckRecorded,
+  ProjectPreviewStarted,
+  ProjectPreviewStopped,
   WorkstreamCreated,
   ExecutionCreated,
   ExecutionFilesObserved,

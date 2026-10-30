@@ -8,6 +8,7 @@ import type { EventJournal } from '../journal/journal.ts';
 import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { FileObserver } from '../observer/file-observer.ts';
+import { HostPreviews, type HostPreviewsDeps } from '../preview/preview.ts';
 import type { HostStarters } from '../starters.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
 import { EventPublisher } from './publisher.ts';
@@ -39,6 +40,14 @@ export interface ControlPlaneOptions {
   readonly starters?: HostStarters;
   /** The person's catalog as last read, so a link is checked against it (ADR 0039); none by default. */
   readonly catalogLinks?: CatalogLinks;
+  /**
+   * The host's checks and previews of projects made from a starter (ADR 0037). Absent, checks are
+   * off and `project.check` and `project.preview.*` are refused.
+   */
+  readonly previews?: Omit<
+    HostPreviewsDeps,
+    'recorder' | 'projection' | 'ids' | 'clock' | 'logger'
+  >;
   /**
    * Whether the Mac reads each task's folder and journals what every turn changed (ADR 0038), and
    * the folders of its own data that a task's folder must not hold for it to be read. Off by
@@ -74,6 +83,8 @@ export class ControlPlane {
   readonly starters: HostStarters | null;
   /** The Mac's own reading of what each turn changed in its folder (ADR 0038), or null when off. */
   readonly files: FileObserver | null;
+  /** The host's checks and previews of starter projects, or null when off. */
+  readonly previews: HostPreviews | null;
   readonly locations: HostLocations;
   readonly clock: Clock;
   /** How a runtime's or a provider's text loses credentials before a device sees it. */
@@ -115,6 +126,17 @@ export class ControlPlane {
           });
     this.checkpoints?.attach(this.publisher);
     this.starters = options.starters ?? null;
+    this.previews =
+      options.previews === undefined
+        ? null
+        : new HostPreviews({
+            ...options.previews,
+            recorder: this.recorder,
+            projection: this.projection,
+            ids: options.ids,
+            clock: options.clock,
+            logger: options.logger,
+          });
     this.files =
       options.observeFiles === undefined
         ? null
@@ -141,6 +163,7 @@ export class ControlPlane {
       starters: this.starters,
       files: this.files,
       catalogLinks: options.catalogLinks ?? null,
+      previews: this.previews,
     });
     this.#rebuild();
   }
@@ -175,6 +198,10 @@ export class ControlPlane {
     if (result.executions > 0 || result.commands > 0) {
       this.#logger.warn(result, 'marked in-flight work unknown after restart');
     }
+    // A preview the last run left serving is stopped, and recorded stopped.
+    void this.previews
+      ?.reconcile()
+      .catch((error: unknown) => this.#logger.warn({ err: error }, 'previews not reconciled'));
   }
 
   snapshot(): Snapshot {
@@ -190,6 +217,7 @@ export class ControlPlane {
   }
 
   async close(): Promise<void> {
+    await this.previews?.close();
     await this.registry.closeAll(this.#logger);
     this.journal.close();
   }

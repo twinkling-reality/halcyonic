@@ -40,6 +40,10 @@ export function buildProfile(scope: BuildScope): string {
     `(deny file-read* ${subpaths([scope.home])})`,
     `(allow file-read* ${subpaths(readable)})`,
     `(allow file-read-metadata ${ancestors(readable)})`,
+    // Nothing the build runs may open another app, read the pasteboard or send Apple events (AUDIT S2).
+    '(deny lsopen)',
+    '(deny mach-lookup (global-name-regex #"^com\\.apple\\.pasteboard\\."))',
+    '(deny appleevent-send)',
     '',
   ].join('\n');
 }

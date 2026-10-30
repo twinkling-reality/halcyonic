@@ -126,6 +126,16 @@ client                                   server
   file again and found the folder equal; otherwise `project.restore_incomplete` and a failure,
   effect `unknown` once a file was written
   ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)).
+- **Checking a new app.** `project.check` `{project_id}` asks the host to check a project made from a
+  starter: type check, build, and the built copy opened for 10 s in its sandboxed browser. It
+  completes with `{kind: 'project_checked', check_id, passed}` once `project.check.recorded` is
+  journaled, whatever the check found; `passed` never means the game works. `project.preview.start`
+  `{project_id}` serves the built copy of the latest passed check on a loopback port and completes
+  with `{kind: 'preview_started', check_id, port}` only once the server itself answers with that copy;
+  clients open `http://127.0.0.1:port`, never `localhost`. One start per project at a time, and none
+  while its check runs; `project.preview.stop` stops it. Both are refused
+  with `capability_unsupported` when checks are off and `invalid_state` otherwise as DOMAIN_MODEL.md
+  says ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)).
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
   as `GET /api/runtimes/:runtime_id/models` gave it. A start without one on a runtime whose
   `model_choice` is `listed` is rejected with `model_required`, so a model the person did not

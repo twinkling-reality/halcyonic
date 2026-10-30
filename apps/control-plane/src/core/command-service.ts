@@ -37,6 +37,7 @@ import type { IdGenerator } from '../ids.ts';
 import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import type { FileObserver } from '../observer/file-observer.ts';
+import type { HostPreviews } from '../preview/preview.ts';
 import type { HostStarters } from '../starters.ts';
 import {
   type Cause,
@@ -86,6 +87,8 @@ export interface CommandServiceDeps {
   readonly redaction: Redaction;
   /** Halcyonic's own undo (ADR 0036), or null when the host has not set it up. */
   readonly checkpoints?: Checkpointer | null;
+  /** The host's checks and previews of starter projects (ADR 0037), or null when not set up. */
+  readonly previews?: HostPreviews | null;
   /** The starters a new project can begin from (ADR 0037), or null when there are none. */
   readonly starters?: HostStarters | null;
   /** The Mac's own reading of what each turn changed (ADR 0038); none, as in some tests. */
@@ -358,6 +361,19 @@ export class CommandService {
           message: 'Undo is not set up on this computer (HALCYONIC_GIT_BIN).',
         },
       };
+    if (
+      (command.command_type === 'project.check' ||
+        command.command_type.startsWith('project.preview.')) &&
+      !this.#deps.previews
+    )
+      return {
+        admitted: false,
+        scope: { project_id: null, workstream_id: null, execution_id: null },
+        rejection: {
+          code: 'capability_unsupported',
+          message: 'Checks are not set up on this computer: no starter is installed.',
+        },
+      };
     const admission = admitCommand(command, this.#deps.projection, this.#deps.registry);
     if (!admission.admitted) return admission;
     const refuse = (code: RejectionCode, message: string): Admission => ({
@@ -601,6 +617,52 @@ export class CommandService {
             this.#deps.logger.error(
               { err: error, command_id: command.command_id },
               'restore outcome not recorded',
+            ),
+          );
+        return;
+      }
+      case 'project.check':
+      case 'project.preview.start':
+      case 'project.preview.stop': {
+        const previews = this.#deps.previews;
+        if (!previews) throw new Error(`admitted ${command.command_type} with checks off`);
+        const work =
+          command.command_type === 'project.check'
+            ? previews.check(command).then(({ check_id, passed }) => ({
+                kind: 'project_checked' as const,
+                check_id,
+                passed,
+              }))
+            : command.command_type === 'project.preview.start'
+              ? previews.start(command).then(({ check_id, port }) => ({
+                  kind: 'preview_started' as const,
+                  check_id,
+                  port,
+                }))
+              : previews.stop(command).then(() => null);
+        // The host's own work, bounded by the check's own limits, not the runtime timeout.
+        void work
+          .then(
+            (result) => this.#complete(command, admission.scope, result),
+            (error: unknown) => {
+              this.#deps.logger.error(
+                { err: error, command_id: command.command_id },
+                `${command.command_type} failed`,
+              );
+              this.#fail(command, admission.scope, {
+                code: command.command_type === 'project.check' ? 'check_failed' : 'preview_failed',
+                message:
+                  command.command_type === 'project.check'
+                    ? 'The check stopped on an error before it could record what it found.'
+                    : 'The preview could not be started or stopped.',
+                effect: 'unknown',
+              });
+            },
+          )
+          .catch((error: unknown) =>
+            this.#deps.logger.error(
+              { err: error, command_id: command.command_id },
+              'outcome not recorded',
             ),
           );
         return;

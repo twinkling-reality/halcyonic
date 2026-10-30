@@ -116,6 +116,16 @@ describe('configuration', () => {
     }
   });
 
+  test("the check's Chrome is none unless set, and must be an existing absolute file", () => {
+    assert.equal(loadConfig({}).checkChrome, null);
+    const chrome = join(base, 'Google Chrome');
+    writeFileSync(chrome, '#!/bin/sh\n');
+    assert.equal(loadConfig({ HALCYONIC_CHECK_CHROME: chrome }).checkChrome, chrome);
+    for (const path of ['chrome', join(base, 'missing'), base]) {
+      assert.throws(() => loadConfig({ HALCYONIC_CHECK_CHROME: path }), ConfigError, path);
+    }
+  });
+
   test('undo is off unless a git is set, which must be an existing absolute file', () => {
     assert.equal(loadConfig({}).gitBinary, null);
     const binary = join(base, 'git');

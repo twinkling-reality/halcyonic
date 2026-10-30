@@ -107,3 +107,10 @@ check reports says more: no event, field, word on the headset or document may ca
 The preview's Content-Security-Policy allows `data:` in `connect-src`: the SDK's panels lay out with yoga-layout,
 whose WASM is inlined and fetched as a `data:` URL, which reaches no network and was blocked in every project.
 
+A port of the range is not proof of who answers on it: a confined agent may listen on loopback too (AUDIT
+M15B2-M1). The check opens the page, and a preview is recorded started, only once the server the host spawned
+still runs, every listener on 127.0.0.1 at that port is its own pid (by `lsof`), and `/index.html` answers with the
+built copy's bytes; otherwise the server is stopped and nothing is recorded. Ports are taken one per check or preview,
+a project has one start at a time and none while its check runs, and closing the host stops every server it spawned.
+Clients open `http://127.0.0.1:port`, never `localhost`.
+
