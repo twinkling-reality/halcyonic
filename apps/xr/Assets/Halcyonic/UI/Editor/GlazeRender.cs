@@ -132,7 +132,7 @@ namespace Halcyonic.XR.UI.Editor
                 var glass = GlassSample();
                 SplitHeaderSample();
                 failures.AddRange(Check(folder, "gallery-files.png", camera, texture, root, eyes, new List<(GlazeButton, string)>()));
-                failures.AddRange(GlassLightsFromItsTop(camera, texture, glass));
+                failures.AddRange(GlassIsCalm(camera, texture, glass));
 
                 // The menu's controls, a page of their own: prompts, rows and answers in each state.
                 var fourth = new List<Transform>();
@@ -922,10 +922,11 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
-        /// The glass lights from its top edge as drawn: just under its sheen it is brighter than at its
-        /// middle, below the light's reach, and the sheen brighter still; its middle is the plain glass.
+        /// The glass is calm (STYLE.md, the 2026-10-15 composition reset): no broad gloss and no bright top stripe, so
+        /// just inside its top edge, a little under it and at its middle it is the same plain glass, within 3 of 255.
+        /// Any gloss or stripe drawn again fails here.
         /// </summary>
-        private static IEnumerable<string> GlassLightsFromItsTop(Camera camera, RenderTexture texture, Surface glass)
+        private static IEnumerable<string> GlassIsCalm(Camera camera, RenderTexture texture, Surface glass)
         {
             var render = Render(camera, texture);
             float Brightness(float fromTop)
@@ -942,8 +943,8 @@ namespace Halcyonic.XR.UI.Editor
             UnityEngine.Object.DestroyImmediate(render);
             Debug.Log("Halcyonic: component render: the glass's sheen " + (sheen * 255f).ToString("0", CultureInfo.InvariantCulture) + ", under it "
                 + (lit * 255f).ToString("0", CultureInfo.InvariantCulture) + ", its middle " + (middle * 255f).ToString("0", CultureInfo.InvariantCulture) + " of 255.");
-            if (!(lit > middle + 3f / 255f)) yield return "component render: the glass's top is no brighter than its middle; its light from the top edge is missing.";
-            if (!(sheen > lit + 3f / 255f)) yield return "component render: the glass's sheen is no brighter than the light under it.";
+            if (Mathf.Abs(lit - middle) > 3f / 255f) yield return "component render: the glass's top is lit apart from its middle; reading plates carry no gloss.";
+            if (Mathf.Abs(sheen - middle) > 3f / 255f) yield return "component render: the glass carries a stripe inside its top edge; reading plates carry none.";
         }
 
         /// <summary>

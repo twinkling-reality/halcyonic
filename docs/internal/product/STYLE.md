@@ -416,10 +416,9 @@ stage cache refresh and headset appearance require the validation record's check
 
 - the panel colour at 96 percent opacity, with no blur;
 - a white hairline edge, 12 percent and 0.06 degrees;
-- a light from the top edge, white at 6 percent, fading out by a third of the height; on a page of
-  content it ends within the top padding, so no row stands in it and nothing looks chosen that is
-  not;
-- a sheen just inside the top edge, 20 percent and 0.06 degrees.
+- no light from the top edge and no sheen: reading plates carry no gloss and no bright top stripe
+  (the October 15 composition reset, below). `GlazeRender` holds the glass calm, top and middle
+  alike; should a light return, it ends within a page's top padding, so no row stands in it.
 
 No corner ticks.
 
