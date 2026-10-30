@@ -172,3 +172,31 @@ are not cleared, because on 127.0.0.1 they span every port and clearing them wou
 game's cookies remain visible to later projects, a stated limit. Verified in Chrome on this Mac; the Quest Browser is
 checked when the headset is back.
 
+## Amendment, 2026-10-30: a checked game plays on the Mac (P-A)
+
+A person can play the checked game on the Mac without opening their own browser. `project.open_on_mac` runs the copy
+the running preview serves in a contained browser of the host's, and Halcyonic shows that browser's frames in a viewer
+of its own and sends it only mouse and key input. The browser is a copy of Chrome for Testing the host keeps in its data
+folder, checked by bundle id and binary hash at every start, never the person's Chrome: its permissions, extensions,
+sign-ins and history stay out of reach. It runs headless inside the check's own Seatbelt profile, with the microphone
+and camera denied and fifteen permissions blocked in its own settings before it starts. A headed window was tried
+first and dropped: under the check's closed profile Chrome aborts without LaunchServices and about twenty more system
+services, and opening those would hand a game's page the person's desktop.
+
+A game is played only when the latest check passed, saw it work with a mouse and keyboard, and found every agent run
+confined, and only while the preview serves that check. The play stops with its preview, on a newer check, when its
+viewer closes or none comes within 60 s, and with the host; a play a crash left is stopped at the next start.
+
+The viewer is a server of its own per play on 127.0.0.1, at a port of 47940 to 47949, never a route of the control
+plane: the control plane refuses every browser origin, and an exception for one page would weaken that rule for all of
+it. The viewer holds no access token and can reach only its play's frames and input. The host opens its link, which
+carries a one-time code that becomes a cookie for that port, in the Mac's default browser; that browser runs only
+Halcyonic's viewer page, never the game. Because cookies on 127.0.0.1 span every port, the viewer also requires its own
+exact origin on its WebSocket and refuses requests another page started.
+
+The command is `low_consequence`, like `project.preview.start`. It changes no file and no runtime's state, and it is
+undone by closing the viewer. What it runs is the copy the check already ran, in the same containment, reaching
+nothing but the preview's port; a person could already open that preview in a browser of their own with less
+containment. The `review_required` commands (`project.restore`, an approval, an interrupt) change files or a running
+agent's work in a way that closing a window does not undo.
+

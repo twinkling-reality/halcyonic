@@ -345,7 +345,7 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 18);
+    assert.equal(policies.size, 19);
     // A new project from the starter beside the original, which it only reads; it starts no work (M1.8c-1).
     assert.equal(policies.get('project.make_vr_version'), 'low_consequence');
     assert.equal(policies.get('execution.answer_question'), 'low_consequence');
@@ -353,6 +353,7 @@ describe('realtime protocol', () => {
     assert.equal(policies.get('project.check'), 'low_consequence');
     assert.equal(policies.get('project.preview.start'), 'low_consequence');
     assert.equal(policies.get('project.preview.stop'), 'low_consequence');
+    assert.equal(policies.get('project.open_on_mac'), 'low_consequence');
     assert.equal(policies.get('project.set_location'), 'low_consequence');
     assert.equal(policies.get('project.restore'), 'review_required');
     assert.equal(policies.get('execution.respond_to_approval'), 'review_required');

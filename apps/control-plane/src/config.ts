@@ -95,6 +95,12 @@ export interface ControlPlaneConfig {
    * check then type checks and builds but cannot pass. Never looked up on PATH.
    */
   readonly checkChrome: string | null;
+  /**
+   * The Chrome for Testing a checked game plays in on the Mac (P-A), and its binary's SHA-256, or
+   * null: games are then not played on the Mac. Halcyonic copies it into its data folder and runs
+   * only the copy, after checking the hash, never this app and never the person's own Chrome.
+   */
+  readonly playBrowser: { readonly app: string; readonly sha256: string } | null;
   /** Null, and voice off, unless the owner set all three HALCYONIC_WHISPER_ variables. */
   readonly speech: SpeechConfig | null;
   /** Null, and the companion off, unless the owner named its model in HALCYONIC_COMPANION_MODEL. */
@@ -172,6 +178,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     gitBinary: parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
     checkChrome: parseExecutable('HALCYONIC_CHECK_CHROME', env.HALCYONIC_CHECK_CHROME),
+    playBrowser: parsePlayBrowser(env),
     speech: parseSpeech(env),
     companion: parseCompanion(env),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
@@ -210,6 +217,32 @@ function parseSwitch(name: string, raw: string | undefined): boolean {
   if (raw === undefined || raw === '' || raw === '0') return false;
   if (raw === '1') return true;
   throw new ConfigError(`${name} must be 1 or 0, got "${raw}".`);
+}
+
+function parsePlayBrowser(
+  env: NodeJS.ProcessEnv,
+): { readonly app: string; readonly sha256: string } | null {
+  const app = env.HALCYONIC_PLAY_BROWSER ?? '';
+  const sha256 = env.HALCYONIC_PLAY_BROWSER_SHA256 ?? '';
+  if (app === '' && sha256 === '') return null;
+  if (app === '' || sha256 === '')
+    throw new ConfigError(
+      'Set both HALCYONIC_PLAY_BROWSER and HALCYONIC_PLAY_BROWSER_SHA256, or neither.',
+    );
+  if (!isAbsolute(app) || !app.endsWith('.app'))
+    throw new ConfigError(
+      `HALCYONIC_PLAY_BROWSER must be the absolute path of an app, got "${app}".`,
+    );
+  let isDirectory = false;
+  try {
+    isDirectory = statSync(app).isDirectory();
+  } catch {
+    throw new ConfigError(`HALCYONIC_PLAY_BROWSER ${app} does not exist.`);
+  }
+  if (!isDirectory) throw new ConfigError(`HALCYONIC_PLAY_BROWSER ${app} is not an app.`);
+  if (!/^[0-9a-f]{64}$/.test(sha256))
+    throw new ConfigError('HALCYONIC_PLAY_BROWSER_SHA256 must be 64 lowercase hexadecimal digits.');
+  return { app, sha256 };
 }
 
 function parseExecutable(name: string, raw: string | undefined): string | null {

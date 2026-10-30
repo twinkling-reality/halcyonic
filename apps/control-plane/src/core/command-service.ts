@@ -375,6 +375,15 @@ export class CommandService {
           message: 'Checks are not set up on this computer: no starter is installed.',
         },
       };
+    if (command.command_type === 'project.open_on_mac' && !this.#deps.previews?.canPlay)
+      return {
+        admitted: false,
+        scope: { project_id: null, workstream_id: null, execution_id: null },
+        rejection: {
+          code: 'capability_unsupported',
+          message: 'Playing on this Mac is not set up: no browser for it.',
+        },
+      };
     const admission = admitCommand(command, this.#deps.projection, this.#deps.registry);
     if (!admission.admitted) return admission;
     const refuse = (code: RejectionCode, message: string): Admission => ({
@@ -649,7 +658,8 @@ export class CommandService {
       }
       case 'project.check':
       case 'project.preview.start':
-      case 'project.preview.stop': {
+      case 'project.preview.stop':
+      case 'project.open_on_mac': {
         const previews = this.#deps.previews;
         if (!previews) throw new Error(`admitted ${command.command_type} with checks off`);
         const work =
@@ -666,7 +676,9 @@ export class CommandService {
                   check_id,
                   port,
                 }))
-              : previews.stop(command).then(() => null);
+              : command.command_type === 'project.preview.stop'
+                ? previews.stop(command).then(() => null)
+                : previews.openOnMac(command).then(() => null);
         // The host's own work, bounded by the check's own limits, not the runtime timeout.
         void work
           .then(
@@ -681,7 +693,9 @@ export class CommandService {
                 message:
                   command.command_type === 'project.check'
                     ? 'The check stopped on an error before it could record what it found.'
-                    : 'The preview could not be started or stopped.',
+                    : command.command_type === 'project.open_on_mac'
+                      ? 'The game could not be played on the Mac.'
+                      : 'The preview could not be started or stopped.',
                 effect: 'unknown',
               });
             },

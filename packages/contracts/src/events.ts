@@ -359,6 +359,27 @@ export const ProjectPreviewStopped = projectEvent(
   Type.Object({ check_id: CheckId, reason: PreviewStopReason }, strict),
 );
 
+/**
+ * The checked game started playing on the Mac (ADR 0037): its page runs in the host's contained
+ * headless browser, shown in Halcyonic's viewer. Started means the browser runs; not that anyone played.
+ */
+export const ProjectMacPlayStarted = projectEvent(
+  'project.mac_play.started',
+  Type.Object({ check_id: CheckId }, strict),
+);
+
+/** The game stopped playing on the Mac, and why. */
+export const ProjectMacPlayStopped = projectEvent(
+  'project.mac_play.stopped',
+  Type.Object(
+    {
+      check_id: CheckId,
+      reason: Type.Enum(['closed', 'preview_stopped', 'newer_check', 'host_stopped', 'failed']),
+    },
+    strict,
+  ),
+);
+
 export const WorkstreamCreated = workstreamEvent(
   'workstream.created',
   Type.Object({ title: Text(200), objective: Nullable(Text(4000)) }, strict),
@@ -706,6 +727,8 @@ export const EVENT_VARIANTS = [
   ProjectCheckRecorded,
   ProjectPreviewStarted,
   ProjectPreviewStopped,
+  ProjectMacPlayStarted,
+  ProjectMacPlayStopped,
   WorkstreamCreated,
   ExecutionCreated,
   ExecutionFilesObserved,

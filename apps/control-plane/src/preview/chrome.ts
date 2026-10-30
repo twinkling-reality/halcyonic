@@ -175,15 +175,20 @@ export async function launchChrome(options: {
   readonly folder: string;
   readonly port: number;
   readonly timeoutMs?: number;
+  /** The profile and switches to run with instead of the check's (Play on my laptop's, P-A). */
+  readonly profileText?: string;
+  readonly args?: readonly string[];
 }): Promise<ChromeRun> {
   const { chrome, home, folder, port } = options;
   for (const sub of ['home', 'tmp'])
     await mkdir(join(folder, sub), { recursive: true, mode: 0o700 });
   const profile = join(folder, 'chrome.sb');
-  await writeFile(profile, chromeProfile({ home, folder, port }), { mode: 0o600 });
+  await writeFile(profile, options.profileText ?? chromeProfile({ home, folder, port }), {
+    mode: 0o600,
+  });
   const child: ChildProcess = spawn(
     SANDBOX_EXEC,
-    ['-f', profile, chrome, ...chromeArguments(folder, port)],
+    ['-f', profile, chrome, ...(options.args ?? chromeArguments(folder, port))],
     {
       env: {
         HOME: join(folder, 'home'),

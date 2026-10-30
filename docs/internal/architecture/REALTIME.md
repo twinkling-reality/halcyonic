@@ -137,6 +137,16 @@ client                                   server
   while its check runs; `project.preview.stop` stops it. Both are refused
   with `capability_unsupported` when checks are off and `invalid_state` otherwise as DOMAIN_MODEL.md
   says ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)).
+- **Playing on the Mac.** `project.open_on_mac` `{project_id}` plays the copy the running preview
+  serves in the host's contained browser and completes once `project.mac_play.started` is journaled.
+  The host then opens the play's viewer in the Mac's default browser: a server of its own on
+  127.0.0.1, at a port of 47940 to 47949, apart from this protocol, whose link carries a one-time
+  code and never the access token. The viewer streams the frames over its own WebSocket and takes
+  only mouse and key input.
+  It is refused with `capability_unsupported` when no browser for it is set up, and `invalid_state`
+  otherwise as DOMAIN_MODEL.md says. The play stops, and `project.mac_play.stopped` says why, when
+  its viewer closes, when no viewer comes within 60 s, with the preview, on a newer check and with
+  the host (P-A).
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
   as `GET /api/runtimes/:runtime_id/models` gave it. A start without one on a runtime whose
   `model_choice` is `listed` is rejected with `model_required`, so a model the person did not

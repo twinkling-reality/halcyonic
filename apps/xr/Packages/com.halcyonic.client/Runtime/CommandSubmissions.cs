@@ -255,6 +255,7 @@ namespace Halcyonic.Client
             ProjectCheckCommand _ => CommandType.ProjectCheck,
             ProjectPreviewStartCommand _ => CommandType.ProjectPreviewStart,
             ProjectPreviewStopCommand _ => CommandType.ProjectPreviewStop,
+            ProjectOpenOnMacCommand _ => CommandType.ProjectOpenOnMac,
             ProjectLinkCatalogCommand _ => CommandType.ProjectLinkCatalog,
             ProjectUnlinkCatalogCommand _ => CommandType.ProjectUnlinkCatalog,
             WorkstreamCreateCommand _ => CommandType.WorkstreamCreate,
