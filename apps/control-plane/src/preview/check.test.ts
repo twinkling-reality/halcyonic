@@ -91,6 +91,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       project,
       starter: STARTER,
       hostSource: host,
+      template,
       cache: join(root, 'cache'),
       profiles: existsSync(join(STARTER, 'input-profiles'))
         ? join(STARTER, 'input-profiles')
@@ -107,6 +108,19 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     );
   };
 
+  /** A box the layer listens to; a click makes it bigger and blue, which the host can see. */
+  const BOX_IMPORTS =
+    "import { BoxGeometry, Mesh, MeshStandardMaterial } from 'three';\nimport { onSelect } from './play-input.js';";
+  const BOX =
+    'const box = new Mesh(new BoxGeometry(0.9, 0.9, 0.9), new MeshStandardMaterial({ color: 0xff8800 })); box.position.set(-2, 1.3, -3.9); onSelect(world.createTransformEntity(box), () => { box.scale.setScalar(2.5); box.material.color.set(0x2266ff); });';
+  const config = (project: string, offer: string) => {
+    const file = join(project, 'iwsdk.config.json');
+    writeFileSync(
+      file,
+      readFileSync(file, 'utf8').replace('"offer": "always"', `"offer": "${offer}"`),
+    );
+  };
+
   test('the empty starter builds and runs cleanly but draws nothing of a game, so it does not pass', {
     timeout: 180_000,
   }, async (t) => {
@@ -116,6 +130,12 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.page?.exception_count, 0);
     assert.equal(result.page?.drawn, false);
     assert.equal(result.passed, false);
+    // Nothing to press, but the starter's World offers VR as it loads (M1.8b).
+    assert.equal(result.laptop?.layer, 'starter');
+    assert.equal(result.laptop?.mouse, 'no_target');
+    assert.equal(result.vr?.offered, 'offered');
+    assert.equal(result.ready, false);
+    assert.deepEqual(result.notes, { scanned: 'full', items: [] });
   });
 
   test('a box in front of the camera is drawn, and the check passes', {
@@ -171,5 +191,71 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.page, null);
     assert.match(result.unknown ?? '', /more than the check reads/);
     assert.equal(result.passed, false);
+  });
+
+  test('a box the game listens to: the mouse reaches it, the host sees the screen change, VR is offered, ready (M1.8b)', {
+    timeout: 240_000,
+  }, async (t) => {
+    const result = await check(t, (project) => addToIndex(project, BOX_IMPORTS, BOX));
+    assert.equal(result.passed, true, JSON.stringify(result.page));
+    assert.deepEqual(result.laptop, {
+      layer: 'starter',
+      targets: 1,
+      mouse: 'reached',
+      key: 'reached',
+      screen_changed: true,
+      ready: true,
+    });
+    assert.deepEqual(result.vr, {
+      offered: 'offered',
+      how: 'offer_session',
+      exceptions: 0,
+      ready: true,
+    });
+    assert.equal(result.ready, true);
+  });
+
+  test('a game that changed the input layer is not ready on a laptop, whatever it reports (M1.8b)', {
+    timeout: 240_000,
+  }, async (t) => {
+    const result = await check(t, (project) => {
+      addToIndex(project, BOX_IMPORTS, BOX);
+      writeFileSync(join(project, 'src', 'play-input-core.ts'), '\n// changed\n', { flag: 'a' });
+    });
+    assert.equal(result.laptop?.layer, 'changed');
+    assert.equal(result.laptop?.ready, false);
+    assert.equal(result.ready, false);
+  });
+
+  test('a scene that moves on its own leaves the screen change unknown, never ready (M1.8b)', {
+    timeout: 240_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        BOX_IMPORTS,
+        `${BOX} const spinner = new Mesh(new BoxGeometry(1.5, 1.5, 1.5), new MeshStandardMaterial({ color: 0x33cc66 })); spinner.position.set(1.5, 1.3, -4); world.createTransformEntity(spinner); setInterval(() => spinner.rotateY(0.2).rotateX(0.13), 16);`,
+      ),
+    );
+    assert.equal(result.laptop?.mouse, 'reached');
+    assert.equal(result.laptop?.screen_changed, null);
+    assert.equal(result.laptop?.ready, false);
+    assert.equal(result.ready, false);
+  });
+
+  test('a page that hunts for the binding finds nothing to call, here or in a frame of its own (M1.8b)', {
+    timeout: 240_000,
+  }, async (t) => {
+    const result = await check(t, (project) => {
+      // Its World does not offer VR, so only a found binding could say it did.
+      config(project, 'none');
+      addToIndex(
+        project,
+        '',
+        "const frame = document.createElement('iframe'); document.body.append(frame); const mine = globalThis as unknown as Record<string, unknown>; const theirs = frame.contentWindow as unknown as Record<string, unknown>; const names = (where: Record<string, unknown>) => new Set(Object.getOwnPropertyNames(where)); const a = names(mine); const b = names(theirs); const hunt = (where: Record<string, unknown>, own: Set<string>, other: Set<string>) => { for (const name of own) { if (!/^h[0-9a-f]{24}$/.test(name) && other.has(name)) continue; const value = where[name]; if (typeof value !== 'function' || name.startsWith('webkit')) continue; try { (value as (payload: string) => void)('offer_session'); } catch {} } }; hunt(mine, a, b); hunt(theirs, b, a);",
+      );
+    });
+    assert.equal(result.vr?.offered, 'not_offered', JSON.stringify(result.vr));
+    assert.equal(result.ready, false);
   });
 });

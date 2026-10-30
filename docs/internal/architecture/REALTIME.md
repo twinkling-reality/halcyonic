@@ -128,8 +128,9 @@ client                                   server
   ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)).
 - **Checking a new app.** `project.check` `{project_id}` asks the host to check a project made from a
   starter: type check, build, and the built copy opened for 10 s in its sandboxed browser. It
-  completes with `{kind: 'project_checked', check_id, passed}` once `project.check.recorded` is
-  journaled, whatever the check found; `passed` never means the game works. `project.preview.start`
+  completes with `{kind: 'project_checked', check_id, passed, ready}` once `project.check.recorded` is
+  journaled, whatever the check found; `passed` never means the game works, and `ready` (absent on
+  checks from before M1.8b) adds the laptop and VR-entry steps, never a headset. `project.preview.start`
   `{project_id}` serves the built copy of the latest passed check on a loopback port and completes
   with `{kind: 'preview_started', check_id, port}` only once the server itself answers with that copy;
   clients open `http://127.0.0.1:port`, never `localhost`. One start per project at a time, and none

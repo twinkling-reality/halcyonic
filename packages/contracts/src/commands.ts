@@ -327,7 +327,13 @@ export const CommandResult = Type.Union([
   Type.Object({ kind: Type.Literal('execution_created'), execution_id: ExecutionId }, strict),
   Type.Object({ kind: Type.Literal('project_restored'), checkpoint_id: CheckpointId }, strict),
   Type.Object(
-    { kind: Type.Literal('project_checked'), check_id: CheckId, passed: Type.Boolean() },
+    {
+      kind: Type.Literal('project_checked'),
+      check_id: CheckId,
+      passed: Type.Boolean(),
+      /** Absent on checks from before M1.8b, which reads as not checked. */
+      ready: Type.Optional(Type.Boolean()),
+    },
     strict,
   ),
   Type.Object(

@@ -4,9 +4,12 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { get } from 'node:http';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import type { CheckLaptop, CheckNotes, CheckVr } from '@halcyonic/contracts';
 import { launchChrome } from './chrome.ts';
+import { laptopStep, layerState, pipeDriver, vrStep } from './laptop-probe.ts';
 import { decodePng, type Pixels } from './png.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
+import { scanSource } from './scan.ts';
 
 /** The host's files for a starter, copied beside its installed dependencies so the config resolves them. */
 export const HOST_FILES = [
@@ -43,6 +46,8 @@ export interface CheckOptions {
   readonly starter: string;
   /** The tracked host files to copy there (`starters/<id>/host`). */
   readonly hostSource: string;
+  /** The tracked template (`starters/<id>/template`), whose input layer the project's is compared with. */
+  readonly template: string;
   /** The host's cache for this check, outside the project; emptied first. */
   readonly cache: string;
   /** The host's controller and hand models, or null. */
@@ -84,6 +89,14 @@ export interface CheckResult {
   readonly unknown: string | null;
   /** Type check 0, build 0, no uncaught exception, something drawn. */
   readonly passed: boolean;
+  /** The laptop step (M1.8b), or null when the page was not opened. */
+  readonly laptop: CheckLaptop | null;
+  /** The VR-entry step on a stand-in WebXR, or null when it did not run. */
+  readonly vr: CheckVr | null;
+  /** The scan of the project's source; notes only. */
+  readonly notes: CheckNotes;
+  /** Passed, and both steps ready; never that the game plays well, or plays on a headset. */
+  readonly ready: boolean;
 }
 
 /** Whether a check passed: each of its findings, none assumed. */
@@ -143,6 +156,15 @@ export function edgeCount(png: Buffer): number | null {
 /** Type checks, builds, and opens the built copy of a project from a starter, each inside its profile. */
 export async function runCheck(options: CheckOptions): Promise<CheckResult> {
   const { cache, starter, project, port } = options;
+  // Both read the project in the host, before anything of it runs.
+  const notes = await scanSource(project);
+  const layer = await layerState(project, options.template);
+  const steps = {
+    notes,
+    laptop: null,
+    vr: null,
+    ready: false,
+  } as const satisfies Omit<CheckResult, 'tsc' | 'build' | 'page' | 'unknown' | 'passed'>;
   await rm(cache, { recursive: true, force: true });
   for (const sub of ['tmp', 'vite', 'dist', 'chrome'])
     await mkdir(join(cache, sub), { recursive: true, mode: 0o700 });
@@ -194,7 +216,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     join(cache, 'build.log'),
     180_000,
   );
-  if (build.exit !== 0) return { tsc, build, page: null, unknown: null, passed: false };
+  if (build.exit !== 0) return { tsc, build, page: null, unknown: null, passed: false, ...steps };
   if (options.chrome === null) {
     return {
       tsc,
@@ -202,6 +224,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
       page: null,
       unknown: 'Chrome is not set, so the page was not opened.',
       passed: false,
+      ...steps,
     };
   }
   const server = spawn(
@@ -220,13 +243,48 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
   );
   try {
     if (!(await servesCopy(server, port, join(cache, 'dist'), 30_000))) {
-      return { tsc, build, page: null, unknown: 'The built copy was not served.', passed: false };
+      return {
+        tsc,
+        build,
+        page: null,
+        unknown: 'The built copy was not served.',
+        passed: false,
+        ...steps,
+      };
     }
-    const page = await openPage(options.chrome, options.home, join(cache, 'chrome'), port, cache);
-    if (page === null)
-      return { tsc, build, page: null, unknown: 'Chrome did not open the page.', passed: false };
-    if (typeof page === 'string') return { tsc, build, page: null, unknown: page, passed: false };
-    return { tsc, build, page, unknown: null, passed: passes(tsc, build, page) };
+    const opened = await openPage(
+      options.chrome,
+      options.home,
+      join(cache, 'chrome'),
+      port,
+      cache,
+      layer,
+    );
+    if (opened === null) {
+      return {
+        tsc,
+        build,
+        page: null,
+        unknown: 'Chrome did not open the page.',
+        passed: false,
+        ...steps,
+      };
+    }
+    if (typeof opened === 'string')
+      return { tsc, build, page: null, unknown: opened, passed: false, ...steps };
+    const { page, laptop, vr } = opened;
+    const passed = passes(tsc, build, page);
+    return {
+      tsc,
+      build,
+      page,
+      unknown: null,
+      passed,
+      notes,
+      laptop,
+      vr,
+      ready: passed && laptop.ready && vr?.ready === true,
+    };
   } finally {
     await stopProcess(server);
   }
@@ -342,8 +400,9 @@ async function stopProcess(child: ChildProcess): Promise<void> {
 }
 
 /**
- * Opens the page for 10 s in the sandboxed Chrome: exceptions, console errors, two pictures, edges.
- * Null when it did not open; a reason when the run was ended on purpose.
+ * Opens the page for 10 s in the sandboxed Chrome: exceptions, console errors, two pictures, edges;
+ * then the laptop step in the same load and the VR-entry step in a second one. Null when it did not
+ * open; a reason when the run was ended on purpose.
  */
 async function openPage(
   chrome: string,
@@ -351,7 +410,8 @@ async function openPage(
   folder: string,
   port: number,
   cache: string,
-): Promise<PageFindings | string | null> {
+  layer: CheckLaptop['layer'],
+): Promise<{ page: PageFindings; laptop: CheckLaptop; vr: CheckVr | null } | string | null> {
   let run: Awaited<ReturnType<typeof launchChrome>> | null = null;
   try {
     run = await launchChrome({ chrome, home, folder, port });
@@ -379,7 +439,8 @@ async function openPage(
     });
     for (const domain of ['Runtime.enable', 'Page.enable'])
       await devtools.send(domain, {}, session);
-    await devtools.send('Page.navigate', { url: `http://127.0.0.1:${port}/` }, session);
+    // ?check turns on the input layer's check hook; a person's preview never has it.
+    await devtools.send('Page.navigate', { url: `http://127.0.0.1:${port}/?check` }, session);
     const picture = async (
       atMs: number,
     ): Promise<{ edges: number | null; saved: PagePicture | null }> => {
@@ -410,7 +471,8 @@ async function openPage(
     const late = await picture(PAGE_MS);
     const at3s = early.edges;
     const at10s = late.edges;
-    return {
+    // The page's findings are what it did in its first 10 s, before the check acts on it.
+    const page = {
       exceptions: summarizeExceptions(exceptions),
       exception_count: exceptionCount,
       console_errors: consoleErrors,
@@ -419,6 +481,21 @@ async function openPage(
       drawn: drawnFrom(at3s, at10s),
       pictures: [early.saved, late.saved].filter((saved): saved is PagePicture => saved !== null),
     } satisfies PageFindings;
+    const laptop = await laptopStep(pipeDriver(devtools, session), layer).catch(
+      (): CheckLaptop => ({
+        layer,
+        targets: 0,
+        mouse: 'unknown',
+        key: 'unknown',
+        screen_changed: null,
+        ready: false,
+      }),
+    );
+    const vr = await vrStep(devtools, session, `http://127.0.0.1:${port}/`).catch(
+      (): CheckVr => ({ offered: 'unknown', how: null, exceptions: 0, ready: false }),
+    );
+    if (devtools.overflowed) return 'Chrome sent more than the check reads.';
+    return { page, laptop, vr };
   } catch {
     return run?.devtools.overflowed ? 'Chrome sent more than the check reads.' : null;
   } finally {

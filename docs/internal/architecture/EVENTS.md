@@ -68,7 +68,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `project.checkpoint.failed` | project | control plane | No checkpoint could be kept (`location_missing`, `nested_repository`, `too_large`, `unreadable`, `holds_host_data`, `store_failed`); nothing from that point can be put back |
 | `project.restored` | project | control plane | The host put a checkpoint back and read every file again: all equal. Carries the checkpoint taken just before, the files compared, and at most 100 paths each changed back, removed and returned, relative to the folder |
 | `project.restore_incomplete` | project | control plane | A restore did not end equal to the checkpoint: whether anything was written, and what still differs |
-| `project.check.recorded` | project | control plane | The host checked a project made from a starter: the type check's and build's exits, and what the built copy did for 10 s in the sandboxed browser (uncaught exceptions, console errors, edges in two pictures, `drawn`), `passed`, and `reads_confined`. `drawn` and `passed` mean something is drawn and nothing threw, never that the game works; the pictures stay on the computer, by SHA-256 ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)) |
+| `project.check.recorded` | project | control plane | The host checked a project made from a starter: the type check's and build's exits, and what the built copy did for 10 s in the sandboxed browser (uncaught exceptions, console errors, edges in two pictures, `drawn`), `passed`, `reads_confined`, and since M1.8b `laptop` (the layer's report of a real mouse press and keys, the layer unchanged, the screen change observed in the host), `vr` (offered `immersive-vr` to a stand-in WebXR), `notes` (the source scan) and `ready`, each absent on earlier checks. `drawn` and `passed` mean something is drawn and nothing threw, never that the game works; `ready` never that it plays well or on a headset; the pictures stay on the computer, by SHA-256 ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)) |
 | `project.preview.started` | project | control plane | The host serves the built copy of the project's latest passed check on 127.0.0.1, at a port of 47930 to 47939; never the live folder. Recorded only once the server itself listens on that port (its own pid, by lsof) and answers `/index.html` with the copy's bytes; a server that exits, or a port another process answers, records nothing and fails the command |
 | `project.preview.stopped` | project | control plane | The preview stopped: `asked`, `new_check`, `server_exited` or `host_restarted` |
 | `workstream.created` | workstream | control plane | A workstream exists |
@@ -199,7 +199,10 @@ The schemas are TypeBox definitions in `packages/contracts`. TypeBox schemas are
 the TypeScript types are inferred from them and `pnpm contracts:emit` serializes them, with shared
 definitions referenced by name, into `packages/contracts/schema/halcyonic-contracts.schema.json`
 for other languages. The same command generates the C# bindings for the Unity client
-([XR_CLIENT.md](XR_CLIENT.md)). A test fails if either is stale, or if the document validates
+([XR_CLIENT.md](XR_CLIENT.md)). An optional property (`Type.Optional`), of any type, becomes a
+nullable C# member that reads null when the property is absent and is left out when null, so a
+field added to a stored event this way keeps earlier events valid without a migration; a constant
+cannot be optional. A test fails if either is stale, or if the document validates
 anything differently from the TypeScript validators. See [ADR 0005](../decisions/0005-typebox-contracts-as-single-source.md).
 
 A few rules cannot be written in JSON Schema and are checked by the TypeScript parsers alone:

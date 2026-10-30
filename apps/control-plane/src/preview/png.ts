@@ -88,3 +88,32 @@ function predict(kind: number | undefined, left: number, up: number, corner: num
       throw new Error('an unknown PNG filter');
   }
 }
+
+/** A pixel has changed between two pictures when any of its channels differs by more than this. */
+export const CHANNEL_CHANGE = 40;
+
+/**
+ * The share of pixels that changed from one picture to another, in the host; null when either
+ * cannot be read or they are not the same size.
+ */
+export function changedShare(before: Buffer, after: Buffer): number | null {
+  let a: Pixels;
+  let b: Pixels;
+  try {
+    a = decodePng(before);
+    b = decodePng(after);
+  } catch {
+    return null;
+  }
+  if (a.width !== b.width || a.height !== b.height) return null;
+  let changed = 0;
+  for (let i = 0; i < a.rgba.length; i += 4) {
+    for (let c = 0; c < 3; c += 1) {
+      if (Math.abs((a.rgba[i + c] ?? 0) - (b.rgba[i + c] ?? 0)) > CHANNEL_CHANGE) {
+        changed += 1;
+        break;
+      }
+    }
+  }
+  return changed / (a.width * a.height);
+}

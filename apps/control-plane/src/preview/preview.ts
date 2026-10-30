@@ -85,7 +85,7 @@ export class HostPreviews {
   /** Checks the project and records what was found; resolves with the check's id and outcome. */
   async check(
     command: CommandOf<'project.check'>,
-  ): Promise<{ check_id: CheckId; passed: boolean }> {
+  ): Promise<{ check_id: CheckId; passed: boolean; ready: boolean }> {
     const projectId = command.payload.project_id;
     const project = this.#deps.projection.project(projectId);
     if (project?.starter == null || project.location === null)
@@ -110,6 +110,7 @@ export class HostPreviews {
         project: project.location.path,
         starter: installed,
         hostSource: join(this.#deps.starters.trackedDir, project.starter, 'host'),
+        template: join(this.#deps.starters.trackedDir, project.starter, 'template'),
         cache: this.#cache(projectId, checkId),
         profiles: existsSync(profiles) ? profiles : null,
         port,
@@ -124,7 +125,7 @@ export class HostPreviews {
           cause,
         ),
       );
-      return { check_id: checkId, passed: findings.passed };
+      return { check_id: checkId, passed: findings.passed, ready: findings.ready === true };
     } finally {
       if (port !== null) this.#ports.delete(port);
       this.#checking.delete(projectId);
@@ -353,6 +354,13 @@ export class HostPreviews {
       unknown: result.unknown,
       passed: result.passed,
       reads_confined: this.#readsConfined(projectId),
+      laptop: result.laptop === null ? null : { ...result.laptop },
+      vr: result.vr === null ? null : { ...result.vr },
+      notes: {
+        scanned: result.notes.scanned,
+        items: result.notes.items.map((item) => ({ ...item })),
+      },
+      ready: result.ready,
     };
   }
 

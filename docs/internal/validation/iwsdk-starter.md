@@ -120,6 +120,36 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   check opens the build, which is what the headset is served.
 - **Not tried:** the headset, a click or trigger reaching the game.
 
+## The check presses the game and offers VR to a stand-in (M1.8b)
+
+- **Question:** can the host tell that a new game takes a mouse and keyboard on a laptop, and that it offers VR,
+  without trusting what the game's own page says?
+- **Date:** 2026-10-30.
+- **Laptop step,** in the same load after the 10 s watch, opened with `?check` so the starter's layer sets its hook:
+  the host reads the hook's targets and counts (bounded, timed out, shape-checked: `reported`), then for up to three
+  targets takes a control pair of pictures 1.1 s apart with no input, presses with a real mouse over the DevTools
+  protocol (move, press, release), and takes a picture 1.1 s after the one before the press. Space and E follow.
+- **Thresholds and why:** a pixel has changed when any channel moved by more than 40 of 255, the same step the edge
+  count uses, so compression and anti-aliasing noise do not count. The screen changed after a press when more than
+  0.5% of its pixels did (5,120 of Chrome's 1,280 by 800, about a 72-pixel square, the size of a small object reacting
+  near the camera), and only when the control pair changed at most 0.1% (about 1,000 pixels: a still scene's noise,
+  never an object moving). Above 0.1% in the control the scene moves on its own, and the change is unknown, never a
+  yes. These are design choices checked on the cases below, not measured on agent-built games yet.
+- **Laptop ready:** the layer reports the mouse reached, the project's `src/play-input.ts` and
+  `src/play-input-core.ts` are byte for byte the template's, and the screen is observed changed. The first two are
+  what the page says; only the last is the host's own, and only it may be worded as checked by the computer.
+- **VR-entry step:** a second load with a stand-in `navigator.xr` installed before the page's scripts, reporting
+  through a binding with a random name that it takes into its closure and deletes from the global object. The starter's
+  World offers `immersive-vr` as it loads (`xr.offer: 'always'`), so offered means the game kept that; it is offered
+  to a stand-in on the Mac, never shown on a headset.
+- **Tried on this Mac** (opt-in tests in `check.test.ts`): the empty starter has nothing to press and is offered VR;
+  a 0.9 m box the game listens to, which grows and turns blue on a click, is reached, observed changed and offered, so
+  ready; the same game with its layer changed is not laptop ready; with a cube spinning beside it the change is
+  unknown; a page that calls every binding-shaped function and every global that differs from a fresh frame's, in its
+  own window and in a frame, with its World not offering VR, is not offered (with the delete removed, the same page
+  is offered, so the test can see a leak).
+- **Not tried:** agent-built games against these thresholds; a key a game reads other than Space and E; the headset.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

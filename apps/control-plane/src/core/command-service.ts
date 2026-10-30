@@ -628,10 +628,11 @@ export class CommandService {
         if (!previews) throw new Error(`admitted ${command.command_type} with checks off`);
         const work =
           command.command_type === 'project.check'
-            ? previews.check(command).then(({ check_id, passed }) => ({
+            ? previews.check(command).then(({ check_id, passed, ready }) => ({
                 kind: 'project_checked' as const,
                 check_id,
                 passed,
+                ready,
               }))
             : command.command_type === 'project.preview.start'
               ? previews.start(command).then(({ check_id, port }) => ({

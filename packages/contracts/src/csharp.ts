@@ -314,6 +314,11 @@ class CSharpGenerator {
     }
   }
 
+  /** The rendered members of one object schema, for the generator's own tests. */
+  memberLines(owner: string, schema: Schema): string[] {
+    return this.#members(owner, owner, schema).flatMap(renderMember);
+  }
+
   #members(owner: string, stem: string, schema: Schema): Member[] {
     const properties = (schema.properties ?? {}) as Readonly<Record<string, Schema>>;
     const required = new Set((schema.required ?? []) as readonly string[]);
@@ -324,11 +329,12 @@ class CSharpGenerator {
         throw new Error(`${owner}.${wire}: a member cannot share its type's name`);
       const constant = property.const;
       const type = this.#resolve(property, `${stem}${name}`);
-      if (optional && (constant !== undefined || !['string', 'bool'].includes(type.name))) {
-        // Narrow legacy compatibility: nullable string references and boolean declarations only.
-        throw new Error(
-          `${owner}.${wire}: only a plain string or boolean may be optional; use Nullable`,
-        );
+      // An optional member, of any type, is declared nullable: absent on the wire reads as null, and
+      // null is left out when written. Fields added to a stored event this way keep earlier events
+      // valid without a migration (a check's M1.8b findings since jb13). A constant cannot be
+      // optional: its absence would read as a different value from the one the variant fixes.
+      if (optional && constant !== undefined) {
+        throw new Error(`${owner}.${wire}: a constant cannot be optional`);
       }
       return {
         wire,
@@ -532,4 +538,9 @@ function header(): string[] {
 /** C# bindings for the Unity client, generated from the contracts (ADR 0005). */
 export function renderCSharpContracts(): string {
   return new CSharpGenerator().render();
+}
+
+/** The C# members of one object schema of the caller's, as the bindings would declare them; for tests. */
+export function renderObjectMembers(owner: string, schema: object): string[] {
+  return new CSharpGenerator().memberLines(owner, schema as Schema);
 }
