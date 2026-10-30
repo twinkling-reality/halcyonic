@@ -31,6 +31,7 @@ namespace Halcyonic.XR.UI
 
         private MeshRenderer glassRenderer = null!;
         private MaterialPropertyBlock block = null!;
+        private float opacity = 1f;
 
         /// <summary>The panel's outer size and corner radius, in its parent's units: the rim is inside them.</summary>
         public Vector2 Size { get; private set; }
@@ -111,9 +112,17 @@ namespace Halcyonic.XR.UI
                 block.SetVector(ToneId, Vector4.zero);
                 block.SetVector(ToneMidId, Vector4.zero);
             }
-            block.SetVector(LightId, new Vector4(Bloom, glow ? 1f : 0f, 1f, 0f));
+            block.SetVector(LightId, new Vector4(Bloom, glow ? 1f : 0f, opacity, 0f));
             glassRenderer.SetPropertyBlock(block);
             gameObject.SetActive(true);
+        }
+
+        /// <summary>Draws the whole panel at <paramref name="to"/> of its opacity: for the renders' witness that a faded face is caught.</summary>
+        public void Fade(float to)
+        {
+            opacity = Mathf.Clamp01(to);
+            block.SetVector(LightId, new Vector4(Bloom, Glow ? 1f : 0f, opacity, 0f));
+            glassRenderer.SetPropertyBlock(block);
         }
 
         public void Hide() => gameObject.SetActive(false);

@@ -202,6 +202,47 @@ public class KitMomentTests
     }
 
     [Test]
+    public void EveryMomentSplitsIntoTheCardsParts()
+    {
+        // The card's anatomy (the art direction's handoff, 2026-10-30): a short Title, metadata segments, a command in a well,
+        // or the agent's own prose. Today's words split across the parts; what is theirs keeps its run in every part.
+        string? Title(KitMoment moment) => moment.Title?.ToString();
+        string[] Meta(KitMoment moment) => moment.Meta.Select(segment => segment.ToString()).ToArray();
+        var sent = KitMoment.Sent(Codex);
+        Assert.That((Title(sent), Meta(sent), sent.Well), Is.EqualTo(("Waiting for it to start.", new string[0], (string?)null)));
+        var edit = KitMoment.ReportedEdit(Codex, KitFileChange.Changed, "src/towers.ts", At);
+        Assert.That((Title(edit), Meta(edit)), Is.EqualTo(("Edited", new[] { "[src/towers.ts]" })));
+        var seen = KitMoment.ObservedChange(KitFileChange.Changed, "src/towers.ts", 41, 54, At);
+        Assert.That((Title(seen), Meta(seen)), Is.EqualTo(("Changed", new[] { "[src/towers.ts]", "41 to 54 lines", "seen 10:42" })));
+        var made = KitMoment.ObservedChange(KitFileChange.Created, "src/wobble.ts", null, 12, At);
+        Assert.That((Title(made), Meta(made)), Is.EqualTo(("Made", new[] { "[src/wobble.ts]", "12 lines", "seen 10:42" })));
+        var gone = KitMoment.ObservedChange(KitFileChange.Deleted, "src/old.ts", 9, null, At);
+        Assert.That((Title(gone), Meta(gone)), Is.EqualTo(("Removed", new[] { "[src/old.ts]", "seen 10:42" })));
+        var says = KitMoment.AgentSays(Codex, "I'll make the towers wobble.", At);
+        Assert.That(says.Title, Is.Null, "no title of ours over their words");
+        Assert.That(says.Prose!.AllTheirs, Is.True, "their prose stays theirs");
+        var asks = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.MayLeave, complete: true, At);
+        Assert.That((Title(asks), asks.Well, Meta(asks)), Is.EqualTo(("Run this command?", "npm install matter-js", new string[0])));
+        var check = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
+        Assert.That((Title(check), Meta(check)), Is.EqualTo(("Checked it builds and opens", new[] { "passed" })), "the outcome in the metadata, the Title short");
+        var unknown = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: null, At);
+        Assert.That((Title(unknown), Meta(unknown)), Is.EqualTo(("Ran a check", new[] { "result not known" })));
+        var running = KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, At);
+        Assert.That((Title(running), Meta(running)), Is.EqualTo(("Checking it builds", new string[0])));
+        var ran = KitMoment.AgentCheck(Codex, "npm run build", "exit 1", At);
+        Assert.That((Title(ran), ran.Well, Meta(ran)), Is.EqualTo(((string?)null, "npm run build", new[] { "[exit 1]" })), "their command in the well, their outcome theirs");
+        var refused = KitMoment.PackageRefused("matter-js", At);
+        Assert.That((Title(refused), Meta(refused)), Is.EqualTo(("Wanted", new[] { "[matter-js]", "which isn't in this starter" })));
+        var skipped = KitMoment.NotObserved("too many files", At);
+        Assert.That((Title(skipped), Meta(skipped)), Is.EqualTo(("Not observed", new[] { "too many files" })));
+        var ready = KitMoment.Ready("Tower Toss", null, KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, At), tryRoute: false);
+        Assert.That(Title(ready), Is.EqualTo("[Tower Toss] is ready"), "their project's name keeps its run inside the title");
+        // Every moment has something to read: a Title, their prose or a command.
+        foreach (var moment in new[] { sent, edit, seen, made, gone, says, asks, check, ran, refused, skipped, ready })
+            Assert.That(moment.Title != null || moment.Prose != null || moment.Well != null, Is.True, moment.Kind.ToString());
+    }
+
+    [Test]
     public void EveryActionHasItsWords()
     {
         foreach (KitMomentAction action in Enum.GetValues(typeof(KitMomentAction)))

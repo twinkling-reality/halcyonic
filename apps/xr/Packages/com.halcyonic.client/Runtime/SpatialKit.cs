@@ -221,6 +221,37 @@ namespace Halcyonic.Client
         /// <summary>The primary capsule's word, on its n7 fill: n0.</summary>
         public static GlazeColor OnFill => Well;
 
+        // The answers (the art direction's handoff, 2026-10-30): washes and rings over the opaque face, drawn as the prototype's
+        // own sRGB composite over n1, opaque, since Unity's linear blend would lift them (a 16 percent white wash takes n7 to 3.3:1).
+
+        /// <summary>A pointed word answer's capsule: white at 10 percent over n1.</summary>
+        public static GlazeColor WordPointed => Over(GlazeColor.Hex(0xFFFFFF), 0.10, Carrier);
+
+        /// <summary>A pressed word answer's capsule: white at 16 percent over n1.</summary>
+        public static GlazeColor WordPressed => Over(GlazeColor.Hex(0xFFFFFF), 0.16, Carrier);
+
+        /// <summary>A pointed word answer's 2 dp ring: n7 at 22 percent over n1.</summary>
+        public static GlazeColor WordRing => Over(Text, 0.22, Carrier);
+
+        /// <summary>A pointed primary's 3 dp ring outside its capsule: n7 at 45 percent over n1 (3.46:1 on n1, 3.26 on n2).</summary>
+        public static GlazeColor PrimaryRing => Over(Text, 0.45, Carrier);
+
+        /// <summary>
+        /// The moment card's anatomy, in dp at the eye (the art direction's handoff): the mark and its gap to the eyebrow; the
+        /// Title 10 below the eyebrow, the well 14 below what stands above it, the risk line 12, the answers 16; a panel's
+        /// corners 24, an inset's (a well's) 12; the earlier moments' edge 28 narrower than the card and rising 36 above it.
+        /// </summary>
+        public const float MarkDp = 20f, MarkGapDp = 8f, TitleGapDp = 10f, WellGapDp = 14f, RiskGapDp = 12f, AnswersGapDp = 16f,
+            PanelRadiusDp = 24f, InsetRadiusDp = 12f, EarlierNarrowerDp = 28f, EarlierRiseDp = 36f;
+
+        /// <summary>A well's padding across and down, and the gap to its cut line beneath, in dp.</summary>
+        public const float WellPadXDp = 14f, WellPadYDp = 12f, CutGapDp = 6f;
+
+        /// <summary>The primary's side padding, a word answer's, and the rings, in dp.</summary>
+        public const float PrimaryPadDp = 28f, WordPadDp = 18f, PrimaryRingDp = 3f, AnswerRingDp = 2f;
+
+        private static GlazeColor Over(GlazeColor top, double alpha, GlazeColor under) => top.Over(under, alpha);
+
         /// <summary>The face's light from above: its top, with <see cref="Carrier"/> at 36 percent and <see cref="FaceBottom"/> below.</summary>
         public static GlazeColor FaceTop => GlazeColor.Hex(0x262A30);
 

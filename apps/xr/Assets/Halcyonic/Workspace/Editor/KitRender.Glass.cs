@@ -81,7 +81,26 @@ namespace Halcyonic.XR.Workspace.Editor
 
             var carriers = panels.Select(each => each.Carrier).ToList();
             Require(carriers.All(carrier => carrier.Glass != null), "a panel did not draw in glass");
-            foreach (var failure in GlassTruth(carriers)) shot.Failures.Add(failure);
+            foreach (var failure in GlassTruth(carriers.Select(carrier => (carrier, (IEnumerable<TMP_Text>)carrier.GetComponentsInChildren<TMP_Text>(false))))) shot.Failures.Add(failure);
+            // The truth check's own witnesses (AUDIT's A2-S1 and A3A-S1): a panel lit for a state must be refused where its only word
+            // for it is an agent's, in its run, or ours inside another word or negated. Each is checked and taken away before the render.
+            foreach (var (tone, words, theirsRun) in new (GlazeColor, string, bool)[]
+            {
+                (SpatialKit.Passed, "Passed", true), (SpatialKit.Passed, "Not Ready", false), (SpatialKit.Passed, "Already Answered", false),
+                (SpatialKit.Failure, "Not Failed", false), (SpatialKit.Attention, "No Needs", false),
+            })
+            {
+                var witness = KitCarrier.Create(view, "Witness: " + words);
+                witness.DrawGlass(new Vector2(GlassWidthDp, GlassHeightDp) * unit, GlassRadiusDp * unit, KitGlassMaterial.RimDp, tone);
+                var label = KitType.Create(witness.transform, "Words", KitRole.Strong, KitType.Text, KitType.Order.Words, room: true);
+                GlazeRuns.Of(label).Set(theirsRun ? LineWords.Theirs(words) : LineWords.Ours(words));
+                KitType.Lay(label, (GlassWidthDp - 2f * (KitGlassMaterial.RimDp + 14f)) * unit, 1);
+                label.transform.localPosition = new Vector3((-GlassWidthDp / 2f + KitGlassMaterial.RimDp + 14f) * unit, (GlassHeightDp / 2f - KitGlassMaterial.RimDp - 14f) * unit, -0.0005f);
+                if (!GlassTruth(new[] { (witness, (IEnumerable<TMP_Text>)new TMP_Text[] { label }) }).Any())
+                    shot.Failures.Add("the truth check let \"" + words + "\"" + (theirsRun ? ", an agent's," : "") + " light its state");
+                else Debug.Log("Halcyonic: spatial kit: the glass truth check refused a panel lit by \"" + words + "\", as it must.");
+                UnityEngine.Object.DestroyImmediate(witness.gameObject);
+            }
             Debug.Log("Halcyonic: spatial kit: glass fill: " + string.Join(", ", GlassParts.Select(part =>
                 part.Part + " " + KitGlassMaterial.Overdraw(part.Width, part.Height).ToString("0.00") + "x its area")) + "; the glow can be dropped first.");
 
@@ -161,21 +180,23 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// What the glass may say (AUDIT, A2): a state's light (its edge, its bloom) stands only on a panel whose words say
-        /// that state, and no word stands on a rim, which lets the room through.
+        /// What the glass may say (AUDIT, A2 and its S1): a state's light (its edge, its bloom) stands only on a panel whose own
+        /// words, Halcyonic's, say that state: an agent's "Passed" in its run never lights the passed edge. Needs is said by a
+        /// question of ours or "Needs"; a pass by "passed" or "ready"; a failure by "failed"; each as a whole word of ours, never negated. No word stands on a rim, which lets the
+        /// room through.
         /// </summary>
-        private static IEnumerable<string> GlassTruth(IEnumerable<KitCarrier> carriers)
+        private static IEnumerable<string> GlassTruth(IEnumerable<(KitCarrier Carrier, IEnumerable<TMP_Text> Words)> panels)
         {
-            foreach (var carrier in carriers)
+            foreach (var (carrier, panelWords) in panels)
             {
                 if (carrier.Glass is not KitGlass glass) continue;
-                var labels = carrier.GetComponentsInChildren<TextMeshPro>(false);
+                var labels = panelWords.Where(label => label.gameObject.activeInHierarchy).ToList();
                 if (glass.Tone is GlazeColor tone)
                 {
-                    var word = tone.Equals(SpatialKit.Attention) ? "Needs" : tone.Equals(SpatialKit.Passed) ? "Passed" : tone.Equals(SpatialKit.Failure) ? "Failed" : null;
+                    var word = tone.Equals(SpatialKit.Attention) ? "needs" : tone.Equals(SpatialKit.Passed) ? "passed" : tone.Equals(SpatialKit.Failure) ? "failed" : null;
                     if (word == null) yield return carrier.name + " is lit in a colour that means nothing";
-                    else if (!labels.Any(label => (label.text ?? "").IndexOf(word, StringComparison.Ordinal) >= 0))
-                        yield return carrier.name + " is lit for " + word + " without words that say so";
+                    else if (!labels.Any(label => SaysState(Ours(label), tone)))
+                        yield return carrier.name + " is lit for its state without words of ours that say so";
                 }
                 var face = glass.FaceSize / 2f;
                 foreach (var label in labels)
@@ -193,6 +214,82 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Whether our <paramref name="ours"/> words say the state a <paramref name="tone"/> lights (AUDIT's A3A-S1): the state's
+        /// whole word, never inside another ("Already"), never negated ("Not Ready", "Not Failed", "No"); a pass is "passed" or
+        /// "ready" (a ready moment stands only after the computer's own passed check), a failure "failed", and needs "needs" or a
+        /// question of ours, ending in "?".
+        /// </summary>
+        private static bool SaysState(string ours, GlazeColor tone)
+        {
+            var words = System.Text.RegularExpressions.Regex.Matches(ours.ToLowerInvariant(), "[a-z]+").Cast<System.Text.RegularExpressions.Match>().Select(match => match.Value).ToList();
+            bool Said(params string[] states)
+            {
+                for (var i = 0; i < words.Count; i++)
+                    if (states.Contains(words[i]) && (i == 0 || (words[i - 1] != "not" && words[i - 1] != "no" && words[i - 1] != "never"))) return true;
+                return false;
+            }
+            if (tone.Equals(SpatialKit.Passed)) return Said("passed", "ready");
+            if (tone.Equals(SpatialKit.Failure)) return Said("failed");
+            if (tone.Equals(SpatialKit.Attention)) return Said("needs") || ours.TrimEnd().EndsWith("?", StringComparison.Ordinal);
+            return false;
+        }
+
+        /// <summary>A panel's own words alone: the label's text less every run that is theirs.</summary>
+        private static string Ours(TMP_Text label)
+        {
+            var text = label.text ?? "";
+            var theirs = GlazeRuns.Of(label).Theirs;
+            var ours = new System.Text.StringBuilder();
+            for (var i = 0; i < text.Length; i++)
+                if (!theirs.Any(run => i >= run.Start && i < run.End)) ours.Append(text[i]);
+            return ours.ToString();
+        }
+
+        /// <summary>
+        /// A glass panel's face is opaque as drawn: on a grid over the face inside its rim, the eye buffer lets none of the room
+        /// through (as <c>Opaque</c> holds a <see cref="Surface"/> face).
+        /// </summary>
+        private static IEnumerable<string> GlassFaceOpaque(KitCarrier carrier, Camera camera, Color32[] eye, string what)
+        {
+            if (carrier.Glass is not KitGlass glass) yield break;
+            var half = glass.FaceSize / 2f;
+            var least = 255;
+            for (var i = 1; i < 12; i++)
+            for (var j = 1; j < 12; j++)
+            {
+                var local = new Vector3(half.x * (-0.92f + 1.84f * i / 12f), half.y * (-0.92f + 1.84f * j / 12f), 0f);
+                var screen = camera.WorldToScreenPoint(carrier.transform.TransformPoint(local));
+                var (x, y) = (Mathf.RoundToInt(screen.x), Mathf.RoundToInt(screen.y));
+                if (screen.z <= 0f || x < 0 || y < 0 || x >= Width || y >= Height) continue;
+                least = Mathf.Min(least, eye[y * Width + x].a);
+            }
+            if (least < 254) yield return what + ": " + carrier.name + "'s glass face lets the room through (alpha " + least + " of 255).";
+        }
+
+        /// <summary>
+        /// The opacity check for a glass panel, with its own witness: the face holds as rendered, and the same panel drawn at
+        /// 15 percent must fail it; then the panel is drawn whole again.
+        /// </summary>
+        private static IEnumerable<string> GlassFaceHolds(KitCarrier carrier, Camera camera, Color32[] eye, string what)
+        {
+            var found = GlassFaceOpaque(carrier, camera, eye, what).ToList();
+            if (carrier.Glass is not KitGlass glass) return found;
+            glass.Fade(0.15f);
+            var faded = Render(camera, camera.targetTexture);
+            try
+            {
+                if (!GlassFaceOpaque(carrier, camera, faded.GetPixels32(), what).Any()) found.Add(what + ": the glass opacity check accepted a face drawn at 15 percent");
+                else Debug.Log("Halcyonic: spatial kit: " + what + ": the glass opacity check refused the translucent witness, as it must.");
+            }
+            finally
+            {
+                glass.Fade(1f);
+                UnityEngine.Object.DestroyImmediate(faded);
+            }
+            return found;
         }
     }
 }

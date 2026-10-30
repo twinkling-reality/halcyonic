@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
@@ -20,6 +21,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             "21-moment-sent", "21-moment-reported", "21-moment-seen", "21-moment-question", "21-moment-question-newer",
             "21-moment-agent-check", "21-moment-failed", "21-moment-ready", "21-moment-skipped", "21-moment-popping", "21-moment-question-long",
+            "21-moment-longest", "21-moment-says",
         };
 
         private static readonly DateTimeOffset MomentAt = new DateTimeOffset(2026, 10, 29, 10, 42, 0, TimeSpan.Zero);
@@ -44,6 +46,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     KitSandbox.MayLeave, complete: true, MomentAt) }, working: true),
                 "21-moment-question-newer" => new KitMomentSlot(new[] { sent, says, question, KitMoment.AgentSays(codex, "Waiting for your answer.", MomentAt) }, working: true),
                 "21-moment-agent-check" => new KitMomentSlot(new[] { sent, edit, KitMoment.AgentCheck(codex, "npm run build", "exit 1", MomentAt) }, working: true),
+                // The longest Title today's words make, which must read whole at the larger size in two lines.
+                "21-moment-longest" => new KitMomentSlot(new[] { sent, KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, MomentAt) }, working: true),
+                "21-moment-says" => new KitMomentSlot(new[] { sent, says }, working: true),
                 "21-moment-failed" => new KitMomentSlot(new[] { sent, edit, KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, MomentAt) }, working: true),
                 "21-moment-ready" => new KitMomentSlot(new[] { sent, edit, passed, KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), passed, tryRoute: true) }, working: false),
                 _ => new KitMomentSlot(new[] { sent, edit, KitMoment.NotObserved("too many files", MomentAt) }, working: true),
@@ -56,19 +61,27 @@ namespace Halcyonic.XR.Workspace.Editor
         private static bool PrimaryIsLight(KitButton button) =>
             SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.Text)) && SameColour(button.Words.color, KitType.Colour(SpatialKit.OnFill));
 
+        private static GlazeColor Stored(Color colour) =>
+            new GlazeColor((byte)Mathf.RoundToInt(colour.r * 255f), (byte)Mathf.RoundToInt(colour.g * 255f), (byte)Mathf.RoundToInt(colour.b * 255f));
+
         /// <summary>
-        /// A pointed primary is told from its rest at 3:1 or more (AUDIT's A1C-S1): painted pointed, it draws an n0 band inside
-        /// its edge over its n7 fill; painted at rest again, it is as it was.
+        /// A pointed primary is told from its rest at 3:1 or more on its face (AUDIT's A1C-S1; the art direction's ring): painted
+        /// pointed, a ring stands outside its n7 capsule, at least 3:1 against the face it stands on; painted at rest again, the
+        /// ring is gone and it is as it was.
         /// </summary>
         private static bool PrimaryPointedShows(KitButton button)
         {
             button.PaintForRender(pointed: true, pressed: false);
-            var band = button.Plate.Edge;
-            var shows = button.Plate.EdgeWidth > 0f && SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.Text))
-                && GlazeColor.Contrast(new GlazeColor((byte)Mathf.RoundToInt(band.r * 255f), (byte)Mathf.RoundToInt(band.g * 255f), (byte)Mathf.RoundToInt(band.b * 255f)), SpatialKit.Text) >= 3;
+            var ring = button.Ring;
+            var shows = ring.gameObject.activeSelf && SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.Text))
+                && new[] { SpatialKit.Carrier, SpatialKit.FaceTop, SpatialKit.FaceBottom }.All(face => GlazeColor.Contrast(Stored(ring.Fill), face) >= 3);
             button.PaintForRender(pointed: false, pressed: false);
-            return shows && PrimaryIsLight(button);
+            return shows && !button.Ring.gameObject.activeSelf && PrimaryIsLight(button);
         }
+
+        /// <summary>A word answer at rest is its word alone: no fill, no ring, its word in n6 (the art direction's answers).</summary>
+        private static bool WordIsBare(KitButton button) =>
+            button.Plate.Fill.a < 0.01f && (button.Plate.Edge.a < 0.01f || button.Plate.EdgeWidth <= 0f) && SameColour(button.Words.color, KitType.Secondary);
 
         /// <summary>
         /// A label in one of the room's faces keeps that face's role's line pitch (<see cref="KitType.RoomLeading"/>); each
@@ -102,51 +115,73 @@ namespace Halcyonic.XR.Workspace.Editor
             var carriers = card.Carriers.ToList();
             Stand(shot, card.transform, eyes, carriers, card.Size);
             shot.Targets.Add(("moment", card.transform, card.Targets));
-            shot.Faces.AddRange(carriers.Select(carrier => carrier.Face));
-            // A bare point of the face inside its bottom-left padding, where no part is ever drawn (the face's own units, -0.5 to 0.5).
-            shot.Witness = (card.Carrier.Face, new Vector3(-0.46f, -0.46f, 0f), SpatialKit.Carrier);
-            shot.OpacityNegative = card.Carrier.Face;
+            // The card is glass (A2): its face's opacity and its truth are held on the glass, each with its own witness.
+            Require(carriers.All(carrier => carrier.Glass != null), "the card is not drawn in glass");
+            var panels = new List<(KitCarrier, IEnumerable<TMP_Text>)> { (card.Carrier, card.Words.Cast<TMP_Text>().ToList()) };
+            if (card.Earlier.gameObject.activeSelf) panels.Add((card.Earlier, new TMP_Text[0]));
+            foreach (var failure in GlassTruth(panels)) shot.Failures.Add(failure);
+            Require((card.Carrier.Glass?.Tone).Equals(KitMomentCard.ToneOf(moment.Tone)), "the glass is lit in a tone the moment does not carry");
+            shot.AfterEye = (camera, eye, found) => found.AddRange(GlassFaceHolds(card.Carrier, camera, eye, "the moment"));
 
-            // Who says it, as its source is: the runtime's report carries the quote mark, what the computer saw says so in words.
-            var chipWords = card.Source.GetComponentsInChildren<TextMeshPro>(true).Select(label => label.text ?? "").ToList();
-            Require(chipWords.Any(text => text == LabelText.ForTextMeshPro(moment.Source)), "the moment does not say who says it as its source is");
-            var quoted = chipWords.Any(text => text == GlazeIconGlyphs.Of(GlazeIcon.Quote));
-            Require(quoted == (moment.Provenance == KitProvenance.Reported), "the quote mark stands on what the computer saw, or is missing on the runtime's report");
+            // Who says it: the eyebrow says the source; a ring for the runtime's report, a disc for what the computer saw.
+            Require(card.Eyebrow.text == LabelText.ForTextMeshPro(moment.Source), "the moment does not say who says it as its source is");
+            var disc = card.Mark.Fill.a > 0.5f;
+            Require(disc == (moment.Provenance == KitProvenance.Observed), "the mark is a disc on the runtime's report, or a ring on what the computer saw");
             // Colour only for its meaning: amber on a question, red on a failure, green on a pass, each with its glyph.
             Require(card.Tone.gameObject.activeSelf == (moment.Tone != KitMomentTone.Neutral), "a tone stands where nothing means it, or is missing");
             if (card.Tone.gameObject.activeSelf)
-            {
-                var expected = KitType.Colour(moment.Tone == KitMomentTone.Attention ? SpatialKit.Attention : moment.Tone == KitMomentTone.Failure ? SpatialKit.Failure : SpatialKit.Passed);
-                Require(card.Tone.color == expected, "the tone is not its meaning's colour");
                 Require((moment.Tone == KitMomentTone.Attention) == (moment.Kind == KitMomentKind.Question), "amber stands on something that is not a question");
-            }
-            // The count: only what stands before the shown moment, and what came after a waiting question apart.
+            // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question.
             var counted = string.Join(" · ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             Require(card.Count.gameObject.activeSelf == (counted.Length > 0) && (counted.Length == 0 || card.Count.text == counted), "the count is not the model's earlier and newer moments");
-            Require(card.Stack.gameObject.activeSelf == (slot.Earlier != null), "the stacked edge stands without earlier moments, or is missing");
-            // The actions beneath, the model's and in its order.
-            // A command shown cut can only be refused: no Yes, Read it first, No kept (SECURITY.md; AUDIT's V4-M1).
-            var expectedActions = moment.Kind == KitMomentKind.Question && !card.ReadsWhole
+            Require(card.Earlier.gameObject.activeSelf == (slot.Earlier != null), "the earlier edge stands without earlier moments, or is missing");
+            // The actions beneath, the model's and in this order: the one primary first, at full width, then every other in the
+            // model's order (the art direction's answers; AUDIT's A3A-M1). A command shown cut can only be refused (SECURITY.md).
+            var modelActions = moment.Kind == KitMomentKind.Question && !card.ReadsWhole
                 ? new[] { KitMomentAction.ReadIt }.Concat(slot.Actions.Where(action => action != KitMomentAction.YesRunIt)).ToList()
                 : slot.Actions.ToList();
-            Require(card.Shown.Select(each => each.Action).SequenceEqual(expectedActions), "the actions are not the slot's, or Yes stands on a command shown cut");
+            var leading = modelActions.Where(KitMomentCard.IsPrimary).Take(1).ToList();
+            var expectedActions = leading.Concat(modelActions.Where(action => !leading.Contains(action))).ToList();
+            Require(card.Shown.Select(each => each.Action).SequenceEqual(expectedActions),
+                "the actions are not the slot's in their order (" + string.Join(", ", card.Shown.Select(each => each.Action)) + "), or Yes stands on a command shown cut");
             if (moment.Kind == KitMomentKind.Question && !card.ReadsWhole)
                 Require(!card.Shown.Any(each => each.Action == KitMomentAction.YesRunIt) && card.Shown.Any(each => each.Action == KitMomentAction.No),
                     "a command shown cut can be approved");
             Require(card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) <= 1, "more than one primary action");
             Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not filled with light, its word in n0");
             Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryPointedShows(each.Button)), "a pointed primary is not told from its rest at 3:1");
-            // The room's type scale (ART's handoff): the subject in Title, every room label at its role's own line pitch.
-            Require(card.Headline.font == KitType.Face(KitRole.Title) && Mathf.Approximately(card.Headline.fontSize, GlazeTokens.FontSize(KitType.Em(KitRole.Title))), "the subject is not in Title");
+            Require(card.Shown.All(each => each.Button.Plate.CornerRadius >= each.Button.Size.y / 2f - 1e-5f), "an answer is not a capsule");
+            Require(card.Shown.Where(each => each.Button.Role != KitButtonRole.Primary).All(each => each.Button.Role == KitButtonRole.Word && WordIsBare(each.Button)),
+                "an answer other than the primary has a shape at rest");
+            // No locked answer in the card's top 40 percent (the art direction's rule, with the bloom that peaks there).
+            foreach (var (action, button) in card.Shown.Where(each => !each.Button.Available))
+            {
+                var fromTop = card.transform.InverseTransformPoint(card.Carrier.transform.TransformPoint(new Vector3(0f, card.Size.y / 2f, 0f))).y
+                    - card.transform.InverseTransformPoint(button.transform.position).y;
+                Require(fromTop >= 0.4f * card.Size.y, KitMomentWords.Action(action) + " is locked in the card's top 40 percent");
+            }
+            // The room's type scale: the Title in Title, every room label at its role's own line pitch.
+            if (moment.Title != null)
+                Require(card.Title.font == KitType.Face(KitRole.Title) && Mathf.Approximately(card.Title.fontSize, GlazeTokens.FontSize(KitType.Em(KitRole.Title))), "the Title is not in Title");
             foreach (var label in card.GetComponentsInChildren<TextMeshPro>(true))
                 Require(LeadsAsItsRole(label), label.name + " does not keep its role's line pitch");
-            // Their names keep their run wherever they stand; nothing reads as no changes.
-            Require(GlazeRuns.Of(card.Headline).Theirs.Count == moment.Headline.Runs.Count(run => run.Theirs), "the subject's outside text is not exactly where it is theirs");
-            var everything = card.GetComponentsInChildren<TextMeshPro>(false).Select(label => label.text ?? "").ToList();
+            // Their names keep their run wherever they stand; their command stands whole in its run in the well.
+            var theirsShown = (moment.Title != null ? GlazeRuns.Of(card.Title).Theirs.Count : 0) + card.Meta.Sum(label => GlazeRuns.Of(label).Theirs.Count)
+                + (moment.Prose != null ? GlazeRuns.Of(card.Prose).Theirs.Count : 0);
+            var theirsModel = (moment.Title?.Runs.Count(run => run.Theirs) ?? 0) + moment.Meta.Sum(segment => segment.Runs.Count(run => run.Theirs))
+                + (moment.Prose?.Runs.Count(run => run.Theirs) ?? 0);
+            Require(theirsShown == theirsModel, "outside text is not exactly where it is theirs (" + theirsShown + " runs shown, " + theirsModel + " theirs)");
+            if (moment.Well != null) Require(GlazeRuns.Of(card.Well.Words).Theirs.Count == 1, "the command in the well is not theirs in one run");
+            Require(card.Meta.Where(label => GlazeRuns.Of(label).Theirs.Count > 0 && GlazeRuns.Of(label).Theirs[0].Start == 0 && GlazeRuns.Of(label).Theirs[0].End == label.text.Length)
+                .All(label => label.font == KitType.Face(KitRole.Mono)), "a path or name of theirs in the metadata is not in their monospace");
+            var everything = card.Words.Select(label => label.text ?? "").ToList();
             Require(!everything.Any(text => text.IndexOf("no change", StringComparison.OrdinalIgnoreCase) >= 0), "something reads as no changes");
-            // Every moment reads whole, except the long command, which must show cut (with Read it) for the proof above.
-            Require(state == "21-moment-question-long" ? !card.ReadsWhole : card.ReadsWhole,
-                state == "21-moment-question-long" ? "the long command read whole, so the cut case went unproven" : "the moment's words are cut");
+            // Every part reads whole, by name; only the long command shows cut, in its well, with what is left said.
+            Require(card.CutParts.Count == 0, "cut: " + string.Join(", ", card.CutParts));
+            if (state == "21-moment-question-long")
+                Require(card.WellCut && card.Well.Rest.text == LabelText.ForTextMeshPro(KitMomentWords.CutMore(card.Well.HiddenLines)),
+                    "the long command read whole, or its cut line does not say what is left");
+            else Require(!card.WellCut, "a command is cut in its well");
             Require(popping ? card.Popped < 1f : card.Popped >= 1f, "the moment is not as far out as the frame says");
             FacesTheEyes(shot, card.transform, carriers, eyes);
             Debug.Log("Halcyonic: spatial kit: moment " + state + " " + Spread(shot, eyes) + "; " + card.Shown.Count + " actions.");

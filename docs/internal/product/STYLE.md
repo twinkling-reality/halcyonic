@@ -95,6 +95,27 @@ the glass drifts as measured: the rim up to 37/255 lighter over the dark room, t
 worst, where the prototype holds 3.1). Layers over the face mix in sRGB inside the shader and match exactly. The bloom peaks at 11
 percent, not the art direction's 14, so tertiary words keep 4.5:1 on the face's lit top (at 14 they fall to 4.26).
 
+**Answers.** One style everywhere an answer stands (`KitButton`): every answer 60 dp tall and at least 60 wide, 12 apart.
+The one primary is a capsule of light, n7 with its word in Body Strong n0, 28 dp in at either side; pointed, 2.5 percent
+larger with a 3 dp ring outside it, n7 at 45 percent over n1 drawn as that composite (#74787C: 3.26 to 3.51 to 1 on the
+faces it stands on); pressed, n6 at 97 percent. Every other answer is its word (`KitButtonRole.Word`): no shape at rest,
+Body Strong n6, 18 dp in; pointed, a capsule of white at 10 percent over n1 (#373B3F) with a 2 dp ring of n7 at 22
+percent and the word in n7; pressed, white at 16 percent (#45484C). These washes and rings stand over the opaque face, so
+they are drawn as the prototype's own composites, opaque: blended in linear light the 16 percent wash would take n7 to
+3.3 to 1. A locked answer keeps a 2 dp n4 ring round its n5 word, its reason being its word. The bar's other buttons keep
+their raised and outlined looks until the bar is rebuilt.
+
+**The moment card.** 368 dp of quiet glass (rim 10, the moment's tone on its edge, said in its words), in reading order:
+the eyebrow (a 20 dp mark, a ring for the runtime's report and a disc for what the computer saw, its glyph in the tone
+where one stands, then who says it in Label n6); the Title 10 dp below, in Title, at most two lines; the metadata line in
+Label n6, its segments joined by " · ", a path or a name of theirs in their monospace; or the runtime's own prose in Body;
+a command of theirs in a well 14 dp below (`KitWell`: Mono n7 on n0, radius 12, padding 12 by 14, cut after two lines with
+the last fading and "Cut · {n} More Lines" in Label n5 beneath); the risk line 12 dp below in Body n6; the answers 16 dp
+below, the primary at full width, then the words in a row. The earlier moments stand as one edge of the same glass, 28 dp
+narrower, rising 36 dp above the card, rim 8; their count stands at the eyebrow's end in Label n5 (on the edge, that high above a tall
+card, Label read under the 14 dp floor). No locked answer stands in the card's
+top 40 percent, where the bloom peaks. The render names any part that does not read whole.
+
 **Motion.** Only on events; Keep things still lands each state at once.
 
 | Event | Duration | Curve |

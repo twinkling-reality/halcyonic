@@ -220,6 +220,23 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void TheAnswersPointedAndPressedStatesHoldTheirWords()
+    {
+        // The handoff's composites over n1: a pointed word answer #373B3F, pressed #45484C; drawn opaque, as the prototype blends.
+        Assert.That(GlazeColor.Contrast(SpatialKit.WordPointed, GlazeColor.Hex(0x373B3F)), Is.LessThan(1.02), "pointed as the handoff gives it");
+        Assert.That(GlazeColor.Contrast(SpatialKit.WordPressed, GlazeColor.Hex(0x45484C)), Is.LessThan(1.02), "pressed as the handoff gives it");
+        foreach (var fill in new[] { SpatialKit.WordPointed, SpatialKit.WordPressed })
+            Assert.That(GlazeColor.Contrast(SpatialKit.Text, fill), Is.GreaterThanOrEqualTo(4.5), $"n7 on {fill}");
+        // Why opaque: the same 16 percent wash blended in linear light, as Unity blends alpha, takes n7 under its floor.
+        var linear = KitGlassMaterial.ToColour(KitGlassMaterial.Drawn(new double[] { 1, 1, 1 }, 0.16, SpatialKit.Carrier));
+        Assert.That(GlazeColor.Contrast(SpatialKit.Text, linear), Is.LessThan(4.5), $"n7 on the linear wash {linear}");
+        // A pointed primary is told from its rest by its outer ring at 3:1 or more on every face it stands on (AUDIT's A1C-S1).
+        foreach (var face in new[] { SpatialKit.Carrier, SpatialKit.FaceTop, SpatialKit.FaceBottom, SpatialKit.Raised })
+            Assert.That(GlazeColor.Contrast(SpatialKit.PrimaryRing, face), Is.GreaterThanOrEqualTo(3), $"the pointed ring on {face}");
+        Assert.That(GlazeColor.Contrast(SpatialKit.WordRing, SpatialKit.Carrier), Is.LessThan(GlazeColor.Contrast(SpatialKit.PrimaryRing, SpatialKit.Carrier)), "a word's ring is quieter than the primary's");
+    }
+
+    [Test]
     public void ALockedOutlineShowsWithoutReadingAsWords()
     {
         // n4 draws a locked answer's ring and the kit's hairlines: a boundary at WCAG's 3:1 for non-text, quieter than any word.
