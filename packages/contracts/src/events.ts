@@ -527,8 +527,16 @@ export type ApprovalSubject = Static<typeof ApprovalSubject>;
 const TurnRef = { turn_id: Nullable(NativeId) };
 
 export const RUNTIME_EVENT_PAYLOADS = {
-  /** The runtime created the native session or thread backing the execution. */
-  'runtime.execution.started': Type.Object({ native_id: Nullable(NativeId) }, strict),
+  /**
+   * The runtime created the native session or thread backing the execution. `confined` (S2) is
+   * observed by the adapter: true when it started the execution inside Halcyonic's confinement of a
+   * project (ADR 0041), false when not; absent from runtimes that do not record it and from events
+   * before it existed, which read as not confined.
+   */
+  'runtime.execution.started': Type.Object(
+    { native_id: Nullable(NativeId), confined: Type.Optional(Type.Boolean()) },
+    strict,
+  ),
   'runtime.turn.started': Type.Object({ ...TurnRef }, strict),
   'runtime.turn.completed': Type.Object({ ...TurnRef }, strict),
   'runtime.turn.failed': Type.Object({ ...TurnRef, error: ErrorInfo }, strict),

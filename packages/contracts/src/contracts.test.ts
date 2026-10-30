@@ -514,8 +514,8 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      12,
-      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), and why a twin read was unknown (M1.8g-b)",
+      13,
+      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), and whether an execution's start recorded it confined (S2)",
     );
     for (const member of [
       'Laptop',
@@ -525,6 +525,7 @@ describe('the C# bindings', () => {
       'ResponseSeen',
       'ExceptionsDuring',
       'ResponseUnknown',
+      'Confined',
     ])
       assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(

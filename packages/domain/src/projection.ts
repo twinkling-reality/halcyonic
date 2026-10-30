@@ -381,6 +381,11 @@ export class Projection {
     const state = this.#executions.get(executionId as ExecutionId);
     return state === undefined ? undefined : this.#view(state);
   }
+
+  /** Whether the execution's start recorded that it ran confined (S2); false otherwise or unknown. */
+  executionConfined(executionId: string): boolean {
+    return this.#executions.get(executionId as ExecutionId)?.confined === true;
+  }
   executionResultSummaries(executionId: string): { total: number; summaries: ToolResultSummary[] } {
     const state = this.#results.get(executionId);
     return { total: state?.total ?? 0, summaries: structuredClone(state?.recent ?? []) };
@@ -1032,6 +1037,7 @@ export class Projection {
     switch (event.event_type) {
       case 'runtime.execution.started':
         execution.nativeId = event.payload.native_id ?? execution.nativeId;
+        execution.confined = event.payload.confined === true;
         execution.startedAt ??= event.occurred_at;
         break;
       case 'runtime.turn.started':

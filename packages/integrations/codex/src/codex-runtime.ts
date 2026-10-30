@@ -398,7 +398,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     // Checked at every start, not only at launch: a sign-in may have been put there since.
     await prepareHome(this.#home);
-    const connection = await this.#connection(false, this.#slotFor(cwd));
+    const slot = this.#slotFor(cwd);
+    const connection = await this.#connection(false, slot);
     const local = await this.#onThisMac(connection, options);
     // Asked again right before the folder is handed over: listing and launching wait.
     confirmProjectLocation(this.#directoryPolicy, cwd);
@@ -429,7 +430,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#emit(thread, [
       observation(
         'runtime.execution.started',
-        { native_id: threadId },
+        // Observed here: the server this execution runs on is the project's confined one or not (S2).
+        { native_id: threadId, confined: slot.confinement !== null },
         {
           native_event_id: `${threadId}:thread/start`,
           sequence: thread.state.sequence,
