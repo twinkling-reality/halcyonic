@@ -209,5 +209,6 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.
 - What runs on the Mac at preview is Vite and TypeScript from the vetted set, configured by the host; the project's
   own code only runs in the browser.
-- Open: whether Quest Browser treats `http://localhost` through `adb reverse` as a secure context for WebXR, and
+- Open: whether Quest Browser treats `http://127.0.0.1` (never `localhost`) through `adb reverse` as a secure context
+  for WebXR ([quest-browser-preview.md](quest-browser-preview.md)), and
   the uikitml licence, which the owner decides before anything containing it is published.
