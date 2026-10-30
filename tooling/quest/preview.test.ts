@@ -76,20 +76,29 @@ function journal(story: Story): StoredEvent[] {
   return journal.read({ after: 0, limit: 1000 });
 }
 
+interface Serving {
+  /** Where a service worker script is refused: everywhere (as the host's server is to), only at /, or nowhere. */
+  readonly workers?: 'refused' | 'refused_at_root' | 'served';
+  /** The Cache-Control the server sends, or null for none. */
+  readonly cache?: string | null;
+}
+
 /** A server on the first free port of the preview range, in this process, answering `body`. */
 async function listen(
   t: TestContext,
   body = COPY,
-  { servesWorkers = false }: { servesWorkers?: boolean } = {},
+  { workers = 'refused', cache = 'no-store' }: Serving = {},
 ): Promise<number> {
   for (let port = PREVIEW_PORT_FIRST; port <= PREVIEW_PORT_LAST; port += 1) {
     const server: Server = createServer((request, response) => {
-      // As the host's preview server is to: no service worker script, so none can register.
-      if (!servesWorkers && request.headers['service-worker'] === 'script') {
-        response.statusCode = 403;
+      const refuses =
+        workers === 'refused' || (workers === 'refused_at_root' && request.url === '/');
+      if (refuses && request.headers['service-worker'] === 'script') {
+        response.statusCode = 404;
         response.end();
         return;
       }
+      if (cache !== null) response.setHeader('cache-control', cache);
       response.end(body);
     });
     const bound = await new Promise<boolean>((resolve) => {
@@ -253,8 +262,29 @@ describe('opening a preview on the headset: only a checked copy whose agent read
   });
 
   test('a preview server that would serve a service worker script is refused', async (t) => {
-    const port = await listen(t, COPY, { servesWorkers: true });
+    const port = await listen(t, COPY, { workers: 'served' });
     await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /service worker/);
+  });
+
+  test('a preview server that refuses a service worker script only at / is refused', async (t) => {
+    const port = await listen(t, COPY, { workers: 'refused_at_root' });
+    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /service worker/);
+  });
+
+  test('a page served without Cache-Control is refused', async (t) => {
+    const port = await listen(t, COPY, { cache: null });
+    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /no-store/);
+  });
+
+  test('a page whose Cache-Control lets the headset keep it is refused', async (t) => {
+    const port = await listen(t, COPY, { cache: 'max-age=0, must-revalidate' });
+    await refused(confinedPreview(PROJECT, journal({ port }), dataDir(t, port)), /no-store/);
+  });
+
+  test('no-store among other directives opens', async (t) => {
+    const port = await listen(t, COPY, { cache: 'private, No-Store, max-age=0' });
+    const gate = await confinedPreview(PROJECT, journal({ port }), dataDir(t, port));
+    assert.equal(gate.ok, true, JSON.stringify(gate));
   });
 
   test('a page that is not the checked copy is refused', async (t) => {

@@ -658,7 +658,9 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       ) {
         const candidate = createServer((request, response) => {
           // As the host's preview server is to: no service worker script.
-          if (request.headers['service-worker'] === 'script') response.statusCode = 403;
+          // As the host's preview server is to: no worker script anywhere, and the page never cached.
+          if (request.headers['service-worker'] === 'script') response.statusCode = 404;
+          else response.setHeader('cache-control', 'no-store');
           response.end(request.headers['service-worker'] === 'script' ? '' : COPY);
         });
         const bound = await new Promise<boolean>((resolve) => {
@@ -851,6 +853,20 @@ describe('pnpm quest:device, against a stand-in adb', () => {
       assert.ok(
         !stopped.calls.some((call) => call.startsWith('reverse --remove')),
         stopped.calls.join('\n'),
+      );
+      extra = {};
+    });
+
+    test("a rule on the port that is not exactly this tool's is refused, even with the port recorded", async () => {
+      const { project, state } = story();
+      writeFileSync(state, JSON.stringify({ installs: {}, started: [], reverses: [previewPort] }));
+      const headset = { otherReverses: [`tcp:${previewPort} tcp:9999`] };
+      const { code, said, calls } = await device(headset, 'preview', project);
+      assert.equal(code, 1, said);
+      assert.match(said, /already has a reverse/);
+      assert.ok(
+        !calls.some((call) => reverses(call) || call.startsWith('shell am start')),
+        calls.join('\n'),
       );
       extra = {};
     });

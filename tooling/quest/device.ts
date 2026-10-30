@@ -728,6 +728,12 @@ function reversesPort(rules: readonly string[], port: number): boolean {
   return rules.some((line) => line.trim().split(/\s+/)[1] === `tcp:${port}`);
 }
 
+/** Whether a rule is exactly the one `preview` makes: the headset's `port` to the Mac's same port. */
+function isPreviewRule(line: string, port: number): boolean {
+  const fields = line.trim().split(/\s+/);
+  return fields.length === 3 && fields[1] === `tcp:${port}` && fields[2] === `tcp:${port}`;
+}
+
 async function removeReverses(): Promise<void> {
   for (const port of readState().reverses) {
     await adbSaid('reverse', '--remove', `tcp:${port}`);
@@ -771,7 +777,9 @@ async function preview(): Promise<void> {
   const rules = await reverseList().catch(() =>
     fail("Not opening the preview: the headset's reverse rules could not be read."),
   );
-  const ours = readState().reverses.includes(gate.port);
+  // Ours only when recorded and its rule is exactly the one this tool makes.
+  const recorded = readState().reverses.includes(gate.port);
+  const ours = recorded && rules.some((line) => isPreviewRule(line, gate.port));
   if (reversesPort(rules, gate.port) && !ours) {
     fail(
       `Not opening the preview: the headset already has a reverse on port ${gate.port} that this tool did not make.`,
@@ -786,7 +794,7 @@ async function preview(): Promise<void> {
     try {
       await adb('reverse', '--no-rebind', `tcp:${gate.port}`, `tcp:${gate.port}`);
     } catch {
-      if (!ours) {
+      if (!recorded) {
         writeState((state) => {
           state.reverses = state.reverses.filter((kept) => kept !== gate.port);
         });
