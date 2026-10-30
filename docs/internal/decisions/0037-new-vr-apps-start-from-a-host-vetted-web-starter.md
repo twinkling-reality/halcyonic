@@ -114,3 +114,8 @@ built copy's bytes; otherwise the server is stopped and nothing is recorded. Por
 a project has one start at a time and none while its check runs, and closing the host stops every server it spawned.
 Clients open `http://127.0.0.1:port`, never `localhost`.
 
+Nothing the check concludes is computed in the page, which is the agent's code (AUDIT M18B-M1, M18B-M2): the
+edges are counted in the host from the PNGs Chrome returns (`preview/png.ts` decodes 8-bit RGB and RGBA; any other
+picture is unknown), canvases are counted through the DevTools DOM domain, at most 100 exception texts are kept
+(each clipped; the rest only counted), and a message from Chrome over 16 MB ends the run as unknown.
+

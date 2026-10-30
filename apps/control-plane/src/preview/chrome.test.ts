@@ -20,6 +20,13 @@ function pair() {
   return { pipe: new DevToolsPipe(toChrome, fromChrome), fromChrome, sent };
 }
 
+/** A stream that has sent `text` once. */
+function fromOne(text: string) {
+  const stream = new PassThrough();
+  stream.write(text);
+  return stream;
+}
+
 describe("the check's DevTools pipe (AUDIT M18A-S1)", () => {
   test('writes each command as JSON ended by a NUL byte, with its session, and resolves its answer', async () => {
     const { pipe, fromChrome, sent } = pair();
@@ -51,6 +58,42 @@ describe("the check's DevTools pipe (AUDIT M18A-S1)", () => {
   test('gives up on a command Chrome never answers', async () => {
     const { pipe } = pair();
     await assert.rejects(pipe.send('Page.enable', {}, undefined, 20), /did not answer Page.enable/);
+  });
+
+  test('a message longer than the pipe reads ends it: waiting and later commands fail, and the listener runs (AUDIT M18B-M2)', async () => {
+    const toChrome = new PassThrough();
+    const fromChrome = new PassThrough();
+    const pipe = new DevToolsPipe(toChrome, fromChrome, 1024);
+    let ended = 0;
+    pipe.onOverflow(() => {
+      ended += 1;
+    });
+    const events: unknown[] = [];
+    pipe.onEvent((message) => events.push(message.method));
+    const waiting = pipe.send('Page.captureScreenshot', {});
+    // A message within the limit still arrives; then one with no end in sight, in pieces.
+    fromChrome.write('{"method":"Runtime.consoleAPICalled","params":{}}\0{"method":"x","params":"');
+    fromChrome.write('a'.repeat(600));
+    fromChrome.write('a'.repeat(600));
+    await assert.rejects(waiting, /more than the check reads/);
+    assert.ok(pipe.overflowed);
+    assert.equal(ended, 1);
+    assert.deepEqual(events, ['Runtime.consoleAPICalled']);
+    await assert.rejects(pipe.send('Page.enable', {}), /more than the check reads/);
+    // Whatever comes after is not read.
+    fromChrome.write('"}\0{"method":"late","params":{}}\0');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(events, ['Runtime.consoleAPICalled']);
+  });
+
+  test('a whole message over the limit in one piece ends the pipe as well', async () => {
+    const pipe = new DevToolsPipe(
+      new PassThrough(),
+      fromOne(`{"id":1,"result":"${'b'.repeat(2000)}"}\0`),
+      1024,
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.ok(pipe.overflowed);
   });
 
   test('starts Chrome headless with the pipe, never a DevTools port, and the network only to the preview', () => {

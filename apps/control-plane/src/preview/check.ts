@@ -5,6 +5,7 @@ import { get } from 'node:http';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { launchChrome } from './chrome.ts';
+import { decodePng, type Pixels } from './png.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
 
 /** The host's files for a starter, copied beside its installed dependencies so the config resolves them. */
@@ -27,6 +28,8 @@ export const EARLY_MS = 3_000;
 
 const MAX_EXCEPTIONS = 5;
 const MAX_EXCEPTION_CHARS = 300;
+/** How many exception texts are kept to summarize; the rest are only counted. */
+const KEPT_EXCEPTIONS = 100;
 
 export interface CheckOptions {
   /** Node, by absolute path, to run the starter's own TypeScript and Vite. */
@@ -109,23 +112,32 @@ export function drawnFrom(at3s: number | null, at10s: number | null): boolean {
 }
 
 /**
- * The page-side count of sharp edges in a PNG picture, outside the welcome panel's corner: the image
- * is decoded in the page itself (its policy allows `data:` images), so nothing else is needed.
+ * The count of sharp edges in a picture, outside the welcome panel's corner, in the host: the page
+ * never sees the picture, so nothing it runs can change the count (AUDIT M18B-M1). Null when the PNG
+ * cannot be read.
  */
-export function edgeCountExpression(png: string): string {
-  return `(async () => {
-    const img = new Image(); img.src = 'data:image/png;base64,${png}'; await img.decode();
-    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
-    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data; const w = c.width; let n = 0;
-    for (let y = 0; y < c.height - 3; y += 1) for (let x = 0; x < w - 3; x += 1) {
+export function edgeCount(png: Buffer): number | null {
+  let pixels: Pixels;
+  try {
+    pixels = decodePng(png);
+  } catch {
+    return null;
+  }
+  const { width: w, height: h, rgba: d } = pixels;
+  // The summed channel difference between two pixels' starting bytes.
+  const apart = (a: number, b: number) =>
+    Math.abs((d[a] ?? 0) - (d[b] ?? 0)) +
+    Math.abs((d[a + 1] ?? 0) - (d[b + 1] ?? 0)) +
+    Math.abs((d[a + 2] ?? 0) - (d[b + 2] ?? 0));
+  let n = 0;
+  for (let y = 0; y < h - 3; y += 1) {
+    for (let x = 0; x < w - 3; x += 1) {
       if (x < 360 && y < 240) continue;
-      const i = (y * w + x) * 4, r = i + 12, b = i + 12 * w;
-      const dx = Math.abs(d[i] - d[r]) + Math.abs(d[i + 1] - d[r + 1]) + Math.abs(d[i + 2] - d[r + 2]);
-      const dy = Math.abs(d[i] - d[b]) + Math.abs(d[i + 1] - d[b + 1]) + Math.abs(d[i + 2] - d[b + 2]);
-      if (dx > 40 || dy > 40) n += 1;
+      const i = (y * w + x) * 4;
+      if (apart(i, i + 12) > 40 || apart(i, i + 12 * w) > 40) n += 1;
     }
-    return n; })()`;
+  }
+  return n;
 }
 
 /** Type checks, builds, and opens the built copy of a project from a starter, each inside its profile. */
@@ -211,9 +223,10 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
       return { tsc, build, page: null, unknown: 'The built copy was not served.', passed: false };
     }
     const page = await openPage(options.chrome, options.home, join(cache, 'chrome'), port, cache);
-    return page === null
-      ? { tsc, build, page: null, unknown: 'Chrome did not open the page.', passed: false }
-      : { tsc, build, page, unknown: null, passed: passes(tsc, build, page) };
+    if (page === null)
+      return { tsc, build, page: null, unknown: 'Chrome did not open the page.', passed: false };
+    if (typeof page === 'string') return { tsc, build, page: null, unknown: page, passed: false };
+    return { tsc, build, page, unknown: null, passed: passes(tsc, build, page) };
   } finally {
     await stopProcess(server);
   }
@@ -328,13 +341,23 @@ async function stopProcess(child: ChildProcess): Promise<void> {
   clearTimeout(forced);
 }
 
-/** Opens the page for 10 s in the sandboxed Chrome: exceptions, console errors, two pictures, edges. */
-async function openPage(chrome: string, home: string, folder: string, port: number, cache: string) {
+/**
+ * Opens the page for 10 s in the sandboxed Chrome: exceptions, console errors, two pictures, edges.
+ * Null when it did not open; a reason when the run was ended on purpose.
+ */
+async function openPage(
+  chrome: string,
+  home: string,
+  folder: string,
+  port: number,
+  cache: string,
+): Promise<PageFindings | string | null> {
   let run: Awaited<ReturnType<typeof launchChrome>> | null = null;
   try {
     run = await launchChrome({ chrome, home, folder, port });
     const { devtools, session } = run;
     const exceptions: string[] = [];
+    let exceptionCount = 0;
     let consoleErrors = 0;
     devtools.onEvent((message) => {
       if (message.sessionId !== session) return;
@@ -344,7 +367,12 @@ async function openPage(chrome: string, home: string, folder: string, port: numb
           text?: string;
           exception?: { description?: string };
         };
-        exceptions.push(`${details.text ?? ''} ${details.exception?.description ?? ''}`.trim());
+        exceptionCount += 1;
+        // The first ones are enough to summarize; a page throwing in a loop holds no more memory.
+        if (exceptions.length < KEPT_EXCEPTIONS)
+          exceptions.push(
+            `${details.text ?? ''} ${details.exception?.description ?? ''}`.trim().slice(0, 4096),
+          );
       } else if (message.method === 'Runtime.consoleAPICalled' && params.type === 'error') {
         consoleErrors += 1;
       }
@@ -354,53 +382,45 @@ async function openPage(chrome: string, home: string, folder: string, port: numb
     await devtools.send('Page.navigate', { url: `http://127.0.0.1:${port}/` }, session);
     const picture = async (
       atMs: number,
-    ): Promise<{ png: string | null; saved: PagePicture | null }> => {
+    ): Promise<{ edges: number | null; saved: PagePicture | null }> => {
       const shot = await devtools
         .send('Page.captureScreenshot', { format: 'png' }, session)
         .catch((): Record<string, unknown> => ({}));
-      const png = typeof shot.data === 'string' ? shot.data : null;
-      if (png === null) return { png, saved: null };
-      const bytes = Buffer.from(png, 'base64');
+      if (typeof shot.data !== 'string') return { edges: null, saved: null };
+      const bytes = Buffer.from(shot.data, 'base64');
       const file = join(cache, `picture-${atMs / 1000}s.png`);
       await writeFile(file, bytes, { mode: 0o600 });
       return {
-        png,
+        edges: edgeCount(bytes),
         saved: { at_ms: atMs, file, sha256: createHash('sha256').update(bytes).digest('hex') },
       };
     };
     await delay(EARLY_MS);
     const early = await picture(EARLY_MS);
     await delay(PAGE_MS - EARLY_MS);
-    const counted = await devtools.send(
-      'Runtime.evaluate',
-      { expression: 'document.querySelectorAll("canvas").length', returnByValue: true },
-      session,
-    );
-    const late = await picture(PAGE_MS);
-    const edges = async (png: string | null) => {
-      if (png === null) return null;
-      const answer = await devtools.send(
-        'Runtime.evaluate',
-        { expression: edgeCountExpression(png), awaitPromise: true, returnByValue: true },
-        session,
-      );
-      const value = (answer.result as { value?: unknown } | undefined)?.value;
-      return typeof value === 'number' ? value : null;
+    // Counted through the DOM domain, which runs none of the page's code.
+    const { root } = (await devtools.send('DOM.getDocument', { depth: 0 }, session)) as {
+      root?: { nodeId?: number };
     };
-    const at3s = await edges(early.png);
-    const at10s = await edges(late.png);
-    const canvases = (counted.result as { value?: unknown } | undefined)?.value;
+    const found = (await devtools.send(
+      'DOM.querySelectorAll',
+      { nodeId: root?.nodeId ?? 0, selector: 'canvas' },
+      session,
+    )) as { nodeIds?: unknown[] };
+    const late = await picture(PAGE_MS);
+    const at3s = early.edges;
+    const at10s = late.edges;
     return {
       exceptions: summarizeExceptions(exceptions),
-      exception_count: exceptions.length,
+      exception_count: exceptionCount,
       console_errors: consoleErrors,
-      canvases: typeof canvases === 'number' ? canvases : 0,
+      canvases: Array.isArray(found.nodeIds) ? found.nodeIds.length : 0,
       edges: { at_3s: at3s, at_10s: at10s },
       drawn: drawnFrom(at3s, at10s),
       pictures: [early.saved, late.saved].filter((saved): saved is PagePicture => saved !== null),
     } satisfies PageFindings;
   } catch {
-    return null;
+    return run?.devtools.overflowed ? 'Chrome sent more than the check reads.' : null;
   } finally {
     await run?.stop();
   }
