@@ -97,7 +97,7 @@ public class FileWaitingTests
         Draw(screen, steering);
         var last = Screen(workspace, steering, screen);
         Assert.That((last.Lines[0].FromRow, last.Lines[1].Words), Is.EqualTo(((int?)6, "First Part · 1 of 3")));
-        Assert.That(last.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Approve"));
+        Assert.That(last.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm"));
         Assert.That(last.Footer[PromptSlot.Free]!.Kind, Is.EqualTo(PromptKind.Yes));
         Assert.That(FileScreensTests.Slots(last.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, null, FileScreens.Cancel }),
             "while it asks, the other actions step aside");
@@ -313,7 +313,7 @@ public class FileWaitingTests
             screen.Section = section;
             var frame = Screen(workspace, steering, screen);
             Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Cancel, FileScreens.Yes, null, null }), section.ToString());
-            Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Stop"));
+            Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm"));
             Assert.That(frame.Lines.Single().Words, Does.StartWith("Stop Task?"));
             Assert.That(frame.Sections.Single(each => each.Chosen).Key, Is.EqualTo(FileScreens.Key(section)), "the section stays where the person put it");
         }
@@ -334,7 +334,7 @@ public class FileWaitingTests
         var frame = Screen(workspace, steering, screen);
         Assert.That((frame.Lines[0].FromRow, frame.Lines[1].Words), Is.EqualTo(((int?)0, "Next Part · 2 of 2")), "on the first of two parts");
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, FileScreens.Yes, FileScreens.Cancel, null }));
-        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Deny"));
+        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm"));
         Assert.That(frame.Lines.Last().Words, Is.EqualTo("Deny Request?"));
     }
 

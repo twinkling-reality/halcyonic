@@ -40,7 +40,8 @@ can do next.
    about whether the work is right, so nothing celebrates it.
 4. **Lead with the state or the action**, then the cause, then the way on (Not Sent · Answer Changed · Reread).
 5. **Buttons** begin with a verb, in Title Case, in one to three words. A confirmation is
-   "Confirm {Verb}" beside Cancel. An icon may stand before a button's words, never in their place.
+   "Confirm" beside Cancel, under the question that names the action ("Approve Request?"). An icon may
+   stand before a button's words, never in their place.
 6. **Use familiar names for the work and its actor.** Projects, Tasks, Approvals, Activity, Changes,
    Tests and Send Instruction say what the person can do. Agent and assistant are ordinary nouns;
    avoid forced pronouns and invented circumlocutions. Your computer identifies the connected host.
@@ -121,8 +122,7 @@ snapshot, workstream, access token (an access code, only where the person must a
 Each line of an answer says how it is known with a chip; an observed fact, a measurement and
 Halcyonic's own words go without one. The words below were settled by the coordinator on
 2026-10-02 and put in the owner's voice standard on 2026-10-30; the old words are kept beside them
-so no surface goes back to them. The kit's own report chip still reads Agent says until the kit's
-words move; it attributes words whole as the agent's chip does.
+so no surface goes back to them. The kit's report chip is the agent's own (Agent · Reported).
 
 | The line is | Chip | Instead of |
 | --- | --- | --- |
@@ -181,7 +181,7 @@ and outside-text treatment; observed events are not labeled as agent claims. The
 blanket agent source line. Waiting and request pages use "Reported" for their source.
 
 **Write Instruction** opens the draft. **Review Instruction** opens its complete review, and
-**Confirm Send** sends only after that review. A transcribed draft asks "Send Heard Instruction?";
+**Confirm** sends only after that review. A transcribed draft asks "Send Heard Instruction?";
 a typed draft asks "Send Instruction?". These labels do not change capability, complete-reading or
 current-request checks.
 
@@ -222,7 +222,7 @@ stay exactly as written and lean.
 | Connection | {Truth} · {Cause} · {What Happens} | Computer Unreachable · Retrying |
 | Provenance | {Source} · {When} | Seorak · 2 min ago |
 | The work's reported request or state | Reported, on Waiting and request pages; Activity identifies each reported message separately | Reported |
-| Confirmation | Confirm {Verb}, where no control stood a moment before; Cancel where the first press was | Confirm Approve · Cancel |
+| Confirmation | Confirm, where no control stood a moment before, under the question that names the action; Cancel where the first press was | Approve Request? · Confirm · Cancel |
 | Asking about what shows | {Verb} {Thing}? | Approve Request? |
 | Where an approved command runs | May Run Outside Sandbox · Your Access, or Runs Inside Sandbox, only for a command that can be approved and only as its agent app declares it, before what Approve does ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)) | May Run Outside Sandbox · Your Access |
 | Locked final press | Read to Part {n} (locked) | Read to Part 3 |
@@ -444,83 +444,89 @@ you. These words describe the isolated candidate; wearer acceptance remains open
 ## The room of projects
 
 The words of [ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md)'s room, decided with its storyboard on
-2026-10-29 and its truth read. {runtime} is the agent app's name; anything the runtime wrote (a path, a command, its
-sentence) is theirs and drawn as theirs. Nothing here is built yet.
+2026-10-29 and its truth read, and put in the owner's voice standard on 2026-10-30 (ART's room section, DESIGN's moment
+card anatomy). {runtime} is the agent app's name, said only as provenance; anything the runtime wrote (a path, a command,
+its sentence) is theirs and drawn as theirs. A moment card reads top to bottom: its eyebrow (who and how known), a 1 to 3
+word Title, one metadata line in the " · " cadence, a well for a command, a risk line, its answers. The moment words live
+in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are not built yet.
 
 | Kind | Words | Example |
 | --- | --- | --- |
-| The gallery's title | Your projects, then the count | Your projects · 214 projects in 6 groups |
-| A newcomer's line | Say what you want to make, or open what you made. "Say" only when speech is set up on the Mac; otherwise Type what you want to make, or open what you made. | Say what you want to make, or open what you made. |
-| Making something | Make something new, on the first tile and at the top of the gallery | Make something new |
-| What needs the person | Needs you first, then the count | Needs you first · 3 |
-| The rest of a shelf | +{n} more | +42 more |
-| Finding | Find a project | Find a project |
-| A catalog state | Halcyonic's plain words mapped from the catalog's states (the mapping lives with the gallery's client core, ADR 0039), beside the catalog's mark and "reported by {catalog}"; an attention kind Halcyonic does not know reads needs a look | Review requested · reported by Sample projects |
-| A catalog project linked to no Project here | Not linked to a project here. Never "Not on this computer yet": Halcyonic cannot know what is on the computer. Maybe on your computer: {folder} only from the host's own suggestion, once there is one. | Not linked to a project here |
-| A linked project with both states | Halcyonic's line with its state dot, then the catalog's line with its mark and "reported by {catalog}"; neither hides the other | Working · Asked for your review, reported by Sample projects |
-| The screen's picture | Last checked build, today at {time}, or {d MMM} at {time} where it isn't today, on the host's check screenshot; no picture and no label until the check takes one | Last checked build, today at 10:38 |
-| The one clear action | Make a VR version, for a project that is not VR yet. It only asks the agent. | Make a VR version |
-| The screen's title | {project}, then {runtime} · {state}, on the screen's own chip | Tower Toss · Codex · Ready for a change |
-| The screen's bar | Its primary action first (Make a VR version for a project that is not VR yet, else Change it), then Change it where it is not the primary, then Try it only after a passed check of the computer's own, with a route to try it, while no turn runs and with no change seen since that check; then Steps, Why, How it went. Folded while nothing is wanted: a handle alone. | Change it · Try it · Steps · Why · How it went |
-| A request sent | Sent to {runtime}. Waiting for it to start. Never "started" on acceptance. | Sent to Codex. Waiting for it to start. |
-| The runtime's report of an edit | {runtime} says, then Edited {path} (Made or Removed for a new or removed file), then Not seen on your computer yet. | Codex says · Edited src/towers.ts · Not seen on your computer yet. |
-| The Mac's reading at the turn's end | Seen on your computer, then Changed {path}, {before} to {after} lines, seen {time}; Made {path}, {lines} lines, seen {time}; Removed {path}, seen {time}. Never the lines themselves. | Changed src/towers.ts, 41 to 54 lines, seen 10:42 |
-| Lines added and removed | +{added} −{removed} lines, only from a checkpoint diff when undo is on | +14 −3 lines |
-| Earlier moments | Earlier: {n} more, counting only the moments before the shown one | Earlier: 4 more |
-| Moments after a waiting question | {n} newer, counting the moments that came after a question that stays shown | 1 newer |
-| A check the Mac ran | Checked by your computer, then Checking it builds while no exit is seen, then Checked it builds: passed or failed. "and opens" only where the check opened the build. | Checked by your computer · Checked it builds: passed |
-| A check the agent ran | {runtime} ran {command}, then its outcome as theirs | Codex ran npm run build: exit 1 |
-| A check that ended with no outcome | Ran a check: result not known | Ran a check: result not known |
-| A command to approve | {runtime} asks, Run this command?, the command, then ADR 0033's line when the runtime declares it, then Nothing runs until you answer. | Codex asks · Run this command? · npm install matter-js · If you approve, it may run outside its sandbox, with your access to your computer. |
-| The answers | Yes, run it · No · Say something else | Yes, run it |
-| Ready | {project} is ready, then Built in {duration}, checked it builds. (checked it builds and opens. where the check opened it). Only after a check of the computer's own passed; Try it only where a route to try it exists; for a VR version, only after the check opened the VR version. | Tower Toss is ready · Built in 6 min 40 s, checked it builds and opens. |
-| A skipped reading | Skipped by your computer, then Not observed: {reason}. Never "no changes". | Not observed: too many files |
-| A package the starter doesn't hold | Wanted {package}, which isn't in this starter, then The install didn't run | Wanted matter-js, which isn't in this starter |
-| Reading | Read it, Fold, Whole file (unavailable until the Mac has read the file) | Read it |
+| The gallery's title | Projects · {n} · {groups} Groups | Projects · 214 · 6 Groups |
+| A newcomer's line | Say Idea when speech is set up on the Mac, otherwise Type Idea; Open Project | Say Idea |
+| Making something | New Project, on the first tile and at the top of the gallery | New Project |
+| What needs the person | Needs You · {n} | Needs You · 3 |
+| The rest of a shelf | +{n} More | +42 More |
+| Finding | Find Project | Find Project |
+| A catalog state | Halcyonic's words mapped from the catalog's states (the gallery's table below), marked Reported beside the catalog's name; an attention kind Halcyonic does not know reads Needs a Look | Review Requested · Reported · Sample Projects |
+| A catalog project linked to no Project here | Not Linked. Never "Not on this computer yet": Halcyonic cannot know what is on the computer. Possible Match · {folder}, marked Inferred, only from the host's own suggestion | Not Linked |
+| A linked project with both states | Halcyonic's state with its dot, Observed, then the catalog's, Reported; neither hides the other | Running · Observed / Review Requested · Reported |
+| The screen's picture | Last Check · Today {time} · Observed, or Last Check · {d MMM} {time} · Observed where it isn't today, on the host's check screenshot; no picture and no label until the check takes one | Last Check · Today 10:38 · Observed |
+| The one clear action | Make VR Version, for a project that is not VR yet. It only asks the agent. | Make VR Version |
+| The screen's title | {project}, then {runtime} · {state}, on the screen's own chip | Tower Toss · Codex · Ready |
+| The screen's bar | Its primary action first (Make VR Version for a project that is not VR yet, else Request Change), then Request Change where it is not the primary, then Try Build only after a passed check of the computer's own, with a route to try it, while no turn runs and with no change seen since that check; then Activity, Reasoning, Outcome | Request Change |
+| A request sent | Eyebrow {runtime} · Observed; Title Sent; Awaiting Start. Never "Started" on acceptance. | Sent · Awaiting Start |
+| The runtime's report of an edit | Eyebrow {runtime} · Reported; Title Edit Reported (New File Reported, Removal Reported); the path; Not Yet Observed | Edit Reported · src/towers.ts · Not Yet Observed |
+| The Mac's reading at the turn's end | Eyebrow Your Computer · Observed; Title Change Observed (File Made, File Removed); the path · {before} to {after} Lines · {time}; never the lines themselves | Change Observed · src/towers.ts · 41 to 54 Lines · 10:42 |
+| Lines added and removed | +{added} −{removed} Lines, only from a checkpoint diff when undo is on | +14 −3 Lines |
+| Earlier moments | Earlier · {n} More, counting only the moments before the shown one | Earlier · 4 More |
+| Moments after a waiting question | {n} Newer, counting the moments after a question that stays shown | 1 Newer |
+| A check the Mac ran | Eyebrow Your Computer · Observed; Computer Check · Builds · Under Way while no exit is seen, never the agent's own "Checking"; then Build Passed or Build Failed · Builds (· Opens only where the check opened the build) | Build Passed · Builds · Opens |
+| A check the agent ran | Eyebrow {runtime} · Reported; Title Check Reported; the command in the well; its outcome as theirs | Check Reported · npm run build · exit 1 |
+| A check that ended with no outcome | Check Ran · Result Unknown | Check Ran · Result Unknown |
+| A command to approve | Eyebrow Agent · Question; Title Run Command?; the command in the well; ADR 0033's line when the runtime declares it (May Run Outside Sandbox · Your Access, or Runs Inside Sandbox). "Nothing runs until you answer." is deleted: the question and its locked answers carry it. | Run Command? · npm install matter-js |
+| The answers | Run · Decline · Reply; a cut command offers no Run | Run |
+| The agent's own note | Eyebrow {runtime} · Reported; Title Agent Note; their words beneath as prose | Agent Note |
+| Ready | Eyebrow Your Computer · Observed; Title Build Ready; the project; Builds · {duration} (Builds · Opens · {duration} where the check opened it). Only after a check of the computer's own passed; Try Build only where a route to try it exists; for a VR version, only after the check opened the VR version. | Build Ready · Tower Toss · Builds · Opens · 6 min 40 s |
+| A skipped reading | Eyebrow Your Computer · Observed; Title Not Observed; the reason. Never "no changes". | Not Observed · too many files |
+| A package the starter doesn't hold | Eyebrow Your Computer · Observed; Title Not in Starter; the package; Install Not Run | Not in Starter · matter-js · Install Not Run |
+| Reading | Read File, Read Output, Fold, Whole File (unavailable until the Mac has read the file); a cut command in the well says Cut · {n} More Lines | Read File |
+| The report beside a task, in the kit | Agent · Reported, as the agent's chip everywhere; Nothing Reported; Earlier Activity · {n} More | Agent · Reported |
+| The composer, in the kit | Instruction (empty field) · Your Answer · Not Sent · Send Instruction · Hold to Talk | Send Instruction |
 
 ## The projects gallery
 
 The words of the gallery's core (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)),
-agreed with DESIGN on 2026-10-29. How the room lays them out is in "The room of projects". A
-project's state in the person's catalog is reported by Phat Porcupine, so its line never repeats a
-task's own words ("Needs You", "Checks Failed"): a reported state is never read as one
-Halcyonic observed. Names, owners, groups and pull request titles from the catalog lean, as words
-from outside do; these lines are Halcyonic's own.
+agreed with DESIGN on 2026-10-29 and put in the owner's voice standard on 2026-10-30. How the room lays them out is in
+"The room of projects". A project's state in the person's catalog is reported by Phat Porcupine, so its line never
+repeats a task's own words ("Needs You", "Checks Failed") and is marked Reported with the catalog's name: a reported
+state is never read as one Halcyonic observed. Names, owners, groups and pull request titles from the catalog lean, as
+words from outside do; these lines are Halcyonic's own.
 
 | The catalog's state | Group | Line |
 | --- | --- | --- |
-| `awaiting_input` | Needs you | An agent is waiting for you |
-| `session_failed` | Needs you | An agent couldn't finish |
-| `checks_failing` | Needs you | Its checks are failing |
-| `review_requested` | Needs you | Asked for your review |
-| `changes_requested` | Needs you | Someone asked for changes |
-| `ready_to_merge` | Needs you | Ready to merge |
-| any state Halcyonic doesn't know yet | Needs you | Needs a look |
-| `agent_running` | Working now | An agent is working on it (a line, never a character) |
-| `session_complete` | Recent | An agent finished |
-| `active` | Recent | Changed recently |
-| `inactive` | Quiet | Quiet for a while |
+| `awaiting_input` | Needs you | Agent Waiting |
+| `session_failed` | Needs you | Agent Failed |
+| `checks_failing` | Needs you | Checks Failing |
+| `review_requested` | Needs you | Review Requested |
+| `changes_requested` | Needs you | Changes Requested |
+| `ready_to_merge` | Needs you | Ready to Merge |
+| any state Halcyonic doesn't know yet | Needs you | Needs a Look |
+| `agent_running` | Working now | Agent Running (a line, never a character) |
+| `session_complete` | Recent | Agent Finished |
+| `active` | Recent | Changed Recently |
+| `inactive` | Quiet | Quiet |
 | `archived` | Quiet | Archived |
-| `access_lost` | Quiet | Can't reach it now |
+| `access_lost` | Quiet | Unreachable |
 
-A Halcyonic project keeps its tasks' words ("1 task waiting for you, 2 paused"), or "No work yet",
-always, as this computer observed them. Linked to a catalog project, it shows the catalog's line
-beside them, marked as the catalog's, and the more urgent of the two places it in a group.
+A Halcyonic project keeps its tasks' words, or "No work yet", always, as this computer observed them. Linked to a
+catalog project, it shows the catalog's line beside them, marked as the catalog's, and the more urgent of the two places
+it in a group.
 
 | Where | Words |
 | --- | --- |
-| Where a Halcyonic project is | On your computer · No folder on your computer yet |
-| Where a catalog project is, as far as Halcyonic knows | Not linked to a project here · Maybe on your computer: {a folder the computer matched by a rule, leaning} (inferred, never a link) |
-| How old the catalog is, on the gallery's header line | Checked today at 14:50 · Checked 27 Oct at 09:05 · Couldn't check just now; last checked today at 14:50 · Couldn't check just now · Not checked yet |
-| Over a sample or simulated catalog, kept apart from real projects | Sample projects |
-| No catalog: not set up | Your other projects can show here too once Phat Porcupine is set up on your computer. |
-| No catalog: not running | Your other projects show here while Phat Porcupine is running on your computer. |
-| No catalog: still gathering | Phat Porcupine is still gathering your projects. Press Refresh in a moment. |
-| No catalog: credential refused | Phat Porcupine no longer lets Halcyonic read your projects. Set it up again on your computer. |
-| No catalog: a version Halcyonic can't read | This version of Phat Porcupine doesn't work with Halcyonic yet. |
-| No catalog: any other reason | Couldn't read your other projects just now. Press Refresh in a moment. |
-| This headset's own read failed | Couldn't read your other projects: {why, as Help me understand says it} |
-| No catalog in a recording (the demonstration, the judge build, a recorded run) | Your other projects aren't part of this recording. |
+| Where a Halcyonic project is | On Your Computer · No Folder Yet |
+| Where a catalog project is, as far as Halcyonic knows | Not Linked · Possible Match · {a folder the computer matched by a rule, leaning} (Inferred, never a link) |
+| How old the catalog is, on the gallery's header line | Checked · Today 14:50 · Checked · 27 Oct 09:05 · Check Failed · Last · Today 14:50 · Check Failed · Not Checked |
+| Over a sample or simulated catalog, kept apart from real projects | Sample Projects |
+| No catalog: not set up | Phat Porcupine · Not Set Up · Set Up on Computer |
+| No catalog: not running | Phat Porcupine · Not Running |
+| No catalog: still gathering | Phat Porcupine · Gathering · Refresh |
+| No catalog: credential refused | Phat Porcupine · Access Refused · Set Up Again |
+| No catalog: a version Halcyonic can't read | Phat Porcupine · Version Unsupported |
+| No catalog: any other reason | Projects Unreadable · Refresh |
+| This headset's own read failed | Projects Unreadable · {why, as Help me understand says it; that sentence moves with the menu's words} |
+| No catalog in a recording (the demonstration, the judge build, a recorded run) | Not in Recording |
 
 The lines without a catalog that name Phat Porcupine appear only where a real control plane
 answered, never over sample projects or in a recording, so neither the judge build nor the

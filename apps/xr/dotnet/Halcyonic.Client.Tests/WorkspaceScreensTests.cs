@@ -338,7 +338,7 @@ public class WorkspaceScreensTests
         model = Screen(work.Present(), steering, screen);
         Assert.That(Titles(model).Single(), Is.EqualTo("migration"));
         Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label, model.Confirm.Yes.Available, model.Confirm.Yes.Role),
-            Is.EqualTo(("Approve Request?", "Confirm Approve", true, PanelActionRole.Primary)));
+            Is.EqualTo(("Approve Request?", "Confirm", true, PanelActionRole.Primary)));
 
         steering.Cancel();
         Assert.That(steering.Press(WorkspaceAction.Deny, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
@@ -353,7 +353,7 @@ public class WorkspaceScreensTests
         Assert.That(steering.Press(WorkspaceAction.Interrupt, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         var model = Screen(work.Present(), steering);
         Assert.That(model.Tabs, Is.Not.Empty, "nothing pages, so the tabs stay");
-        Assert.That((model.Confirm!.Yes.Label, model.Confirm.Yes.Role), Is.EqualTo(("Confirm Stop", PanelActionRole.Destructive)));
+        Assert.That((model.Confirm!.Yes.Label, model.Confirm.Yes.Role), Is.EqualTo(("Confirm", PanelActionRole.Destructive)));
         Assert.That(model.Confirm.Question, Does.StartWith("Stop Task?"));
         Assert.That(model.Parts, Is.Null);
     }
@@ -460,7 +460,7 @@ public class WorkspaceScreensTests
         Assert.That(steering.SendAnswer(draft, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         var model = Screen(work.Present(), steering, screen);
         Assert.That(Titles(model), Is.EqualTo(new[] { "Question 1 of 2 · Colour scheme: Dark", "Question 2 of 2 · Pages: Sign in, Settings" }));
-        Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label), Is.EqualTo(("Send Answers?", "Confirm Answer")));
+        Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label), Is.EqualTo(("Send Answers?", "Confirm")));
     }
 
     [Test]
@@ -563,7 +563,7 @@ public class WorkspaceScreensTests
         Assert.That(hearing.Spoken("Add a test", instructable).Step, Is.EqualTo(SteeringStep.Confirm));
         hearing.RequestShown(1, 1);
         models.Add(Screen(instructable, hearing, new WorkspaceScreen { Speak = true }));
-        Assert.That((models[^1].Confirm!.Yes.Label, models[^1].Confirm!.Yes.Icon), Is.EqualTo(("Confirm Send", (GlazeIcon?)GlazeIcon.TellIt)),
+        Assert.That((models[^1].Confirm!.Yes.Label, models[^1].Confirm!.Yes.Icon), Is.EqualTo(("Confirm", (GlazeIcon?)GlazeIcon.TellIt)),
             "an instruction the Mac heard is confirmed with Tell it's icon, not the microphone");
         foreach (var model in models) Assert.That(model.Confirm!.Cancel.Icon, Is.EqualTo(GlazeIcon.Close));
 

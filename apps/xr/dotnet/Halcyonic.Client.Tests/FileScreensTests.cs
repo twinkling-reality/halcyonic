@@ -511,7 +511,7 @@ public class FileScreensTests
         Assert.That(steering.Press(WorkspaceAction.Interrupt, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
         var frame = Screen(new FileScreen { Section = FileSection.Activity }, workspace, steering);
         Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Cancel, FileScreens.Yes, null, null }));
-        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm Stop"));
+        Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Confirm"));
         Assert.That(frame.Lines.Single().Words, Does.StartWith("Stop Task?"));
     }
 

@@ -22,8 +22,8 @@ namespace Halcyonic.XR.UI
     public sealed class KitWorkView : MonoBehaviour
     {
         public const string RailHeading = "Activity";
-        public const string EarlierWords = "Earlier activity";
-        public const string NothingReported = "Nothing reported by the agent yet.";
+        public const string EarlierWords = "Earlier Activity";
+        public const string NothingReported = "Nothing Reported";
 
         private KitCarrier spineCarrier = null!;
         private KitCarrier slate = null!;
@@ -316,12 +316,12 @@ namespace Halcyonic.XR.UI
             {
                 // Some did not fit: Earlier activity opens the whole history, and the trail gives it the room it needs.
                 var earlierModel = new KitRowModel("activity:earlier", LineWords.Ours(EarlierWords), GlazeIcon.LastKnown,
-                    end: trail.Earlier == 1 ? "1 more" : trail.Earlier + " more", endTone: GlazeTone.Accent);
+                    end: trail.Earlier + " More", endTone: GlazeTone.Accent);
                 var earlierHeight = earlier.Show(earlierModel, new Vector2(railLeft, sideTop - railY), railInner);
                 railY += earlierHeight + KitType.Scaled(0.5f);
                 trail.Show(model.Trail, railInner, sides - railY - pad - routesRoom);
                 earlier.Show(new KitRowModel("activity:earlier", LineWords.Ours(EarlierWords), GlazeIcon.LastKnown,
-                    end: trail.Earlier == 1 ? "1 more" : trail.Earlier + " more", endTone: GlazeTone.Accent), new Vector2(railLeft, sideTop - earlierAt), railInner);
+                    end: trail.Earlier + " More", endTone: GlazeTone.Accent), new Vector2(railLeft, sideTop - earlierAt), railInner);
             }
             else earlier.Hide();
             trail.transform.localPosition = new Vector3(railLeft, sideTop - railY, 0f);

@@ -671,13 +671,17 @@ namespace Halcyonic.Client
             ? "Full Request"
             : "Full Request · Part " + part.ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture);
 
+        /// <summary>
+        /// The confirmation's Yes: Confirm, one word, under the question that names the action ("Approve Request?"), so it
+        /// stays short enough for the kit's decision bar at the larger text size.
+        /// </summary>
         public static string ConfirmLabel(WorkspaceAction action) => action switch
         {
-            WorkspaceAction.Approve => "Confirm Approve",
-            WorkspaceAction.Deny => "Confirm Deny",
-            WorkspaceAction.Interrupt => "Confirm Stop",
-            WorkspaceAction.Instruct => "Confirm Send",
-            WorkspaceAction.Answer => "Confirm Answer",
+            WorkspaceAction.Approve => "Confirm",
+            WorkspaceAction.Deny => "Confirm",
+            WorkspaceAction.Interrupt => "Confirm",
+            WorkspaceAction.Instruct => "Confirm",
+            WorkspaceAction.Answer => "Confirm",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 

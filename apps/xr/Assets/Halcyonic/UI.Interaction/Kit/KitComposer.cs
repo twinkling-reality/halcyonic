@@ -19,12 +19,12 @@ namespace Halcyonic.XR.UI
     public sealed class KitComposer : MonoBehaviour
     {
         public const string Label = FileScreens.YourInstruction;
-        public const string Empty = "Type your instruction";
-        public const string NotSent = "Not sent yet.";
-        public const string SendInstruction = "Send instruction";
+        public const string Empty = "Instruction";
+        public const string NotSent = "Not Sent";
+        public const string SendInstruction = "Send Instruction";
 
         /// <summary>The input's label while the work waits for the person's answer, as the file column labels it.</summary>
-        public const string AnswerLabel = "Your answer";
+        public const string AnswerLabel = "Your Answer";
 
         private TextMeshPro label = null!;
         private Surface well = null!;
@@ -203,7 +203,7 @@ namespace Halcyonic.XR.UI
             var leftControls = new[] { (close, closeControl), (rare, rareControl) }.Where(each => each.Item2 != null).ToList();
             var leftWidth = leftControls.Sum(each => each.Item1.Measure(each.Item2!.Words, each.Item2.Icon ?? GlazeIcon.Close) + gap);
             var rightWidth = (sendControl != null || !bound ? send.Measure(sendControl?.Words ?? SendInstruction, GlazeIcon.SendAnswer) + gap : 0f)
-                + (voiceOffered ? talk.Measure(talkControl?.Words ?? "Hold to talk", GlazeIcon.HoldToTalk) + gap : 0f);
+                + (voiceOffered ? talk.Measure(talkControl?.Words ?? VoiceText.HoldToTalk, GlazeIcon.HoldToTalk) + gap : 0f);
             var leftRow = row;
             if (leftControls.Count > 0 && leftWidth + rightWidth - gap > width + 1e-5f)
             {
@@ -224,7 +224,7 @@ namespace Halcyonic.XR.UI
             talk.gameObject.SetActive(voiceOffered);
             if (voiceOffered)
             {
-                var talkWords = talkControl?.Words ?? "Hold to talk";
+                var talkWords = talkControl?.Words ?? VoiceText.HoldToTalk;
                 var talkWidth = talk.Measure(talkWords, GlazeIcon.HoldToTalk);
                 talk.Available = talkControl == null || talkControl.Available;
                 talk.Show(talkWords, GlazeIcon.HoldToTalk, new Vector2(right - talkWidth / 2f, row), talkWidth);

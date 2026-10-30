@@ -48,7 +48,7 @@ public class MenuFrameTests
 
     private static Prompt HoldToTalk => new("hold-to-talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
 
-    private static Prompt Yes(bool available = true) => new("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes, available: available, reason: "Read to part 3 first");
+    private static Prompt Yes(bool available = true) => new("yes", "Confirm", GlazeIcon.Approve, PromptKind.Yes, available: available, reason: "Read to part 3 first");
 
     private static Prompt Cancel => new("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel);
 
@@ -136,7 +136,7 @@ public class MenuFrameTests
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(secondary: Action("approve", main: true)));
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(rare: Action("approve", main: true)));
         Assert.Throws<ArgumentException>(() => _ = new Prompt(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage, main: true), "paging is never the main action");
-        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes, main: true), "nor a confirmation");
+        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Confirm", GlazeIcon.Approve, PromptKind.Yes, main: true), "nor a confirmation");
         Assert.Throws<ArgumentException>(() => _ = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close, main: true));
         var plain = new Footer(farRight: Action("send"));
         Assert.That(plain[PromptSlot.FarRight]!.DrawnAsMain, Is.False, "an action at the far right that isn't the main action is drawn plain");
@@ -159,7 +159,7 @@ public class MenuFrameTests
         var stop = new Prompt("stop", "Stop", GlazeIcon.Stop, available: false, reason: "It already stopped.");
         Assert.That(new Footer(Close, rare: stop, farRight: send).Reason, Is.EqualTo("It already stopped."), "another prompt's reason still shows");
         Assert.Throws<ArgumentException>(() => _ = Action("approve", available: false), "an action that can't be taken says why");
-        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes, available: false), "so does a locked Yes");
+        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Confirm", GlazeIcon.Approve, PromptKind.Yes, available: false), "so does a locked Yes");
         var frame = new MenuFrame("New project", footer);
         Assert.That(frame.Reason, Is.EqualTo("The companion is still answering."));
     }

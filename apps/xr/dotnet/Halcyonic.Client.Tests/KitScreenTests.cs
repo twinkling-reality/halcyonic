@@ -33,8 +33,8 @@ public class KitScreenTests
     {
         var screen = Screen(picture: At);
         Assert.That(screen.ShowsPicture, Is.True);
-        Assert.That(screen.PictureLabel(At.AddHours(2), TimeZoneInfo.Utc), Is.EqualTo("Last checked build, today at 10:38"));
-        Assert.That(screen.PictureLabel(At.AddDays(1), TimeZoneInfo.Utc), Is.EqualTo("Last checked build, 29 Oct at 10:38"), "the day where it isn't today");
+        Assert.That(screen.PictureLabel(At.AddHours(2), TimeZoneInfo.Utc), Is.EqualTo("Last Check · Today 10:38 · Observed"));
+        Assert.That(screen.PictureLabel(At.AddDays(1), TimeZoneInfo.Utc), Is.EqualTo("Last Check · 29 Oct 10:38 · Observed"), "the day where it isn't today");
     }
 
     [Test]
@@ -120,7 +120,7 @@ public class KitScreenTests
     {
         foreach (KitScreenAction action in Enum.GetValues(typeof(KitScreenAction)))
             Assert.That(KitScreenModel.Words(action), Is.Not.Empty, action.ToString());
-        Assert.That(KitScreenModel.Words(KitScreenAction.MakeAVrVersion), Is.EqualTo("Make a VR version"));
-        Assert.That(KitScreenModel.Words(KitScreenAction.HowItWent), Is.EqualTo("How it went"));
+        Assert.That(KitScreenModel.Words(KitScreenAction.MakeAVrVersion), Is.EqualTo("Make VR Version"));
+        Assert.That(KitScreenModel.Words(KitScreenAction.HowItWent), Is.EqualTo("Outcome"));
     }
 }

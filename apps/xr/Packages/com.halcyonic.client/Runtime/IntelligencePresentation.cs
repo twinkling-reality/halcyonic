@@ -140,15 +140,11 @@ namespace Halcyonic.Client
         /// <summary>The chip beside a model's account of the work, after it.</summary>
         public const string ExplanationChip = "Explanation · Reported";
 
-        /// <summary>The kit's own chip on an agent's report, which keeps its earlier words until the kit's words move.</summary>
-        private const string KitAgentSays = "Agent says";
-
         /// <summary>
         /// Whether a chip attributes an agent's or a subagent's words whole, so the words beside it may
-        /// stand upright (ADR 0026): <see cref="AgentChip"/>, <see cref="SubagentChip"/>, or the kit's own
-        /// "Agent says" until the kit's words move.
+        /// stand upright (ADR 0026): <see cref="AgentChip"/>, the kit's report chip too, or <see cref="SubagentChip"/>.
         /// </summary>
-        public static bool AttributesWhole(string? chip) => chip == AgentChip || chip == SubagentChip || chip == KitAgentSays;
+        public static bool AttributesWhole(string? chip) => chip == AgentChip || chip == SubagentChip;
 
         /// <summary>
         /// The same line with some of it changed, keeping its evidence, its words and its chip as they

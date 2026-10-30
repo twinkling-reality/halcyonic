@@ -81,9 +81,9 @@ namespace Halcyonic.Client
 
         public bool ShowsPicture => PictureTakenAt != null;
 
-        /// <summary>"Last checked build, today at 10:38", or with its day where that isn't today; null without a picture.</summary>
+        /// <summary>"Last Check · Today 10:38 · Observed", or with its day where that isn't today; null without a picture.</summary>
         public string? PictureLabel(DateTimeOffset now, TimeZoneInfo zone) => PictureTakenAt is DateTimeOffset taken
-            ? "Last checked build, " + UsageLeftPresenter.When(taken, now, zone) : null;
+            ? "Last Check · " + GalleryText.When(taken, now, zone) + " · Observed" : null;
 
         /// <summary>The neutral mark in place of a picture.</summary>
         public string Monogram => MonogramOf(Project);
@@ -142,12 +142,12 @@ namespace Halcyonic.Client
 
         public static string Words(KitScreenAction action) => action switch
         {
-            KitScreenAction.ChangeIt => "Change it",
-            KitScreenAction.MakeAVrVersion => "Make a VR version",
-            KitScreenAction.TryIt => "Try it",
-            KitScreenAction.Steps => "Steps",
-            KitScreenAction.Why => "Why",
-            KitScreenAction.HowItWent => "How it went",
+            KitScreenAction.ChangeIt => "Request Change",
+            KitScreenAction.MakeAVrVersion => "Make VR Version",
+            KitScreenAction.TryIt => "Try Build",
+            KitScreenAction.Steps => "Activity",
+            KitScreenAction.Why => "Reasoning",
+            KitScreenAction.HowItWent => "Outcome",
             _ => throw new ArgumentOutOfRangeException(nameof(action)),
         };
     }

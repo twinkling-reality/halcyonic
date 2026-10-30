@@ -282,7 +282,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     y -= well + U(1.1f);
                     y -= Text(board, "Asks to confirm", "Approve Request?", GlazeType.Title, GlazeTokens.Text, left, y, right - left, strong: false).Height;
                     // Confirming: Yes stands where no button stood, Cancel where Approve was pressed; Deny waits.
-                    return (CloseSlot, new Slot("Confirm Approve", GlazeIcon.Approve, ButtonRole.Primary), null, new Slot("Cancel", GlazeIcon.Close));
+                    return (CloseSlot, new Slot("Confirm", GlazeIcon.Approve, ButtonRole.Primary), null, new Slot("Cancel", GlazeIcon.Close));
                 }
                 default:
                 {

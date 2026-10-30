@@ -17,7 +17,7 @@ namespace Halcyonic.XR.UI
     public sealed class KitMessage : MonoBehaviour
     {
         /// <summary>The chip's words: Halcyonic's own name for an agent's claim (WORDS.md).</summary>
-        public const string Source = "Agent says";
+        public const string Source = SectionLine.AgentChip;
 
         private KitChip chip = null!;
         private TextMeshPro when = null!;

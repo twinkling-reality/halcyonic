@@ -76,15 +76,15 @@ public class DemonstrationCatalogTests
             if (demonstration)
             {
                 Assert.That(gallery.Samples, Has.Count.EqualTo(8));
-                Assert.That(gallery.SampleLabel, Is.EqualTo("Sample projects"));
+                Assert.That(gallery.SampleLabel, Is.EqualTo("Sample Projects"));
                 Assert.That(gallery.Items, Is.Empty, "the sample is never among real projects");
                 Assert.That(gallery.Note, Is.Null);
-                Assert.That(gallery.Age, Is.EqualTo("Checked today at 11:56"));
+                Assert.That(gallery.Age, Is.EqualTo("Checked · Today 11:56"));
             }
             else
             {
                 Assert.That(gallery.Samples, Is.Empty);
-                Assert.That(gallery.Note, Is.EqualTo("Your other projects aren't part of this recording."));
+                Assert.That(gallery.Note, Is.EqualTo("Not in Recording"));
                 Assert.That(read.Response, Is.InstanceOf<UnavailableCatalog>());
             }
         }

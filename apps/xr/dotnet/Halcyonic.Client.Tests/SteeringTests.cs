@@ -227,7 +227,7 @@ public class WorkspaceTextTests
         foreach (var action in Enum.GetValues<WorkspaceAction>())
         {
             Assert.That(WorkspaceText.Label(action), Is.Not.Empty);
-            Assert.That(WorkspaceText.ConfirmLabel(action), Does.StartWith("Confirm "));
+            Assert.That(WorkspaceText.ConfirmLabel(action), Is.EqualTo("Confirm"), "the question above names the action");
             Assert.That(WorkspaceText.ConfirmationPrompt(action, "Add a test."), Does.Contain("?"));
         }
         Assert.That(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null), Is.EqualTo("Approve Request?"));

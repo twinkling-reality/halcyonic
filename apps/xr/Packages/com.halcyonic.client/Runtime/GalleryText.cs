@@ -16,25 +16,25 @@ namespace Halcyonic.Client
         public const string Source = "Phat Porcupine";
 
         /// <summary>Over every project a sample catalog holds, so none is taken for a real one.</summary>
-        public const string SampleProjects = "Sample projects";
+        public const string SampleProjects = "Sample Projects";
 
         /// <summary>A state or a reason Halcyonic does not know yet: shown with what needs the person.</summary>
-        public const string NeedsALook = "Needs a look";
+        public const string NeedsALook = "Needs a Look";
 
         /// <summary>A Halcyonic project bound to a folder there.</summary>
-        public const string OnYourComputer = "On " + HostText.Your;
+        public const string OnYourComputer = "On Your Computer";
 
         /// <summary>A Halcyonic project with no folder, such as the mock runtime's.</summary>
-        public const string NoFolder = "No folder on " + HostText.Your + " yet";
+        public const string NoFolder = "No Folder Yet";
 
         /// <summary>
         /// A catalog project no Halcyonic project is linked to. Whether it is on the computer is not known
         /// here, so the words never say it isn't.
         /// </summary>
-        public const string NotLinked = "Not linked to a project here";
+        public const string NotLinked = "Not Linked";
 
         /// <summary>Before a folder the computer matched to a catalog project by a rule: inferred, never confirmed.</summary>
-        public const string MaybeOnYourComputer = "Maybe on " + HostText.Your + ": ";
+        public const string MaybeOnYourComputer = "Possible Match · ";
 
         /// <summary>
         /// A catalog project's state, as the source names it, in Halcyonic's words and its group. Any
@@ -44,18 +44,18 @@ namespace Halcyonic.Client
         /// </summary>
         public static (GallerySection Section, string Line) State(string state) => state switch
         {
-            "awaiting_input" => (GallerySection.NeedsYou, "An agent is waiting for you"),
-            "session_failed" => (GallerySection.NeedsYou, "An agent couldn't finish"),
-            "checks_failing" => (GallerySection.NeedsYou, "Its checks are failing"),
-            "review_requested" => (GallerySection.NeedsYou, "Asked for your review"),
-            "changes_requested" => (GallerySection.NeedsYou, "Someone asked for changes"),
-            "ready_to_merge" => (GallerySection.NeedsYou, "Ready to merge"),
-            "agent_running" => (GallerySection.WorkingNow, "An agent is working on it"),
-            "session_complete" => (GallerySection.Recent, "An agent finished"),
-            "active" => (GallerySection.Recent, "Changed recently"),
-            "inactive" => (GallerySection.Quiet, "Quiet for a while"),
+            "awaiting_input" => (GallerySection.NeedsYou, "Agent Waiting"),
+            "session_failed" => (GallerySection.NeedsYou, "Agent Failed"),
+            "checks_failing" => (GallerySection.NeedsYou, "Checks Failing"),
+            "review_requested" => (GallerySection.NeedsYou, "Review Requested"),
+            "changes_requested" => (GallerySection.NeedsYou, "Changes Requested"),
+            "ready_to_merge" => (GallerySection.NeedsYou, "Ready to Merge"),
+            "agent_running" => (GallerySection.WorkingNow, "Agent Running"),
+            "session_complete" => (GallerySection.Recent, "Agent Finished"),
+            "active" => (GallerySection.Recent, "Changed Recently"),
+            "inactive" => (GallerySection.Quiet, "Quiet"),
             "archived" => (GallerySection.Quiet, "Archived"),
-            "access_lost" => (GallerySection.Quiet, "Can't reach it now"),
+            "access_lost" => (GallerySection.Quiet, "Unreachable"),
             _ => (GallerySection.NeedsYou, NeedsALook),
         };
 
@@ -63,7 +63,7 @@ namespace Halcyonic.Client
         /// Why there are no other projects in a recording, the demonstration's or a recorded run's: no
         /// recording reaches the source, so its name and setup are never shown there.
         /// </summary>
-        public const string NotInThisRecording = "Your other projects aren't part of this recording.";
+        public const string NotInThisRecording = "Not in Recording";
 
         /// <summary>
         /// Why the gallery holds only Halcyonic's own projects, by what the control plane answered:
@@ -75,20 +75,20 @@ namespace Halcyonic.Client
         {
             AvailableCatalog _ => null,
             _ when recorded => NotInThisRecording,
-            UnauthorizedCatalog _ => Source + " no longer lets Halcyonic read your projects. Set it up again on " + HostText.Your + ".",
-            IncompatibleCatalog _ => "This version of " + Source + " doesn't work with Halcyonic yet.",
-            UnavailableCatalog { Reason: { Code: "not_running" } } => "Your other projects show here while " + Source + " is running on " + HostText.Your + ".",
-            UnavailableCatalog { Reason: { Code: "not_configured" } } => "Your other projects can show here too once " + Source + " is set up on " + HostText.Your + ".",
-            UnavailableCatalog { Reason: { Code: "not_ready" } } => Source + " is still gathering your projects. Press Refresh in a moment.",
-            _ => "Couldn't read your other projects just now. Press Refresh in a moment.",
+            UnauthorizedCatalog _ => Source + " · Access Refused · Set Up Again",
+            IncompatibleCatalog _ => Source + " · Version Unsupported",
+            UnavailableCatalog { Reason: { Code: "not_running" } } => Source + " · Not Running",
+            UnavailableCatalog { Reason: { Code: "not_configured" } } => Source + " · Not Set Up · Set Up on Computer",
+            UnavailableCatalog { Reason: { Code: "not_ready" } } => Source + " · Gathering · Refresh",
+            _ => "Projects Unreadable · Refresh",
         };
 
         /// <summary>This headset's own read failed: <paramref name="why"/> is <see cref="IntelligenceText.WhyUnread"/>'s.</summary>
-        public static string Unread(string why) => "Couldn't read your other projects: " + why;
+        public static string Unread(string why) => "Projects Unreadable · " + why;
 
         /// <summary>
-        /// How old the catalog is, by when its source last read the person's repositories: "Checked today
-        /// at 14:50", or that the last read failed and when one last worked, so it never reads as live.
+        /// How old the catalog is, by when its source last read the person's repositories: "Checked · Today
+        /// 14:50", or that the last read failed and when one last worked, so it never reads as live.
         /// </summary>
         public static string Age(AvailableSync sync, DateTimeOffset now, TimeZoneInfo zone)
         {
@@ -96,10 +96,20 @@ namespace Halcyonic.Client
             if (sync.RepositoriesFailed)
             {
                 return at is DateTimeOffset last
-                    ? "Couldn't check just now; last checked " + UsageLeftPresenter.When(last, now, zone)
-                    : "Couldn't check just now";
+                    ? "Check Failed · Last · " + When(last, now, zone)
+                    : "Check Failed";
             }
-            return at is DateTimeOffset checkedAt ? "Checked " + UsageLeftPresenter.When(checkedAt, now, zone) : "Not checked yet";
+            return at is DateTimeOffset checkedAt ? "Checked · " + When(checkedAt, now, zone) : "Not Checked";
+        }
+
+        /// <summary>"Today 14:50", or "27 Oct 09:05" where that isn't today: a time in the cadence's metadata.</summary>
+        public static string When(DateTimeOffset at, DateTimeOffset now, TimeZoneInfo zone)
+        {
+            var local = TimeZoneInfo.ConvertTime(at, zone);
+            var today = TimeZoneInfo.ConvertTime(now, zone).Date;
+            return local.Date == today
+                ? "Today " + local.ToString("HH:mm", CultureInfo.InvariantCulture)
+                : local.ToString("d MMM HH:mm", CultureInfo.InvariantCulture);
         }
 
         /// <summary>A time as the source wrote it, or null when it wrote none or one this app can't read.</summary>

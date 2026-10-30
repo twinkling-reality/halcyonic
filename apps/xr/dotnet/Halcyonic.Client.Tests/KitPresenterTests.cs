@@ -150,7 +150,7 @@ public class KitPresenterTests
         Assert.That((row.Icon, row.IconTone, row.Detail, row.DetailTone), Is.EqualTo(((GlazeIcon?)badge.Icon, badge.Tone, badge.Text, (GlazeTone?)badge.Tone)));
         Assert.That((row.End, row.EndTone, row.Selected), Is.EqualTo(("Review request", (GlazeTone?)GlazeTone.Attention, true)));
         var presence = KitPresenter.PresenceOf(task, waiting: 2);
-        Assert.That((presence.TaskTitle, presence.Badge!.Text, presence.WaitingWords), Is.EqualTo((task.Title, badge.Text, "2 tasks are waiting for you.")));
+        Assert.That((presence.TaskTitle, presence.Badge!.Text, presence.WaitingWords), Is.EqualTo((task.Title, badge.Text, "Needs You · 2 Tasks")));
         Assert.That(presence.Identity.AllTheirs, Is.True, "a task's name is theirs");
     }
 
@@ -159,12 +159,12 @@ public class KitPresenterTests
     {
         // No task beside the menu: the place's own word, Halcyonic's, and no state to show.
         var place = KitPresenter.PresenceOf(LineWords.Ours("Projects"), null, waiting: 0);
-        Assert.That((place.Identity.Text, place.Identity.AnyTheirs, place.Badge, place.WaitingWords), Is.EqualTo(("Projects", false, (StateBadge?)null, "Nothing is waiting for you.")));
+        Assert.That((place.Identity.Text, place.Identity.AnyTheirs, place.Badge, place.WaitingWords), Is.EqualTo(("Projects", false, (StateBadge?)null, "Nothing Waiting")));
         // A task beside the menu: its name as theirs, the state production derives, the count the director counts.
         var task = Task(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, 1);
         var badge = StateLanguage.BadgeOf(task);
         var retained = KitPresenter.PresenceOf(LineWords.TheirName(task.Title), badge, waiting: 1);
-        Assert.That((retained.Identity.Text, retained.Identity.AllTheirs, retained.TaskTitle, retained.WaitingWords), Is.EqualTo((task.Title, true, task.Title, "1 task is waiting for you.")));
+        Assert.That((retained.Identity.Text, retained.Identity.AllTheirs, retained.TaskTitle, retained.WaitingWords), Is.EqualTo((task.Title, true, task.Title, "Needs You · 1 Task")));
         Assert.That(retained.Badge, Is.SameAs(badge));
     }
 
