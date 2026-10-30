@@ -148,7 +148,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!info.characterInfo.Take(info.characterCount).Any(character => character.isVisible && character.character == '\u2026'), "the well cuts its command sideways with an ellipsis");
             }
             // Where a moment offers a next step, one primary carries it (a failure's Read Output among them).
-            Require(!card.Actions.Any(KitMomentCard.IsPrimary) || card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == 1, "the next step is not the one primary");
+            Require(!card.Actions.Any(action => KitMomentCard.IsPrimary(action, moment.Tone)) || card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == 1, "the next step is not the one primary");
             // The count: only what stands before the shown moment, on the earlier edge, and what came after a waiting question.
             var counted = string.Join(" · ", new[] { slot.Earlier, slot.Newer }.Where(words => words != null));
             Require(card.Count.gameObject.activeSelf == (counted.Length > 0) && (counted.Length == 0 || card.Count.text == counted), "the count is not the model's earlier and newer moments");
@@ -158,7 +158,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var modelActions = moment.Kind == KitMomentKind.Question && !card.ReadsWhole
                 ? new[] { KitMomentAction.ReadIt }.Concat(slot.Actions.Where(action => action != KitMomentAction.YesRunIt)).ToList()
                 : slot.Actions.ToList();
-            var leading = modelActions.Where(KitMomentCard.IsPrimary).Take(1).ToList();
+            var leading = modelActions.Where(action => KitMomentCard.IsPrimary(action, moment.Tone)).Take(1).ToList();
+            // Read Output leads only after a failure; a passed check offers it as a word (ART's A3b review).
+            var readOutput = card.Shown.FirstOrDefault(each => each.Action == KitMomentAction.SeeTheOutput);
+            if (readOutput.Button != null)
+                Require((readOutput.Button.Role == KitButtonRole.Primary) == (moment.Tone == KitMomentTone.Failure), "Read Output leads where nothing failed, or does not lead after a failure");
             var expectedActions = leading.Concat(modelActions.Where(action => !leading.Contains(action))).ToList();
             Require(card.Shown.Select(each => each.Action).SequenceEqual(expectedActions),
                 "the actions are not the slot's in their order (" + string.Join(", ", card.Shown.Select(each => each.Action)) + "), or Yes stands on a command shown cut");
