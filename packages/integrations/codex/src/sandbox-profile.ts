@@ -16,6 +16,16 @@ export interface Confinement {
   readonly project: string;
   /** Folders the agent may read but not change, such as the starter's shared dependencies. */
   readonly readable: readonly string[];
+  /**
+   * Other projects' folders the agent may read but not change, such as the original a VR version is
+   * made from (M1.8c-1); their version control and secret-shaped files are refused.
+   */
+  readonly originals?: readonly string[];
+  /**
+   * Folders never readable, such as Halcyonic's data folder (AUDIT M18C1-M1), even through an original:
+   * refused after every allowance, then the scope's own folders are allowed again.
+   */
+  readonly hidden?: readonly string[];
 }
 
 /** Everything one confined server may touch; nothing else is readable, writable or reachable. */
@@ -347,6 +357,32 @@ const CODEX_BASE = `(version 1)
 (allow file-read* (subpath "/Applications"))`;
 
 /**
+ * Seatbelt rules for the version control and secret-shaped files anywhere under an original's
+ * folder (M1.8c-1): `.git`, `.env*`, keys and certificates' private parts, SSH keys, package and
+ * network credentials, and files named credentials or secrets. Written case-insensitively, as the
+ * Mac's file names usually are. A path Seatbelt's regex cannot quote is refused outright.
+ */
+export function secretsUnder(path: string): string {
+  const root = resolved(path);
+  if (/["\n\r]/.test(root))
+    throw new Error(`a folder Halcyonic cannot name in its profile: ${root}`);
+  const literal = root.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&');
+  const anyCase = (word: string) =>
+    [...word].map((c) => (/[a-z]/.test(c) ? `[${c}${c.toUpperCase()}]` : c)).join('');
+  const under = `^${literal}/(.*/)?`;
+  return [
+    `${under}\\.${anyCase('git')}(/|$)`,
+    `${under}\\.${anyCase('env')}[^/]*$`,
+    `${under}[^/]*\\.(${['pem', 'key', 'p12', 'pfx', 'keystore', 'jks'].map(anyCase).join('|')})$`,
+    `${under}${anyCase('id_')}(${['rsa', 'dsa', 'ecdsa', 'ed25519'].map(anyCase).join('|')})[^/]*$`,
+    `${under}\\.(${['npmrc', 'netrc', 'pypirc'].map(anyCase).join('|')})$`,
+    `${under}(${['credentials', 'secrets'].map(anyCase).join('|')})(\\.[^/]*)?$`,
+  ]
+    .map((pattern) => `(regex #"${pattern}")`)
+    .join(' ');
+}
+
+/**
  * The folders a project's commands need to run an executable such as Node, read only: the package
  * parts of Homebrew's or /usr/local's prefix when it lives there (its libraries sit beside it), else
  * the folder two levels above the resolved executable.
@@ -393,7 +429,7 @@ export function confinementKey(project: string): string {
 export function confinedProfile(scope: ConfinedScope): string {
   const quote = (path: string) => JSON.stringify(resolved(path));
   const writable = [scope.project, scope.codexHome, scope.temp];
-  const readable = [
+  const own = [
     ...writable,
     scope.runtimeFolder,
     ...scope.readable,
@@ -401,6 +437,9 @@ export function confinedProfile(scope: ConfinedScope): string {
     // macOS's own Perl library, so /usr/bin/perl runs (the launch check binds with it).
     SYSTEM_PERL,
   ];
+  const originals = scope.originals ?? [];
+  const hidden = scope.hidden ?? [];
+  const readable = [...own, ...originals];
   const each = (filter: string, paths: readonly string[]) =>
     paths.map((path) => `(${filter} ${quote(path)})`).join(' ');
   return [
@@ -413,6 +452,17 @@ export function confinedProfile(scope: ConfinedScope): string {
     ...scope.loopbackPorts.map(
       (port) => `(allow network-outbound (remote ip "localhost:${port}"))`,
     ),
+    // Later rules win: an original's secret shapes, then the hidden folders, are refused after the
+    // allowances above; the scope's own folders are allowed again last, so nothing of theirs is lost.
+    ...(originals.length === 0
+      ? []
+      : [`(deny file-read* file-test-existence ${originals.map(secretsUnder).join(' ')})`]),
+    ...(hidden.length === 0
+      ? []
+      : [
+          `(deny file-read* file-test-existence ${each('subpath', hidden)})`,
+          `(allow file-read* file-test-existence ${each('subpath', own)})`,
+        ]),
     // Closed by default already; said again so no later allowance can reopen them: opening another
     // app through LaunchServices, the pasteboard, and Apple events to other apps.
     '(deny lsopen)',

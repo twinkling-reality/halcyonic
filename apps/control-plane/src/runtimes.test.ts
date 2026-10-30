@@ -618,6 +618,29 @@ describe("Codex's confinement of a project made from a starter (ADR 0041)", () =
     ...(starterOf === undefined ? {} : { starterOf }),
   });
 
+  test("a VR version's agent also reads its original's folder, which it cannot change (M1.8c-1)", {
+    skip: process.platform !== 'darwin',
+  }, () => {
+    const { confinement } = codexConfinement(
+      {
+        ...dependencies((directory) =>
+          directory === '/Users/someone/dev/garden-vr' ? 'iwsdk-vr' : null,
+        ),
+        originalOf: (directory: string) =>
+          directory === '/Users/someone/dev/garden-vr' ? '/Users/someone/dev/garden' : null,
+      },
+      '/opt/homebrew/Cellar/node@24/24.15.0/bin/node',
+    );
+    assert.ok(confinement !== undefined);
+    assert.deepEqual(confinement.forDirectory('/Users/someone/dev/garden-vr'), {
+      project: '/Users/someone/dev/garden-vr',
+      readable: ['/Users/someone/.halcyonic/starters/iwsdk-vr'],
+      originals: ['/Users/someone/dev/garden'],
+      // The data folder is never readable through it (AUDIT M18C1-M1).
+      hidden: ['/Users/someone/.halcyonic'],
+    });
+  });
+
   test('confines a starter project to its folder and the shared dependencies, and no other', {
     skip: process.platform !== 'darwin',
   }, () => {
@@ -629,6 +652,8 @@ describe("Codex's confinement of a project made from a starter (ADR 0041)", () =
     assert.deepEqual(confinement.forDirectory('/Users/someone/dev/garden'), {
       project: '/Users/someone/dev/garden',
       readable: ['/Users/someone/.halcyonic/starters/iwsdk-vr'],
+      // Halcyonic's data folder is refused outright, the confinement's own folders in it allowed again.
+      hidden: ['/Users/someone/.halcyonic'],
     });
     assert.equal(confinement.forDirectory('/Users/someone/dev/storefront'), null);
     // Homebrew's package folders, where Node loads its libraries from; never var or etc.

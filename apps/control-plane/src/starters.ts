@@ -6,9 +6,11 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   symlinkSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
 import type { StarterView } from '@halcyonic/contracts';
 
 /**
@@ -25,6 +27,10 @@ export interface HostStartersOptions {
   readonly trackedDir: string;
   /** Where the host installs each starter's dependencies, in its data directory. */
   readonly installedDir: string;
+  /** The control plane's data directory, which no VR version's original may hold; unknown refuses every original. */
+  readonly dataDir?: string;
+  /** The person's home folder; the system's own when not given. */
+  readonly home?: string;
 }
 
 export type StarterApplied =
@@ -40,13 +46,122 @@ export type StarterApplied =
 
 const ID = /^[a-z][a-z0-9-]{0,62}$/;
 
+/** The starter a VR version of a project begins from (M1.8c-1). */
+export const VR_STARTER = 'iwsdk-vr';
+
+/**
+ * What the host asks a VR version's agent to do (M1.8c-1, M1.8-PLAN section 5): read the original in
+ * its folder, change nothing there, and build the same game in its own project from the starter.
+ */
+export function vrVersionInstruction(originalFolder: string): string {
+  return [
+    `Make a VR version of the web app in ${originalFolder}.`,
+    'Read that folder to understand the game: what you see, what you do, how you score or win.',
+    'Do not change anything there.',
+    'Build the same game in this project with the Immersive Web SDK, so it plays in VR with controllers or hands and on a laptop with a mouse and keyboard.',
+    'Read every input through src/play-input.ts.',
+    'Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.',
+    "Keep the original's colours and feel.",
+    'Start with the main thing the player does, make it work, then add the rest one piece at a time.',
+  ].join(' ');
+}
+
+/** The host's facts an original is weighed against (AUDIT M18C1-M1). */
+export interface OriginalBounds {
+  /** The project roots, as the host's locations name them. */
+  readonly roots: readonly string[];
+  readonly home: string;
+  /** The control plane's data directory, or undefined: then no original is allowed. */
+  readonly dataDir: string | undefined;
+  /** Every project's folder. */
+  readonly projects: readonly string[];
+}
+
+/** The folder as the file system resolves it, or as written when it cannot. */
+function real(path: string): string {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
+/** Whether `child` is `parent` or inside it. */
+function within(child: string, parent: string): boolean {
+  return child === parent || child.startsWith(parent.endsWith(sep) ? parent : parent + sep);
+}
+
+/**
+ * Why a folder may not be a VR version's original, or null when it may (AUDIT M18C1-M1). A VR
+ * version's agent reads the whole original, so the original must be one game's own folder: never a
+ * project root, the home folder or a folder above it, a folder holding or inside the control plane's
+ * data, or a folder holding another project's folder.
+ */
+export function originalRefusal(folder: string, bounds: OriginalBounds): string | null {
+  const original = real(folder);
+  if (bounds.dataDir === undefined)
+    return 'This computer has not said where its data lives, so no game can be read.';
+  if (bounds.roots.some((root) => within(real(root), original)))
+    return `${original} is a whole projects folder or holds one, not one game's folder.`;
+  if (within(real(bounds.home), original)) return `${original} is the home folder or holds it.`;
+  const data = real(bounds.dataDir);
+  if (within(data, original) || within(original, data))
+    return `${original} holds Halcyonic's data or is inside it.`;
+  if (
+    bounds.projects.some((project) => real(project) !== original && within(real(project), original))
+  )
+    return `${original} holds another project's folder.`;
+  return null;
+}
+
+/** A project as `originalFolderOf` reads it from the journal. */
+export interface ProjectFolder {
+  readonly id: string;
+  readonly folder: string | null;
+  readonly starter: string | null;
+  readonly madeFrom: string | null;
+}
+
+/**
+ * The original's folder a VR version's folder may read, or null (M1.8c-1): null unless exactly one
+ * starter project has that folder (AUDIT M18C1-S2), it was made from a project that has a folder, and
+ * that folder is allowed (`refuse` gives null).
+ */
+export function originalFolderOf(
+  directory: string,
+  projects: readonly ProjectFolder[],
+  refuse: (folder: string) => string | null,
+): string | null {
+  const here = projects.filter(
+    (project) => project.starter !== null && project.folder === directory,
+  );
+  if (here.length !== 1) return null;
+  const madeFrom = here[0]?.madeFrom ?? null;
+  const original = projects.find((project) => project.id === madeFrom)?.folder ?? null;
+  if (original === null) return null;
+  return refuse(original) === null ? original : null;
+}
+
 export class HostStarters {
   readonly #tracked: string;
   readonly #installed: string;
+  readonly #dataDir: string | undefined;
+  readonly #home: string;
 
   constructor(options: HostStartersOptions) {
     this.#tracked = options.trackedDir;
     this.#installed = options.installedDir;
+    this.#dataDir = options.dataDir;
+    this.#home = options.home ?? homedir();
+  }
+
+  /** Why a folder may not be a VR version's original on this host, or null (AUDIT M18C1-M1). */
+  originalRefusal(
+    folder: string,
+    roots: readonly string[],
+    projects: readonly string[],
+  ): string | null {
+    return originalRefusal(folder, { roots, home: this.#home, dataDir: this.#dataDir, projects });
   }
 
   /** Every tracked starter, read from disk each time, and whether it is installed on this Mac. */

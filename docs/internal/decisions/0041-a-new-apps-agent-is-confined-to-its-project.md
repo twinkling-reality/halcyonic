@@ -100,3 +100,24 @@ as Lovable); and undo covers the project. Conditions, all required:
 - macOS only. Elsewhere, and for OpenCode (whose profile, ADR 0028, still lets it read outside the project roots), a
   new app's agent is not confined, and the preview's record says so.
 - Revisit with each Codex upgrade: `externalSandbox`, its behaviour and the nesting failure are 0.157.0's.
+
+## Amendment, 2026-10-30: a VR version reads its original (M1.8c-1)
+
+`project.make_vr_version` makes a new project from the iwsdk-vr starter beside an existing one (the original) and
+records `project.made_from`. The new project's agent is confined as above, with one more read-only root: the
+original's folder, as the journal names it when an execution starts. It can read the original's files but write
+none of them. Under that folder its profile refuses, after the allow, every `.git`, `.env*`, `*.pem`, `*.key`,
+`*.p12`, `*.pfx`, `*.keystore`, `*.jks`, `id_rsa`, `id_dsa`, `id_ecdsa` and `id_ed25519*`, `.npmrc`, `.netrc`,
+`.pypirc` and file named credentials or secrets, in any case. A folder name the profile's rules cannot quote is
+refused rather than left open. A secret kept under another name is readable; the rule is for the common shapes,
+not a guarantee that the original holds nothing private, so the person chooses which game to make a VR version of.
+The original must be one game's own folder (AUDIT M18C1-M1): never a project root or a folder holding one, the home folder or a folder
+above it, a folder holding or inside Halcyonic's data, or a folder holding another project's folder. The host refuses
+such an original when `project.make_vr_version` is admitted, and again each time it builds the agent's confinement,
+which then reads no original; it also reads none when two starter projects share one folder (M18C1-S2). Every confined
+agent's profile refuses Halcyonic's data folder outright, through an original or not, then allows the
+confinement's own folders in it (its Codex home, the starters) again. A confined agent cannot hard-link a file it may not read into its own folder (tried, refused); but the
+original's own files are readable whatever they hold, including anything an earlier agent of the original, which may
+not have been confined, copied or linked into it. Tested on this Mac with the real profile on marker files
+(`sandbox-profile.test.ts`).
+

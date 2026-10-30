@@ -11,6 +11,8 @@ import type { CommandType, PolicyCategory } from '@halcyonic/contracts';
 export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'project.create': 'low_consequence',
   'project.set_location': 'low_consequence',
+  // A new project from a starter beside the original, which it only reads; changes no existing file.
+  'project.make_vr_version': 'low_consequence',
   // Writes over the project's files: the person reads what would change before confirming.
   'project.restore': 'review_required',
   // The host's own check and its serving of the checked copy on loopback; change no project file.

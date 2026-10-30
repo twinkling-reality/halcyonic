@@ -140,7 +140,9 @@ export type CheckNotes = Static<typeof CheckNotes>;
  * A finished check, as the host observed it. `passed` is every finding at once: type check 0, build
  * 0, the page opened, no uncaught exception, something drawn; never that the game works.
  * `reads_confined` says whether every execution in the project ran on a runtime that confines a
- * starter project's agent to its folder (ADR 0041). `laptop`, `vr`, `notes` and `ready` are absent
+ * starter project's agent to its folder (ADR 0041) and, for a VR version (M1.8c-1), lets it read its
+ * original's folder only read-only, with the original's version control and secret-shaped files and
+ * Halcyonic's data refused. `laptop`, `vr`, `notes` and `ready` are absent
  * on checks recorded before M1.8b, which reads as not checked. `ready` is `passed` and both steps
  * ready; never that the game plays well, or plays on a headset.
  */

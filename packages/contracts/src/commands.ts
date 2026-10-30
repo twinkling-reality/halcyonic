@@ -1,7 +1,7 @@
 import Type, { type Static, type TSchema } from 'typebox';
 import { CatalogRepositoryRef } from './catalog.ts';
 import { CheckpointId } from './checkpoints.ts';
-import { ProjectLocationChoice } from './locations.ts';
+import { FolderName, HostPath, ProjectLocationChoice } from './locations.ts';
 import { CheckId } from './previews.ts';
 import {
   ClientInfo,
@@ -49,6 +49,17 @@ export const ProjectCreateCommand = defineCommand(
     },
     strict,
   ),
+);
+
+/**
+ * Makes a VR version of a project (M1.8c-1): a new project in a new folder `folder_name` inside the
+ * host's project root `root`, begun from the iwsdk-vr starter, with the original's folder readable
+ * but never changed by the new project's agent. The original is not touched. The host writes the
+ * instruction for the agent and records it; this command starts no work.
+ */
+export const ProjectMakeVrVersionCommand = defineCommand(
+  'project.make_vr_version',
+  Type.Object({ original_project_id: ProjectId, root: HostPath, folder_name: FolderName }, strict),
 );
 
 /**
@@ -201,6 +212,7 @@ export const WorkspaceRequestCancelCommand = defineCommand(
 
 export const COMMAND_VARIANTS = [
   ProjectCreateCommand,
+  ProjectMakeVrVersionCommand,
   ProjectSetLocationCommand,
   ProjectRestoreCommand,
   ProjectCheckCommand,
@@ -226,6 +238,7 @@ export type CommandOf<T extends CommandType> = Extract<CommandEnvelope, { comman
 
 export const CommandType = Type.Union([
   Type.Literal('project.create'),
+  Type.Literal('project.make_vr_version'),
   Type.Literal('project.set_location'),
   Type.Literal('project.restore'),
   Type.Literal('project.check'),

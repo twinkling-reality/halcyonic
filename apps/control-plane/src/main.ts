@@ -41,7 +41,7 @@ import {
 import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
-import { HostStarters } from './starters.ts';
+import { HostStarters, originalFolderOf, originalRefusal } from './starters.ts';
 import { OllamaWorkspaceModel } from './workspace-agent/ollama.ts';
 import { WorkspaceRequests } from './workspace-agent/requests.ts';
 
@@ -55,6 +55,7 @@ async function main(): Promise<void> {
   const locations = createHostLocations(config.projectRoots);
   // Which starter a folder was made from, read from the projection once the control plane is built.
   let starterOf: (directory: string) => string | null = () => null;
+  let originalOf: (directory: string) => string | null = () => null;
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
     mock: new MockRuntimeAdapter({
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
     environment: process.env,
     dataDir: config.dataDir,
     starterOf: (directory) => starterOf(directory),
+    originalOf: (directory) => originalOf(directory),
   });
   // Opened before anything listens, so a speech engine that cannot report its version stops startup.
   const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
@@ -139,6 +141,7 @@ async function main(): Promise<void> {
     starters: new HostStarters({
       trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
       installedDir: join(config.dataDir, 'starters'),
+      dataDir: config.dataDir,
     }),
     // Checks and previews of starter projects (ADR 0037): Seatbelt, so macOS only.
     ...(process.platform === 'darwin'
@@ -169,6 +172,28 @@ async function main(): Promise<void> {
       .projects()
       .find((project) => project.starter !== null && project.location?.path === directory)
       ?.starter ?? null;
+  // The original a VR version was made from, read from the journal at each start (M1.8c-1).
+  // Bounded again here as at the command (AUDIT M18C1-M1, M18C1-S2).
+  originalOf = (directory) => {
+    const projection = controlPlane.projection;
+    const projects = projection.projects().map((project) => ({
+      id: project.project_id,
+      folder: project.location?.path ?? null,
+      starter: project.starter,
+      madeFrom: projection.madeFrom(project.project_id),
+    }));
+    const folders = projects.flatMap((project) =>
+      project.folder === null ? [] : [project.folder],
+    );
+    return originalFolderOf(directory, projects, (folder) =>
+      originalRefusal(folder, {
+        roots: locations.list().roots.map((root) => root.path),
+        home: homedir(),
+        dataDir: config.dataDir,
+        projects: folders,
+      }),
+    );
+  };
   controlPlane.reconcile();
   const transcriptions = new Transcriptions({ engine: speech, clock: systemClock });
   const companion = new Companion({ config: config.companion, clock: systemClock });

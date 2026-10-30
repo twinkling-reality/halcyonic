@@ -371,6 +371,7 @@ namespace Halcyonic.Contracts
     public enum CommandType
     {
         [EnumMember(Value = "project.create")] ProjectCreate,
+        [EnumMember(Value = "project.make_vr_version")] ProjectMakeVrVersion,
         [EnumMember(Value = "project.set_location")] ProjectSetLocation,
         [EnumMember(Value = "project.restore")] ProjectRestore,
         [EnumMember(Value = "project.check")] ProjectCheck,
@@ -1320,6 +1321,15 @@ namespace Halcyonic.Contracts
         public string Template { get; set; } = default!;
     }
 
+    public sealed class ProjectMadeFromPayload
+    {
+        [JsonProperty("original_project_id", Required = Required.Always)]
+        public string OriginalProjectId { get; set; } = default!;
+
+        [JsonProperty("instruction", Required = Required.Always)]
+        public string Instruction { get; set; } = default!;
+    }
+
     public sealed class CatalogRepositoryRef
     {
         [JsonProperty("source", Required = Required.Always)]
@@ -1879,6 +1889,18 @@ namespace Halcyonic.Contracts
         public ProjectLocationChoice? Location { get; set; }
     }
 
+    public sealed class ProjectMakeVrVersionPayload
+    {
+        [JsonProperty("original_project_id", Required = Required.Always)]
+        public string OriginalProjectId { get; set; } = default!;
+
+        [JsonProperty("root", Required = Required.Always)]
+        public string Root { get; set; } = default!;
+
+        [JsonProperty("folder_name", Required = Required.Always)]
+        public string FolderName { get; set; } = default!;
+    }
+
     public sealed class ProjectSetLocationPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -2087,6 +2109,7 @@ namespace Halcyonic.Contracts
             CommandEnvelope value = tag switch
             {
                 "project.create" => new ProjectCreateCommand(),
+                "project.make_vr_version" => new ProjectMakeVrVersionCommand(),
                 "project.set_location" => new ProjectSetLocationCommand(),
                 "project.restore" => new ProjectRestoreCommand(),
                 "project.check" => new ProjectCheckCommand(),
@@ -2129,6 +2152,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectCreatePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMakeVrVersionCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.make_vr_version";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectMakeVrVersionPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectSetLocationCommand : CommandEnvelope
@@ -2759,6 +2790,7 @@ namespace Halcyonic.Contracts
                 "project.created" => new ProjectCreatedEvent(),
                 "project.location_set" => new ProjectLocationSetEvent(),
                 "project.starter_applied" => new ProjectStarterAppliedEvent(),
+                "project.made_from" => new ProjectMadeFromEvent(),
                 "project.catalog_linked" => new ProjectCatalogLinkedEvent(),
                 "project.catalog_unlinked" => new ProjectCatalogUnlinkedEvent(),
                 "project.checkpoint.recorded" => new ProjectCheckpointRecordedEvent(),
@@ -2842,6 +2874,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectStarterAppliedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMadeFromEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.made_from";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectMadeFromPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectCatalogLinkedEvent : EventEnvelope

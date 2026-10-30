@@ -256,6 +256,15 @@ export const ProjectStarterApplied = projectEvent(
 );
 
 /**
+ * The project was made as a VR version of another (M1.8c-1): the original, which its agent may read
+ * but not change, and the instruction the host wrote for that agent, naming the original's folder.
+ */
+export const ProjectMadeFrom = projectEvent(
+  'project.made_from',
+  Type.Object({ original_project_id: ProjectId, instruction: Text(32000) }, strict),
+);
+
+/**
  * The host kept every file of the project's folder as a checkpoint (ADR 0036): hashes and counts
  * only, never contents. `execution_id` names the execution whose start or turn it follows, or is
  * null before a restore.
@@ -679,6 +688,7 @@ export const EVENT_VARIANTS = [
   ProjectCreated,
   ProjectLocationSet,
   ProjectStarterApplied,
+  ProjectMadeFrom,
   ProjectCatalogLinked,
   ProjectCatalogUnlinked,
   ProjectCheckpointRecorded,
