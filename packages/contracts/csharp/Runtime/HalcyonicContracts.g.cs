@@ -1527,6 +1527,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("response_seen", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? ResponseSeen { get; set; }
 
+        [JsonProperty("response_unknown", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public JToken? ResponseUnknown { get; set; }
+
         [JsonProperty("exceptions_during", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public long? ExceptionsDuring { get; set; }
 

@@ -8862,6 +8862,22 @@
             }
           ]
         },
+        "response_unknown": {
+          "anyOf": [
+            {
+              "enum": [
+                "controls_differ",
+                "press_differs_before",
+                "repeat_differs",
+                "out_of_time",
+                "failed"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "exceptions_during": {
           "type": "integer",
           "minimum": 0

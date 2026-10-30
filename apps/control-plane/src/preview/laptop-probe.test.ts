@@ -17,11 +17,13 @@ import {
   parseReport,
   STILL_CONTROL,
   screenChanged,
+  settledPicture,
   standInScript,
   TWIN_FRAMES,
   TWIN_LOAD_MS,
   TWIN_TARGETS,
   type TwinLoad,
+  TwinOutOfTime,
   twinLoad,
   twinStep,
 } from './laptop-probe.ts';
@@ -369,7 +371,11 @@ describe("the twin step's stepped clock (M1.8g)", () => {
     const [first] = TWIN_FRAMES;
     assert.equal(run('performance.now()'), (first * 1000) / 60);
     assert.equal(run('Date.now()'), 1767225600000 + (first * 1000) / 60);
-    assert.deepEqual(sent, [`frame ${first}`]);
+    // Every frame is reported, so the host sees a slow page still moving (M1.8g-b), and none past the stop.
+    assert.deepEqual(
+      sent,
+      Array.from({ length: first }, (_, index) => `frame ${index + 1}`),
+    );
   });
 
   test("timers and the page's animation frames run on stepped frames, in order", () => {
@@ -404,41 +410,57 @@ describe('the twin step: a press seen against its no-input twin (M1.8g)', () => 
     reached: true,
     ...extra,
   });
-  /** A step whose twin is `twin` and whose presses are `presses`, in order; counts the loads. */
-  const step = (twin: TwinLoad, presses: TwinLoad[]) => {
+  /** A step whose twin and control are `twin` and whose presses are `presses`, in order; counts the loads. */
+  const step = (twin: TwinLoad, presses: TwinLoad[], control: TwinLoad = twin) => {
     const asked: (number | null)[] = [];
     return {
       asked,
       run: () =>
         twinStep(async (target) => {
           asked.push(target);
-          return target === null ? twin : (presses[target] ?? twin);
+          if (target !== null) return presses[target] ?? twin;
+          return asked.length === 1 ? twin : control;
         }),
     };
   };
+  const seen = { seen: true, unknown: null };
+  const notSeen = { seen: false, unknown: null };
+  const unknown = (reason: string) => ({ seen: null, unknown: reason });
   // 200 by 100 pictures: 0.05% is 10 pixels, 0.01% is 2.
   test('seen when a press that reached the layer changes the end frame beyond the twin', async () => {
     const { run, asked } = step(load(0, 0), [load(0, 0), load(0, 50)]);
-    assert.equal(await run(), true);
-    // The twin, its no-input control, each press, and the seen press once more.
-    assert.deepEqual(asked, [null, null, 0, 1, 1]);
+    assert.deepEqual(await run(), seen);
+    // The twin, each press, then the no-input control and the seen press once more (AUDIT M18G-S1).
+    assert.deepEqual(asked, [null, 0, 1, null, 1]);
   });
 
-  test('not seen when no press changes the end frame, after every target up to the limit', async () => {
+  test('not seen when no press changes the end frame, after every target up to the limit and the control', async () => {
     const { run, asked } = step(load(0, 0, { targets: 9 }), []);
-    assert.equal(await run(), false);
+    assert.deepEqual(await run(), notSeen);
     assert.equal(asked.length, 2 + TWIN_TARGETS);
+    assert.equal(asked.at(-1), null);
   });
 
   test('a change the layer did not hear is not a response', async () => {
     const { run } = step(load(0, 0), [load(0, 50, { reached: false })]);
-    assert.equal(await run(), false);
+    assert.deepEqual(await run(), notSeen);
   });
 
-  test('unknown when a press run and its twin differ before any input, or nothing can be pressed', async () => {
-    assert.equal(await step(load(0, 0), [load(5, 50)]).run(), null);
-    assert.equal(await step(load(0, 0, { targets: 0 }), []).run(), null);
-    assert.equal(await step(load(0, 0, { before: null }), []).run(), null);
+  test('unknown, and why: a press run apart from its twin before any input, or nothing to press or compare', async () => {
+    assert.deepEqual(await step(load(0, 0), [load(5, 50)]).run(), unknown('press_differs_before'));
+    assert.deepEqual(await step(load(0, 0, { targets: 0 }), []).run(), unknown('failed'));
+    assert.deepEqual(await step(load(0, 0, { before: null }), []).run(), unknown('failed'));
+    const broken = await twinStep(async () => {
+      throw new Error('Chrome did not start');
+    });
+    assert.deepEqual(broken, unknown('failed'));
+  });
+
+  test('a load that stopped making progress reads out of time, not failed', async () => {
+    const stalled = await twinStep(async () => {
+      throw new TwinOutOfTime('the page did not reach frame 300');
+    });
+    assert.deepEqual(stalled, unknown('out_of_time'));
   });
 
   test('unknown when two loads with no input end apart, however little the press changes (AUDIT M18G-M1)', async () => {
@@ -448,16 +470,13 @@ describe('the twin step: a press seen against its no-input twin (M1.8g)', () => 
       loads += 1;
       return load(0, 20 * loads, { reached: target !== null });
     };
-    assert.equal(await twinStep(drifting), null);
-    assert.equal(loads, 2);
-    // The control must also match the twin before any input.
-    const asked: (number | null)[] = [];
-    const early = async (target: number | null) => {
-      asked.push(target);
-      return asked.length === 2 ? load(5, 0) : load(0, 50);
-    };
-    assert.equal(await twinStep(early), null);
-    assert.deepEqual(asked, [null, null]);
+    assert.deepEqual(await twinStep(drifting), unknown('controls_differ'));
+    assert.equal(loads, 3);
+    // The control must also match the twin before any input, and even when no press read seen.
+    const before = step(load(0, 0), [load(0, 50)], load(5, 0));
+    assert.deepEqual(await before.run(), unknown('controls_differ'));
+    assert.deepEqual(before.asked, [null, 0, null]);
+    assert.deepEqual(await step(load(0, 0), [], load(0, 30)).run(), unknown('controls_differ'));
   });
 
   test('unknown when the same press, loaded again, ends otherwise: the change was not its own', async () => {
@@ -467,18 +486,18 @@ describe('the twin step: a press seen against its no-input twin (M1.8g)', () => 
       presses += 1;
       return load(0, presses === 1 ? 50 : 90);
     });
-    assert.equal(result, null);
+    assert.deepEqual(result, unknown('repeat_differs'));
     assert.equal(presses, 2);
   });
 
   test('a step past its time reads unknown, after its load was told to stop and stopped (AUDIT M18G-M2)', {
     timeout: 10_000,
   }, async () => {
-    const seen: { aborted: boolean; settled: boolean }[] = [];
+    const states: { aborted: boolean; settled: boolean }[] = [];
     // A page that never reaches a frame: the load waits until it is told to stop, then stops.
     const never = (_target: number | null, signal?: AbortSignal) => {
       const state = { aborted: false, settled: false };
-      seen.push(state);
+      states.push(state);
       return new Promise<TwinLoad>((_resolve, reject) => {
         signal?.addEventListener('abort', () => {
           state.aborted = true;
@@ -490,23 +509,92 @@ describe('the twin step: a press seen against its no-input twin (M1.8g)', () => 
       });
     };
     const started = Date.now();
-    assert.equal(await twinStep(never, 300), null);
+    assert.deepEqual(await twinStep(never, 600, 300), unknown('out_of_time'));
     assert.ok(Date.now() - started < 3_000, `took ${Date.now() - started} ms`);
-    assert.deepEqual(seen, [{ aborted: true, settled: true }]);
+    assert.deepEqual(states, [{ aborted: true, settled: true }]);
+  });
+
+  test("the whole step, a stopped load's settling included, keeps to its budget (AUDIT M18G-S2)", {
+    timeout: 10_000,
+  }, async () => {
+    let aborted = false;
+    // A load that is told to stop and never settles.
+    const stuck = (_target: number | null, signal?: AbortSignal) =>
+      new Promise<TwinLoad>(() => {
+        signal?.addEventListener('abort', () => {
+          aborted = true;
+        });
+      });
+    const started = Date.now();
+    assert.deepEqual(await twinStep(stuck, 800, 300), unknown('out_of_time'));
+    const took = Date.now() - started;
+    assert.ok(took >= 700 && took < 1_300, `took ${took} ms`);
+    assert.equal(aborted, true);
   });
 });
 
-describe('a twin load against a page that never reaches a frame (AUDIT M18G-M2)', () => {
-  /** A Chrome that answers every command and never reports a frame; it records what it was sent. */
-  const silentChrome = (): ChromeRun & { sent: string[] } => {
+describe('a picture of a held frame, taken again until two in a row match', () => {
+  test('a picture that is still changing is taken again, and the first one that repeats is kept', async () => {
+    const shots = [picture(0), picture(40), picture(40)];
+    let taken = 0;
+    const kept = await settledPicture(
+      async () => shots[Math.min(taken++, shots.length - 1)] ?? null,
+      2_000,
+    );
+    assert.deepEqual(kept, picture(40));
+    assert.equal(taken, 3);
+  });
+
+  test('a picture that never repeats in time is the last one taken; a missing one is missing', async () => {
+    let taken = 0;
+    const started = Date.now();
+    const kept = await settledPicture(async () => picture(10 * (taken++ % 5)), 600);
+    assert.ok(Date.now() - started < 1_500);
+    assert.ok(taken >= 2);
+    assert.deepEqual(kept, picture(10 * ((taken - 1) % 5)));
+    assert.equal(await settledPicture(async () => null, 300), null);
+  });
+});
+
+describe('a twin load against a page that stops reaching frames (AUDIT M18G-M2)', () => {
+  /**
+   * A Chrome that answers every command. `pace` is how the page's frames advance after each F24 key: frames per
+   * 100 ms toward the next stop, or 0 for a page that never reaches a frame.
+   */
+  const fakeChrome = (pace: number): ChromeRun & { sent: string[] } => {
     const toChrome = new PassThrough();
     const fromChrome = new PassThrough();
     const sent: string[] = [];
+    let binding = '';
+    let frame = 0;
+    let target = 0;
+    let next = 0;
+    const timer = setInterval(() => {
+      if (pace === 0 || frame >= target) return;
+      frame = Math.min(target, frame + pace);
+      const event = {
+        method: 'Runtime.bindingCalled',
+        sessionId: 'page',
+        params: { name: binding, payload: `frame ${frame}` },
+      };
+      fromChrome.write(`${JSON.stringify(event)}\0`);
+    }, 100);
+    // A failing test must not keep the run alive.
+    timer.unref();
     toChrome.setEncoding('utf8');
     toChrome.on('data', (chunk: string) => {
       for (const text of chunk.split('\0').filter((part) => part !== '')) {
-        const { id, method } = JSON.parse(text) as { id: number; method: string };
+        const { id, method, params } = JSON.parse(text) as {
+          id: number;
+          method: string;
+          params: { name?: string; type?: string };
+        };
         sent.push(method);
+        if (method === 'Runtime.addBinding') binding = params.name ?? '';
+        if (method === 'Input.dispatchKeyEvent' && params.type === 'keyDown') {
+          target = TWIN_FRAMES[next] ?? target;
+          next += 1;
+        }
         fromChrome.write(`${JSON.stringify({ id, result: {} })}\0`);
       }
     });
@@ -514,15 +602,15 @@ describe('a twin load against a page that never reaches a frame (AUDIT M18G-M2)'
       pid: 0,
       devtools: new DevToolsPipe(toChrome, fromChrome),
       session: 'page',
-      stop: async () => {},
+      stop: async () => clearInterval(timer),
       sent,
     };
   };
 
-  test('each step is bounded by the wall clock and fails past it', {
+  test('a page that never reaches a frame fails once it has made no progress for the stall limit', {
     timeout: 15_000,
   }, async () => {
-    const chrome = silentChrome();
+    const chrome = fakeChrome(0);
     const started = Date.now();
     await assert.rejects(
       twinLoad(chrome, 'http://127.0.0.1:1/?check', null, undefined, 400),
@@ -531,12 +619,23 @@ describe('a twin load against a page that never reaches a frame (AUDIT M18G-M2)'
     const took = Date.now() - started;
     assert.ok(took < TWIN_LOAD_MS + 2_000, `took ${took} ms`);
     assert.ok(chrome.sent.includes('Input.dispatchKeyEvent'));
+    await chrome.stop();
+  });
+
+  test('a page whose frames come slowly but keep coming is not cut off, however long a step takes', {
+    timeout: 20_000,
+  }, async () => {
+    // 50 frames every 100 ms: the step to frame 300 takes about 600 ms, past a 400 ms limit, never 400 ms without one.
+    const chrome = fakeChrome(50);
+    const loaded = await twinLoad(chrome, 'http://127.0.0.1:1/?check', null, undefined, 400);
+    assert.equal(loaded.targets, 0);
+    await chrome.stop();
   });
 
   test('a step told to stop fails at once, without waiting out its time', {
     timeout: 15_000,
   }, async () => {
-    const chrome = silentChrome();
+    const chrome = fakeChrome(0);
     const out = new AbortController();
     setTimeout(() => out.abort(), TWIN_LOAD_MS + 300);
     const started = Date.now();
@@ -545,5 +644,6 @@ describe('a twin load against a page that never reaches a frame (AUDIT M18G-M2)'
       /ran out of time/,
     );
     assert.ok(Date.now() - started < TWIN_LOAD_MS + 2_000);
+    await chrome.stop();
   });
 });

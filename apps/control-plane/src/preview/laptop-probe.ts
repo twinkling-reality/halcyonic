@@ -298,17 +298,55 @@ export const TWINS_MATCH = 0.0001;
 export const TWIN_TARGETS = 5;
 /** How long a twin load waits, its clock held at frame 0, for the page and its assets to load. */
 export const TWIN_LOAD_MS = 3_000;
-/** How long one step of a twin load may take, by the wall clock, to reach its frame. */
-export const TWIN_STEP_FRAME_MS = 30_000;
-/** How long the whole twin step may take, by the wall clock, before it reads unknown. */
+/** How long a twin load may go, by the wall clock, without the page reaching a further frame. */
+export const TWIN_STALL_MS = 10_000;
+/** How long the whole twin step may take, by the wall clock, a stopped load's settling included. */
 export const TWIN_STEP_MS = 180_000;
+/** The part of `TWIN_STEP_MS` kept for a load told to stop to end: a DevTools answer's 20 s and Chrome's 3 s. */
+export const TWIN_SETTLE_MS = 25_000;
+/** How long a picture of a held frame is taken again, waiting for two in a row to match. */
+export const TWIN_PICTURE_MS = 2_000;
+
+/** Why a twin read was unknown (M1.8g-b). */
+export type TwinUnknown = NonNullable<CheckLaptop['response_unknown']>;
+
+/** What the twin step saw: a response seen or not, or unknown and why. */
+export interface TwinVerdict {
+  readonly seen: boolean | null;
+  readonly unknown: TwinUnknown | null;
+}
+
+/** A twin load that ran out of time: the step's budget, or no frame reached for `TWIN_STALL_MS`. */
+export class TwinOutOfTime extends Error {}
+
+/**
+ * A picture of a held frame, taken again until two in a row match within `TWINS_MATCH`, so it shows
+ * the frame once it is drawn; past `limitMs`, the last one taken. Null when Chrome gives none.
+ */
+export async function settledPicture(
+  take: () => Promise<Buffer | null>,
+  limitMs = TWIN_PICTURE_MS,
+): Promise<Buffer | null> {
+  const until = Date.now() + limitMs;
+  let last = await take();
+  while (last !== null) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const next = await take();
+    if (next === null) return null;
+    const share = changedShare(last, next);
+    last = next;
+    if ((share !== null && share <= TWINS_MATCH) || Date.now() > until) break;
+  }
+  return last;
+}
 
 /**
  * The clock a twin load runs under (M1.8g), before any of the page's scripts. Frames advance only to
  * the next of `TWIN_FRAMES` when the host sends a trusted F24 key, which this script takes first on
  * the window, in the capture phase, so the page never sees it; a page cannot make a trusted key. Each
  * frame reached is reported through the binding, taken into the closure and removed from the global
- * object first. Time (performance.now, Date, animation frames, timers) moves 1/60 s per frame, and
+ * object first; every frame is reported, so the host sees a slow page still moving. Time
+ * (performance.now, Date, animation frames, timers) moves 1/60 s per frame, and
  * Math.random, crypto.getRandomValues and crypto.randomUUID are seeded, so a page's state depends only
  * on the frames it has run: two loads match at the same frame unless the page has another source of
  * time or chance, which the twin check then sees. No global names any of it.
@@ -394,7 +432,7 @@ export function clockScript(binding: string): string {
       const callbacks = [...queued.values()];
       queued.clear();
       for (const cb of callbacks) call(cb, [now()]);
-      if (frame === target) send('frame ' + frame);
+      send('frame ' + frame);
     }
     realFrame(tick);
   };
@@ -427,16 +465,20 @@ export async function twinLoad(
   url: string,
   target: number | null,
   signal?: AbortSignal,
-  frameMs = TWIN_STEP_FRAME_MS,
+  stallMs = TWIN_STALL_MS,
 ): Promise<TwinLoad> {
   const { devtools, session } = run;
   const binding = `h${randomBytes(12).toString('hex')}`;
   let reached = 0;
+  let movedAt = Date.now();
   const off = devtools.onEvent((message) => {
     if (message.sessionId !== session || message.method !== 'Runtime.bindingCalled') return;
     if (message.params?.name !== binding || typeof message.params.payload !== 'string') return;
     const match = /^frame (\d{1,4})$/.exec(message.params.payload);
-    if (match) reached = Math.max(reached, Number(match[1]));
+    if (match && Number(match[1]) > reached) {
+      reached = Number(match[1]);
+      movedAt = Date.now();
+    }
   });
   try {
     for (const domain of ['Runtime.enable', 'Page.enable'])
@@ -457,11 +499,13 @@ export async function twinLoad(
           { type, code: 'F24', key: 'F24', windowsVirtualKeyCode: 135 },
           session,
         );
-      // By the wall clock: on a throttled Mac a short wait can take far longer than asked.
-      const until = Date.now() + frameMs;
+      // By the wall clock, and from the page's last progress: a busy Mac slows the frames, and a
+      // short wait can take far longer than asked.
+      movedAt = Date.now();
       while (reached < frame) {
-        if (signal?.aborted) throw new Error('the twin step ran out of time');
-        if (Date.now() > until) throw new Error(`the page did not reach frame ${frame}`);
+        if (signal?.aborted) throw new TwinOutOfTime('the twin step ran out of time');
+        if (Date.now() - movedAt > stallMs)
+          throw new TwinOutOfTime(`the page did not reach frame ${frame}`);
         await driver.wait(50);
       }
       // The frame is drawn; let it reach the screen.
@@ -470,7 +514,7 @@ export async function twinLoad(
     const [first, moved, pressed, end] = TWIN_FRAMES;
     await stepTo(first);
     const report = parseReport(await driver.evaluate(HOOK_EXPRESSION).catch(() => null));
-    const before = await driver.picture();
+    const before = await settledPicture(() => driver.picture());
     const point = target === null ? undefined : report?.targets[target];
     if (point !== undefined) await driver.mouse('mouseMoved', point.x, point.y);
     await stepTo(moved);
@@ -478,7 +522,7 @@ export async function twinLoad(
     await stepTo(pressed);
     if (point !== undefined) await driver.mouse('mouseReleased', point.x, point.y);
     await stepTo(end);
-    const last = await driver.picture();
+    const last = await settledPicture(() => driver.picture());
     const after = parseReport(await driver.evaluate(HOOK_EXPRESSION).catch(() => null));
     return {
       before,
@@ -502,57 +546,84 @@ function matches(a: Buffer | null, b: Buffer | null): boolean | null {
   return share === null ? null : share <= TWINS_MATCH;
 }
 
+/** An unknown twin read, and why. */
+const unknown = (reason: TwinUnknown): TwinVerdict => ({ seen: null, unknown: reason });
+
 /**
- * The twin step (M1.8g): the page twice with no input, then with a press on each of up to
- * `TWIN_TARGETS` targets, each in a load of its own under the stepped clock, compared at the same
- * frames. The two no-input loads must match at the frame before input and at the end (AUDIT
- * M18G-M1): a page that changes between loads with no input at all has a source of time or chance
- * the clock does not hold. Seen when a press that reached the layer changes the end frame from the
- * twin's by more than `RESPONSE_SEEN` and a second load with the same press ends the same way; null
- * when any two loads that should match do not, when nothing could be pressed or compared, or when the
- * step outlasts `budgetMs` by the wall clock (AUDIT M18G-M2). Each load is given a signal that aborts
- * then, and must stop its Chrome and settle; the step waits for that before it answers.
+ * The twin step (M1.8g): the page with no input, then with a press on each of up to `TWIN_TARGETS`
+ * targets, then with no input again, each in a load of its own under the stepped clock, compared at
+ * the same frames. The no-input control runs after the presses (AUDIT M18G-S1), so anything that
+ * changes with load order or count shows as a mismatch; it must match the twin at the frame before
+ * input and at the end (AUDIT M18G-M1). Seen when a press that reached the layer changes the end
+ * frame from the twin's by more than `RESPONSE_SEEN` and a second load with the same press ends the
+ * same way. Unknown, with its reason, when any two loads that should match do not, when nothing could
+ * be pressed or compared, or when the step runs out of time. `budgetMs` bounds the whole step by the
+ * wall clock: each load is given a signal that aborts `settleMs` before the end and must stop its
+ * Chrome; the step waits for it to settle until the budget is spent (AUDIT M18G-M2, M18G-S2).
  */
 export async function twinStep(
   load: (target: number | null, signal: AbortSignal) => Promise<TwinLoad>,
   budgetMs = TWIN_STEP_MS,
-): Promise<boolean | null> {
+  settleMs = Math.min(TWIN_SETTLE_MS, Math.floor(budgetMs / 4)),
+): Promise<TwinVerdict> {
   const out = new AbortController();
-  const timer = setTimeout(() => out.abort(), budgetMs);
+  const timers: NodeJS.Timeout[] = [];
+  timers.push(setTimeout(() => out.abort(), budgetMs - settleMs));
   const late = new Promise<null>((resolve) =>
     out.signal.addEventListener('abort', () => resolve(null), { once: true }),
   );
-  /** One load, or null once the budget is spent, after the load has stopped. */
-  const next = async (target: number | null): Promise<TwinLoad | null> => {
-    if (out.signal.aborted) return null;
+  const end = new Promise<null>((resolve) => {
+    timers.push(setTimeout(() => resolve(null), budgetMs));
+  });
+  /** One load: what it saw, 'late' once the budget is spent (after it settled or the budget ended), or 'failed'. */
+  const next = async (target: number | null): Promise<TwinLoad | 'late' | 'failed'> => {
+    if (out.signal.aborted) return 'late';
     const running = load(target, out.signal);
-    const first = await Promise.race([running, late]);
-    if (first === null) await running.catch(() => undefined);
-    return first;
+    try {
+      const first = await Promise.race([running, late]);
+      if (first !== null) return first;
+    } catch (error) {
+      return error instanceof TwinOutOfTime ? 'late' : 'failed';
+    }
+    await Promise.race([running.catch(() => undefined), end]);
+    return 'late';
   };
+  const reason = (result: 'late' | 'failed'): TwinVerdict =>
+    unknown(result === 'late' ? 'out_of_time' : 'failed');
   try {
     const twin = await next(null);
-    if (twin === null || twin.before === null || twin.end === null || twin.targets === 0)
-      return null;
-    const control = await next(null);
-    if (control === null) return null;
-    if (matches(control.before, twin.before) !== true) return null;
-    if (matches(control.end, twin.end) !== true) return null;
+    if (typeof twin === 'string') return reason(twin);
+    if (twin.before === null || twin.end === null || twin.targets === 0) return unknown('failed');
+    let pressed: { target: number; end: Buffer } | null = null;
     for (let target = 0; target < Math.min(TWIN_TARGETS, twin.targets); target += 1) {
       const press = await next(target);
-      if (press === null || press.before === null || press.end === null) return null;
-      if (matches(press.before, twin.before) !== true) return null;
+      if (typeof press === 'string') return reason(press);
+      if (press.before === null || press.end === null) return unknown('failed');
+      const before = matches(press.before, twin.before);
+      if (before === null) return unknown('failed');
+      if (!before) return unknown('press_differs_before');
       const response = changedShare(press.end, twin.end);
-      if (response === null) return null;
+      if (response === null) return unknown('failed');
       if (press.reached && response > RESPONSE_SEEN) {
-        const again = await next(target);
-        if (again === null || !again.reached) return null;
-        if (matches(again.before, twin.before) !== true) return null;
-        return matches(again.end, press.end) === true ? true : null;
+        pressed = { target, end: press.end };
+        break;
       }
     }
-    return false;
+    const control = await next(null);
+    if (typeof control === 'string') return reason(control);
+    const controlBefore = matches(control.before, twin.before);
+    const controlEnd = matches(control.end, twin.end);
+    if (controlBefore === null || controlEnd === null) return unknown('failed');
+    if (!controlBefore || !controlEnd) return unknown('controls_differ');
+    if (pressed === null) return { seen: false, unknown: null };
+    const again = await next(pressed.target);
+    if (typeof again === 'string') return reason(again);
+    if (!again.reached || matches(again.before, twin.before) !== true)
+      return unknown('repeat_differs');
+    const repeat = matches(again.end, pressed.end);
+    if (repeat === null) return unknown('failed');
+    return repeat ? { seen: true, unknown: null } : unknown('repeat_differs');
   } finally {
-    clearTimeout(timer);
+    for (const timer of timers) clearTimeout(timer);
   }
 }

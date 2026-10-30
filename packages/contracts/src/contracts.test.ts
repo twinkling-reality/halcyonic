@@ -7,6 +7,7 @@ import { renderCSharpContracts, renderObjectMembers } from './csharp.ts';
 import {
   buildSchemaDocument,
   CatalogResponse,
+  CheckLaptop,
   COMMAND_VARIANTS,
   COMPANION_LINE_MAX,
   COMPANION_MAX_MESSAGES,
@@ -513,10 +514,18 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      11,
-      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, and the laptop step's response_seen and exceptions_during (M1.8g)",
+      12,
+      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), and why a twin read was unknown (M1.8g-b)",
     );
-    for (const member of ['Laptop', 'Vr', 'Notes', 'Ready', 'ResponseSeen', 'ExceptionsDuring'])
+    for (const member of [
+      'Laptop',
+      'Vr',
+      'Notes',
+      'Ready',
+      'ResponseSeen',
+      'ExceptionsDuring',
+      'ResponseUnknown',
+    ])
       assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(
       generated,
@@ -769,5 +778,31 @@ describe('the catalog (ADR 0039)', () => {
         .ok,
       false,
     );
+  });
+});
+
+describe("a check's laptop step says why a twin read was unknown (M1.8g-b)", () => {
+  const validate = compileValidator(CheckLaptop);
+  const laptop = {
+    layer: 'starter',
+    targets: 1,
+    mouse: 'reached',
+    key: 'reached',
+    screen_changed: null,
+    response_seen: null,
+    ready: false,
+  };
+  test('one of five reasons, or absent on earlier checks; nothing else', () => {
+    for (const reason of [
+      'controls_differ',
+      'press_differs_before',
+      'repeat_differs',
+      'out_of_time',
+      'failed',
+    ])
+      assert.equal(validate({ ...laptop, response_unknown: reason }).ok, true, reason);
+    assert.equal(validate(laptop).ok, true);
+    assert.equal(validate({ ...laptop, response_unknown: null }).ok, true);
+    assert.equal(validate({ ...laptop, response_unknown: 'flaky' }).ok, false);
   });
 });

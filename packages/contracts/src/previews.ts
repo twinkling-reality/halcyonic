@@ -53,7 +53,12 @@ export type CheckPage = Static<typeof CheckPage>;
  * the pictures, against a pair taken with no input: null when the scene moves on its own.
  * `response_seen` (M1.8g) is observed against a twin: the page replayed under a clock the host steps,
  * with and without a press, compared at the same frame; null when the twins did not match, absent
- * when not tried. `exceptions_during` counts uncaught exceptions while the step acted. `ready` needs
+ * when not tried. `response_unknown` (M1.8g-b) says why `response_seen` is null: the two no-input
+ * loads differed (`controls_differ`), a press run differed from the twin before any input
+ * (`press_differs_before`), a seen press loaded again ended otherwise (`repeat_differs`), the step ran
+ * out of its time or the page stopped reaching frames (`out_of_time`), or a load could not be made or
+ * compared (`failed`); absent when not unknown. `exceptions_during` counts uncaught exceptions while
+ * the step acted. `ready` needs
  * the starter's own layer and either the mouse reported reached with the screen observed changed, or
  * a response seen against the twin.
  */
@@ -65,6 +70,17 @@ export const CheckLaptop = Type.Object(
     key: Type.Enum(['reached', 'not_reached', 'unknown']),
     screen_changed: Nullable(Type.Boolean()),
     response_seen: Type.Optional(Nullable(Type.Boolean())),
+    response_unknown: Type.Optional(
+      Nullable(
+        Type.Enum([
+          'controls_differ',
+          'press_differs_before',
+          'repeat_differs',
+          'out_of_time',
+          'failed',
+        ]),
+      ),
+    ),
     exceptions_during: Type.Optional(Type.Integer({ minimum: 0 })),
     ready: Type.Boolean(),
   },

@@ -259,6 +259,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.laptop?.mouse, 'reached');
     assert.equal(result.laptop?.screen_changed, null);
     assert.equal(result.laptop?.response_seen, true, JSON.stringify(result.laptop));
+    assert.equal(result.laptop?.response_unknown, undefined);
     assert.equal(result.laptop?.exceptions_during, 0);
     assert.equal(result.laptop?.ready, true);
     assert.equal(result.ready, true);
@@ -305,6 +306,10 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     );
     assert.equal(result.laptop?.screen_changed, null);
     assert.equal(result.laptop?.response_seen, null, JSON.stringify(result.laptop));
+    assert.ok(
+      ['press_differs_before', 'controls_differ'].includes(result.laptop?.response_unknown ?? ''),
+      JSON.stringify(result.laptop),
+    );
     assert.equal(result.ready, false);
   });
 
@@ -328,6 +333,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.laptop?.mouse, 'reached');
     assert.notEqual(result.laptop?.screen_changed, true, JSON.stringify(result.laptop));
     assert.equal(result.laptop?.response_seen, null, JSON.stringify(result.laptop));
+    assert.equal(result.laptop?.response_unknown, 'controls_differ');
     assert.equal(result.ready, false);
   });
 
@@ -347,6 +353,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     );
     assert.equal(result.laptop?.mouse, 'reached');
     assert.equal(result.laptop?.response_seen, null, JSON.stringify(result.laptop));
+    assert.equal(result.laptop?.response_unknown, 'out_of_time', JSON.stringify(result.laptop));
     assert.equal(result.ready, false);
     // The browser has exited; its helpers end on their own a moment later.
     let left = '';
