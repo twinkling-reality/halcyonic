@@ -1232,6 +1232,9 @@ namespace Halcyonic.XR.UI
             line.Shimmer.Waits = false;
             var title = line.ProjectTitle;
             title.gameObject.SetActive(true);
+            // Type only steps down. In the menu's project list the identity stands under the page's Section words, so it
+            // takes their Body size, still strong; in the spatial workspace it leads its own fact line at Title.
+            title.fontSize = GlazeTokens.FontSize(U(SpatialWorkspace ? Glaze.TitleDegrees : Glaze.BodyDegrees));
             var titleHeight = GlazeText.LineHeight(title);
             line.Fact.fontSize = GlazeTokens.FontSize(U(Glaze.BodyDegrees));
             var wordsLeft = left + U(Glaze.Menu.IconColumnDegrees) + grid;
