@@ -116,10 +116,10 @@ public class ProjectsColumnTests
         const string Leak = "The control plane refused the request: 401 Unauthorized (http://192.168.1.20:47801/api/locations)";
         var cases = new (Exception Error, string? Why)[]
         {
-            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "It didn't answer. Check that this app is running there, then press Try again."),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "No Answer · Check App · Try Again"),
             (new ControlPlaneRequestException(Leak, "device_revoked", 401), ConnectionText.PairingRefused),
             (new ControlPlaneRequestException(Leak, "unauthorized", 401), ConnectionText.AccessTokenRefused),
-            (new ControlPlaneRequestException(Leak, "too_many_requests", 429), "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."),
+            (new ControlPlaneRequestException(Leak, "too_many_requests", 429), "Computer Busy · Too Many Tries · Retry in 1 min"),
             (new ControlPlaneRequestException(Leak, "internal_error", 500), null),
             // A code counts only with the status that carries it (the review's L6).
             (new ControlPlaneRequestException(Leak, "device_revoked", 500), null),
@@ -128,11 +128,11 @@ public class ProjectsColumnTests
             // Not "didn't answer" where something did (the review's L5).
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new CertificateMismatchException("ab"))), ConnectionText.NotThePairedComputer),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unproved, new Uri("http://127.0.0.1:47800/")))),
-                "What answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Try again."),
+                "Host Unverified · Code Not Sent · Check App · Try Again"),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.NotLoopback, new Uri("http://localhost:47800/")))), null),
             // Over USB, a proof nothing answered: nothing answered (the review's R3).
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unreachable, new Uri("http://127.0.0.1:47800/")))),
-                "It didn't answer. Check that this app is running there, then press Try again."),
+                "No Answer · Check App · Try Again"),
             // Something answered, with what isn't HTTP or too much of it, as the handlers wrap it: never "didn't answer".
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), null),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new FormatException(Leak))), null),
@@ -318,7 +318,7 @@ public class ProjectsColumnTests
         second.Act(ProjectsScreens.ChooseFolder, KeyOf(second, "notes"));
         second.Act(ProjectsScreens.Connect, null);
         Assert.That(host.Sent.Count, Is.EqualTo(1), "no second project.create, for that folder or another, while the first may have run");
-        Assert.That(second.Frame!.Reason, Does.StartWith("Not sure whether"));
+        Assert.That(second.Frame!.Reason, Does.Contain("Unconfirmed"));
     }
 
     [Test]
@@ -445,7 +445,7 @@ public class ProjectsColumnTests
         column.Act(ProjectsScreens.ChooseFolder, KeyOf(column, "notes")); column.Act(ProjectsScreens.Connect, null);
         Assert.That(host.Sent.Count, Is.EqualTo(1), "expanding discovery never retries or replaces an unknown command");
         Assert.That(memory.Connection!.Unresolved, Is.Not.Null);
-        Assert.That(column.Frame!.Reason, Does.StartWith("Not sure whether"));
+        Assert.That(column.Frame!.Reason, Does.Contain("Unconfirmed"));
     }
 
 }

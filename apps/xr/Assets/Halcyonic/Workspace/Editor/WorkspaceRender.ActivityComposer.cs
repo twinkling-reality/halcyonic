@@ -99,7 +99,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var chosen = id == work.Workstream.WorkstreamId ? work : otherWork;
                         var column = new FileColumn(host, () => With(chosen.Present(live: true), activity: new[] {
-                            new ActivityEntry(1, "2026-10-01T09:00:01.000Z", ActivityKind.Turn, "Round started", false),
+                            new ActivityEntry(1, "2026-10-01T09:00:01.000Z", ActivityKind.Turn, "Round Started", false),
                             new ActivityEntry(2, "2026-10-01T09:00:02.000Z", ActivityKind.Tool, id == work.Workstream.WorkstreamId ? "read: src/auth/sign-in.ts" : "read: src/search/index.ts", false),
                             new ActivityEntry(3, "2026-10-01T09:00:03.000Z", ActivityKind.Message,
                                 id == work.Workstream.WorkstreamId ? "I found that sign-in attempts share one address counter. I am separating the account limit and checking the regression." : "I am checking the search index boundary.", true),

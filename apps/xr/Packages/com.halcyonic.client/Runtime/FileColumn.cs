@@ -512,7 +512,7 @@ namespace Halcyonic.Client
         {
             if (host.Submit(command) is null)
             {
-                Notify("Couldn't send: " + HostText.Your + " isn't connected. Try again when it is.");
+                Notify("Not Sent · Not Connected · Try Again");
                 return;
             }
             notice = null;
@@ -913,10 +913,10 @@ namespace Halcyonic.Client
             }
             if (draft != null) ReadQuestion(draft, budget);
             Screen.ShowTaskHereOffered = CanShowTaskHere();
-            if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine("Show this task here", rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
-            if (Screen.WorkspaceRequestOffered) Screen.WorkspaceRequestRows = Math.Max(1, host.RowsOf(new PageLine("Ask workspace", icon: GlazeIcon.Next,
+            if (Screen.ShowTaskHereOffered) Screen.ShowTaskHereRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.ShowTaskHereWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+            if (Screen.WorkspaceRequestOffered) Screen.WorkspaceRequestRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.AskWorkspaceWords, icon: GlazeIcon.Next,
                 action: FileScreens.OpenWorkspaceRequest, opens: true, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
-            if (Screen.CharacterColourOffered) Screen.CharacterColourRows = Math.Max(1, host.RowsOf(new PageLine("Character colour", rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
+            if (Screen.CharacterColourOffered) Screen.CharacterColourRows = Math.Max(1, host.RowsOf(new PageLine(FileScreens.CharacterColourWords, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             if (Screen.ResultsOffered) Screen.ResultsRows = Math.Max(1, host.RowsOf(FileScreens.ReadResultsLine(rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
             Screen.InstructionResultsOffered = !Screen.InstructionHideOffered && Screen.ResultsOffered && presentation.Execution != null && Steering.Armed == null
                 && WorkspaceText.NeedFromYou(presentation) == null && asked == null && presentation.ApprovalToAnswer == null && notice == null;

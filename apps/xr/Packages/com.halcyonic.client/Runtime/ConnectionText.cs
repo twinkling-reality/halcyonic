@@ -11,36 +11,34 @@ namespace Halcyonic.Client
     public static class ConnectionText
     {
         /// <summary>The credential was refused, when how this device reaches the Mac is not known.</summary>
-        public const string AccessRefused = HostText.YourStart + " refused this headset's credential.";
+        public const string AccessRefused = "Credential Refused";
 
         /// <summary>
         /// A development build that reaches the Mac with the access token, as over USB; the person
         /// reads "access code" (WORDS.md).
         /// </summary>
         public const string AccessTokenRefused =
-            HostText.YourStart + " refused this headset's access code: it doesn't match " + HostText.Your + "'s. "
-            + "Put " + HostText.Your + "'s current access code on the headset, then restart the app.";
+            "Access Code Refused · Mismatch · Copy Current Code · Restart App";
 
         /// <summary>
         /// A development build whose access token the Mac did not prove it holds (<see cref="LoopbackProof"/>):
         /// the Mac's token is another, or something else answers in its place, so the token was not sent.
         /// </summary>
         public const string AccessTokenUnproved =
-            "This headset's access code doesn't match " + HostText.Your + "'s, or something else is answering in its place, so the headset didn't send it. "
-            + "Put " + HostText.Your + "'s current access code on the headset, check that this app is running there, and restart the app.";
+            "Code Withheld · Host Unverified · Copy Current Code · Check App · Restart App";
 
         /// <summary>A paired headset whose pairing the Mac no longer accepts, as after it was revoked.</summary>
-        public const string PairingRefused = HostText.YourStart + " no longer accepts this headset's pairing. Forget the " + HostText.Noun + " on the headset and pair again.";
+        public const string PairingRefused = "Pairing Revoked · Forget Computer · Pair Again";
 
         /// <summary>The connection's phase in plain words, never the phase's own name.</summary>
         public static string Phase(ConnectionStatus status) => status.Phase switch
         {
             ConnectionPhase.Live => "Live",
-            ConnectionPhase.Connecting => "Connecting to " + HostText.Your + "…",
-            ConnectionPhase.Synchronizing => "Catching up with " + HostText.Your + "…",
+            ConnectionPhase.Connecting => "Connecting to Computer",
+            ConnectionPhase.Synchronizing => "Catching Up",
             ConnectionPhase.WaitingToRetry => Unreachable,
             ConnectionPhase.Refused => WhyNotLive(status),
-            _ => "Not connected",
+            _ => "Not Connected",
         };
 
         /// <summary>
@@ -51,9 +49,9 @@ namespace Halcyonic.Client
         {
             "unsupported_protocol" => OtherVersion,
             "device_revoked" => PairingRefused,
-            "too_many_connections" => "This headset already has too many connections open to " + HostText.Your + ". Close the app, then open it again.",
-            "invalid_message" or "hello_required" => HostText.YourStart + " couldn't read what this app sent. " + SameVersion,
-            _ => HostText.YourStart + " ended the connection. " + TriesAgain + ".",
+            "too_many_connections" => "Too Many Connections · Restart App",
+            "invalid_message" or "hello_required" => "Message Unreadable · " + SameVersion,
+            _ => "Connection Ended · " + TriesAgain,
         };
 
         /// <summary>
@@ -66,19 +64,18 @@ namespace Halcyonic.Client
         {
             // Only the network listener refuses a Host name, and a stored pairing passed it once, so the
             // address may have changed there (settled by the coordinator, 2026-10-07).
-            "host_not_allowed" => HostText.YourStart + " turned away the address this headset uses for it, which may have changed there. " + TriesAgain + "; if this keeps happening, pair it again in Settings.",
-            "too_many_requests" => HostText.YourStart + " is turning this headset away for a minute after too many tries. " + TriesAgain + ".",
+            "host_not_allowed" => "Host Not Allowed · " + TriesAgain + " · Pair Again if Repeated",
+            "too_many_requests" => "Computer Busy · Too Many Tries · " + TriesAgain,
             _ => turnedAway,
         };
 
-        private const string TriesAgain = "The headset tries again by itself";
+        private const string TriesAgain = "Retrying";
 
         /// <summary>
         /// Something answered with a certificate other than the one pinned when this headset paired, which
         /// can mean something is answering in your computer's place (settled by the coordinator, 2026-10-07).
         /// </summary>
-        public const string NotThePairedComputer = "What answered isn't the computer this headset paired with, so the headset sent nothing. "
-            + "If you set up " + HostText.Your + " again, forget it on the headset and pair again.";
+        public const string NotThePairedComputer = "Unknown Host · Not Your Computer · Nothing Sent";
 
         /// <summary>A code for the device log, kept only by its shape, so what answered can't write a line of its own.</summary>
         public static string CodeForLog(string? code) =>
@@ -90,27 +87,27 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Retrying(ConnectionStatus status) => status.Answered && status.Detail != null
             ? status.Detail
-            : "Last known: can't reach " + HostText.Your + ". Trying again…" + (string.IsNullOrEmpty(status.Detail) ? "" : " " + status.Detail);
+            : "Last Known · Computer Unreachable · Retrying" + (string.IsNullOrEmpty(status.Detail) ? "" : " · " + status.Detail);
 
         /// <summary>A connection turned away for no reason a code names, where how this headset reaches the computer is not known.</summary>
-        public const string TurnedAway = HostText.YourStart + " turned the connection away. " + TriesAgain + ".";
+        public const string TurnedAway = "Connection Refused · " + TriesAgain;
 
         /// <summary>The same, for a paired headset (settled by the coordinator, 2026-10-07).</summary>
-        public const string TurnedAwayPaired = HostText.YourStart + " turned the connection away. " + TriesAgain + "; if this keeps happening, pair it again in Settings.";
+        public const string TurnedAwayPaired = "Connection Refused · " + TriesAgain + " · Pair Again if Repeated";
 
         /// <summary>The same, over USB with the access code.</summary>
-        public const string TurnedAwayUsb = HostText.YourStart + " turned the connection away. " + TriesAgain + "; if this keeps happening, restart this app on " + HostText.Your + ".";
+        public const string TurnedAwayUsb = "Connection Refused · " + TriesAgain + " · Restart Computer App if Repeated";
 
         /// <summary>Your computer speaks another version of the connection than this app.</summary>
-        public const string OtherVersion = HostText.YourStart + " runs another version of this app. " + SameVersion;
+        public const string OtherVersion = "Version Mismatch · " + SameVersion;
 
-        private const string SameVersion = "Install the same version on both.";
+        private const string SameVersion = "Install Same Version";
 
         /// <summary>Your computer sent what this app can't read; the message itself is never shown, since it may hold anything.</summary>
-        public const string Unreadable = HostText.YourStart + " sent something this app can't read. " + SameVersion;
+        public const string Unreadable = "Message Unreadable · " + SameVersion;
 
         /// <summary>Your computer closed the connection.</summary>
-        public const string Closed = HostText.YourStart + " closed the connection. " + TriesAgain + ".";
+        public const string Closed = "Connection Closed · " + TriesAgain;
 
         /// <summary>
         /// Why your computer closed the connection, from the close it sent ("1008 device revoked", as the
@@ -121,24 +118,24 @@ namespace Halcyonic.Client
             close != null && close.EndsWith(" device revoked", StringComparison.Ordinal) ? PairingRefused : Closed;
 
         /// <summary>This headset fell behind what your computer sent, so it reads everything again.</summary>
-        public const string FellBehind = "This headset fell behind, so it's catching up.";
+        public const string FellBehind = "Catching Up";
 
         /// <summary>Your computer didn't answer the connection in time.</summary>
-        public static string NoAnswer(TimeSpan within) => HostText.YourStart + " didn't answer within " + Seconds(within) + ".";
+        public static string NoAnswer(TimeSpan within) => "No Answer in " + Seconds(within);
 
         /// <summary>
         /// Your computer sent nothing on a live connection for this long. It answered before going quiet, so
         /// the line stands alone, with its way on (settled by the coordinator, 2026-10-07).
         /// </summary>
-        public static string Silent(TimeSpan quiet) => HostText.YourStart + " sent nothing for " + Seconds(quiet) + ". " + TriesAgain + ".";
+        public static string Silent(TimeSpan quiet) => "Computer Silent · " + Seconds(quiet) + " · " + TriesAgain;
 
         private static string Seconds(TimeSpan span)
         {
             var seconds = Math.Max(1, (int)Math.Round(span.TotalSeconds));
-            return seconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + (seconds == 1 ? " second" : " seconds");
+            return seconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " s";
         }
 
-        public const string Unreachable = "Can't reach " + HostText.Your + "; trying again. Check that this app is running there and this headset can reach it.";
+        public const string Unreachable = "Computer Unreachable · Retrying · Check App and Network";
 
         /// <summary>
         /// Why the control plane is not shown: refused, with the next step; refused for another reason,
@@ -150,12 +147,12 @@ namespace Halcyonic.Client
             if (status != null && status.Phase == ConnectionPhase.Refused)
             {
                 if (status.AccessRefused) return detail ?? AccessRefused;
-                return HostText.YourStart + " refused this app." + (detail == null ? "" : " " + detail);
+                return "App Refused" + (detail == null ? "" : " · " + detail);
             }
             // Your computer answered and turned it away, closed it or ended it: that is why on its own, since
             // "Can't reach" would be untrue and a second way on (the review's L3).
             if (status != null && status.Answered && detail != null) return detail;
-            return Unreachable + (detail == null ? "" : " (" + detail + ")");
+            return Unreachable + (detail == null ? "" : " · " + detail);
         }
     }
 }

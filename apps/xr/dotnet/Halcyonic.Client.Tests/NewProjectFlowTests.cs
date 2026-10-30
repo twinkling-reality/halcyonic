@@ -628,7 +628,7 @@ public class NewProjectFlowTests
         restarted.Open(null, null);
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.Build));
         var unresolved = restarted.Frame!;
-        Assert.That(unresolved.Lines.Any(line => line.Words == "Reference: " + kept.Id), Is.True);
+        Assert.That(unresolved.Lines.Any(line => line.Words == "Reference · " + kept.Id), Is.True);
         Press(restarted, NewProjectScreens.ConfirmClear, null);
         Assert.That(kept.Id, Is.Not.Null, "one press never clears it");
         Press(restarted, NewProjectScreens.Clear, null);
@@ -770,7 +770,7 @@ public class NewProjectFlowTests
         flow.Close();
         flow.Open(null, null);
         await Until(flow, () => flow.Idea!.Folder!.PlaceGone);
-        Assert.That(flow.Idea!.Folder!.Describe(), Does.Contain("no longer lists"), "never the label now another place's");
+        Assert.That(flow.Idea!.Folder!.Describe(), Does.Contain("Place Unlisted"), "never the label now another place's");
         var recap = flow.Frame!;
         Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.ChooseWhereFilesLive)));
         Press(flow, NewProjectScreens.StartBuilding, null);
@@ -808,14 +808,14 @@ public class NewProjectFlowTests
         static string Refusal(string code) => HalcyonicJson.Serialize(new ErrorResponse { Error = new ErrorBody { Code = code, Message = Leak } });
         var cases = new (Action<Routes> Fail, string Shown)[]
         {
-            (routes => routes.Unreachable["GET /api/locations"] = Leak, "It didn't answer. Check that this app is running there, then press Try again."),
+            (routes => routes.Unreachable["GET /api/locations"] = Leak, "No Answer · Check App · Try Again"),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.Unauthorized, Refusal("device_revoked")), ConnectionText.PairingRefused),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.Unauthorized, Refusal("unauthorized")), ConnectionText.AccessTokenRefused),
             (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.TooManyRequests, Refusal("too_many_requests")),
-                "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."),
-            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("internal_error")), "Press Try again."),
-            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.BadGateway, Leak), "Press Try again."),
-            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("device_revoked")), "Press Try again."),
+                "Computer Busy · Too Many Tries · Retry in 1 min"),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("internal_error")), "Try Again"),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.BadGateway, Leak), "Try Again"),
+            (routes => routes.Refusals["GET /api/locations"] = (HttpStatusCode.InternalServerError, Refusal("device_revoked")), "Try Again"),
         };
         foreach (var (fail, shown) in cases)
         {
@@ -829,7 +829,7 @@ public class NewProjectFlowTests
             await Until(flow, () => flow.Frame!.Lines.All(line => line.Words != EntryText.ReadingFolders));
             var words = flow.Frame!.Lines.Select(line => line.Words).ToList();
             Assert.That(words, Has.None.Contains("ECONNREFUSED").And.None.Contains("192.168").And.None.Contains("control plane"), shown);
-            Assert.That(words, Does.Contain("Couldn't read your computer's folders.").And.Contain(shown), "the heading, then why");
+            Assert.That(words, Does.Contain("Folders Unreadable").And.Contain(shown), "the heading, then why");
         }
     }
 
@@ -1022,7 +1022,7 @@ public class NewProjectFlowTests
         Assert.That(flow.Review, Is.Null, "nothing starts while an earlier start may have run");
         Assert.That(recap.Sections.Single(step => step.Key == NewProjectScreens.Key(NewProjectStep.Build)).Reached, Is.True);
         Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Build));
-        Assert.That(flow.Frame!.Lines.Any(line => line.Words == "Reference: " + kept.Id), Is.True, "Build shows the start to check");
+        Assert.That(flow.Frame!.Lines.Any(line => line.Words == "Reference · " + kept.Id), Is.True, "Build shows the start to check");
         Assert.That(host.Sent, Is.Empty);
         Assert.That(kept.Id, Is.EqualTo("01a0dcf1-5a80-7000-8000-0000000000c1"), "never replaced");
     }
@@ -1452,7 +1452,7 @@ public class NewProjectFlowTests
         var first = flow.Frame!;
         var clear = first.Footer[PromptSlot.FarRight]!;
         Assert.That((clear.Id, clear.Available), Is.EqualTo((NewProjectScreens.Clear, false)), "not until every part is read");
-        Assert.That(first.Reason, Does.StartWith("Read to part"));
+        Assert.That(first.Reason, Does.StartWith("Read to Part"));
         Press(flow, NewProjectScreens.Clear, null);
         Press(flow, NewProjectScreens.ConfirmClear, null);
         Assert.That(kept.Id, Is.Not.Null, "never cleared unread");
@@ -1804,7 +1804,7 @@ public class NewProjectFlowTests
         host.Height = (_, _) => reads++ % 2 == 0 ? tall * 0.7f : tall * 0.5f;
         flow.Tick();
         var pages = new List<MenuFrame> { flow.Frame! };
-        for (var turn = 0; turn < 20 && Turn(pages[^1]) is { } next && next.Words != "First page"; turn++)
+        for (var turn = 0; turn < 20 && Turn(pages[^1]) is { } next && next.Words != "First Page"; turn++)
         {
             Press(flow, next.Id, next.Key);
             host.State = OnJournal(Samples.JournalId);

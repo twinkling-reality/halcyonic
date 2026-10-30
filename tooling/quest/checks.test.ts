@@ -432,7 +432,7 @@ describe('headset session checks', () => {
     assert.equal(checkConnection(live).pass, true);
     const unproved = log(
       unity(
-        "connection Refused: This headset's access code doesn't match your computer's, or something else is answering in its place, so the headset didn't send it. Put your computer's current access code on the headset, check that Halcyonic is running there, and restart the app.",
+        'connection Refused: Code Withheld · Host Unverified · Copy Current Code · Check App · Restart App',
       ),
     );
     assert.equal(checkConnection(unproved).pass, false);
@@ -456,9 +456,7 @@ describe('headset session checks', () => {
       'not yet found unreachable',
     );
     const refused = log(
-      unity(
-        "connection Refused: Your computer refused this headset's access code: it doesn't match your computer's. Put your computer's current access code on the headset, then restart the app.",
-      ),
+      unity('connection Refused: Access Code Refused · Mismatch · Copy Current Code · Restart App'),
     );
     assert.equal(checkConnection(refused, 'refused').pass, true);
     const protocol = log(
@@ -581,11 +579,7 @@ describe('headset session checks', () => {
         'YourStart = "Your computer"',
       ),
     );
-    assert.ok(
-      text.includes(
-        `" ${CONNECTION_DETAILS.refused.replace('Your computer ', '')} it doesn't match "`,
-      ),
-    );
+    assert.ok(text.includes(`"${CONNECTION_DETAILS.refused}"`));
     assert.ok(
       source('apps/xr/Packages/com.halcyonic.client/Runtime/LoopbackProof.cs').includes(
         CONNECTION_DETAILS.notLoopback,

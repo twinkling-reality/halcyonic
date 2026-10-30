@@ -70,8 +70,8 @@ public class ProjectFolderTests
     {
         var root = Root("Pro‮jects", LocationRootStatus.Available, "shop<b>x</b>​");
         Assert.That(ProjectFolder.Existing(root, root.Folders[0]).Describe(), Is.EqualTo("shop<b>x</b>‹U+200B› in Pro‹U+202E›jects"));
-        Assert.That(ProjectFolder.Existing(root, null).Describe(), Is.EqualTo("directly in Pro‹U+202E›jects"));
-        Assert.That(ProjectFolder.New(Root(), "cards")!.Describe(), Is.EqualTo("a new folder, cards, in Projects"));
+        Assert.That(ProjectFolder.Existing(root, null).Describe(), Is.EqualTo("Directly in Pro‹U+202E›jects"));
+        Assert.That(ProjectFolder.New(Root(), "cards")!.Describe(), Is.EqualTo("New Folder · cards in Projects"));
         var options = ProjectFolder.Options(new LocationsResponse { Roots = new List<LocationRoot> { root } });
         Assert.That(options.Select(option => option.Label), Has.Some.EqualTo("shop<b>x</b>‹U+200B›"));
     }
@@ -87,7 +87,7 @@ public class ProjectFolderTests
         var root = Root(" ", LocationRootStatus.Available, "  ");
         var listing = new LocationsResponse { Roots = new List<LocationRoot> { root } };
         Assert.That(ProjectFolder.Options(listing).Select(option => option.Label),
-            Is.EqualTo(new[] { "New folder in \u2039U+0020\u203A", "Directly in \u2039U+0020\u203A", "\u2039U+0020\u203A\u2039U+0020\u203A" }));
+            Is.EqualTo(new[] { "New Folder · \u2039U+0020\u203A", "Directly in \u2039U+0020\u203A", "\u2039U+0020\u203A\u2039U+0020\u203A" }));
         Assert.That(ProjectFolder.Existing(root, root.Folders[0]).Describe(), Is.EqualTo("\u2039U+0020\u203A\u2039U+0020\u203A in \u2039U+0020\u203A"));
         var idea = new ProjectIdea();
         idea.UseIdea("something for my running club");
@@ -116,11 +116,11 @@ public class ProjectFolderTests
     {
         var chosen = ProjectFolder.New(Root(), "recipes")!;
         var current = new ProjectLocation { Path = "/Users/person/Projects/old", Name = "old", Created = false };
-        Assert.That(EntryText.FolderFact(null, null, needed: true), Is.EqualTo("Not chosen yet"));
-        Assert.That(EntryText.FolderFact(null, null, needed: false), Is.EqualTo("Not needed"));
-        Assert.That(EntryText.FolderFact(null, chosen, needed: true), Is.EqualTo("A new folder, recipes, in Projects"));
-        Assert.That(EntryText.FolderFact(current, null, needed: true), Is.EqualTo("old, the project's folder"));
-        Assert.That(EntryText.FolderFact(current, chosen, needed: true), Is.EqualTo("From now on, a new folder, recipes, in Projects; old now"));
+        Assert.That(EntryText.FolderFact(null, null, needed: true), Is.EqualTo("Not Chosen"));
+        Assert.That(EntryText.FolderFact(null, null, needed: false), Is.EqualTo("Not Needed"));
+        Assert.That(EntryText.FolderFact(null, chosen, needed: true), Is.EqualTo("New Folder · recipes in Projects"));
+        Assert.That(EntryText.FolderFact(current, null, needed: true), Is.EqualTo("old · Project Folder"));
+        Assert.That(EntryText.FolderFact(current, chosen, needed: true), Is.EqualTo("Next · New Folder · recipes in Projects · Now · old"));
         var shop = Root("Projects", LocationRootStatus.Available, "shop");
         Assert.That(EntryText.FolderFact(null, ProjectFolder.Existing(shop, shop.Folders[0]), needed: true), Is.EqualTo("shop in Projects"),
             "a name from the file system starts the line as it is");
@@ -130,9 +130,9 @@ public class ProjectFolderTests
     public void TheReviewShowsTheFolderAndAMoveInFull()
     {
         var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your computer", "ref", "Objective", folder: "recipes in Projects");
-        Assert.That(review.Items.Select(item => item.Text), Has.Some.EqualTo("Where its files live: recipes in Projects"));
+        Assert.That(review.Items.Select(item => item.Text), Has.Some.EqualTo("Folder · recipes in Projects"));
         var move = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your computer", "ref", "Objective", folder: "shop in Projects", folderBefore: "none");
-        Assert.That(move.Items.Select(item => item.Text).Take(3), Is.EqualTo(new[] { "Project: Project", "Folder now: none", "Folder from now on: shop in Projects" }));
+        Assert.That(move.Items.Select(item => item.Text).Take(3), Is.EqualTo(new[] { "Project · Project", "Folder Now · none", "Folder Next · shop in Projects" }));
     }
 }
 
@@ -198,7 +198,7 @@ public class FolderRefusalTests
         var step = sequence.StoppedAt!;
         Assert.That(step.Refusal, Is.EqualTo(RejectionCode.LocationRequired));
         Assert.That(EntryText.AboutFolder(step), Is.True);
-        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that · This project has no folder yet. Choose where its files live, then try again."),
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Refused · No Folder · Choose Folder"),
             "the next action comes from the code, not the message");
 
         var bind = sequence.Retry(Samples.Reviewed(sequence, folder: Folder("recipes")), folder: Folder("recipes"));
@@ -214,7 +214,7 @@ public class FolderRefusalTests
         var sequence = new BuildSequence(Draft(), Commands, "Recipes", Folder("recipes"));
         var create = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(create, RejectionCode.LocationExists, "There is already a folder named recipes.")));
-        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Contain("Use that folder"));
+        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Contain("Use It"));
         var existing = new ExistingFolderChoice { Root = "/Users/person/Projects", FolderName = "recipes" };
         var use = (ProjectCreateCommand)sequence.Retry(Samples.Reviewed(sequence, folder: existing), folder: existing);
         Assert.That(use.Payload.Location, Is.InstanceOf<ExistingFolderChoice>());
@@ -251,16 +251,16 @@ public class FolderRefusalTests
             Assert.That(EntryText.StepStatus(step), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), effect.ToString());
             if (effect == FailureEffect.None)
             {
-                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that · Agent App Unreachable · Check App and Retry"),
+                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Failed · Agent App Unreachable · Check App and Retry"),
                     "a cause every adapter shares is said by its code, and with no task running, the way on is the computer");
             }
         }
         // A step's way on is what New project offers, never adding the task again from inside it (2026-10-07).
         foreach (var (code, words) in new[]
         {
-            ("runtime_unavailable", "Couldn't do that · Agent App Unavailable · Check Setup and Retry"),
-            ("runtime_version_unsupported", "Couldn't do that · Version Unsupported · Change Agent App"),
-            ("capability_unimplemented", "Couldn't do that · Unsupported · Change Agent App"),
+            ("runtime_unavailable", "Failed · Agent App Unavailable · Check Setup and Retry"),
+            ("runtime_version_unsupported", "Failed · Version Unsupported · Change Agent App"),
+            ("capability_unimplemented", "Failed · Unsupported · Change Agent App"),
         })
         {
             var sequence = new BuildSequence(Draft("p1"), Commands, null);
@@ -282,15 +282,15 @@ public class FolderRefusalTests
         {
             Assert.That(EntryText.FolderProblem(code, null), Is.Not.Null, code.ToString());
         }
-        Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("nothing changed"));
-        Assert.That(EntryText.FolderProblem(null, "location_missing"), Is.EqualTo("Your computer can't use that folder now. Choose it again, or fix it on your computer."),
+        Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("Nothing Changed"));
+        Assert.That(EntryText.FolderProblem(null, "location_missing"), Is.EqualTo("Folder Unusable · Choose Again or Fix on Computer"),
             "the host also answers location_missing for a folder it cannot read, so the words never claim it is gone");
         Assert.That(EntryText.FolderProblem(RejectionCode.InvalidState, "other"), Is.Null);
 
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
         var workstream = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(workstream, RejectionCode.InvalidState, "Not now‮.")));
-        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Couldn't do that · Not Possible Now · See Activity"));
+        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Refused · Not Possible Now · See Activity"));
         Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.False);
     }
 
@@ -335,8 +335,8 @@ public class FolderRefusalTests
         var chosen = ProjectFolder.Existing(root, root.Folders[0]);
         Assert.That(chosen.Describe(), Is.EqualTo("shop in Projects (person)"));
         Assert.That(((ExistingFolderChoice)chosen.ToContract()).Root, Is.EqualTo(root.Path), "the label is shown, never sent");
-        Assert.That(ProjectFolder.New(root, "site")!.Describe(), Is.EqualTo("a new folder, site, in Projects (person)"));
-        Assert.That(ProjectFolder.NewFolderLabel(root), Is.EqualTo("New folder in Projects (person)"));
+        Assert.That(ProjectFolder.New(root, "site")!.Describe(), Is.EqualTo("New Folder · site in Projects (person)"));
+        Assert.That(ProjectFolder.NewFolderLabel(root), Is.EqualTo("New Folder · Projects (person)"));
 
         // Kept across a restart, then the roots changed: the label is read again by the root's path.
         var kept = ProjectFolder.Restore(chosen.RootPath, chosen.RootName, chosen.FolderName, isNew: false)!;
@@ -344,7 +344,7 @@ public class FolderRefusalTests
         Assert.That(kept.Current(new LocationsResponse { Roots = new List<LocationRoot> { root } }).Describe(), Is.EqualTo("shop in Projects"));
         var gone = kept.Current(new LocationsResponse { Roots = new List<LocationRoot>() });
         Assert.That(gone.PlaceGone, Is.True);
-        Assert.That(gone.Describe(), Is.EqualTo("shop, in a place your computer no longer lists"), "never the old label");
+        Assert.That(gone.Describe(), Is.EqualTo("shop · Place Unlisted"), "never the old label");
         root.Status = LocationRootStatus.Missing;
         Assert.That(kept.Current(new LocationsResponse { Roots = new List<LocationRoot> { root } }).PlaceGone, Is.True);
     }

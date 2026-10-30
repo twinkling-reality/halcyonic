@@ -32,21 +32,21 @@ public class ActivityLogTests
         log.Record(events);
 
         var texts = log.For(ExecutionOf(events, "Move sessions to their own table")).Select(entry => entry.Text).ToList();
-        Assert.That(texts[0], Is.EqualTo("Asked to start on Mock runtime (development fixture)"), "accepted is not started");
-        Assert.That(texts[1], Is.EqualTo("Started on Mock runtime (development fixture)"), "started once the runtime says so");
-        Assert.That(texts.Any(text => text.StartsWith("Approval requested to use bash: ", StringComparison.Ordinal)), Is.True);
-        Assert.That(texts, Does.Contain("Asked to approve"), "a client's name is never shown as a person's");
+        Assert.That(texts[0], Is.EqualTo("Start Requested · Mock runtime (development fixture)"), "accepted is not started");
+        Assert.That(texts[1], Is.EqualTo("Started · Mock runtime (development fixture)"), "started once the runtime says so");
+        Assert.That(texts.Any(text => text.StartsWith("Approval Requested · bash · ", StringComparison.Ordinal)), Is.True);
+        Assert.That(texts, Does.Contain("Approval Sent"), "a client's name is never shown as a person's");
         Assert.That(texts, Has.None.Contains("halcyonic"));
         Assert.That(texts, Does.Contain("Approved"));
-        Assert.That(texts, Does.Contain("Succeeded: bash"));
+        Assert.That(texts, Does.Contain("Succeeded · bash"));
         // Halcyonic's words first and upright, the agent app's names leaning last (settled 2026-10-08).
         var entries = log.For(ExecutionOf(events, "Move sessions to their own table"));
-        Assert.That(entries[0].Words.ToString(), Is.EqualTo("Asked to start on [Mock runtime (development fixture)]"));
-        Assert.That(entries.Single(entry => entry.Text == "Succeeded: bash").Words.ToString(), Is.EqualTo("Succeeded: [bash]"));
+        Assert.That(entries[0].Words.ToString(), Is.EqualTo("Start Requested · [Mock runtime (development fixture)]"));
+        Assert.That(entries.Single(entry => entry.Text == "Succeeded · bash").Words.ToString(), Is.EqualTo("Succeeded · [bash]"));
         // The tool and its request with only a colon between are outside text whole (a separator doesn't make a line Halcyonic's).
         Assert.That(entries.First(entry => entry.Kind == ActivityKind.Approval).Words.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }));
         Assert.That(entries.Where(entry => entry.Kind == ActivityKind.Turn).All(entry => !entry.Words.AnyTheirs), Is.True, "a round is Halcyonic's own words");
-        Assert.That(texts[^1], Is.EqualTo("Round finished"), "a round, never a turn");
+        Assert.That(texts[^1], Is.EqualTo("Round Ended"), "a round, never a turn");
     }
 
     [Test]
@@ -58,7 +58,7 @@ public class ActivityLogTests
         var entries = log.For(ExecutionOf(events, "Fix flaky checkout tests"));
         Assert.That(entries.Where(entry => entry.Kind == ActivityKind.Message).All(entry => entry.Reported), Is.True);
         Assert.That(entries.Where(entry => entry.Kind != ActivityKind.Message).Any(entry => entry.Reported), Is.False);
-        Assert.That(entries.Any(entry => entry.Text.StartsWith("Tests failed", StringComparison.Ordinal)), Is.True);
+        Assert.That(entries.Any(entry => entry.Text.StartsWith("Tests Failed", StringComparison.Ordinal)), Is.True);
     }
 
     [Test]
@@ -118,11 +118,11 @@ public class ActivityLogTests
         });
         Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
         {
-            "Couldn't send an instruction · Agent App Unreachable · See Activity · Re-Add Task if Stuck",
+            "Instruction Failed · Agent App Unreachable · See Activity · Re-Add Task if Stuck",
             "Delivery Unconfirmed · Check Activity",
-            "Couldn't start · Agent App Unreachable · Check Agent App and Retry",
-            "Couldn't start · Your computer can't use that folder now. Choose it again, or fix it on your computer.",
-            "Couldn't finish this round",
+            "Start Failed · Agent App Unreachable · Check Agent App and Retry",
+            "Start Failed · Folder Unusable · Choose Again or Fix on Computer",
+            "Round Failed",
         }), "an effect that can't be ruled out is never said as Couldn't");
         Assert.That(log.For(execution).Select(entry => entry.Text), Has.None.Contains("ECONNREFUSED").And.None.Contains("OpenCode").And.None.Contains("/Users/"));
     }
@@ -142,7 +142,7 @@ public class ActivityLogTests
             Journaled(1, "command.failed", "{\"command_id\":\"01a0dcf1-6e6c-74af-93ca-dea260db9472\",\"command_type\":\"execution.start\","
                 + "\"failure\":{\"code\":\"runtime_unreachable\",\"message\":\"gone\",\"effect\":\"none\"}}", execution),
         });
-        Assert.That(log.For(execution).Single().Text, Is.EqualTo("Couldn't start work · " + LostTouch));
+        Assert.That(log.For(execution).Single().Text, Is.EqualTo("Start Failed · " + LostTouch));
 
         var start = new CommandView
         {
@@ -209,13 +209,13 @@ public class ActivityLogTests
         var log = new ActivityLog();
         log.Record(events);
 
-        Assert.That(log.For(ExecutionOf(events, "Speed up the dashboard render")).Last().Text, Is.EqualTo("Couldn't finish this round"), "never the agent app's own error");
+        Assert.That(log.For(ExecutionOf(events, "Speed up the dashboard render")).Last().Text, Is.EqualTo("Round Failed"), "never the agent app's own error");
         // The agent app's own reason for losing the session is a diagnostic, never shown.
         Assert.That(log.For(ExecutionOf(events, "Run the integration suite")).Last().Text, Is.EqualTo("Agent App Unreachable"));
         var refactor = log.For(ExecutionOf(events, "Refactor the session store")).Select(entry => entry.Text).ToList();
-        Assert.That(refactor, Does.Contain("Couldn't send an instruction · Unsupported · See Activity"), "by the refusal's code, never its message");
+        Assert.That(refactor, Does.Contain("Instruction Refused · Unsupported · See Activity"), "by the refusal's code, never its message");
         Assert.That(refactor, Has.None.Contains("instruct_while_running").And.None.Contains("Runtime mock"));
-        Assert.That(refactor[^1], Is.EqualTo("Round stopped"));
+        Assert.That(refactor[^1], Is.EqualTo("Round Stopped"));
         Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain("Denied"));
     }
 
@@ -229,9 +229,9 @@ public class ActivityLogTests
         {
             var entries = log.For(ExecutionOf(events, title)).Where(entry => entry.Kind == ActivityKind.Tool).ToList();
             bool Finished(ActivityEntry entry) =>
-                entry.Text.StartsWith("Succeeded: ", StringComparison.Ordinal) || entry.Text.StartsWith("Failed: ", StringComparison.Ordinal);
+                entry.Text.StartsWith("Succeeded · ", StringComparison.Ordinal) || entry.Text.StartsWith("Failed · ", StringComparison.Ordinal);
             // The tool's name: after Halcyonic's "Used " to its title's colon, or after "Succeeded: ".
-            string Tool(ActivityEntry entry) => entry.Words.Runs.First(run => run.Theirs).Text.Split(':')[0];
+            string Tool(ActivityEntry entry) => entry.Words.Runs.First(run => run.Theirs).Text.Split(new[] { " · " }, StringSplitOptions.None)[0];
             var started = entries.Where(entry => !Finished(entry)).Select(Tool).ToList();
             var finished = entries.Where(Finished).Select(Tool).ToList();
             Assert.That(entries.Where(entry => !Finished(entry)).All(entry => entry.Text.StartsWith("Used ", StringComparison.Ordinal)), Is.True, title);

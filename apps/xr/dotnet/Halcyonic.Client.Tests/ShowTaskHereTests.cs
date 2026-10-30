@@ -40,7 +40,7 @@ public class ShowTaskHereTests
         var available = true; var opened = 0;
         Assert.That(file.Frame!.Lines.Any(line => line.Action == FileScreens.ShowTaskHere), Is.False, "unsupported hosts offer no placement action");
         file.OfferShowTaskHere(() => available, () => opened++);
-        Assert.That(file.Frame!.Lines.Single(line => line.Action == FileScreens.ShowTaskHere).Words, Is.EqualTo("Show this task here"));
+        Assert.That(file.Frame!.Lines.Single(line => line.Action == FileScreens.ShowTaskHere).Words, Is.EqualTo("Show Task Here"));
         file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.Zero);
         file.Drawn(file.Frame!, null); available = false;
         file.Act(FileScreens.ShowTaskHere, null); Assert.That(opened, Is.Zero, "support must still be available at press");

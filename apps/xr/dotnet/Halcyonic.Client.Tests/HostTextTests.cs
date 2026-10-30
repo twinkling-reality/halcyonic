@@ -44,13 +44,12 @@ public class HostTextTests
             Assert.That(detail, Does.Not.Contain("access token").IgnoreCase, "shown after Can't reach your computer: " + detail);
         }
         Assert.That(ConnectionText.AccessTokenRefused, Is.EqualTo(
-            "Your computer refused this headset's access code: it doesn't match your computer's. Put your computer's current access code on the headset, then restart the app."));
+            "Access Code Refused · Mismatch · Copy Current Code · Restart App"));
         Assert.That(ConnectionText.AccessTokenUnproved, Is.EqualTo(
-            "This headset's access code doesn't match your computer's, or something else is answering in its place, so the headset didn't send it. "
-            + "Put your computer's current access code on the headset, check that this app is running there, and restart the app."));
-        Assert.That(ConnectionText.Unreachable, Is.EqualTo("Can't reach your computer; trying again. Check that this app is running there and this headset can reach it."));
-        Assert.That(EntryText.NoFolders, Is.EqualTo("Your computer doesn't allow any folder yet. Allow one on your computer, then press Try again."));
-        Assert.That(EntryText.DemoCannotStart, Is.EqualTo("The demo can't start new work. Real work runs on your computer."));
+            "Code Withheld · Host Unverified · Copy Current Code · Check App · Restart App"));
+        Assert.That(ConnectionText.Unreachable, Is.EqualTo("Computer Unreachable · Retrying · Check App and Network"));
+        Assert.That(EntryText.NoFolders, Is.EqualTo("No Folders Allowed · Allow on Computer · Try Again"));
+        Assert.That(EntryText.DemoCannotStart, Is.EqualTo("Demo · No New Work"));
         Assert.That(SettingsText.YourMac, Is.EqualTo("Your computer"));
         // Our own words never name the product (the review, 2026-10-07).
         var unproved = new TokenNotSentException(LoopbackProofOutcome.Unproved, new System.Uri("http://127.0.0.1:47800/")).Message;

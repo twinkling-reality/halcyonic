@@ -61,8 +61,8 @@ public class PanelModelTests
     [Test]
     public void AnUnavailableActionKeepsItsPlaceAndSaysWhy()
     {
-        var locked = new PanelAction("start", "Start building", PanelActionRole.Primary, available: false, reason: "Choose where its files live.");
-        Assert.That((locked.Available, locked.Reason), Is.EqualTo((false, "Choose where its files live.")));
+        var locked = new PanelAction("start", "Start building", PanelActionRole.Primary, available: false, reason: "Choose Folder");
+        Assert.That((locked.Available, locked.Reason), Is.EqualTo((false, "Choose Folder")));
         var open = new PanelAction("start", "Start building", PanelActionRole.Primary, reason: "ignored");
         Assert.That(open.Reason, Is.Null, "an action that can be taken says nothing beside it");
     }

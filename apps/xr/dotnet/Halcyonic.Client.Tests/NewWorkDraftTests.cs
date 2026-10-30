@@ -84,7 +84,7 @@ public class NewWorkDraftTests
     {
         var draft = Draft();
         draft.ChooseRuntime(Runtime("opencode"));
-        Assert.That(draft.Problem, Is.EqualTo("Reading this agent app's models…"));
+        Assert.That(draft.Problem, Is.EqualTo("Reading Models"));
         var model = Model("ollama/gpt-4o:latest", ModelServed.ThisMac);
         draft.SetModels(new RuntimeModelsResponse
         {
@@ -186,7 +186,7 @@ public class NewWorkDraftTests
         var draft = Draft();
         draft.ChooseRuntime(Runtime("plain", ModelChoice.None));
         draft.Objective = "   ";
-        Assert.That(draft.Problem, Is.EqualTo("Type an objective."));
+        Assert.That(draft.Problem, Is.EqualTo("Type Goal"));
         draft.Objective = new string('x', 4001);
         Assert.That(draft.Problem, Does.Contain("4,000"));
         draft.Objective = "Fix <b>search</b>\nwith tests";
@@ -233,7 +233,7 @@ public class NewWorkDraftTests
             RuntimeId = "opencode", Result = new AvailableModels { Models = new List<RuntimeModel> { hosted } },
         });
         Assert.That(draft.Model, Is.Null, "nothing on this Mac, so nothing is chosen");
-        Assert.That(draft.Problem, Is.EqualTo("Choose a model."));
+        Assert.That(draft.Problem, Is.EqualTo("Choose Model"));
         Assert.Throws<InvalidOperationException>(() => Built(draft));
 
         var none = Draft();
@@ -266,9 +266,9 @@ public class NewWorkDraftTests
         Assert.That(draft.Models.Skip(3).Select(model => model.ModelRef), Has.Member("gateway/unknown").And.Member("opencode/zen-0"));
         Assert.That(draft.Model!.ModelRef, Is.EqualTo("ollama/qwen3.6:35b-a3b-nvfp4"), "tool calling declared, then the larger context");
         Assert.That(draft.ModelPreselected, Is.True);
-        Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere)), Does.StartWith("These may not run on your computer"));
+        Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere)), Does.StartWith("May Not Run Locally"));
         Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere).Where(model => model.Served == ModelServed.Remote)),
-            Is.EqualTo("Runs on a remote service: your code and instructions go there."));
+            Is.EqualTo("Remote Service · Code and Instructions Leave"));
     }
 
     [Test]

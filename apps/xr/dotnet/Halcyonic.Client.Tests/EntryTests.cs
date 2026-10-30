@@ -312,7 +312,7 @@ public class ProjectIdeaTests
     {
         var idea = new ProjectIdea();
         idea.BeginGuide();
-        Assert.That(ProjectIdea.Questions[idea.Question].Prompt, Is.EqualTo("What kind of thing is it?"));
+        Assert.That(ProjectIdea.Questions[idea.Question].Prompt, Is.EqualTo("What Kind?"));
         Assert.That(idea.Answer(""), Is.False, "the kind is needed");
         Assert.That(idea.Answer("A website"), Is.True);
         Assert.That(idea.Answer("My team"), Is.True);
@@ -384,7 +384,7 @@ public class ProjectIdeaTests
     public void TheRecapStaysWithinTheContract()
     {
         var idea = new ProjectIdea();
-        Assert.That(idea.Problem, Is.EqualTo("Name the project in at most 200 characters."));
+        Assert.That(idea.Problem, Is.EqualTo("Name · Up to 200 Characters"));
         idea.UseIdea(new string('x', 4001));
         Assert.That(idea.Name.Length, Is.EqualTo(ProjectIdea.SuggestedNameLength));
         Assert.That(idea.Problem, Does.Contain("4,000"));
@@ -432,7 +432,7 @@ public class BuildSequenceTests
         Assert.That(project, Is.InstanceOf<ProjectCreateCommand>());
         Assert.That(sequence.Unresolved, Is.EqualTo(project.CommandId));
         Assert.That(sequence.Advance(With()), Is.Null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Sent. Waiting for your computer…"));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Sent · Awaiting Computer"));
 
         var accepted = new CommandView { CommandId = project.CommandId, Status = CommandStatus.Accepted };
         Assert.That(sequence.Advance(With(accepted)), Is.Null, "accepted is not done");
@@ -489,7 +489,7 @@ public class BuildSequenceTests
         };
         Assert.That(sequence.Advance(With(refused)), Is.Null);
         Assert.That(sequence.Stopped, Is.True);
-        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Couldn't do that · Settings Refused · Choose Again"),
+        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Refused · Settings Refused · Choose Again"),
             "by the refusal's code, never the control plane's message");
         Assert.That(sequence.CanRetry, Is.True, "a refused command cannot have run");
         var again = sequence.Retry(Samples.Reviewed(sequence));
@@ -528,7 +528,7 @@ public class BuildSequenceTests
         sequence.Begin(Samples.Reviewed(sequence));
         sequence.AcknowledgementLost(new SessionUnavailableException("Not connected."));
         sequence.Advance(null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Couldn't send: your computer isn't connected. Try again when it is."));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Not Sent · Not Connected · Try Again"));
         Assert.That(sequence.Unresolved, Is.Null);
         Assert.That(sequence.Retry(Samples.Reviewed(sequence, "Recipes, renamed"), "Recipes, renamed"), Is.InstanceOf<ProjectCreateCommand>());
     }
@@ -634,8 +634,8 @@ public class BuildSequenceTests
         var there = new ProjectLocation { Path = "/Users/person/Projects/recipes", Name = "recipes", Created = true };
         Assert.That(EntryScreens.Moves(idea, there), Is.False, "the project is already where the choice points");
         var again = EntryScreens.ReviewOf(idea, draft, there, live: true);
-        Assert.That(again.Items.Select(item => item.Label), Has.No.Member("Folder now: ").And.No.Member("Folder from now on: "));
-        Assert.That(again.Items.Single(item => item.Label == "Where its files live: ").Value, Is.EqualTo("recipes"));
+        Assert.That(again.Items.Select(item => item.Label), Has.No.Member("Folder Now · ").And.No.Member("Folder Next · "));
+        Assert.That(again.Items.Single(item => item.Label == "Folder · ").Value, Is.EqualTo("recipes"));
         Assert.That(again.FolderChoice, Is.Null, "nothing to send about the folder");
         Assert.That(NewProjectScreens.Recap(idea, draft, there, live: true, notice: null, problem: null).Lines[0].Words, Is.EqualTo(EntryText.RecapLine),
             "no warning about a move");
@@ -646,7 +646,7 @@ public class BuildSequenceTests
         moved.ChooseFolder(ProjectFolder.New(root, "recipes-v2"));
         Assert.That(EntryScreens.Moves(moved, there), Is.True);
         var move = EntryScreens.ReviewOf(moved, draft, there, live: true);
-        Assert.That(move.Items.Select(item => item.Label), Has.Member("Folder now: ").And.Member("Folder from now on: "));
+        Assert.That(move.Items.Select(item => item.Label), Has.Member("Folder Now · ").And.Member("Folder Next · "));
         Assert.That(move.SendsFolder(moved.Folder!.ToContract()), Is.True);
     }
 
@@ -762,8 +762,8 @@ public class EntryWordsTests
     [Test]
     public void TasksWaitingForYouAreSaidAsAPersonWouldSayThem()
     {
-        Assert.That(EntryText.WaitingForYou(1), Is.EqualTo("1 task is waiting for you"));
-        Assert.That(EntryText.WaitingForYou(2), Is.EqualTo("2 tasks are waiting for you"));
+        Assert.That(EntryText.WaitingForYou(1), Is.EqualTo("Needs You · 1 Task"));
+        Assert.That(EntryText.WaitingForYou(2), Is.EqualTo("Needs You · 2 Tasks"));
         Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.WaitingForYou(2)), "the ambient line and the entry agree");
     }
 
@@ -771,13 +771,13 @@ public class EntryWordsTests
     public void TheRecapSaysWhereTheModelRunsAndChoosesNothing()
     {
         var draft = new NewWorkDraft(new CommandFactory(Samples.Client));
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not chosen yet"));
-        Assert.That(EntryText.ModelLine(draft), Does.Contain("Nothing is chosen for you"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not Chosen"));
+        Assert.That(EntryText.ModelLine(draft), Does.Contain("Nothing Preselected"));
 
         draft.ChooseRuntime(Samples.MockRuntime());
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Simulated: Mock runtime"), "the recorded demonstration keeps its names");
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Simulated · Mock runtime"), "the recorded demonstration keeps its names");
         Assert.That(EntryText.RunsWith(draft, live: true), Is.EqualTo(EntryText.PracticeRun));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Practice: no agent, no files."));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Practice · No Agent · No Files"));
 
         var listed = Samples.MockRuntime();
         listed.RuntimeId = "local";
@@ -785,29 +785,29 @@ public class EntryWordsTests
         listed.Synthetic = false;
         listed.ModelChoice = ModelChoice.Listed;
         draft.ChooseRuntime(listed);
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not finished choosing"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Unfinished"));
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.FinishChoosing));
         var remote = new RuntimeModel { ModelRef = "hosted/x", DisplayName = "Hosted", Served = ModelServed.Remote, ToolCalling = ModelToolCalling.Declared };
         draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote } } });
         Assert.That(draft.Model, Is.Null, "a remote model is never chosen for the person");
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not finished choosing"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Unfinished"));
         Assert.That(draft.ChooseModel(remote), Is.False, "the first press only says where it runs");
-        Assert.That(EntryText.ConfirmElsewhere(remote), Is.EqualTo("Runs on a remote service: your code and instructions go there. Press again to use it."));
+        Assert.That(EntryText.ConfirmElsewhere(remote), Is.EqualTo("Remote Service · Code and Instructions Leave · Press Again to Use"));
         Assert.That(draft.ChooseModel(remote), Is.True);
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On a remote service"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("It runs on a remote service: your code and instructions go there."));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Remote Service"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Remote Service · Code and Instructions Leave"));
 
         var local = new RuntimeModel { ModelRef = "ollama/qwen3.6", DisplayName = "qwen3.6 (Ollama)", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared };
         draft.ChooseRuntime(listed);
         draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote, local } } });
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On your computer"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Chosen for you. Change it in More options."), "chosen for the person, and said so");
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On Your Computer"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Chosen for You · Change in More Options"), "chosen for the person, and said so");
 
         // An agent app that picks its own model is named, by the one rule, since where its model runs isn't known here.
         listed.ModelChoice = ModelChoice.None;
         draft.ChooseRuntime(listed);
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Local‹U+202E› agent"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Where it runs isn't known: your code and instructions may go elsewhere."));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Location Unknown · Code May Leave"));
     }
 
     [Test]
@@ -823,8 +823,8 @@ public class EntryWordsTests
         cannotStart.Synthetic = false;
         cannotStart.Capabilities.StartExecution = false;
         // The fifth headset session: "Mock runtime (development fixture)" beside OpenCode was taken for a real one.
-        Assert.That(EntryText.RuntimeName(mock, live: true), Is.EqualTo("Practice run: builds nothing"));
-        Assert.That(EntryText.RuntimeName(mock), Does.StartWith("Simulated: "), "the demonstration is unaffected");
+        Assert.That(EntryText.RuntimeName(mock, live: true), Is.EqualTo("Practice · Builds Nothing"));
+        Assert.That(EntryText.RuntimeName(mock), Does.StartWith("Simulated · "), "the demonstration is unaffected");
         Assert.That(EntryText.RuntimeName(real, live: true), Is.EqualTo("OpenCode 2.0.18"));
         Assert.That(EntryText.RuntimeChoices(new[] { mock, cannotStart, real }).Select(runtime => runtime.RuntimeId),
             Is.EqualTo(new[] { "opencode", mock.RuntimeId }), "real runtimes first, a simulated one last, and none that cannot start work");
@@ -882,7 +882,7 @@ public class EntryWordsTests
         Assert.That(words.Where(word => word.Length > 110).Distinct(), Is.Empty, "two rows at the step's width");
         Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase)), Is.Empty,
             "the glossary's words: an agent app, a task, your computer");
-        Assert.That(EntryText.GuideNote, Does.Contain("not an AI"));
+        Assert.That(EntryText.GuideNote, Does.Contain("Not AI"));
         Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(Connect projects|More tasks|See other tasks)\b")), Is.Empty,
             "no word sends the person to a place the menu retired (ADR 0026)");
     }
@@ -941,7 +941,7 @@ public class QuestionLedWorkspaceTests
         var work = new WaitingWork();
         work.Workstream.Objective = "Migrate\nthe database";
         var waiting = work.Present();
-        Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal: Migrate the database"));
+        Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal · Migrate the database"));
         Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "Approval Requested · See Needs You" }),
             "the request itself shows whole under its tab");
 

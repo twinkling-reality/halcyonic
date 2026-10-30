@@ -107,7 +107,7 @@ public class OutsideWordsTests
 
         Assert.That(frame.SubjectRuns.AllTheirs, Is.True, "the file's subject, its task's title, leans in its plate");
         Assert.That(AmbientText.StillOpen(spoof).Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }), "Still open: then the title, last");
-        Assert.That(EntryText.CreateTitleRuns(spoof).ToString(), Does.StartWith("New task in [").And.EndWith("]"));
+        Assert.That(EntryText.CreateTitleRuns(spoof).ToString(), Does.StartWith("New Task · [").And.EndWith("]"));
         Assert.That(title, Is.Not.Empty);
     }
 
@@ -140,7 +140,7 @@ public class OutsideWordsTests
                 new()
                 {
                     Path = "/p", Name = "Projects", Status = LocationRootStatus.Available,
-                    Folders = new List<LocationFolder> { new() { Name = spoof, Path = "/p/a" }, new() { Name = "New folder in Projects", Path = "/p/b" } },
+                    Folders = new List<LocationFolder> { new() { Name = spoof, Path = "/p/a" }, new() { Name = "New Folder · Projects", Path = "/p/b" } },
                 },
             },
         };
@@ -148,8 +148,8 @@ public class OutsideWordsTests
         var folder = options.First(option => option.Kind == FolderOptionKind.Folder);
 
         Assert.That(folder.LabelRuns.AllTheirs, Is.True);
-        Assert.That(options.Single(option => option.Kind == FolderOptionKind.NewFolder).LabelRuns.ToString(), Is.EqualTo("New folder in [Projects]"));
-        var named = options.Single(option => option.Kind == FolderOptionKind.Folder && option.Label == "New folder in Projects");
+        Assert.That(options.Single(option => option.Kind == FolderOptionKind.NewFolder).LabelRuns.ToString(), Is.EqualTo("New Folder · [Projects]"));
+        var named = options.Single(option => option.Kind == FolderOptionKind.Folder && option.Label == "New Folder · Projects");
         Assert.That(named.DetailRuns.Text, Does.StartWith(ConnectText.LooksLikeAnother), "a folder named as Halcyonic's own option is marked");
     }
 

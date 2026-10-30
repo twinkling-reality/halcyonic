@@ -86,7 +86,7 @@ public class MenuNavigatorTests
         return (navigator, places);
     }
 
-    private static readonly MenuBar Bar = new(MenuPlace.Tasks, "1 task is waiting for you", MenuPlace.Tasks);
+    private static readonly MenuBar Bar = new(MenuPlace.Tasks, "Needs You · 1 Task", MenuPlace.Tasks);
 
     /// <summary>
     /// Draws what shows as the plane would, each view reporting its frame, and the side panel of the frame
@@ -431,7 +431,7 @@ public class MenuNavigatorTests
         Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "in its frame's place, nothing its column doesn't mark safe there, which it never carries");
 
         // The page's Next page beside a panel of one part would turn the page the panel hides.
-        settings.Offered = new Prompt(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage);
+        settings.Offered = new Prompt(Footer.NextPage, "Next Page", GlazeIcon.Next, PromptKind.NextPage);
         settings.Change();
         side = Draw(menu, inPlace: true).Side;
         Assert.That(menu.Act(MenuColumn.Side, Footer.NextPage, null, null, side), Is.False, "paging of a page it hides");

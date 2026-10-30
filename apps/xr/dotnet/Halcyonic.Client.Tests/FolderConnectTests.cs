@@ -111,7 +111,7 @@ public class FolderConnectTests
         Assert.That(connection.Connected, Is.True);
         Assert.That(connection.ProjectId, Is.EqualTo(ProjectA));
         Assert.That(connection.Unresolved, Is.Null);
-        Assert.That(ConnectText.OutcomeRuns(connection).ToString(), Is.EqualTo("Connected: [shop] is a project now. Add a task to start work in it."));
+        Assert.That(ConnectText.OutcomeRuns(connection).ToString(), Is.EqualTo("Connected · [shop] · Add Task"));
     }
 
     [Test]
@@ -125,7 +125,7 @@ public class FolderConnectTests
             Rejection = new CommandRejection { Code = RejectionCode.LocationMissing, Message = "/Users/person/Projects/shop is not there." },
         }));
         Assert.That(connection.CanRetry, Is.True);
-        Assert.That(ConnectText.Outcome(connection), Does.StartWith("Couldn't connect · "));
+        Assert.That(ConnectText.Outcome(connection), Does.StartWith("Connect Refused · "));
         Assert.That(ConnectText.Outcome(connection), Does.Not.Contain("/Users/person"), "the next step from the code, not the host's path");
         var again = connection.Retry();
         Assert.That(again.CommandId, Is.Not.EqualTo(command.CommandId));
@@ -170,9 +170,9 @@ public class FolderConnectTests
         // With no effect, the outcome is what Halcyonic knows of the code, else that nothing changed.
         foreach (var (code, words) in new[]
         {
-            ("internal_error", "Couldn't connect · Nothing Changed · Retry"),
-            ("runtime_unreachable", "Couldn't connect · Agent App Unreachable · Check App and Retry"),
-            ("location_not_created", "Couldn't connect · Your computer couldn't make that folder, so nothing changed. Choose another name or place."),
+            ("internal_error", "Connect Failed · Nothing Changed · Retry"),
+            ("runtime_unreachable", "Connect Failed · Agent App Unreachable · Check App and Retry"),
+            ("location_not_created", "Connect Failed · Folder Not Made · Nothing Changed · Choose Another"),
         })
         {
             var connection = Begun(out var command);
@@ -194,7 +194,7 @@ public class FolderConnectTests
         lost.Advance(With());
         Assert.That(lost.CanRetry, Is.False);
         Assert.That(lost.Unresolved, Is.EqualTo(command.CommandId));
-        Assert.That(ConnectText.Outcome(lost), Does.StartWith("Not sure whether"));
+        Assert.That(ConnectText.Outcome(lost), Does.Contain("Unconfirmed"));
         Assert.Throws<InvalidOperationException>(() => lost.Retry());
 
         var failed = new FolderConnection(FolderConnect.Offers(Listing(Root("Projects", Folder("shop")))).Single(), Commands);
@@ -205,7 +205,7 @@ public class FolderConnectTests
             Failure = new CommandFailure { Code = "timeout", Message = "No answer.", Effect = FailureEffect.Unknown },
         }));
         Assert.That(failed.CanRetry, Is.False);
-        Assert.That(ConnectText.Outcome(failed), Does.StartWith("Not sure whether"));
+        Assert.That(ConnectText.Outcome(failed), Does.Contain("Unconfirmed"));
 
         var notSent = new FolderConnection(FolderConnect.Offers(Listing(Root("Projects", Folder("shop")))).Single(), Commands);
         notSent.Begin();
@@ -220,13 +220,13 @@ public class FolderConnectTests
     {
         var zone = TimeZoneInfo.Utc;
         string Facts(LocationFolder folder) => ConnectText.Facts(FolderConnect.Offers(Listing(Root("Projects", folder))).Single(), Now, zone);
-        Assert.That(Facts(Folder("a", true, "2026-09-29T11:00:00.000Z")), Is.EqualTo("Repository · changed 3 days ago"));
-        Assert.That(Facts(Folder("b", false, "2026-10-02T11:59:30.000Z")), Is.EqualTo("Changed just now"));
-        Assert.That(Facts(Folder("c", false, "2026-10-02T10:00:00.000Z")), Is.EqualTo("Changed 2 hours ago"));
-        Assert.That(Facts(Folder("d", true, "2026-10-01T11:00:00.000Z")), Is.EqualTo("Repository · changed 1 day ago"));
-        Assert.That(Facts(Folder("e", false, "2025-03-04T09:00:00.000Z")), Is.EqualTo("Changed on 4 Mar 2025"));
-        Assert.That(Facts(Folder("f", null)), Is.EqualTo("Your computer can't look inside it"));
-        Assert.That(Facts(Folder("g", false, "2026-11-01T00:00:00.000Z")), Is.EqualTo("Changed on 1 Nov 2026"), "a time ahead of this clock is said as a date");
+        Assert.That(Facts(Folder("a", true, "2026-09-29T11:00:00.000Z")), Is.EqualTo("Repository · Changed 3 Days Ago"));
+        Assert.That(Facts(Folder("b", false, "2026-10-02T11:59:30.000Z")), Is.EqualTo("Changed Just Now"));
+        Assert.That(Facts(Folder("c", false, "2026-10-02T10:00:00.000Z")), Is.EqualTo("Changed 2 Hours Ago"));
+        Assert.That(Facts(Folder("d", true, "2026-10-01T11:00:00.000Z")), Is.EqualTo("Repository · Changed 1 Day Ago"));
+        Assert.That(Facts(Folder("e", false, "2025-03-04T09:00:00.000Z")), Is.EqualTo("Changed 4 Mar 2025"));
+        Assert.That(Facts(Folder("f", null)), Is.EqualTo("Contents Unreadable"));
+        Assert.That(Facts(Folder("g", false, "2026-11-01T00:00:00.000Z")), Is.EqualTo("Changed 1 Nov 2026"), "a time ahead of this clock is said as a date");
     }
 
     [Test]
@@ -266,13 +266,13 @@ public class FolderConnectTests
         Assert.That(list.Lead, Does.EndWith(EntryText.FoldersCut));
         Assert.That(list.Rows.Select(row => (row.Title, row.Detail, row.TitleIsData, row.Action)), Is.EqualTo(new[]
         {
-            ("notes", "Changed 2 days ago", true, ConnectScreens.ChooseFolder),
-            ("shop", "Repository · changed 3 days ago", true, ConnectScreens.ChooseFolder),
+            ("notes", "Changed 2 Days Ago", true, ConnectScreens.ChooseFolder),
+            ("shop", "Repository · Changed 3 Days Ago", true, ConnectScreens.ChooseFolder),
         }));
         Assert.That(list.Actions.Back!.Id, Is.EqualTo(ConnectScreens.Back));
 
         var two = ConnectScreens.Folders(Listing(Root("Projects", Folder("shop")), Root("Work", Folder("site"))), null, live: true, Now, zone);
-        Assert.That(two.Rows.Select(row => row.Detail), Is.EquivalentTo(new[] { "Changed 2 days ago · in Projects", "Changed 2 days ago · in Work" }),
+        Assert.That(two.Rows.Select(row => row.Detail), Is.EquivalentTo(new[] { "Changed 2 Days Ago · In Projects", "Changed 2 Days Ago · In Work" }),
             "with more than one place, each says where it is");
     }
 
@@ -282,16 +282,16 @@ public class FolderConnectTests
         var zone = TimeZoneInfo.Utc;
         var offer = FolderConnect.Offers(Listing(Root("Projects", Folder("shop", true, "2026-09-29T11:00:00.000Z")))).Single();
         var before = ConnectScreens.Folder(offer, null, live: true, Now, zone);
-        Assert.That((before.Title, before.TitleIsData, before.Lead), Is.EqualTo(("shop", true, "Repository · changed 3 days ago")));
-        Assert.That(before.Rows.Single().Title, Is.EqualTo("Nothing in this folder changes until you add a task. In Projects. Connecting makes a project called shop that works in this folder."));
+        Assert.That((before.Title, before.TitleIsData, before.Lead), Is.EqualTo(("shop", true, "Repository · Changed 3 Days Ago")));
+        Assert.That(before.Rows.Single().Title, Is.EqualTo("Unchanged Until a Task · In Projects · New Project · shop"));
         // The names lean on Halcyonic's ground, never quoted (lane V's treatment).
         Assert.That(ConnectText.WhatConnectingDoesRuns(offer).ToString(),
-            Is.EqualTo("Nothing in this folder changes until you add a task. In [Projects]. Connecting makes a project called [shop] that works in this folder."));
+            Is.EqualTo("Unchanged Until a Task · In [Projects] · New Project · [shop]"));
         // What connecting never changes comes first, and a name inside the sentence is cut at 40, so neither a long
         // name nor two push it out of sight (the outside-text audit's gap 10).
         var named = FolderConnect.Offers(Listing(Root(new string('R', 90), Folder(new string('f', 90), true, "2026-09-29T11:00:00.000Z")))).Single();
         var sentence = ConnectText.WhatConnectingDoes(named);
-        Assert.That(sentence, Does.StartWith("Nothing in this folder changes until you add a task. In " + new string('R', 39) + "\u2026."));
+        Assert.That(sentence, Does.StartWith("Unchanged Until a Task · In " + new string('R', 39) + "\u2026 · "));
         Assert.That(ConnectText.Named(new string('n', 90)).ToString(), Is.EqualTo("[" + new string('n', 39) + "\u2026]"));
         Assert.That((before.Actions.Primary!.Id, before.Actions.Primary.Available), Is.EqualTo((ConnectScreens.Connect, true)));
         Assert.That(ConnectScreens.Folder(offer, null, live: false, Now, zone).Actions.Primary!.Available, Is.False, "nothing is sent while away");
@@ -378,7 +378,7 @@ public class FolderConnectTests
         Assert.That(screen.Actions.Primary!.Available, Is.False);
         Assert.That(screen.Actions.Primary.Reason, Is.EqualTo(ConnectText.WaitingOn(shop)));
         // A prompt's reason holds Halcyonic's words alone, so it names no folder.
-        Assert.That(screen.Actions.Primary.Reason, Does.Not.Contain("shop").And.Contain("the other folder"));
+        Assert.That(screen.Actions.Primary.Reason, Does.Not.Contain("shop").And.Contain("Other Folder"));
     }
 
     [Test]

@@ -258,7 +258,7 @@ namespace Halcyonic.Client
             else
             {
                 footer = new Footer(close,
-                    rare: projects.Count > 0 && !state.Demonstration ? new Prompt(FolderNavigation, state.FoldersOpen ? "Back to projects" : "Connect a folder", GlazeIcon.ConnectProjects) : null,
+                    rare: projects.Count > 0 && !state.Demonstration ? new Prompt(FolderNavigation, state.FoldersOpen ? "Back to Projects" : "Connect Folder", GlazeIcon.ConnectProjects) : null,
                     farRight: new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
             }
             // One prompt pages: Next page, which on the last page reads First page and starts again, at the

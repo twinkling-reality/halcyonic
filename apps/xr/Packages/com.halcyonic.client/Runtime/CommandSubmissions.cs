@@ -123,7 +123,7 @@ namespace Halcyonic.Client
             }
             catch (SessionUnavailableException)
             {
-                NotSent(command.CommandId, HostText.Your + " isn't connected. Try again when it is.");
+                NotSent(command.CommandId, "Not Connected · Try Again");
             }
             catch (Exception error)
             {
@@ -328,12 +328,12 @@ namespace Halcyonic.Client
                 switch (State)
                 {
                     case SubmissionState.Sending:
-                        return new CommandFeedback(CommandId, CommandType, null, "Sending…", waits: true);
+                        return new CommandFeedback(CommandId, CommandType, null, "Sending", waits: true);
                     case SubmissionState.NotSent:
-                        return Local("Couldn't send: " + Reason);
+                        return Local("Not Sent · " + Reason);
                     case SubmissionState.OutcomeUnknown:
                         // Whether it arrived can't be told, so it is never said to have gone or not.
-                        return Local("Not sure it was sent. If it was, it shows here once " + HostText.Your + " reconnects.");
+                        return Local("Delivery Unconfirmed · Shows Once Reconnected");
                 }
                 var ack = Ack!;
                 if (ack.Command != null && ack.Disposition != CommandAckDisposition.Conflict)
@@ -342,9 +342,9 @@ namespace Halcyonic.Client
                 }
                 return ack.Disposition switch
                 {
-                    CommandAckDisposition.Rejected => Local("Couldn't do that: " + HostText.Your + " refused it. Check the task, then try again."),
-                    CommandAckDisposition.Conflict => Local("Couldn't do that: it clashed with something sent before. Try again."),
-                    CommandAckDisposition.Duplicate => Local("Already sent. Waiting for the agent…"),
+                    CommandAckDisposition.Rejected => Local("Refused · Check Task · Try Again"),
+                    CommandAckDisposition.Conflict => Local("Refused · Clashed with Earlier · Try Again"),
+                    CommandAckDisposition.Duplicate => Local("Already Sent · Awaiting Agent"),
                     _ => Local(WorkspacePresenter.Pending(CommandType)),
                 };
             }

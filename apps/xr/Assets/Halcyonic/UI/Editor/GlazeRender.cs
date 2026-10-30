@@ -271,8 +271,8 @@ namespace Halcyonic.XR.UI.Editor
             var roles = new (ButtonRole Role, bool On, string Label)[]
             {
                 (ButtonRole.Primary, false, "Start building"),
-                (ButtonRole.Secondary, false, "More options"),
-                (ButtonRole.Destructive, false, "Start over"),
+                (ButtonRole.Secondary, false, "More Options"),
+                (ButtonRole.Destructive, false, "Start Over"),
                 (ButtonRole.Filter, true, "Storefront API"),
                 (ButtonRole.Filter, false, "Recipe tracker"),
             };
@@ -344,7 +344,7 @@ namespace Halcyonic.XR.UI.Editor
                 button.PaintForRender(pointed, pressed);
                 rows.Add((button, what));
             }
-            var choice = new PanelRow { Title = "New folder in Projects", Detail = HostText.YourStart + " makes a new, empty folder", Action = "choose" };
+            var choice = new PanelRow { Title = "New folder in Projects", Detail = HostText.YourStart + "New Empty Folder", Action = "choose" };
             Add("a choice at rest", choice, ButtonRole.Choice);
             Add("a choice pointed at", choice, ButtonRole.Choice, pointed: true);
             Add("a choice pressed", choice, ButtonRole.Choice, pressed: true);
@@ -353,10 +353,10 @@ namespace Halcyonic.XR.UI.Editor
                 ButtonRole.Filter, on: true);
             Add("a filter hidden", new PanelRow { Title = "Recipe tracker", Detail = "Hidden · 1 waiting", DetailTone = GlazeTone.Attention, Filter = true, Action = "toggle" },
                 ButtonRole.Filter);
-            Add("a fact", new PanelRow { Overline = EntryText.HowItRuns, Title = "On " + HostText.Your, Detail = "Chosen for you. Change it in More options.", DetailLines = 2,
+            Add("a fact", new PanelRow { Overline = EntryText.HowItRuns, Title = "On " + HostText.Your, Detail = "Chosen for You · Change in More Options", DetailLines = 2,
                 End = EntryText.MoreOptions, Action = "options" }, ButtonRole.Choice);
             Add("an unavailable choice", new PanelRow { Title = "Code", Detail = "Not on " + HostText.Your + " right now", Available = false, Action = "choose" }, ButtonRole.Choice, available: false);
-            Add("a step and how it went", new PanelRow { Title = "Create the project", Detail = "Confirmed", DetailTone = GlazeTone.Success }, ButtonRole.Choice, still: true);
+            Add("a step and how it went", new PanelRow { Title = "Create Project", Detail = "Confirmed", DetailTone = GlazeTone.Success }, ButtonRole.Choice, still: true);
             Add("a card", new PanelRow { Card = true, Title = EntryText.CreateProject, Detail = EntryText.CreateInvite, Action = "create" }, ButtonRole.Choice);
             var attention = GlazeButton.Create(Holder("Attention", 0f, 0f), "Button", ButtonRole.Attention, compact: true);
             var after = Place(attention, EntryText.OpenNow, null, null, x, y);
@@ -478,15 +478,15 @@ namespace Halcyonic.XR.UI.Editor
                 ("a file's Activity", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Stop", false), ("Hold to talk", false), ("Tell it", true) }),
                 ("a file's Activity, without Stop", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Tell it", true) }),
                 ("a file's approval, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Confirm", false), ("Cancel", false) }),
-                ("New project's Questions with Start over", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Start over", false), ("Hold to talk", false), ("Make the recap", true) }),
+                ("New project's Questions with Start over", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Start Over", false), ("Hold to talk", false), ("Make the recap", true) }),
                 ("New project's Questions", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Make the recap", true) }),
-                ("New project's Start over, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Cancel", false), ("Yes, start over", false) }),
+                ("New project's Start over, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Cancel", false), ("Confirm", false) }),
                 ("New project's review, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Yes, start building", false), ("Cancel", false) }),
                 ("Tasks, paging", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Next page", false) }),
                 ("Projects, a project shown", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), (ProjectsText.HideFromStage, false), ("Add a task", true) }),
                 ("Projects, a project hidden", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), (ProjectsText.ShowOnStage, false), ("Add a task", true) }),
                 ("Projects, a folder chosen", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Connect", true) }),
-                ("Projects, a folder refused", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Choose a folder", true) }),
+                ("Projects, a folder refused", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Choose Folder", true) }),
                 ("Projects, paging", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Next page", false), ("New project", true) }),
             };
             var words = cases.SelectMany(each => each.Prompts).Distinct().OrderBy(prompt => prompt.Words);

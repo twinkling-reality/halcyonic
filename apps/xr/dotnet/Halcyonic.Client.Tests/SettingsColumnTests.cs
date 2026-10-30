@@ -32,7 +32,7 @@ public class SettingsColumnTests
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your space", "Around you", "The characters", "The menu" }), "a page a group, its heading counting as a row");
         Assert.That(frame.Lines[0].Action, Is.Null, "the heading says, and takes no press");
         Assert.That(frame.Lines[2].Fact, Is.EqualTo("In front of you"));
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next page"));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Page"));
         settings.Act(Footer.NextPage, null);
         Assert.That(settings.Frame!.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new[]
         {

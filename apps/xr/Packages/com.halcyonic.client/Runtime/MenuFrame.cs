@@ -350,7 +350,7 @@ namespace Halcyonic.Client
         public const string Close = "close-side-panel";
 
         /// <summary>A side panel's footer: its own Close, which closes the details and leaves the page.</summary>
-        public static Footer Footer { get; } = new Footer(new Prompt(Close, "Close details", GlazeIcon.Close, PromptKind.Close));
+        public static Footer Footer { get; } = new Footer(new Prompt(Close, "Close Details", GlazeIcon.Close, PromptKind.Close));
 
         /// <param name="source">Where its words come from, one line, last, in the secondary colour.</param>
         /// <param name="parts">The part showing, from 0, and how many there are, where it pages, which its frame's Next page turns; null where it doesn't.</param>
@@ -693,7 +693,7 @@ namespace Halcyonic.Client
         public static string NextPageWords(int page, int pages)
         {
             if (pages < 2 || page < 0 || page >= pages) throw new ArgumentOutOfRangeException(nameof(page), page, "A list that pages has two pages or more, and the page is one of them.");
-            return page == pages - 1 ? "First page" : "Next page";
+            return page == pages - 1 ? "First Page" : "Next Page";
         }
 
         /// <summary>

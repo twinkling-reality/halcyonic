@@ -173,7 +173,7 @@ public class PinnedTransportTests
         });
         Assert.That((dropped.Code, dropped.Message), Is.EqualTo(("connection_lost", PairingClient.ConnectionLost)));
         Assert.That(PairingClient.ConnectionLost, Is.EqualTo(
-            "The connection closed before pairing finished. Check the address and that pairing is open on your computer, then try again."));
+            "Connection Lost · Check Address and Pairing · Try Again"));
 
         foreach (var thrown in new Exception[] { new IOException("x"), new EndOfStreamException("x"), new WebSocketException("x"), new FormatException("x") })
         {
@@ -269,7 +269,7 @@ public class PinnedTransportTests
             {
                 var refused = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", port, "12345678", "Quest 3"));
                 Assert.That((refused!.Code, refused.Message), Is.EqualTo(("not_secure",
-                    "Something at 127.0.0.1:" + port + " answered but didn't set up a secure connection. Check the address and port; if they're right, try again in a minute.")),
+                    "127.0.0.1:" + port + " · No Secure Connection · Check Address and Port · Retry in 1 min")),
                     answer.Length > 0 ? "not TLS" : "closed at once");
                 await serving;
             }
@@ -305,8 +305,8 @@ public class PinnedTransportTests
         using (var api = local.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.AccessTokenRefused), "a refused request says what the connection says");
         using (var api = paired.CreateApi()) Assert.That(api.AccessRefused, Is.EqualTo(ConnectionText.PairingRefused));
         Assert.That((local.TurnedAway, paired.TurnedAway), Is.EqualTo((
-            "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, restart this app on your computer.",
-            "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, pair it again in Settings.")),
+            "Connection Refused · Retrying · Restart Computer App if Repeated",
+            "Connection Refused · Retrying · Pair Again if Repeated")),
             "a turned-away connection's way on is true for how this headset reaches the computer");
         var client = new Halcyonic.Contracts.ClientInfo { Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest" };
         foreach (var target in new[] { local, paired })
@@ -410,12 +410,12 @@ public class PinnedTransportTests
         }
         foreach (var (code, words) in new[]
         {
-            ("too_many_requests", "Your computer is turning this headset away for a minute after too many tries. Try again after a minute."),
-            ("busy", "Your computer is pairing another device right now. Try again in a moment."),
-            ("timeout", "Pairing took too long; try again."),
-            ("invalid_message", "Your computer refused to pair this headset. Open pairing there again, then try again."),
-            ("internal_error", "Your computer refused to pair this headset. Open pairing there again, then try again."),
-            ((string?)null, "Your computer refused to pair this headset. Open pairing there again, then try again."),
+            ("too_many_requests", "Pairing Paused · Too Many Tries · Retry in 1 min"),
+            ("busy", "Computer Busy · Retry"),
+            ("timeout", "Pairing Timed Out · Try Again"),
+            ("invalid_message", "Pairing Refused · Reopen Pairing · Try Again"),
+            ("internal_error", "Pairing Refused · Reopen Pairing · Try Again"),
+            ((string?)null, "Pairing Refused · Reopen Pairing · Try Again"),
         })
         {
             Assert.That(PairingClient.WhyRefused(code), Is.EqualTo(words), code ?? "no code");

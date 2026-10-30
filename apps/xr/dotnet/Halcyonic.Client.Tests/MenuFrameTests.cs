@@ -44,7 +44,7 @@ public class MenuFrameTests
     private static Prompt Action(string id, bool main = false, bool available = true, string? reason = null) =>
         new(id, id, GlazeIcon.Approve, main: main, available: available, reason: reason);
 
-    private static Prompt Next(string words = "Next page") => new(Footer.NextPage, words, GlazeIcon.Next, PromptKind.NextPage);
+    private static Prompt Next(string words = "Next Page") => new(Footer.NextPage, words, GlazeIcon.Next, PromptKind.NextPage);
 
     private static Prompt HoldToTalk => new("hold-to-talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
 
@@ -135,7 +135,7 @@ public class MenuFrameTests
     {
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(secondary: Action("approve", main: true)));
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(rare: Action("approve", main: true)));
-        Assert.Throws<ArgumentException>(() => _ = new Prompt(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage, main: true), "paging is never the main action");
+        Assert.Throws<ArgumentException>(() => _ = new Prompt(Footer.NextPage, "Next Page", GlazeIcon.Next, PromptKind.NextPage, main: true), "paging is never the main action");
         Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Confirm", GlazeIcon.Approve, PromptKind.Yes, main: true), "nor a confirmation");
         Assert.Throws<ArgumentException>(() => _ = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close, main: true));
         var plain = new Footer(farRight: Action("send"));
@@ -183,7 +183,7 @@ public class MenuFrameTests
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(rare: Next()), "it never takes the rare place");
         Assert.Throws<ArgumentException>(() => new Footer(Close).WithNext(Action("next")));
 
-        Assert.That((Footer.NextPageWords(0, 3), Footer.NextPageWords(1, 3), Footer.NextPageWords(2, 3)), Is.EqualTo(("Next page", "Next page", "First page")));
+        Assert.That((Footer.NextPageWords(0, 3), Footer.NextPageWords(1, 3), Footer.NextPageWords(2, 3)), Is.EqualTo(("Next Page", "Next Page", "First Page")));
         Assert.Throws<ArgumentOutOfRangeException>(() => Footer.NextPageWords(0, 1), "a list of one page doesn't page");
         Assert.Throws<ArgumentOutOfRangeException>(() => Footer.NextPageWords(3, 3));
     }
@@ -370,7 +370,7 @@ public class MenuFrameTests
         Assert.That(note.Source, Is.EqualTo(CompanionText.Note), "the companion's note is the page's source line");
         Assert.That(note.SourceIsData, Is.False, "Halcyonic's own words");
         Assert.That(note.SubjectWaits, Is.False);
-        Assert.That(new MenuFrame("1 task is waiting for you", new Footer(Close), subjectWaits: true).SubjectWaits, Is.True,
+        Assert.That(new MenuFrame("Needs You · 1 Task", new Footer(Close), subjectWaits: true).SubjectWaits, Is.True,
             "a subject that says what waits takes the waiting colour, as the closed bar's line does");
         var provenance = new MenuFrame("Changes", new Footer(Close), source: "Salidium 0.9 could not answer: timed out", sourceIsData: true);
         Assert.That(provenance.SourceIsData, Is.True, "an answer's provenance, or an error a service returned, is text from outside");
@@ -381,10 +381,10 @@ public class MenuFrameTests
     [Test]
     public void TheBarShowsItsFourPlacesTheirDotsAndAClosedLine()
     {
-        var bar = new MenuBar(MenuPlace.Tasks, "1 task is waiting for you", MenuPlace.Tasks);
+        var bar = new MenuBar(MenuPlace.Tasks, "Needs You · 1 Task", MenuPlace.Tasks);
         Assert.That(MenuBar.Places.Select(MenuBar.Word), Is.EqualTo(new[] { "Tasks", "Projects", "Usage", "Settings" }));
         Assert.That((bar.Waits(MenuPlace.Tasks), bar.Waits(MenuPlace.Projects)), Is.EqualTo((true, false)));
-        Assert.That((bar.Chosen, bar.ClosedLine), Is.EqualTo((MenuPlace.Tasks, "1 task is waiting for you")));
+        Assert.That((bar.Chosen, bar.ClosedLine), Is.EqualTo((MenuPlace.Tasks, "Needs You · 1 Task")));
         Assert.Throws<ArgumentException>(() => _ = new MenuBar(MenuPlace.Tasks, " "), "closed, it says what waits or that nothing is waiting");
 
         // Open, its places are every place's sections: the chosen one lit, an amber dot where something waits.

@@ -18,38 +18,38 @@ namespace Halcyonic.Client
         /// </summary>
         public const string Subject = "Projects";
 
-        public const string FoldersHeading = "Folders on " + HostText.Your;
-        public const string NewProject = "New project";
-        public const string ShowOnStage = "Show on stage";
-        public const string HideFromStage = "Hide from stage";
+        public const string FoldersHeading = "Folders";
+        public const string NewProject = "New Project";
+        public const string ShowOnStage = "Show on Stage";
+        public const string HideFromStage = "Hide from Stage";
         public const string Close = "Close";
 
         // The names of a side panel's facts.
-        public const string ItsWork = "Its work";
-        public const string OnTheStage = "On the stage";
+        public const string ItsWork = "Work";
+        public const string OnTheStage = "On Stage";
         public const string Place = "Place";
         public const string Repository = "Repository";
         public const string Changed = "Changed";
-        public const string ItsName = "Its name";
+        public const string ItsName = "Name";
         public const string Connecting = "Connecting";
-        public const string WhatHappened = "What happened";
+        public const string WhatHappened = "What Happened";
 
         // Why no folder is listed: a row, and its side panel's subject; Try again stands in the footer.
-        public const string FoldersUnread = "Couldn't read " + HostText.Your + "'s folders";
-        public const string NoFolders = "No folders are approved for projects";
-        public const string AllowAFolder = "Approve a project folder on " + HostText.Your + ", then try again.";
+        public const string FoldersUnread = "Folders Unreadable";
+        public const string NoFolders = "No Folders Allowed";
+        public const string AllowAFolder = "Allow on Computer · Try Again";
 
         public const string Shown = "Shown";
         public const string Hidden = "Hidden";
         public const string Yes = "Yes";
         public const string No = "No";
-        public const string CantTell = HostText.YourStart + " can't look inside it";
+        public const string CantTell = "Contents Unreadable";
 
         /// <summary>Local recovery when supplied physical measurements cannot hold the complete project rows.</summary>
-        public const string MoreRoom = "Move the workspace to make room for projects.";
+        public const string MoreRoom = "No Room · Move Workspace";
 
         /// <summary>Under a project whose shown name looks like another project's or a free folder's.</summary>
-        public const string ProjectLooksAlike = "Another project or folder has a name that looks the same. Check its work to be sure it's the one you mean.";
+        public const string ProjectLooksAlike = "Similar Name Exists · Check Its Work";
 
         /// <summary>
         /// A project's small fact on its row: what matters most, what waits for the person first, as a
@@ -61,14 +61,14 @@ namespace Halcyonic.Client
         /// </summary>
         public static string ProjectFact(ProjectSummary project, bool looksAlike = false)
         {
-            var most = project.NeedsYou > 0 ? Tasks(project.NeedsYou) + " waiting"
-                : project.Notice > 0 ? Tasks(project.Notice) + " to look at"
-                : project.Active > 0 ? Tasks(project.Active) + " running"
-                : project.Work == 0 ? "No work yet"
-                : project.Work > project.NotStarted ? Tasks(project.Work - project.NotStarted) + " paused"
-                : Tasks(project.NotStarted) + " not started";
-            var fact = project.Shown ? most : Hidden + " · " + (project.Work == 0 ? "no work yet" : most);
-            return looksAlike ? ConnectText.LooksLikeAnother + " · " + Lower(fact) : fact;
+            var most = project.NeedsYou > 0 ? "Needs You · " + Tasks(project.NeedsYou)
+                : project.Notice > 0 ? "Ready · " + Tasks(project.Notice)
+                : project.Active > 0 ? "Running · " + Tasks(project.Active)
+                : project.Work == 0 ? NoWork
+                : project.Work > project.NotStarted ? "Paused · " + Tasks(project.Work - project.NotStarted)
+                : "Not Started · " + Tasks(project.NotStarted);
+            var fact = project.Shown ? most : Hidden + " · " + most;
+            return looksAlike ? ConnectText.LooksLikeAnother + " · " + fact : fact;
         }
 
         /// <summary>
@@ -79,22 +79,23 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Work(ProjectSummary project)
         {
-            if (project.Work == 0) return "No work yet";
+            if (project.Work == 0) return NoWork;
             var parts = new System.Collections.Generic.List<string>();
-            string Counted(int count) => parts.Count == 0 ? Tasks(count) : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string Counted(int count) => count.ToString(System.Globalization.CultureInfo.InvariantCulture);
             var paused = project.Work - project.NeedsYou - project.Notice - project.Active - project.NotStarted;
-            if (project.NeedsYou > 0) parts.Add(Counted(project.NeedsYou) + " waiting for you");
-            if (project.Notice > 0) parts.Add(Counted(project.Notice) + " to look at");
-            if (project.Active > 0) parts.Add(Counted(project.Active) + " running");
-            if (paused > 0) parts.Add(Counted(paused) + " paused");
-            if (project.NotStarted > 0) parts.Add(Counted(project.NotStarted) + " not started");
-            return string.Join(", ", parts);
+            if (project.NeedsYou > 0) parts.Add("Needs You · " + Counted(project.NeedsYou));
+            if (project.Notice > 0) parts.Add("Ready · " + Counted(project.Notice));
+            if (project.Active > 0) parts.Add("Running · " + Counted(project.Active));
+            if (paused > 0) parts.Add("Paused · " + Counted(paused));
+            if (project.NotStarted > 0) parts.Add("Not Started · " + Counted(project.NotStarted));
+            return string.Join(" · ", parts);
         }
 
-        private static string Lower(string text) => text.Length == 0 ? text : char.ToLowerInvariant(text[0]) + text.Substring(1);
+        /// <summary>A project with no tasks yet.</summary>
+        public const string NoWork = "No Work";
 
         private static string Tasks(int count) =>
-            count.ToString(System.Globalization.CultureInfo.InvariantCulture) + (count == 1 ? " task" : " tasks");
+            count.ToString(System.Globalization.CultureInfo.InvariantCulture) + (count == 1 ? " Task" : " Tasks");
 
         /// <summary>
         /// A folder's small fact on its row: its place where there are several, or that it is a
@@ -112,10 +113,10 @@ namespace Halcyonic.Client
             // Every part begins with Halcyonic's words, so the fact's first letter is always Halcyonic's to capitalise.
             LineWords Lead(string words) => LineWords.Ours(parts.Count == 0 ? Sentence(words) : words);
             if (folder.LooksLikeAnother) parts.Add(Lead(ConnectText.LooksLikeAnother));
-            if (folder.Repository == null) parts.Add(Lead(Lower(CantTell)));
-            else if (manyPlaces) parts.Add(Lead("in ") + LineWords.TheirName(folder.RootName));
+            if (folder.Repository == null) parts.Add(Lead(CantTell));
+            else if (manyPlaces) parts.Add(Lead("In ") + LineWords.TheirName(folder.RootName));
             else if (folder.Repository == true) parts.Add(Lead(Repository));
-            if (folder.ChangedAt != null) parts.Add(Lead("changed " + ConnectText.Ago(folder.ChangedAt.Value, now, zone)));
+            if (folder.ChangedAt != null) parts.Add(Lead("Changed " + ConnectText.Ago(folder.ChangedAt.Value, now, zone)));
             return parts.Count == 0 ? null : parts.Aggregate((said, next) => said + LineWords.Ours(" · ") + next);
         }
 

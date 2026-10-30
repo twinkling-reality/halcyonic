@@ -640,7 +640,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The demonstration's kind of activity: the round, the agent's words, an edit and the request.</summary>
         private static IReadOnlyList<ActivityEntry> Activity(string? claim = null) => new[]
         {
-            new ActivityEntry(1, "2026-10-01T09:00:01.000Z", ActivityKind.Turn, "Round started", false),
+            new ActivityEntry(1, "2026-10-01T09:00:01.000Z", ActivityKind.Turn, "Round Started", false),
             new ActivityEntry(2, "2026-10-01T09:00:02.000Z", ActivityKind.Tool, "read: src/auth/sign-in.ts", false),
             new ActivityEntry(3, "2026-10-01T09:00:03.000Z", ActivityKind.Message, claim ?? "Adding a limiter in front of the sign-in handler.", true),
             new ActivityEntry(4, "2026-10-01T09:00:06.000Z", ActivityKind.Tool, "edit: src/auth/rate-limit.ts", false),
@@ -894,7 +894,7 @@ namespace Halcyonic.XR.Workspace.Editor
             draft.Choose(0, "Light");
             view.Read(screen, draft);
             failures.AddRange(QuestionShot(view, scripted.Present(), screen, "question"));
-            if (!view.Frame.ShownRows.Any(row => row.Row.Chosen && row.Row.Title.StartsWith("Chosen: Light", StringComparison.Ordinal)))
+            if (!view.Frame.ShownRows.Any(row => row.Row.Chosen && row.Row.Title.StartsWith("Chosen · Light", StringComparison.Ordinal)))
             {
                 failures.Add(view.Name + " question: the answer chosen does not say so in words.");
             }
@@ -1271,7 +1271,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // The approval: the title, the goal, a notice, what it wants and the request.
             var waiting = Work.Approval(Hostile("request"), tool: Hostile("tool"), title: Hostile("title"));
             waiting.Workstream.Objective = Hostile("objective");
-            var screen = new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, Notice = "Couldn't send: " + Hostile("setup problem") };
+            var screen = new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, Notice = "Not Sent · " + Hostile("setup problem") };
             view.Show(waiting.Present(), screen, Steering());
             failures.AddRange(AllShowLiterally(root, name + " need", view.Eyes));
             failures.AddRange(Carry(root, name + " need", "Notice", "Line 0", "Line 1"));

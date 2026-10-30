@@ -101,7 +101,7 @@ public class RealtimeSessionTests
         // A field of another shape, as from a control plane a version apart: the parser quotes the value.
         connection.SendRaw("{\"type\":\"error\",\"error\":\"PRIVATE: the agent said to rotate the key\",\"fatal\":false}");
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
-        Assert.That(session.Status.Detail, Is.EqualTo("Your computer sent something this app can't read. Install the same version on both."));
+        Assert.That(session.Status.Detail, Is.EqualTo("Message Unreadable · Install Same Version"));
         // The line the device log writes (ControlPlaneConnection's LogStatus), not only the one drawn.
         foreach (var line in new[] { session.Status.ToString(), session.Status.ForLog })
         {
@@ -277,12 +277,12 @@ public class RealtimeSessionTests
     /// message.
     /// </summary>
     [TestCase(403, "host_not_allowed",
-        "Your computer turned away the address this headset uses for it, which may have changed there. The headset tries again by itself; if this keeps happening, pair it again in Settings.")]
-    [TestCase(429, "too_many_requests", "Your computer is turning this headset away for a minute after too many tries. The headset tries again by itself.")]
-    [TestCase(403, "forbidden", "Your computer turned the connection away. The headset tries again by itself.")]
+        "Host Not Allowed · Retrying · Pair Again if Repeated")]
+    [TestCase(429, "too_many_requests", "Computer Busy · Too Many Tries · Retrying")]
+    [TestCase(403, "forbidden", "Connection Refused · Retrying")]
     // Your computer refuses a revoked pairing with 401, which ends the session as a refused credential; a
     // device_revoked by any other status is no pairing line, which would retry for ever (the review's L6).
-    [TestCase(403, "device_revoked", "Your computer turned the connection away. The headset tries again by itself.")]
+    [TestCase(403, "device_revoked", "Connection Refused · Retrying")]
     public async Task AnUpgradeRefusedForAnotherReasonIsSaidByItsCode(int status, string code, string words)
     {
         session = new RealtimeSession(Options(options => options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30)),
@@ -360,7 +360,7 @@ public class RealtimeSessionTests
         session.Start();
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
         Assert.That(session.Status.Answered, Is.False);
-        Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(ConnectionText.Unreachable + " (" + ConnectionText.NoAnswer(TimeSpan.FromMilliseconds(100)) + ")"));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(ConnectionText.Unreachable + " · " + ConnectionText.NoAnswer(TimeSpan.FromMilliseconds(100))));
     }
 
     /// <summary>
@@ -408,7 +408,7 @@ public class RealtimeSessionTests
         var changes = await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.Refused, "the session is refused");
         Assert.That(changes.ServerErrors.Single().Code, Is.EqualTo("unsupported_protocol"));
         Assert.That(ConnectionText.WhyNotLive(session.Status),
-            Is.EqualTo("Your computer refused this app. Your computer runs another version of this app. Install the same version on both."),
+            Is.EqualTo("App Refused · Version Mismatch · Install Same Version"),
             "by the refusal's code, never the control plane's message");
         await Task.Delay(100);
         Assert.That(server.Attempts, Is.EqualTo(1));
@@ -427,7 +427,7 @@ public class RealtimeSessionTests
 
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the silent connection is abandoned");
         // It answered before it went quiet, so the line stands alone, with its way on, never after "Can't reach".
-        const string silent = "Your computer sent nothing for 1 second. The headset tries again by itself.";
+        const string silent = "Computer Silent · 1 s · Retrying";
         Assert.That((session.Status.Detail, session.Status.Answered), Is.EqualTo((silent, true)));
         Assert.That(ConnectionText.WhyNotLive(session.Status), Is.EqualTo(silent));
         Assert.That(ConnectionText.Retrying(session.Status), Is.EqualTo(silent));

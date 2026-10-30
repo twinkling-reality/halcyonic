@@ -111,7 +111,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (label == null || !label.gameObject.activeInHierarchy) continue;
                     if (frame != null && frame.HoldsData(label)) continue;
                     label.ForceMeshUpdate();
-                    if (!label.isTextTruncated || label.name == "First task") continue;
+                    if (!label.isTextTruncated || label.name == "First Task") continue;
                     failures.Add(what + ": " + part.name + " cuts its words short: " + label.text);
                 }
             }

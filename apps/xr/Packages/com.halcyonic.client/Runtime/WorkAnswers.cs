@@ -608,17 +608,17 @@ namespace Halcyonic.Client
                     UnderstandingRemainingItemStatus.InProgress => "In Progress",
                     _ => "To Do",
                 };
-                return new SectionLine("reported", lead + " · " + SectionLine.AgentChip + " · " + text, SectionTone.Claim,
+                return new SectionLine("reported", SectionLine.AgentChip + " · " + lead + " · " + text, SectionTone.Claim,
                     chip: SectionLine.AgentChip, said: Ours(lead + " · ") + Theirs(text));
             }
             if (item.Source == UnderstandingRemainingItemSource.Agent)
             {
-                return new SectionLine("reported", ToDo + " · " + SectionLine.AgentChip + " · " + text, SectionTone.Claim, chip: SectionLine.AgentChip, said: Ours(ToDo + " · ") + Theirs(text));
+                return new SectionLine("reported", SectionLine.AgentChip + " · " + ToDo + " · " + text, SectionTone.Claim, chip: SectionLine.AgentChip, said: Ours(ToDo + " · ") + Theirs(text));
             }
             return item.Status switch
             {
                 // Said to be the agent's, so reported whichever source passed it on.
-                UnderstandingRemainingItemStatus.Reported => new SectionLine("reported", ToDo + " · " + SectionLine.AgentChip + " · " + text, SectionTone.Claim,
+                UnderstandingRemainingItemStatus.Reported => new SectionLine("reported", SectionLine.AgentChip + " · " + ToDo + " · " + text, SectionTone.Claim,
                     chip: SectionLine.AgentChip, said: Ours(ToDo + " · ") + Theirs(text)),
                 UnderstandingRemainingItemStatus.Failing => new SectionLine(Word(item.Epistemic), "Failing · " + text, SectionTone.Problem, said: Ours("Failing · ") + Theirs(text)),
                 UnderstandingRemainingItemStatus.InProgress => new SectionLine(Word(item.Epistemic), "In Progress · " + text, SectionTone.Normal,

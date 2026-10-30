@@ -36,7 +36,7 @@ public class NewProjectScreensTests
     {
         var idea = new ProjectIdea();
         var steps = NewProjectScreens.Sections(NewProjectStep.YourIdea, idea, startReached: false);
-        Assert.That(steps.Select(step => step.Words), Is.EqualTo(new[] { "Your idea", "Questions", "Recap", "Start" }));
+        Assert.That(steps.Select(step => step.Words), Is.EqualTo(new[] { "Your Idea", "Questions", "Recap", "Start" }));
         Assert.That(steps.Last().Key, Is.EqualTo(NewProjectScreens.Key(NewProjectStep.Build)), "the Start label keeps the existing internal navigation identity");
         Assert.That(steps.Select(step => step.Reached), Is.EqualTo(new[] { true, false, false, false }));
         Assert.That(steps.Single(step => step.Chosen).Key, Is.EqualTo(NewProjectScreens.Key(NewProjectStep.YourIdea)));
@@ -60,7 +60,7 @@ public class NewProjectScreensTests
         var idea = new ProjectIdea();
         idea.UseIdea("A page for my running club's race times");
         Assert.That(NewProjectScreens.Subject(idea).ToString(), Is.EqualTo("[A page for my running club's race times]"), "the person's idea leans, as all Halcyonic didn't write");
-        Assert.That(NewProjectScreens.Subject(new ProjectIdea("proj_1", "Race Times")).ToString(), Is.EqualTo("New task in [Race Times]"));
+        Assert.That(NewProjectScreens.Subject(new ProjectIdea("proj_1", "Race Times")).ToString(), Is.EqualTo("New Task · [Race Times]"));
     }
 
     [Test]
@@ -164,8 +164,8 @@ public class NewProjectScreensTests
         frame = Questions(idea);
         Assert.That(Answers(frame).Single(line => line.Chosen).Words, Is.EqualTo(CompanionText.GoOnWithout));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.MakeRecapFromMyWords));
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Recap from my words"), "beside Hold to talk, the whole words don't fit");
-        Assert.That(Questions(idea, voice: false).Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Make the recap from my words"), "beside Close alone, they do");
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Recap My Words"), "beside Hold to talk, the whole words don't fit");
+        Assert.That(Questions(idea, voice: false).Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Recap My Words"), "beside Close alone, they do");
         Assert.That(frame.Lines.Any(line => line.Words == VoiceText.HeardAnswer), Is.False);
     }
 
@@ -426,7 +426,7 @@ public class NewProjectRecapTests
         Assert.That(frame.Side, Is.Null, "no fact chosen");
         Assert.That(frame.Footer[PromptSlot.Rare], Is.Null, "with no row chosen, the footer's middle is free for paging");
         var start = frame.Footer[PromptSlot.FarRight]!;
-        Assert.That(start.Words, Is.EqualTo("Start task"), "the action starts an execution, not a successful software build");
+        Assert.That(start.Words, Is.EqualTo("Start Task"), "the action starts an execution, not a successful software build");
         Assert.That((start.Id, start.Main, start.Available), Is.EqualTo((NewProjectScreens.StartBuilding, true, false)));
         Assert.That(frame.Reason, Is.EqualTo(EntryText.ChooseWhereFilesLive), "the reason is the page's last line");
 
@@ -558,7 +558,7 @@ public class NewProjectRecapTests
         Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Recap"), "changing a fact stays on the recap");
         Assert.That(frame.Lines.Where(line => line.Choice).Select(line => (line.Words, line.Chosen, line.Available)), Is.EqualTo(new[]
         {
-            ("New folder in Projects", false, true), ("Directly in Projects", false, true), ("shop", true, true), ("Old", false, false),
+            ("New Folder · Projects", false, true), ("Directly in Projects", false, true), ("shop", true, true), ("Old", false, false),
         }));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Done));
         var unread = NewProjectScreens.RecapFolder(idea, startReached: false, null, problem: EntryText.FoldersUnanswered, notice: null);
@@ -680,7 +680,7 @@ public class NewProjectStartTests
         sequence.Begin(Samples.Reviewed(sequence));
         Assert.That(sequence.InFlight, Is.True);
         var problem = EntryScreens.StartProblem(false, state, true, idea, draft, null, sequence);
-        Assert.That(problem, Is.EqualTo("Already starting. Wait to hear how it went."));
+        Assert.That(problem, Is.EqualTo("Starting · Awaiting Result"));
         var recap = NewProjectScreens.Recap(idea, draft, null, live: true, notice: null, problem: problem);
         Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.AlreadyStarting)));
         Assert.That(EntryScreens.StartProblem(true, state, true, idea, draft, null, sequence), Is.EqualTo(EntryText.DemoCannotStart),
@@ -698,7 +698,7 @@ public class NewProjectStartTests
         Assert.That(waiting.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Start"));
         Assert.That(waiting.Footer.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close }), "nothing to press while the computer answers");
         Assert.That(waiting.Lines.Any(line => line.Tone == LineTone.Good), Is.False, "sent is not done");
-        Assert.That(waiting.Lines.Where(line => line.Waits).Select(line => line.Words), Is.EqualTo(new[] { "Sent. Waiting for your computer…" }),
+        Assert.That(waiting.Lines.Where(line => line.Waits).Select(line => line.Words), Is.EqualTo(new[] { "Sent · Awaiting Computer" }),
             "only the step under way shimmers");
 
         sequence.Advance(With(new CommandView
@@ -727,13 +727,13 @@ public class NewProjectStartTests
     {
         var waiting = NewProjectScreens.Unresolved(Idea(), "c-1", null, armed: false, live: true);
         HoldsThreePrompts(waiting);
-        Assert.That(waiting.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(null)).And.Contain("Reference: c-1"));
+        Assert.That(waiting.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(null)).And.Contain("Reference · c-1"));
         Assert.That(waiting.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Clear));
         var armed = NewProjectScreens.Unresolved(Idea(), "c-1", new CommandView { CommandId = "c-1", Status = CommandStatus.Failed }, armed: true, live: true);
         HoldsThreePrompts(armed);
         Assert.That(armed.Footer[PromptSlot.Free]!.Id, Is.EqualTo(NewProjectScreens.ConfirmClear), "Yes, clear, in the middle, where nothing stood");
         Assert.That(armed.Footer[PromptSlot.FarRight]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Clear was pressed");
-        Assert.That(armed.Lines.Any(line => line.Words.Contains("may have changed something")), Is.True);
+        Assert.That(armed.Lines.Any(line => line.Words.Contains("May Have Changed Something")), Is.True);
         Assert.That(NewProjectScreens.Unresolved(Idea(), "c-1", null, armed: true, live: false).Footer.All.Count(), Is.EqualTo(1), "nothing to clear while not connected");
     }
 
@@ -750,11 +750,11 @@ public class NewProjectStartTests
     [Test]
     public void TaskStartCopyDoesNotPromiseASoftwareBuild()
     {
-        Assert.That(EntryText.StartBuilding, Is.EqualTo("Start task"));
-        Assert.That(EntryText.ConfirmStart, Is.EqualTo("Yes, start task"));
-        Assert.That(EntryText.NothingStartsYet, Does.Contain("Start task").And.Not.Contain("building"));
-        Assert.That(EntryText.RecapLine, Is.EqualTo("Change anything before you start the task."));
-        Assert.That(EntryText.ReviewAfresh, Does.Contain("Start task").And.Not.Contain("building"));
+        Assert.That(EntryText.StartBuilding, Is.EqualTo("Start Task"));
+        Assert.That(EntryText.ConfirmStart, Is.EqualTo("Confirm"));
+        Assert.That(EntryText.NothingStartsYet, Is.EqualTo("Nothing Starts Yet"));
+        Assert.That(EntryText.RecapLine, Is.EqualTo("Editable Before Start"));
+        Assert.That(EntryText.ReviewAfresh, Does.Contain("Not Started").And.Not.Contain("building"));
     }
 
     [Test]
@@ -875,7 +875,7 @@ public class NewProjectStartTests
         var recap = NewProjectScreens.Recap(idea, draft, null, live: true, notice: null, problem: null, chosen: RecapFact.Name);
         Assert.That(recap.Lines.Single(line => line.Words == "Dinners").Action, Is.Null, "no Rename for a made project");
         Assert.That(recap.Side, Is.Null);
-        Assert.That(EntryScreens.ReviewOf(idea, draft, null, live: true).Items[0].Text, Is.EqualTo("Project: Dinners"));
+        Assert.That(EntryScreens.ReviewOf(idea, draft, null, live: true).Items[0].Text, Is.EqualTo("Project · Dinners"));
         Assert.That(draft.Objective, Is.EqualTo(before), "reviewing changes nothing in the draft");
         Assert.That(before, Is.Not.EqualTo(idea.FirstTask));
     }
@@ -885,13 +885,13 @@ public class NewProjectStartTests
     {
         var idea = new ProjectIdea();
         idea.UseIdea("Plan dinners.");
-        idea.Rename("chosen by the agent app");
+        idea.Rename("App's Choice");
         var review = EntryScreens.ReviewOf(idea, Draft(), null, live: true);
         // No model chosen: Halcyonic's own fallback stands upright, so a name copying it, here the project's, leans.
-        Assert.That(review.Items.Single(item => item.Label == "Model: ").Runs.ToString(), Is.EqualTo("Model: chosen by the agent app"));
-        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project: [chosen by the agent app]"));
-        Assert.That(review.Items.Single(item => item.Label == "Agent app: ").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
-        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model id: none"),
+        Assert.That(review.Items.Single(item => item.Label == "Model · ").Runs.ToString(), Is.EqualTo("Model · App's Choice"));
+        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project · [App's Choice]"));
+        Assert.That(review.Items.Single(item => item.Label == "Agent App · ").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
+        Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model ID · none"),
             "no model id: Halcyonic's word, upright, unlike a model whose id is \"none\"");
     }
 
@@ -942,8 +942,8 @@ public class NewProjectFixedQuestionsTests
         var idea = Guided();
         var frame = Page(idea);
         Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Questions"));
-        Assert.That((frame.Lines[0].Words, frame.Lines[0].Fact), Is.EqualTo(("What kind of thing is it?", "Question 1 of 4")));
-        Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { "A website", "An app", "A tool or script", "Something else" }));
+        Assert.That((frame.Lines[0].Words, frame.Lines[0].Fact), Is.EqualTo(("What Kind?", "Question 1 of 4")));
+        Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { "A website", "An app", "A tool or script", "Something Else" }));
         Assert.That(frame.Source, Is.EqualTo(EntryText.GuideNote), "fixed questions, not an AI");
         var next = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((next.Words, next.Available, next.Reason, next.PageExplains), Is.EqualTo((EntryText.NextQuestion, false, EntryText.ChooseOrTypeFirst, true)));
@@ -982,7 +982,7 @@ public class NewProjectFixedQuestionsTests
         frame = Page(idea);
         Assert.That(idea.LastQuestion, Is.True);
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo(CompanionText.MakeTheRecap));
-        Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { EntryText.TypeName, "Name it later" }));
+        Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { EntryText.TypeName, "Name Later" }));
         Assert.That(idea.ChooseGuideSkip(), Is.True);
         Assert.That(Answers(Page(idea)).Single(line => line.Chosen).Action, Is.EqualTo(NewProjectScreens.SkipFixedQuestion));
         Assert.That(idea.NextQuestion(), Is.True);
@@ -1062,7 +1062,7 @@ public class NewProjectFixedQuestionsTests
             Folders = new List<LocationFolder>(),
         };
         var folder = NewProjectScreens.Words(idea, startReached: false, WordsFor.FolderName, written: null, heard: false, voice: true, said: null, root: root);
-        Assert.That(folder.Lines[0].Words, Is.EqualTo("New folder in Projects"));
+        Assert.That(folder.Lines[0].Words, Is.EqualTo("New Folder · Projects"));
         Assert.That((folder.Lines[1].Words, folder.Reason), Is.EqualTo((EntryText.TypeName, EntryText.NewFolderRule)));
         var bad = NewProjectScreens.Words(idea, startReached: false, WordsFor.FolderName, written: "race times!", heard: false, voice: true, said: null, root: root);
         Assert.That(bad.Footer[PromptSlot.FarRight]!.Available, Is.False);

@@ -63,7 +63,7 @@ public class EntryScreensTests
 
         Assert.That(Problem(true, state, true, idea, empty), Is.EqualTo(EntryText.DemoCannotStart));
         Assert.That(Problem(false, state, false, idea, empty), Is.EqualTo(EntryText.WaitingForMac));
-        Assert.That(Problem(false, state, true, new ProjectIdea(), empty), Is.EqualTo("Name the project in at most 200 characters."));
+        Assert.That(Problem(false, state, true, new ProjectIdea(), empty), Is.EqualTo("Name · Up to 200 Characters"));
         Assert.That(Problem(false, state, true, idea, empty), Is.EqualTo(EntryText.ChooseHowItRuns));
         Assert.That(Problem(false, WithRuntimes(Listing("other")), true, idea, Draft(runtime)), Is.EqualTo(EntryText.ChooseAgain));
         Assert.That(Problem(false, state, true, idea, Draft(runtime)), Is.EqualTo(EntryText.FinishChoosing));
@@ -89,15 +89,15 @@ public class EntryScreensTests
         var review = EntryScreens.ReviewOf(moving, draft, current, live: true);
         Assert.That(review.Items.Select(item => item.Text), Is.EqualTo(new[]
         {
-            "Project: Storefront\\u{202E} API",
-            "Folder now: shop",
-            "Folder from now on: a new folder, storefront-v2, in Projects",
-            "Task name: Add a search page.",
-            "Agent app: Local\\u{200B} agent",
-            "Model: ollama/qwen",
-            "Where the model runs: on your computer; can use tools",
-            "Model id: ollama/qwen",
-            "First task: Add a search page.",
+            "Project · Storefront\\u{202E} API",
+            "Folder Now · shop",
+            "Folder Next · New Folder · storefront-v2 in Projects",
+            "Task Name · Add a search page.",
+            "Agent App · Local\\u{200B} agent",
+            "Model · ollama/qwen",
+            "Model Location · On Your Computer · Uses Tools",
+            "Model ID · ollama/qwen",
+            "First Task · Add a search page.",
         }), "every name spelled once, by the review");
     }
 }

@@ -120,50 +120,50 @@ namespace Halcyonic.Client
                     // Recorded when the control plane accepts the start, before the runtime has started anything.
                     if (e.ExecutionId != null) runtimeNames[e.ExecutionId] = created.Payload.Runtime.DisplayName;
                     // Theirs last, so a name never stands where Halcyonic's words do (settled 2026-10-08).
-                    return Said(ActivityKind.Lifecycle, Ours("Asked to start on ") + LineWords.TheirName(created.Payload.Runtime.DisplayName));
+                    return Said(ActivityKind.Lifecycle, Ours("Start Requested · ") + LineWords.TheirName(created.Payload.Runtime.DisplayName));
                 case RuntimeExecutionStartedEvent _:
                     // Started only once the runtime says so.
                     return Said(ActivityKind.Lifecycle, e.ExecutionId != null && runtimeNames.TryGetValue(e.ExecutionId, out var runtime)
-                        ? Ours("Started on ") + LineWords.TheirName(runtime)
+                        ? Ours("Started · ") + LineWords.TheirName(runtime)
                         : Ours("Started"));
                 case ExecutionStartFailedEvent failed:
                     // The message is the agent app's or the control plane's own; a folder's problem is said by its code.
                     return Entry(ActivityKind.Lifecycle, WorkspaceText.WhyFailed(failed.Payload.Error.Code, running: false) is string why
-                        ? StateLanguage.Lead("Couldn't start", why)
-                        : "Couldn't start");
+                        ? StateLanguage.Lead(StateLanguage.StartFailed, why)
+                        : StateLanguage.StartFailed);
                 case ExecutionStateUnknownEvent unknown:
                     // Why, by its code alone, as the character says it: the message is a diagnostic.
                     return Entry(ActivityKind.Connection, StateLanguage.CantTell(StateLanguage.CantTellWhy(StateUnknownCodeOf(unknown.Payload.Code))));
                 case RuntimeTurnStartedEvent _:
-                    return Entry(ActivityKind.Turn, "Round started");
+                    return Entry(ActivityKind.Turn, "Round Started");
                 case RuntimeTurnCompletedEvent _:
-                    return Entry(ActivityKind.Turn, "Round finished");
+                    return Entry(ActivityKind.Turn, "Round Ended");
                 case RuntimeTurnFailedEvent _:
                     // The error is the agent app's own, naming it, a request or a path: never shown.
-                    return Entry(ActivityKind.Turn, "Couldn't finish this round");
+                    return Entry(ActivityKind.Turn, StateLanguage.RoundFailed);
                 case RuntimeTurnInterruptedEvent _:
-                    return Entry(ActivityKind.Turn, "Round stopped");
+                    return Entry(ActivityKind.Turn, "Round Stopped");
                 case RuntimeAgentMessageEvent message:
                     return Said(ActivityKind.Message, LineWords.TheirName(message.Payload.Text), reported: true);
                 case RuntimeToolStartedEvent tool:
                     toolNames[ToolKey(e, tool.Payload.ToolCallId)] = tool.Payload.ToolName;
                     // Halcyonic's word first, so a tool named "Approved" never reads as Halcyonic's own entry (settled 2026-10-08).
                     var used = Ours("Used ") + LineWords.TheirName(tool.Payload.ToolName);
-                    return Said(ActivityKind.Tool, LineWords.Theirs(tool.Payload.Title) is { IsEmpty: false } title ? used + Ours(": ") + title : used);
+                    return Said(ActivityKind.Tool, LineWords.Theirs(tool.Payload.Title) is { IsEmpty: false } title ? used + Ours(" · ") + title : used);
                 case RuntimeToolCompletedEvent toolDone:
                     var succeeded = toolDone.Payload.Outcome == ToolOutcome.Succeeded;
                     return Said(ActivityKind.Tool, toolNames.TryGetValue(ToolKey(e, toolDone.Payload.ToolCallId), out var known)
-                        ? Ours(succeeded ? "Succeeded: " : "Failed: ") + LineWords.TheirName(known)
-                        : Ours(succeeded ? "A tool succeeded" : "A tool failed"));
+                        ? Ours(succeeded ? "Succeeded · " : "Failed · ") + LineWords.TheirName(known)
+                        : Ours(succeeded ? "Tool Succeeded" : "Tool Failed"));
                 case RuntimeTestRunStartedEvent tests:
-                    return Said(ActivityKind.TestRun, LineWords.Theirs(tests.Payload.Label) is { IsEmpty: false } label ? Ours("Tests started: ") + label : Ours("Tests started"));
+                    return Said(ActivityKind.TestRun, LineWords.Theirs(tests.Payload.Label) is { IsEmpty: false } label ? Ours("Tests Started · ") + label : Ours("Tests Started"));
                 case RuntimeTestRunCompletedEvent testsDone:
                     var ran = Ours("Tests " + TestWord(testsDone.Payload.Outcome));
-                    return Said(ActivityKind.TestRun, LineWords.Theirs(testsDone.Payload.Summary) is { IsEmpty: false } summary ? ran + Ours(": ") + summary : ran);
+                    return Said(ActivityKind.TestRun, LineWords.Theirs(testsDone.Payload.Summary) is { IsEmpty: false } summary ? ran + Ours(" · ") + summary : ran);
                 case RuntimeApprovalRequestedEvent approval:
                     return Said(ActivityKind.Approval, approval.Payload.Subject is ToolUseSubject subject
-                        ? Ours("Approval requested to use ") + LineWords.TheirName(subject.ToolName) + Ours(": ") + LineWords.Theirs(subject.Summary)
-                        : Ours("Approval requested"));
+                        ? Ours("Approval Requested · ") + LineWords.TheirName(subject.ToolName) + Ours(" · ") + LineWords.Theirs(subject.Summary)
+                        : Ours("Approval Requested"));
                 case RuntimeApprovalResolvedEvent resolved:
                     return Entry(ActivityKind.Approval, resolved.Payload.Decision == ApprovalResolution.Approved ? "Approved" : "Denied");
                 case RuntimeConnectionLostEvent lost:
@@ -171,17 +171,17 @@ namespace Halcyonic.Client
                     return Entry(ActivityKind.Connection, StateLanguage.LostTouch);
                 case CommandAcceptedEvent accepted:
                     // A client's name is not a person's, so it is not shown as one; a command without plain words is left out.
-                    return Verb(accepted.Payload.Command) is string asked ? Entry(ActivityKind.Command, "Asked to " + asked) : null;
+                    return Verb(accepted.Payload.Command) is string asked ? Entry(ActivityKind.Command, asked + " Sent") : null;
                 case CommandRejectedEvent rejected:
                     // Why, by the refusal's code: its message is the control plane's own, for developers.
-                    return Entry(ActivityKind.Command, WorkspaceText.Couldnt(Verb(rejected.Payload.Command) is string refused ? "Couldn't " + refused : "Your computer refused a request",
+                    return Entry(ActivityKind.Command, WorkspaceText.Couldnt(Verb(rejected.Payload.Command) is string refused ? refused + " Refused" : "Request Refused",
                         WorkspaceText.WhyRefused(rejected.Payload.Rejection.Code)));
                 case CommandFailedEvent commandFailed:
                     // The failure's message is the agent app's or the control plane's own: what failed, and
                     // whether it may have happened anyway, are what a person can act on. An effect that can't
                     // be ruled out is never said as "Couldn't", which says nothing happened.
                     if (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown) return Entry(ActivityKind.Command, WorkspaceText.NotSure(commandFailed.Payload.CommandType));
-                    var failedTo = VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed";
+                    var failedTo = VerbOf(commandFailed.Payload.CommandType) is string verb ? verb + " Failed" : "Request Failed";
                     // A start that failed never ran, so there is no work to look at.
                     var running = commandFailed.Payload.CommandType != CommandType.ExecutionStart;
                     return Entry(ActivityKind.Command, WorkspaceText.WhyFailed(commandFailed.Payload.Failure.Code, running) is string because ? StateLanguage.Lead(failedTo, because) : failedTo);
@@ -206,30 +206,30 @@ namespace Halcyonic.Client
         /// <summary>What a command asks for, in plain words, or null for one that has none yet.</summary>
         private static string? Verb(CommandEnvelope command) => command switch
         {
-            ExecutionRespondToApprovalCommand respond => respond.Payload.Decision == ApprovalDecision.Approve ? "approve" : "deny",
-            ExecutionInterruptCommand _ => "stop it",
-            ExecutionSendInstructionCommand _ => "send an instruction",
-            ExecutionStartCommand _ => "start work",
-            ExecutionAnswerQuestionCommand _ => "answer the agent's question",
+            ExecutionRespondToApprovalCommand respond => respond.Payload.Decision == ApprovalDecision.Approve ? "Approval" : "Denial",
+            ExecutionInterruptCommand _ => "Stop",
+            ExecutionSendInstructionCommand _ => "Instruction",
+            ExecutionStartCommand _ => "Start",
+            ExecutionAnswerQuestionCommand _ => "Answer",
             _ => null,
         };
 
         /// <summary>What a command of this type asks for, in plain words, or null for one that has none yet.</summary>
         private static string? VerbOf(CommandType type) => type switch
         {
-            CommandType.ExecutionRespondToApproval => "answer the request",
-            CommandType.ExecutionInterrupt => "stop it",
-            CommandType.ExecutionSendInstruction => "send an instruction",
-            CommandType.ExecutionStart => "start work",
-            CommandType.ExecutionAnswerQuestion => "answer the agent's question",
+            CommandType.ExecutionRespondToApproval => "Decision",
+            CommandType.ExecutionInterrupt => "Stop",
+            CommandType.ExecutionSendInstruction => "Instruction",
+            CommandType.ExecutionStart => "Start",
+            CommandType.ExecutionAnswerQuestion => "Answer",
             _ => null,
         };
 
         private static string TestWord(TestOutcome outcome) => outcome switch
         {
-            TestOutcome.Passed => "passed",
-            TestOutcome.Failed => "failed",
-            _ => "errored",
+            TestOutcome.Passed => "Passed",
+            TestOutcome.Failed => "Failed",
+            _ => "Errored",
         };
 
         private static bool Contains(List<ActivityEntry> list, long position)

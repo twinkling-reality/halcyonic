@@ -558,8 +558,12 @@ namespace Halcyonic.Client
         /// <summary>A source's sentence made plain, or Halcyonic's own words where it shows as nothing, so the fact it states is never left unsaid.</summary>
         public static string PlainOr(string? text, string instead) => Plain(text) is { Length: > 0 } plain ? plain : instead;
 
+        /// <summary>
+        /// A sentence after a colon, its first letter lowered; a reason already in the " · " cadence (the voice standard) keeps
+        /// its Title Case, until these reasons move to the cadence too.
+        /// </summary>
         public static string AfterColon(string sentence) =>
-            sentence.Length == 0 ? sentence : char.ToLowerInvariant(sentence[0]).ToString() + sentence.Substring(1);
+            sentence.Length == 0 || sentence.Contains(" · ") ? sentence : char.ToLowerInvariant(sentence[0]).ToString() + sentence.Substring(1);
 
         private static T? Within<T>(Exception? error) where T : Exception
         {

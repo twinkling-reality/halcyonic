@@ -111,9 +111,9 @@ namespace Halcyonic.Client
         /// as a code point the way a typed one is.
         /// </param>
         /// <summary>The labels whose values a build checks against what it sends (<see cref="Shows"/>).</summary>
-        public const string ProjectLabel = "Project: ";
-        public const string ModelIdLabel = "Model id: ";
-        public const string FirstTaskLabel = "First task: ";
+        public const string ProjectLabel = "Project · ";
+        public const string ModelIdLabel = "Model ID · ";
+        public const string FirstTaskLabel = "First Task · ";
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
@@ -134,14 +134,14 @@ namespace Halcyonic.Client
             Add(ProjectLabel, project);
             if (folderBefore != null && folder != null)
             {
-                Add("Folder now: ", folderBefore);
-                Add("Folder from now on: ", folder);
+                Add("Folder Now · ", folderBefore);
+                Add("Folder Next · ", folder);
             }
-            else if (folder != null) Add("Where its files live: ", folder);
-            items.Add(new ReviewItem("Task name: ", LineWords.Shown(Safe(title) + (titleCut ? "…" : ""))));
-            Add("Agent app: ", runtime);
-            Add("Model: ", model);
-            Add("Where the model runs: ", modelFacts);
+            else if (folder != null) Add("Folder · ", folder);
+            items.Add(new ReviewItem("Task Name · ", LineWords.Shown(Safe(title) + (titleCut ? "…" : ""))));
+            Add("Agent App · ", runtime);
+            Add("Model · ", model);
+            Add("Model Location · ", modelFacts);
             Add(ModelIdLabel, modelRef);
             Add(FirstTaskLabel, objective);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).

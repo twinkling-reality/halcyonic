@@ -248,7 +248,7 @@ public class JudgeMenuWalkTests
         beginning.ApplyWelcome(Demonstration.Recording().Welcome);
         beginning.ApplySnapshot(Demonstration.Recording().Snapshot.Snapshot, new StateChanges());
         Assert.That(WorkOverview.Of(beginning, new StageVisibility(), _ => true).Projects.Select(project => ProjectsText.ProjectFact(project)),
-            Is.All.EqualTo("3 tasks not started"));
+            Is.All.EqualTo("Not Started · 3 Tasks"));
         foreach (var task in beginning.Workstreams.Values)
         {
             var character = CharacterPresenter.Present(task, beginning, live: true);
@@ -258,7 +258,7 @@ public class JudgeMenuWalkTests
         // The directed work comes to wait: the closed bar says so, with Tasks' amber dot, and nothing opens by itself.
         await Pumping.Until(player.Session, Demonstration.AsksItsQuestion, "the directed work asks its question");
         Assert.That(host.Draw(), Is.EqualTo(((MenuFrame?)null, (MenuFrame?)null)), "nothing interrupts the stage");
-        Assert.That(host.Bar.ClosedLine, Is.EqualTo("1 task is waiting for you"));
+        Assert.That(host.Bar.ClosedLine, Is.EqualTo("Needs You · 1 Task"));
 
         // Opened from the bar, the menu has its places, and Projects is one press away with the demonstration's
         // projects and New project, which plays the companion's recording.
@@ -563,9 +563,9 @@ public class JudgeMenuWalkTests
         (_, step) = host.Draw();
         // The recap may need more than a page here: every page read, each turned by the row at its end.
         var recap = new List<MenuFrame> { step! };
-        // The recap's facts turn as the menu's lists do, by the footer's Next page, "First page" on the last.
+        // The recap's facts turn as the menu's lists do, by the footer's Next page, "First Page" on the last.
         while (recap.Count < 10 && recap[^1].Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage)
-            && recap[^1].Footer.All.First(each => each.Prompt.Kind == PromptKind.NextPage).Prompt.Words != "First page")
+            && recap[^1].Footer.All.First(each => each.Prompt.Kind == PromptKind.NextPage).Prompt.Words != "First Page")
         {
             host.Press(MenuColumn.File, Footer.NextPage);
             (_, step) = host.Draw();

@@ -73,10 +73,10 @@ namespace Halcyonic.Client
 
         private static readonly IReadOnlyList<GuidedQuestion> Fixed = new[]
         {
-            new GuidedQuestion("What kind of thing is it?", Kinds, "Something else", null),
-            new GuidedQuestion("Who is it for?", Audiences, "Someone else", null),
-            new GuidedQuestion("What should it do first?", Array.Empty<string>(), "Type it myself", null),
-            new GuidedQuestion("What should it be called?", Array.Empty<string>(), EntryText.TypeName, "Name it later"),
+            new GuidedQuestion("What Kind?", Kinds, "Something Else", null),
+            new GuidedQuestion("Who For?", Audiences, "Someone Else", null),
+            new GuidedQuestion("First Feature?", Array.Empty<string>(), "Type Myself", null),
+            new GuidedQuestion("Project Name?", Array.Empty<string>(), EntryText.TypeName, "Name Later"),
         };
 
         private readonly string?[] answers = new string?[Fixed.Count];

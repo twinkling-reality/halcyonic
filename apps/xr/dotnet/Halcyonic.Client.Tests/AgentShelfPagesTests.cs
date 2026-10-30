@@ -14,14 +14,14 @@ public class AgentShelfPagesTests
     public void ExplicitSelectionSurvivesReorderRankAndNewWork()
     {
         var pages = new AgentShelfPages();
-        var a = Work("a", "First task", "2026-10-12T10:00:00Z");
+        var a = Work("a", "First Task", "2026-10-12T10:00:00Z");
         var b = Work("b", "Second task", "2026-10-12T09:00:00Z");
         pages.Update("journal", new[] { b, a });
         Assert.That((pages.ShownId, pages.Info.Summary), Is.EqualTo(("a", "Showing 1 of 2")));
         Assert.That(pages.Move(1), Is.True);
         Assert.That(pages.ShownId, Is.EqualTo("b"));
         b.Attention.Level = AttentionLevel.ActionRequired;
-        pages.Update("journal", new[] { a, Work("c", "New task", "2026-10-12T11:00:00Z"), b });
+        pages.Update("journal", new[] { a, Work("c", "New Task", "2026-10-12T11:00:00Z"), b });
         Assert.That((pages.ShownId, pages.Info.Title, pages.Info.Count), Is.EqualTo(("b", "Second task", 3)));
         Assert.That(pages.Info.Index, Is.EqualTo(0));
         Assert.That(pages.Move(-1), Is.False);

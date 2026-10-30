@@ -30,6 +30,13 @@ namespace Halcyonic.Client
         public const string OpenResults = "file-results";
         public const string TellIt = WorkspaceScreens.TellIt;
 
+        /// <summary>The Activity routes' words, one source for the page, its measure and the kit render's pin.</summary>
+        public const string ShowTaskHereWords = "Show Task Here";
+
+        public const string AskWorkspaceWords = "Ask Workspace";
+
+        public const string CharacterColourWords = "Character Colour";
+
         /// <summary>What Activity says while nothing has been recorded for the task.</summary>
         public const string NoActivityYet = "No Activity";
 
@@ -311,13 +318,13 @@ namespace Halcyonic.Client
 
             var lines = new List<PageLine>();
             var utilityLines = new List<PageLine>();
-            if (screen.ShowTaskHereOffered) utilityLines.Add(new PageLine("Show this task here", icon: GlazeIcon.Next, action: ShowTaskHere, opens: true, rows: screen.ShowTaskHereRows));
+            if (screen.ShowTaskHereOffered) utilityLines.Add(new PageLine(ShowTaskHereWords, icon: GlazeIcon.Next, action: ShowTaskHere, opens: true, rows: screen.ShowTaskHereRows));
             if (screen.WorkspaceRequestOffered && workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) != true)
-                utilityLines.Add(new PageLine("Ask workspace", icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true, rows: screen.WorkspaceRequestRows));
+                utilityLines.Add(new PageLine(AskWorkspaceWords, icon: GlazeIcon.Next, action: OpenWorkspaceRequest, opens: true, rows: screen.WorkspaceRequestRows));
             if (screen.ResultsOffered && workspace.Execution != null)
                 utilityLines.Add(ReadResultsLine(screen.ResultsRows));
             if (screen.CharacterColourOffered)
-                utilityLines.Add(new PageLine("Character colour", icon: GlazeIcon.Next, action: OpenCharacterColour, opens: true, rows: screen.CharacterColourRows));
+                utilityLines.Add(new PageLine(CharacterColourWords, icon: GlazeIcon.Next, action: OpenCharacterColour, opens: true, rows: screen.CharacterColourRows));
             var waiting = WorkspaceText.SomethingWaits(workspace);
             var tone = waiting ? LineTone.Waiting : workspace.Character.AttentionNotes.Count > 0 ? LineTone.Problem : LineTone.Primary;
             lines.AddRange(Doing(workspace, tone));

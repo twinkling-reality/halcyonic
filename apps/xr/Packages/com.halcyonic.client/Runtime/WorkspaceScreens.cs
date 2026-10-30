@@ -455,7 +455,7 @@ namespace Halcyonic.Client
                 var description = string.IsNullOrWhiteSpace(option.Description) ? null : WorkspaceText.OneLine(option.Description!);
                 return new PanelRow
                 {
-                    Title = (chosen ? "Chosen: " : "") + WorkspaceText.OneLine(option.Label) + (description == null ? "" : " · " + description),
+                    Title = (chosen ? "Chosen · " : "") + WorkspaceText.OneLine(option.Label) + (description == null ? "" : " · " + description),
                     TitleIsData = true,
                     TitleLines = 2,
                     Chosen = chosen,

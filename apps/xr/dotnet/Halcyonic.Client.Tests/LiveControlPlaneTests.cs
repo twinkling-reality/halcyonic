@@ -112,7 +112,7 @@ public class LiveControlPlaneTests
         await Until(s => s.Status.Phase == ConnectionPhase.Refused, "the stale token is not sent", seconds: 20);
         Assert.That(session.Status.AccessRefused, Is.True);
         Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.AccessTokenUnproved));
-        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("This headset's access code doesn't match your computer's"));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("Code Withheld · Host Unverified"));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.Unreachable, session.Status),
             Does.EndWith(ConnectionText.AccessTokenUnproved));
         // The control plane logs every request at this level: it was asked for proofs, and never for
@@ -156,7 +156,7 @@ public class LiveControlPlaneTests
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.WaitingForHuman));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.Synthetic, Is.True);
-        Assert.That(character.AttentionNotes.Single(), Does.StartWith("It wants to run: "));
+        Assert.That(character.AttentionNotes.Single(), Does.StartWith("Run Command · "));
         var waiting = WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true);
         Assert.That(waiting.Actions, Is.EqualTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
         Assert.That(waiting.Actions.All(waiting.RequiresConfirmation), Is.True, "approving and interrupting are review_required");
@@ -258,7 +258,7 @@ public class LiveControlPlaneTests
             "the runtime takes the instruction");
         Assert.That(Workspace().Commands.First().Text, Is.EqualTo("Confirmed · Instruction Received"));
         Assert.That(activity.For(executionId).Last(entry => entry.Kind == ActivityKind.Command).Text,
-            Is.EqualTo("Asked to send an instruction"));
+            Is.EqualTo("Instruction Sent"));
     }
 
     [Test]
@@ -337,8 +337,8 @@ public class LiveControlPlaneTests
         await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes after the answer");
         Assert.That(Now().QuestionToAnswer, Is.Null);
         var lines = activity.For(executionId).Select(entry => entry.Text).ToList();
-        Assert.That(lines, Does.Contain("Asked to answer the agent's question"));
-        Assert.That(lines.IndexOf("Started on Mock runtime (development fixture)"), Is.GreaterThan(lines.IndexOf("Asked to start on Mock runtime (development fixture)")),
+        Assert.That(lines, Does.Contain("Answer Sent"));
+        Assert.That(lines.IndexOf("Started · Mock runtime (development fixture)"), Is.GreaterThan(lines.IndexOf("Start Requested · Mock runtime (development fixture)")),
             "started only after the runtime says so");
         Assert.That(lines, Has.None.Contains("halcyonic").And.None.Contains("execution.").And.None.Contains("Execution"),
             "no client names or command types reach the headset");

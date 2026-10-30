@@ -83,7 +83,7 @@ namespace Halcyonic.Client
             Model = null;
             ModelPreselected = false;
             PendingModel = null;
-            ModelProblem = runtime.ModelChoice == ModelChoice.Listed ? "Reading this agent app's models…" : null;
+            ModelProblem = runtime.ModelChoice == ModelChoice.Listed ? "Reading Models" : null;
         }
 
         public void SetModels(RuntimeModelsResponse response)
@@ -154,11 +154,11 @@ namespace Halcyonic.Client
         {
             get
             {
-                if (ProjectId == null) return "Choose a project.";
-                if (Runtime == null || !Runtime.Capabilities.StartExecution) return "Choose a runtime that can start work.";
-                if (Runtime.ModelChoice == ModelChoice.Listed && Model == null) return ModelProblem ?? "Choose a model.";
-                if (string.IsNullOrWhiteSpace(Objective)) return "Type an objective.";
-                if (Objective.Length > 4000) return "The objective must be at most 4,000 characters.";
+                if (ProjectId == null) return "Choose Project";
+                if (Runtime == null || !Runtime.Capabilities.StartExecution) return "Choose Agent App";
+                if (Runtime.ModelChoice == ModelChoice.Listed && Model == null) return ModelProblem ?? "Choose Model";
+                if (string.IsNullOrWhiteSpace(Objective)) return "Type Goal";
+                if (Objective.Length > 4000) return "Goal · Up to 4,000 Characters";
                 return null;
             }
         }
