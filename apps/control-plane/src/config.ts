@@ -90,6 +90,11 @@ export interface ControlPlaneConfig {
    * looked up on PATH: on the owner's Mac an older git comes first there.
    */
   readonly gitBinary: string | null;
+  /**
+   * The Chrome the check of a new app opens its page in (ADR 0037), by absolute path, or null: the
+   * check then type checks and builds but cannot pass. Never looked up on PATH.
+   */
+  readonly checkChrome: string | null;
   /** Null, and voice off, unless the owner set all three HALCYONIC_WHISPER_ variables. */
   readonly speech: SpeechConfig | null;
   /** Null, and the companion off, unless the owner named its model in HALCYONIC_COMPANION_MODEL. */
@@ -166,6 +171,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     gitBinary: parseExecutable('HALCYONIC_GIT_BIN', env.HALCYONIC_GIT_BIN),
+    checkChrome: parseExecutable('HALCYONIC_CHECK_CHROME', env.HALCYONIC_CHECK_CHROME),
     speech: parseSpeech(env),
     companion: parseCompanion(env),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),

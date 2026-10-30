@@ -109,6 +109,7 @@ import {
   ProjectLocation,
   ProjectLocationChoice,
 } from './locations.ts';
+import { CheckFindings, CheckPage, CheckStep, PreviewStopReason } from './previews.ts';
 import { ClientInfo, ErrorInfo } from './primitives.ts';
 import { QuestionAnswer, QuestionOption, QuestionPrompt } from './questions.ts';
 import {
@@ -246,6 +247,10 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   RestorePreview,
   CheckpointsResponse,
   RestorePreviewResponse,
+  CheckFindings,
+  CheckPage,
+  CheckStep,
+  PreviewStopReason,
   StarterView,
   StartersResponse,
   FilesObserved,

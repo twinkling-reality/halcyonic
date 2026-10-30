@@ -83,6 +83,8 @@ export interface TestControlPlaneOptions {
   readonly starters?: ControlPlaneOptions['starters'];
   /** The person's catalog as last read, for links; none by default. */
   readonly catalogLinks?: ControlPlaneOptions['catalogLinks'];
+  /** Checks and previews of starter projects (ADR 0037); off by default. */
+  readonly previews?: ControlPlaneOptions['previews'];
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -110,6 +112,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.checkpoints !== undefined && { checkpoints: options.checkpoints }),
     ...(options.starters !== undefined && { starters: options.starters }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
+    ...(options.previews !== undefined && { previews: options.previews }),
   });
   const commands = createCommandFactory(
     createUuidV7Generator({ now: () => time.now().getTime() }),

@@ -373,6 +373,9 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.create")] ProjectCreate,
         [EnumMember(Value = "project.set_location")] ProjectSetLocation,
         [EnumMember(Value = "project.restore")] ProjectRestore,
+        [EnumMember(Value = "project.check")] ProjectCheck,
+        [EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
+        [EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
         [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
@@ -954,6 +957,8 @@ namespace Halcyonic.Contracts
                 "workstream_created" => new WorkstreamCreatedResult(),
                 "execution_created" => new ExecutionCreatedResult(),
                 "project_restored" => new ProjectRestoredResult(),
+                "project_checked" => new ProjectCheckedResult(),
+                "preview_started" => new PreviewStartedResult(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "CommandResult has no string kind."
                     : "Unknown kind \"" + tag + "\" for CommandResult."),
@@ -1012,6 +1017,28 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("checkpoint_id", Required = Required.Always)]
         public string CheckpointId { get; set; } = default!;
+    }
+
+    public sealed class ProjectCheckedResult : CommandResult
+    {
+        protected override string Discriminator => "project_checked";
+
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("passed", Required = Required.Always)]
+        public bool Passed { get; set; }
+    }
+
+    public sealed class PreviewStartedResult : CommandResult
+    {
+        protected override string Discriminator => "preview_started";
+
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("port", Required = Required.Always)]
+        public long Port { get; set; }
     }
 
     public sealed class CommandView
@@ -1432,6 +1459,108 @@ namespace Halcyonic.Contracts
         public ErrorInfo Failure { get; set; } = default!;
     }
 
+    public sealed class CheckStep
+    {
+        [JsonProperty("exit", Required = Required.AllowNull)]
+        public long? Exit { get; set; }
+
+        [JsonProperty("seconds", Required = Required.Always)]
+        public double Seconds { get; set; }
+    }
+
+    public sealed class CheckPagePicturesItem
+    {
+        [JsonProperty("at_ms", Required = Required.Always)]
+        public long AtMs { get; set; }
+
+        [JsonProperty("sha256", Required = Required.Always)]
+        public string Sha256 { get; set; } = default!;
+    }
+
+    public sealed class CheckPage
+    {
+        [JsonProperty("exceptions", Required = Required.Always)]
+        public List<string> Exceptions { get; set; } = new List<string>();
+
+        [JsonProperty("exception_count", Required = Required.Always)]
+        public long ExceptionCount { get; set; }
+
+        [JsonProperty("console_errors", Required = Required.Always)]
+        public long ConsoleErrors { get; set; }
+
+        [JsonProperty("canvases", Required = Required.Always)]
+        public long Canvases { get; set; }
+
+        [JsonProperty("edges_at_3s", Required = Required.AllowNull)]
+        public long? EdgesAt3s { get; set; }
+
+        [JsonProperty("edges_at_10s", Required = Required.AllowNull)]
+        public long? EdgesAt10s { get; set; }
+
+        [JsonProperty("drawn", Required = Required.Always)]
+        public bool Drawn { get; set; }
+
+        [JsonProperty("pictures", Required = Required.Always)]
+        public List<CheckPagePicturesItem> Pictures { get; set; } = new List<CheckPagePicturesItem>();
+    }
+
+    public sealed class CheckFindings
+    {
+        [JsonProperty("tsc", Required = Required.Always)]
+        public CheckStep Tsc { get; set; } = default!;
+
+        [JsonProperty("build", Required = Required.Always)]
+        public CheckStep Build { get; set; } = default!;
+
+        [JsonProperty("page", Required = Required.AllowNull)]
+        public CheckPage? Page { get; set; }
+
+        [JsonProperty("unknown", Required = Required.AllowNull)]
+        public string? Unknown { get; set; }
+
+        [JsonProperty("passed", Required = Required.Always)]
+        public bool Passed { get; set; }
+
+        [JsonProperty("reads_confined", Required = Required.Always)]
+        public bool ReadsConfined { get; set; }
+    }
+
+    public sealed class ProjectCheckRecordedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("findings", Required = Required.Always)]
+        public CheckFindings Findings { get; set; } = default!;
+    }
+
+    public sealed class ProjectPreviewStartedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("port", Required = Required.Always)]
+        public long Port { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum PreviewStopReason
+    {
+        [EnumMember(Value = "asked")] Asked,
+        [EnumMember(Value = "new_check")] NewCheck,
+        [EnumMember(Value = "server_exited")] ServerExited,
+        [EnumMember(Value = "host_restarted")] HostRestarted,
+    }
+
+    public sealed class ProjectPreviewStoppedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public PreviewStopReason Reason { get; set; }
+    }
+
     public sealed class WorkstreamCreatedPayload
     {
         [JsonProperty("title", Required = Required.Always)]
@@ -1687,6 +1816,24 @@ namespace Halcyonic.Contracts
         public string CheckpointId { get; set; } = default!;
     }
 
+    public sealed class ProjectCheckPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
+    public sealed class ProjectPreviewStartPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
+    public sealed class ProjectPreviewStopPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
     public sealed class ProjectLinkCatalogPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -1861,6 +2008,9 @@ namespace Halcyonic.Contracts
                 "project.create" => new ProjectCreateCommand(),
                 "project.set_location" => new ProjectSetLocationCommand(),
                 "project.restore" => new ProjectRestoreCommand(),
+                "project.check" => new ProjectCheckCommand(),
+                "project.preview.start" => new ProjectPreviewStartCommand(),
+                "project.preview.stop" => new ProjectPreviewStopCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
@@ -1914,6 +2064,30 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectRestorePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectCheckCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.check";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectCheckPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectPreviewStartCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.preview.start";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectPreviewStartPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectPreviewStopCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.preview.stop";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectPreviewStopPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogCommand : CommandEnvelope
@@ -2510,6 +2684,9 @@ namespace Halcyonic.Contracts
                 "project.checkpoint.failed" => new ProjectCheckpointFailedEvent(),
                 "project.restored" => new ProjectRestoredEvent(),
                 "project.restore_incomplete" => new ProjectRestoreIncompleteEvent(),
+                "project.check.recorded" => new ProjectCheckRecordedEvent(),
+                "project.preview.started" => new ProjectPreviewStartedEvent(),
+                "project.preview.stopped" => new ProjectPreviewStoppedEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.files.observed" => new ExecutionFilesObservedEvent(),
@@ -2632,6 +2809,30 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectRestoreIncompletePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectCheckRecordedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.check.recorded";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectCheckRecordedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectPreviewStartedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.preview.started";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectPreviewStartedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectPreviewStoppedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.preview.stopped";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectPreviewStoppedPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedEvent : EventEnvelope

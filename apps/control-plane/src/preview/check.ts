@@ -1,7 +1,7 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
-import { connect } from 'node:net';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { get } from 'node:http';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { launchChrome } from './chrome.ts';
@@ -207,7 +207,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     { env, cwd: cache, stdio: 'ignore' },
   );
   try {
-    if (!(await listening(port, 30_000))) {
+    if (!(await servesCopy(server, port, join(cache, 'dist'), 30_000))) {
       return { tsc, build, page: null, unknown: 'The built copy was not served.', passed: false };
     }
     const page = await openPage(options.chrome, options.home, join(cache, 'chrome'), port, cache);
@@ -243,20 +243,80 @@ async function step(
   });
 }
 
-async function listening(port: number, timeoutMs: number): Promise<boolean> {
+/**
+ * Waits until `server` itself serves the built copy on 127.0.0.1:port (AUDIT M15B2-M1): it still runs,
+ * every listener on the port is its own pid, and /index.html answers with the copy's bytes. Another
+ * process holding the port fails it, whatever it answers.
+ */
+export async function servesCopy(
+  server: ChildProcess,
+  port: number,
+  dist: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  const expected = await readFile(join(dist, 'index.html'));
+  const ended = () => server.exitCode !== null || server.signalCode !== null;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const open = await new Promise<boolean>((resolve) => {
-      const socket = connect(port, '127.0.0.1', () => {
-        socket.end();
-        resolve(true);
-      });
-      socket.on('error', () => resolve(false));
-    });
-    if (open) return true;
-    await delay(250);
+    if (ended() || server.pid === undefined) return false;
+    const listeners = await listenersOf(port);
+    if (listeners.length > 0) {
+      if (listeners.some((pid) => pid !== server.pid)) return false;
+      const body = await indexOf(port);
+      if (body === null || !body.equals(expected) || ended()) return false;
+      // Still its own once it answered: nothing took the port in between.
+      const after = await listenersOf(port);
+      return after.length > 0 && after.every((pid) => pid === server.pid);
+    }
+    await delay(100);
   }
   return false;
+}
+
+/** The pids listening on 127.0.0.1:port, by lsof; none when nothing listens. */
+function listenersOf(port: number): Promise<number[]> {
+  return new Promise((resolve) => {
+    execFile(
+      '/usr/sbin/lsof',
+      ['-nP', `-iTCP@127.0.0.1:${port}`, '-sTCP:LISTEN', '-Fp'],
+      { timeout: 10_000 },
+      (_error, stdout) =>
+        resolve(
+          String(stdout)
+            .split('\n')
+            .filter((line) => /^p\d+$/.test(line))
+            .map((line) => Number(line.slice(1))),
+        ),
+    );
+  });
+}
+
+/** The bytes 127.0.0.1:port answers for /index.html, or null for anything but a 200. */
+function indexOf(port: number): Promise<Buffer | null> {
+  return new Promise((resolve) => {
+    const request = get(
+      { host: '127.0.0.1', port, path: '/index.html', timeout: 5_000 },
+      (response) => {
+        if (response.statusCode !== 200) {
+          response.resume();
+          return resolve(null);
+        }
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on('data', (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > 8 * 1024 * 1024) request.destroy();
+          else chunks.push(chunk);
+        });
+        response.on('end', () => resolve(Buffer.concat(chunks)));
+        // Whichever settles first wins; a cut-off answer is none.
+        response.on('close', () => resolve(null));
+      },
+    );
+    request.on('timeout', () => request.destroy());
+    request.on('error', () => resolve(null));
+    request.on('close', () => resolve(null));
+  });
 }
 
 async function stopProcess(child: ChildProcess): Promise<void> {

@@ -71,6 +71,21 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       why: 'ids, the command type and the failure code',
     },
     {
+      file: 'apps/control-plane/src/core/command-service.ts',
+      args: '{ err: error, command_id: command.command_id }, " command.command_type " ,',
+      why: "an id, the command type and the error, which the logger's serializer reduces to its type and where it happened",
+    },
+    {
+      file: 'apps/control-plane/src/core/control-plane.ts',
+      args: '{ err: error }, ""',
+      why: "the error, which the logger's serializer reduces to its type and where it happened",
+    },
+    {
+      file: 'apps/control-plane/src/preview/preview.ts',
+      args: '{ err: error }, ""',
+      why: "the error, which the logger's serializer reduces to its type and where it happened",
+    },
+    {
       file: 'apps/control-plane/src/observer/file-observer.ts',
       args: '{ err: error, execution_id: event.execution_id }, "" ,',
       why: "an id and the error, which the logger's serializer reduces to its type and where it happened",

@@ -345,8 +345,12 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 14);
+    assert.equal(policies.size, 17);
     assert.equal(policies.get('execution.answer_question'), 'low_consequence');
+    // The host's own check and its serving of the checked copy change no project file (ADR 0037).
+    assert.equal(policies.get('project.check'), 'low_consequence');
+    assert.equal(policies.get('project.preview.start'), 'low_consequence');
+    assert.equal(policies.get('project.preview.stop'), 'low_consequence');
     assert.equal(policies.get('project.set_location'), 'low_consequence');
     assert.equal(policies.get('project.restore'), 'review_required');
     assert.equal(policies.get('execution.respond_to_approval'), 'review_required');

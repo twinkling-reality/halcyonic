@@ -1,5 +1,5 @@
 import { chmod, mkdir } from 'node:fs/promises';
-import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
+import { homedir, type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { NetworkListener } from '@halcyonic/contracts';
@@ -140,6 +140,23 @@ async function main(): Promise<void> {
       trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
       installedDir: join(config.dataDir, 'starters'),
     }),
+    // Checks and previews of starter projects (ADR 0037): Seatbelt, so macOS only.
+    ...(process.platform === 'darwin'
+      ? {
+          previews: {
+            dataDir: config.dataDir,
+            home: homedir(),
+            node: process.execPath,
+            chrome: config.checkChrome,
+            starters: {
+              trackedDir: fileURLToPath(new URL('../../../starters', import.meta.url)),
+              installedDir: join(config.dataDir, 'starters'),
+            },
+            // Codex confines a starter project's agent here (ADR 0041), when Codex is set up.
+            confinesCodex: config.codexBinary !== null,
+          },
+        }
+      : {}),
     secrets: heldSecrets(
       config,
       { environment: process.env, dataDir: config.dataDir },

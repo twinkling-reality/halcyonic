@@ -8,6 +8,7 @@ export * from './evaluation.ts';
 export * from './events.ts';
 export * from './file-changes.ts';
 export * from './locations.ts';
+export * from './previews.ts';
 export * from './primitives.ts';
 export * from './questions.ts';
 export * from './realtime.ts';
