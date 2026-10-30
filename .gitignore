@@ -65,6 +65,12 @@ coverage/
 /apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/*
 !/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/Rajdhani-OFL.txt
 !/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/Rajdhani-OFL.txt.meta
+!/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/Archivo-OFL.txt
+!/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/Archivo-OFL.txt.meta
+!/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/Inter-OFL.txt
+!/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/Inter-OFL.txt.meta
+!/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/JetBrainsMono-OFL.txt
+!/apps/xr/Assets/StreamingAssets/Halcyonic-Licenses/JetBrainsMono-OFL.txt.meta
 /apps/xr/Assets/StreamingAssets.meta
 /apps/xr/Assets/Resources/PerformanceTestRun*.json
 /apps/xr/Assets/Resources/PerformanceTestRun*.json.meta
