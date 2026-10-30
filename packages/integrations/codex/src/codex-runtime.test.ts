@@ -629,7 +629,8 @@ describe('Codex runtime against a stand-in binary', () => {
         'runtime.turn.completed',
       ],
     );
-    assert.deepEqual(observations[0]?.payload, { native_id });
+    // An open server: the start records, as observed, that the execution is not confined (S2).
+    assert.deepEqual(observations[0]?.payload, { native_id, confined: false });
     // The model the thread got, as Codex reported it in its answer to thread/start.
     assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
     assertValidObservations(observations);
@@ -1747,10 +1748,13 @@ describe('a confined project (ADR 0041)', () => {
   test("runs on a server of its own inside Halcyonic's sandbox, every turn without Codex's own", {
     skip: process.platform !== 'darwin',
   }, async (t) => {
-    const { runtime, received, recordFile, start, directory } = fake(t, [], {
+    const { runtime, received, recordFile, start, directory, observations } = fake(t, [], {
       ...confinedTo(t, (folder) => ({ project: folder, readable: [] })),
     });
     await start();
+    // Its start says, as observed, that it runs confined (S2).
+    const started = observations.find((entry) => entry.type === 'runtime.execution.started');
+    assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, true);
     await runtime
       .sendInstruction({ execution: TEST_EXECUTION, text: 'More.' })
       .catch(() => undefined);
@@ -1770,9 +1774,14 @@ describe('a confined project (ADR 0041)', () => {
   });
 
   test("runs any other project on the open server, with Codex's own sandbox", async (t) => {
-    const { received, recordFile, start } = fake(t, [], { ...confinedTo(t, () => null) });
+    const { received, recordFile, start, observations } = fake(t, [], {
+      ...confinedTo(t, () => null),
+    });
     await start();
     assert.ok(existsSync(recordFile));
+    // Its start says it does not (S2).
+    const started = observations.find((entry) => entry.type === 'runtime.execution.started');
+    assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, false);
     for (const params of turnStarts(received)) assert.equal(params.sandboxPolicy, undefined);
   });
 

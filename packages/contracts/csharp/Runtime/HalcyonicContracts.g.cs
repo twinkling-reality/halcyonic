@@ -2564,6 +2564,9 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("native_id", Required = Required.AllowNull)]
         public string? NativeId { get; set; }
+
+        [JsonProperty("confined", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Confined { get; set; }
     }
 
     public sealed class RuntimeTurnStartedPayload

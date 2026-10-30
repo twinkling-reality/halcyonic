@@ -4180,6 +4180,9 @@
                       "type": "null"
                     }
                   ]
+                },
+                "confined": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false

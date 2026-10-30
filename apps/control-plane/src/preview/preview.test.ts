@@ -176,6 +176,123 @@ function plane(t: TestContext, { result = PASSED, serve = serving, hold }: Plane
 }
 
 describe("the host's checks and previews (ADR 0037)", () => {
+  test("reads_confined holds only while every execution's start recorded that it ran confined (S2)", async (t) => {
+    const { controlPlane, submit, done, projectId } = plane(t);
+    const now = '2026-10-29T10:01:00.000Z' as never;
+    const workstreamId = '01a19000-0000-7000-8000-0000000000a1' as never;
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.created',
+        { project_id: projectId, workstream_id: workstreamId, execution_id: null },
+        { title: 'Make it', objective: null },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    let n = 0;
+    /** A finished Codex execution whose start recorded `confined` as given, or nothing, as before S2. */
+    const execution = (confined: boolean | undefined) => {
+      n += 1;
+      const executionId = `01a19000-0000-7000-8000-0000000000e${n}` as never;
+      const scope = {
+        project_id: projectId,
+        workstream_id: workstreamId,
+        execution_id: executionId,
+      };
+      controlPlane.recorder.record(
+        controlPlaneDraft(
+          'execution.created',
+          scope,
+          {
+            runtime: {
+              runtime_id: 'codex',
+              kind: 'codex',
+              display_name: 'Codex',
+              synthetic: false,
+            },
+            instruction: 'Make it.',
+            directory: '/Users/someone/dev/garden',
+          } as never,
+          now,
+          NO_CAUSE,
+        ),
+      );
+      const runtimeEvent = (eventType: string, payload: unknown, sequence: number) =>
+        controlPlane.recorder.record({
+          ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+          event_type: eventType,
+          source: { kind: 'runtime', runtime_id: 'codex' },
+          source_native_id: `t${n}:${sequence}`,
+          sequence,
+          payload,
+        } as never);
+      runtimeEvent(
+        'runtime.execution.started',
+        confined === undefined ? { native_id: `t${n}` } : { native_id: `t${n}`, confined },
+        1,
+      );
+      runtimeEvent('runtime.turn.started', { turn_id: `u${n}` }, 2);
+      runtimeEvent('runtime.turn.completed', { turn_id: `u${n}` }, 3);
+    };
+    const readsConfined = async () => {
+      const { command } = submit('project.check');
+      const finished = await done(command.command_id);
+      assert.equal(finished?.status, 'completed', JSON.stringify(finished));
+      return controlPlane.projection.latestCheck(projectId)?.findings.reads_confined;
+    };
+    execution(true);
+    assert.equal(await readsConfined(), true);
+    // An execution recorded before the fact existed reads not confined, and so the project does.
+    execution(undefined);
+    assert.equal(await readsConfined(), false);
+  });
+
+  test('a project whose Codex execution ran on the open server does not read confined (S2)', async (t) => {
+    const { controlPlane, submit, done, projectId } = plane(t);
+    const now = '2026-10-29T10:01:00.000Z' as never;
+    const workstreamId = '01a19000-0000-7000-8000-0000000000a2' as never;
+    const executionId = '01a19000-0000-7000-8000-0000000000f1' as never;
+    const scope = { project_id: projectId, workstream_id: workstreamId, execution_id: executionId };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.created',
+        { ...scope, execution_id: null },
+        { title: 'Make it', objective: null },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        scope,
+        {
+          runtime: { runtime_id: 'codex', kind: 'codex', display_name: 'Codex', synthetic: false },
+          instruction: 'Make it.',
+          directory: '/Users/someone/dev/garden',
+        } as never,
+        now,
+        NO_CAUSE,
+      ),
+    );
+    for (const [sequence, eventType, payload] of [
+      [1, 'runtime.execution.started', { native_id: 'open', confined: false }],
+      [2, 'runtime.turn.started', { turn_id: 'u' }],
+      [3, 'runtime.turn.completed', { turn_id: 'u' }],
+    ] as const)
+      controlPlane.recorder.record({
+        ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+        event_type: eventType,
+        source: { kind: 'runtime', runtime_id: 'codex' },
+        source_native_id: `open:${sequence}`,
+        sequence,
+        payload,
+      } as never);
+    const { command } = submit('project.check');
+    await done(command.command_id);
+    assert.equal(controlPlane.projection.latestCheck(projectId)?.findings.reads_confined, false);
+  });
+
   test('a check records what was found, with reads_confined, and completes with the outcome', async (t) => {
     const { controlPlane, submit, done, types, checked, projectId, dataDir } = plane(t);
     const { command } = submit('project.check');

@@ -697,6 +697,46 @@ describe('a VR version and the original it was made from (M1.8c-1)', () => {
   });
 });
 
+describe('whether an execution ran confined, as its start recorded it (S2)', () => {
+  test('confined only when the start says so; a start without the fact, or no start, reads not confined', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Garden VR', {
+      path: '/work/garden-vr',
+      name: 'garden-vr',
+      created: true,
+    });
+    const workstream = b.workstream(project.projectId);
+    projection.apply(project.event);
+    projection.apply(workstream.event);
+    const started = (confined: boolean | undefined) => {
+      const execution = b.execution(project.projectId, workstream.workstreamId);
+      projection.apply(execution.event);
+      const scope = {
+        projectId: project.projectId,
+        workstreamId: workstream.workstreamId,
+        executionId: execution.executionId,
+      };
+      projection.apply(
+        b.runtimeEvent(
+          scope,
+          'runtime.execution.started',
+          confined === undefined ? { native_id: 't' } : { native_id: 't', confined },
+        ),
+      );
+      return execution.executionId;
+    };
+    assert.equal(projection.executionConfined(started(true)), true);
+    assert.equal(projection.executionConfined(started(false)), false);
+    // Recorded before the fact existed.
+    assert.equal(projection.executionConfined(started(undefined)), false);
+    const never = b.execution(project.projectId, workstream.workstreamId);
+    projection.apply(never.event);
+    assert.equal(projection.executionConfined(never.executionId), false);
+    assert.equal(projection.executionConfined(b.id()), false);
+  });
+});
+
 describe('catalog links (ADR 0039)', () => {
   const first = { source: 'phat-porcupine' as const, repository_id: 7, full_name: 'acme/app' };
   const second = { source: 'phat-porcupine' as const, repository_id: 8, full_name: 'acme/app-api' };

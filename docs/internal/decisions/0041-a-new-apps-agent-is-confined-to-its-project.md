@@ -121,3 +121,11 @@ original's own files are readable whatever they hold, including anything an earl
 not have been confined, copied or linked into it. Tested on this Mac with the real profile on marker files
 (`sandbox-profile.test.ts`).
 
+## Amendment, 2026-10-30: confinement recorded per execution (S2)
+
+Whether an execution ran confined is recorded when it starts, as observed by the adapter that chose its server: the
+Codex adapter sets `confined` on `runtime.execution.started`, true only when it started the execution on the project's
+confined server. A check's `reads_confined` is true only when every execution in the project has such a record saying
+true. It is no longer inferred from the host's settings and the runtime's kind, so an execution recorded before this
+change, or one on the open server, makes it false; a project made before it reads not confined.
+

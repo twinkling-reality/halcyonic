@@ -31,6 +31,11 @@ export interface ExecutionState {
   readonly directory: string | null;
   readonly createdAt: Timestamp;
   nativeId: string | null;
+  /**
+   * Whether its start recorded that it ran inside the host's confinement of the project (S2); false
+   * when the start said not, said nothing, or has not come.
+   */
+  confined: boolean;
   /** The model the runtime last reported using, as its model list names it. */
   modelRef: string | null;
   /** True once the runtime has reported any activity, meaning a native session exists. */
@@ -65,6 +70,7 @@ export function createExecutionState(init: {
   return {
     ...init,
     nativeId: null,
+    confined: false,
     modelRef: null,
     runtimeStarted: false,
     startedAt: null,

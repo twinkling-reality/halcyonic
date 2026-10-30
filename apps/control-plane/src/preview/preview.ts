@@ -364,13 +364,17 @@ export class HostPreviews {
     };
   }
 
-  /** True only when this host confines Codex and every execution in the project ran on Codex. */
+  /**
+   * True only when this host confines Codex and every execution in the project recorded, at its
+   * start, that it ran confined (S2): observed per execution, never inferred from the runtime.
+   */
   #readsConfined(projectId: ProjectId): boolean {
     if (!this.#deps.confinesCodex) return false;
-    return this.#deps.projection
+    const projection = this.#deps.projection;
+    return projection
       .executions()
       .filter((execution) => execution.project_id === projectId)
-      .every((execution) => execution.runtime.kind === 'codex');
+      .every((execution) => projection.executionConfined(execution.execution_id));
   }
 
   /** Takes a port of the range no check or preview of this host holds; synchronous, so never shared. */
