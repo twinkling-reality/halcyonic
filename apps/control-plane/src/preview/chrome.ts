@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import { chromeProfile, SANDBOX_EXEC } from './profiles.ts';
 
+/** The longest message the check reads from Chrome; its 1280 by 800 pictures are a few megabytes. */
+export const MAX_MESSAGE_CHARS = 16 * 1024 * 1024;
+
 type Message = {
   id?: number;
   method?: string;
@@ -14,37 +17,81 @@ type Message = {
 /**
  * The DevTools protocol over Chrome's `--remote-debugging-pipe`: JSON messages, each ended by a NUL
  * byte, written to Chrome's fd 3 and read from its fd 4. Nothing listens on a port, so no other
- * process on the Mac can drive this Chrome (AUDIT M18A-S1).
+ * process on the Mac can drive this Chrome (AUDIT M18A-S1). A message longer than `maxMessage`
+ * characters, which a page can cause (a huge console argument), ends the pipe: every command waiting
+ * and every later one fails, and the overflow listeners run (AUDIT M18B-M2).
  */
 export class DevToolsPipe {
   #next = 1;
-  #buffer = '';
+  /** The message being received, in pieces, and its length so far. */
+  #parts: string[] = [];
+  #pending = 0;
+  #overflowed = false;
+  readonly #maxMessage: number;
   readonly #waiting = new Map<number, (message: Message) => void>();
   readonly #listeners = new Set<(message: Message) => void>();
+  readonly #overflowListeners = new Set<() => void>();
   readonly #input: Writable;
 
-  constructor(input: Writable, output: Readable) {
+  constructor(input: Writable, output: Readable, maxMessage = MAX_MESSAGE_CHARS) {
     this.#input = input;
+    this.#maxMessage = maxMessage;
     output.setEncoding('utf8');
     output.on('data', (chunk: string) => {
-      this.#buffer += chunk;
-      for (let end = this.#buffer.indexOf('\0'); end !== -1; end = this.#buffer.indexOf('\0')) {
-        const text = this.#buffer.slice(0, end);
-        this.#buffer = this.#buffer.slice(end + 1);
-        let message: Message;
-        try {
-          message = JSON.parse(text) as Message;
-        } catch {
-          continue;
-        }
-        if (typeof message.id === 'number' && this.#waiting.has(message.id)) {
-          this.#waiting.get(message.id)?.(message);
-          this.#waiting.delete(message.id);
-        } else {
-          for (const listener of this.#listeners) listener(message);
-        }
+      if (this.#overflowed) return;
+      let start = 0;
+      for (let end = chunk.indexOf('\0'); end !== -1; end = chunk.indexOf('\0', start)) {
+        const piece = chunk.slice(start, end);
+        if (this.#pending + piece.length > this.#maxMessage) return this.#overflow();
+        const text = this.#parts.join('') + piece;
+        this.#parts = [];
+        this.#pending = 0;
+        start = end + 1;
+        this.#deliver(text);
+      }
+      const rest = chunk.slice(start);
+      if (this.#pending + rest.length > this.#maxMessage) return this.#overflow();
+      if (rest !== '') {
+        this.#parts.push(rest);
+        this.#pending += rest.length;
       }
     });
+  }
+
+  /** Whether Chrome sent a message longer than the pipe reads, which ended it. */
+  get overflowed(): boolean {
+    return this.#overflowed;
+  }
+
+  /** Calls the listener once if the pipe ends on a message too long to read. */
+  onOverflow(listener: () => void): void {
+    this.#overflowListeners.add(listener);
+  }
+
+  #deliver(text: string) {
+    let message: Message;
+    try {
+      message = JSON.parse(text) as Message;
+    } catch {
+      return;
+    }
+    if (typeof message.id === 'number' && this.#waiting.has(message.id)) {
+      this.#waiting.get(message.id)?.(message);
+      this.#waiting.delete(message.id);
+    } else {
+      for (const listener of this.#listeners) listener(message);
+    }
+  }
+
+  #overflow() {
+    this.#overflowed = true;
+    this.#parts = [];
+    this.#pending = 0;
+    const tooLong = { error: { message: 'Chrome sent more than the check reads' } };
+    for (const answer of this.#waiting.values()) answer(tooLong);
+    this.#waiting.clear();
+    for (const listener of this.#overflowListeners) listener();
+    this.#overflowListeners.clear();
   }
 
   /** Sends one command and waits for its answer; an answer with an error rejects. */
@@ -55,6 +102,8 @@ export class DevToolsPipe {
     timeoutMs = 20_000,
   ) {
     const id = this.#next++;
+    if (this.#overflowed)
+      return Promise.reject(new Error(`${method}: Chrome sent more than the check reads`));
     return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.#waiting.delete(id);
@@ -158,6 +207,8 @@ export async function launchChrome(options: {
   if (pid === undefined) throw new Error('Chrome did not start');
   try {
     const devtools = new DevToolsPipe(child.stdio[3] as Writable, child.stdio[4] as Readable);
+    // A page that makes Chrome send more than the check reads ends the run.
+    devtools.onOverflow(() => void stop());
     const timeoutMs = options.timeoutMs ?? 30_000;
     const { targetInfos } = (await devtools.send(
       'Target.getTargets',

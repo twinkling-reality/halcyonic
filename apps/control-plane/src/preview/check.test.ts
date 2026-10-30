@@ -142,4 +142,34 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.match(result.page?.exceptions[0] ?? '', /marker-3c9a/);
     assert.equal(result.passed, false);
   });
+
+  test('a page that fakes getImageData, Image and Math.abs cannot make itself drawn: the host counts the edges (AUDIT M18B-M1)', {
+    timeout: 180_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        '',
+        'CanvasRenderingContext2D.prototype.getImageData = function (_x: number, _y: number, w: number, h: number) { const d = new Uint8ClampedArray(w * h * 4); for (let i = 0; i < d.length; i += 1) d[i] = (i * 97) % 256; return new ImageData(d, w, h); }; Math.abs = () => 255; HTMLImageElement.prototype.decode = () => Promise.resolve(); Object.defineProperty(HTMLImageElement.prototype, "width", { get: () => 1280 }); Object.defineProperty(HTMLImageElement.prototype, "height", { get: () => 800 });',
+      ),
+    );
+    assert.equal(result.page?.exception_count, 0);
+    assert.equal(result.page?.drawn, false, JSON.stringify(result.page?.edges));
+    assert.equal(result.passed, false);
+  });
+
+  test('a page that makes Chrome send more than the check reads ends the run, unknown and not passed (AUDIT M18B-M2)', {
+    timeout: 180_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        "import { BoxGeometry, Mesh, MeshStandardMaterial } from 'three';",
+        "world.createTransformEntity(new Mesh(new BoxGeometry(0.6, 0.6, 0.6), new MeshStandardMaterial({ color: 0xff8800 })).translateX(-2).translateY(1.3).translateZ(-3.9)); setTimeout(() => console.log('x'.repeat(20_000_000)), 1000);",
+      ),
+    );
+    assert.equal(result.page, null);
+    assert.match(result.unknown ?? '', /more than the check reads/);
+    assert.equal(result.passed, false);
+  });
 });
