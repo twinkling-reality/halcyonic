@@ -186,6 +186,26 @@ describe("a confined Codex server's Seatbelt profile (ADR 0041)", () => {
     }
   });
 
+  test('refuses a scope whose own folder is or holds a hidden one, so the re-allow can never reopen it (AUDIT M18C1-A-S1)', () => {
+    const { root, scope, cleanup } = scene();
+    try {
+      const data = join(root, 'data');
+      // The project, or a tool folder, at or above the data folder: refused, whatever the original.
+      for (const wrong of [
+        { ...scope, hidden: [data], project: data },
+        { ...scope, hidden: [data], toolFolders: [root] },
+        { ...scope, hidden: [scope.codexHome] },
+        { ...scope, originals: [], hidden: [scope.readable[0] as string] },
+      ]) {
+        assert.throws(() => confinedProfile(wrong), /hidden/);
+      }
+      // Its own folders inside the hidden one are allowed again, as they must be.
+      assert.doesNotThrow(() => confinedProfile({ ...scope, hidden: [data] }));
+    } finally {
+      cleanup();
+    }
+  });
+
   test("refuses an original's folder whose name its rules cannot quote, rather than leave it open", () => {
     assert.throws(() => secretsUnder('/Users/someone/dev/say "hi"'), /cannot name/);
     assert.throws(() => secretsUnder('/Users/someone/dev/two\nlines'), /cannot name/);
