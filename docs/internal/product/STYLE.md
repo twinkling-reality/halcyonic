@@ -116,6 +116,17 @@ narrower, rising 36 dp above the card, rim 8; their count stands at the eyebrow'
 card, Label read under the 14 dp floor). No locked answer stands in the card's
 top 40 percent, where the bloom peaks. The render names any part that does not read whole.
 
+**Sound.** The room's ten cues are one key, A major pentatonic (`KitSounds` in the client core makes their samples from
+the art direction's notes, onsets, durations and levels; no audio assets; `KitSoundPlayer` plays them): Tick (a tile
+pointed at, a 3.2 kHz noise tap), Press (every answer and tile on release, a 2.4 kHz tap then an A6 bell), Moment (E6, A6),
+Question (C#6, E6, A6), Sent (A6, E6), Open and Fold (a noise sweep up or down), Passed (the one hero: A5, C#6, E6, A6 60 ms
+apart, bright, with air above them), Failed (a low-passed triangle E5 then B4) and Lost (A3 gliding to E3). A bell is a
+sine with a partial at 3.01 times its frequency (12 percent, 22 for the hero), a 6 ms attack and an exponential decay.
+Levels run from -38 to -18 dB relative to full scale; the master is set by ear on the headset. Each cue sounds from its
+element on a fully spatial source that never loops, only while the app has the person's attention, and never carries a
+state alone. Where the room shows a card its cues sound at the card and the stage's sound stays silent for those same
+events; until the room is wired into the menu, the room sounds only its answers' presses.
+
 **Motion.** Only on events; Keep things still lands each change as a 120 ms fade, with nothing moving and nothing looping.
 A moment arrives in about 700 ms (`KitMomentTimeline` in the client core, read by time alone; `KitMomentChoreography`
 plays it): at 60 ms a 2 dp light line rises from the character's head to the card's lower corner in 120 ms (decelerate),

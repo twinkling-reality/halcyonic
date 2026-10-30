@@ -36,6 +36,17 @@ namespace Halcyonic.XR.UI
         /// <summary>The light line, for checks.</summary>
         public Surface Line => line;
 
+        /// <summary>
+        /// The player the arrival's cue plays through, where the owner gives one; silent without (the lead's call, 2026-10-30:
+        /// the room's cues sound at the card once the room is wired into MenuPlane, and the stage stays silent for that event).
+        /// </summary>
+        public KitSoundPlayer? Sound { get; set; }
+
+        /// <summary>The cue the arrival plays at 300 ms: a question's, a pass's or a failure's; none for any other moment.</summary>
+        public KitSound? Cue { get; private set; }
+
+        private bool sounded;
+
         public static KitMomentChoreography For(KitMomentCard card)
         {
             var choreography = card.GetComponent<KitMomentChoreography>();
@@ -60,6 +71,9 @@ namespace Halcyonic.XR.UI
             still = keepStill;
             retiring = false;
             card.Pop(1f);
+            sounded = false;
+            var tone = card.Carrier.Glass?.Tone;
+            Cue = tone == null ? (KitSound?)null : tone.Value.Equals(SpatialKit.Attention) ? KitSound.Question : tone.Value.Equals(SpatialKit.Passed) ? KitSound.Passed : KitSound.Failed;
             bodyAt = card.Body.localPosition;
             parts = card.Parts;
             placed.Clear();
@@ -113,6 +127,13 @@ namespace Halcyonic.XR.UI
                     Fade(part, (float)(opacity * frame.CardOpacity));
                 }
             }
+            // Its sound from its place, once, as its parts begin to rise (at once under Keep Still: sound is no motion).
+            if (!retiring && !sounded && Cue is KitSound cue && (still || ms >= KitMomentTimeline.PartsAtMs))
+            {
+                sounded = true;
+                Sound?.Play(cue, card.Carrier.transform.position);
+            }
+
             // A pass's check draws itself as the card settles.
             if (card.Tone.gameObject.activeSelf && colours.TryGetValue(card.Tone, out var check))
                 card.Tone.color = new Color(check.r, check.g, check.b, check.a * (float)(retiring ? frame.CardOpacity : KitMomentTimeline.CheckDrawn(ms, still) * frame.CardOpacity));

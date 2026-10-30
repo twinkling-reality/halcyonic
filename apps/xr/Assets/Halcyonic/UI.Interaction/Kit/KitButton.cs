@@ -110,7 +110,12 @@ namespace Halcyonic.XR.UI
             button.words.textWrappingMode = TextWrappingModes.NoWrap;
             button.icon = GlazeIcons.Create(go.transform, "Icon", SpatialKit.IconDegrees, KitType.Text, order + 2);
             button.press = KitPress.Create(go, new Vector2(Height, Height));
-            button.press.Pressed += () => button.Pressed?.Invoke();
+            button.press.Pressed += () =>
+            {
+                // An answer's release sounds Press from the answer (the art direction's sound); the stage does not hear kit presses.
+                if (button.Capsule) KitSoundPlayer.TryPlay(KitSound.Press, button.transform.position);
+                button.Pressed?.Invoke();
+            };
             go.SetActive(false);
             return button;
         }
