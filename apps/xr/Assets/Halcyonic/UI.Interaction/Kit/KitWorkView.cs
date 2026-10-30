@@ -427,7 +427,7 @@ namespace Halcyonic.XR.UI
             var y = asksHeight + KitType.Scaled(0.5f);
             if (ask != null)
             {
-                // The agent's question, its own words, leaning as outside text does.
+                // The agent's question, its own words, held as outside text.
                 KitType.Size(question, KitRole.Body, SpatialKit.ReadingLeading);
                 GlazeRuns.Of(question).Set(LineWords.Theirs(ask.Question));
                 var (_, _, questionHeight) = KitType.Lay(question, inner, 8);

@@ -137,7 +137,8 @@ namespace Halcyonic.XR.UI
         private void LeanTheirs(TMP_TextInfo info)
         {
             if (theirs.Count == 0) return;
-            if (!identity && !prose) GlazeText.Lean(info, theirs);
+            // The room's faces carry no slant (ART's quiet glass, 2026-10-30): outside text there is told by its place and the mono face.
+            if (!identity && !prose && !KitType.IsRoomFace(label.font)) GlazeText.Lean(info, theirs);
             if (!(grounded is Color32 colour)) return;
             for (var index = 0; index < info.characterCount; index++)
             {

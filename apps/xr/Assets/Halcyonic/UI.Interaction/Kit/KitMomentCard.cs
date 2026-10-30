@@ -81,27 +81,27 @@ namespace Halcyonic.XR.UI
             card.body.SetParent(go.transform, false);
             card.stack = Surface.Create(card.body, "Earlier moments", KitType.Order.Carrier);
             card.carrier = KitCarrier.Create(card.body, "Carrier");
-            card.chip = KitChip.Create(card.body, "Source chip");
+            card.chip = KitChip.Create(card.body, "Source chip", room: true);
             card.tone = GlazeIcons.Create(card.body, "Tone", SpatialKit.IconDegrees, KitType.Text, KitType.Order.Words);
-            card.count = KitType.Create(card.body, "Earlier and newer", KitRole.Label, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Right);
+            card.count = KitType.Create(card.body, "Earlier and newer", KitRole.Label, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Right, room: true);
             card.count.rectTransform.pivot = new Vector2(1f, 0.5f);
             card.count.textWrappingMode = TextWrappingModes.NoWrap;
-            card.headline = KitType.Create(card.body, "Subject", KitRole.Heading, KitType.Text, KitType.Order.Words);
-            card.fact = KitType.Create(card.body, "Fact", KitRole.Label, KitType.Secondary, KitType.Order.Words);
+            card.headline = KitType.Create(card.body, "Subject", KitRole.Heading, KitType.Text, KitType.Order.Words, room: true);
+            card.fact = KitType.Create(card.body, "Fact", KitRole.Label, KitType.Secondary, KitType.Order.Words, room: true);
             return card;
         }
 
         private KitButton ButtonFor(KitMomentAction action)
         {
             if (!buttons.TryGetValue(action, out var button))
-                buttons[action] = button = KitButton.Create(body, KitMomentWords.Action(action), KitButtonRole.Secondary);
+                buttons[action] = button = KitButton.Create(body, KitMomentWords.Action(action), KitButtonRole.Secondary, room: true);
             return button;
         }
 
         private TextMeshPro LineAt(int index)
         {
             while (lines.Count <= index)
-                lines.Add(KitType.Create(body, "Line " + lines.Count, KitRole.Body, KitType.Secondary, KitType.Order.Words));
+                lines.Add(KitType.Create(body, "Line " + lines.Count, KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true));
             return lines[index];
         }
 
@@ -181,7 +181,7 @@ namespace Halcyonic.XR.UI
             }
             y -= chipSize.y * (countBelow ? 2f : 1f) + gap;
 
-            // The subject, theirs leaning where it is theirs.
+            // The subject, outside text in its run where it is theirs.
             KitType.Size(headline, KitRole.Heading);
             GlazeRuns.Of(headline).Set(moment.Headline);
             var (_, _, headHeight) = KitType.Lay(headline, inner, HeadlineLines);

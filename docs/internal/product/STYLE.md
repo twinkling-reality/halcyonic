@@ -34,36 +34,47 @@ below are the accepted storyboard's; the client core will hold them (`SpatialKit
 | Heads-up items | Low at the sides, about 31 below eye level and 31 to either side, on a leash | At most two, 2.8 high |
 | Compact | Beside the other app, on the existing route | About 20 by 10 |
 
-**Colour.** Opaque carriers only; words never sit on the room. Contrast is measured as a WCAG ratio.
+**Colour.** Opaque carriers only; words never sit on the room. Contrast is measured as a WCAG ratio. The ramp is the
+art direction's ("Quiet glass, living light", the owner's yes on 2026-10-30): eight neutral steps on one cool hue.
 
 | Step | Value | For |
 | --- | --- | --- |
-| n0 | #1B1E24 | A well, code, the screen's edge |
-| n1 | #1F242C | Every carrier with words |
-| n2 | #272D37 | Raised: a chip, the stacked edge |
-| n3 | #363E4B | A button; hover |
-| n4 | #4A5361 | A hairline; the dotted gutter |
-| n5 | #A4AEBB | Tertiary words: a time, a count |
-| n6 | #B7C0CC | Secondary words |
-| n7 | #EEF1F5 | Primary words |
-| Accent | #5BC4EE, its words #0A1B24 | The one primary action; live work |
-| Amber | #F2B54E | Needs you: a question, an approval |
-| Red | #F98F88 | Failed |
-| Green | #62CF8F | Passed; added lines from a checkpoint diff, on the band #1B3324 |
+| n0 | #1B1E22 | A well (a command, code), the empty screen; the primary capsule's word |
+| n1 | #21252A | Every face with words, lit from above: #262A30 at its top, #1E2226 at its foot |
+| n2 | #2B2F35 | Raised: a chip, the stacked edge, a poster's centre |
+| n3 | #363B41 | A button's pressed fill. The kit's step: the art direction's #3A3F45 leaves tertiary words at 4.29 and red at 4.35 on it, so the kit takes OKLCH 0.35. #3A3F45 raises the switch's thumb, which carries only primary and secondary words |
+| n4 | #6D7279 | A locked answer's ring, a hairline, the dotted gutter |
+| n5 | #A0A5AC | Tertiary words: a time, a count, Reported |
+| n6 | #BABEC4 | Secondary words; every answer word at rest |
+| n7 | #DADDE0 | Primary words; the primary capsule's fill |
+| Live | #59CFF1, its words #0A1B24 | An agent running; the one accent |
+| Needs | #FABA59 | Needs you: a question, an approval |
+| Failed | #F7857D | Failed, failing checks included |
+| Passed | #69D98D | Passed, checked by your computer; added lines from a checkpoint diff, on the band #1B3324 |
 
-Measured on n1: n7 13.8, n6 8.5, n5 6.9, the accent 7.9, amber 8.5, red 6.9, green 8.0; every word at least 4.8 on n3;
-the accent's words on it 8.8; n1 against a bright wall 11.7. No step is darker than #1A1A1A, the darkest the display
-separates. No hue per kind of step, no coloured edge on a card, every state a glyph and words as well as a tone.
+Measured on n1: n7 11.3, n6 8.3, n5 6.2, live 8.5, needs 9.0, failed 6.3, passed 8.7; every word at least 4.56 on n3
+and 5.8 across the face's light; n0 on n7 12.3; live's words on it 9.7; n4 on n1 3.18 (a boundary, WCAG's 3:1 for
+non-text); the thumb against its n0 track 1.57; n1 against a bright wall 11.6. No step is darker than #1A1A1A, the
+darkest the display separates. State colour only on the character's own light and the moment that carries it; every
+state a glyph and words as well as a tone.
 
-**Type.** Liberation Sans until the owner chooses a face; Larger multiplies by 1.15 and reflows, nothing zooms.
+**Type.** Six static cuts, all SIL OFL 1.1 (`NOTICE`, [the fonts note](../validation/fonts-2026-10-30.md)), built by
+`KitFontAtlas` into static atlases with Liberation Sans as their fallback. `KitType` gives each role its face and
+tracking on the room's parts only: a label made with `room` (the screen, its bar, a moment card, and the reader, gallery
+and tag as they land) takes its face and keeps it as it is sized again. The instrument candidate (the workspace's spine,
+slate and rail, the overview, the presence) keeps Rajdhani Medium and Liberation Sans until the room replaces it, as the
+old menus do: in Inter the slate's report runs 11 lines at the larger size where the slate holds 8. No italics: outside text stands upright in the room's faces, told by its place and the mono face, and keeps
+its run, so who said it is still known to every check. Larger multiplies by 1.15 and reflows, nothing zooms.
 
-| Role | dp | Degrees | For |
-| --- | --- | --- | --- |
-| Identity | 30 | 1.875 | A project or a place, once |
-| Heading | 22 | 1.375 | A moment's subject |
-| Body | 18 | 1.125 | Everything read, and buttons |
-| Label | 15 | 0.9375 | A fact beside a subject |
-| Mono | 16 | 1.0 | Code, paths and commands, which are theirs; in the reading face until a monospace face is chosen |
+| Role | Face | dp | Degrees | Tracking | For |
+| --- | --- | --- | --- | --- | --- |
+| Display | Archivo Expanded Regular | 48 | 3.0 | -1% | A project's name on its empty screen; a tile's initials at 34 |
+| Title | Archivo Expanded SemiBold | 28 | 1.75 | -0.5% | A moment's and the reader's title, Projects, the lost plate |
+| Identity, Heading | Archivo Expanded SemiBold | 30, 22 | 1.875, 1.375 | -0.5% | The screen's mark and title and a moment's subject, until they move to Title |
+| Body | Inter Regular | 18 | 1.125 | 0 | Everything read; answer words |
+| Strong | Inter SemiBold | 18 | 1.125 | 0 | Names; the primary capsule's word |
+| Label | Inter Medium | 15 | 0.9375 | +0.5% | Metadata lines, eyebrows, tile lines |
+| Mono | JetBrains Mono Regular | 16 | 1.0 | 0 | Commands, paths and output, which are theirs |
 
 **Motion.** Only on events; Keep things still lands each state at once.
 

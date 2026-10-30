@@ -10,7 +10,7 @@ namespace Halcyonic.XR.UI
     /// A chip of the spatial kit: a small raised pill holding one thing a line is about, an icon of Halcyonic's
     /// before it. As evidence it holds what was recorded, a file's path, a command or a test run's summary, as
     /// written; as provenance it holds Halcyonic's own words for where a claim comes from, such as Agent says.
-    /// The chip is the ground under outside text, which leans by the shared rule (<see cref="GlazeRuns"/>), stays
+    /// The chip is the ground under outside text, which keeps its run by the shared rule (<see cref="GlazeRuns"/>), upright in the room's faces, stays
     /// literal, wraps to at most <c>maxLines</c> and is cut inside itself, never Halcyonic's words. A chip
     /// takes no press. Centred on its transform.
     /// </summary>
@@ -33,14 +33,14 @@ namespace Halcyonic.XR.UI
         /// <summary>Where outside text stands in the chip's words as shown.</summary>
         public IReadOnlyList<(int Start, int End)> Theirs => theirs;
 
-        public static KitChip Create(Transform parent, string name, int order = KitType.Order.Chip)
+        public static KitChip Create(Transform parent, string name, int order = KitType.Order.Chip, bool room = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var chip = go.AddComponent<KitChip>();
             chip.plate = Surface.Create(go.transform, "Chip", order);
             chip.icon = GlazeIcons.Create(go.transform, "Icon", SpatialKit.IconDegrees, KitType.Secondary, order + 2);
-            chip.words = KitType.Create(go.transform, "Words", KitRole.Body, KitType.Text, order + 2);
+            chip.words = KitType.Create(go.transform, "Words", KitRole.Body, KitType.Text, order + 2, room: room);
             return chip;
         }
 

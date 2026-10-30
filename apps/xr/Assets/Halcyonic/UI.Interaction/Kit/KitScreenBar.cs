@@ -47,7 +47,7 @@ namespace Halcyonic.XR.UI
         private KitButton ButtonFor(KitScreenAction action)
         {
             if (!buttons.TryGetValue(action, out var button))
-                buttons[action] = button = KitButton.Create(carrier.transform, KitScreenModel.Words(action), KitButtonRole.Quiet);
+                buttons[action] = button = KitButton.Create(carrier.transform, KitScreenModel.Words(action), KitButtonRole.Quiet, room: true);
             return button;
         }
 
