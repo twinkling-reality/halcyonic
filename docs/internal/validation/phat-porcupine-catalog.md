@@ -56,5 +56,7 @@
 ## Not verified
 
 - A live read against a running Phat Porcupine (`PHAT_PORCUPINE_CREDENTIAL_FILE` runs
-  `src/live-phat-porcupine.test.ts`).
-- The control plane's use of the client, the credential file and the folder match (a later unit).
+  `src/live-phat-porcupine.test.ts`), and so the control plane's use of the client, its credential
+  file and the folder match against the person's real catalog and folders. They are tested against
+  the stand-in and temporary folders only (`apps/control-plane/src/intelligence/catalog.test.ts`,
+  `catalog-match.test.ts`, `http/catalog-route.test.ts`).

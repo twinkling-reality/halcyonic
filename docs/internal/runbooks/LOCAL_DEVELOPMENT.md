@@ -477,6 +477,28 @@ Salidium's real-wire tests run against its consumer test daemon from a built Sal
 SALIDIUM_CHECKOUT=/path/to/salidium node --test packages/integrations/salidium/src/live-salidium.test.ts
 ```
 
+## Connect Phat Porcupine
+
+With Phat Porcupine's Node server running on this Mac (the catalog contract v1 is served only there,
+not by a hosted instance), create a consumer credential for Halcyonic in Phat Porcupine's checkout
+and store only the token in the data directory, readable only by you. `consumer:create` prints the
+token and nothing else, and `umask 077` creates the file private from the start; the token never
+appears on screen:
+
+```bash
+(umask 077 && pnpm -s -C /path/to/phat-porcupine consumer:create --label halcyonic > ~/.halcyonic/phat-porcupine-credential)
+```
+
+`GET /api/catalog` then answers with every project of your Phat Porcupine collection, read through
+and never journaled ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)).
+A missing or exposed credential, a stopped Phat Porcupine or one still gathering your projects reads
+as such. `pnpm consumer:revoke halcyonic` in Phat Porcupine's checkout withdraws it at once. The
+live test reads the catalog once and prints only counts:
+
+```bash
+PHAT_PORCUPINE_CREDENTIAL_FILE=~/.halcyonic/phat-porcupine-credential node --test packages/integrations/phat-porcupine/src/live-phat-porcupine.test.ts
+```
+
 ## Connect Seorak
 
 With Seorak running its local plane on 127.0.0.1:4317 (Halcyonic is verified against 0.3.0),

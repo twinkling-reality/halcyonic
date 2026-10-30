@@ -47,6 +47,48 @@ describe("Halcyonic's client of Phat Porcupine's catalog (ADR 0039)", () => {
     );
   });
 
+  test('the proof and the catalog travel on one connection, so the credential goes where the proof came from', async () => {
+    fake.requests.length = 0;
+    await client.catalog();
+    const [discovery, catalog] = fake.requests;
+    assert.ok(discovery?.socket !== undefined && catalog?.socket !== undefined);
+    assert.equal(catalog.socket, discovery.socket);
+    fake.requests.length = 0;
+    await client.catalog();
+    assert.notEqual(fake.requests[0]?.socket, discovery.socket, 'each read opens its own');
+  });
+
+  test('when Phat Porcupine closes the connection its proof came on, the credential is sent on no other', async () => {
+    fake.closeAfterDiscovery = true;
+    try {
+      fake.requests.length = 0;
+      const answer = await client.catalog();
+      assert.equal(code(answer), 'unavailable:connection_closed');
+      assert.deepEqual(
+        fake.requests.map((request) => [request.path, request.authorization !== undefined]),
+        [['/consumer/v1/discovery', false]],
+        'the catalog was never asked for',
+      );
+    } finally {
+      fake.closeAfterDiscovery = false;
+    }
+  });
+
+  test("a credential that can't be used says why, and nothing is asked", async () => {
+    const exposed = new PhatPorcupineClient({
+      home: fake.home,
+      credential: () => ({
+        availability: 'unauthorized',
+        reason: { code: 'credential_file_exposed', message: 'x' },
+      }),
+      timeoutMs: 2000,
+    });
+    fake.requests.length = 0;
+    const answer = await exposed.catalog();
+    assert.equal(code(answer), 'unauthorized:credential_file_exposed');
+    assert.deepEqual(fake.requests, []);
+  });
+
   test('to an impostor it sends no credential at all', async () => {
     for (const impersonate of ['proof', 'instance'] as const) {
       fake.impersonate = impersonate;

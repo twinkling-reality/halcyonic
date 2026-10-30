@@ -18,6 +18,8 @@ export function consumerToken(): string {
 export interface SeenRequest {
   readonly path: string;
   readonly authorization: string | undefined;
+  /** The client's port on the connection that carried it: equal for requests on one socket. */
+  readonly socket: number | undefined;
 }
 
 /**
@@ -39,6 +41,8 @@ export class FakePhatPorcupine {
   refuse: { status: number; body: unknown; headers?: Record<string, string> } | null = null;
   /** Answer discovery as another instance would: with a wrong proof, or another instance's id. */
   impersonate: 'proof' | 'instance' | null = null;
+  /** Close the connection after answering discovery, as a server that keeps none alive would. */
+  closeAfterDiscovery = false;
   /** The ETag of the catalog served; a matching If-None-Match gets 304. */
   etag = '"catalog-1"';
   sample = false;
@@ -97,7 +101,11 @@ export class FakePhatPorcupine {
 
   private handle(request: IncomingMessage, response: ServerResponse): void {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-    this.requests.push({ path: url.pathname, authorization: request.headers.authorization });
+    this.requests.push({
+      path: url.pathname,
+      authorization: request.headers.authorization,
+      socket: request.socket.remotePort,
+    });
     const send = (status: number, body: unknown, headers: Record<string, string> = {}) => {
       response.writeHead(status, { 'content-type': 'application/json', ...headers });
       response.end(body === undefined ? undefined : JSON.stringify(body));
@@ -127,21 +135,25 @@ export class FakePhatPorcupine {
       )
         .update(challenge)
         .digest('base64url');
-      send(200, {
-        instanceId:
-          this.impersonate === 'instance' ? randomBytes(16).toString('hex') : this.instanceId,
-        sample: this.sample,
-        testGitHub: this.testGitHub,
-        contracts: [
-          {
-            name: 'phat-porcupine.catalog',
-            major: 1,
-            minor: 0,
-            baseUrl: `http://127.0.0.1:${this.port}/consumer/v1`,
-          },
-        ],
-        proof,
-      });
+      send(
+        200,
+        {
+          instanceId:
+            this.impersonate === 'instance' ? randomBytes(16).toString('hex') : this.instanceId,
+          sample: this.sample,
+          testGitHub: this.testGitHub,
+          contracts: [
+            {
+              name: 'phat-porcupine.catalog',
+              major: 1,
+              minor: 0,
+              baseUrl: `http://127.0.0.1:${this.port}/consumer/v1`,
+            },
+          ],
+          proof,
+        },
+        this.closeAfterDiscovery ? { connection: 'close' } : {},
+      );
       return;
     }
     if (url.pathname === '/consumer/v1/catalog') {

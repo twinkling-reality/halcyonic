@@ -694,18 +694,20 @@ describe('pnpm mac-setup', () => {
     const machine = mac(t);
     running(machine, { usage: { availability: 'available', limits: [] } });
     // Unreadable even to their owner: opening either would fail.
-    for (const file of ['seorak-credential', 'salidium-credential']) {
+    for (const file of ['seorak-credential', 'salidium-credential', 'phat-porcupine-credential']) {
       writeFileSync(join(machine.dataDir, file), 'not a real credential\n', { mode: 0o000 });
     }
     await machine.run('--with-token');
     assert.equal(status(machine, 'Usage left'), 'Ready');
     assert.equal(status(machine, 'What changed and why'), 'Ready');
-    for (const file of ['seorak-credential', 'salidium-credential']) {
+    assert.equal(status(machine, 'Your other projects'), 'Ready');
+    for (const file of ['seorak-credential', 'salidium-credential', 'phat-porcupine-credential']) {
       chmodSync(join(machine.dataDir, file), 0o644);
     }
     await machine.run('--with-token');
     assert.equal(status(machine, 'Usage left'), 'To do');
     assert.equal(status(machine, 'What changed and why'), 'To do');
+    assert.equal(status(machine, 'Your other projects'), 'To do');
     assert.match(text(machine), /chmod 600/);
   });
 

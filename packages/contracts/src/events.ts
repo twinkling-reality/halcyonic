@@ -223,7 +223,7 @@ export const ProjectLocationSet = projectEvent(
 /**
  * The person linked the project to a repository of their catalog (ADR 0039), replacing `previous`.
  * The link is the person's command, so the event is observed; the repository's `owner/name` in it
- * is as the client sent it, taken from the catalog's answer; checked neither against the catalog nor GitHub, and it may name a private repository or an organisation.
+ * is as the client sent it, taken from the catalog's answer; checked against the catalog this computer last read, never against GitHub, and it may name a private repository or an organisation.
  */
 export const ProjectCatalogLinked = projectEvent(
   'project.catalog_linked',

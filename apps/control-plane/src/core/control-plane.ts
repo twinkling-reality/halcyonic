@@ -9,7 +9,7 @@ import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { FileObserver } from '../observer/file-observer.ts';
 import type { HostStarters } from '../starters.ts';
-import { CommandService } from './command-service.ts';
+import { type CatalogLinks, CommandService } from './command-service.ts';
 import { EventPublisher } from './publisher.ts';
 import { Recorder } from './recorder.ts';
 import { type HeldSecret, type Redaction, redaction } from './redaction.ts';
@@ -37,6 +37,8 @@ export interface ControlPlaneOptions {
   readonly checkpoints?: { readonly store: CheckpointStore; readonly restoreHooks?: RestoreHooks };
   /** The starters a new project can begin from (ADR 0037); none by default. */
   readonly starters?: HostStarters;
+  /** The person's catalog as last read, so a link is checked against it (ADR 0039); none by default. */
+  readonly catalogLinks?: CatalogLinks;
   /**
    * Whether the Mac reads each task's folder and journals what every turn changed (ADR 0038), and
    * the folders of its own data that a task's folder must not hold for it to be read. Off by
@@ -138,6 +140,7 @@ export class ControlPlane {
       checkpoints: this.checkpoints,
       starters: this.starters,
       files: this.files,
+      catalogLinks: options.catalogLinks ?? null,
     });
     this.#rebuild();
   }

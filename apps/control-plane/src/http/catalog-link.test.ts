@@ -4,9 +4,19 @@ import { after, before, describe, test } from 'node:test';
 import type { EventEnvelope } from '@halcyonic/contracts';
 import { startTestServer, TEST_CLIENT } from '../testing/harness.ts';
 
+/** The catalog this computer last read, as the links' check sees it: these two repositories only. */
+const KNOWN = new Set(['7 acme/app', '8 acme/app-api']);
+
 let server: Awaited<ReturnType<typeof startTestServer>>;
 before(async () => {
-  server = await startTestServer();
+  server = await startTestServer({
+    catalogLinks: {
+      check: (ref) =>
+        KNOWN.has(`${ref.repository_id} ${ref.full_name}`)
+          ? { ok: true }
+          : { ok: false, message: "That repository isn't in the catalog this computer last read." },
+    },
+  });
 });
 after(() => server.stop());
 
@@ -85,6 +95,48 @@ describe('linking a project to a catalog repository (ADR 0039)', () => {
       LINK_COMMANDS.includes((event.payload as { command_type: string }).command_type),
     );
     assert.equal(completed.length, 3, 'all three completed at once, as local commands do');
+  });
+
+  test('a link to a repository the last catalog did not hold, or under another name, is refused', async () => {
+    await post(server.commands.createProject('Unknown repository'));
+    const projectId = server.controlPlane
+      .snapshot()
+      .projects.find((project) => project.name === 'Unknown repository')?.project_id;
+    const before = events('project.catalog_linked').length;
+    for (const catalog of [
+      { ...app, repository_id: 99 },
+      { ...app, full_name: 'acme/renamed' },
+    ]) {
+      const refused = await post(
+        command('project.link_catalog', { project_id: projectId, catalog }),
+      );
+      assert.equal(refused.body.disposition, 'rejected');
+      assert.equal(rejection(refused.body), 'invalid_state');
+    }
+    assert.equal(events('project.catalog_linked').length, before);
+  });
+
+  test('with no catalog set up on this computer, nothing can be linked', async () => {
+    const bare = await startTestServer();
+    try {
+      await fetch(`${bare.baseUrl}/api/commands`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${bare.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify(bare.commands.createProject('Bare')),
+      });
+      const projectId = bare.controlPlane.snapshot().projects[0]?.project_id;
+      const response = await fetch(`${bare.baseUrl}/api/commands`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${bare.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify(
+          command('project.link_catalog', { project_id: projectId, catalog: app }),
+        ),
+      });
+      const body = (await response.json()) as Record<string, unknown>;
+      assert.equal(rejection(body), 'capability_unsupported');
+    } finally {
+      await bare.stop();
+    }
   });
 
   test('refusals create nothing: an unknown project, and an unlink with no link', async () => {
