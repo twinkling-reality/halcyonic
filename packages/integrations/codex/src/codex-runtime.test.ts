@@ -1810,6 +1810,47 @@ describe('a confined project (ADR 0041)', () => {
     await assert.rejects(runtime.sendInstruction({ execution: TEST_EXECUTION, text: 'More.' }));
   });
 
+  test('the new server launches only once the server it replaces has exited, as they share the Codex home (AUDIT S2-S1 should)', {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    let readable: string[] = [];
+    const added = temporary(t);
+    // Each server takes about a second to exit once its input ends, and notes when it starts and exits.
+    const { runtime, start, directory, observations } = fake(t, ['slow-exit'], {
+      ...confinedTo(t, (folder) => ({ project: folder, readable })),
+    });
+    const events = join(directory, 'launches.jsonl.events');
+    await start('COMPLETE the work.');
+    await until(
+      () => observations.some((item) => item.type === 'runtime.turn.completed'),
+      'the first turn to complete',
+    );
+    readable = [added];
+    await runtime.startExecution({
+      execution: SECOND,
+      instruction: 'COMPLETE again.',
+      options: {},
+      model_ref: null,
+      directory,
+      emit: () => undefined,
+    });
+    const read = () =>
+      existsSync(events)
+        ? readFileSync(events, 'utf8')
+            .split('\n')
+            .filter((line) => line !== '')
+            .map((line) => JSON.parse(line) as { event: string; pid: number; at: number })
+        : [];
+    await until(() => read().length >= 3, 'both launches and the first exit');
+    const [first, second, third] = read().sort((a, b) => a.at - b.at);
+    assert.deepEqual(
+      [first?.event, second?.event, third?.event],
+      ['launch', 'exit', 'launch'],
+      JSON.stringify(read()),
+    );
+    assert.equal(second?.pid, first?.pid, 'the server that exited is the one replaced');
+  });
+
   test('a scope that changed while a turn runs on its server refuses the new start, and the turn keeps its server (S2-S1)', {
     skip: process.platform !== 'darwin',
   }, async (t) => {
