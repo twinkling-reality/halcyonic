@@ -83,6 +83,19 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void TheRoomLeadsEachRoleAsTheHandoff()
+    {
+        // ART's handoff (2026-10-30): each of the room's roles keeps its own line pitch; the instrument candidate keeps ListLeading.
+        Assert.That(SpatialKit.DisplayLeading, Is.EqualTo(1.06f), "Display");
+        Assert.That(SpatialKit.TitleLeading, Is.EqualTo(1.18f), "Title");
+        Assert.That(SpatialKit.ReadingLeading, Is.EqualTo(1.40f), "Body");
+        Assert.That(SpatialKit.StrongLeading, Is.EqualTo(1.30f), "Body Strong");
+        Assert.That(SpatialKit.LabelLeading, Is.EqualTo(1.30f), "Label");
+        Assert.That(SpatialKit.MonoLeading, Is.EqualTo(1.50f), "Mono");
+        Assert.That(SpatialKit.ListLeading, Is.EqualTo(1.2f), "the instrument candidate's");
+    }
+
+    [Test]
     public void TheSmallestWordReadsAtTheFloorAcrossTheWholeInstrument()
     {
         // Text near a flat plane's edge shrinks as the eyes see it. The content lines stand a padding inside
@@ -226,8 +239,6 @@ public class SpatialKitTests
         foreach (var carrier in RoomCarriers)
             foreach (var word in words)
                 Assert.That(GlazeColor.Contrast(word, carrier), Is.GreaterThanOrEqualTo(4.5), $"{word} on {carrier}");
-        foreach (var fill in new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed })
-            Assert.That(GlazeColor.Contrast(SpatialKit.AccentInk, fill), Is.GreaterThanOrEqualTo(4.5), $"the ink on {fill}");
         Assert.That(GlazeColor.Contrast(SpatialKit.Text, SpatialKit.AddedBand), Is.GreaterThanOrEqualTo(7), "code on an added line's band");
         Assert.That(GlazeColor.Contrast(SpatialKit.Carrier, BrightWall), Is.GreaterThanOrEqualTo(7), "a carrier stands off a bright wall");
     }
@@ -235,14 +246,14 @@ public class SpatialKitTests
     [Test]
     public void ButtonsKeepTheirWordsInEveryState()
     {
-        // A secondary button presses to the control step, a primary one to the deepened accent (AUDIT's V1 note): the words a
-        // button carries keep their contrast pointed and pressed, and the quieter words never stand on a button.
+        // A secondary button presses to the control step; the one primary is an n7 capsule that presses to n6 (ART's handoff,
+        // 2026-10-30; cyan is only for live work): the words a button carries keep their contrast pointed and pressed, and
+        // the quieter words never stand on a button.
         foreach (var fill in new[] { SpatialKit.Raised, SpatialKit.Control })
             Assert.That(GlazeColor.Contrast(SpatialKit.Text, fill), Is.GreaterThanOrEqualTo(7), $"a button's words on {fill}");
-        foreach (var fill in new[] { SpatialKit.Accent, SpatialKit.HoveredAccent, SpatialKit.PressedAccent })
-            Assert.That(GlazeColor.Contrast(SpatialKit.AccentInk, fill), Is.GreaterThanOrEqualTo(7), $"a primary action's words on {fill}");
-        Assert.That(SpatialKit.PressedAccent.Luminance, Is.LessThan(SpatialKit.Accent.Luminance), "pressed deepens");
-        Assert.That(SpatialKit.HoveredAccent.Luminance, Is.GreaterThan(SpatialKit.Accent.Luminance), "pointed lifts");
+        foreach (var fill in new[] { SpatialKit.Text, SpatialKit.TextSecondary })
+            Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, fill), Is.GreaterThanOrEqualTo(7), $"the primary's word on {fill}");
+        Assert.That(SpatialKit.TextSecondary.Luminance, Is.LessThan(SpatialKit.Text.Luminance), "pressed deepens");
     }
 
     [Test]

@@ -86,7 +86,7 @@ namespace Halcyonic.XR.UI
             card.count = KitType.Create(card.body, "Earlier and newer", KitRole.Label, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Right, room: true);
             card.count.rectTransform.pivot = new Vector2(1f, 0.5f);
             card.count.textWrappingMode = TextWrappingModes.NoWrap;
-            card.headline = KitType.Create(card.body, "Subject", KitRole.Heading, KitType.Text, KitType.Order.Words, room: true);
+            card.headline = KitType.Create(card.body, "Subject", KitRole.Title, KitType.Text, KitType.Order.Words, room: true);
             card.fact = KitType.Create(card.body, "Fact", KitRole.Label, KitType.Secondary, KitType.Order.Words, room: true);
             return card;
         }
@@ -182,7 +182,7 @@ namespace Halcyonic.XR.UI
             y -= chipSize.y * (countBelow ? 2f : 1f) + gap;
 
             // The subject, outside text in its run where it is theirs.
-            KitType.Size(headline, KitRole.Heading);
+            KitType.Size(headline, KitRole.Title);
             GlazeRuns.Of(headline).Set(moment.Headline);
             var (_, _, headHeight) = KitType.Lay(headline, inner, HeadlineLines);
             whole &= !headline.isTextTruncated;

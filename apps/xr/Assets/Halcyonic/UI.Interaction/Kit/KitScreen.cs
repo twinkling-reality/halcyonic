@@ -57,14 +57,14 @@ namespace Halcyonic.XR.UI
             var screen = go.AddComponent<KitScreen>();
             screen.face = KitCarrier.Create(go.transform, "Screen face");
             screen.disc = Surface.Create(go.transform, "Mark disc", KitType.Order.Plate);
-            screen.mark = KitType.Create(go.transform, "Mark", KitRole.Identity, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Center, room: true);
+            screen.mark = KitType.Create(go.transform, "Mark", KitRole.Display, KitType.Colour(SpatialKit.TextTertiary), KitType.Order.Words, TextAlignmentOptions.Center, room: true);
             screen.mark.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             screen.mark.textWrappingMode = TextWrappingModes.NoWrap;
             screen.name = KitType.Create(go.transform, "Name", KitRole.Display, KitType.Text, KitType.Order.Words, TextAlignmentOptions.Center, room: true);
             screen.name.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             screen.name.textWrappingMode = TextWrappingModes.NoWrap;
             screen.chip = KitCarrier.Create(go.transform, "Title chip", KitType.Order.Plate);
-            screen.title = KitType.Create(screen.chip.transform, "Title", KitRole.Heading, KitType.Text, KitType.Order.Words, room: true);
+            screen.title = KitType.Create(screen.chip.transform, "Title", KitRole.Title, KitType.Text, KitType.Order.Words, room: true);
             screen.title.textWrappingMode = TextWrappingModes.NoWrap;
             screen.facts = KitType.Create(screen.chip.transform, "Runtime and state", KitRole.Body, KitType.Secondary, KitType.Order.Words, room: true);
             screen.facts.textWrappingMode = TextWrappingModes.NoWrap;
@@ -106,7 +106,7 @@ namespace Halcyonic.XR.UI
             // The title chip: the project's name, then the runtime and the state, on one opaque carrier.
             var pad = KitType.Units(ChipPadDegrees);
             var inset = KitType.Units(ChipInsetDegrees);
-            KitType.Size(title, KitRole.Heading);
+            KitType.Size(title, KitRole.Title);
             // Body, not Label: the chip stands toward the screen's corner, where Label would read under the floor (STYLE, Type).
             KitType.Size(facts, KitRole.Body);
             GlazeText.SetLiteral(title, model.Project);
@@ -119,7 +119,7 @@ namespace Halcyonic.XR.UI
             chip.Draw(chipSize, KitType.Units(SpatialKit.ControlRadiusDegrees), SpatialKit.Carrier);
             chip.transform.localPosition = new Vector3(-width / 2f + inset + chipSize.x / 2f, height / 2f - inset - chipSize.y / 2f, -0.0004f);
             title.transform.localPosition = new Vector3(-chipSize.x / 2f + pad, titleHeight / 2f, -0.0003f);
-            facts.transform.localPosition = new Vector3(-chipSize.x / 2f + 2f * pad + titleWidth, titleHeight / 2f - (KitType.Em(KitRole.Heading) - KitType.Em(KitRole.Body)) * 0.8f, -0.0003f);
+            facts.transform.localPosition = new Vector3(-chipSize.x / 2f + 2f * pad + titleWidth, titleHeight / 2f - (KitType.Em(KitRole.Title) - KitType.Em(KitRole.Body)) * 0.8f, -0.0003f);
             gameObject.SetActive(true);
         }
     }
