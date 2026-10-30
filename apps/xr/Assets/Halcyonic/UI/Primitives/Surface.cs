@@ -18,7 +18,7 @@ namespace Halcyonic.XR.UI
         /// <summary>What a hand or the eyes point at: the frame alone.</summary>
         Pointed,
 
-        /// <summary>The main action's key cap, the one shape the accent fills.</summary>
+        /// <summary>The main action's key cap: the accent fills it in the menus; in the room the one primary is filled with light (n7).</summary>
         MainCap,
 
         /// <summary>A vertical insertion caret in a focused input field, never a selection marker.</summary>

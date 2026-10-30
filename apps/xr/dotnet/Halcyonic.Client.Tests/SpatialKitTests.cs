@@ -254,6 +254,7 @@ public class SpatialKitTests
         foreach (var fill in new[] { SpatialKit.Text, SpatialKit.TextSecondary })
             Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, fill), Is.GreaterThanOrEqualTo(7), $"the primary's word on {fill}");
         Assert.That(SpatialKit.TextSecondary.Luminance, Is.LessThan(SpatialKit.Text.Luminance), "pressed deepens");
+        Assert.That(GlazeColor.Contrast(SpatialKit.OnFill, SpatialKit.Text), Is.GreaterThanOrEqualTo(3), "a pointed primary's n0 band against its resting fill");
     }
 
     [Test]

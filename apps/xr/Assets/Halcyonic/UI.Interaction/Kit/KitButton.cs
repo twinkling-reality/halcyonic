@@ -168,7 +168,8 @@ namespace Halcyonic.XR.UI
                         // The one primary is filled with light (ADR 0040 as amended 2026-10-30): n7, pressed to n6, its word
                         // in n0; the accent is only for live work.
                         fill = KitType.Colour(pressed ? SpatialKit.TextSecondary : SpatialKit.Text);
-                        edge = hovered ? Color.white : fill;
+                        // Pointed, an n0 band inside its edge: 12:1 against the resting fill, where white read 1.36 (AUDIT's A1C-S1).
+                        edge = hovered ? KitType.Colour(SpatialKit.OnFill) : fill;
                         text = KitType.Colour(SpatialKit.OnFill);
                         break;
                     case KitButtonRole.Secondary:

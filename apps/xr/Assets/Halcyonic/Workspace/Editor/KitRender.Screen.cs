@@ -98,6 +98,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (!model.Folded) Require(bar.Shown[0].Action == model.Primary && bar.Shown[0].Button.Role == KitButtonRole.Primary, "the primary action is not first or not filled");
             Require(bar.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == (model.Folded ? 0 : 1), "more or less than one primary action");
             Require(bar.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not filled with light, its word in n0");
+            Require(bar.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryPointedShows(each.Button)), "a pointed primary is not told from its rest at 3:1");
             // The room's type scale (ART's handoff): the chip's title in Title, every room label at its role's own line pitch.
             Require(screen.Title.font == KitType.Face(KitRole.Title) && Mathf.Approximately(screen.Title.fontSize, GlazeTokens.FontSize(KitType.Em(KitRole.Title))), "the chip's title is not in Title");
             foreach (var label in view.GetComponentsInChildren<TextMeshPro>(true))

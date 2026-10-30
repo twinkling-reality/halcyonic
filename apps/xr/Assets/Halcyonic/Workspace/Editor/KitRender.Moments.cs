@@ -50,13 +50,24 @@ namespace Halcyonic.XR.Workspace.Editor
             };
         }
 
-        /// <summary>The one primary is filled with light, n7 or n6 pressed, its word in n0; never the accent (ADR 0040 as amended 2026-10-30).</summary>
-        private static bool PrimaryIsLight(KitButton button)
+        private static bool SameColour(Color a, Color b) => Mathf.Approximately(a.r, b.r) && Mathf.Approximately(a.g, b.g) && Mathf.Approximately(a.b, b.b);
+
+        /// <summary>The one primary at rest is filled with light, n7, its word in n0; never the accent (ADR 0040 as amended 2026-10-30).</summary>
+        private static bool PrimaryIsLight(KitButton button) =>
+            SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.Text)) && SameColour(button.Words.color, KitType.Colour(SpatialKit.OnFill));
+
+        /// <summary>
+        /// A pointed primary is told from its rest at 3:1 or more (AUDIT's A1C-S1): painted pointed, it draws an n0 band inside
+        /// its edge over its n7 fill; painted at rest again, it is as it was.
+        /// </summary>
+        private static bool PrimaryPointedShows(KitButton button)
         {
-            var fill = button.Plate.Fill;
-            var word = button.Words.color;
-            bool Same(Color a, Color b) => Mathf.Approximately(a.r, b.r) && Mathf.Approximately(a.g, b.g) && Mathf.Approximately(a.b, b.b);
-            return (Same(fill, KitType.Colour(SpatialKit.Text)) || Same(fill, KitType.Colour(SpatialKit.TextSecondary))) && Same(word, KitType.Colour(SpatialKit.OnFill));
+            button.PaintForRender(pointed: true, pressed: false);
+            var band = button.Plate.Edge;
+            var shows = button.Plate.EdgeWidth > 0f && SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.Text))
+                && GlazeColor.Contrast(new GlazeColor((byte)Mathf.RoundToInt(band.r * 255f), (byte)Mathf.RoundToInt(band.g * 255f), (byte)Mathf.RoundToInt(band.b * 255f)), SpatialKit.Text) >= 3;
+            button.PaintForRender(pointed: false, pressed: false);
+            return shows && PrimaryIsLight(button);
         }
 
         /// <summary>
@@ -124,6 +135,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     "a command shown cut can be approved");
             Require(card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) <= 1, "more than one primary action");
             Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not filled with light, its word in n0");
+            Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryPointedShows(each.Button)), "a pointed primary is not told from its rest at 3:1");
             // The room's type scale (ART's handoff): the subject in Title, every room label at its role's own line pitch.
             Require(card.Headline.font == KitType.Face(KitRole.Title) && Mathf.Approximately(card.Headline.fontSize, GlazeTokens.FontSize(KitType.Em(KitRole.Title))), "the subject is not in Title");
             foreach (var label in card.GetComponentsInChildren<TextMeshPro>(true))
