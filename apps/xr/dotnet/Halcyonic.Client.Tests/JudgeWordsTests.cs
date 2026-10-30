@@ -42,7 +42,7 @@ public class JudgeWordsTests
             "the walk reached every file, its confirmations and its side panels");
         Assert.That(words, Is.SupersetOf(new[]
         {
-            "1 task is waiting for you", TasksText.Waiting(0), UsageText.Subject, "Part of the recording", UsageLeftPresenter.Recorded,
+            "Needs You · 1 Task", TasksText.Waiting(0), UsageText.Subject, "Part of the recording", UsageLeftPresenter.Recorded,
             SettingsText.Subject, "A step larger", SettingsText.YourSpace, "Around you", "Your room's layout", "Spatial agents", "Agent shelf", "The menu",
         }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
         Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");

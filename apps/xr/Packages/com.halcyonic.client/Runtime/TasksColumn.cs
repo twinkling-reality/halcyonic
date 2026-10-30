@@ -101,16 +101,16 @@ namespace Halcyonic.Client
                     ? new Footer(close).WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage))
                     : new Footer(close);
                 if (savedViews?.Invoke() > 0 && openSavedViews != null) footer = new Footer(close,
-                    rare: new Prompt(SavedViews, "Saved drafts", GlazeIcon.Next), farRight: footer[PromptSlot.FarRight]);
+                    rare: new Prompt(SavedViews, "Saved Drafts", GlazeIcon.Next), farRight: footer[PromptSlot.FarRight]);
                 if (project?.Invoke() != null)
                 {
                     footer = new Footer(close, rare: footer[PromptSlot.Rare],
-                        secondary: openProjectDetails != null ? new Prompt(ProjectDetails, "Project details", GlazeIcon.Next) : null,
+                        secondary: openProjectDetails != null ? new Prompt(ProjectDetails, "Project Details", GlazeIcon.Next) : null,
                         farRight: footer[PromptSlot.FarRight]);
                     var selected = NewTaskProject();
                     if (selected != null) lines.Insert(0, new PageLine(TasksText.NewTask, icon: GlazeIcon.AddTask, action: NewTask, key: selected.ProjectId));
                     // These navigation/action rows reserve real measured room, independent of the agent shelf's display filter.
-                    if (allProjects != null) lines.Insert(0, new PageLine("All projects", icon: GlazeIcon.Back, action: AllProjects));
+                    if (allProjects != null) lines.Insert(0, new PageLine("All Projects", icon: GlazeIcon.Back, action: AllProjects));
                     return new MenuFrame("Tasks", footer, lines: lines);
                 }
                 return new MenuFrame("Tasks", footer, lines: lines);
@@ -244,20 +244,20 @@ namespace Halcyonic.Client
     public static class TasksText
     {
         public const string Close = "Close";
-        public const string NewTask = "New task";
+        public const string NewTask = "New Task";
 
         /// <summary>A page with no tasks on it.</summary>
-        public const string None = "No tasks yet.";
+        public const string None = "No Tasks";
 
         /// <summary>The closed bar while the computer has no task at all, as the first question asks what to work on.</summary>
-        public const string NothingRunning = "Nothing is running yet";
+        public const string NothingRunning = "Nothing Running";
 
         /// <summary>The subject: what waits for the person, or that nothing does.</summary>
         public static string Waiting(int count) => count switch
         {
-            0 => "Nothing is waiting for you.",
-            1 => "1 task is waiting for you",
-            _ => count + " tasks are waiting for you",
+            0 => "Nothing Waiting",
+            1 => "Needs You · 1 Task",
+            _ => "Needs You · " + count + " Tasks",
         };
     }
 }

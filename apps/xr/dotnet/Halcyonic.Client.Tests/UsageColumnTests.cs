@@ -56,7 +56,7 @@ public class UsageColumnTests
         Assert.That(frame.Lines.All(line => line.Opens && line.WordsAreData && line.Icon == null), Is.True, "no icons, so the words start on the content line");
         Assert.That(frame.Source, Is.EqualTo(UsageLeftPresenter.Recorded));
         Assert.That(frame.Footer[PromptSlot.Rare], Is.Null, "no Refresh in the demonstration");
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next page"));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Page"));
     }
 
     [Test]
@@ -77,7 +77,7 @@ public class UsageColumnTests
         Assert.That(frame.Footer[PromptSlot.FarRight], Is.Null, "paging waits while a row is chosen");
         usage.Act(SidePanel.Close, null);
         Assert.That(usage.Frame!.Side, Is.Null, "Close details");
-        Assert.That(usage.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next page"));
+        Assert.That(usage.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Page"));
     }
 
     [Test]
@@ -86,7 +86,7 @@ public class UsageColumnTests
         var (usage, _) = Demonstration(Recorded);
         usage.Act(Footer.NextPage, null);
         Assert.That(usage.Frame!.Lines.Single().Words, Is.EqualTo("Codex, weekly"));
-        Assert.That(usage.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("First page"));
+        Assert.That(usage.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("First Page"));
         usage.Act(UsageColumn.OpenLimit, "3");
         Assert.That(usage.Frame!.Side!.Subject, Is.EqualTo("Codex, weekly"));
         usage.Act(UsageColumn.OpenLimit, "9");

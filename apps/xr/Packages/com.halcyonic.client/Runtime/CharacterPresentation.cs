@@ -215,18 +215,18 @@ namespace Halcyonic.Client
                         {
                             // A command reads as one; any other tool, or one this app doesn't know, by its own name.
                             return Both(WorkspaceText.RunsCommand(tool.ToolName)
-                                ? Ours("It wants to run: ") + LineWords.Theirs(tool.Summary)
-                                : Ours("It wants to use ") + LineWords.TheirName(tool.ToolName) + Ours(": ") + LineWords.Theirs(tool.Summary));
+                                ? Ours("Run Command · ") + LineWords.Theirs(tool.Summary)
+                                : Ours("Use ") + LineWords.TheirName(tool.ToolName) + Ours(" · ") + LineWords.Theirs(tool.Summary));
                         }
                     }
-                    return Both(Ours("It wants your approval."));
+                    return Both(Ours("Approval Requested"));
                 case QuestionPendingReason question:
                     foreach (var pending in execution?.PendingQuestions ?? new List<QuestionView>())
                     {
                         if (pending.QuestionId != question.QuestionId || pending.Prompts.Count == 0) continue;
                         return Both(AsksYouRuns(pending));
                     }
-                    return Both(Ours("It asks you a question."));
+                    return Both(Ours("Question Asked"));
                 case ExecutionFailedReason _:
                     // Why, from what Halcyonic itself knows, and the way on: the reason's message is an
                     // agent app's own error, never a person's words.
@@ -240,10 +240,10 @@ namespace Halcyonic.Client
                     var run = execution?.LastTestRun;
                     // The runtime's summary leans on a ground after the badge, never as Halcyonic's reason.
                     return run != null && run.TestRunId == tests.TestRunId && LineWords.Theirs(run.Summary) is { IsEmpty: false } summary
-                        ? (Ours("Checks: ") + summary, summary)
-                        : (Ours("Its checks didn't pass."), LineWords.None);
+                        ? (Ours("Checks · ") + summary, summary)
+                        : (Ours("Checks Not Passed"), LineWords.None);
                 default:
-                    return (Ours("It needs a look."), LineWords.None);
+                    return (Ours("Needs a Look"), LineWords.None);
             }
         }
     }

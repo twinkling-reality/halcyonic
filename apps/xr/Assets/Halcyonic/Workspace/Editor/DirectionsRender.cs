@@ -848,7 +848,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var tall = U(GlazeButton.HeightDegrees);
             var talk = Measure(board, ButtonRole.Secondary, "Hold to talk", GlazeIcon.HoldToTalk);
             var fieldWidth = right - left - talk - board.TargetGap;
-            Field(board, "What would you like to make?", left, y, fieldWidth);
+            Field(board, "Your Idea", left, y, fieldWidth);
             Button(board, "Hold to talk", ButtonRole.Secondary, "Hold to talk", right - talk / 2f, y - tall / 2f, talk, GlazeIcon.HoldToTalk);
             y -= tall + board.TargetGap + U(0.3f);
             var shelfTop = y + U(0.6f);
@@ -892,7 +892,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Text(board, "Placeholder", placeholder, GlazeType.Body, GlazeTokens.TextSecondary, left + U(1.1f), top - (tall - U(Glaze.BodyDegrees) * 1.15f) / 2f, width - U(2.2f), order: 62);
         }
 
-        /// <summary>The one-time hint over the first task that waits: "Look, then pinch".</summary>
+        /// <summary>The one-time hint over the first task that waits: "Open".</summary>
         private static void Hint(Shot shot, int slot)
         {
             if (slot < 0) return;
@@ -1054,11 +1054,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>Creating a project: the companion's turn as a card, every suggestion at once, in the dock's place.</summary>
         private static void ShelfCreating(Shot shot)
         {
-            var board = shot.Board("Create a project");
+            var board = shot.Board("New Project");
             var width = U(44f);
             var left = -width / 2f + U(Pad);
             var right = width / 2f - U(Pad);
-            var y = Header(board, left, right, -U(Pad), "Create a project", null, true, ("Go on without it", null), ("Close", GlazeIcon.Close));
+            var y = Header(board, left, right, -U(Pad), "New Project", null, true, ("Go on without it", null), ("Close", GlazeIcon.Close));
             y -= U(Section);
             y -= Text(board, "Companion says", "The companion says: “A running club could use a page that keeps everyone's race times in one place.”",
                 GlazeType.Body, GlazeTokens.Text, left, y, right - left, 2, lean: true).Height + U(Section);

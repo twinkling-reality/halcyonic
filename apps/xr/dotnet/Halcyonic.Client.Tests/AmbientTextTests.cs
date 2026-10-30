@@ -17,16 +17,16 @@ public class AmbientTextTests
             Samples.Workstream("running", WorkstreamStatus.Running),
         }, new ExecutionView[0]), new StateChanges());
         Assert.That(AmbientText.NeedsYou(state), Is.EqualTo(2), "a failure is a notice, not a request");
-        Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo("2 tasks are waiting for you"));
-        Assert.That(AmbientText.NeedsYouLine(1), Is.EqualTo("1 task is waiting for you"));
+        Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo("Needs You · 2 Tasks"));
+        Assert.That(AmbientText.NeedsYouLine(1), Is.EqualTo("Needs You · 1 Task"));
         Assert.That(AmbientText.NeedsYouLine(0), Is.Null, "nothing to say when nothing waits");
     }
 
     [Test]
     public void SaysHowMuchMoreWorkHasNoCharacter()
     {
-        Assert.That(AmbientText.NotShown(1), Is.EqualTo("1 more task not shown here"));
-        Assert.That(AmbientText.NotShown(3), Is.EqualTo("3 more tasks not shown here"));
+        Assert.That(AmbientText.NotShown(1), Is.EqualTo("+1 Task · Not Shown"));
+        Assert.That(AmbientText.NotShown(3), Is.EqualTo("+3 Tasks · Not Shown"));
         Assert.That(AmbientText.NotShown(0), Is.Null, "nothing to say when every task stands on the stage");
     }
 
@@ -34,7 +34,7 @@ public class AmbientTextTests
     public void SaysWhichPanelIsStillOpenItsNameCutShort()
     {
         // Halcyonic's words upright and first, the panel's name leaning last (lane V's treatment).
-        Assert.That(AmbientText.StillOpen("Create a project").ToString(), Is.EqualTo("Open · [Create a project]"));
+        Assert.That(AmbientText.StillOpen("New Project").ToString(), Is.EqualTo("Open · [New Project]"));
         var title = new string('T', 80);
         Assert.That(AmbientText.StillOpen(title).Text, Is.EqualTo("Open · " + IntelligenceText.Truncate(title, AmbientText.StillOpenLimit)));
         Assert.That(AmbientText.StillOpen(title).Text.Length, Is.LessThan(50));

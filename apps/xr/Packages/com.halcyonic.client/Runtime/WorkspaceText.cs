@@ -72,26 +72,26 @@ namespace Halcyonic.Client
     public static class WorkspaceText
     {
         public const string Product = "Halcyonic";
-        public const string WhatHappened = "What happened";
-        public const string OtherApps = "Other apps";
+        public const string WhatHappened = "What Happened";
+        public const string OtherApps = "Other Apps";
         public const string Minimize = "Minimize";
-        public const string OpenWorkspace = "Open workspace";
+        public const string OpenWorkspace = "Open Workspace";
         public const string Connected = "Connected";
         public const string Disconnected = "Disconnected";
         public const string Connecting = "Connecting";
         public const string Demo = "Demo";
         public const string MoveWorkspace = "Move";
-        public const string WhatIsItDoing = "What is it doing?";
+        public const string WhatIsItDoing = "Status";
 
         /// <summary>What is it doing?, turned to the run's details in place of its log.</summary>
-        public const string HowIsItRunning = "How is it running?";
+        public const string HowIsItRunning = "Run Details";
 
-        public const string ShowDetails = "Show details";
+        public const string ShowDetails = "Show Details";
 
-        public const string ShowLog = "Show the log";
-        public const string HelpMeUnderstand = "Help me understand";
-        public const string WhatWasChecked = "What was checked?";
-        public const string WhatDoYouNeed = "What do you need from me?";
+        public const string ShowLog = "Show Log";
+        public const string HelpMeUnderstand = "Explain";
+        public const string WhatWasChecked = "Checked";
+        public const string WhatDoYouNeed = "Needs You";
 
         /// <summary>The whole question a tab asks.</summary>
         public static string Question(WorkspaceQuestion question) => question switch
@@ -320,7 +320,7 @@ namespace Halcyonic.Client
         public const string RequestNotKnown = "Request Incomplete · Deny Only";
 
         /// <summary>The goal line under the status: the workstream's objective.</summary>
-        public static string Goal(WorkspacePresentation workspace) => "Goal: " + Objective(workspace);
+        public static string Goal(WorkspacePresentation workspace) => "Goal · " + Objective(workspace);
 
         /// <summary>
         /// The one plain answer under the goal: what waits for the person, pointing to where it shows
@@ -428,7 +428,7 @@ namespace Halcyonic.Client
         /// The first-time hint beside a pinch cue, three words that teach look and pinch: rest the gaze
         /// on a character until its peek shows, then pinch with either hand, wherever it is.
         /// </summary>
-        public const string OpenHint = "Look, then pinch";
+        public const string OpenHint = "Open";
 
         /// <summary>What the confirmation asks while part of the request it answers has not been shown yet.</summary>
         public const string ReadRequestFirst = "Read Full Request";
@@ -455,7 +455,7 @@ namespace Halcyonic.Client
             RejectionCode.ProjectNotFound => "Project Missing · Choose Another",
             RejectionCode.WorkstreamNotFound => "Task Missing · Choose Another",
             RejectionCode.ExecutionNotFound => "Work Missing · " + StateLanguage.AddItAgain,
-            RejectionCode.RuntimeNotFound => "Agent App Missing · Set Up and Retry",
+            RejectionCode.RuntimeNotFound => "Agent App Unavailable · Set Up and Retry",
             RejectionCode.ApprovalNotFound => "Decision Closed · See Activity",
             RejectionCode.ApprovalNotWhole => "Never Shown Whole · Deny or Stop Task",
             RejectionCode.QuestionNotFound => "Question Closed · See Activity",
@@ -544,10 +544,10 @@ namespace Halcyonic.Client
         public static string SendWordsAbove(bool heard) => heard ? "Send Heard Instruction?" : "Send Instruction?";
 
         /// <summary>What the Doing tab says before anything was sent to the work from here.</summary>
-        public const string NothingSentYet = "Nothing sent from here yet.";
+        public const string NothingSentYet = "Nothing Sent";
 
         public static string Objective(WorkspacePresentation workspace) =>
-            string.IsNullOrWhiteSpace(workspace.Objective) ? "No goal was given." : OneLine(workspace.Objective!);
+            string.IsNullOrWhiteSpace(workspace.Objective) ? "No Goal" : OneLine(workspace.Objective!);
 
         /// <summary>
         /// The run's details, a line each: the agent app and whether it is on the Mac now, the model it
@@ -558,27 +558,27 @@ namespace Halcyonic.Client
         public static IReadOnlyList<(string Line, bool IsData)> RunDetails(WorkspacePresentation workspace, TimeZoneInfo zone)
         {
             var execution = workspace.Execution;
-            if (execution == null) return new[] { ("Nothing has run yet.", false) };
+            if (execution == null) return new[] { ("Not Run Yet", false) };
             var lines = new List<(string, bool)>();
-            var gone = workspace.Runtime == null ? ", not available on " + HostText.Your + " now." : ".";
+            var gone = workspace.Runtime == null ? " · Agent App Unavailable" : "";
             if (execution.Runtime.Synthetic) lines.Add((EntryText.PracticeRun + gone, false));
             else
             {
                 var name = OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
-                lines.Add(("Agent app: " + name + (workspace.Runtime == null ? gone : ", on " + HostText.Your + "."), true));
+                lines.Add(("Agent App · " + name + (workspace.Runtime == null ? " · Unavailable" : " · On Your Computer"), true));
                 lines.Add(execution.ModelRef == null
-                    ? ("Model: chosen by the agent app. " + ModelPlaceUnknown + ".", false)
-                    : ("Model: " + OneLine(execution.ModelRef) + ". " + ModelPlaceUnknown + ".", true));
+                    ? ("Model · App's Choice · " + ModelPlaceUnknown, false)
+                    : ("Model · " + OneLine(execution.ModelRef) + " · " + ModelPlaceUnknown, true));
             }
-            lines.Add(FolderOf(execution.Directory) is string folder ? ("Folder: " + folder + ".", true) : ("Folder: none given to it.", false));
+            lines.Add(FolderOf(execution.Directory) is string folder ? ("Folder · " + folder, true) : ("Folder · None Given", false));
             var started = StartedAt(execution.StartedAt, zone);
             var round = execution.TurnCount > 0 ? "Round " + execution.TurnCount.ToString(CultureInfo.InvariantCulture) : null;
-            lines.Add((started != null ? "Started at " + started + " · " + (round ?? "No round yet") + "." : round != null ? round + "." : "Not started yet.", false));
+            lines.Add((started != null ? "Started · " + started + " · " + (round ?? "No Round Yet") : round ?? "Not Started", false));
             return lines;
         }
 
         /// <summary>Said under the model: the workspace is not told where it runs.</summary>
-        public const string ModelPlaceUnknown = "Where it runs isn't known here";
+        public const string ModelPlaceUnknown = "Location Unknown";
 
         /// <summary>
         /// A folder by its name and the folder it is in, "shop, in Projects"; null for none. The path is
@@ -589,7 +589,7 @@ namespace Halcyonic.Client
             if (string.IsNullOrWhiteSpace(directory)) return null;
             var parts = directory!.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) return OneLine(directory);
-            return parts.Length == 1 ? OneLine(parts[0]) : OneLine(parts[parts.Length - 1]) + ", in " + OneLine(parts[parts.Length - 2]);
+            return parts.Length == 1 ? OneLine(parts[0]) : OneLine(parts[parts.Length - 1]) + " · " + OneLine(parts[parts.Length - 2]);
         }
 
         /// <summary>When it started, in the local time and day: "09:00 on 2 Oct"; null when it hasn't or the time can't be read.</summary>
@@ -597,7 +597,7 @@ namespace Halcyonic.Client
         {
             if (startedAt == null || !DateTimeOffset.TryParse(startedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)) return null;
             var local = TimeZoneInfo.ConvertTime(at, zone);
-            return local.ToString("HH:mm", CultureInfo.InvariantCulture) + " on " + local.Day.ToString(CultureInfo.InvariantCulture) + " "
+            return local.ToString("HH:mm", CultureInfo.InvariantCulture) + " · " + local.Day.ToString(CultureInfo.InvariantCulture) + " "
                 + local.ToString("MMM", CultureInfo.InvariantCulture);
         }
 
@@ -691,7 +691,7 @@ namespace Halcyonic.Client
             if (workspace.Actions.Count > 0) return null;
             if (workspace.Character.Stale) return "Not Sendable · Awaiting Reconnect";
             if (workspace.Execution == null) return "Not Sendable · Not Started";
-            if (workspace.Runtime == null) return "Not Sendable · Agent App Missing";
+            if (workspace.Runtime == null) return "Not Sendable · Agent App Unavailable";
             return workspace.Character.Activity switch
             {
                 CharacterActivity.Starting => "Not Sendable · Starting",

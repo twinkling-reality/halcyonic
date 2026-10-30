@@ -203,9 +203,9 @@ namespace Halcyonic.Client
 
         /// <summary>The person's request went to <paramref name="runtime"/>: accepted is not started, so it waits.</summary>
         public static KitMoment Sent(string runtime) => new KitMoment(KitMomentKind.Sent, KitProvenance.Observed,
-            LabelText.Name(runtime) + KitMomentWords.ObservedSuffix, LineWords.Ours(KitMomentWords.SentTitle + KitMomentWords.Dot + KitMomentWords.WaitingToStart), null, NoLines,
-            KitMomentTone.Neutral, NoActions, null)
-            .Parts(LineWords.Ours(KitMomentWords.SentTitle), new[] { LineWords.Ours(KitMomentWords.WaitingToStart) });
+            KitMomentWords.YourComputer, LineWords.Ours(KitMomentWords.SentTitle + KitMomentWords.Dot) + LineWords.TheirName(runtime) + LineWords.Ours(KitMomentWords.Dot + KitMomentWords.WaitingToStart),
+            null, NoLines, KitMomentTone.Neutral, NoActions, null)
+            .Parts(LineWords.Ours(KitMomentWords.SentTitle), new[] { LineWords.TheirName(runtime), LineWords.Ours(KitMomentWords.WaitingToStart) });
 
         /// <summary>A file <paramref name="runtime"/> says it changed: its report, in the past tense, not seen yet.</summary>
         public static KitMoment ReportedEdit(string runtime, KitFileChange change, string file, DateTimeOffset? at) =>
@@ -375,14 +375,11 @@ namespace Halcyonic.Client
         /// <summary>After a runtime's name on the eyebrow: what it says is its report.</summary>
         public const string ReportedSuffix = " · Reported";
 
-        /// <summary>After a runtime's name on a sent request's eyebrow: the computer saw the request go.</summary>
-        public const string ObservedSuffix = " · Observed";
-
         /// <summary>The eyebrow of what the computer itself saw or ran.</summary>
         public const string YourComputer = "Your Computer · Observed";
 
-        /// <summary>The eyebrow of a question the agent asks: no app's name in our words (WORDS.md, T2 and T7).</summary>
-        public const string AgentQuestion = "Agent · Question";
+        /// <summary>The eyebrow of a question the agent asks: no app's name in our words, and that it is reported (WORDS.md, T2 and T7).</summary>
+        public const string AgentQuestion = "Agent · Question · Reported";
 
         public const string SentTitle = "Sent";
 

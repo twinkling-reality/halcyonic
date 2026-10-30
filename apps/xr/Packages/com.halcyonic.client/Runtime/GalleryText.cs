@@ -96,8 +96,8 @@ namespace Halcyonic.Client
             if (sync.RepositoriesFailed)
             {
                 return at is DateTimeOffset last
-                    ? "Check Failed · Last · " + When(last, now, zone)
-                    : "Check Failed";
+                    ? "Refresh Failed · Last · " + When(last, now, zone)
+                    : "Refresh Failed";
             }
             return at is DateTimeOffset checkedAt ? "Checked · " + When(checkedAt, now, zone) : "Not Checked";
         }

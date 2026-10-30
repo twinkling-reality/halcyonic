@@ -604,14 +604,14 @@ public class DemonstrationSessionTests
         var workspace = WorkspacePresenter.Present(directed, session!.State, activity, session.Status.IsLive, submissions);
         Assert.That(workspace.Actions, Is.EquivalentTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
         Assert.That(workspace.Character.Recorded && workspace.Character.Synthetic && !workspace.Character.Stale, Is.True);
-        Assert.That(WorkspaceText.RunDetails(workspace, TimeZoneInfo.Utc)[0].Line, Does.StartWith("Practice run: builds nothing"));
-        Assert.That(WorkspaceText.Attention(workspace).Single(), Does.StartWith("It wants to run: Run make migrate"));
+        Assert.That(WorkspaceText.RunDetails(workspace, TimeZoneInfo.Utc)[0].Line, Does.StartWith("Practice · Builds Nothing"));
+        Assert.That(WorkspaceText.Attention(workspace).Single(), Does.StartWith("Run Command · Run make migrate"));
         foreach (var watched in session.State.Workstreams.Values.Where(w => w.Title != Demonstration.Directed))
         {
             var beside = WorkspacePresenter.Present(watched, session.State, activity, true, submissions);
             Assert.That(beside.Actions, Is.Empty, watched.Title);
             Assert.That(beside.Character.Activity, Is.EqualTo(CharacterActivity.TurnFinished), watched.Title);
-            Assert.That(WorkspaceText.RunDetails(beside, TimeZoneInfo.Utc)[0].Line, Does.StartWith("Practice run: builds nothing"));
+            Assert.That(WorkspaceText.RunDetails(beside, TimeZoneInfo.Utc)[0].Line, Does.StartWith("Practice · Builds Nothing"));
             Assert.That(beside.Character.Recorded, Is.True, "watched work reads as recorded");
         }
 
@@ -634,10 +634,10 @@ public class DemonstrationSessionTests
         activity.Record(seen.Events);
         var execution = Demonstration.DirectedExecution(session)!;
         var lines = activity.For(execution.ExecutionId).Select(entry => entry.Text).ToList();
-        Assert.That(lines, Has.Some.EqualTo("Asked to approve"));
+        Assert.That(lines, Has.Some.EqualTo("Approval Sent"));
         Assert.That(lines, Has.Some.EqualTo("Approved"));
-        Assert.That(lines, Has.Some.EqualTo("Used shell: make migrate"));
-        Assert.That(lines, Has.Some.EqualTo("Tests failed: 1 failed, 23 passed"));
+        Assert.That(lines, Has.Some.EqualTo("Used shell · make migrate"));
+        Assert.That(lines, Has.Some.EqualTo("Tests Failed · 1 failed, 23 passed"));
         Assert.That(execution.LastTestRun!.Outcome, Is.EqualTo(TestOutcome.Failed));
 
         workspace = WorkspacePresenter.Present(Demonstration.DirectedWorkstream(session), session.State, activity, session.Status.IsLive, submissions);
@@ -665,7 +665,7 @@ public class DemonstrationSessionTests
         Assert.That(player.Ended, Is.True);
         workspace = WorkspacePresenter.Present(Demonstration.DirectedWorkstream(session), session.State, activity, session.Status.IsLive, submissions);
         Assert.That(workspace.Actions, Is.Empty);
-        Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Not Sendable · Agent App Missing"));
+        Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Not Sendable · Agent App Unavailable"));
         Assert.That(session.State.Commands.Values.Where(command => command.ExecutionId == execution.ExecutionId).Select(command => command.Status),
             Is.All.EqualTo(CommandStatus.Completed), "only the recording's own commands, confirmed by its runtime");
         Assert.That(phases, Is.All.EqualTo(ConnectionPhase.Live), "never disconnected");
@@ -941,11 +941,11 @@ public class DemonstrationFallbackTests
     {
         var waiting = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.WaitingToRetry, ConnectionText.NoAnswer(TimeSpan.FromSeconds(10))));
-        Assert.That(waiting, Does.EndWith(ConnectionText.Unreachable + " (Your computer didn't answer within 10 seconds.)"));
+        Assert.That(waiting, Does.EndWith(ConnectionText.Unreachable + " · No Answer in 10 s"));
 
         var refused = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, ConnectionText.OtherVersion));
-        Assert.That(refused, Does.EndWith("Your computer refused this app. Your computer runs another version of this app. Install the same version on both."));
+        Assert.That(refused, Does.EndWith("App Refused · Version Mismatch · Install Same Version"));
 
         var token = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, ConnectionText.AccessTokenRefused, accessRefused: true));

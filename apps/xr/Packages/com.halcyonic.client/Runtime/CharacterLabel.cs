@@ -44,7 +44,7 @@ namespace Halcyonic.Client
         public const int ReasonLines = 2;
 
         /// <summary>Said before the reason while the state is only the last known one.</summary>
-        public const string LastKnown = "Last known";
+        public const string LastKnown = "Last Known";
 
         private PeekCard(StateBadge badge, IReadOnlyList<WorkMark> marks, string reason, int moreReasons, string? next, LineWords? reasonRuns = null)
         {
@@ -88,9 +88,9 @@ namespace Halcyonic.Client
             get
             {
                 // How many more first, so the reason's own words, which can be outside text, never cut it off.
-                var line = MoreReasons > 0 ? "+" + MoreReasons + " more · " + Reason : Reason;
+                var line = MoreReasons > 0 ? "+" + MoreReasons + " More · " + Reason : Reason;
                 if (!Badge.LastKnown) return line;
-                return line.Length == 0 ? LastKnown + "." : LastKnown + ": " + line;
+                return line.Length == 0 ? LastKnown : LastKnown + " · " + line;
             }
         }
 
@@ -138,10 +138,10 @@ namespace Halcyonic.Client
             if (badge.LastKnown) return null;
             return badge.State switch
             {
-                WorkState.WaitingForYou => "Open it to answer.",
-                WorkState.CouldNotFinish => "Open it to see what it did.",
-                WorkState.ChecksFailed => "Open it to see what failed.",
-                WorkState.FinishedThisRound => "Open it to see what changed.",
+                WorkState.WaitingForYou => "Open to Answer",
+                WorkState.CouldNotFinish => "Open Task",
+                WorkState.ChecksFailed => "See Failures",
+                WorkState.FinishedThisRound => "See Changes",
                 _ => null,
             };
         }
@@ -149,9 +149,9 @@ namespace Halcyonic.Client
         /// <summary>A mark's meaning: practice builds nothing, and neither a demo nor a recording reaches an agent.</summary>
         public static string MeaningOf(WorkMark mark) => mark.Word switch
         {
-            StateLanguage.Practice => "Practice run: nothing is built.",
-            StateLanguage.Demo => "Demo: recorded, nothing reaches an agent.",
-            StateLanguage.Recorded => "Recorded: a replay, not live work.",
+            StateLanguage.Practice => "Practice · Nothing Built",
+            StateLanguage.Demo => "Demo · Recorded · No Agent Reached",
+            StateLanguage.Recorded => "Recorded · Replay · Not Live",
             _ => throw new ArgumentOutOfRangeException(nameof(mark), mark.Word, "Unhandled mark."),
         };
 

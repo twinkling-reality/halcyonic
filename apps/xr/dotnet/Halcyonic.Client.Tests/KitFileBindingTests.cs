@@ -28,7 +28,7 @@ public class KitFileBindingTests
 
     private static readonly ActivityEntry[] Recorded =
     {
-        new(1, "2026-10-28T09:00:01.000Z", ActivityKind.Turn, "Round started", false),
+        new(1, "2026-10-28T09:00:01.000Z", ActivityKind.Turn, "Round Started", false),
         new(2, "2026-10-28T09:00:04.000Z", ActivityKind.Message, "I found the cause and I am fixing it.", true),
     };
 

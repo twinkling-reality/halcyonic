@@ -188,11 +188,11 @@ public class TasksColumnTests
         Assert.That(column.Rows, Is.EqualTo(4), "and again back at the standard");
 
         // Paging: Next page, then First page on the last, which goes back.
-        Assert.That(three.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next page"));
+        Assert.That(three.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Page"));
         three.Act(Footer.NextPage, null);
         three.Act(Footer.NextPage, null);
         Assert.That(three.Frame!.Lines.Select(line => line.Key), Is.EqualTo(new[] { "t0" }));
-        Assert.That(three.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("First page"));
+        Assert.That(three.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("First Page"));
         three.Act(Footer.NextPage, null);
         Assert.That(three.Frame!.Lines, Has.Count.EqualTo(3));
     }
@@ -219,19 +219,19 @@ public class TasksColumnTests
     {
         var waiting = TasksColumn.Bar(MenuPlace.Usage, StateWith(new[] { Task("a", WorkstreamStatus.WaitingForHuman, 1, AttentionLevel.ActionRequired), Task("b", WorkstreamStatus.Running, 2) }));
         Assert.That((waiting.Chosen, waiting.ClosedLine, waiting.Waits(MenuPlace.Tasks), waiting.Waits(MenuPlace.Usage)),
-            Is.EqualTo((MenuPlace.Usage, "1 task is waiting for you", true, false)));
+            Is.EqualTo((MenuPlace.Usage, "Needs You · 1 Task", true, false)));
         var quiet = TasksColumn.Bar(MenuPlace.Tasks, StateWith(new[] { Task("b", WorkstreamStatus.Running, 2) }));
-        Assert.That((quiet.ClosedLine, quiet.Waits(MenuPlace.Tasks)), Is.EqualTo(("Nothing is waiting for you.", false)));
-        Assert.That(TasksColumn.Bar(MenuPlace.Tasks, null).ClosedLine, Is.EqualTo("Nothing is waiting for you."), "before the first snapshot");
+        Assert.That((quiet.ClosedLine, quiet.Waits(MenuPlace.Tasks)), Is.EqualTo(("Nothing Waiting", false)));
+        Assert.That(TasksColumn.Bar(MenuPlace.Tasks, null).ClosedLine, Is.EqualTo("Nothing Waiting"), "before the first snapshot");
     }
 
     [Test]
     public void WhileTheComputerHasNoTaskAtAllTheBarSaysNothingIsRunningYet()
     {
         var none = TasksColumn.Bar(MenuPlace.Tasks, StateWith(Array.Empty<WorkstreamView>()));
-        Assert.That((none.ClosedLine, none.Waits(MenuPlace.Tasks)), Is.EqualTo(("Nothing is running yet", false)));
+        Assert.That((none.ClosedLine, none.Waits(MenuPlace.Tasks)), Is.EqualTo(("Nothing Running", false)));
         // A session's state before its first snapshot is empty, not known to be: it claims nothing about the computer's work.
-        Assert.That(TasksColumn.Bar(MenuPlace.Tasks, new ClientProjection()).ClosedLine, Is.EqualTo("Nothing is waiting for you."));
+        Assert.That(TasksColumn.Bar(MenuPlace.Tasks, new ClientProjection()).ClosedLine, Is.EqualTo("Nothing Waiting"));
     }
 
     [Test]
@@ -261,7 +261,7 @@ public class TasksColumnTests
         var column = new TasksColumn(host, project: () => Samples.ProjectId, allProjects: () => { });
         var frame = column.Frame!;
         var action = frame.Lines.Single(line => line.Action == TasksColumn.NewTask);
-        Assert.That((action.Words, action.WordsAreData, action.Key), Is.EqualTo(("New task", false, Samples.ProjectId)));
+        Assert.That((action.Words, action.WordsAreData, action.Key), Is.EqualTo(("New Task", false, Samples.ProjectId)));
         Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(host.PageRows(false)));
         column.Act(TasksColumn.NewTask, Samples.ProjectId);
         Assert.That(host.Opened, Is.Empty, "an unseen control cannot open the flow");

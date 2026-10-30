@@ -441,7 +441,7 @@ public class PanelDragTests
     {
         var model = new PanelModel("Check your project");
         Assert.That(model.CanMove, Is.True);
-        model.Confirm = new ConfirmStep("Sure?", new PanelAction("yes", "Yes, start over", PanelActionRole.Destructive),
+        model.Confirm = new ConfirmStep("Sure?", new PanelAction("yes", "Confirm", PanelActionRole.Destructive),
             new PanelAction("cancel", "Cancel", PanelActionRole.Secondary));
         Assert.That(model.CanMove, Is.False);
         Assert.That(new PanelModel("Usage left") { Movable = false }.CanMove, Is.False);

@@ -24,7 +24,7 @@ namespace Halcyonic.Client
 
         /// <summary>"1 more task not shown here", "3 more tasks not shown here": work with no character on the stage; null for none.</summary>
         public static string? NotShown(int count) =>
-            count <= 0 ? null : count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " more task" : " more tasks") + " not shown here";
+            count <= 0 ? null : "+" + count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " Task" : " Tasks") + " · Not Shown";
 
         /// <summary>
         /// "Open · Create a project": the panel that was open when it folded, kept as it was. Its

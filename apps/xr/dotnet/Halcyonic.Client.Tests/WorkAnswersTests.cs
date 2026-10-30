@@ -591,9 +591,9 @@ public class UnderstandingAnswersTests
                 item["status"] = status;
                 item["epistemic"] = "observed";
             });
-            var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), lead + " · " + SectionLine.AgentChip + " · ");
+            var line = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, json), SectionLine.AgentChip + " · " + lead + " · ");
             Assert.That((line.Text, line.Words, line.Chip, line.Tone),
-                Is.EqualTo((lead + " · " + SectionLine.AgentChip + " · Document refund behaviour for support", lead + " · Document refund behaviour for support", SectionLine.AgentChip, SectionTone.Claim)), status);
+                Is.EqualTo((SectionLine.AgentChip + " · " + lead + " · Document refund behaviour for support", lead + " · Document refund behaviour for support", SectionLine.AgentChip, SectionTone.Claim)), status);
             // Beside its chip, Halcyonic's lead upright and the agent's words leaning, never quoted (lane V's treatment).
             Assert.That(line.Runs.ToString(), Is.EqualTo(lead + " · [Document refund behaviour for support]"), status);
             var statement = Answers.Checked(json, ControlPlaneApiTests.Available).Lines.Single(each => each.Text.StartsWith(SectionLine.AgentChip + " · All tests pass.", StringComparison.Ordinal));
@@ -607,7 +607,7 @@ public class UnderstandingAnswersTests
             item["status"] = "reported";
             item["epistemic"] = "observed";
         });
-        var still = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, passedOn), "To Do · " + SectionLine.AgentChip + " · ");
+        var still = Intelligence.Line(Answers.Understand(UnderstandPrompt.WhatChanged, passedOn), SectionLine.AgentChip + " · To Do · ");
         Assert.That((still.Tag, still.Chip), Is.EqualTo(("reported", SectionLine.AgentChip)));
     }
 

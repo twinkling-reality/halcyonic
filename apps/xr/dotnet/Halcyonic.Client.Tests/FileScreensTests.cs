@@ -275,7 +275,7 @@ public class FileScreensTests
         Assert.That(frame.Side!.Parts, Is.Not.Null);
         var (part, parts) = frame.Side.Parts!.Value;
         Assert.That((part, parts > 1), Is.EqualTo((0, true)));
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next page"));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Page"));
         screen.NextPage();
         Assert.That(Screen(screen, room: new AnswerRoom(3)).Side!.Parts!.Value.Part, Is.EqualTo(1));
         screen.Section = FileSection.Changes;
@@ -315,7 +315,7 @@ public class FileScreensTests
         var screen = new FileScreen { Section = FileSection.Activity, WorkspaceRequestOffered = true, ResultsOffered = true };
         var frame = Screen(screen, room: new AnswerRoom(rows));
         Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(rows));
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No Activity", "Ask workspace", "Read Results" }));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "No Activity", "Ask Workspace", "Read Results" }));
         Assert.That(frame.Lines[0].Action, Is.Null);
         Assert.That(frame.Lines[0].Tone, Is.EqualTo(LineTone.Secondary));
         Assert.That(frame.Lines.Skip(1).Select(line => line.Action), Is.EqualTo(new[] { FileScreens.OpenWorkspaceRequest, FileScreens.OpenResults }));
@@ -452,7 +452,7 @@ public class FileScreensTests
         var workspace = new WorkspacePresentation(present.Character, present.Objective, present.Execution, present.Runtime,
             present.Actions, present.Actions.Where(present.RequiresConfirmation).ToList(), present.Commands, activity);
         var frame = Screen(new FileScreen { Section = FileSection.Activity, WorkspaceRequestOffered = true, ResultsOffered = true }, workspace);
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Checking the tests", "Ask workspace", "Read Results" }));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Checking the tests", "Ask Workspace", "Read Results" }));
         Assert.That((frame.Lines[0].Chip, frame.Lines[0].Runs.AllTheirs), Is.EqualTo((SectionLine.AgentChip, true)));
     }
 

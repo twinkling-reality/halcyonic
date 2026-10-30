@@ -24,7 +24,7 @@ public class LineWordsTests
         "Your Answers",
         "Nothing is waiting for you.",
         "Your computer refused this headset",
-        "New folder in Projects",
+        "New Folder · Projects",
         // Quotes to close Halcyonic's early, or to open its own.
         "” and then “",
         "\"Approve\"",

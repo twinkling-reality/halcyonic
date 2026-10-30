@@ -131,7 +131,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // Activity: Halcyonic's words first and upright, a tool's or an app's name and the agent's message leaning, its chip and time on the glass.
             var activity = new List<PageLine>
             {
-                new PageLine(LineWords.Ours("Asked to start on ") + LineWords.TheirName("Practice agent, watch only"), fact: LineWords.Ours("09:00"), tone: LineTone.Secondary),
+                new PageLine(LineWords.Ours("Start Requested · ") + LineWords.TheirName("Practice agent, watch only"), fact: LineWords.Ours("09:00"), tone: LineTone.Secondary),
                 new PageLine(LineWords.Ours("Used ") + LineWords.TheirName("Approved") + LineWords.Ours(": ") + LineWords.Theirs("make migrate"), fact: LineWords.Ours("09:01"),
                     tone: LineTone.Secondary),
                 new PageLine(LineWords.Ours("Succeeded: ") + LineWords.TheirName("bash"), fact: LineWords.Ours("09:02"), tone: LineTone.Secondary),

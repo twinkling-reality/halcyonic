@@ -170,9 +170,9 @@ public class GalleryTests
         Assert.That(item.Owner?.Text, Is.EqualTo("harbor-labs"));
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou), "the more urgent of the two");
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Catalog));
-        Assert.That(item.ObservedLine?.Text, Is.EqualTo("1 task running"), "this computer's own tasks keep their line");
+        Assert.That(item.ObservedLine?.Text, Is.EqualTo("Running · 1"), "this computer's own tasks keep their line");
         Assert.That(item.ReportedLine?.Text, Is.EqualTo("Review Requested"));
-        Assert.That(item.Line.Text, Is.EqualTo("1 task running"));
+        Assert.That(item.Line.Text, Is.EqualTo("Running · 1"));
         Assert.That(item.LineReported, Is.False);
         Assert.That(item.HasCharacter, Is.True);
         Assert.That(item.OnYourComputer, Is.True);
@@ -189,7 +189,7 @@ public class GalleryTests
         var item = Build(halcyonic, Read(new[] { Catalog("c1", "Tide", "agent_running", linked: "p1") })).Items.Single();
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou));
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Halcyonic));
-        Assert.That(item.ObservedLine?.Text, Is.EqualTo("1 task waiting for you"));
+        Assert.That(item.ObservedLine?.Text, Is.EqualTo("Needs You · 1"));
         Assert.That(item.ReportedLine?.Text, Is.EqualTo("Agent Running"));
         Assert.That(item.Place.Text, Is.EqualTo("No Folder Yet"), "a project with no folder says so");
     }
@@ -387,7 +387,7 @@ public class GalleryTests
             Is.EqualTo("Checked · 27 Oct 09:05"));
         Assert.That(
             Build(halcyonic, Read(Array.Empty<CatalogProject>(), failed: true)).Age,
-            Is.EqualTo("Check Failed · Last · Today 14:50"));
+            Is.EqualTo("Refresh Failed · Last · Today 14:50"));
         Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>(), checkedAt: null)).Age, Is.EqualTo("Not Checked"));
     }
 
@@ -396,7 +396,7 @@ public class GalleryTests
     {
         var gallery = Build(Halcyonic(portfolio => portfolio.Project("p1", "My first game")));
         var item = gallery.Items.Single();
-        Assert.That(item.Line.Text, Is.EqualTo("No work yet"));
+        Assert.That(item.Line.Text, Is.EqualTo("No Work"));
         Assert.That(item.HasCharacter, Is.False);
         Assert.That(gallery.Samples, Is.Empty);
     }

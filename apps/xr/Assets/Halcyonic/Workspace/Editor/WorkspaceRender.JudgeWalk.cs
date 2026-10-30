@@ -522,7 +522,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 for (var page = 2; page < 10; page++)
                 {
                     var next = Shown(MenuColumn.File)?.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Kind == PromptKind.NextPage);
-                    if (next == null || next.Words.StartsWith("First page", StringComparison.Ordinal)) break;
+                    if (next == null || next.Words.StartsWith("First Page", StringComparison.Ordinal)) break;
                     Press(MenuColumn.File, Footer.NextPage);
                     Shot("13 new project recap page " + page, lightLine: false);
                 }

@@ -491,7 +491,7 @@ public class FileColumnTests
         var current = FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct);
         WorkspacePresentation With(params ActivityEntry[] entries) => new(current.Character, current.Objective, current.Execution, current.Runtime,
             current.Actions, current.Actions.Where(current.RequiresConfirmation).ToList(), current.Commands, entries);
-        current = With(new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Turn, "Round started", false));
+        current = With(new ActivityEntry(1, "2026-09-26T09:00:01.000Z", ActivityKind.Turn, "Round Started", false));
         var column = Column(host, () => current);
         column.ConfigureActivityComposer(() => new RowBudget(2), () => new RowBudget(8));
         column.HoldStarted(FileScreens.HoldToTalk); column.Heard("Retain this draft");
@@ -923,7 +923,7 @@ public class FileColumnTests
         column.Act(FileScreens.Approve, null);
         Draw(host, column);
         column.Act(FileScreens.Yes, null);
-        Assert.That(column.Frame!.Lines.Last().Words, Does.StartWith("Couldn't send"));
+        Assert.That(column.Frame!.Lines.Last().Words, Does.StartWith("Not Sent"));
     }
 
     /// <summary>A question taking a typed answer, its answers' page in view, with an unsaved editor buffer long enough to take several parts.</summary>
@@ -2099,7 +2099,7 @@ public class FileColumnTests
         ReadInstructionDraft(host, column);
         column.Act(FileScreens.SendInstruction, null);
         Assert.That((column.Screen.RequestParts, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((1, (Prompt?)null)), "one part, not drawn yet");
-        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Read to part 1 first" }));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Read to Part 1" }));
         Draw(host, column);
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Carry on", "Send Heard Instruction?" }));
         column.Act(FileScreens.Yes, null);
@@ -2500,7 +2500,7 @@ public class FileColumnTests
         var navigator = new MenuNavigator(MenuBar.Places.ToDictionary(place => place,
             _ => (Func<IMenuColumn>)(() => throw new InvalidOperationException("Resuming a compact file must not open another menu place."))));
         navigator.ShowBeside(column, "w1");
-        var oldFrame = navigator.Frames(new MenuBar(MenuPlace.Tasks, "1 task is waiting for you", MenuPlace.Tasks)).Beside;
+        var oldFrame = navigator.Frames(new MenuBar(MenuPlace.Tasks, "Needs You · 1 Task", MenuPlace.Tasks)).Beside;
         navigator.Drawn(MenuColumn.File, oldFrame, null);
         navigator.Compact();
         navigator.FocusLeft();

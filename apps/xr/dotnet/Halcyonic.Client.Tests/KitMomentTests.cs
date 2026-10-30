@@ -20,8 +20,8 @@ public class KitMomentTests
     {
         var sent = KitMoment.Sent(Codex);
         Assert.That(sent.Provenance, Is.EqualTo(KitProvenance.Observed));
-        Assert.That(sent.Source, Is.EqualTo("Codex · Observed"));
-        Assert.That(Text(sent.Headline), Is.EqualTo("Sent · Awaiting Start"));
+        Assert.That(sent.Source, Is.EqualTo("Your Computer · Observed"), "your computer sent it; the agent app has seen nothing yet");
+        Assert.That(Text(sent.Headline), Is.EqualTo("Sent · Codex · Awaiting Start"));
         Assert.That(sent.Source + Text(sent.Headline), Does.Not.Contain("Started").And.Not.Contain("Starting"), "accepted is not started");
     }
 
@@ -79,7 +79,7 @@ public class KitMomentTests
         Assert.That(leaves.Lines, Is.EqualTo(new[] { "May Run Outside Sandbox · Your Access" }));
         Assert.That(stays.Lines, Is.EqualTo(new[] { "Runs Inside Sandbox" }));
         Assert.That(silent.Lines, Is.Empty, "nothing claimed where nothing was declared; the question and its locked answers say nothing runs yet");
-        Assert.That(leaves.Source, Is.EqualTo("Agent · Question"), "no app's name in our words");
+        Assert.That(leaves.Source, Is.EqualTo("Agent · Question · Reported"), "no app's name in our words, and how it is known");
         Assert.That(leaves.Tone, Is.EqualTo(KitMomentTone.Attention));
         Assert.That(leaves.Headline.ToString(), Is.EqualTo("Run Command? · [npm install matter-js]"));
     }
@@ -210,7 +210,7 @@ public class KitMomentTests
         string? Title(KitMoment moment) => moment.Title?.ToString();
         string[] Meta(KitMoment moment) => moment.Meta.Select(segment => segment.ToString()).ToArray();
         var sent = KitMoment.Sent(Codex);
-        Assert.That((Title(sent), Meta(sent), sent.Well), Is.EqualTo(("Sent", new[] { "Awaiting Start" }, (string?)null)));
+        Assert.That((Title(sent), Meta(sent), sent.Well), Is.EqualTo(("Sent", new[] { "[Codex]", "Awaiting Start" }, (string?)null)));
         var edit = KitMoment.ReportedEdit(Codex, KitFileChange.Changed, "src/towers.ts", At);
         Assert.That((Title(edit), Meta(edit)), Is.EqualTo(("Edit Reported", new[] { "[src/towers.ts]" })));
         var seen = KitMoment.ObservedChange(KitFileChange.Changed, "src/towers.ts", 41, 54, At);

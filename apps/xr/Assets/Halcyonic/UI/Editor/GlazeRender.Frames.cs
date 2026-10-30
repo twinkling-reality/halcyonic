@@ -365,7 +365,7 @@ namespace Halcyonic.XR.UI.Editor
         {
             var holder = Holder("Footer that does not fit", 0f, 0f);
             var view = View(holder, "New project");
-            var footer = new Footer(CloseFrame, rare: new Prompt("over", "Start over", GlazeIcon.Refresh), secondary: new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true),
+            var footer = new Footer(CloseFrame, rare: new Prompt("over", "Start Over", GlazeIcon.Refresh), secondary: new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true),
                 farRight: new Prompt("recap", "Make the recap", GlazeIcon.Next, main: true));
             view.Show(new MenuFrame("What would you like to work on?", footer), Glaze.Menu.FileColumnDegrees, Subject(false, ("x", Glaze.Menu.FileColumnDegrees)), pillRoom: false);
             var fits = view.Footer.Fits;

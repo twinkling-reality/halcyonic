@@ -17,79 +17,79 @@ namespace Halcyonic.Client
     /// </summary>
     public static class EntryText
     {
-        public const string ConnectProjects = "Connect projects";
-        public const string CreateProject = "Create a project";
-        public const string CreateInvite = "Start from an idea";
-        public const string NotNow = "Not now";
+        public const string ConnectProjects = "Connect Projects";
+        public const string CreateProject = "New Project";
+        public const string CreateInvite = "Start from Idea";
+        public const string NotNow = "Not Now";
 
-        public const string ShowAll = "Show all";
-        public const string AddTask = "Add a task";
-        public const string WaitingForMac = "Waiting for " + HostText.Your + ".";
+        public const string ShowAll = "Show All";
+        public const string AddTask = "Add Task";
+        public const string WaitingForMac = "Awaiting Computer";
 
         /// <summary>Why Start task can't be pressed while a build is on its way (the coordinator, 2026-10-02).</summary>
-        public const string AlreadyStarting = "Already starting. Wait to hear how it went.";
+        public const string AlreadyStarting = "Starting · Awaiting Result";
 
-        public const string IdeaPrompt = "What would you like to make?";
-        public const string WorkPrompt = "What should this task do?";
-        public const string TypeIdea = "Type my idea";
+        public const string IdeaPrompt = "Your Idea";
+        public const string WorkPrompt = "Task Goal";
+        public const string TypeIdea = "Type Idea";
 
         /// <summary>New project's row for the fixed questions, and the main action while it is chosen (ADR 0026).</summary>
-        public const string AnswerQuestions = "Answer a few questions";
-        public const string StartQuestions = "Start the questions";
+        public const string AnswerQuestions = "Answer Questions";
+        public const string StartQuestions = "Start Questions";
 
         /// <summary>The fixed questions' main action, and why it can't be pressed before an answer is chosen (the coordinator, 2026-10-02).</summary>
-        public const string NextQuestion = "Next question";
-        public const string ChooseOrTypeFirst = "Choose or type an answer first.";
+        public const string NextQuestion = "Next Question";
+        public const string ChooseOrTypeFirst = "Choose or Type First";
 
         /// <summary>Typing a name: the fixed name question's own answer, and the words page's row before there is one.</summary>
-        public const string TypeName = "Type a name";
+        public const string TypeName = "Type Name";
 
         /// <summary>What a name or first task must be, said where it can't be kept as it is.</summary>
-        public const string NameRule = "Name the project in at most 200 characters.";
-        public const string DescribeTask = "Describe the first task.";
-        public const string ShortenTask = "Shorten the first task to at most 4,000 characters.";
+        public const string NameRule = "Name · Up to 200 Characters";
+        public const string DescribeTask = "Describe First Task";
+        public const string ShortenTask = "First Task · Up to 4,000 Characters";
 
         /// <summary>The words page's line for a new folder: the folder list's own words for it.</summary>
         public static string NewFolderIn(LocationRoot root) => ProjectFolder.NewFolderLabel(root);
 
         /// <summary>Typing a first task of one's own in place of the companion's suggestion and one's earlier words.</summary>
-        public const string TypeMyOwn = "Type my own";
-        public const string NothingStartsYet = "Nothing starts until you choose Start task.";
-        public const string GuideNote = "Fixed questions, not an AI. You can change every answer.";
+        public const string TypeMyOwn = "Type My Own";
+        public const string NothingStartsYet = "Nothing Starts Yet";
+        public const string GuideNote = "Fixed Questions · Not AI · Answers Editable";
         public const string Back = "Back";
 
         /// <summary>Under the answer given before, and under every choice made in a list: one word marks a choice everywhere.</summary>
         public const string Chosen = "Chosen";
 
 
-        public const string RecapLine = "Change anything before you start the task.";
-        public const string StartBuilding = "Start task";
-        public const string StartOver = "Start over";
-        public const string ConfirmStartOver = "Yes, start over";
-        public const string MoreOptions = "More options";
-        public const string ProjectName = "Project name";
-        public const string FirstTask = "First task";
-        public const string NotNamedYet = "not named yet";
-        public const string HowItRuns = "How it runs";
-        public const string NameTheProject = "Name the project";
-        public const string WhatFirstTask = "What should the first task be?";
+        public const string RecapLine = "Editable Before Start";
+        public const string StartBuilding = "Start Task";
+        public const string StartOver = "Start Over";
+        public const string ConfirmStartOver = "Confirm";
+        public const string MoreOptions = "More Options";
+        public const string ProjectName = "Project Name";
+        public const string FirstTask = "First Task";
+        public const string NotNamedYet = "Not Named";
+        public const string HowItRuns = "Run Settings";
+        public const string NameTheProject = "Name Project";
+        public const string WhatFirstTask = "First Task Goal";
 
-        public const string FolderTitle = "Where its files live";
-        public const string FolderLine = "Folders " + HostText.Your + " allows for projects. A new folder starts empty.";
-        public const string ReadingFolders = "Reading the folders " + HostText.Your + " allows…";
-        public const string NoFolders = HostText.YourStart + " doesn't allow any folder yet. Allow one on " + HostText.Your + ", then press Try again.";
-        public const string FoldersCut = HostText.YourStart + " lists only the first 200 folders in a place.";
-        public const string NewFolderPrompt = "Name the new folder";
-        public const string NewFolderRule = "Use up to 64 letters, digits, dots, dashes or underscores. Start with a letter or digit.";
-        public const string UseThatFolder = "Use that folder";
-        public const string ChooseAnotherFolder = "Choose a folder";
-        public const string RebindWarning = "Every later task in this project uses the new folder. Tasks already running keep theirs.";
+        public const string FolderTitle = "Folder";
+        public const string FolderLine = "Allowed Folders · New Folder Starts Empty";
+        public const string ReadingFolders = "Reading Folders";
+        public const string NoFolders = "No Folders Allowed · Allow on Computer · Try Again";
+        public const string FoldersCut = "First 200 Folders Only";
+        public const string NewFolderPrompt = "New Folder Name";
+        public const string NewFolderRule = "Up to 64 · Letters, Digits, Dots, Dashes, Underscores · Letter or Digit First";
+        public const string UseThatFolder = "Use Folder";
+        public const string ChooseAnotherFolder = "Choose Folder";
+        public const string RebindWarning = "Later Tasks Use New Folder · Running Tasks Keep Theirs";
 
         /// <summary>
         /// The folders couldn't be read: this line, then why on the next, in Halcyonic's own words from
         /// <see cref="WhyFoldersUnread"/>, else <see cref="PressTryAgain"/> (settled by the coordinator, 2026-10-07).
         /// </summary>
-        public const string FoldersUnread = "Couldn't read " + HostText.Your + "'s folders.";
+        public const string FoldersUnread = "Folders Unreadable";
 
         /// <summary>
         /// Why a read of the folders failed, by the refusal's code or a request that never got a reply,
@@ -123,7 +123,7 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The folders' why when what answered couldn't prove it holds the access code (settled by the coordinator, 2026-10-07).</summary>
-        public const string FoldersUnproved = "What answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Try again.";
+        public const string FoldersUnproved = "Host Unverified · Code Not Sent · Check App · Try Again";
 
         /// <summary>The first exception of this kind in the chain of inner ones, or null.</summary>
         private static T? Within<T>(Exception? error) where T : Exception
@@ -135,12 +135,12 @@ namespace Halcyonic.Client
             return null;
         }
 
-        public const string FoldersUnanswered = "It didn't answer. Check that this app is running there, then press Try again.";
-        public const string FoldersTurnedAway = HostText.YourStart + " is turning this headset away for a minute after too many tries. Press Try again after a minute.";
+        public const string FoldersUnanswered = "No Answer · Check App · Try Again";
+        public const string FoldersTurnedAway = "Computer Busy · Too Many Tries · Retry in 1 min";
 
-        public const string FoldersNotConnected = HostText.YourStart + " isn't connected. Press Try again when it is.";
+        public const string FoldersNotConnected = "Not Connected · Try Again";
 
-        public const string PressTryAgain = "Press Try again.";
+        public const string PressTryAgain = "Try Again";
 
         /// <summary>
         /// Where the project's files live, for the recap, under its own heading: the folder chosen, the
@@ -150,19 +150,19 @@ namespace Halcyonic.Client
         /// <summary>The folder fact as runs (<see cref="FolderFact"/>): Halcyonic's words upright and first, names leaning.</summary>
         public static LineWords FolderFactRuns(ProjectLocation? current, ProjectFolder? chosen, bool needed)
         {
-            if (chosen != null && current != null) return LineWords.Ours("From now on, ") + chosen.DescribeRuns() + LineWords.Ours("; ") + LineWords.TheirName(current.Name) + LineWords.Ours(" now");
+            if (chosen != null && current != null) return LineWords.Ours("Next · ") + chosen.DescribeRuns() + LineWords.Ours(" · Now · ") + LineWords.TheirName(current.Name);
             if (chosen != null) return chosen.DescribeRuns(startOfLine: true);
-            if (current != null) return LineWords.TheirName(current.Name) + LineWords.Ours(", the project's folder");
-            return LineWords.Ours(needed ? "Not chosen yet" : "Not needed");
+            if (current != null) return LineWords.TheirName(current.Name) + LineWords.Ours(" · Project Folder");
+            return LineWords.Ours(needed ? "Not Chosen" : "Not Needed");
         }
 
         public static string FolderFact(ProjectLocation? current, ProjectFolder? chosen, bool needed)
         {
             // Halcyonic's own words first, so a long name never pushes them past the line's end (settled by the coordinator, 2026-10-08).
-            if (chosen != null && current != null) return "From now on, " + chosen.Describe() + "; " + LabelText.Plain(current.Name) + " now";
+            if (chosen != null && current != null) return "Next · " + chosen.Describe() + " · Now · " + LabelText.Plain(current.Name);
             if (chosen != null) return chosen.Describe(startOfLine: true);
-            if (current != null) return LabelText.Plain(current.Name) + ", the project's folder";
-            return needed ? "Not chosen yet" : "Not needed";
+            if (current != null) return LabelText.Plain(current.Name) + " · Project Folder";
+            return needed ? "Not Chosen" : "Not Needed";
         }
 
         /// <summary>
@@ -172,28 +172,28 @@ namespace Halcyonic.Client
         public static string? FolderProblem(RejectionCode? refusal, string? failure)
         {
             if (refusal == RejectionCode.LocationRequired || failure == "location_required")
-                return "This project has no folder yet. Choose where its files live, then try again.";
+                return "No Folder · Choose Folder";
             if (refusal == RejectionCode.LocationMissing || failure == "location_missing")
                 // The host also answers this for a folder or place that is there but cannot be read.
-                return HostText.YourStart + " can't use that folder now. Choose it again, or fix it on " + HostText.Your + ".";
+                return "Folder Unusable · Choose Again or Fix on Computer";
             if (refusal == RejectionCode.LocationNotAllowed || failure == "location_not_allowed")
-                return HostText.YourStart + " doesn't let agents work there. Choose a folder it lists.";
+                return "Folder Not Allowed · Choose Listed Folder";
             if (refusal == RejectionCode.LocationExists || failure == "location_exists")
-                return "There's already a folder with that name. Use that folder, or choose another name.";
+                return "Folder Exists · Use It or Rename";
             if (failure == "location_not_created")
-                return HostText.YourStart + " couldn't make that folder, so nothing changed. Choose another name or place.";
+                return "Folder Not Made · Nothing Changed · Choose Another";
             return null;
         }
 
         /// <summary>The step stopped over its folder, so choosing another is the next action.</summary>
         public static bool AboutFolder(BuildStep step) => !step.EffectUnknown && FolderProblem(step.Refusal, step.Failure) != null;
 
-        public const string OptionsLine = "Choose the agent app that does the work, then its model. Each model says where it runs.";
-        public const string NoRuntimes = "No agent app on " + HostText.Your + " can start work right now. Set one up on " + HostText.Your + ", then open this again.";
-        public const string ChangeAgentApp = "Change agent app";
-        public const string ListsModels = "You choose its model";
-        public const string ChoosesModel = "It chooses its model";
-        public const string NoModels = "This agent app offers no models. Choose another agent app.";
+        public const string OptionsLine = "Choose Agent App · Then Model";
+        public const string NoRuntimes = "No Agent App Available · Set Up on Computer";
+        public const string ChangeAgentApp = "Change Agent App";
+        public const string ListsModels = "Model · Your Choice";
+        public const string ChoosesModel = "Model · App's Choice";
+        public const string NoModels = "No Models Offered · Change Agent App";
 
         /// <summary>
         /// Why the agent app's models couldn't be read, by the reason's code, never its message, which is the
@@ -208,28 +208,28 @@ namespace Halcyonic.Client
             _ => ModelsUnreadable,
         };
 
-        public const string ModelsUnanswered = "Couldn't read its models: the agent app didn't answer. Check its setup on " + HostText.Your + ", then choose it again.";
+        public const string ModelsUnanswered = "Models Unreadable · Agent App Silent · Check Setup";
         /// <summary>The headset gave up waiting for your computer, past the 40 s a models read may take (settled by the coordinator, 2026-10-07).</summary>
-        public const string ModelsComputerSilent = "Couldn't read its models: " + HostText.Your + " didn't answer in time. Choose the agent app again to retry.";
-        public const string ModelsUnreadable = "Couldn't read its models. Choose the agent app again to retry.";
-        public const string ModelsUnsupported = "Couldn't read its models: this agent app's version on " + HostText.Your + " isn't supported yet. Choose another.";
-        public const string ModelsNotConnected = "Couldn't read its models: " + HostText.Your + " isn't connected. Choose the agent app again when it is.";
-        public const string ChosenForYou = "Chosen for you";
+        public const string ModelsComputerSilent = "Models Unreadable · No Answer · Choose Again to Retry";
+        public const string ModelsUnreadable = "Models Unreadable · Choose Again to Retry";
+        public const string ModelsUnsupported = "Models Unreadable · Version Unsupported · Choose Another";
+        public const string ModelsNotConnected = "Models Unreadable · Not Connected · Retry When Connected";
+        public const string ChosenForYou = "Chosen for You";
 
         /// <summary>A simulated agent app in the recorded demonstration, which keeps its name.</summary>
         public const string Practice = "Practice";
         public const string Done = "Done";
 
         /// <summary>Under the review's title: the items are Halcyonic's own account of what will be sent, so it asks to check them, never claims to be the command.</summary>
-        public const string ReviewLine = "Check every part before you start.";
-        public const string ConfirmStart = "Yes, start task";
+        public const string ReviewLine = "Review Every Part";
+        public const string ConfirmStart = "Confirm";
         public const string Change = "Change";
 
         /// <summary>The final press, locked in its place until the person has seen the last part: what is left to do, not a part's name.</summary>
-        public static string ReadToPart(int pages) => "Read to part " + Count(pages) + " first";
+        public static string ReadToPart(int pages) => "Read to Part " + Count(pages);
 
         /// <summary>New project's row to the review's next part, which replaces <see cref="ReadToPart"/> (ADR 0026).</summary>
-        public static string NextPart(int part, int parts) => "Next part, " + Count(part) + " of " + Count(parts);
+        public static string NextPart(int part, int parts) => "Next Part · " + Count(part) + " of " + Count(parts);
 
         /// <summary>
         /// What starting over clears, as Start over's side panel on New project's recap and its
@@ -238,15 +238,15 @@ namespace Halcyonic.Client
         /// and a folder chosen in place of the project's. The agent app and model are the draft's, kept.
         /// </summary>
         public static string StartOverClears(bool forTask) => forTask
-            ? "This clears your idea, its answers, the first task and any change of folder. The project and how it runs stay."
-            : "This clears your idea, its answers, the name, first task and folder. How it runs stays.";
+            ? "Clears · Idea · Answers · First Task · Folder Change · Keeps · Project · Run Settings"
+            : "Clears · Idea · Answers · Name · First Task · Folder · Keeps · Run Settings";
 
         /// <summary>
         /// New project's row at the end of a page that needs more than one, on page <paramref name="page"/>
         /// (from 0) of <paramref name="pages"/>: the page it turns to, or First page on the last, as the
         /// menu's pager says (<see cref="Footer.NextPageWords"/>) and the review's row counts.
         /// </summary>
-        public static string NextPage(int page, int pages) => page == pages - 1 ? "First page" : "Next page, " + Count(page + 2) + " of " + Count(pages);
+        public static string NextPage(int page, int pages) => page == pages - 1 ? "First Page" : "Next Page · " + Count(page + 2) + " of " + Count(pages);
 
         /// <summary>The pager's words, everywhere in the entry panel: a word with its direction, never Back, which leaves the screen.</summary>
         public const string Previous = "Previous";
@@ -256,80 +256,80 @@ namespace Halcyonic.Client
 
         public static string Part(int page, int pages) => "Part " + Count(page + 1) + " of " + Count(pages);
 
-        public const string SendingLine = "Work already running keeps going.";
-        public const string TryAgain = "Try again";
-        public const string Started = "Confirmed: it started. Find it on the stage.";
+        public const string SendingLine = "Running Work Continues";
+        public const string TryAgain = "Try Again";
+        public const string Started = "Confirmed · Started · On Stage";
 
-        public const string PreviousRequestTitle = "Not sure it happened";
-        public const string PreviousRequestLine = "Your last start may have gone through. Check the tasks on the stage first: starting again could do it twice.";
+        public const string PreviousRequestTitle = "Start Unconfirmed";
+        public const string PreviousRequestLine = "Last Start May Have Run · Check Stage First · Retry Could Repeat It";
 
         /// <summary>On Starting your work, where it only opens Not sure it happened.</summary>
         public const string CheckFirst = "Next";
 
         /// <summary>The first of the two presses that clear a start whose outcome is unknown.</summary>
         public const string Clear = "Clear";
-        public const string ClearOnceChecked = "Clear this once you've checked.";
-        public const string ClearOnlyAfterChecking = "Clear only after you've checked the tasks on the stage.";
-        public const string ConfirmClear = "Yes, clear";
+        public const string ClearOnceChecked = "Clear After Checking";
+        public const string ClearOnlyAfterChecking = "Check Stage, Then Clear";
+        public const string ConfirmClear = "Confirm";
         public const string Cancel = "Cancel";
-        public const string Cleared = "Cleared. Start again from your idea.";
+        public const string Cleared = "Cleared · Start from Idea";
 
         /// <summary>The unknown start's note after its words changed while Yes, clear waited.</summary>
-        public const string ChangedBeforeClear = "Nothing was cleared: this changed while you were clearing it. Read it again.";
+        public const string ChangedBeforeClear = "Not Cleared · Changed · Reread";
 
         /// <summary>The command whose outcome is unknown, by its id.</summary>
-        public static string Reference(string commandId) => "Reference: " + commandId;
+        public static string Reference(string commandId) => "Reference · " + commandId;
 
         /// <summary>What the Mac recorded of a start whose outcome is unknown, in words: a failure may still have changed something.</summary>
         public static string Recorded(CommandStatus? status) => status switch
         {
-            null => HostText.YourStart + " hasn't confirmed it yet.",
-            CommandStatus.Accepted => HostText.YourStart + " took it, but it isn't confirmed yet.",
-            CommandStatus.Completed => "Confirmed: it went through.",
-            CommandStatus.Rejected => HostText.YourStart + " refused it, so it didn't happen.",
-            CommandStatus.Failed => "It didn't go through, but it may have changed something. Check the tasks on the stage.",
-            _ => HostText.YourStart + " answered in a way this app didn't expect. Check the tasks on the stage.",
+            null => "Unconfirmed",
+            CommandStatus.Accepted => "Accepted · Unconfirmed",
+            CommandStatus.Completed => "Confirmed",
+            CommandStatus.Rejected => "Refused · Nothing Happened",
+            CommandStatus.Failed => "Failed · May Have Changed Something · Check Stage",
+            _ => "Unexpected Answer · Check Stage",
         };
 
-        public const string OpenNow = "Open now";
-        public const string KeepCreating = "Keep creating";
+        public const string OpenNow = "Open Now";
+        public const string KeepCreating = "Keep Creating";
 
         public const string Move = "Move";
-        public const string ResetPosition = "Reset position";
+        public const string ResetPosition = "Reset Position";
         public const string Close = "Close";
 
         /// <summary>Why Start task can't go ahead, for each check the recap makes, in its order.</summary>
-        public const string DemoCannotStart = "The demo can't start new work. Real work runs on " + HostText.Your + ".";
-        public const string ChooseHowItRuns = "Choose how it runs in More options.";
-        public const string ChooseAgain = "What you chose in More options isn't available now. Choose again.";
-        public const string FinishChoosing = "Finish choosing how it runs in More options.";
-        public const string ProjectGone = "This project isn't on " + HostText.Your + " any more. Close this, then choose another in Projects.";
-        public const string ChooseWhereFilesLive = "Choose where its files live.";
+        public const string DemoCannotStart = "Demo · No New Work";
+        public const string ChooseHowItRuns = "Choose Run Settings";
+        public const string ChooseAgain = "Run Settings Unavailable · Choose Again";
+        public const string FinishChoosing = "Finish Run Settings";
+        public const string ProjectGone = "Project Missing · Choose Another";
+        public const string ChooseWhereFilesLive = "Choose Folder";
 
-        public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New task in " + existingProject;
+        public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New Task · " + existingProject;
 
         /// <summary>New project's subject for a project that exists, as runs: "New task in " upright, its name leaning, last.</summary>
         public static LineWords CreateTitleRuns(string? existingProject) =>
-            existingProject == null ? LineWords.Ours(CreateProject) : LineWords.Ours("New task in ") + LineWords.TheirName(existingProject);
+            existingProject == null ? LineWords.Ours(CreateProject) : LineWords.Ours("New Task · ") + LineWords.TheirName(existingProject);
 
         public static string Question(int index, int count) => "Question " + Count(index + 1) + " of " + Count(count);
 
 
         /// <summary>How many tasks wait for the person, said as a person would: "1 task is waiting for you", "2 tasks are waiting for you".</summary>
-        public static string WaitingForYou(int count) => Tasks(count) + (count == 1 ? " is" : " are") + " waiting for you";
+        public static string WaitingForYou(int count) => "Needs You · " + Tasks(count);
 
-        private static string Tasks(int count) => Count(count) + (count == 1 ? " task" : " tasks");
+        private static string Tasks(int count) => Count(count) + (count == 1 ? " Task" : " Tasks");
 
         public static string StepName(BuildStepKind kind, bool newProject) => kind switch
         {
-            BuildStepKind.CreateProject => "Create the project",
-            BuildStepKind.BindFolder => "Move the project to its folder",
-            BuildStepKind.CreateWorkstream => newProject ? "Create its first task" : "Create the task",
-            _ => "Start the task",
+            BuildStepKind.CreateProject => "Create Project",
+            BuildStepKind.BindFolder => "Move to Folder",
+            BuildStepKind.CreateWorkstream => newProject ? "Create First Task" : "Create Task",
+            _ => "Start Task",
         };
 
         /// <summary>A start whose effect is unknown is never said to have had none.</summary>
-        public const string NotSureItHappened = "Not sure it happened. Check the tasks on the stage before you try again.";
+        public const string NotSureItHappened = "Effect Unconfirmed · Check Stage";
 
         /// <summary>
         /// How a step of Start task went: sent is not done, and only a completed record confirms.
@@ -338,26 +338,26 @@ namespace Halcyonic.Client
         /// </summary>
         public static string StepStatus(BuildStep step) => step.Status switch
         {
-            BuildStepStatus.NotYet => "Not sent yet",
-            BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Sent. Waiting for the agent…" : "Sent. Waiting for " + HostText.Your + "…",
+            BuildStepStatus.NotYet => "Not Sent",
+            BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Sent · Awaiting Agent" : "Sent · Awaiting Computer",
             BuildStepStatus.Confirmed => "Confirmed",
             // One sentence for a revoked pairing, alone, within the step's two rows (settled by the coordinator, 2026-10-07).
             BuildStepStatus.Refused when step.Refusal == RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
-            BuildStepStatus.Refused => WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyRefused(step.Refusal)),
+            BuildStepStatus.Refused => WorkspaceText.Couldnt("Refused", WorkspaceText.WhyRefused(step.Refusal)),
             // A failure that may have had an effect is never put in words that say nothing happened.
             BuildStepStatus.Failed when step.EffectUnknown => NotSureItHappened,
-            BuildStepStatus.Failed => WorkspaceText.Couldnt("Couldn't do that", (FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged),
+            BuildStepStatus.Failed => WorkspaceText.Couldnt("Failed", (FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure, running: false, step: true)) ?? WorkspaceText.NothingChanged),
             BuildStepStatus.Unknown => NotSureItHappened,
-            BuildStepStatus.NotSent => "Couldn't send: " + HostText.Your + " isn't connected. Try again when it is.",
+            BuildStepStatus.NotSent => "Not Sent · Not Connected · Try Again",
             _ => NotSureItHappened,
         };
 
         /// <summary>Where a model runs, which decides where the person's code and instructions go.</summary>
         public static string Served(ModelServed served) => served switch
         {
-            ModelServed.ThisMac => "Runs on " + HostText.Your,
-            ModelServed.Remote => "Runs on a remote service: your code and instructions go there",
-            _ => "Where it runs isn't known: your code and instructions may go elsewhere",
+            ModelServed.ThisMac => "On Your Computer",
+            ModelServed.Remote => "Remote Service · Code and Instructions Leave",
+            _ => "Location Unknown · Code May Leave",
         };
 
         /// <summary>
@@ -366,44 +366,44 @@ namespace Halcyonic.Client
         /// </summary>
         public static string ElsewhereDivider(IEnumerable<RuntimeModel> elsewhere) =>
             elsewhere.All(model => model.Served == ModelServed.Remote)
-                ? "Runs on a remote service: your code and instructions go there."
-                : "These may not run on " + HostText.Your + ": your code and instructions may go elsewhere.";
+                ? "Remote Service · Code and Instructions Leave"
+                : "May Not Run Locally · Code May Leave";
 
         /// <summary>The first press on a model that runs elsewhere, under its name: what choosing it means, and how.</summary>
-        public static string ConfirmElsewhere(RuntimeModel model) => Served(model.Served) + ". Press again to use it.";
+        public static string ConfirmElsewhere(RuntimeModel model) => Served(model.Served) + " · Press Again to Use";
 
         /// <summary>Where a model runs, in a model's row.</summary>
         public static string ServedShort(ModelServed served) => served switch
         {
-            ModelServed.ThisMac => "Runs on " + HostText.Your,
-            ModelServed.Remote => "Runs on a remote service",
-            _ => "Where it runs isn't known",
+            ModelServed.ThisMac => "On Your Computer",
+            ModelServed.Remote => "Remote Service",
+            _ => "Location Unknown",
         };
 
         /// <summary>Where a model runs, inside a sentence of the whole request.</summary>
         public static string ServedInSentence(ModelServed served) => served switch
         {
-            ModelServed.ThisMac => "on " + HostText.Your,
-            ModelServed.Remote => "on a remote service",
-            _ => "not known",
+            ModelServed.ThisMac => "On Your Computer",
+            ModelServed.Remote => "Remote Service",
+            _ => "Location Unknown",
         };
 
         /// <summary>Whether a model says it can use tools, inside a row's line or the whole request.</summary>
         public static string Tools(ModelToolCalling value) => value switch
         {
-            ModelToolCalling.Declared => "can use tools",
-            ModelToolCalling.NotDeclared => "tool use not stated",
-            _ => "tool use not known",
+            ModelToolCalling.Declared => "Uses Tools",
+            ModelToolCalling.NotDeclared => "Tool Use Unstated",
+            _ => "Tool Use Unknown",
         };
 
         /// <summary>The recap's note after focus left a review whose final press waited.</summary>
-        public const string ReviewAfresh = "You went to another window, so nothing was started. Press Start task to check it again.";
+        public const string ReviewAfresh = "Not Started · Window Changed · Recheck";
 
         /// <summary>A simulated runtime in a live session, named for what it does, so no one takes it for a real one.</summary>
-        public const string PracticeRun = "Practice run: builds nothing";
+        public const string PracticeRun = "Practice · Builds Nothing";
 
         /// <summary>Under <see cref="PracticeRun"/> in the choice: what it is, in a few words.</summary>
-        public const string PracticeDetail = "No agent, no files";
+        public const string PracticeDetail = "No Agent · No Files";
 
         /// <summary>
         /// A runtime as a choice: its name as it arrives, and whether its work is simulated. In a live
@@ -413,7 +413,7 @@ namespace Halcyonic.Client
         /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Name"/>, which never leaves it empty; false leaves it as it is, for a review that spells it itself.</param>
         /// <summary>An agent app's name as runs: "Simulated: " upright first, its name leaning; the practice run Halcyonic's own words.</summary>
         public static LineWords RuntimeNameRuns(RuntimeDescriptor runtime, bool live = false) =>
-            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated: ") : LineWords.None) + LineWords.TheirName(runtime.DisplayName);
+            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated · ") : LineWords.None) + LineWords.TheirName(runtime.DisplayName);
 
         /// <summary>How it runs as runs (<see cref="RunsWith"/>): an agent app's name leaning.</summary>
         public static LineWords RunsWithRuns(NewWorkDraft draft, bool live = false) =>
@@ -425,7 +425,7 @@ namespace Halcyonic.Client
         public static LineWords NewFolderInRuns(LocationRoot root) => ProjectFolder.NewFolderRuns(root);
 
         public static string RuntimeName(RuntimeDescriptor runtime, bool live = false, bool plain = true) =>
-            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated: " : "") + (plain ? LabelText.Name(runtime.DisplayName) : runtime.DisplayName);
+            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated · " : "") + (plain ? LabelText.Name(runtime.DisplayName) : runtime.DisplayName);
 
         /// <summary>The runtimes offered in Create: real ones first, by name, and simulated ones after them.</summary>
         public static List<RuntimeDescriptor> RuntimeChoices(IEnumerable<RuntimeDescriptor> runtimes) =>
@@ -443,16 +443,16 @@ namespace Halcyonic.Client
         public static string RunsWith(NewWorkDraft draft, bool live = false)
         {
             var runtime = draft.Runtime;
-            if (runtime == null) return "Not chosen yet";
+            if (runtime == null) return "Not Chosen";
             if (runtime.Synthetic) return RuntimeName(runtime, live);
             if (runtime.ModelChoice != ModelChoice.Listed) return RuntimeName(runtime, live);
             var model = draft.Model;
-            if (model == null) return "Not finished choosing";
+            if (model == null) return "Unfinished";
             return model.Served switch
             {
-                ModelServed.ThisMac => "On " + HostText.Your,
-                ModelServed.Remote => "On a remote service",
-                _ => "Not known if on " + HostText.Your,
+                ModelServed.ThisMac => "On Your Computer",
+                ModelServed.Remote => "Remote Service",
+                _ => "Location Unknown",
             };
         }
 
@@ -464,17 +464,17 @@ namespace Halcyonic.Client
         public static string ModelLine(NewWorkDraft draft)
         {
             var runtime = draft.Runtime;
-            if (runtime == null) return "Choose how it runs in More options. Nothing is chosen for you.";
-            if (runtime.Synthetic) return "Practice: no agent, no files.";
-            if (runtime.ModelChoice != ModelChoice.Listed) return "Where it runs isn't known: your code and instructions may go elsewhere.";
+            if (runtime == null) return "Choose Run Settings · Nothing Preselected";
+            if (runtime.Synthetic) return "Practice · No Agent · No Files";
+            if (runtime.ModelChoice != ModelChoice.Listed) return "Location Unknown · Code May Leave";
             var model = draft.Model;
             if (model == null) return FinishChoosing;
-            if (draft.ModelPreselected) return "Chosen for you. Change it in More options.";
+            if (draft.ModelPreselected) return "Chosen for You · Change in More Options";
             return model.Served switch
             {
-                ModelServed.ThisMac => "It runs on " + HostText.Your + ".",
-                ModelServed.Remote => "It runs on a remote service: your code and instructions go there.",
-                _ => "Where it runs isn't known: your code and instructions may go elsewhere.",
+                ModelServed.ThisMac => "Runs on Your Computer",
+                ModelServed.Remote => "Remote Service · Code and Instructions Leave",
+                _ => "Location Unknown · Code May Leave",
             };
         }
 

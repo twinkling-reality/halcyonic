@@ -230,7 +230,7 @@ namespace Halcyonic.Client
         /// <summary>A step's words in the row of shapes.</summary>
         public static string Words(NewProjectStep step) => step switch
         {
-            NewProjectStep.YourIdea => "Your idea",
+            NewProjectStep.YourIdea => "Your Idea",
             NewProjectStep.Questions => "Questions",
             NewProjectStep.Recap => "Recap",
             _ => "Start",

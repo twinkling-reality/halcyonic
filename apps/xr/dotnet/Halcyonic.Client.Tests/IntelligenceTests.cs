@@ -536,7 +536,7 @@ public class IntelligenceFeedTests
     [Test]
     public void ASentenceReusedAfterAColonLowersOnlyItsFirstLetter()
     {
-        Assert.That(IntelligenceText.AfterColon(ConnectionText.Unreadable), Is.EqualTo("your computer sent something this app can't read. Install the same version on both."));
+        Assert.That(IntelligenceText.AfterColon(ConnectionText.Unreadable), Is.EqualTo("Message Unreadable · Install Same Version"));
         Assert.That(IntelligenceText.AfterColon("What answered isn't it."), Is.EqualTo("what answered isn't it."));
         Assert.That(IntelligenceText.AfterColon(""), Is.EqualTo(""));
     }

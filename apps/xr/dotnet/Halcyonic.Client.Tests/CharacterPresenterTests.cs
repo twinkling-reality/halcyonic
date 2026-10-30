@@ -61,7 +61,7 @@ public class CharacterPresenterTests
         Assert.That(character.StatusLabel, Is.EqualTo("Needs You"));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.PendingApprovals, Is.EqualTo(1));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "It wants to run: Run the migration" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Run Command · Run the migration" }));
         Assert.That(character.Synthetic, Is.True);
         Assert.That(character.Stale, Is.False);
     }
@@ -188,7 +188,7 @@ public class CharacterPresenterTests
         Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Round Failed · Write Instruction" }), "Tell it is offered after a failed round");
         Assert.That(Notes(Failed("location_missing", started: false)), Is.EqualTo(new[]
         {
-            "Start Failed · Your computer can't use that folder now. Choose it again, or fix it on your computer.",
+            "Start Failed · Folder Unusable · Choose Again or Fix on Computer",
         }), "a folder's problem, by its code");
         Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Start Failed · Re-Add Task in Projects" }));
 
@@ -231,7 +231,7 @@ public class CharacterPresenterTests
         var workstream = Samples.Workstream("w1", WorkstreamStatus.Completed, "e1", AttentionLevel.ActionRequired, new VerificationFailedReason { ExecutionId = "e1", TestRunId = "tests-1" });
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, execution), live: true);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.TurnFinished));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Checks: 2 of 40 failed" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Checks · 2 of 40 failed" }));
     }
 
     [Test]

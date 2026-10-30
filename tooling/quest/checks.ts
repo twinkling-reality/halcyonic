@@ -295,8 +295,8 @@ export function readReach(
 
 /** How each connection detail begins (ConnectionText, LoopbackProof). */
 export const CONNECTION_DETAILS = {
-  unproved: "This headset's access code doesn't match ",
-  refused: "Your computer refused this headset's access code:",
+  unproved: 'Code Withheld · Host Unverified · Copy Current Code · Check App · Restart App',
+  refused: 'Access Code Refused · Mismatch · Copy Current Code · Restart App',
   notLoopback: 'The access code goes only to ws:// or http:// at 127.0.0.1 or [::1]',
 } as const;
 

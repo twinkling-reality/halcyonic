@@ -147,30 +147,34 @@ namespace Halcyonic.Client
         {
             name ??= LineWords.TheirName;
             LineWords Ours(string words) => LineWords.Ours(words);
-            var root = PlaceGone ? Ours("a place " + HostText.Your + " no longer lists") : name(RootName);
-            if (FolderName == null) return Ours(startOfLine ? "Directly in " : "directly in ") + root;
+            var root = PlaceGone ? Ours(PlaceUnlisted) : name(RootName);
+            if (FolderName == null) return Ours("Directly in ") + root;
             var folder = name(FolderName);
-            if (IsNew) return Ours(startOfLine ? "A new folder, " : "a new folder, ") + folder + Ours(", in ") + root;
-            return folder + Ours(PlaceGone ? ", in " : " in ") + root;
+            // " in " between a folder and its place, never a bare separator, which would join two names into one of theirs.
+            if (IsNew) return Ours("New Folder · ") + folder + Ours(" in ") + root;
+            return folder + Ours(PlaceGone ? " · " : " in ") + root;
         }
 
         public string Describe(Func<string, string>? name = null, bool startOfLine = false)
         {
             name ??= LabelText.Name;
-            var root = PlaceGone ? "a place " + HostText.Your + " no longer lists" : name(RootName);
-            if (FolderName == null) return (startOfLine ? "Directly in " : "directly in ") + root;
+            var root = PlaceGone ? PlaceUnlisted : name(RootName);
+            if (FolderName == null) return "Directly in " + root;
             var folder = name(FolderName);
-            if (IsNew) return (startOfLine ? "A new folder, " : "a new folder, ") + folder + ", in " + root;
-            // A gone place reads as a clause of its own: "shop, in a place your computer no longer lists".
-            return folder + (PlaceGone ? ", in " : " in ") + root;
+            if (IsNew) return "New Folder · " + folder + " in " + root;
+            // A gone place reads as its own segment: "shop · Place Unlisted".
+            return folder + (PlaceGone ? " · " : " in ") + root;
         }
+
+        /// <summary>A place the computer no longer lists (WORDS.md, M79).</summary>
+        public const string PlaceUnlisted = "Place Unlisted";
 
         /// <summary>
         /// What the listing offers, root by root: making a new folder there, the root itself, and each
         /// folder in it. A root the host lists as missing is shown, and offers nothing.
         /// </summary>
         /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
-        public static string NewFolderLabel(LocationRoot root) => "New folder in " + LabelText.Name(LabelOf(root));
+        public static string NewFolderLabel(LocationRoot root) => "New Folder · " + LabelText.Name(LabelOf(root));
 
         /// <remarks>
         /// Each option's words are runs (lane V's treatment): Halcyonic's upright, a place's or a folder's
@@ -186,11 +190,11 @@ namespace Halcyonic.Client
                 var name = LineWords.TheirName(LabelOf(root));
                 if (root.Status != LocationRootStatus.Available)
                 {
-                    options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, Ours("Not on " + HostText.Your + " right now")));
+                    options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, Ours("Unavailable Now")));
                     continue;
                 }
-                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, NewFolderRuns(root), Ours(HostText.YourStart + " makes a new, empty folder")));
-                options.Add(new FolderOption(root, null, FolderOptionKind.Root, Ours("Directly in ") + name, Ours("Files go straight into ") + name));
+                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, NewFolderRuns(root), Ours("New Empty Folder")));
+                options.Add(new FolderOption(root, null, FolderOptionKind.Root, Ours("Directly in ") + name, Ours("Files Directly in ") + name));
                 foreach (var folder in root.Folders)
                 {
                     options.Add(new FolderOption(root, folder, FolderOptionKind.Folder, LineWords.TheirName(folder.Name), Ours("In ") + name));
@@ -211,7 +215,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>A new folder's words in a place as runs: "New folder in " upright, the place's name leaning, last.</summary>
-        public static LineWords NewFolderRuns(LocationRoot root) => LineWords.Ours("New folder in ") + LineWords.TheirName(LabelOf(root));
+        public static LineWords NewFolderRuns(LocationRoot root) => LineWords.Ours("New Folder · ") + LineWords.TheirName(LabelOf(root));
     }
 
     public enum FolderOptionKind

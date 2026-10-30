@@ -66,7 +66,7 @@ public class PlacementColumnTests
             foreach (var line in frame.Lines.Where(line => line.Action == PlacementColumn.OtherApps))
                 Assert.That(line.Words, Is.EqualTo("Open work window"));
             column.Drawn(frame, null);
-            if (frame.Footer[PromptSlot.FarRight]?.Words == "First page") break;
+            if (frame.Footer[PromptSlot.FarRight]?.Words == "First Page") break;
             column.Act(Footer.NextPage, null);
         }
         Assert.That(seen, Does.Contain(PlacementColumn.BeginMove + ":"));

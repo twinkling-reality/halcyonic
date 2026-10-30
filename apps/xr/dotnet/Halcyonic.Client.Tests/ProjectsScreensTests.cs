@@ -67,7 +67,7 @@ public class ProjectsScreensTests
         {
             state.Page = page; var frame = ProjectsScreens.Projects(state); found.AddRange(frame.Lines);
             var next = frame.Footer.All.FirstOrDefault(each => each.Prompt.Id == Footer.NextPage).Prompt;
-            if (next == null || next.Words == "First page") break;
+            if (next == null || next.Words == "First Page") break;
         }
         state.Page = saved; return found;
     }
@@ -80,10 +80,10 @@ public class ProjectsScreensTests
         Assert.That(frame.Subject, Is.EqualTo("Projects"), "the view uses its familiar capability name");
         Assert.That(AllLines(state).Select(line => (line.Words, line.Fact, line.Action)), Is.EqualTo(new (string, string?, string?)[]
         {
-            ("Alpha", "1 task waiting", ProjectsScreens.ChooseProject),
-            ("Beta", "Hidden · 1 task paused", ProjectsScreens.ChooseProject),
+            ("Alpha", "Needs You · 1 Task", ProjectsScreens.ChooseProject),
+            ("Beta", "Hidden · Paused · 1 Task", ProjectsScreens.ChooseProject),
             (ProjectsText.FoldersHeading, null, null),
-            ("shop", "Repository · changed 3 days ago", ProjectsScreens.ChooseFolder),
+            ("shop", "Repository · Changed 3 Days Ago", ProjectsScreens.ChooseFolder),
         }), "a folder a project uses is not offered");
         Assert.That(frame.Lines.Where(line => line.Action != null).All(line => line.Opens && line.WordsAreData), Is.True, "every row opens its side panel, and names are text from outside");
         Assert.That(frame.Side, Is.Null);
@@ -118,7 +118,7 @@ public class ProjectsScreensTests
         Assert.That(frame.Side.SubjectIsData, Is.True);
         Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(new[]
         {
-            (ProjectsText.ItsWork, "1 task waiting for you, 1 running"),
+            (ProjectsText.ItsWork, "Needs You · 1 · Running · 1"),
             (ProjectsText.OnTheStage, ProjectsText.Shown),
         }));
         Assert.That((frame.Footer[PromptSlot.Secondary]!.Id, frame.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((ProjectsScreens.HideProject, ProjectsText.HideFromStage)));
@@ -196,12 +196,12 @@ public class ProjectsScreensTests
         state.Connection = unknown;
         state.ChosenFolder = shop.Key;
         var blocked = ProjectsScreens.Projects(state);
-        Assert.That(blocked.Reason, Does.StartWith("Not sure whether"), "an unknown outcome is said as unknown, not as still coming");
-        Assert.That(blocked.Reason, Does.Contain("in Projects"));
+        Assert.That(blocked.Reason, Does.Contain("Unconfirmed"), "an unknown outcome is said as unknown, not as still coming");
+        Assert.That(blocked.Reason, Does.Contain("Check Projects"));
         state.ChosenFolder = notes.Key;
         var own = ProjectsScreens.Projects(state);
         Assert.That(own.Footer[PromptSlot.FarRight], Is.Null, "a connection that may have run is never offered again");
-        Assert.That(own.Side!.Facts.Last().Value, Does.StartWith("Not sure whether"));
+        Assert.That(own.Side!.Facts.Last().Value, Does.Contain("Unconfirmed"));
         state.ChosenFolder = shop.Key;
         state.Connection = connection;
 
@@ -231,12 +231,12 @@ public class ProjectsScreensTests
         Assert.That(ProjectsScreens.Projects(state).Lines.Last().Words, Is.EqualTo(EntryText.ReadingFolders));
         state.ListingProblem = ConnectionText.PairingRefused;
         var unread = ProjectsScreens.Projects(state).Lines.Last();
-        Assert.That((unread.Words, unread.Action, unread.Opens, unread.Tone), Is.EqualTo(("Couldn't read your computer's folders", (string?)ProjectsScreens.ChooseProblem, true, LineTone.Problem)),
+        Assert.That((unread.Words, unread.Action, unread.Opens, unread.Tone), Is.EqualTo(("Folders Unreadable", (string?)ProjectsScreens.ChooseProblem, true, LineTone.Problem)),
             "a row only opens its side panel; Try again stands in the footer");
         Assert.That(ProjectsScreens.Projects(state).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
         state.ChosenProblem = true;
         var why = ProjectsScreens.Projects(state);
-        Assert.That(why.Side!.Subject, Is.EqualTo("Couldn't read your computer's folders"));
+        Assert.That(why.Side!.Subject, Is.EqualTo("Folders Unreadable"));
         Assert.That(why.Side.Facts.Select(fact => (fact.Name, fact.Value, fact.ValueIsData)), Is.EqualTo(new[] { (ProjectsText.WhatHappened, ConnectionText.PairingRefused, false) }),
             "the why in Halcyonic's own words, never data");
         state.ListingProblem = EntryText.PressTryAgain;
@@ -245,12 +245,12 @@ public class ProjectsScreensTests
         state.ListingProblem = ConnectionText.PairingRefused;
         Assert.That(why.Footer.All.Select(each => (each.Slot, each.Prompt.Id, each.Prompt.Words)), Is.EqualTo(new[]
         {
-            (PromptSlot.Close, Footer.Close, ProjectsText.Close), (PromptSlot.FarRight, ProjectsScreens.ReadAgain, "Try again"),
+            (PromptSlot.Close, Footer.Close, ProjectsText.Close), (PromptSlot.FarRight, ProjectsScreens.ReadAgain, "Try Again"),
         }));
         state.Listing = Listing();
         var none = ProjectsScreens.Projects(state);
-        Assert.That(none.Lines.Last().Words, Is.EqualTo("No folders are approved for projects"));
-        Assert.That(none.Side!.Lines.Single().Words, Is.EqualTo("Approve a project folder on your computer, then try again."));
+        Assert.That(none.Lines.Last().Words, Is.EqualTo("No Folders Allowed"));
+        Assert.That(none.Side!.Lines.Single().Words, Is.EqualTo("Allow on Computer · Try Again"));
         Assert.That(none.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.ReadAgain));
         Assert.That(new[] { unread.Words, none.Lines.Last().Words }.Any(words => words.Contains("Press", StringComparison.Ordinal)), Is.False);
         state.ChosenProblem = false;
@@ -274,7 +274,7 @@ public class ProjectsScreensTests
         Assert.That(first.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading));
         Assert.That(first.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Rare, PromptSlot.Secondary, PromptSlot.FarRight }),
             "folder navigation retains the pager and main action in their existing slots");
-        Assert.That((first.Footer[PromptSlot.Secondary]!.Kind, first.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((PromptKind.NextPage, "Next page")));
+        Assert.That((first.Footer[PromptSlot.Secondary]!.Kind, first.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((PromptKind.NextPage, "Next Page")));
         Assert.That(first.Footer.All.Count(each => each.Prompt.DrawnAsMain), Is.EqualTo(1));
 
         var seen = new List<string>();
@@ -286,7 +286,7 @@ public class ProjectsScreensTests
             Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(MenuFrame.RowsAPage(size, sourceLine: false)));
             Assert.That(frame.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading), "a heading never ends a page");
             seen.AddRange(frame.Lines.Select(line => line.Words));
-            if (frame.Footer[PromptSlot.Secondary]!.Words == "First page") break;
+            if (frame.Footer[PromptSlot.Secondary]!.Words == "First Page") break;
         }
         Assert.That(seen, Is.Unique, "each row on one page");
         Assert.That(seen.Count, Is.EqualTo(2 + 1 + 9), "every row on some page");
@@ -311,18 +311,18 @@ public class ProjectsScreensTests
         }
         var fresh = Of(WorkstreamStatus.Created, WorkstreamStatus.Created, WorkstreamStatus.Created);
         Assert.That(fresh.NotStarted, Is.EqualTo(3));
-        Assert.That((ProjectsText.ProjectFact(fresh), ProjectsText.Work(fresh)), Is.EqualTo(("3 tasks not started", "3 tasks not started")));
+        Assert.That((ProjectsText.ProjectFact(fresh), ProjectsText.Work(fresh)), Is.EqualTo(("Not Started · 3 Tasks", "Not Started · 3")));
         var mixed = Of(WorkstreamStatus.Completed, WorkstreamStatus.Created, WorkstreamStatus.Created);
-        Assert.That((ProjectsText.ProjectFact(mixed), ProjectsText.Work(mixed)), Is.EqualTo(("1 task paused", "1 task paused, 2 not started")),
+        Assert.That((ProjectsText.ProjectFact(mixed), ProjectsText.Work(mixed)), Is.EqualTo(("Paused · 1 Task", "Paused · 1 · Not Started · 2")),
             "what ran and rests first; the side panel names both");
         var rested = Of(WorkstreamStatus.Completed, WorkstreamStatus.Interrupted);
-        Assert.That((ProjectsText.ProjectFact(rested), ProjectsText.Work(rested)), Is.EqualTo(("2 tasks paused", "2 tasks paused")));
+        Assert.That((ProjectsText.ProjectFact(rested), ProjectsText.Work(rested)), Is.EqualTo(("Paused · 2 Tasks", "Paused · 2")));
         var one = Of(WorkstreamStatus.Created);
-        Assert.That((ProjectsText.ProjectFact(one), ProjectsText.Work(one)), Is.EqualTo(("1 task not started", "1 task not started")));
-        Assert.That(ProjectsText.ProjectFact(Of(WorkstreamStatus.Running, WorkstreamStatus.Created)), Is.EqualTo("1 task running"), "running still comes first");
+        Assert.That((ProjectsText.ProjectFact(one), ProjectsText.Work(one)), Is.EqualTo(("Not Started · 1 Task", "Not Started · 1")));
+        Assert.That(ProjectsText.ProjectFact(Of(WorkstreamStatus.Running, WorkstreamStatus.Created)), Is.EqualTo("Running · 1 Task"), "running still comes first");
         var single = Of(WorkstreamStatus.Created);
         Assert.That(ProjectsText.ProjectFact(new ProjectSummary("p", "Storefront API", shown: false, single.Work, 0, 0, 0, 0, single.NotStarted)),
-            Is.EqualTo("Hidden · 1 task not started"));
+            Is.EqualTo("Hidden · Not Started · 1 Task"));
     }
 
     [Test]
@@ -336,16 +336,16 @@ public class ProjectsScreensTests
         }
         // The demonstration's first seconds: two working, the third not started yet.
         var starting = Of(WorkstreamStatus.Running, WorkstreamStatus.Running, WorkstreamStatus.Created);
-        Assert.That((ProjectsText.ProjectFact(starting), ProjectsText.Work(starting)), Is.EqualTo(("2 tasks running", "2 tasks running, 1 not started")));
+        Assert.That((ProjectsText.ProjectFact(starting), ProjectsText.Work(starting)), Is.EqualTo(("Running · 2 Tasks", "Running · 2 · Not Started · 1")));
         // Then the third waits and the two have finished.
         var asked = Of(WorkstreamStatus.WaitingForHuman, WorkstreamStatus.Completed, WorkstreamStatus.Completed);
-        Assert.That((ProjectsText.ProjectFact(asked), ProjectsText.Work(asked)), Is.EqualTo(("1 task waiting", "1 task waiting for you, 2 paused")));
+        Assert.That((ProjectsText.ProjectFact(asked), ProjectsText.Work(asked)), Is.EqualTo(("Needs You · 1 Task", "Needs You · 1 · Paused · 2")));
         var every = Of(WorkstreamStatus.WaitingForHuman, WorkstreamStatus.Failed, WorkstreamStatus.Running, WorkstreamStatus.Interrupted, WorkstreamStatus.Created);
-        Assert.That((ProjectsText.ProjectFact(every), ProjectsText.Work(every)), Is.EqualTo(("1 task waiting", "1 task waiting for you, 1 to look at, 1 running, 1 paused, 1 not started")),
+        Assert.That((ProjectsText.ProjectFact(every), ProjectsText.Work(every)), Is.EqualTo(("Needs You · 1 Task", "Needs You · 1 · Ready · 1 · Running · 1 · Paused · 1 · Not Started · 1")),
             "every kind, in order, the noun on the first count only");
         var many = Of(WorkstreamStatus.Running, WorkstreamStatus.Running, WorkstreamStatus.Completed, WorkstreamStatus.Completed, WorkstreamStatus.Completed);
-        Assert.That(ProjectsText.Work(many), Is.EqualTo("2 tasks running, 3 paused"));
-        Assert.That(ProjectsText.Work(Of()), Is.EqualTo("No work yet"));
+        Assert.That(ProjectsText.Work(many), Is.EqualTo("Running · 2 · Paused · 3"));
+        Assert.That(ProjectsText.Work(Of()), Is.EqualTo("No Work"));
     }
 
     [Test]
@@ -358,18 +358,18 @@ public class ProjectsScreensTests
         }
         var failed = new Portfolio().Project("f", "Failing").Work("x", "f", WorkstreamStatus.Failed).Apply();
         var failing = WorkOverview.Of(failed, new StageVisibility(), _ => true).Projects.Single();
-        Assert.That(ProjectsText.ProjectFact(failing), Is.EqualTo("1 task to look at"), "failed or unknown work is never called finished");
-        Assert.That(ProjectsText.Work(failing), Is.EqualTo("1 task to look at"));
+        Assert.That(ProjectsText.ProjectFact(failing), Is.EqualTo("Ready · 1 Task"), "failed or unknown work is never called finished");
+        Assert.That(ProjectsText.Work(failing), Is.EqualTo("Ready · 1"));
 
         var zone = TimeZoneInfo.Utc;
         (string? Text, bool IsData) Fact(LocationsResponse listing) => ProjectsText.FolderFact(FolderConnect.Offers(listing).First(), Now, zone,
             FolderConnect.Offers(listing).Select(offer => offer.Root.Path).Distinct().Count() > 1);
-        Assert.That(Fact(Listing(Root("Projects", Folder("a", false, "2026-10-02T09:00:00.000Z")))), Is.EqualTo(((string?)"Changed 3 hours ago", false)));
+        Assert.That(Fact(Listing(Root("Projects", Folder("a", false, "2026-10-02T09:00:00.000Z")))), Is.EqualTo(((string?)"Changed 3 Hours Ago", false)));
         Assert.That(Fact(Listing(Root("Projects", Folder("a", true, "2026-10-02T09:00:00.000Z")), Root("Work", Folder("b", false, "2026-09-01T00:00:00.000Z")))),
-            Is.EqualTo(((string?)"In Projects · changed 3 hours ago", true)), "a place's name makes the fact text from outside");
+            Is.EqualTo(((string?)"In Projects · Changed 3 Hours Ago", true)), "a place's name makes the fact text from outside");
         Assert.That(Fact(Listing(Root("Projects", Folder("a", null)))).Text, Is.EqualTo(ProjectsText.CantTell));
         Assert.That(Fact(Listing(Root("Projects", Folder("app", true, "2026-10-02T09:00:00.000Z"), Folder("APP", false, "2026-09-01T00:00:00.000Z")))).Text,
-            Is.EqualTo(ConnectText.LooksLikeAnother + " · Repository · changed 3 hours ago"), "a look-alike keeps the facts that tell it apart");
+            Is.EqualTo(ConnectText.LooksLikeAnother + " · Repository · Changed 3 Hours Ago"), "a look-alike keeps the facts that tell it apart");
     }
 
     [Test]
@@ -687,7 +687,7 @@ public class ProjectsScreensTests
             Assert.That(line.Rows, Is.EqualTo(3));
             Assert.That(line.Icon, Is.EqualTo(GlazeIcon.Quote));
         }
-        Assert.That(PageLine.KnownProject("<b>name</b>\\n", "1 task running", "p").Words, Is.EqualTo("<b>name</b>\\n"));
+        Assert.That(PageLine.KnownProject("<b>name</b>\\n", "Running · 1", "p").Words, Is.EqualTo("<b>name</b>\\n"));
     }
 
     private static ClientProjection With(params CommandView[] commands)
@@ -707,7 +707,7 @@ public class ProjectsScreensTests
         var frame = ProjectsScreens.Projects(state);
         Assert.That(frame.Lines.All(line => line.Action == ProjectsScreens.ChooseProject), Is.True);
         Assert.That(AllLines(state).Select(line => line.Words), Is.EqualTo(new[] { "Alpha", "Beta" }));
-        Assert.That(frame.Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.FolderNavigation && each.Prompt.Words == "Connect a folder"), Is.True);
+        Assert.That(frame.Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.FolderNavigation && each.Prompt.Words == "Connect Folder"), Is.True);
         Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.ChooseProblem, ProjectsScreens.ProblemKey), Is.False);
         state.FoldersOpen = true;
         Assert.That(Enumerable.Range(0, 3).Any(page => { state.Page = page; return ProjectsScreens.Projects(state).Lines.Any(line => line.Words == ProjectsText.FoldersHeading); }), Is.True);

@@ -343,10 +343,10 @@ public class CompanionWordsTests
     [Test]
     public void TheCompanionsWordsAreQuotedAsItsOwnAndShownByTheOneRule()
     {
-        Assert.That(CompanionText.Says("Fits a page."), Is.EqualTo("The companion says: “Fits a page.”"));
-        Assert.That(CompanionText.Says("a‮b"), Is.EqualTo("The companion says: “" + LabelText.Plain("a‮b") + "”"));
+        Assert.That(CompanionText.Says("Fits a page."), Is.EqualTo("Companion · Fits a page."));
+        Assert.That(CompanionText.Says("a‮b"), Is.EqualTo("Companion · " + LabelText.Plain("a‮b")));
         Assert.That(CompanionText.View(CompanionView.Clear), Is.Null);
-        Assert.That(CompanionText.View(CompanionView.NotBuildable), Does.StartWith("The companion thinks"));
+        Assert.That(CompanionText.View(CompanionView.NotBuildable), Does.StartWith("Companion · "));
     }
 
     [Test]
@@ -361,7 +361,7 @@ public class CompanionWordsTests
         {
             var words = CompanionText.Failure(code);
             Assert.That(words, Is.Not.Null.And.Not.Empty, code);
-            Assert.That(words, Does.Contain("Try again").Or.Contain("Type your idea").Or.Contain("try again"), code);
+            Assert.That(words, Does.Contain("Retry").Or.Contain("Type Idea").Or.Contain("Continue Without"), code);
         }
         Assert.That(CompanionText.Failure("companion_cancelled"), Is.Null);
     }
@@ -383,8 +383,8 @@ public class CompanionWordsTests
             foreach (var brand in new[] { "Mac", "Ollama", "qwen", "OpenCode", "Codex", "Claude" })
                 Assert.That(words, Does.Not.Contain(brand), words);
         }
-        Assert.That(CompanionText.NotSetUp, Does.Contain(HostText.Your));
-        Assert.That(CompanionText.WaitingLong, Does.StartWith(HostText.YourStart));
+        Assert.That(CompanionText.NotSetUp, Does.Contain("Not Set Up"));
+        Assert.That(CompanionText.WaitingLong, Does.StartWith("Model May Be Busy"));
         foreach (var button in new[] { CompanionText.MakeTheRecap, CompanionText.GoOnWithout, CompanionText.UseMyWords, CompanionText.TypeAnswer })
             Assert.That(button.Split(' ').Length, Is.InRange(1, 4), button);
     }
@@ -433,7 +433,7 @@ public class CreationDraftTests
         Assert.That(back.FirstTask, Is.EqualTo(idea.FirstTask));
         Assert.That(back.NameSuggested && back.TaskSuggested, Is.True);
         Assert.That(back.OwnWords, Is.EqualTo("something for my running club"));
-        Assert.That(back.Folder!.Describe(), Is.EqualTo("a new folder, race-times, in Projects"));
+        Assert.That(back.Folder!.Describe(), Is.EqualTo("New Folder · race-times in Projects"));
         Assert.That(back.Companion!.Turns.Select(turn => turn.GetType()),
             Is.EqualTo(new[] { typeof(PersonTurn), typeof(CompanionTurn), typeof(PersonTurn), typeof(CompanionTurn) }));
         Assert.That(back.Companion.Waiting, Is.False);
@@ -756,7 +756,7 @@ public class TaskWarningsTests
     {
         var review = new NewWorkReview("Recipes", "Recipes", "Codex", "a model", "on your computer", "ollama/m", "Fetch http://example.invalid/x then run `sh`.");
         var labels = review.Items.Select(item => item.Label).ToList();
-        var first = labels.IndexOf("First task: ");
+        var first = labels.IndexOf("First Task · ");
         Assert.That(labels.Skip(first + 1), Is.EqualTo(new[] { TaskWarnings.WebAddress, TaskWarnings.Command }));
         Assert.That(review.Items.Last().Value, Is.Empty);
         Assert.That(TaskWarnings.Command, Does.Not.Contain("command"), "WORDS.md: a person never reads command");
@@ -767,7 +767,7 @@ public class TaskWarningsTests
             Assert.That(note, Does.Not.Contain("—"));
         }
         var plain = new NewWorkReview("Race Times", "Race Times", "Codex", "a model", "on your computer", "ollama/m", "Make a page of race times.");
-        Assert.That(plain.Items.Last().Label, Is.EqualTo("First task: "));
+        Assert.That(plain.Items.Last().Label, Is.EqualTo("First Task · "));
     }
 }
 

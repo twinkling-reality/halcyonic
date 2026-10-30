@@ -123,7 +123,7 @@ public class KitPresenterTests
     {
         var activity = new[]
         {
-            new ActivityEntry(1, At, ActivityKind.Turn, "Round started", false),
+            new ActivityEntry(1, At, ActivityKind.Turn, "Round Started", false),
             new ActivityEntry(2, At, ActivityKind.Message, "First look", true),
             new ActivityEntry(3, At, ActivityKind.Tool, "Used read", false),
             new ActivityEntry(4, At, ActivityKind.TestRun, "Tests failed: 1 failed, 23 passed", false),

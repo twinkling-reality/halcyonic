@@ -177,10 +177,10 @@ namespace Halcyonic.Client
         /// </summary>
         public static string WhyRefused(string? code) => code switch
         {
-            "pairing_closed" => "Pairing is not open on " + HostText.Your + ". Run pnpm pair there, then try again.",
-            "wrong_code" => "The code was not accepted. Check it on " + HostText.Your + " and type it again.",
-            "too_many_requests" => HostText.YourStart + " is turning this headset away for a minute after too many tries. Try again after a minute.",
-            "busy" => HostText.YourStart + " is pairing another device right now. Try again in a moment.",
+            "pairing_closed" => "Pairing Closed · Run pnpm pair · Try Again",
+            "wrong_code" => "Code Refused · Check and Retype",
+            "too_many_requests" => "Pairing Paused · Too Many Tries · Retry in 1 min",
+            "busy" => "Computer Busy · Retry",
             "timeout" => TookTooLong,
             _ => Refused,
         };
@@ -204,22 +204,21 @@ namespace Halcyonic.Client
         /// coordinator, 2026-10-07).
         /// </summary>
         public static string NotSecure(string address) =>
-            "Something at " + address + " answered but didn't set up a secure connection. Check the address and port; if they're right, try again in a minute.";
+            address + " · No Secure Connection · Check Address and Port · Retry in 1 min";
 
         /// <summary>The connection closed or failed before pairing finished (settled by the coordinator, 2026-10-07).</summary>
-        public const string ConnectionLost = "The connection closed before pairing finished. Check the address and that pairing is open on "
-            + HostText.Your + ", then try again.";
+        public const string ConnectionLost = "Connection Lost · Check Address and Pairing · Try Again";
 
-        public const string Refused = HostText.YourStart + " refused to pair this headset. Open pairing there again, then try again.";
-        public const string TookTooLong = "Pairing took too long; try again.";
+        public const string Refused = "Pairing Refused · Reopen Pairing · Try Again";
+        public const string TookTooLong = "Pairing Timed Out · Try Again";
 
         /// <summary>What answered broke the exchange, or answered in a way the computer never does.</summary>
-        public const string ProtocolError = "What answered at that address doesn't pair the way " + HostText.Your + " does. Check the address, then try again.";
+        public const string ProtocolError = "Unknown Pairing Protocol · Check Address · Try Again";
 
         /// <summary>Pairing failed in a way none of these says, as an address that can't be read (settled by the coordinator, 2026-10-07).</summary>
         public const string Failed = "Couldn't pair this headset. Check the address, then try again.";
 
-        public const string NotProven = "What answered couldn't prove it knew the code, so nothing was paired. Check the address, then try again.";
+        public const string NotProven = "Host Unverified · Nothing Paired · Check Address";
     }
 
     /// <summary>Pairing did not complete. Nothing was stored.</summary>

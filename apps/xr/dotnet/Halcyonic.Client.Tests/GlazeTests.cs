@@ -351,7 +351,7 @@ public class CharacterLabelTests
     public void TheLabelHasATitleABadgeAndMarksAndNoReason()
     {
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
-            new[] { "It wants to run: Run the migration" }, approvals: 1, synthetic: true);
+            new[] { "Run Command · Run the migration" }, approvals: 1, synthetic: true);
         var label = CharacterLabel.Of(character);
         Assert.That(label.Title, Is.EqualTo("Fix the authentication regression"));
         Assert.That(label.Badge.Text, Is.EqualTo("Needs You"));
@@ -366,7 +366,7 @@ public class CharacterLabelTests
         var peek = PeekCard.Of(Workspace(character));
         Assert.That(peek.Badge.Word, Is.EqualTo("Failed"));
         Assert.That(peek.Reason, Is.EqualTo("Write Instruction"));
-        Assert.That(peek.Next, Is.EqualTo("Open it to see what it did."), "its error isn't shown, so opening it shows what it did, not why");
+        Assert.That(peek.Next, Is.EqualTo("Open Task"), "its error isn't shown, so opening it shows what it did, not why");
     }
 
     [Test]
@@ -385,7 +385,7 @@ public class CharacterLabelTests
         var peek = PeekCard.Of(Workspace(character,
             Entry(1, ActivityKind.Tool, "bash succeeded"),
             Entry(2, ActivityKind.Message, "The migration ran\nand the tests pass.", reported: true),
-            Entry(3, ActivityKind.Turn, "Round started")));
+            Entry(3, ActivityKind.Turn, "Round Started")));
         Assert.That(peek.Reason, Is.EqualTo("Reported · The migration ran and the tests pass."), "round boundaries skipped; agent text a claim");
         Assert.That(peek.Next, Is.Null);
         Assert.That(PeekCard.Of(Workspace(character)).Reason, Is.Empty, "nothing known yet: the badge says it all");
@@ -395,10 +395,10 @@ public class CharacterLabelTests
     public void ThePeekCountsTheReasonsBehindTheFirst()
     {
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
-            new[] { "It wants to run: Run the migration", "Asks you: Which colour?" }, approvals: 1);
+            new[] { "Run Command · Run the migration", "Asks you: Which colour?" }, approvals: 1);
         var peek = PeekCard.Of(Workspace(character));
-        Assert.That(peek.ReasonLine, Is.EqualTo("+1 more · It wants to run: Run the migration"));
-        Assert.That(peek.Next, Is.EqualTo("Open it to answer."));
+        Assert.That(peek.ReasonLine, Is.EqualTo("+1 More · Run Command · Run the migration"));
+        Assert.That(peek.Next, Is.EqualTo("Open to Answer"));
     }
 
     [Test]
@@ -409,25 +409,25 @@ public class CharacterLabelTests
         var peek = PeekCard.Of(Workspace(character));
         Assert.That(peek.Badge.LastKnown, Is.True);
         Assert.That(peek.Next, Is.Null);
-        Assert.That(peek.ReasonLine, Is.EqualTo("Last known: Approval Requested"), "the words say what the ghosted badge shows");
-        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, stale: true))).ReasonLine, Is.EqualTo("Last known."));
+        Assert.That(peek.ReasonLine, Is.EqualTo("Last Known · Approval Requested"), "the words say what the ghosted badge shows");
+        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, stale: true))).ReasonLine, Is.EqualTo("Last Known"));
     }
 
     [Test]
     public void APeekSaysWhatOpeningIsForAndWhatItsMarkMeans()
     {
         var finished = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.TurnFinished, synthetic: true)));
-        Assert.That(finished.Next, Is.EqualTo("Open it to see what changed."));
-        Assert.That(finished.MarkLine, Is.EqualTo("Practice run: nothing is built."));
+        Assert.That(finished.Next, Is.EqualTo("See Changes"));
+        Assert.That(finished.MarkLine, Is.EqualTo("Practice · Nothing Built"));
         var checks = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.TurnFinished, AttentionLevel.Notice,
             new[] { "Checks: 1 failed, 23 passed" }, details: new[] { "1 failed, 23 passed" })));
         Assert.That(checks.Badge.Word, Is.EqualTo("Checks Failed"));
         Assert.That(checks.Reason, Is.EqualTo("1 failed, 23 passed"));
-        Assert.That(checks.Next, Is.EqualTo("Open it to see what failed."));
+        Assert.That(checks.Next, Is.EqualTo("See Failures"));
         var demo = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, synthetic: true, recorded: true)));
-        Assert.That(demo.MarkLine, Is.EqualTo("Demo: recorded, nothing reaches an agent."));
+        Assert.That(demo.MarkLine, Is.EqualTo("Demo · Recorded · No Agent Reached"));
         Assert.That(demo.Next, Is.Null, "nothing to open for while it works");
-        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, recorded: true))).MarkLine, Is.EqualTo("Recorded: a replay, not live work."));
+        Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, recorded: true))).MarkLine, Is.EqualTo("Recorded · Replay · Not Live"));
         Assert.That(PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working))).MarkLine, Is.Null);
     }
 
