@@ -477,7 +477,7 @@ namespace Halcyonic.XR.UI.Editor
                 ("a file waiting for an answer", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Send answer", true) }),
                 ("a file's Activity", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Stop", false), ("Hold to talk", false), ("Tell it", true) }),
                 ("a file's Activity, without Stop", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Tell it", true) }),
-                ("a file's approval, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Confirm Approve", false), ("Cancel", false) }),
+                ("a file's approval, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Confirm", false), ("Cancel", false) }),
                 ("New project's Questions with Start over", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Start over", false), ("Hold to talk", false), ("Make the recap", true) }),
                 ("New project's Questions", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Make the recap", true) }),
                 ("New project's Start over, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Cancel", false), ("Yes, start over", false) }),

@@ -38,7 +38,7 @@ public class JudgeWordsTests
         TestContext.Out.WriteLine(report);
         Assert.That(found.Keys, Is.Empty, report);
         Assert.That(words.Count, Is.GreaterThan(100), "the walk reached the words");
-        Assert.That(words, Is.SupersetOf(new[] { FileScreens.AgentSource, "Confirm Approve", "Confirm Deny", "Confirm Stop", "Checks", WorkspaceText.WhatWasChecked }),
+        Assert.That(words, Is.SupersetOf(new[] { FileScreens.AgentSource, "Confirm", "Checks", WorkspaceText.WhatWasChecked }),
             "the walk reached every file, its confirmations and its side panels");
         Assert.That(words, Is.SupersetOf(new[]
         {
@@ -46,7 +46,7 @@ public class JudgeWordsTests
             SettingsText.Subject, "A step larger", SettingsText.YourSpace, "Around you", "Your room's layout", "Spatial agents", "Agent shelf", "The menu",
         }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
         Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");
-        Assert.That(words, Is.SupersetOf(new[] { GalleryText.SampleProjects, GalleryText.NotInThisRecording, "Star garden", "Asked for your review" }),
+        Assert.That(words, Is.SupersetOf(new[] { GalleryText.SampleProjects, GalleryText.NotInThisRecording, "Star garden", "Review Requested" }),
             "the walk reached the gallery's sample catalog and the recording without one");
     }
 

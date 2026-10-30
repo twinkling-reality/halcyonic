@@ -20,8 +20,8 @@ public class KitMomentTests
     {
         var sent = KitMoment.Sent(Codex);
         Assert.That(sent.Provenance, Is.EqualTo(KitProvenance.Observed));
-        Assert.That(sent.Source, Is.EqualTo("Sent to Codex"));
-        Assert.That(Text(sent.Headline), Is.EqualTo("Waiting for it to start."));
+        Assert.That(sent.Source, Is.EqualTo("Codex · Observed"));
+        Assert.That(Text(sent.Headline), Is.EqualTo("Sent · Awaiting Start"));
         Assert.That(sent.Source + Text(sent.Headline), Does.Not.Contain("Started").And.Not.Contain("Starting"), "accepted is not started");
     }
 
@@ -30,9 +30,9 @@ public class KitMomentTests
     {
         var edit = KitMoment.ReportedEdit(Codex, KitFileChange.Changed, "src/towers.ts", At);
         Assert.That(edit.Provenance, Is.EqualTo(KitProvenance.Reported));
-        Assert.That(edit.Source, Is.EqualTo("Codex says"));
-        Assert.That(edit.Headline.ToString(), Is.EqualTo("Edited [src/towers.ts]"), "past tense, the file theirs");
-        Assert.That(edit.Fact, Is.EqualTo("Not seen on your computer yet."));
+        Assert.That(edit.Source, Is.EqualTo("Codex · Reported"));
+        Assert.That(edit.Headline.ToString(), Is.EqualTo("Edit Reported · [src/towers.ts]"), "its report, the file theirs");
+        Assert.That(edit.Fact, Is.EqualTo("Not Yet Observed"));
         Assert.That(edit.Tone, Is.EqualTo(KitMomentTone.Neutral));
     }
 
@@ -41,11 +41,11 @@ public class KitMomentTests
     {
         var seen = KitMoment.ObservedChange(KitFileChange.Changed, "src/towers.ts", 41, 54, At);
         Assert.That(seen.Provenance, Is.EqualTo(KitProvenance.Observed));
-        Assert.That(seen.Source, Is.EqualTo("Seen on your computer"));
-        Assert.That(seen.Headline.ToString(), Is.EqualTo("Changed [src/towers.ts], 41 to 54 lines, seen 10:42"));
+        Assert.That(seen.Source, Is.EqualTo("Your Computer · Observed"));
+        Assert.That(seen.Headline.ToString(), Is.EqualTo("Change Observed · [src/towers.ts] · 41 to 54 Lines · 10:42"));
         Assert.That(seen.Diff, Is.Null, "the computer keeps no contents, so no lines are claimed");
-        Assert.That(KitMoment.ObservedChange(KitFileChange.Created, "src/wobble.ts", null, 12, At).Headline.ToString(), Is.EqualTo("Made [src/wobble.ts], 12 lines, seen 10:42"));
-        Assert.That(KitMoment.ObservedChange(KitFileChange.Deleted, "src/old.ts", 9, null, At).Headline.ToString(), Is.EqualTo("Removed [src/old.ts], seen 10:42"));
+        Assert.That(KitMoment.ObservedChange(KitFileChange.Created, "src/wobble.ts", null, 12, At).Headline.ToString(), Is.EqualTo("File Made · [src/wobble.ts] · 12 Lines · 10:42"));
+        Assert.That(KitMoment.ObservedChange(KitFileChange.Deleted, "src/old.ts", 9, null, At).Headline.ToString(), Is.EqualTo("File Removed · [src/old.ts] · 10:42"));
     }
 
     [Test]
@@ -58,7 +58,7 @@ public class KitMomentTests
         Assert.That(off.Undoable, Is.False);
         Assert.That(on.Diff, Is.SameAs(diff));
         Assert.That(on.Undoable, Is.True);
-        Assert.That(KitMomentWords.Counts(diff), Is.EqualTo("+14 −3 lines"));
+        Assert.That(KitMomentWords.Counts(diff), Is.EqualTo("+14 −3 Lines"));
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class KitMomentTests
     {
         var says = KitMoment.AgentSays(Codex, "I'll import Body from matter-js.");
         Assert.That(says.Provenance, Is.EqualTo(KitProvenance.Reported));
-        Assert.That(says.Source, Is.EqualTo("Codex says"));
+        Assert.That(says.Source, Is.EqualTo("Codex · Reported"));
         Assert.That(says.Headline.Runs.All(run => run.Theirs), Is.True);
     }
 
@@ -76,13 +76,12 @@ public class KitMomentTests
         var leaves = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.MayLeave, complete: true, At);
         var stays = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.StaysInside, complete: true, At);
         var silent = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.NotDeclared, complete: true, At);
-        Assert.That(leaves.Lines, Does.Contain("If you approve, it may run outside its sandbox, with your access to your computer."));
-        Assert.That(stays.Lines, Does.Contain("If you approve, it still runs inside a sandbox."));
-        Assert.That(silent.Lines.Any(line => line.StartsWith("If you approve", StringComparison.Ordinal)), Is.False, "nothing claimed where nothing was declared");
-        Assert.That(leaves.Lines.Last(), Is.EqualTo("Nothing runs until you answer."));
-        Assert.That(leaves.Source, Is.EqualTo("Codex asks"));
+        Assert.That(leaves.Lines, Is.EqualTo(new[] { "May Run Outside Sandbox · Your Access" }));
+        Assert.That(stays.Lines, Is.EqualTo(new[] { "Runs Inside Sandbox" }));
+        Assert.That(silent.Lines, Is.Empty, "nothing claimed where nothing was declared; the question and its locked answers say nothing runs yet");
+        Assert.That(leaves.Source, Is.EqualTo("Agent · Question"), "no app's name in our words");
         Assert.That(leaves.Tone, Is.EqualTo(KitMomentTone.Attention));
-        Assert.That(leaves.Headline.ToString(), Is.EqualTo("Run this command? [npm install matter-js]"));
+        Assert.That(leaves.Headline.ToString(), Is.EqualTo("Run Command? · [npm install matter-js]"));
     }
 
     [Test]
@@ -101,12 +100,12 @@ public class KitMomentTests
         var host = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, At);
         var agent = KitMoment.AgentCheck(Codex, "npm run build", "exit 1", At);
         Assert.That(host.Provenance, Is.EqualTo(KitProvenance.Observed));
-        Assert.That(host.Source, Is.EqualTo("Checked by your computer"));
+        Assert.That(host.Source, Is.EqualTo("Your Computer · Observed"));
         Assert.That(host.Tone, Is.EqualTo(KitMomentTone.Failure));
         Assert.That(agent.Provenance, Is.EqualTo(KitProvenance.Reported));
-        Assert.That(agent.Source, Is.EqualTo("Codex ran"));
-        Assert.That(agent.Source + agent.Headline, Does.Not.Contain("your computer"));
-        Assert.That(agent.Headline.ToString(), Is.EqualTo("[npm run build: exit 1]"), "a separator between two of theirs stays theirs");
+        Assert.That(agent.Source, Is.EqualTo("Codex · Reported"));
+        Assert.That(agent.Source + agent.Headline, Does.Not.Contain("your computer").IgnoreCase);
+        Assert.That(agent.Headline.ToString(), Is.EqualTo("Check Reported · [npm run build · exit 1]"), "a separator between two of theirs stays theirs");
         Assert.That(agent.Tone, Is.EqualTo(KitMomentTone.Neutral), "colour is for what the computer knows; the agent's outcome is its words");
     }
 
@@ -116,9 +115,11 @@ public class KitMomentTests
         var running = KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, At);
         var unknown = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: null, At);
         var passed = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That(Text(running.Headline), Is.EqualTo("Checking it builds"));
-        Assert.That(Text(unknown.Headline), Is.EqualTo("Ran a check: result not known"));
-        Assert.That(Text(passed.Headline), Is.EqualTo("Checked it builds and opens: passed"));
+        Assert.That(Text(running.Headline), Is.EqualTo("Computer Check · Builds · Under Way"), "never the agent's own Checking");
+        Assert.That(Text(unknown.Headline), Is.EqualTo("Check Ran · Result Unknown"));
+        Assert.That(Text(passed.Headline), Is.EqualTo("Build Passed · Builds · Opens"));
+        Assert.That(Text(KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: false, At).Headline), Is.EqualTo("Build Failed · Builds"));
+        Assert.That(Text(running.Headline), Does.Not.StartWith("Checking"), "the computer's own check never shares the agent's badge word (X17A-S1)");
         Assert.That(passed.Tone, Is.EqualTo(KitMomentTone.Passed));
         Assert.That(unknown.Tone, Is.EqualTo(KitMomentTone.Neutral));
         Assert.Throws<ArgumentException>(() => KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: true, At), "an outcome needs an exit");
@@ -129,10 +130,10 @@ public class KitMomentTests
     {
         var builds = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, At);
         var opens = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), builds, tryRoute: true).Lines.Single(), Is.EqualTo("Built in 6 min 40 s, checked it builds."));
-        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), opens, tryRoute: true).Lines.Single(), Is.EqualTo("Built in 6 min 40 s, checked it builds and opens."));
-        Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Lines.Single(), Is.EqualTo("Built, checked it builds."));
-        Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Headline.ToString(), Is.EqualTo("[Tower Toss] is ready"));
+        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), builds, tryRoute: true).Lines.Single(), Is.EqualTo("Builds · 6 min 40 s"));
+        Assert.That(KitMoment.Ready("Tower Toss", TimeSpan.FromSeconds(400), opens, tryRoute: true).Lines.Single(), Is.EqualTo("Builds · Opens · 6 min 40 s"));
+        Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Lines.Single(), Is.EqualTo("Builds"));
+        Assert.That(KitMoment.Ready("Tower Toss", null, builds, tryRoute: true).Headline.ToString(), Is.EqualTo("Build Ready · [Tower Toss]"));
     }
 
     [Test]
@@ -151,8 +152,8 @@ public class KitMomentTests
     public void ASkippedReadingIsSaidNeverReadAsNoChanges()
     {
         var skipped = KitMoment.NotObserved("too many files", At);
-        Assert.That(skipped.Source, Is.EqualTo("Skipped by your computer"));
-        Assert.That(Text(skipped.Headline), Is.EqualTo("Not observed: too many files"));
+        Assert.That(skipped.Source, Is.EqualTo("Your Computer · Observed"));
+        Assert.That(Text(skipped.Headline), Is.EqualTo("Not Observed · too many files"));
         Assert.That(Text(skipped.Headline), Does.Not.Contain("No change").IgnoreCase);
     }
 
@@ -160,8 +161,8 @@ public class KitMomentTests
     public void ARefusedPackageSaysTheInstallDidNotRun()
     {
         var refused = KitMoment.PackageRefused("matter-js", At);
-        Assert.That(refused.Fact, Is.EqualTo("The install didn't run"));
-        Assert.That(refused.Headline.ToString(), Is.EqualTo("Wanted [matter-js], which isn't in this starter"));
+        Assert.That(refused.Fact, Is.EqualTo("Install Not Run"));
+        Assert.That(refused.Headline.ToString(), Is.EqualTo("Not in Starter · [matter-js]"));
     }
 
     [Test]
@@ -177,7 +178,7 @@ public class KitMomentTests
             KitMoment.ObservedChange(KitFileChange.Changed, "src/towers.ts", 41, 54, At),
         }, working: true);
         Assert.That(five.Shown, Is.EqualTo(4));
-        Assert.That(five.Earlier, Is.EqualTo("Earlier: 4 more"));
+        Assert.That(five.Earlier, Is.EqualTo("Earlier · 4 More"));
     }
 
     [Test]
@@ -186,8 +187,8 @@ public class KitMomentTests
         var question = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.MayLeave, complete: true, At);
         var slot = new KitMomentSlot(new[] { KitMoment.Sent(Codex), question, KitMoment.AgentSays(Codex, "Waiting.") }, working: true);
         Assert.That(slot.Shown, Is.EqualTo(1));
-        Assert.That(slot.Earlier, Is.EqualTo("Earlier: 1 more"), "only the moments before the shown one are earlier");
-        Assert.That(slot.Newer, Is.EqualTo("1 newer"), "what came after a waiting question is said apart");
+        Assert.That(slot.Earlier, Is.EqualTo("Earlier · 1 More"), "only the moments before the shown one are earlier");
+        Assert.That(slot.Newer, Is.EqualTo("1 Newer"), "what came after a waiting question is said apart");
         var plain = new KitMomentSlot(new[] { KitMoment.Sent(Codex), KitMoment.AgentSays(Codex, "Looking.") }, working: true);
         Assert.That(plain.Newer, Is.Null, "nothing is newer than the newest");
     }
@@ -209,34 +210,34 @@ public class KitMomentTests
         string? Title(KitMoment moment) => moment.Title?.ToString();
         string[] Meta(KitMoment moment) => moment.Meta.Select(segment => segment.ToString()).ToArray();
         var sent = KitMoment.Sent(Codex);
-        Assert.That((Title(sent), Meta(sent), sent.Well), Is.EqualTo(("Waiting for it to start.", new string[0], (string?)null)));
+        Assert.That((Title(sent), Meta(sent), sent.Well), Is.EqualTo(("Sent", new[] { "Awaiting Start" }, (string?)null)));
         var edit = KitMoment.ReportedEdit(Codex, KitFileChange.Changed, "src/towers.ts", At);
-        Assert.That((Title(edit), Meta(edit)), Is.EqualTo(("Edited", new[] { "[src/towers.ts]" })));
+        Assert.That((Title(edit), Meta(edit)), Is.EqualTo(("Edit Reported", new[] { "[src/towers.ts]" })));
         var seen = KitMoment.ObservedChange(KitFileChange.Changed, "src/towers.ts", 41, 54, At);
-        Assert.That((Title(seen), Meta(seen)), Is.EqualTo(("Changed", new[] { "[src/towers.ts]", "41 to 54 lines", "seen 10:42" })));
+        Assert.That((Title(seen), Meta(seen)), Is.EqualTo(("Change Observed", new[] { "[src/towers.ts]", "41 to 54 Lines", "10:42" })));
         var made = KitMoment.ObservedChange(KitFileChange.Created, "src/wobble.ts", null, 12, At);
-        Assert.That((Title(made), Meta(made)), Is.EqualTo(("Made", new[] { "[src/wobble.ts]", "12 lines", "seen 10:42" })));
+        Assert.That((Title(made), Meta(made)), Is.EqualTo(("File Made", new[] { "[src/wobble.ts]", "12 Lines", "10:42" })));
         var gone = KitMoment.ObservedChange(KitFileChange.Deleted, "src/old.ts", 9, null, At);
-        Assert.That((Title(gone), Meta(gone)), Is.EqualTo(("Removed", new[] { "[src/old.ts]", "seen 10:42" })));
+        Assert.That((Title(gone), Meta(gone)), Is.EqualTo(("File Removed", new[] { "[src/old.ts]", "10:42" })));
         var says = KitMoment.AgentSays(Codex, "I'll make the towers wobble.", At);
-        Assert.That(says.Title, Is.Null, "no title of ours over their words");
+        Assert.That(Title(says), Is.EqualTo("Agent Note"), "our Title names the moment; their words stay prose beneath it");
         Assert.That(says.Prose!.AllTheirs, Is.True, "their prose stays theirs");
         var asks = KitMoment.Question(Codex, "npm install matter-js", KitSandbox.MayLeave, complete: true, At);
-        Assert.That((Title(asks), asks.Well, Meta(asks)), Is.EqualTo(("Run this command?", "npm install matter-js", new string[0])));
+        Assert.That((Title(asks), asks.Well, Meta(asks)), Is.EqualTo(("Run Command?", "npm install matter-js", new string[0])));
         var check = KitMoment.HostCheck(KitCheckScope.BuildsAndOpens, ended: true, passed: true, At);
-        Assert.That((Title(check), Meta(check)), Is.EqualTo(("Checked it builds and opens", new[] { "passed" })), "the outcome in the metadata, the Title short");
+        Assert.That((Title(check), Meta(check)), Is.EqualTo(("Build Passed", new[] { "Builds · Opens" })), "the outcome in the Title (ART's review), what it covered in the metadata");
         var unknown = KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: null, At);
-        Assert.That((Title(unknown), Meta(unknown)), Is.EqualTo(("Ran a check", new[] { "result not known" })));
+        Assert.That((Title(unknown), Meta(unknown)), Is.EqualTo(("Check Ran", new[] { "Result Unknown" })));
         var running = KitMoment.HostCheck(KitCheckScope.Builds, ended: false, passed: null, At);
-        Assert.That((Title(running), Meta(running)), Is.EqualTo(("Checking it builds", new string[0])));
+        Assert.That((Title(running), Meta(running)), Is.EqualTo(("Computer Check", new[] { "Builds · Under Way" })));
         var ran = KitMoment.AgentCheck(Codex, "npm run build", "exit 1", At);
-        Assert.That((Title(ran), ran.Well, Meta(ran)), Is.EqualTo(((string?)null, "npm run build", new[] { "[exit 1]" })), "their command in the well, their outcome theirs");
+        Assert.That((Title(ran), ran.Well, Meta(ran)), Is.EqualTo(("Check Reported", "npm run build", new[] { "[exit 1]" })), "their command in the well, their outcome theirs");
         var refused = KitMoment.PackageRefused("matter-js", At);
-        Assert.That((Title(refused), Meta(refused)), Is.EqualTo(("Wanted", new[] { "[matter-js]", "which isn't in this starter" })));
+        Assert.That((Title(refused), Meta(refused)), Is.EqualTo(("Not in Starter", new[] { "[matter-js]" })));
         var skipped = KitMoment.NotObserved("too many files", At);
-        Assert.That((Title(skipped), Meta(skipped)), Is.EqualTo(("Not observed", new[] { "too many files" })));
+        Assert.That((Title(skipped), Meta(skipped)), Is.EqualTo(("Not Observed", new[] { "too many files" })));
         var ready = KitMoment.Ready("Tower Toss", null, KitMoment.HostCheck(KitCheckScope.Builds, ended: true, passed: true, At), tryRoute: false);
-        Assert.That(Title(ready), Is.EqualTo("[Tower Toss] is ready"), "their project's name keeps its run inside the title");
+        Assert.That((Title(ready), Meta(ready)), Is.EqualTo(("Build Ready", new[] { "[Tower Toss]" })), "their project's name keeps its run in the metadata");
         // Every moment has something to read: a Title, their prose or a command.
         foreach (var moment in new[] { sent, edit, seen, made, gone, says, asks, check, ran, refused, skipped, ready })
             Assert.That(moment.Title != null || moment.Prose != null || moment.Well != null, Is.True, moment.Kind.ToString());
@@ -247,7 +248,7 @@ public class KitMomentTests
     {
         foreach (KitMomentAction action in Enum.GetValues(typeof(KitMomentAction)))
             Assert.That(KitMomentWords.Action(action), Is.Not.Empty, action.ToString());
-        Assert.That(KitMomentWords.Action(KitMomentAction.YesRunIt), Is.EqualTo("Yes, run it"));
-        Assert.That(KitMomentWords.Action(KitMomentAction.TryIt), Is.EqualTo("Try it"));
+        Assert.That(KitMomentWords.Action(KitMomentAction.YesRunIt), Is.EqualTo("Run"));
+        Assert.That(KitMomentWords.Action(KitMomentAction.TryIt), Is.EqualTo("Try Build"));
     }
 }

@@ -244,10 +244,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The same report whole stays upright prose with its quote mark.
                 var mixed = new PageLine(LineWords.Ours("Failing · ") + LineWords.Theirs("synthetic remaining item"), chip: SectionLine.AgentChip);
                 var whole = new PageLine(LineWords.Theirs("synthetic whole report"), chip: SectionLine.AgentChip);
-                // The subagent's chip and the kit's own "Agent says", until the kit's words move, attribute words whole too.
+                // The subagent's chip and the kit's report chip attribute words whole too.
                 Require(!MenuFrameView.UsesUprightProse(true, mixed) && MenuFrameView.UsesUprightProse(true, whole)
                     && MenuFrameView.UsesUprightProse(true, new PageLine(LineWords.Theirs("synthetic subagent report"), chip: SectionLine.SubagentChip))
-                    && MenuFrameView.UsesUprightProse(true, new PageLine(LineWords.Theirs("synthetic kit report"), chip: "Agent says")),
+                    && MenuFrameView.UsesUprightProse(true, new PageLine(LineWords.Theirs("synthetic kit report"), chip: Halcyonic.XR.UI.KitMessage.Source)),
                     "upright prose eligibility no longer separates mixed lines from agent prose attributed whole");
                 var attributionProbe = MenuFrameView.Create(root.transform, "Mixed attribution probe");
                 try

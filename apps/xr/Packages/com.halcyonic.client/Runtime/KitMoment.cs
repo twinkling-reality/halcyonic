@@ -151,7 +151,7 @@ namespace Halcyonic.Client
 
         public KitProvenance Provenance { get; }
 
-        /// <summary>Who says it, on the moment's chip: "Codex says", "Seen on your computer", "Checked by your computer".</summary>
+        /// <summary>Who says it and how it is known, on the moment's eyebrow: "Codex · Reported", "Your Computer · Observed", "Agent · Question".</summary>
         public string Source { get; }
 
         /// <summary>The moment's subject; anything the runtime wrote inside it is theirs.</summary>
@@ -203,15 +203,16 @@ namespace Halcyonic.Client
 
         /// <summary>The person's request went to <paramref name="runtime"/>: accepted is not started, so it waits.</summary>
         public static KitMoment Sent(string runtime) => new KitMoment(KitMomentKind.Sent, KitProvenance.Observed,
-            KitMomentWords.SentTo + LabelText.Name(runtime), LineWords.Ours(KitMomentWords.WaitingToStart), null, NoLines, KitMomentTone.Neutral, NoActions, null)
-            .Parts(LineWords.Ours(KitMomentWords.WaitingToStart));
+            LabelText.Name(runtime) + KitMomentWords.ObservedSuffix, LineWords.Ours(KitMomentWords.SentTitle + KitMomentWords.Dot + KitMomentWords.WaitingToStart), null, NoLines,
+            KitMomentTone.Neutral, NoActions, null)
+            .Parts(LineWords.Ours(KitMomentWords.SentTitle), new[] { LineWords.Ours(KitMomentWords.WaitingToStart) });
 
         /// <summary>A file <paramref name="runtime"/> says it changed: its report, in the past tense, not seen yet.</summary>
         public static KitMoment ReportedEdit(string runtime, KitFileChange change, string file, DateTimeOffset? at) =>
             new KitMoment(KitMomentKind.ReportedEdit, KitProvenance.Reported, Says(runtime),
-                LineWords.Ours(KitMomentWords.Reported(change)) + LineWords.TheirName(file), KitMomentWords.NotSeenYet, NoLines,
+                LineWords.Ours(KitMomentWords.Reported(change) + KitMomentWords.Dot) + LineWords.TheirName(file), KitMomentWords.NotSeenYet, NoLines,
                 KitMomentTone.Neutral, new[] { KitMomentAction.ReadIt }, at)
-            .Parts(LineWords.Ours(KitMomentWords.Reported(change).TrimEnd()), new[] { LineWords.TheirName(file) });
+            .Parts(LineWords.Ours(KitMomentWords.Reported(change)), new[] { LineWords.TheirName(file) });
 
         /// <summary>
         /// A file the computer saw changed when it read the folder: its line counts before and after and the time, never its
@@ -220,12 +221,12 @@ namespace Halcyonic.Client
         public static KitMoment ObservedChange(KitFileChange change, string file, int? linesBefore, int? linesAfter, DateTimeOffset seen,
             KitCheckpointDiff? diff = null, bool undoOn = false)
         {
-            var words = LineWords.Ours(KitMomentWords.Observed(change)) + LineWords.TheirName(file) + LineWords.Ours(KitMomentWords.LinesAndTime(change, linesBefore, linesAfter, seen));
+            var words = LineWords.Ours(KitMomentWords.Observed(change) + KitMomentWords.Dot) + LineWords.TheirName(file) + LineWords.Ours(KitMomentWords.LinesAndTime(change, linesBefore, linesAfter, seen));
             var shown = undoOn ? diff : null;
-            return new KitMoment(KitMomentKind.ObservedChange, KitProvenance.Observed, KitMomentWords.SeenOnYourComputer, words,
+            return new KitMoment(KitMomentKind.ObservedChange, KitProvenance.Observed, KitMomentWords.YourComputer, words,
                 shown == null ? null : KitMomentWords.Counts(shown), NoLines, KitMomentTone.Neutral,
                 shown == null ? NoActions : new[] { KitMomentAction.ReadIt }, seen, shown)
-                .Parts(LineWords.Ours(KitMomentWords.Observed(change).TrimEnd()), new[]
+                .Parts(LineWords.Ours(KitMomentWords.Observed(change)), new[]
                 {
                     LineWords.TheirName(file),
                     KitMomentWords.LineCount(change, linesBefore, linesAfter) is string count ? LineWords.Ours(count) : null,
@@ -235,7 +236,7 @@ namespace Halcyonic.Client
 
         /// <summary>What <paramref name="runtime"/> says of its work, its own words.</summary>
         public static KitMoment AgentSays(string runtime, string text, DateTimeOffset? at = null) => new KitMoment(KitMomentKind.AgentSays, KitProvenance.Reported,
-            Says(runtime), LineWords.Theirs(text), null, NoLines, KitMomentTone.Neutral, NoActions, at).Parts(null, prose: LineWords.Theirs(text));
+            Says(runtime), LineWords.Theirs(text), null, NoLines, KitMomentTone.Neutral, NoActions, at).Parts(LineWords.Ours(KitMomentWords.AgentNote), prose: LineWords.Theirs(text));
 
         /// <summary>
         /// <paramref name="runtime"/> asks to run <paramref name="command"/>: ADR 0033's line in the form it declares, and Yes only
@@ -243,15 +244,15 @@ namespace Halcyonic.Client
         /// </summary>
         public static KitMoment Question(string runtime, string command, KitSandbox sandbox, bool complete, DateTimeOffset? at)
         {
+            // "Nothing runs until you answer" is deleted (the voice standard): the question and its locked answers carry it.
             var lines = new List<string>();
             if (KitMomentWords.Sandbox(sandbox) is string line) lines.Add(line);
-            lines.Add(KitMomentWords.NothingRunsYet);
             var actions = complete
                 ? new[] { KitMomentAction.YesRunIt, KitMomentAction.No, KitMomentAction.SaySomethingElse }
                 : new[] { KitMomentAction.No, KitMomentAction.SaySomethingElse };
-            return new KitMoment(KitMomentKind.Question, KitProvenance.Reported, LabelText.Name(runtime) + KitMomentWords.AsksSuffix,
-                LineWords.Ours(KitMomentWords.RunThisCommand) + LineWords.TheirName(command), null, lines, KitMomentTone.Attention, actions, at)
-                .Parts(LineWords.Ours(KitMomentWords.RunThisCommand.TrimEnd()), well: LabelText.Plain(command));
+            return new KitMoment(KitMomentKind.Question, KitProvenance.Reported, KitMomentWords.AgentQuestion,
+                LineWords.Ours(KitMomentWords.RunThisCommand + KitMomentWords.Dot) + LineWords.TheirName(command), null, lines, KitMomentTone.Attention, actions, at)
+                .Parts(LineWords.Ours(KitMomentWords.RunThisCommand), well: LabelText.Plain(command));
         }
 
         /// <summary>
@@ -263,28 +264,28 @@ namespace Halcyonic.Client
             if (!ended && passed != null) throw new ArgumentException("A check's outcome needs its exit.", nameof(passed));
             var tone = passed == true ? KitMomentTone.Passed : passed == false ? KitMomentTone.Failure : KitMomentTone.Neutral;
             var actions = ended ? new[] { KitMomentAction.SeeTheOutput } : NoActions;
-            return new KitMoment(KitMomentKind.HostCheck, KitProvenance.Observed, KitMomentWords.CheckedByYourComputer,
+            return new KitMoment(KitMomentKind.HostCheck, KitProvenance.Observed, KitMomentWords.YourComputer,
                 LineWords.Ours(KitMomentWords.Check(scope, ended, passed)), null, NoLines, tone, actions, at, null, passed, scope)
-                .Parts(LineWords.Ours(KitMomentWords.CheckTitle(scope, ended, passed)),
-                    new[] { KitMomentWords.CheckOutcome(scope, ended, passed) is string outcome ? LineWords.Ours(outcome) : null });
+                .Parts(LineWords.Ours(KitMomentWords.CheckTitle(scope, ended, passed)), new[] { LineWords.Ours(KitMomentWords.CheckOutcome(scope, ended, passed)) });
         }
 
         /// <summary>A command <paramref name="runtime"/> says it ran and the outcome it reports: its words, no colour.</summary>
         public static KitMoment AgentCheck(string runtime, string command, string outcome, DateTimeOffset? at) =>
-            new KitMoment(KitMomentKind.AgentCheck, KitProvenance.Reported, LabelText.Name(runtime) + KitMomentWords.RanSuffix,
-                LineWords.TheirName(command) + LineWords.Ours(": ") + LineWords.Theirs(outcome), null, NoLines, KitMomentTone.Neutral,
-                new[] { KitMomentAction.SeeTheOutput }, at).Parts(null, new[] { LineWords.Theirs(outcome) }, LabelText.Plain(command));
+            new KitMoment(KitMomentKind.AgentCheck, KitProvenance.Reported, Says(runtime),
+                LineWords.Ours(KitMomentWords.CheckReported + KitMomentWords.Dot) + LineWords.TheirName(command) + LineWords.Ours(KitMomentWords.Dot) + LineWords.Theirs(outcome),
+                null, NoLines, KitMomentTone.Neutral, new[] { KitMomentAction.SeeTheOutput }, at)
+            .Parts(LineWords.Ours(KitMomentWords.CheckReported), new[] { LineWords.Theirs(outcome) }, LabelText.Plain(command));
 
         /// <summary>A package the runtime wanted that the starter doesn't hold: refused, its install not run (what is on disk is not claimed).</summary>
         public static KitMoment PackageRefused(string package, DateTimeOffset? at) => new KitMoment(KitMomentKind.PackageRefused, KitProvenance.Observed,
-            KitMomentWords.SeenOnYourComputer, LineWords.Ours("Wanted ") + LineWords.TheirName(package) + LineWords.Ours(", which isn't in this starter"),
+            KitMomentWords.YourComputer, LineWords.Ours(KitMomentWords.NotInStarter + KitMomentWords.Dot) + LineWords.TheirName(package),
             KitMomentWords.InstallDidNotRun, NoLines, KitMomentTone.Neutral, NoActions, at)
-            .Parts(LineWords.Ours("Wanted"), new[] { LineWords.TheirName(package), LineWords.Ours("which isn't in this starter") });
+            .Parts(LineWords.Ours(KitMomentWords.NotInStarter), new[] { LineWords.TheirName(package) });
 
         /// <summary>The computer didn't read this turn's files, for <paramref name="reason"/>: said, never read as no changes.</summary>
         public static KitMoment NotObserved(string reason, DateTimeOffset? at) => new KitMoment(KitMomentKind.NotObserved, KitProvenance.Observed,
-            KitMomentWords.Skipped, LineWords.Ours(KitMomentWords.NotObservedWords + reason), null, NoLines, KitMomentTone.Neutral, NoActions, at)
-            .Parts(LineWords.Ours(KitMomentWords.NotObservedWords.TrimEnd(' ', ':')), new[] { LineWords.Ours(reason) });
+            KitMomentWords.YourComputer, LineWords.Ours(KitMomentWords.NotObservedWords + KitMomentWords.Dot + reason), null, NoLines, KitMomentTone.Neutral, NoActions, at)
+            .Parts(LineWords.Ours(KitMomentWords.NotObservedWords), new[] { LineWords.Ours(reason) });
 
         /// <summary>
         /// <paramref name="project"/> is ready: only after a check of the computer's own passed, saying what that check covered;
@@ -295,13 +296,13 @@ namespace Halcyonic.Client
             if (check.Kind != KitMomentKind.HostCheck || check.Passed != true || check.Scope is not KitCheckScope scope)
                 throw new ArgumentException("Ready follows a passed check of the computer's own.", nameof(check));
             var actions = tryRoute ? new[] { KitMomentAction.TryIt, KitMomentAction.SeeWhatChanged } : new[] { KitMomentAction.SeeWhatChanged };
-            return new KitMoment(KitMomentKind.Ready, KitProvenance.Observed, KitMomentWords.CheckedByYourComputer,
-                LineWords.TheirName(project) + LineWords.Ours(KitMomentWords.IsReady), null, new[] { KitMomentWords.Reward(elapsed, scope) },
+            return new KitMoment(KitMomentKind.Ready, KitProvenance.Observed, KitMomentWords.YourComputer,
+                LineWords.Ours(KitMomentWords.BuildReady + KitMomentWords.Dot) + LineWords.TheirName(project), null, new[] { KitMomentWords.Reward(elapsed, scope) },
                 KitMomentTone.Passed, actions, check.At, null, true, scope)
-                .Parts(LineWords.TheirName(project) + LineWords.Ours(KitMomentWords.IsReady));
+                .Parts(LineWords.Ours(KitMomentWords.BuildReady), new[] { LineWords.TheirName(project) });
         }
 
-        private static string Says(string runtime) => LabelText.Name(runtime) + KitMomentWords.SaysSuffix;
+        private static string Says(string runtime) => LabelText.Name(runtime) + KitMomentWords.ReportedSuffix;
 
         /// <summary>Sets the card's parts (<see cref="Title"/>, <see cref="Meta"/>, <see cref="Well"/>, <see cref="Prose"/>) and returns the moment.</summary>
         private KitMoment Parts(LineWords? title, IEnumerable<LineWords?>? meta = null, string? well = null, LineWords? prose = null)
@@ -346,10 +347,10 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>"Earlier: {n} more", counting only the moments before the shown one; null with none before it.</summary>
+        /// <summary>"Earlier · {n} More", counting only the moments before the shown one; null with none before it.</summary>
         public string? Earlier => Shown is int shown && shown > 0 ? KitMomentWords.Earlier(shown) : null;
 
-        /// <summary>"{n} newer", counting the moments after a waiting question that stays shown; null with none after it.</summary>
+        /// <summary>"{n} Newer", counting the moments after a waiting question that stays shown; null with none after it.</summary>
         public string? Newer => Shown is int shown && shown < Moments.Count - 1 ? KitMomentWords.Newer(Moments.Count - 1 - shown) : null;
 
         /// <summary>The shown moment's actions, with Stop beneath while the work goes on, except on a question or at ready.</summary>
@@ -368,53 +369,63 @@ namespace Halcyonic.Client
     /// <summary>The room's moment words (WORDS.md, The room of projects).</summary>
     public static class KitMomentWords
     {
-        public const string SentTo = "Sent to ";
+        /// <summary>The cadence's join between a line's segments (the owner's voice standard, 2026-10-30).</summary>
+        public const string Dot = " · ";
 
-        public const string WaitingToStart = "Waiting for it to start.";
+        /// <summary>After a runtime's name on the eyebrow: what it says is its report.</summary>
+        public const string ReportedSuffix = " · Reported";
 
-        public const string SaysSuffix = " says";
+        /// <summary>After a runtime's name on a sent request's eyebrow: the computer saw the request go.</summary>
+        public const string ObservedSuffix = " · Observed";
 
-        public const string AsksSuffix = " asks";
+        /// <summary>The eyebrow of what the computer itself saw or ran.</summary>
+        public const string YourComputer = "Your Computer · Observed";
 
-        public const string RanSuffix = " ran";
+        /// <summary>The eyebrow of a question the agent asks: no app's name in our words (WORDS.md, T2 and T7).</summary>
+        public const string AgentQuestion = "Agent · Question";
 
-        public const string NotSeenYet = "Not seen on your computer yet.";
+        public const string SentTitle = "Sent";
 
-        public const string SeenOnYourComputer = "Seen on your computer";
+        /// <summary>Accepted is not started (T1).</summary>
+        public const string WaitingToStart = "Awaiting Start";
 
-        public const string CheckedByYourComputer = "Checked by your computer";
+        public const string NotSeenYet = "Not Yet Observed";
 
-        public const string Skipped = "Skipped by your computer";
+        public const string AgentNote = "Agent Note";
 
-        public const string NotObservedWords = "Not observed: ";
+        public const string CheckReported = "Check Reported";
 
-        public const string InstallDidNotRun = "The install didn't run";
+        public const string NotInStarter = "Not in Starter";
 
-        public const string RunThisCommand = "Run this command? ";
+        public const string NotObservedWords = "Not Observed";
 
-        public const string NothingRunsYet = "Nothing runs until you answer.";
+        public const string InstallDidNotRun = "Install Not Run";
 
-        public const string IsReady = " is ready";
+        public const string RunThisCommand = "Run Command?";
 
+        public const string BuildReady = "Build Ready";
+
+        /// <summary>A file the runtime says it changed, as the card's Title: its report.</summary>
         public static string Reported(KitFileChange change) => change switch
         {
-            KitFileChange.Created => "Made ",
-            KitFileChange.Deleted => "Removed ",
-            _ => "Edited ",
+            KitFileChange.Created => "New File Reported",
+            KitFileChange.Deleted => "Removal Reported",
+            _ => "Edit Reported",
         };
 
+        /// <summary>A file the computer saw change, as the card's Title.</summary>
         public static string Observed(KitFileChange change) => change switch
         {
-            KitFileChange.Created => "Made ",
-            KitFileChange.Deleted => "Removed ",
-            _ => "Changed ",
+            KitFileChange.Created => "File Made",
+            KitFileChange.Deleted => "File Removed",
+            _ => "Change Observed",
         };
 
-        /// <summary>", 41 to 54 lines, seen 10:42": the counts the computer keeps for a file, as many as the change has, and when it read them.</summary>
+        /// <summary>" · 41 to 54 Lines · 10:42": the counts the computer keeps for a file, as many as the change has, and when it read them.</summary>
         public static string LinesAndTime(KitFileChange change, int? before, int? after, DateTimeOffset seen) =>
-            (LineCount(change, before, after) is string count ? ", " + count : "") + ", " + SeenAt(seen);
+            (LineCount(change, before, after) is string count ? Dot + count : "") + Dot + SeenAt(seen);
 
-        /// <summary>"41 to 54 lines" or "12 lines": the counts the computer keeps for a file, as many as the change has; none for a removal.</summary>
+        /// <summary>"41 to 54 Lines" or "12 Lines": the counts the computer keeps for a file, as many as the change has; none for a removal.</summary>
         public static string? LineCount(KitFileChange change, int? before, int? after) => change switch
         {
             KitFileChange.Changed when before is int was && after is int now => Number(was) + " to " + Lines(now),
@@ -422,65 +433,57 @@ namespace Halcyonic.Client
             _ => null,
         };
 
-        /// <summary>"seen 10:42": when the computer read the file.</summary>
-        public static string SeenAt(DateTimeOffset seen) => "seen " + seen.ToString("HH:mm", CultureInfo.InvariantCulture);
+        /// <summary>"10:42": when the computer read the file.</summary>
+        public static string SeenAt(DateTimeOffset seen) => seen.ToString("HH:mm", CultureInfo.InvariantCulture);
 
-        /// <summary>"+14 −3 lines" from a checkpoint diff.</summary>
-        public static string Counts(KitCheckpointDiff diff) => "+" + Number(diff.Added) + " −" + Number(diff.Removed) + " lines";
+        /// <summary>"+14 −3 Lines" from a checkpoint diff.</summary>
+        public static string Counts(KitCheckpointDiff diff) => "+" + Number(diff.Added) + " −" + Number(diff.Removed) + " Lines";
 
         /// <summary>ADR 0033's line in the form the runtime declares; none where it declared nothing.</summary>
         public static string? Sandbox(KitSandbox sandbox) => sandbox switch
         {
-            KitSandbox.MayLeave => "If you approve, it may run outside its sandbox, with your access to your computer.",
-            KitSandbox.StaysInside => "If you approve, it still runs inside a sandbox.",
+            KitSandbox.MayLeave => "May Run Outside Sandbox · Your Access",
+            KitSandbox.StaysInside => "Runs Inside Sandbox",
             _ => null,
         };
 
-        /// <summary>A check of the computer's own: under way, its outcome, or not known; naming what it covered.</summary>
-        public static string Check(KitCheckScope scope, bool ended, bool? passed)
-        {
-            var covered = scope == KitCheckScope.BuildsAndOpens ? "it builds and opens" : "it builds";
-            if (!ended) return "Checking " + covered;
-            return passed is bool outcome ? "Checked " + covered + (outcome ? ": passed" : ": failed") : "Ran a check: result not known";
-        }
+        /// <summary>
+        /// A check of the computer's own in one line, its Title then what it covered: "Computer Check · Builds · Opens · Under Way"
+        /// while it runs, so it never shares the agent's own "Checking" (AUDIT's X17A-S1); "Build Passed · Builds · Opens",
+        /// "Build Failed · Builds", or "Check Ran · Result Unknown" where its exit carried no outcome.
+        /// </summary>
+        public static string Check(KitCheckScope scope, bool ended, bool? passed) => CheckTitle(scope, ended, passed) + Dot + CheckOutcome(scope, ended, passed);
 
-        /// <summary>The check's words up to its outcome: "Checked it builds and opens", the card's Title.</summary>
-        public static string CheckTitle(KitCheckScope scope, bool ended, bool? passed)
-        {
-            var words = Check(scope, ended, passed);
-            var colon = words.IndexOf(": ", StringComparison.Ordinal);
-            return colon < 0 ? words : words.Substring(0, colon);
-        }
+        /// <summary>The check's Title: Computer Check while it runs, then its outcome in it (ART's review of A3a).</summary>
+        public static string CheckTitle(KitCheckScope scope, bool ended, bool? passed) =>
+            !ended ? "Computer Check" : passed is bool outcome ? outcome ? "Build Passed" : "Build Failed" : "Check Ran";
 
-        /// <summary>The check's outcome after its colon, "passed", "failed" or "result not known", for the card's metadata; none while under way.</summary>
-        public static string? CheckOutcome(KitCheckScope scope, bool ended, bool? passed)
-        {
-            var words = Check(scope, ended, passed);
-            var colon = words.IndexOf(": ", StringComparison.Ordinal);
-            return colon < 0 ? null : words.Substring(colon + 2);
-        }
+        /// <summary>The check's metadata: what it covered and, while it runs, that it is under way; Result Unknown where its exit carried no outcome.</summary>
+        public static string CheckOutcome(KitCheckScope scope, bool ended, bool? passed) =>
+            ended && passed == null ? "Result Unknown" : Covered(scope) + (ended ? "" : Dot + "Under Way");
 
-        /// <summary>The ready line: Built, in its time where known, then what the passed check covered, and no more.</summary>
-        public static string Reward(TimeSpan? elapsed, KitCheckScope scope) =>
-            (elapsed is TimeSpan taken ? "Built in " + Time(taken) : "Built") + ", checked " + (scope == KitCheckScope.BuildsAndOpens ? "it builds and opens." : "it builds.");
+        private static string Covered(KitCheckScope scope) => scope == KitCheckScope.BuildsAndOpens ? "Builds" + Dot + "Opens" : "Builds";
 
-        public static string Earlier(int count) => "Earlier: " + Number(count) + " more";
+        /// <summary>The ready line: what the passed check covered, then the time it took where known, and no more.</summary>
+        public static string Reward(TimeSpan? elapsed, KitCheckScope scope) => Covered(scope) + (elapsed is TimeSpan taken ? Dot + Time(taken) : "");
 
-        public static string Newer(int count) => Number(count) + " newer";
+        public static string Earlier(int count) => "Earlier" + Dot + Number(count) + " More";
+
+        public static string Newer(int count) => Number(count) + " Newer";
 
         /// <summary>Under a command shown cut: what is left, in the handoff's words ("Cut · 18 More Lines").</summary>
         public static string CutMore(int lines) => "Cut · " + Number(lines) + (lines == 1 ? " More Line" : " More Lines");
 
         public static string Action(KitMomentAction action) => action switch
         {
-            KitMomentAction.ReadIt => "Read it",
+            KitMomentAction.ReadIt => "Read File",
             KitMomentAction.Stop => "Stop",
-            KitMomentAction.YesRunIt => "Yes, run it",
-            KitMomentAction.No => "No",
-            KitMomentAction.SaySomethingElse => "Say something else",
-            KitMomentAction.SeeTheOutput => "See the output",
-            KitMomentAction.TryIt => "Try it",
-            KitMomentAction.SeeWhatChanged => "See what changed",
+            KitMomentAction.YesRunIt => "Run",
+            KitMomentAction.No => "Decline",
+            KitMomentAction.SaySomethingElse => "Reply",
+            KitMomentAction.SeeTheOutput => "Read Output",
+            KitMomentAction.TryIt => "Try Build",
+            KitMomentAction.SeeWhatChanged => "See Changes",
             _ => throw new ArgumentOutOfRangeException(nameof(action)),
         };
 
@@ -488,14 +491,14 @@ namespace Halcyonic.Client
         public static string Time(TimeSpan time)
         {
             var seconds = (int)Math.Round(time.TotalSeconds, MidpointRounding.AwayFromZero);
-            if (time.TotalSeconds < 0.5) return "under 1 s";
+            if (time.TotalSeconds < 0.5) return "Under 1 s";
             if (seconds < 60) return Number(seconds) + " s";
             var minutes = seconds / 60;
             var left = seconds % 60;
             return Number(minutes) + " min" + (left > 0 ? " " + Number(left) + " s" : "");
         }
 
-        private static string Lines(int count) => Number(count) + (count == 1 ? " line" : " lines");
+        private static string Lines(int count) => Number(count) + (count == 1 ? " Line" : " Lines");
 
         private static string Number(int count) => count.ToString(CultureInfo.InvariantCulture);
     }

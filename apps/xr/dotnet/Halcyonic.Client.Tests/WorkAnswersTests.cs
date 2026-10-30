@@ -1256,20 +1256,19 @@ public class AnswerWordsTests
 public class ChipAttributionTests
 {
     [Test]
-    public void TheAgentsAndTheSubagentsChipsAndTheKitsOwnAttributeWordsWhole()
+    public void TheAgentsAndTheSubagentsChipsAttributeWordsWhole()
     {
-        // Every chip that attributed words whole before the voice standard still does: the agent's and the
-        // subagent's in their new words, and the kit's own "Agent says" until the kit's words move.
+        // Every chip that attributed words whole before the voice standard still does, in its new words; the kit's
+        // report chip is the agent's own (KitMessage.Source).
         Assert.That(SectionLine.AttributesWhole(SectionLine.AgentChip), Is.True, "the agent's chip");
         Assert.That(SectionLine.AttributesWhole(SectionLine.SubagentChip), Is.True, "the subagent's chip");
-        Assert.That(SectionLine.AttributesWhole("Agent says"), Is.True, "the kit's own chip");
         Assert.That(SectionLine.ChipOf(Evidence.Reported), Is.EqualTo(SectionLine.AgentChip), "a reported line's chip is the agent's");
     }
 
     [Test]
     public void NoOtherChipAttributesWordsWhole()
     {
-        foreach (var chip in new[] { null, "", SectionLine.AuthorUnknownChip, SectionLine.ExplanationChip, "Inferred", "Planned", "Reported", "Agent", "Subagent says" })
+        foreach (var chip in new[] { null, "", SectionLine.AuthorUnknownChip, SectionLine.ExplanationChip, "Inferred", "Planned", "Reported", "Agent", "Agent says", "Subagent says" })
             Assert.That(SectionLine.AttributesWhole(chip), Is.False, chip ?? "null");
     }
 }

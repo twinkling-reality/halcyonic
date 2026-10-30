@@ -969,9 +969,9 @@ namespace Halcyonic.XR.Workspace.Editor
             y -= well + U(Section);
             var tall = U(GlazeButton.HeightDegrees);
             // Confirming: Yes stands where no control stood, Cancel where Approve was pressed.
-            var yes = Measure(board, ButtonRole.Primary, "Confirm Approve", GlazeIcon.Approve);
+            var yes = Measure(board, ButtonRole.Primary, "Confirm", GlazeIcon.Approve);
             Text(board, "Asks to confirm", "Approve Request?", GlazeType.Body, GlazeTokens.Text, left, y - (tall - U(Glaze.BodyDegrees) * 1.15f) / 2f, right - left - yes - U(1f));
-            var confirm = Button(board, "Confirm Approve", ButtonRole.Primary, "Confirm Approve", right - yes / 2f, y - tall / 2f, yes, GlazeIcon.Approve);
+            var confirm = Button(board, "Confirm", ButtonRole.Primary, "Confirm", right - yes / 2f, y - tall / 2f, yes, GlazeIcon.Approve);
             confirm.On = true;
             y -= tall + board.TargetGap;
             var more = Measure(board, ButtonRole.Secondary, "More", compact: true);

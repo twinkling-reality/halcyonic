@@ -393,7 +393,7 @@ namespace Halcyonic.Client
         public int Waiting { get; }
 
         /// <summary>The count said in full, as there is room for it (WORDS.md): a count keeps its noun and its verb.</summary>
-        public string WaitingWords => Waiting == 0 ? "Nothing is waiting for you."
-            : Waiting == 1 ? "1 task is waiting for you." : Waiting + " tasks are waiting for you.";
+        public string WaitingWords => Waiting == 0 ? "Nothing Waiting"
+            : Waiting == 1 ? "Needs You · 1 Task" : "Needs You · " + Waiting + " Tasks";
     }
 }

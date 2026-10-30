@@ -112,8 +112,8 @@ public class GalleryTests
             "h:p-wait", "c:c-review", "h:p-run", "c:c-agent", "c:c-recent", "c:c-quiet",
         }));
         Assert.That(gallery.Items.Select(item => item.Section), Is.Ordered);
-        Assert.That(gallery.Items.Single(item => item.Key == "c:c-review").Line.Text, Is.EqualTo("Asked for your review"));
-        Assert.That(gallery.Items.Single(item => item.Key == "c:c-quiet").Line.Text, Is.EqualTo("Quiet for a while"));
+        Assert.That(gallery.Items.Single(item => item.Key == "c:c-review").Line.Text, Is.EqualTo("Review Requested"));
+        Assert.That(gallery.Items.Single(item => item.Key == "c:c-quiet").Line.Text, Is.EqualTo("Quiet"));
     }
 
     [Test]
@@ -121,18 +121,18 @@ public class GalleryTests
     {
         var expected = new Dictionary<string, (GallerySection, string)>
         {
-            ["awaiting_input"] = (GallerySection.NeedsYou, "An agent is waiting for you"),
-            ["session_failed"] = (GallerySection.NeedsYou, "An agent couldn't finish"),
-            ["checks_failing"] = (GallerySection.NeedsYou, "Its checks are failing"),
-            ["review_requested"] = (GallerySection.NeedsYou, "Asked for your review"),
-            ["changes_requested"] = (GallerySection.NeedsYou, "Someone asked for changes"),
-            ["ready_to_merge"] = (GallerySection.NeedsYou, "Ready to merge"),
-            ["agent_running"] = (GallerySection.WorkingNow, "An agent is working on it"),
-            ["session_complete"] = (GallerySection.Recent, "An agent finished"),
-            ["active"] = (GallerySection.Recent, "Changed recently"),
-            ["inactive"] = (GallerySection.Quiet, "Quiet for a while"),
+            ["awaiting_input"] = (GallerySection.NeedsYou, "Agent Waiting"),
+            ["session_failed"] = (GallerySection.NeedsYou, "Agent Failed"),
+            ["checks_failing"] = (GallerySection.NeedsYou, "Checks Failing"),
+            ["review_requested"] = (GallerySection.NeedsYou, "Review Requested"),
+            ["changes_requested"] = (GallerySection.NeedsYou, "Changes Requested"),
+            ["ready_to_merge"] = (GallerySection.NeedsYou, "Ready to Merge"),
+            ["agent_running"] = (GallerySection.WorkingNow, "Agent Running"),
+            ["session_complete"] = (GallerySection.Recent, "Agent Finished"),
+            ["active"] = (GallerySection.Recent, "Changed Recently"),
+            ["inactive"] = (GallerySection.Quiet, "Quiet"),
             ["archived"] = (GallerySection.Quiet, "Archived"),
-            ["access_lost"] = (GallerySection.Quiet, "Can't reach it now"),
+            ["access_lost"] = (GallerySection.Quiet, "Unreachable"),
         };
         foreach (var (state, (section, line)) in expected)
         {
@@ -151,7 +151,7 @@ public class GalleryTests
         var gallery = Build(Halcyonic(), Read(new[] { Catalog("c1", "Tide", "deploy_failed") }));
         var item = gallery.Items.Single();
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou));
-        Assert.That(item.Line.Text, Is.EqualTo("Needs a look"));
+        Assert.That(item.Line.Text, Is.EqualTo("Needs a Look"));
     }
 
     [Test]
@@ -171,12 +171,12 @@ public class GalleryTests
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou), "the more urgent of the two");
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Catalog));
         Assert.That(item.ObservedLine?.Text, Is.EqualTo("1 task running"), "this computer's own tasks keep their line");
-        Assert.That(item.ReportedLine?.Text, Is.EqualTo("Asked for your review"));
+        Assert.That(item.ReportedLine?.Text, Is.EqualTo("Review Requested"));
         Assert.That(item.Line.Text, Is.EqualTo("1 task running"));
         Assert.That(item.LineReported, Is.False);
         Assert.That(item.HasCharacter, Is.True);
         Assert.That(item.OnYourComputer, Is.True);
-        Assert.That(item.Place.Text, Is.EqualTo("On your computer"));
+        Assert.That(item.Place.Text, Is.EqualTo("On Your Computer"));
         Assert.That(item.PlaceInferred, Is.False);
     }
 
@@ -190,8 +190,8 @@ public class GalleryTests
         Assert.That(item.Section, Is.EqualTo(GallerySection.NeedsYou));
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Halcyonic));
         Assert.That(item.ObservedLine?.Text, Is.EqualTo("1 task waiting for you"));
-        Assert.That(item.ReportedLine?.Text, Is.EqualTo("An agent is working on it"));
-        Assert.That(item.Place.Text, Is.EqualTo("No folder on your computer yet"), "a project with no folder says so");
+        Assert.That(item.ReportedLine?.Text, Is.EqualTo("Agent Running"));
+        Assert.That(item.Place.Text, Is.EqualTo("No Folder Yet"), "a project with no folder says so");
     }
 
     [Test]
@@ -210,8 +210,8 @@ public class GalleryTests
     {
         var item = Build(Halcyonic(), Read(new[] { Catalog("c1", "Tide", "review_requested") })).Items.Single();
         Assert.That(item.ObservedLine, Is.Null);
-        Assert.That(item.ReportedLine?.Text, Is.EqualTo("Asked for your review"));
-        Assert.That(item.Line.Text, Is.EqualTo("Asked for your review"));
+        Assert.That(item.ReportedLine?.Text, Is.EqualTo("Review Requested"));
+        Assert.That(item.Line.Text, Is.EqualTo("Review Requested"));
         Assert.That(item.LineReported, Is.True);
         Assert.That(item.SectionFrom, Is.EqualTo(GallerySectionSource.Catalog));
     }
@@ -227,7 +227,7 @@ public class GalleryTests
             Rule = CatalogLocalSuggestionsItemRule.GithubOriginFullName,
         });
         var item = Build(Halcyonic(), Read(new[] { project })).Items.Single();
-        Assert.That(item.Place.Text, Is.EqualTo("Maybe on your computer: tide-web"));
+        Assert.That(item.Place.Text, Is.EqualTo("Possible Match · tide-web"));
         Assert.That(item.Place.Runs.Select(run => run.Theirs), Is.EqualTo(new[] { false, true }), "the folder's name leans");
         Assert.That(item.PlaceInferred, Is.True);
         Assert.That(item.OnYourComputer, Is.False, "a match is never a link");
@@ -240,7 +240,7 @@ public class GalleryTests
         var item = gallery.Items.Single();
         Assert.That(item.HasCharacter, Is.False);
         Assert.That(item.OnYourComputer, Is.False);
-        Assert.That(item.Place.Text, Is.EqualTo("Not linked to a project here"), "this client can't know it isn't on the computer");
+        Assert.That(item.Place.Text, Is.EqualTo("Not Linked"), "this client can't know it isn't on the computer");
         Assert.That(item.PlaceInferred, Is.False);
     }
 
@@ -258,7 +258,7 @@ public class GalleryTests
             Assert.That(gallery.Items.Select(item => item.Key), Is.EqualTo(new[] { "h:p1" }));
             Assert.That(gallery.Samples.Select(item => item.Key), Is.EqualTo(new[] { "c:c1" }));
             Assert.That(gallery.Samples.All(item => item.Sample), Is.True);
-            Assert.That(gallery.SampleLabel, Is.EqualTo("Sample projects"));
+            Assert.That(gallery.SampleLabel, Is.EqualTo("Sample Projects"));
         }
         Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>())).SampleLabel, Is.Null);
     }
@@ -314,17 +314,17 @@ public class GalleryTests
         var cases = new (CatalogResponse Response, string Note)[]
         {
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_running", Message = "x" } },
-                "Your other projects show here while Phat Porcupine is running on your computer."),
+                "Phat Porcupine · Not Running"),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_configured", Message = "x" } },
-                "Your other projects can show here too once Phat Porcupine is set up on your computer."),
+                "Phat Porcupine · Not Set Up · Set Up on Computer"),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "not_ready", Message = "x" } },
-                "Phat Porcupine is still gathering your projects. Press Refresh in a moment."),
+                "Phat Porcupine · Gathering · Refresh"),
             (new UnavailableCatalog { Reason = new ErrorInfo { Code = "something_new", Message = "x" } },
-                "Couldn't read your other projects just now. Press Refresh in a moment."),
+                "Projects Unreadable · Refresh"),
             (new UnauthorizedCatalog { Reason = new ErrorInfo { Code = "unauthorized", Message = "x" } },
-                "Phat Porcupine no longer lets Halcyonic read your projects. Set it up again on your computer."),
+                "Phat Porcupine · Access Refused · Set Up Again"),
             (new IncompatibleCatalog { Reason = new ErrorInfo { Code = "unsupported_contract", Message = "x" } },
-                "This version of Phat Porcupine doesn't work with Halcyonic yet."),
+                "Phat Porcupine · Version Unsupported"),
         };
         foreach (var (response, note) in cases)
         {
@@ -334,7 +334,7 @@ public class GalleryTests
             Assert.That(gallery.Age, Is.Null);
         }
         var failed = Build(halcyonic, readError: "your computer didn't answer. Press Refresh to try again.");
-        Assert.That(failed.Note, Is.EqualTo("Couldn't read your other projects: your computer didn't answer. Press Refresh to try again."));
+        Assert.That(failed.Note, Is.EqualTo("Projects Unreadable · your computer didn't answer. Press Refresh to try again."));
         Assert.That(Build(halcyonic).Note, Is.Null, "nothing asked yet");
     }
 
@@ -354,7 +354,7 @@ public class GalleryTests
         {
             // The demonstration, the judge build and a recorded run play recorded answers.
             var recorded = Build(halcyonic, new IntelligenceRead<CatalogResponse>(answer, Now, recorded: true));
-            Assert.That(recorded.Note, Is.EqualTo("Your other projects aren't part of this recording."), answer.GetType().Name);
+            Assert.That(recorded.Note, Is.EqualTo("Not in Recording"), answer.GetType().Name);
         }
         var samples = new[]
         {
@@ -381,14 +381,14 @@ public class GalleryTests
     public void TheCatalogSaysHowOldItIs()
     {
         var halcyonic = Halcyonic();
-        Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>())).Age, Is.EqualTo("Checked today at 14:50"));
+        Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>())).Age, Is.EqualTo("Checked · Today 14:50"));
         Assert.That(
             Build(halcyonic, Read(Array.Empty<CatalogProject>(), checkedAt: "2026-10-27T09:05:00Z")).Age,
-            Is.EqualTo("Checked 27 Oct at 09:05"));
+            Is.EqualTo("Checked · 27 Oct 09:05"));
         Assert.That(
             Build(halcyonic, Read(Array.Empty<CatalogProject>(), failed: true)).Age,
-            Is.EqualTo("Couldn't check just now; last checked today at 14:50"));
-        Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>(), checkedAt: null)).Age, Is.EqualTo("Not checked yet"));
+            Is.EqualTo("Check Failed · Last · Today 14:50"));
+        Assert.That(Build(halcyonic, Read(Array.Empty<CatalogProject>(), checkedAt: null)).Age, Is.EqualTo("Not Checked"));
     }
 
     [Test]

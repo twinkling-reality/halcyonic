@@ -322,7 +322,7 @@ namespace Halcyonic.XR.UI.Editor
             const string task = "Move sessions into their own table";
             var before = new Footer(CloseFrame, rare: new Prompt("stop", "Stop", GlazeIcon.Stop), secondary: new Prompt("deny", "Deny", GlazeIcon.Deny),
                 farRight: new Prompt("approve", "Approve", GlazeIcon.Approve, main: true));
-            var footer = Footer.Confirm(before, PromptSlot.FarRight, new Prompt("yes", "Confirm Approve", GlazeIcon.Approve, PromptKind.Yes),
+            var footer = Footer.Confirm(before, PromptSlot.FarRight, new Prompt("yes", "Confirm", GlazeIcon.Approve, PromptKind.Yes),
                 new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel));
             var file = new MenuFrame(task, footer, subjectIsData: true, pill: Waiting, sections: FileSections("Waiting", waits: true),
                 lines: new[]
