@@ -283,7 +283,8 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             RequireBound(view, shot);
             var shown = view.Routes.Select(route => route.Words.text).ToList();
-            var offered = new[] { "Show this task here", "Ask workspace", "Read results", "Character colour" }.Select(LabelText.ForTextMeshPro).ToList();
+            // Read Results from its own source, so a change of its words (XR's 17b) moves this pin with it.
+            var offered = new[] { "Show this task here", "Ask workspace", FileScreens.ReadResultsLine().Words, "Character colour" }.Select(LabelText.ForTextMeshPro).ToList();
             var from = shown.Count > 0 ? offered.IndexOf(shown[0]) : -1;
             if (from < 0 || !offered.Skip(from).Take(shown.Count).SequenceEqual(shown))
                 shot.Failures.Add("the rail's routes are not the frame's, in its order: " + string.Join(", ", shown));
