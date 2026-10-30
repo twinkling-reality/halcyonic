@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { describe, test } from 'node:test';
 import { createContext, runInContext } from 'node:vm';
 import { deflateSync } from 'node:zlib';
+import { type ChromeRun, DevToolsPipe } from './chrome.ts';
 import {
   acceptCall,
   CHANGED_AFTER,
+  clockScript,
   type Driver,
   laptopStep,
   layerState,
@@ -15,6 +18,12 @@ import {
   STILL_CONTROL,
   screenChanged,
   standInScript,
+  TWIN_FRAMES,
+  TWIN_LOAD_MS,
+  TWIN_TARGETS,
+  type TwinLoad,
+  twinLoad,
+  twinStep,
 } from './laptop-probe.ts';
 
 const W = 200;
@@ -175,6 +184,32 @@ describe("the check's laptop step (M1.8b)", () => {
     assert.equal(await layerState(project, template), 'missing');
   });
 
+  test('presses where the target is right before the press, not where it was before the control pair (M1.8g)', async () => {
+    const counts = { mouse: 0, key: 0, trigger: 0, pinch: 0, touch: 0 };
+    let pictures = 0;
+    const pressed: string[] = [];
+    const moving: Driver = {
+      // The target moves once the control pair has been taken.
+      evaluate: async () =>
+        JSON.stringify({
+          counts,
+          targets: [pictures >= 2 ? { x: 900, y: 300 } : { x: 100, y: 100 }],
+        }),
+      async mouse(type, x, y) {
+        if (type === 'mousePressed') pressed.push(`${x},${y}`);
+        if (type === 'mouseReleased') counts.mouse += 1;
+      },
+      key: async () => {},
+      async picture() {
+        pictures += 1;
+        return picture(0);
+      },
+      wait: async () => {},
+    };
+    await laptopStep(moving, 'starter');
+    assert.deepEqual(pressed, ['900,300']);
+  });
+
   test("the hook's report is read in the host against a strict shape", () => {
     const counts = { mouse: 1, key: 0, trigger: 0, pinch: 0, touch: 0 };
     const ok = parseReport(JSON.stringify({ counts, targets: [AT] }));
@@ -247,5 +282,268 @@ describe("the VR-entry step's stand-in WebXR (M1.8b)", () => {
     assert.equal(acceptCall('request_session'), 'request_session');
     for (const other of ['immersive-vr', 'offer_session ', '', null, 1, { how: 'offer_session' }])
       assert.equal(acceptCall(other), null);
+  });
+});
+
+describe("the twin step's stepped clock (M1.8g)", () => {
+  const BINDING = 'h00112233445566778899aabbcc';
+
+  /** Runs the clock as a page would see it, before the page's scripts; the host holds its frames. */
+  function page() {
+    const sent: string[] = [];
+    type Key = { isTrusted: boolean; code: string; type: string };
+    const listeners: { type: string; fn: (event: Key) => void }[] = [];
+    let tick: (() => void) | null = null;
+    const context = createContext({
+      [BINDING]: (payload: string) => sent.push(payload),
+      performance: { now: () => 12345 },
+      crypto: { getRandomValues: () => 0, randomUUID: () => 'real' },
+      requestAnimationFrame: (cb: () => void) => {
+        tick = cb;
+        return 1;
+      },
+      addEventListener: (type: string, fn: (event: Key) => void, capture: boolean) => {
+        if (capture) listeners.push({ type, fn });
+      },
+      Date,
+      queueMicrotask,
+      setTimeout,
+      setInterval,
+      clearTimeout,
+      clearInterval,
+      cancelAnimationFrame: () => {},
+    });
+    const before = new Set(Object.getOwnPropertyNames(context));
+    runInContext(clockScript(BINDING), context);
+    const added = Object.getOwnPropertyNames(context).filter((name) => !before.has(name));
+    // Values from the page's realm, read back as plain data.
+    const run = (code: string) => {
+      const value = runInContext(code, context) as unknown;
+      return typeof value === 'object' && value !== null
+        ? JSON.parse(JSON.stringify(value))
+        : value;
+    };
+    const frames = (n: number) => {
+      for (let i = 0; i < n; i += 1) (tick as unknown as () => void)();
+    };
+    const key = (isTrusted: boolean, type = 'keydown') => {
+      const event = {
+        isTrusted,
+        code: 'F24',
+        type,
+        stopImmediatePropagation() {},
+        preventDefault() {},
+      };
+      for (const listener of listeners) if (listener.type === type) listener.fn(event);
+    };
+    return { context, sent, added, run, frames, key };
+  }
+
+  test('leaves no global behind, takes the binding off the page, and names it nowhere the page can read', () => {
+    const { context, added } = page();
+    assert.deepEqual(added, []);
+    assert.equal(Object.hasOwn(context, BINDING), false);
+    for (const name of [
+      'setTimeout',
+      'requestAnimationFrame',
+      'Date',
+      'performance.now',
+      'Math.random',
+      'crypto.getRandomValues',
+    ])
+      assert.ok(!String(runInContext(name, context)).includes(BINDING), name);
+  });
+
+  test('time and frames move only when the host steps them, with a trusted F24, never a synthetic one', () => {
+    const { sent, run, frames, key } = page();
+    frames(50);
+    assert.equal(run('performance.now()'), 0, 'held at frame 0 until the host steps');
+    key(false);
+    frames(50);
+    assert.equal(run('performance.now()'), 0, 'a synthetic F24 does nothing');
+    key(true, 'keyup');
+    frames(50);
+    assert.equal(run('performance.now()'), 0, 'only the key going down steps');
+    key(true);
+    frames(400);
+    const [first] = TWIN_FRAMES;
+    assert.equal(run('performance.now()'), (first * 1000) / 60);
+    assert.equal(run('Date.now()'), 1767225600000 + (first * 1000) / 60);
+    assert.deepEqual(sent, [`frame ${first}`]);
+  });
+
+  test("timers and the page's animation frames run on stepped frames, in order", () => {
+    const { run, frames, key } = page();
+    run(`globalThis.log = []; setTimeout(() => log.push('b'), 100); setTimeout(() => log.push('a'), 50);
+      requestAnimationFrame((t) => log.push('frame ' + t)); const i = setInterval(() => log.push('i'), 1000 / 60 * 2);`);
+    key(true);
+    frames(4);
+    assert.deepEqual(run('log'), ['frame 16.666666666666668', 'i', 'a', 'i']);
+    frames(4);
+    assert.ok((run('log') as string[]).includes('b'));
+  });
+
+  test('every source of chance is seeded: two pages draw the same numbers, bytes and ids', () => {
+    const draw = () => {
+      const { run } = page();
+      return run(
+        `[Math.random(), Array.from(crypto.getRandomValues(new Uint8Array(8))), crypto.randomUUID()]`,
+      );
+    };
+    const a = draw() as [number, number[], string];
+    assert.deepEqual(a, draw());
+    assert.match(a[2], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+});
+
+describe('the twin step: a press seen against its no-input twin (M1.8g)', () => {
+  const load = (before: number, end: number, extra: Partial<TwinLoad> = {}): TwinLoad => ({
+    before: picture(before),
+    end: picture(end),
+    targets: 3,
+    reached: true,
+    ...extra,
+  });
+  /** A step whose twin is `twin` and whose presses are `presses`, in order; counts the loads. */
+  const step = (twin: TwinLoad, presses: TwinLoad[]) => {
+    const asked: (number | null)[] = [];
+    return {
+      asked,
+      run: () =>
+        twinStep(async (target) => {
+          asked.push(target);
+          return target === null ? twin : (presses[target] ?? twin);
+        }),
+    };
+  };
+  // 200 by 100 pictures: 0.05% is 10 pixels, 0.01% is 2.
+  test('seen when a press that reached the layer changes the end frame beyond the twin', async () => {
+    const { run, asked } = step(load(0, 0), [load(0, 0), load(0, 50)]);
+    assert.equal(await run(), true);
+    // The twin, its no-input control, each press, and the seen press once more.
+    assert.deepEqual(asked, [null, null, 0, 1, 1]);
+  });
+
+  test('not seen when no press changes the end frame, after every target up to the limit', async () => {
+    const { run, asked } = step(load(0, 0, { targets: 9 }), []);
+    assert.equal(await run(), false);
+    assert.equal(asked.length, 2 + TWIN_TARGETS);
+  });
+
+  test('a change the layer did not hear is not a response', async () => {
+    const { run } = step(load(0, 0), [load(0, 50, { reached: false })]);
+    assert.equal(await run(), false);
+  });
+
+  test('unknown when a press run and its twin differ before any input, or nothing can be pressed', async () => {
+    assert.equal(await step(load(0, 0), [load(5, 50)]).run(), null);
+    assert.equal(await step(load(0, 0, { targets: 0 }), []).run(), null);
+    assert.equal(await step(load(0, 0, { before: null }), []).run(), null);
+  });
+
+  test('unknown when two loads with no input end apart, however little the press changes (AUDIT M18G-M1)', async () => {
+    // Each load ends a little further on, input or not, as a CSS animation started after frame 300 would.
+    let loads = 0;
+    const drifting = async (target: number | null) => {
+      loads += 1;
+      return load(0, 20 * loads, { reached: target !== null });
+    };
+    assert.equal(await twinStep(drifting), null);
+    assert.equal(loads, 2);
+    // The control must also match the twin before any input.
+    const asked: (number | null)[] = [];
+    const early = async (target: number | null) => {
+      asked.push(target);
+      return asked.length === 2 ? load(5, 0) : load(0, 50);
+    };
+    assert.equal(await twinStep(early), null);
+    assert.deepEqual(asked, [null, null]);
+  });
+
+  test('unknown when the same press, loaded again, ends otherwise: the change was not its own', async () => {
+    let presses = 0;
+    const result = await twinStep(async (target) => {
+      if (target === null) return load(0, 0);
+      presses += 1;
+      return load(0, presses === 1 ? 50 : 90);
+    });
+    assert.equal(result, null);
+    assert.equal(presses, 2);
+  });
+
+  test('a step past its time reads unknown, after its load was told to stop and stopped (AUDIT M18G-M2)', {
+    timeout: 10_000,
+  }, async () => {
+    const seen: { aborted: boolean; settled: boolean }[] = [];
+    // A page that never reaches a frame: the load waits until it is told to stop, then stops.
+    const never = (_target: number | null, signal?: AbortSignal) => {
+      const state = { aborted: false, settled: false };
+      seen.push(state);
+      return new Promise<TwinLoad>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => {
+          state.aborted = true;
+          setTimeout(() => {
+            state.settled = true;
+            reject(new Error('stopped'));
+          }, 100);
+        });
+      });
+    };
+    const started = Date.now();
+    assert.equal(await twinStep(never, 300), null);
+    assert.ok(Date.now() - started < 3_000, `took ${Date.now() - started} ms`);
+    assert.deepEqual(seen, [{ aborted: true, settled: true }]);
+  });
+});
+
+describe('a twin load against a page that never reaches a frame (AUDIT M18G-M2)', () => {
+  /** A Chrome that answers every command and never reports a frame; it records what it was sent. */
+  const silentChrome = (): ChromeRun & { sent: string[] } => {
+    const toChrome = new PassThrough();
+    const fromChrome = new PassThrough();
+    const sent: string[] = [];
+    toChrome.setEncoding('utf8');
+    toChrome.on('data', (chunk: string) => {
+      for (const text of chunk.split('\0').filter((part) => part !== '')) {
+        const { id, method } = JSON.parse(text) as { id: number; method: string };
+        sent.push(method);
+        fromChrome.write(`${JSON.stringify({ id, result: {} })}\0`);
+      }
+    });
+    return {
+      pid: 0,
+      devtools: new DevToolsPipe(toChrome, fromChrome),
+      session: 'page',
+      stop: async () => {},
+      sent,
+    };
+  };
+
+  test('each step is bounded by the wall clock and fails past it', {
+    timeout: 15_000,
+  }, async () => {
+    const chrome = silentChrome();
+    const started = Date.now();
+    await assert.rejects(
+      twinLoad(chrome, 'http://127.0.0.1:1/?check', null, undefined, 400),
+      /did not reach frame 300/,
+    );
+    const took = Date.now() - started;
+    assert.ok(took < TWIN_LOAD_MS + 2_000, `took ${took} ms`);
+    assert.ok(chrome.sent.includes('Input.dispatchKeyEvent'));
+  });
+
+  test('a step told to stop fails at once, without waiting out its time', {
+    timeout: 15_000,
+  }, async () => {
+    const chrome = silentChrome();
+    const out = new AbortController();
+    setTimeout(() => out.abort(), TWIN_LOAD_MS + 300);
+    const started = Date.now();
+    await assert.rejects(
+      twinLoad(chrome, 'http://127.0.0.1:1/?check', null, out.signal),
+      /ran out of time/,
+    );
+    assert.ok(Date.now() - started < TWIN_LOAD_MS + 2_000);
   });
 });

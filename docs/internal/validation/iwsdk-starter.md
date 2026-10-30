@@ -150,6 +150,46 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   is offered, so the test can see a leak).
 - **Not tried:** agent-built games against these thresholds; a key a game reads other than Space and E; the headset.
 
+## A press seen against a twin, for scenes that move (M1.8g)
+
+- **Question:** can the host tell a game's response to a press from the scene's own motion, without trusting the page?
+- **Date:** 2026-10-30.
+- **Found on SH's four saved games** with M1.8b's step (no model): none laptop ready. One still game's click changed
+  nothing (its moles never pop); one had its layer changed by its agent; the two animated ones read unknown, their
+  scenes changing 0.26 to 0.95% with no input, and near the pressed point a press changed no more than the scene did
+  (glimmer 10.9% against 13.8%). A second load pictured at the same moment differs as much, since moles pop at random.
+  The step also read a target's point before its 1.1 s control pair, so a moving mole was missed; it now reads the
+  point right before the press.
+- **Twin replay:** before the page runs, the host injects a clock that moves only 1/60 s per frame and only to frames
+  the host steps to (300, 303, 306, 360), seeding `Math.random`, `crypto.getRandomValues` and `crypto.randomUUID`. Two
+  no-input loads of glimmer, glimmer2 and the still game matched 0.00% at frames 300 and 360. A press on a mole that
+  was up differed from its twin by 0.13 to 0.19% at frame 360; a press on one that was down, or on the still game,
+  by 0.00% (glimmer2 counts a hit only on a mole that is up). DevTools virtual time was tried first: in headless=new
+  the game's frame loop did not run between budgets, so a press never reached it.
+- **Thresholds and why:** a response is seen when a press that reached the layer changes the end frame from the
+  twin's by more than 0.05% (about 420 pixels of 1,280 by 657: under a third of the smallest hit seen), and only when
+  the press run and its twin match within 0.01% at the frame before input; otherwise the page has a source of time or
+  chance the clock does not hold, and the response is unknown. Up to five targets, each in a load of its own.
+- **Two controls (AUDIT M18G-M1, 2026-10-30):** matching before input does not show the twin holds at the frame
+  compared. A page that starts something late on a time the clock does not hold (a CSS animation at frame 330, a
+  worker's clock used only later, an asset that finishes loading late) differs between loads with no input at all,
+  which a single twin would read as a response. The step now loads the page twice with no input; the two must match
+  within 0.01% at frame 300 and at frame 360, or the response is unknown. A press seen is loaded once more, and must end
+  within 0.01% of its first run. A second control samples load-to-load change; it does not prove there is none: a
+  page whose late change lands alike in two loads and otherwise in a third could still pass, and is unknown to us.
+- **Time (AUDIT M18G-M2):** a step to a frame counted 50 ms waits rather than time, and on a throttled Mac one step ran
+  about 906 s. Each step now has 30 s by the wall clock and the whole twin step three minutes; past either the step
+  reads unknown and its Chrome is stopped before the check goes on.
+- **Tried on this Mac** (opt-in tests in `check.test.ts`): a box that answers a click beside a spinning cube is seen
+  and ready; the same scene whose click does nothing is not; a page that steps itself with synthetic F24 keys and
+  calls every binding-shaped global gets the same verdict; a cube turned by a worker's own clock reads unknown; a still
+  scene that starts a CSS animation at frame 330 in sixteen squares, each at a phase drawn from a blob URL's random id,
+  with a click that changes nothing, reads unknown on 3 of 3 runs, and seen and ready on 2 of 2 with the single twin
+  (one square alone once ended alike in two loads, so the test uses sixteen); a page that hangs only under the twin's
+  clock reads unknown once the step's time (8 s in the test) is spent, its Chrome's browser process exited and no twin
+  process left within 5 s, on 4 of 4 runs (an earlier run that looked at once found one process of it still exiting).
+- **Not tried:** agent-built games through the whole check with the twin; a game with late-loading assets.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

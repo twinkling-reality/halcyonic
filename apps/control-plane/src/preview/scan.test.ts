@@ -62,4 +62,19 @@ describe("the scan of a new app's source for input read around the starter's lay
     const none = project(t, { 'index.html': '' });
     assert.deepEqual(await scanSource(none), { scanned: 'partial', items: [] });
   });
+
+  test('stops at the first limit it meets: nothing past it is read, and entries count too (AUDIT M18B-S1)', async (t) => {
+    // a.ts is over the size limit and comes first; b.ts after it would be noted if the walk went on.
+    const big = project(t, {
+      'src/a.ts': 'x'.repeat(SCAN_LIMITS.bytes + 1),
+      'src/b.ts': "window.addEventListener('keydown', f);\n",
+    });
+    assert.deepEqual(await scanSource(big), { scanned: 'partial', items: [] });
+    // Many entries that are not source still count, so a folder of them cannot make the walk long.
+    const files = Object.fromEntries(
+      Array.from({ length: SCAN_LIMITS.entries + 1 }, (_, n) => [`src/assets/${n}.png`, '']),
+    );
+    const many = project(t, { ...files, 'src/z.ts': "window.addEventListener('keydown', f);\n" });
+    assert.deepEqual(await scanSource(many), { scanned: 'partial', items: [] });
+  });
 });

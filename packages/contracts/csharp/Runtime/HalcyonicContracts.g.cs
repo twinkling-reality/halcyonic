@@ -1524,6 +1524,12 @@ namespace Halcyonic.Contracts
         [JsonProperty("screen_changed", Required = Required.AllowNull)]
         public bool? ScreenChanged { get; set; }
 
+        [JsonProperty("response_seen", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ResponseSeen { get; set; }
+
+        [JsonProperty("exceptions_during", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public long? ExceptionsDuring { get; set; }
+
         [JsonProperty("ready", Required = Required.Always)]
         public bool Ready { get; set; }
     }

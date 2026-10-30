@@ -50,8 +50,12 @@ export type CheckPage = Static<typeof CheckPage>;
 /**
  * The laptop step (M1.8b): the check's own mouse presses and keys, sent to the page. `mouse` and `key`
  * are what the page's input layer reports (`reported`); `screen_changed` is observed in the host from
- * the pictures, against a pair taken with no input: null when the scene moves on its own. `ready`
- * needs the starter's own layer, the mouse reported reached, and the screen observed changed.
+ * the pictures, against a pair taken with no input: null when the scene moves on its own.
+ * `response_seen` (M1.8g) is observed against a twin: the page replayed under a clock the host steps,
+ * with and without a press, compared at the same frame; null when the twins did not match, absent
+ * when not tried. `exceptions_during` counts uncaught exceptions while the step acted. `ready` needs
+ * the starter's own layer and either the mouse reported reached with the screen observed changed, or
+ * a response seen against the twin.
  */
 export const CheckLaptop = Type.Object(
   {
@@ -60,6 +64,8 @@ export const CheckLaptop = Type.Object(
     mouse: Type.Enum(['reached', 'not_reached', 'no_target', 'unknown']),
     key: Type.Enum(['reached', 'not_reached', 'unknown']),
     screen_changed: Nullable(Type.Boolean()),
+    response_seen: Type.Optional(Nullable(Type.Boolean())),
+    exceptions_during: Type.Optional(Type.Integer({ minimum: 0 })),
     ready: Type.Boolean(),
   },
   strict,

@@ -8852,6 +8852,20 @@
             }
           ]
         },
+        "response_seen": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exceptions_during": {
+          "type": "integer",
+          "minimum": 0
+        },
         "ready": {
           "type": "boolean"
         }

@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { CheckLaptop, CheckNotes, CheckVr } from '@halcyonic/contracts';
 import { launchChrome } from './chrome.ts';
-import { laptopStep, layerState, pipeDriver, vrStep } from './laptop-probe.ts';
+import { laptopStep, layerState, pipeDriver, twinLoad, twinStep, vrStep } from './laptop-probe.ts';
 import { decodePng, type Pixels } from './png.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
 import { scanSource } from './scan.ts';
@@ -54,6 +54,8 @@ export interface CheckOptions {
   readonly profiles: string | null;
   /** A free loopback port for the built copy. */
   readonly port: number;
+  /** How long the twin step may take by the wall clock; `TWIN_STEP_MS` unless a test shortens it. */
+  readonly twinStepMs?: number;
 }
 
 export interface CheckStep {
@@ -272,7 +274,40 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     }
     if (typeof opened === 'string')
       return { tsc, build, page: null, unknown: opened, passed: false, ...steps };
-    const { page, laptop, vr } = opened;
+    const { page, vr } = opened;
+    let laptop = opened.laptop;
+    // An animated scene's change is unknown from one load: replay it under a stepped clock, with and
+    // without a press, and compare the two at the same frame (M1.8g). Only the starter's own layer
+    // can be ready, so nothing else is replayed.
+    if (laptop.layer === 'starter' && laptop.screen_changed !== true && laptop.targets > 0) {
+      const chrome = options.chrome;
+      let loads = 0;
+      const response = await twinStep(async (target, signal) => {
+        loads += 1;
+        // A Chrome of its own for each load, so nothing of one carries into the next.
+        const run = await launchChrome({
+          chrome,
+          home: options.home,
+          folder: join(cache, `chrome-twin-${loads}`),
+          port,
+        });
+        // Past the step's time, the Chrome stops at once, whatever the load is waiting on.
+        const stop = () => void run.stop();
+        signal.addEventListener('abort', stop, { once: true });
+        try {
+          if (signal.aborted) throw new Error('the twin step ran out of time');
+          return await twinLoad(run, `http://127.0.0.1:${port}/?check`, target, signal);
+        } finally {
+          signal.removeEventListener('abort', stop);
+          await run.stop();
+        }
+      }, options.twinStepMs).catch(() => null);
+      laptop = {
+        ...laptop,
+        response_seen: response,
+        ready: laptop.ready || response === true,
+      };
+    }
     const passed = passes(tsc, build, page);
     return {
       tsc,
@@ -481,7 +516,8 @@ async function openPage(
       drawn: drawnFrom(at3s, at10s),
       pictures: [early.saved, late.saved].filter((saved): saved is PagePicture => saved !== null),
     } satisfies PageFindings;
-    const laptop = await laptopStep(pipeDriver(devtools, session), layer).catch(
+    const thrownBefore = exceptionCount;
+    const stepped = await laptopStep(pipeDriver(devtools, session), layer).catch(
       (): CheckLaptop => ({
         layer,
         targets: 0,
@@ -491,6 +527,7 @@ async function openPage(
         ready: false,
       }),
     );
+    const laptop: CheckLaptop = { ...stepped, exceptions_during: exceptionCount - thrownBefore };
     const vr = await vrStep(devtools, session, `http://127.0.0.1:${port}/`).catch(
       (): CheckVr => ({ offered: 'unknown', how: null, exceptions: 0, ready: false }),
     );

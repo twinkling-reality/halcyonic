@@ -127,6 +127,20 @@ the Mac is never shown on a headset. Thresholds and cases: [validation/iwsdk-sta
 So that the C# bindings can carry them, the generator now declares an optional member of any type as nullable (it
 allowed only strings and booleans before); the rule is in [EVENTS.md](../architecture/EVENTS.md).
 
+## Amendment, 2026-10-30: a press seen against a twin (M1.8g)
+
+A scene that moves on its own leaves M1.8b's screen change unknown, so the check now replays the page under a clock
+the host steps: time, timers, animation frames and every seeded source of chance move only to frames the host asks
+for. It loads the page twice with no input and once per target with a press (up to five), and compares each with the
+no-input twin at the same frame. The two no-input loads must match within 0.01% before input and at the end, or the
+response is unknown: a page that changes between loads with no input at all has a source of time or chance the clock
+does not hold. `response_seen` is observed when a press that reached the layer changes the end frame by more than
+0.05%, only when the press run matched the twin within 0.01% before the press, and only when a second load with the
+same press ends the same way; a page with another source of time or chance reads unknown. Each step to a frame has 30
+s and the whole twin step three minutes, by the wall clock; past either it reads unknown, and its Chrome is stopped. Laptop ready accepts a response seen this way, as it accepts a still scene's observed change.
+The host steps the clock with a trusted key event the page never receives and cannot make, and the clock reports
+through a binding the page cannot reach. Numbers: [validation/iwsdk-starter.md](../validation/iwsdk-starter.md).
+
 Nothing the check concludes is computed in the page, which is the agent's code (AUDIT M18B-M1, M18B-M2): the
 edges are counted in the host from the PNGs Chrome returns (`preview/png.ts` decodes 8-bit RGB and RGBA; any other
 picture is unknown), canvases are counted through the DevTools DOM domain, at most 100 exception texts are kept

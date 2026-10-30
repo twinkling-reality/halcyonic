@@ -2,8 +2,8 @@ import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import type { CheckNoteKind, CheckNotes } from '@halcyonic/contracts';
 
-/** How much of a project's source the scan reads; past either it says it was partial. */
-export const SCAN_LIMITS = { files: 500, bytes: 1024 * 1024, depth: 20 } as const;
+/** How much of a project's source the scan reads; at any of these it stops and says it was partial. */
+export const SCAN_LIMITS = { files: 500, bytes: 1024 * 1024, depth: 20, entries: 5000 } as const;
 
 const MAX_NOTES = 5;
 const SOURCE = /\.(ts|js|mts|mjs)$/;
@@ -30,17 +30,26 @@ export async function scanSource(project: string): Promise<CheckNotes> {
   const items: CheckNotes['items'][number][] = [];
   let partial = false;
   let files = 0;
+  let entriesSeen = 0;
+  // The walk stops at the first limit it meets: what is past it is never read (AUDIT M18B-S1). A link
+  // or an unreadable entry is skipped, and the scan still says it was partial.
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+    partial = true;
+  };
   const visit = async (folder: string, depth: number): Promise<void> => {
-    if (depth > SCAN_LIMITS.depth) {
-      partial = true;
-      return;
-    }
+    if (stopped) return;
+    if (depth > SCAN_LIMITS.depth) return stop();
     const entries = await readdir(folder, { withFileTypes: true }).catch(() => null);
     if (entries === null) {
       partial = true;
       return;
     }
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (stopped) return;
+      entriesSeen += 1;
+      if (entriesSeen > SCAN_LIMITS.entries) return stop();
       const full = join(folder, entry.name);
       const info = await lstat(full).catch(() => null);
       if (info === null || info.isSymbolicLink()) {
@@ -55,10 +64,7 @@ export async function scanSource(project: string): Promise<CheckNotes> {
       const path = relative(project, full).split(sep).join('/');
       if (LAYER.has(path)) continue;
       files += 1;
-      if (files > SCAN_LIMITS.files || info.size > SCAN_LIMITS.bytes) {
-        partial = true;
-        continue;
-      }
+      if (files > SCAN_LIMITS.files || info.size > SCAN_LIMITS.bytes) return stop();
       const text = await readFile(full, 'utf8').catch(() => null);
       if (text === null) {
         partial = true;
