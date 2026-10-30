@@ -377,6 +377,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "project.check")] ProjectCheck,
         [EnumMember(Value = "project.preview.start")] ProjectPreviewStart,
         [EnumMember(Value = "project.preview.stop")] ProjectPreviewStop,
+        [EnumMember(Value = "project.open_on_mac")] ProjectOpenOnMac,
         [EnumMember(Value = "project.link_catalog")] ProjectLinkCatalog,
         [EnumMember(Value = "project.unlink_catalog")] ProjectUnlinkCatalog,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
@@ -1652,6 +1653,21 @@ namespace Halcyonic.Contracts
         public PreviewStopReason Reason { get; set; }
     }
 
+    public sealed class ProjectMacPlayStartedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+    }
+
+    public sealed class ProjectMacPlayStoppedPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public JToken Reason { get; set; } = default!;
+    }
+
     public sealed class WorkstreamCreatedPayload
     {
         [JsonProperty("title", Required = Required.Always)]
@@ -1937,6 +1953,12 @@ namespace Halcyonic.Contracts
         public string ProjectId { get; set; } = default!;
     }
 
+    public sealed class ProjectOpenOnMacPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+    }
+
     public sealed class ProjectLinkCatalogPayload
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -2115,6 +2137,7 @@ namespace Halcyonic.Contracts
                 "project.check" => new ProjectCheckCommand(),
                 "project.preview.start" => new ProjectPreviewStartCommand(),
                 "project.preview.stop" => new ProjectPreviewStopCommand(),
+                "project.open_on_mac" => new ProjectOpenOnMacCommand(),
                 "project.link_catalog" => new ProjectLinkCatalogCommand(),
                 "project.unlink_catalog" => new ProjectUnlinkCatalogCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
@@ -2200,6 +2223,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectPreviewStopPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectOpenOnMacCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.open_on_mac";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectOpenOnMacPayload Payload { get; set; } = default!;
     }
 
     public sealed class ProjectLinkCatalogCommand : CommandEnvelope
@@ -2803,6 +2834,8 @@ namespace Halcyonic.Contracts
                 "project.check.recorded" => new ProjectCheckRecordedEvent(),
                 "project.preview.started" => new ProjectPreviewStartedEvent(),
                 "project.preview.stopped" => new ProjectPreviewStoppedEvent(),
+                "project.mac_play.started" => new ProjectMacPlayStartedEvent(),
+                "project.mac_play.stopped" => new ProjectMacPlayStoppedEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.files.observed" => new ExecutionFilesObservedEvent(),
@@ -2957,6 +2990,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectPreviewStoppedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMacPlayStartedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.mac_play.started";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectMacPlayStartedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectMacPlayStoppedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.mac_play.stopped";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectMacPlayStoppedPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedEvent : EventEnvelope

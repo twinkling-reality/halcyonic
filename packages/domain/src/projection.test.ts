@@ -697,6 +697,31 @@ describe('a VR version and the original it was made from (M1.8c-1)', () => {
   });
 });
 
+describe('a checked game playing on the Mac (P-A)', () => {
+  test('a play holds from its start until the stop of that same check, and stays out of the view', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Garden', { path: '/work/garden', name: 'garden', created: true });
+    projection.apply(project.event);
+    const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    const first = b.id() as never;
+    const second = b.id() as never;
+    assert.equal(projection.macPlay(project.projectId), undefined);
+    projection.apply(b.controlPlane('project.mac_play.started', scope, { check_id: first }));
+    assert.equal(projection.macPlay(project.projectId), first);
+    // A stop of another check's play leaves this one playing.
+    projection.apply(
+      b.controlPlane('project.mac_play.stopped', scope, { check_id: second, reason: 'closed' }),
+    );
+    assert.equal(projection.macPlay(project.projectId), first);
+    assert.equal(Object.hasOwn(projection.project(project.projectId) ?? {}, 'mac_play'), false);
+    projection.apply(
+      b.controlPlane('project.mac_play.stopped', scope, { check_id: first, reason: 'closed' }),
+    );
+    assert.equal(projection.macPlay(project.projectId), undefined);
+  });
+});
+
 describe('whether an execution ran confined, as its start recorded it (S2)', () => {
   test('confined only when the start says so; a start without the fact, or no start, reads not confined', () => {
     const b = new EventBuilder();

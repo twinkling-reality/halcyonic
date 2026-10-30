@@ -842,3 +842,26 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     );
   });
 });
+
+describe('playing a checked game on the Mac (Play on my laptop, P-A)', () => {
+  const PROJECT = '0192f1a0-0000-7000-8000-0000000000bb';
+  const CHECK = '0192f1a0-0000-7000-8000-0000000000cc';
+  test('the command names only the project; the host decides everything else', () => {
+    const open = (payload: Record<string, unknown>) =>
+      parseCommandEnvelope({ ...COMMAND, command_type: 'project.open_on_mac', payload });
+    assert.equal(open({ project_id: PROJECT }).ok, true);
+    assert.equal(open({ project_id: PROJECT, url: 'http://127.0.0.1:1/' }).ok, false);
+    assert.equal(open({}).ok, false);
+  });
+
+  test('the window is recorded as started for a check, and as stopped with one of its reasons', () => {
+    const base = sampleEvent('project.created');
+    const event = (event_type: string, payload: Record<string, unknown>) =>
+      parseEventEnvelope({ ...base, event_type, payload }).ok;
+    assert.equal(event('project.mac_play.started', { check_id: CHECK }), true);
+    for (const reason of ['closed', 'preview_stopped', 'newer_check', 'host_stopped', 'failed'])
+      assert.equal(event('project.mac_play.stopped', { check_id: CHECK, reason }), true, reason);
+    assert.equal(event('project.mac_play.stopped', { check_id: CHECK, reason: 'bored' }), false);
+    assert.equal(event('project.mac_play.started', { check_id: CHECK, pid: 12 }), false);
+  });
+});

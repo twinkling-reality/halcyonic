@@ -604,7 +604,11 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       projection.apply(b.controlPlane('project.starter_applied', scope, starterApplied()));
     let n = 0;
     const command = (
-      type: 'project.check' | 'project.preview.start' | 'project.preview.stop',
+      type:
+        | 'project.check'
+        | 'project.preview.start'
+        | 'project.preview.stop'
+        | 'project.open_on_mac',
     ): CommandEnvelope => {
       n += 1;
       return {
@@ -662,6 +666,76 @@ describe('checks and previews of a project made from a starter (ADR 0037)', () =
       b.controlPlane('project.preview.stopped', scope, { check_id: checkId, reason: 'asked' }),
     );
     assert.equal(projection.preview(scope.project_id), undefined);
+  });
+
+  test('a game plays on the Mac only from a passed, laptop-ready, confined check its preview serves, once at a time (P-A)', () => {
+    const { b, projection, scope, command } = setupStarter(true);
+    const opens = () => {
+      const result = admitCommand(command('project.open_on_mac'), projection, catalog());
+      return result.admitted ? true : result.rejection.code;
+    };
+    const record = (checkId: string, extra: Record<string, unknown>) =>
+      projection.apply(
+        b.controlPlane('project.check.recorded', scope, {
+          check_id: checkId as never,
+          findings: { ...findings(true), ...extra } as never,
+        }),
+      );
+    const laptopReady = {
+      laptop: {
+        layer: 'starter',
+        targets: 1,
+        mouse: 'reached',
+        key: 'reached',
+        screen_changed: true,
+        ready: true,
+      },
+      ready: true,
+    };
+    assert.equal(opens(), 'invalid_state', 'no check');
+    const first = b.id();
+    record(first, { ...laptopReady, passed: false });
+    assert.equal(opens(), 'invalid_state', 'not passed');
+    record(first, { laptop: { ...laptopReady.laptop, ready: false } });
+    assert.equal(opens(), 'invalid_state', 'not laptop ready');
+    record(first, { ...laptopReady, reads_confined: false });
+    assert.equal(opens(), 'invalid_state', 'not confined');
+    record(first, laptopReady);
+    assert.equal(opens(), 'invalid_state', 'no preview');
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, { check_id: first as never, port: 47930 }),
+    );
+    assert.equal(opens(), true);
+    assert.equal(
+      admitCommand(command('project.open_on_mac'), projection, catalog()).admitted &&
+        'low_consequence',
+      'low_consequence',
+    );
+    // A newer check the preview does not serve yet.
+    const second = b.id();
+    record(second, laptopReady);
+    assert.equal(opens(), 'invalid_state', 'the preview serves an older check');
+    projection.apply(
+      b.controlPlane('project.preview.stopped', scope, {
+        check_id: first as never,
+        reason: 'asked',
+      }),
+    );
+    projection.apply(
+      b.controlPlane('project.preview.started', scope, { check_id: second as never, port: 47931 }),
+    );
+    assert.equal(opens(), true);
+    projection.apply(
+      b.controlPlane('project.mac_play.started', scope, { check_id: second as never }),
+    );
+    assert.equal(opens(), 'invalid_state', 'one already plays');
+    projection.apply(
+      b.controlPlane('project.mac_play.stopped', scope, {
+        check_id: second as never,
+        reason: 'closed',
+      }),
+    );
+    assert.equal(opens(), true);
   });
 });
 

@@ -126,6 +126,28 @@ describe('configuration', () => {
     }
   });
 
+  test('playing on the Mac is off unless both an existing app and its hash are set', () => {
+    assert.equal(loadConfig({}).playBrowser, null);
+    const app = join(base, 'Google Chrome for Testing.app');
+    mkdirSync(app, { recursive: true });
+    const sha256 = 'a'.repeat(64);
+    assert.deepEqual(
+      loadConfig({ HALCYONIC_PLAY_BROWSER: app, HALCYONIC_PLAY_BROWSER_SHA256: sha256 })
+        .playBrowser,
+      { app, sha256 },
+    );
+    for (const env of [
+      { HALCYONIC_PLAY_BROWSER: app },
+      { HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
+      { HALCYONIC_PLAY_BROWSER: 'Chrome.app', HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
+      { HALCYONIC_PLAY_BROWSER: join(base, 'missing.app'), HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
+      { HALCYONIC_PLAY_BROWSER: base, HALCYONIC_PLAY_BROWSER_SHA256: sha256 },
+      { HALCYONIC_PLAY_BROWSER: app, HALCYONIC_PLAY_BROWSER_SHA256: 'A'.repeat(64) },
+    ]) {
+      assert.throws(() => loadConfig(env), ConfigError, JSON.stringify(env));
+    }
+  });
+
   test('undo is off unless a git is set, which must be an existing absolute file', () => {
     assert.equal(loadConfig({}).gitBinary, null);
     const binary = join(base, 'git');

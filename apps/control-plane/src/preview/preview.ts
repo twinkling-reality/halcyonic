@@ -18,6 +18,7 @@ import type { Recorder } from '../core/recorder.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
 import { type CheckOptions, type CheckResult, runCheck, servesCopy } from './check.ts';
+import { HostPlays, type HostPlaysDeps, type PlayEnd } from './play.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
 
 export interface HostPreviewsDeps {
@@ -38,6 +39,14 @@ export interface HostPreviewsDeps {
   readonly starters: { readonly trackedDir: string; readonly installedDir: string };
   /** Whether this host confines a starter project's Codex to its folder (ADR 0041). */
   readonly confinesCodex: boolean;
+  /** Playing a checked game on this Mac (P-A): the browser for it, or none, so nothing is played. */
+  readonly play?: Pick<
+    HostPlaysDeps,
+    'browser' | 'browserProblem' | 'launch' | 'viewerWaitMs' | 'viewerPorts'
+  > & {
+    /** Opens the viewer's one-time link on the Mac. */
+    readonly openViewer?: (link: string) => void;
+  };
   /** For tests: the check itself. */
   readonly runCheck?: (options: CheckOptions) => Promise<CheckResult>;
   /** For tests: starts the server for a built copy. */
@@ -77,9 +86,66 @@ export class HostPreviews {
   /** Every server spawned and not yet exited, started or not, so close() stops them all. */
   readonly #children = new Set<ChildProcess>();
   #closed = false;
+  /** The plays on this Mac, each of the copy a running preview serves. */
+  readonly plays: HostPlays;
 
   constructor(deps: HostPreviewsDeps) {
     this.#deps = deps;
+    this.plays = new HostPlays({
+      dataDir: deps.dataDir,
+      home: deps.home,
+      browser: null,
+      ...deps.play,
+      onEnded: (project, checkId, reason) => {
+        const projectId = project as ProjectId;
+        // Only a play the journal shows started is recorded stopped; one that failed to start never was.
+        if (this.#deps.projection.macPlay(projectId) !== checkId) return;
+        this.#deps.recorder.record(
+          controlPlaneDraft(
+            'project.mac_play.stopped',
+            scope(projectId),
+            { check_id: checkId as CheckId, reason },
+            this.#now(),
+            NO_CAUSE,
+          ),
+        );
+      },
+    });
+  }
+
+  /** Whether this host has a browser set up to play a checked game on the Mac. */
+  get canPlay(): boolean {
+    return this.#deps.play?.browser != null;
+  }
+
+  /**
+   * Plays the copy the project's running preview serves, in the contained browser, for Halcyonic's
+   * viewer to show. Records the play started once the browser has opened the page.
+   */
+  async openOnMac(command: CommandOf<'project.open_on_mac'>): Promise<void> {
+    const projectId = command.payload.project_id;
+    if (this.#closed) throw new Error('the host is closing');
+    const running = this.#running.get(projectId);
+    const latest = this.#deps.projection.latestCheck(projectId);
+    if (running === undefined || running.checkId !== latest?.check_id)
+      throw new Error('no preview of the latest check is running');
+    const { link } = await this.plays.start(projectId, running.checkId, running.port);
+    // The preview stopped while the browser started: so does the play, and it is not recorded.
+    if (this.#running.get(projectId) !== running) {
+      await this.plays.stop(projectId, 'preview_stopped');
+      throw new Error('the preview stopped while the game opened');
+    }
+    this.#deps.recorder.record(
+      controlPlaneDraft(
+        'project.mac_play.started',
+        scope(projectId),
+        { check_id: running.checkId },
+        this.#now(),
+        causedBy(command.command_id),
+      ),
+    );
+    // The link is never journaled or logged: its code opens the viewer once.
+    this.#deps.play?.openViewer?.(link);
   }
 
   /** Checks the project and records what was found; resolves with the check's id and outcome. */
@@ -232,6 +298,7 @@ export class HostPreviews {
           NO_CAUSE,
         ),
       );
+      void this.plays.stop(projectId, 'preview_stopped');
     });
     if (child.pid === undefined) throw new Error('the preview server did not start');
     this.#children.add(child);
@@ -269,6 +336,7 @@ export class HostPreviews {
   /** Stops every preview this host runs, and every server still starting, as the control plane exits. */
   async close(): Promise<void> {
     this.#closed = true;
+    await this.plays.close();
     await Promise.all(
       [...this.#running.keys()].map((projectId) =>
         this.#stop(projectId, 'host_restarted', NO_CAUSE),
@@ -299,7 +367,20 @@ export class HostPreviews {
       }
       await rm(join(folder, name), { force: true });
     }
+    await this.plays.sweep();
     for (const project of this.#deps.projection.projects()) {
+      const play = this.#deps.projection.macPlay(project.project_id);
+      if (play !== undefined)
+        this.#deps.recorder.record(
+          controlPlaneDraft(
+            'project.mac_play.stopped',
+            scope(project.project_id),
+            { check_id: play, reason: 'host_stopped' },
+            this.#now(),
+            NO_CAUSE,
+          ),
+        );
+
       const preview = this.#deps.projection.preview(project.project_id);
       if (preview === undefined) continue;
       this.#deps.recorder.record(
@@ -319,6 +400,7 @@ export class HostPreviews {
     if (running === undefined) return;
     running.stopping = true;
     this.#running.delete(projectId);
+    await this.plays.stop(projectId, PLAY_END[reason]);
     await stopChild(running.child);
     this.#ports.delete(running.port);
     await this.#removeRecord(projectId);
@@ -414,6 +496,14 @@ export class HostPreviews {
     >['occurred_at'];
   }
 }
+
+/** Why a play ends when its preview stops. */
+const PLAY_END: Record<PreviewStopReason, PlayEnd> = {
+  asked: 'preview_stopped',
+  new_check: 'newer_check',
+  server_exited: 'preview_stopped',
+  host_restarted: 'host_stopped',
+};
 
 function scope(projectId: ProjectId) {
   return { project_id: projectId, workstream_id: null, execution_id: null } as const;

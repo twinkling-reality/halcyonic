@@ -161,6 +161,8 @@ export class Projection {
   readonly #checks = new Map<ProjectId, ProjectCheck>();
   /** Each project's running preview, by the check it serves. */
   readonly #previews = new Map<ProjectId, ProjectPreview>();
+  /** The check whose game plays on the Mac now, per project (ADR 0037). */
+  readonly #macPlays = new Map<ProjectId, CheckId>();
   readonly #devices = new DeviceRegistry();
   readonly #resultStarts = new Map<
     string,
@@ -523,6 +525,11 @@ export class Projection {
     return this.#previews.get(projectId as ProjectId);
   }
 
+  /** The check whose game plays on the Mac now, or undefined. */
+  macPlay(projectId: string): CheckId | undefined {
+    return this.#macPlays.get(projectId as ProjectId);
+  }
+
   /** One of the project's checkpoints, or undefined when it is another project's or none. */
   checkpoint(projectId: string, checkpointId: string): CheckpointView | undefined {
     return this.#checkpoints
@@ -798,6 +805,13 @@ export class Projection {
         if (this.#previews.get(event.project_id)?.check_id === event.payload.check_id) {
           this.#previews.delete(event.project_id);
         }
+        return;
+      case 'project.mac_play.started':
+        this.#macPlays.set(event.project_id, event.payload.check_id);
+        return;
+      case 'project.mac_play.stopped':
+        if (this.#macPlays.get(event.project_id) === event.payload.check_id)
+          this.#macPlays.delete(event.project_id);
         return;
       case 'project.checkpoint.failed':
       case 'project.restored':

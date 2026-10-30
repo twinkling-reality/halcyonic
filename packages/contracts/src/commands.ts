@@ -107,6 +107,16 @@ export const ProjectPreviewStopCommand = defineCommand(
 );
 
 /**
+ * Plays the project's checked game on the Mac (Play on my laptop, ADR 0037): the host runs the
+ * preview's page in a contained headless browser and opens Halcyonic's own viewer of it. Admitted
+ * only when the latest check passed, was laptop ready and read confined, and the preview serves it.
+ */
+export const ProjectOpenOnMacCommand = defineCommand(
+  'project.open_on_mac',
+  Type.Object({ project_id: ProjectId }, strict),
+);
+
+/**
  * Links the project to one repository of the person's catalog (ADR 0039), replacing any link it
  * had. The person's own choice: the host may suggest a repository, never link one itself.
  */
@@ -218,6 +228,7 @@ export const COMMAND_VARIANTS = [
   ProjectCheckCommand,
   ProjectPreviewStartCommand,
   ProjectPreviewStopCommand,
+  ProjectOpenOnMacCommand,
   ProjectLinkCatalogCommand,
   ProjectUnlinkCatalogCommand,
   WorkstreamCreateCommand,
@@ -244,6 +255,7 @@ export const CommandType = Type.Union([
   Type.Literal('project.check'),
   Type.Literal('project.preview.start'),
   Type.Literal('project.preview.stop'),
+  Type.Literal('project.open_on_mac'),
   Type.Literal('project.link_catalog'),
   Type.Literal('project.unlink_catalog'),
   Type.Literal('workstream.create'),

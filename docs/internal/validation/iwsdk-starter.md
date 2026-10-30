@@ -254,6 +254,25 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   send), `no-store` only.
 - **Not tried:** the Quest Browser (the headset is away).
 
+## Playing a checked game on the Mac (P-A)
+
+- **Question:** can a contained browser on the Mac play a checked game for a person, fast enough, with sound and
+  without the person's Chrome or desktop?
+- **Date:** 2026-10-30.
+- **Browser:** Chrome for Testing 156.0.8078.4, Playwright's build, copied as a whole app; bundle id
+  `com.google.chrome.for.testing`, ad-hoc signed, no quarantine.
+- **Headed, under the check's closed profile:** aborts (SIGABRT) before it answers DevTools. The kernel's deny log named
+  LaunchServices, the pasteboard and TCC among the Mach services it asked for; with eight allow rules added it still
+  aborted. Not used.
+- **Headless, under the check's profile plus a read of its own copy:** a page drawn and screencast at 58 frames a second
+  as PNG at 1280 by 720; a key press reached the next frame in 9 to 36 ms (median 16). No process left after stop.
+- **Sound:** an `AudioContext` started without a gesture, ran (`currentTime` advanced 0.66 s) and macOS showed the
+  browser's "Playing audio" assertion. The microphone, asked for with `getUserMedia`, gave no answer in 3 s and was
+  never granted.
+- **LaunchServices:** macOS had registered the lane's copy when it was cloned, before any probe; it was removed with
+  `lsregister -u` and counted at zero after.
+- **Not tried:** the host's play with the real browser end to end (an opt-in test comes with the viewer, P-B).
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

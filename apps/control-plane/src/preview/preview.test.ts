@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
 import {
   type CommandEnvelope,
@@ -14,7 +15,8 @@ import {
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { createTestControlPlane } from '../testing/harness.ts';
 import type { CheckOptions, CheckResult } from './check.ts';
-import type { ServeArgs } from './preview.ts';
+import { type ChromeRun, DevToolsPipe } from './chrome.ts';
+import type { HostPreviewsDeps, ServeArgs } from './preview.ts';
 
 const PASSED: CheckResult = {
   tsc: { exit: 0, seconds: 1 },
@@ -72,10 +74,15 @@ interface PlaneOptions {
   readonly serve?: (args: ServeArgs) => ChildProcess;
   /** Holds every check after the first until it resolves. */
   readonly hold?: Promise<void>;
+  /** Play on my laptop: a stand-in browser launch, or none set up. */
+  readonly play?: HostPreviewsDeps['play'];
 }
 
 /** A control plane with checks on, a starter project in it, and the check and server standing in. */
-function plane(t: TestContext, { result = PASSED, serve = serving, hold }: PlaneOptions = {}) {
+function plane(
+  t: TestContext,
+  { result = PASSED, serve = serving, hold, play }: PlaneOptions = {},
+) {
   const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-previews-')));
   t.after(() => rmSync(dataDir, { recursive: true, force: true }));
   const checked: CheckOptions[] = [];
@@ -89,6 +96,7 @@ function plane(t: TestContext, { result = PASSED, serve = serving, hold }: Plane
       chrome: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       starters: { trackedDir: '/repo/starters', installedDir: join(dataDir, 'starters') },
       confinesCodex: true,
+      ...(play === undefined ? {} : { play }),
       runCheck: async (options) => {
         checked.push(options);
         if (checked.length > 1 && hold !== undefined) await hold;
@@ -139,7 +147,13 @@ function plane(t: TestContext, { result = PASSED, serve = serving, hold }: Plane
     ),
   );
   let n = 0;
-  const submit = (type: 'project.check' | 'project.preview.start' | 'project.preview.stop') => {
+  const submit = (
+    type:
+      | 'project.check'
+      | 'project.preview.start'
+      | 'project.preview.stop'
+      | 'project.open_on_mac',
+  ) => {
     n += 1;
     const command = {
       schema_version: 1,
@@ -174,6 +188,124 @@ function plane(t: TestContext, { result = PASSED, serve = serving, hold }: Plane
     children,
   };
 }
+
+describe('a checked game played on the Mac (Play on my laptop, P-A)', () => {
+  /** A stand-in for the contained browser: answers every command; counts its starts and stops. */
+  const standIn = () => {
+    const runs = { started: 0, stopped: 0 };
+    const launch = async (): Promise<ChromeRun> => {
+      runs.started += 1;
+      const toChrome = new PassThrough();
+      const fromChrome = new PassThrough();
+      toChrome.setEncoding('utf8');
+      toChrome.on('data', (chunk: string) => {
+        for (const text of chunk.split('\0').filter((part) => part !== ''))
+          fromChrome.write(
+            `${JSON.stringify({ id: (JSON.parse(text) as { id: number }).id, result: {} })}\0`,
+          );
+      });
+      return {
+        pid: process.pid,
+        devtools: new DevToolsPipe(toChrome, fromChrome),
+        session: 'page',
+        stop: async () => {
+          runs.stopped += 1;
+        },
+      };
+    };
+    return {
+      runs,
+      play: {
+        browser: { app: '/fake/Google Chrome for Testing.app', sha256: 'a'.repeat(64) },
+        browserProblem: () => null,
+        launch,
+        viewerWaitMs: 60_000,
+      },
+    };
+  };
+
+  test('it plays from the running preview, and stops with the preview, on a newer check, and with the host, each saying why', async (t) => {
+    const { runs, play } = standIn();
+    const { controlPlane, submit, done, types, journal } = plane(t, { play });
+    const reasons = () =>
+      journal
+        .read({ after: 0, limit: 1000 })
+        .flatMap((stored) =>
+          stored.event.event_type === 'project.mac_play.stopped'
+            ? [stored.event.payload.reason]
+            : [],
+        );
+    const run = async (type: Parameters<typeof submit>[0]) => {
+      const { command } = submit(type);
+      const finished = await done(command.command_id);
+      assert.equal(finished?.status, 'completed', `${type}: ${JSON.stringify(finished)}`);
+    };
+    await run('project.check');
+    await run('project.preview.start');
+    await run('project.open_on_mac');
+    assert.equal(runs.started, 1);
+    await run('project.preview.stop');
+    assert.equal(runs.stopped, 1);
+    await run('project.preview.start');
+    await run('project.open_on_mac');
+    await run('project.check');
+    assert.equal(runs.stopped, 2, 'a newer check stops the play of the older one');
+    await run('project.preview.start');
+    await run('project.open_on_mac');
+    assert.deepEqual(reasons(), ['preview_stopped', 'newer_check']);
+    await controlPlane.previews?.close();
+    assert.equal(runs.stopped, 3);
+    assert.deepEqual(reasons(), ['preview_stopped', 'newer_check', 'host_stopped']);
+    assert.equal(types().filter((type) => type === 'project.mac_play.started').length, 3);
+  });
+
+  test('it stops when its viewer closes, when the preview server exits, and at a restart, each saying why', async (t) => {
+    const { runs, play } = standIn();
+    const { controlPlane, submit, done, journal, projectId, children } = plane(t, { play });
+    const reasons = () =>
+      journal
+        .read({ after: 0, limit: 1000 })
+        .flatMap((stored) =>
+          stored.event.event_type === 'project.mac_play.stopped'
+            ? [stored.event.payload.reason]
+            : [],
+        );
+    const run = async (type: Parameters<typeof submit>[0]) => {
+      const finished = await done(submit(type).command.command_id);
+      assert.equal(finished?.status, 'completed', `${type}: ${JSON.stringify(finished)}`);
+    };
+    const plays = controlPlane.previews?.plays;
+    assert.ok(plays !== undefined);
+    await run('project.check');
+    await run('project.preview.start');
+    await run('project.open_on_mac');
+    const off = plays.watch(projectId, () => undefined);
+    off();
+    await until(() => reasons().length === 1, 'the play to stop once its viewer closed');
+    assert.equal(controlPlane.projection.macPlay(projectId), undefined);
+    await run('project.open_on_mac');
+    children.at(-1)?.kill('SIGKILL');
+    await until(() => reasons().length === 2, 'the play to stop with its preview server');
+    await run('project.preview.start');
+    await run('project.open_on_mac');
+    assert.equal(runs.stopped, 2);
+    // As at a start after a crash: the journal shows a play the host no longer runs.
+    await controlPlane.previews?.reconcile();
+    assert.deepEqual(reasons(), ['closed', 'preview_stopped', 'host_stopped']);
+    assert.equal(controlPlane.projection.macPlay(projectId), undefined);
+  });
+
+  test('without a browser set up for it, a game is not played and the command says so', async (t) => {
+    const { controlPlane, submit, done } = plane(t, { play: { browser: null } });
+    for (const type of ['project.check', 'project.preview.start'] as const) {
+      const { command } = submit(type);
+      await done(command.command_id);
+    }
+    const { outcome } = submit('project.open_on_mac');
+    assert.equal(outcome.command?.rejection?.code, 'capability_unsupported');
+    await controlPlane.close();
+  });
+});
 
 describe("the host's checks and previews (ADR 0037)", () => {
   test("reads_confined holds only while every execution's start recorded that it ran confined (S2)", async (t) => {

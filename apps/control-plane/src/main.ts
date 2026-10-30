@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import { chmod, mkdir } from 'node:fs/promises';
 import { homedir, type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
@@ -32,6 +33,7 @@ import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
+import { installPlayBrowser } from './preview/play.ts';
 import {
   createRuntimeAdapters,
   heldSecrets,
@@ -72,6 +74,23 @@ async function main(): Promise<void> {
   const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
 
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });
+  // The browser a checked game plays in on the Mac (P-A): its copy in the data folder, or none.
+  let playBrowser: { app: string; sha256: string } | null = null;
+  if (config.playBrowser !== null && process.platform === 'darwin') {
+    try {
+      const app = await installPlayBrowser(
+        config.playBrowser.app,
+        config.playBrowser.sha256,
+        config.dataDir,
+      );
+      playBrowser = { app, sha256: config.playBrowser.sha256 };
+    } catch {
+      // The reason names the browser's path, so it is not logged.
+      app.log.warn(
+        'games are not played on this Mac: its browser is missing or not the one set up',
+      );
+    }
+  }
   // Whether each agent binary is the copy Halcyonic was checked with, whoever named it (ADR 0024).
   const agentBinaries = await checkAgentBinaries(config);
   for (const adapter of adapters) {
@@ -157,6 +176,16 @@ async function main(): Promise<void> {
             },
             // Codex confines a starter project's agent here (ADR 0041), when Codex is set up.
             confinesCodex: config.codexBinary !== null,
+            play: {
+              browser: playBrowser,
+              // The viewer's one-time link opens in the Mac's default browser: the page there is
+              // Halcyonic's viewer only; the game itself runs in the contained browser.
+              openViewer: (link) => {
+                execFile('/usr/bin/open', [link], (error) => {
+                  if (error !== null) app.log.warn('the viewer of a play could not be opened');
+                });
+              },
+            },
           },
         }
       : {}),

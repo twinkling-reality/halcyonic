@@ -197,6 +197,40 @@ export function admitCommand(
       return { admitted: true, policy, scope, runtime: null };
     }
 
+    case 'project.open_on_mac': {
+      const projectId = command.payload.project_id;
+      if (projection.project(projectId) === undefined)
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      const scope = { ...NO_SCOPE, project_id: projectId };
+      // Only the checked copy a person could already play: passed, ready on a laptop, every agent
+      // run confined, and served by the preview right now (ADR 0037).
+      const check = projection.latestCheck(projectId);
+      const findings = check?.findings;
+      if (check === undefined || findings === undefined || !findings.passed)
+        return reject(
+          scope,
+          'invalid_state',
+          'Only a passed check can be played. Check the game first.',
+        );
+      if (findings.laptop?.ready !== true)
+        return reject(
+          scope,
+          'invalid_state',
+          "The check didn't see the game work with a mouse and keyboard.",
+        );
+      if (!findings.reads_confined)
+        return reject(
+          scope,
+          'invalid_state',
+          'Not every agent run in this project was confined, so it is not played here.',
+        );
+      if (projection.preview(projectId)?.check_id !== check.check_id)
+        return reject(scope, 'invalid_state', 'Start the preview of the latest check first.');
+      if (projection.macPlay(projectId) !== undefined)
+        return reject(scope, 'invalid_state', 'This game is already playing on the Mac.');
+      return { admitted: true, policy, scope, runtime: null };
+    }
+
     case 'workstream.create': {
       const projectId = command.payload.project_id;
       if (projection.project(projectId) === undefined) {
