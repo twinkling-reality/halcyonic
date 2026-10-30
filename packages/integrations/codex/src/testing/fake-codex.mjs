@@ -39,6 +39,10 @@
  *
  * A turn runs until it is interrupted, unless its text contains COMPLETE. Every message received
  * is appended to FAKE_CODEX_LOG when it is set.
+ *
+ * `slow-exit`: the server exits about a second after its input ends, as a busy Codex can, and
+ * appends `{"event": "launch" | "exit", "pid", "at"}` beside FAKE_CODEX_LAUNCHES, to that file's
+ * name with `.events`, when it is set (a folder a confined server may write).
  */
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, rmSync } from 'node:fs';
@@ -59,6 +63,14 @@ if (process.argv[2] === '--version') {
   process.exit(0);
 }
 if (process.argv[2] !== 'app-server') process.exit(2);
+const lifecycle = (event) => {
+  if (flags.has('slow-exit') && process.env.FAKE_CODEX_LAUNCHES)
+    appendFileSync(
+      `${process.env.FAKE_CODEX_LAUNCHES}.events`,
+      `${JSON.stringify({ event, pid: process.pid, at: Date.now() })}\n`,
+    );
+};
+lifecycle('launch');
 if (process.env.FAKE_CODEX_LAUNCHES) {
   appendFileSync(
     process.env.FAKE_CODEX_LAUNCHES,
@@ -273,4 +285,10 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       refuse(`unknown method ${method}`);
   }
 });
-process.stdin.on('end', () => process.exit(0));
+process.stdin.on('end', () => {
+  if (!flags.has('slow-exit')) process.exit(0);
+  setTimeout(() => {
+    lifecycle('exit');
+    process.exit(0);
+  }, 1000);
+});

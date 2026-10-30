@@ -173,6 +173,8 @@ export type StaleServerResult =
 /** One server and what it may reach: the open one, or one per confined project (ADR 0041). */
 interface Slot {
   readonly confinement: Confinement | null;
+  /** The stop of the server this slot replaces (AUDIT S2-S1), awaited before its first launch. */
+  readonly replacing: Promise<void> | null;
   readonly recordFile: string;
   current: Connection | null;
   launching: Promise<Connection> | null;
@@ -184,6 +186,9 @@ function sameScope(a: Confinement | null, b: Confinement): boolean {
     c === null ? null : JSON.stringify([c.project, c.readable, c.originals ?? [], c.hidden ?? []]);
   return scope(a) === scope(b);
 }
+
+/** How long a new confined server waits for the one it replaces to stop (AUDIT S2-S1). */
+const RETIRE_STOP_MS = 25_000;
 
 /** The file a confined server must fail to read or write at launch (ADR 0041). */
 const CONFINEMENT_CANARY = 'confinement-canary.txt';
@@ -307,6 +312,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#confinement = options.confinement ?? null;
     this.#open = {
       confinement: null,
+      replacing: null,
       recordFile: options.serverRecordFile,
       current: null,
       launching: null,
@@ -812,12 +818,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       );
     }
     const known = this.#confined.get(directory);
+    let replacing: Promise<void> | null = null;
     if (known !== undefined) {
       if (sameScope(known.confinement, confinement)) return known;
-      this.#retire(directory, known);
+      replacing = this.#retire(directory, known);
     }
     const slot: Slot = {
       confinement,
+      replacing,
       recordFile: `${this.#open.recordFile}-${confinementKey(directory)}`,
       current: null,
       launching: null,
@@ -832,7 +840,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    * stopped, so a new one starts under the new profile. Never while a turn runs on it or it is
    * launching: that start is refused, to be made again once the turn ends.
    */
-  #retire(directory: string, slot: Slot): void {
+  #retire(directory: string, slot: Slot): Promise<void> {
     const threads = [...this.#threads.values()].filter(
       (thread) => !thread.lost && thread.connection.slot === slot,
     );
@@ -848,11 +856,16 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         "the project's scope changed, so its earlier confined server was stopped.",
       );
     const current = slot.current;
-    if (current !== null) {
-      this.#halt(current);
-      void current.server.stop().catch(() => undefined);
-    }
     this.#confined.delete(directory);
+    if (current === null) return Promise.resolve();
+    this.#halt(current);
+    // The new server shares the confined Codex home: it starts only once this one has stopped, or
+    // once the bound has passed (the new launch's own check for a server left running still runs).
+    const stopped = current.server.stop().catch(() => undefined);
+    return Promise.race([
+      stopped,
+      new Promise<void>((resolve) => setTimeout(resolve, RETIRE_STOP_MS).unref()),
+    ]);
   }
 
   async #connection(relaunch = false, slot: Slot = this.#open): Promise<Connection> {
@@ -905,6 +918,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   async #launch(relaunch: boolean, slot: Slot): Promise<Connection> {
+    if (slot.replacing !== null) await slot.replacing;
     try {
       await this.#stopStale(slot.recordFile);
     } catch (error) {
