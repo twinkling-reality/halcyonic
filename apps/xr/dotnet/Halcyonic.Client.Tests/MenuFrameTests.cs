@@ -278,7 +278,7 @@ public class MenuFrameTests
         };
         var frame = new MenuFrame("Add rate limiting", new Footer(Close), subjectIsData: true, pill: Waiting, sections: file);
         Assert.That(frame.Sections.Single(section => section.Chosen).Key, Is.EqualTo("waiting"));
-        Assert.That(frame.Pill!.Word, Is.EqualTo("Waiting for you"));
+        Assert.That(frame.Pill!.Word, Is.EqualTo("Needs You"));
 
         Assert.Throws<ArgumentException>(() => _ = new MenuFrame("x", new Footer(), sections: new[] { new FrameSection("a", "A"), new FrameSection("b", "B") }), "none chosen");
         Assert.Throws<ArgumentException>(() => _ = new MenuFrame("x", new Footer(), sections: new[] { new FrameSection("a", "A", chosen: true), new FrameSection("b", "B", chosen: true) }));

@@ -35,16 +35,16 @@ public class JudgeFirstMinuteTests
         // As the stage appears: three tasks, none started, nothing waiting.
         var first = moments[0];
         Assert.That(first.At, Is.EqualTo(TimeSpan.Zero));
-        Assert.That(first.Words.Values, Has.Count.EqualTo(3).And.All.EqualTo("Not started"));
+        Assert.That(first.Words.Values, Has.Count.EqualTo(3).And.All.EqualTo("Not Started"));
         Assert.That(first.Bar, Is.EqualTo(TasksText.Waiting(0)));
 
         // The first instant anything waits: the directed task alone, within ten seconds, the two watched ones finished.
         var waits = moments.First(moment => moment.Bar != TasksText.Waiting(0));
         Assert.That(waits.At, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(10)), "the first decision comes within ten seconds");
         Assert.That(waits.Bar, Is.EqualTo(TasksText.Waiting(1)));
-        Assert.That(waits.Words[Demonstration.Directed], Is.EqualTo("Waiting for you"));
+        Assert.That(waits.Words[Demonstration.Directed], Is.EqualTo("Needs You"));
         Assert.That(waits.Words.Where(pair => pair.Key != Demonstration.Directed).Select(pair => pair.Value),
-            Is.All.EqualTo("Finished this round"), "the watched tasks have finished their round by then");
+            Is.All.EqualTo("Round Ended"), "the watched tasks have finished their round by then");
         Assert.That(moments.TakeWhile(moment => moment != waits).Select(moment => moment.Bar), Is.All.EqualTo(TasksText.Waiting(0)),
             "nothing waits before the directed task");
 

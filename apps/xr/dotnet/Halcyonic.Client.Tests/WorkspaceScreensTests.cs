@@ -103,7 +103,7 @@ public class WorkspaceScreensTests
         var model = Screen(work.Present(), new WorkspaceSteering(factory));
         Assert.That((model.Title, model.TitleIsData), Is.EqualTo((work.Workstream.Title, true)));
         Assert.That((model.Context, model.ContextIsData), Is.EqualTo(("Goal: Migrate the database", true)));
-        Assert.That(model.Badge!.Word, Is.EqualTo("Waiting for you"));
+        Assert.That(model.Badge!.Word, Is.EqualTo("Needs You"));
         Assert.That(model.Marks.Select(mark => mark.Word), Is.EqualTo(new[] { "Practice" }), "simulated work says so beside its state");
         Assert.That((model.Movable, model.Notice), Is.EqualTo((false, (string?)null)), "it stays beside its character: Close only");
 
@@ -119,7 +119,7 @@ public class WorkspaceScreensTests
         var model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
         Assert.That(model.Tabs.Select(tab => (tab.Id, tab.Label, tab.Chosen, tab.Attention)), Is.EqualTo(new[]
         {
-            ("waiting", "Waiting for you", true, true),
+            ("waiting", "Needs You", true, true),
             ("doing", "Doing", false, false),
             ("understand", "Understand", false, false),
             ("checked", "Checked", false, false),

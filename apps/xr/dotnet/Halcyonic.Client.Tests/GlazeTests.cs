@@ -223,8 +223,8 @@ public class StateLanguageTests
     {
         Assert.That(States.Select(StateLanguage.WordOf), Is.EqualTo(new[]
         {
-            "Not started", "Starting", "Working", "Checking its work", "Waiting for you", "Finished this round",
-            "Checks failed", "Couldn't finish", "Stopped", "Can't tell yet",
+            "Not Started", "Starting", "Running", "Checking", "Needs You", "Round Ended",
+            "Checks Failed", "Failed", "Stopped", "Unknown",
         }));
     }
 
@@ -289,7 +289,7 @@ public class StateLanguageTests
     public void ALastKnownBadgeKeepsItsWordGhostsAndStandsStill()
     {
         var badge = StateLanguage.BadgeOf(Character(CharacterActivity.Working, stale: true));
-        Assert.That(badge.Word, Is.EqualTo("Working"));
+        Assert.That(badge.Word, Is.EqualTo("Running"));
         Assert.That(badge.LastKnown, Is.True);
         Assert.That(badge.Icon, Is.EqualTo(GlazeIcon.LastKnown));
         Assert.That(badge.Turns, Is.False);
@@ -300,8 +300,8 @@ public class StateLanguageTests
     [Test]
     public void WaitingForYouCountsWhatWaitsWhenMoreThanOne()
     {
-        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, new[] { "a" }, approvals: 1)).Text, Is.EqualTo("Waiting for you"));
-        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, new[] { "a", "b" }, approvals: 2)).Text, Is.EqualTo("Waiting for you · 2"));
+        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, new[] { "a" }, approvals: 1)).Text, Is.EqualTo("Needs You"));
+        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired, new[] { "a", "b" }, approvals: 2)).Text, Is.EqualTo("Needs You · 2"));
         Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.Working, notes: new[] { "a", "b" })).Count, Is.EqualTo(0), "only Waiting for you counts");
     }
 
@@ -312,15 +312,15 @@ public class StateLanguageTests
         Assert.That(StateLanguage.MarksOf(Character(CharacterActivity.Working, synthetic: true)).Single().Word, Is.EqualTo("Practice"));
         Assert.That(StateLanguage.MarksOf(Character(CharacterActivity.Working, synthetic: true, recorded: true)).Single().Word, Is.EqualTo("Demo"));
         Assert.That(StateLanguage.MarksOf(Character(CharacterActivity.Working, recorded: true)).Single().Word, Is.EqualTo("Recorded"));
-        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.Working, synthetic: true, recorded: true)).Word, Is.EqualTo("Working"));
+        Assert.That(StateLanguage.BadgeOf(Character(CharacterActivity.Working, synthetic: true, recorded: true)).Word, Is.EqualTo("Running"));
     }
 
     [Test]
     public void EveryPresentationsStatusUsesTheSameWords()
     {
-        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.Verifying), Is.EqualTo("Checking its work"));
-        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.Unknown), Is.EqualTo("Can't tell yet"));
-        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.Failed), Is.EqualTo("Couldn't finish"));
+        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.Verifying), Is.EqualTo("Checking"));
+        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.Unknown), Is.EqualTo("Unknown"));
+        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.Failed), Is.EqualTo("Failed"));
     }
 }
 
@@ -340,7 +340,7 @@ public class CharacterLabelTests
             new[] { "It wants to run: Run the migration" }, approvals: 1, synthetic: true);
         var label = CharacterLabel.Of(character);
         Assert.That(label.Title, Is.EqualTo("Fix the authentication regression"));
-        Assert.That(label.Badge.Text, Is.EqualTo("Waiting for you"));
+        Assert.That(label.Badge.Text, Is.EqualTo("Needs You"));
         Assert.That(label.Marks.Single().Word, Is.EqualTo("Practice"));
     }
 
@@ -350,7 +350,7 @@ public class CharacterLabelTests
         var character = StateLanguageTests.Character(CharacterActivity.Failed, AttentionLevel.Notice,
             new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }, details: new[] { "Tell it to try again, or what to do instead." });
         var peek = PeekCard.Of(Workspace(character));
-        Assert.That(peek.Badge.Word, Is.EqualTo("Couldn't finish"));
+        Assert.That(peek.Badge.Word, Is.EqualTo("Failed"));
         Assert.That(peek.Reason, Is.EqualTo("Tell it to try again, or what to do instead."));
         Assert.That(peek.Next, Is.EqualTo("Open it to see what it did."), "its error isn't shown, so opening it shows what it did, not why");
     }
@@ -407,7 +407,7 @@ public class CharacterLabelTests
         Assert.That(finished.MarkLine, Is.EqualTo("Practice run: nothing is built."));
         var checks = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.TurnFinished, AttentionLevel.Notice,
             new[] { "Checks: 1 failed, 23 passed" }, details: new[] { "1 failed, 23 passed" })));
-        Assert.That(checks.Badge.Word, Is.EqualTo("Checks failed"));
+        Assert.That(checks.Badge.Word, Is.EqualTo("Checks Failed"));
         Assert.That(checks.Reason, Is.EqualTo("1 failed, 23 passed"));
         Assert.That(checks.Next, Is.EqualTo("Open it to see what failed."));
         var demo = PeekCard.Of(Workspace(StateLanguageTests.Character(CharacterActivity.Working, synthetic: true, recorded: true)));
@@ -434,7 +434,7 @@ public class CharacterLabelTests
         var state = new ClientProjection();
         state.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { failed }, Samples.Journal()), new StateChanges());
         var character = CharacterPresenter.Present(workstream, state, live: true);
-        Assert.That(character.StatusLabel, Is.EqualTo("Couldn't finish"));
+        Assert.That(character.StatusLabel, Is.EqualTo("Failed"));
         Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "the workspace's line keeps the state's words");
         Assert.That(character.AttentionDetails, Is.EqualTo(new[] { "Tell it to try again, or what to do instead." }));
     }

@@ -92,7 +92,7 @@ public class JudgeFileWalkTests
         // The page's rows less the one its source line takes, as the director gives them.
         screen.ReadQuestion(draft, Measured(question, questionRows), new RowBudget(room.Rows - 1), new RowBudget(room.Rows - 1));
         var frame = Frame(workspace);
-        Assert.That(StateLanguage.WordOf(frame.Pill!.State), Is.EqualTo("Waiting for you"));
+        Assert.That(StateLanguage.WordOf(frame.Pill!.State), Is.EqualTo("Needs You"));
         Assert.That((frame.Focused, screen.Section), Is.EqualTo((true, FileSection.Waiting)));
         Assert.That(frame.Sections, Is.Empty, "the focused question keeps its state context without competing file tabs");
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False, "nothing to send before an answer is chosen");

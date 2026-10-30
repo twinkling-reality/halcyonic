@@ -354,7 +354,7 @@ namespace Halcyonic.XR.Workspace.Editor
             y -= U(GroupGap);
             var rows = new (string Group, string Words, GlazeIcon Icon, GlazeTone Tone, string Fact, bool Chosen)[]
             {
-                ("Waiting for you", "Add rate limiting to the sign-in endpoint", GlazeIcon.WaitingForYou, GlazeTone.Attention, "Storefront API", true),
+                ("Needs You", "Add rate limiting to the sign-in endpoint", GlazeIcon.WaitingForYou, GlazeTone.Attention, "Storefront API", true),
                 ("Storefront API", "Paginate the order history endpoint", GlazeIcon.Working, GlazeTone.Active, "4 min", false),
                 ("", "Send an order confirmation email", GlazeIcon.FinishedThisRound, GlazeTone.Success, "20 min ago", false),
             };

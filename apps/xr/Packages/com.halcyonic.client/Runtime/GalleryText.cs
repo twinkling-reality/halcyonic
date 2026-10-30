@@ -39,7 +39,7 @@ namespace Halcyonic.Client
         /// <summary>
         /// A catalog project's state, as the source names it, in Halcyonic's words and its group. Any
         /// state the source adds later needs a look, since it may be one that waits for the person. The
-        /// words never repeat a task's own ("Waiting for you", "Checks failed"), so a reported state is
+        /// words never repeat a task's own ("Needs You", "Checks Failed"), so a reported state is
         /// never read as one Halcyonic observed (agreed with DESIGN, 2026-10-29).
         /// </summary>
         public static (GallerySection Section, string Line) State(string state) => state switch

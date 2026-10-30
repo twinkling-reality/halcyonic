@@ -91,7 +91,7 @@ public class QuestionTests
     {
         var work = new AskingWork();
         var workspace = work.Present();
-        Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Waiting for you"));
+        Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Needs You"));
         Assert.That(PeekCard.Of(workspace).ReasonLine, Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"),
             "the whole question, never only the prompt the body may not show");
         Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
@@ -289,7 +289,7 @@ public class QuestionTests
         question.Prompts.RemoveAt(1);
         Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you: Colour scheme: Which colour scheme should the dashboard use?"));
         var work = new AskingWork();
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "It asks you a question. See it under Waiting for you." }),
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "It asks you a question. See it under Needs You." }),
             "the answer line points to the tab; the tab's heading names the whole question");
         Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"));
     }

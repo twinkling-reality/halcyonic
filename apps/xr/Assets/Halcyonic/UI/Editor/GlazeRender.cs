@@ -548,7 +548,7 @@ namespace Halcyonic.XR.UI.Editor
                 {
                     var words = GlazeText.Create(part.Root, type.ToString(), type, GlazeTokens.Text, TextAlignmentOptions.TopLeft, 12);
                     words.rectTransform.pivot = new Vector2(0f, 1f);
-                    GlazeText.SetLiteral(words, type == GlazeType.Title ? "Waiting for you" : "It wants to run make migrate.");
+                    GlazeText.SetLiteral(words, type == GlazeType.Title ? "Needs You" : "It wants to run make migrate.");
                     GlazeText.Lay(words, PlaneComposition.Units(20f), 1);
                     var size = part.Size / PlaneComposition.Distance;
                     words.transform.localPosition = new Vector3(-size.x / 2f + GlazeTokens.Units(1f), size.y / 2f - GlazeTokens.Units(1f), -0.001f);
@@ -584,7 +584,7 @@ namespace Halcyonic.XR.UI.Editor
                 else
                 {
                     var line = GlazeText.Create(subject, "Line", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Center, 3);
-                    GlazeText.SetLiteral(line, "Waiting for you");
+                    GlazeText.SetLiteral(line, "Needs You");
                     GlazeText.Lay(line, GlazeTokens.Units(10f), 1);
                     line.transform.localPosition = new Vector3(-size.x / 2f + GlazeTokens.Units(6f), size.y / 2f + GlazeText.LineHeight(line) / 2f, -0.002f);
                 }

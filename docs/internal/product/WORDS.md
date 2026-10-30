@@ -28,12 +28,13 @@ no project or execution is created until the full existing review and explicit c
 Calm and plain, like a capable colleague who says what is true now, how sure it is, and what you
 can do next.
 
-1. **Sentences a person would say.** "1 task is waiting for you", "2 tasks running", "1 task
-   finished, ready to look at", "Nothing is waiting for you." Never shorthand such as "1 needs
-   you" or "2 active" in a sentence.
-2. **Short words only where space is fixed.** A state badge says the state's word ("Waiting for
-   you"); a chip with a fixed width says the short count ("1 task waiting", "2 tasks running",
-   "Hidden · 1 waiting"). Wherever there is room, the same state is said in full.
+1. **Controls, headers and stages are 1 to 3 words in Title Case.** Each names the exact system
+   concept ("Needs You", "Read Command", "Activity"), never a conversational clause (the owner's
+   voice standard, 2026-10-30).
+2. **Metadata reads in the " · " cadence.** Segments are joined by " · " without chatty
+   prepositions ("Codex · 0.9 s · Observed"). Words from outside (names, paths, commands, the
+   agent's text) stay exactly as written. Stages are parallel, and a sentence that only explains
+   the control beside it is deleted; a sentence that carries a truth stays, in the cadence.
 3. **Only what is true now, and how sure.** Sending, Sent, Waiting for the agent, Confirmed only
    when the agent confirmed, Couldn't do that, Not sure it happened. A finished round says nothing
    about whether the work is right, so nothing celebrates it.
@@ -71,18 +72,23 @@ One word per state, the same on the badge, in the peek, in the workspace and in 
 
 | State | Badge | In a sentence |
 | --- | --- | --- |
-| No run yet | Not started | Not started yet. |
+| No run yet | Not Started | Not started yet. |
 | Asked to start, not yet confirmed | Starting | Starting. Waiting for the agent to confirm. |
-| Running | Working | 2 tasks running. |
-| A test run in progress | Checking its work | Checking its work. |
-| An approval or a question waits | Waiting for you | 1 task is waiting for you. “Fix the login” is waiting for you. |
-| The round ended | Finished this round | 1 task finished, ready to look at. |
-| The round ended and its checks did not pass | Checks failed | Checks: 1 failed, 23 passed. |
-| The run failed | Couldn't finish | Couldn't finish this round. Tell it to try again, or what to do instead. (the way on, never the agent app's error) |
+| Running | Running | 2 tasks running. |
+| A test run in progress | Checking | Checking its work. |
+| An approval or a question waits | Needs You | 1 task is waiting for you. “Fix the login” is waiting for you. |
+| The round ended | Round Ended | 1 task finished, ready to look at. |
+| The round ended and its checks did not pass | Checks Failed | Checks: 1 failed, 23 passed. |
+| The run failed | Failed | Couldn't finish this round. Tell it to try again, or what to do instead. (the way on, never the agent app's error) |
 | Stopped, as the agent confirmed | Stopped | Stopped. |
-| Halcyonic cannot see the work | Can't tell yet | Can't tell what it's doing right now. |
+| Halcyonic cannot see the work | Unknown | Can't tell what it's doing right now. |
 
-The state badge also counts what waits when more than one thing does ("Waiting for you · 2"). In
+The badges follow the owner's voice standard (2026-10-30). The sentences change in the word pass's
+next slice, to ART's cadence forms ("Starting · Unconfirmed", "Round Ended · Ready to Review",
+"Status Unknown"); until then they read as above. A finished round never says Done or Complete,
+and Checking stays the agent's report until your computer's own check ran.
+
+The state badge also counts what waits when more than one thing does ("Needs You · 2"). In
 counts, "paused" covers tasks that ran and rest, neither running nor waiting for you; tasks never
 started are "not started", the badge's own word ("3 tasks not started", "1 task paused, 2 not
 started").
@@ -198,7 +204,7 @@ surface goes back to them.
 
 | Kind | Pattern | Example |
 | --- | --- | --- |
-| A peek | {badge}, then the reason without the state's words | Waiting for you · It wants to run: make migrate |
+| A peek | {badge}, then the reason without the state's words | Needs You · It wants to run: make migrate |
 | Nothing waiting | Nothing is waiting for you. Latest: {activity}, a name or the agent's message in it leaning, the agent's beside "Agent says" | Nothing is waiting for you. Latest: Used edit: src/auth/rate-limit.ts |
 | Sent | Sent. Waiting for {who}… | Sent. Waiting for the agent… |
 | Still on its way | Sent…, unavailable, where the action that sent it stood | Sent… |
@@ -463,7 +469,7 @@ sentence) is theirs and drawn as theirs. Nothing here is built yet.
 The words of the gallery's core (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)),
 agreed with DESIGN on 2026-10-29. How the room lays them out is in "The room of projects". A
 project's state in the person's catalog is reported by Phat Porcupine, so its line never repeats a
-task's own words ("Waiting for you", "Checks failed"): a reported state is never read as one
+task's own words ("Needs You", "Checks Failed"): a reported state is never read as one
 Halcyonic observed. Names, owners, groups and pull request titles from the catalog lean, as words
 from outside do; these lines are Halcyonic's own.
 

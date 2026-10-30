@@ -73,12 +73,12 @@ public class WorkspaceTextTests
     {
         var work = new WaitingWork();
         var badge = StateLanguage.BadgeOf(work.Present().Character);
-        Assert.That((badge.Text, badge.LastKnown), Is.EqualTo(("Waiting for you", false)));
+        Assert.That((badge.Text, badge.LastKnown), Is.EqualTo(("Needs You", false)));
         Assert.That(StateLanguage.MarksOf(work.Present().Character).Select(mark => mark.Word), Is.EqualTo(new[] { StateLanguage.Practice }));
         Assert.That(StateLanguage.BadgeOf(work.Present(live: false).Character).LastKnown, Is.True, "last known, said once and drawn ghosted");
 
         work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", Samples.Time)));
-        Assert.That(StateLanguage.BadgeOf(work.Present().Character).Text, Is.EqualTo("Waiting for you · 2"));
+        Assert.That(StateLanguage.BadgeOf(work.Present().Character).Text, Is.EqualTo("Needs You · 2"));
     }
 
     [Test]
