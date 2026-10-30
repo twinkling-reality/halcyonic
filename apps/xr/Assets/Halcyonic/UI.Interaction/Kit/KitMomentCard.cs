@@ -209,9 +209,14 @@ namespace Halcyonic.XR.UI
             _ => null,
         };
 
-        /// <summary>The one primary of a moment: the next sensible step (handoff, Answers); every other answer is its word.</summary>
-        public static bool IsPrimary(KitMomentAction action) =>
-            action is KitMomentAction.YesRunIt or KitMomentAction.TryIt or KitMomentAction.ReadIt or KitMomentAction.SeeTheOutput;
+        /// <summary>
+        /// Whether <paramref name="action"/> is the one primary on a moment of <paramref name="tone"/>: the next sensible step
+        /// (the handoff's answers): Run, Read Command or Try Build; Read Output only after a failure (ART's A3b review), so a
+        /// passed check offers it as its word.
+        /// </summary>
+        public static bool IsPrimary(KitMomentAction action, KitMomentTone tone) =>
+            action is KitMomentAction.YesRunIt or KitMomentAction.TryIt or KitMomentAction.ReadIt
+            || (action == KitMomentAction.SeeTheOutput && tone == KitMomentTone.Failure);
 
         /// <summary>Shows <paramref name="slot"/>'s shown moment, coming out of the character where it is new.</summary>
         public void Show(KitMomentSlot slot)
@@ -401,10 +406,11 @@ namespace Halcyonic.XR.UI
                 y -= Dp(SpatialKit.AnswersGapDp);
                 var target = KitButton.Height;
                 var between = KitType.Units(SpatialKit.TargetGapDegrees);
-                var primary = actions.FirstOrDefault(IsPrimary);
+                bool Leads(KitMomentAction action) => IsPrimary(action, moment.Tone);
+                var primary = actions.FirstOrDefault(Leads);
                 var rowX = left;
                 var rowTop = y;
-                if (actions.Any(IsPrimary))
+                if (actions.Any(Leads))
                 {
                     var button = ButtonFor(primary);
                     button.Role = KitButtonRole.Primary;
@@ -412,7 +418,7 @@ namespace Halcyonic.XR.UI
                     shown.Add((primary, button));
                     rowTop -= target + between;
                 }
-                var rest = actions.Where(action => !actions.Any(IsPrimary) || !action.Equals(primary)).ToList();
+                var rest = actions.Where(action => !actions.Any(Leads) || !action.Equals(primary)).ToList();
                 foreach (var action in rest)
                 {
                     var button = ButtonFor(action);
