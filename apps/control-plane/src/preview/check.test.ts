@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   cpSync,
   existsSync,
@@ -77,7 +78,7 @@ const SKIP =
 describe('the check, end to end with the installed starter and Chrome', { skip: SKIP }, () => {
   const template = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
   const host = new URL('../../../../starters/iwsdk-vr/host/', import.meta.url).pathname;
-  const check = async (t: TestContext, change: (project: string) => void) => {
+  const check = async (t: TestContext, change: (project: string) => void, twinStepMs?: number) => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const project = join(root, 'project');
@@ -97,6 +98,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
         ? join(STARTER, 'input-profiles')
         : null,
       port: 47886,
+      ...(twinStepMs === undefined ? {} : { twinStepMs }),
     });
   };
   const addToIndex = (project: string, imports: string, code: string) => {
@@ -204,6 +206,7 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
       mouse: 'reached',
       key: 'reached',
       screen_changed: true,
+      exceptions_during: 0,
       ready: true,
     });
     assert.deepEqual(result.vr, {
@@ -227,20 +230,117 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.ready, false);
   });
 
-  test('a scene that moves on its own leaves the screen change unknown, never ready (M1.8b)', {
-    timeout: 240_000,
+  const SPINNER =
+    'const spinner = new Mesh(new BoxGeometry(1.5, 1.5, 1.5), new MeshStandardMaterial({ color: 0x33cc66 })); spinner.position.set(1.5, 1.3, -4); world.createTransformEntity(spinner); setInterval(() => spinner.rotateY(0.2).rotateX(0.13), 16);';
+
+  test('a scene that moves on its own: unknown from one load, its response seen against a twin, ready (M1.8g)', {
+    timeout: 400_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(project, BOX_IMPORTS, `${BOX} ${SPINNER}`),
+    );
+    assert.equal(result.laptop?.mouse, 'reached');
+    assert.equal(result.laptop?.screen_changed, null);
+    assert.equal(result.laptop?.response_seen, true, JSON.stringify(result.laptop));
+    assert.equal(result.laptop?.exceptions_during, 0);
+    assert.equal(result.laptop?.ready, true);
+    assert.equal(result.ready, true);
+  });
+
+  test('a moving scene whose click does nothing has no response against its twin, not ready (M1.8g)', {
+    timeout: 400_000,
   }, async (t) => {
     const result = await check(t, (project) =>
       addToIndex(
         project,
         BOX_IMPORTS,
-        `${BOX} const spinner = new Mesh(new BoxGeometry(1.5, 1.5, 1.5), new MeshStandardMaterial({ color: 0x33cc66 })); spinner.position.set(1.5, 1.3, -4); world.createTransformEntity(spinner); setInterval(() => spinner.rotateY(0.2).rotateX(0.13), 16);`,
+        `const box = new Mesh(new BoxGeometry(0.9, 0.9, 0.9), new MeshStandardMaterial({ color: 0xff8800 })); box.position.set(-2, 1.3, -3.9); onSelect(world.createTransformEntity(box), () => {}); ${SPINNER}`,
       ),
     );
     assert.equal(result.laptop?.mouse, 'reached');
-    assert.equal(result.laptop?.screen_changed, null);
-    assert.equal(result.laptop?.ready, false);
+    assert.equal(result.laptop?.response_seen, false, JSON.stringify(result.laptop));
     assert.equal(result.ready, false);
+  });
+
+  test("a page that steps itself with synthetic F24 keys and calls every binding-shaped global changes nothing of the twin's verdict (M1.8g)", {
+    timeout: 400_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        BOX_IMPORTS,
+        `${BOX} ${SPINNER} setInterval(() => { for (const type of ['keydown', 'keyup']) dispatchEvent(new KeyboardEvent(type, { code: 'F24', key: 'F24' })); for (const name of Object.getOwnPropertyNames(globalThis)) { if (/^h[0-9a-f]{24}$/.test(name)) { try { (globalThis as unknown as Record<string, (p: string) => void>)[name]('frame 360'); } catch {} } } }, 5);`,
+      ),
+    );
+    assert.equal(result.laptop?.response_seen, true, JSON.stringify(result.laptop));
+    assert.equal(result.ready, true);
+  });
+
+  test('a page with a clock the twin cannot hold (a worker) reads unknown, never ready (M1.8g)', {
+    timeout: 400_000,
+  }, async (t) => {
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        BOX_IMPORTS,
+        `${BOX} const spinner = new Mesh(new BoxGeometry(1.5, 1.5, 1.5), new MeshStandardMaterial({ color: 0x33cc66 })); spinner.position.set(1.5, 1.3, -4); world.createTransformEntity(spinner); const worker = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(performance.now()), 16);'], { type: 'text/javascript' }))); worker.onmessage = (event) => { spinner.rotation.set(event.data / 300, event.data / 470, 0); };`,
+      ),
+    );
+    assert.equal(result.laptop?.screen_changed, null);
+    assert.equal(result.laptop?.response_seen, null, JSON.stringify(result.laptop));
+    assert.equal(result.ready, false);
+  });
+
+  /** A box the layer hears whose click changes nothing. */
+  const DEAF_BOX =
+    'const box = new Mesh(new BoxGeometry(0.9, 0.9, 0.9), new MeshStandardMaterial({ color: 0xff8800 })); box.position.set(-2, 1.3, -3.9); onSelect(world.createTransformEntity(box), () => {});';
+
+  test('a still scene that starts a CSS animation at frame 330, its click changing nothing, reads unknown, never ready (AUDIT M18G-M1)', {
+    timeout: 400_000,
+  }, async (t) => {
+    // 5.5 s is frame 330 under the twin's clock. The animation runs on Chrome's own time, which the clock does not
+    // hold. Sixteen squares each start at a phase from a blob URL's random id, which the clock does not seed, so two
+    // loads end alike only when all sixteen happen to (one square alone matched between two loads once).
+    const result = await check(t, (project) =>
+      addToIndex(
+        project,
+        BOX_IMPORTS,
+        `${DEAF_BOX} setTimeout(() => { const digits = URL.createObjectURL(new Blob([])).replace(/[^0-9a-f]/g, '').slice(-16); const style = document.createElement('style'); style.textContent = '@keyframes late { from { background: #ff0000; } to { background: #0000ff; } }'; document.head.append(style); const grid = document.createElement('div'); grid.style.cssText = 'position: fixed; right: 0; top: 0; width: 240px; height: 240px; display: grid; grid-template-columns: repeat(4, 60px); grid-auto-rows: 60px; pointer-events: none;'; for (const digit of digits) { const cell = document.createElement('div'); cell.style.animation = \`late 0.37s linear -\${Number.parseInt(digit, 16) * 23}ms infinite alternate\`; grid.append(cell); } document.body.append(grid); }, 5500);`,
+      ),
+    );
+    assert.equal(result.laptop?.mouse, 'reached');
+    assert.notEqual(result.laptop?.screen_changed, true, JSON.stringify(result.laptop));
+    assert.equal(result.laptop?.response_seen, null, JSON.stringify(result.laptop));
+    assert.equal(result.ready, false);
+  });
+
+  test("a page that never reaches a frame under the twin's clock reads unknown in the step's time, its Chrome stopped (AUDIT M18G-M2)", {
+    timeout: 400_000,
+  }, async (t) => {
+    // Under the twin's clock Date.now() is its epoch plus performance.now(); only there does the page hang.
+    const result = await check(
+      t,
+      (project) =>
+        addToIndex(
+          project,
+          BOX_IMPORTS,
+          `${DEAF_BOX} if (Math.abs(Date.now() - performance.now() - 1767225600000) < 1) setTimeout(() => { for (;;) {} }, 1000);`,
+        ),
+      8_000,
+    );
+    assert.equal(result.laptop?.mouse, 'reached');
+    assert.equal(result.laptop?.response_seen, null, JSON.stringify(result.laptop));
+    assert.equal(result.ready, false);
+    // The browser has exited; its helpers end on their own a moment later.
+    let left = '';
+    for (let tries = 0; tries < 10; tries += 1) {
+      left = spawnSync('pgrep', ['-lf', 'halcyonic-check-.*chrome-twin-'], {
+        encoding: 'utf8',
+      }).stdout.trim();
+      if (left === '') break;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    assert.equal(left, '', 'a twin Chrome is still running');
   });
 
   test('a page that hunts for the binding finds nothing to call, here or in a frame of its own (M1.8b)', {

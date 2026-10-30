@@ -513,10 +513,10 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      9,
-      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b) and project_checked's ready",
+      11,
+      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, and the laptop step's response_seen and exceptions_during (M1.8g)",
     );
-    for (const member of ['Laptop', 'Vr', 'Notes', 'Ready'])
+    for (const member of ['Laptop', 'Vr', 'Notes', 'Ready', 'ResponseSeen', 'ExceptionsDuring'])
       assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(
       generated,

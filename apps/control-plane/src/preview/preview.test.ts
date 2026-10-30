@@ -35,7 +35,9 @@ const PASSED: CheckResult = {
     targets: 1,
     mouse: 'reached',
     key: 'reached',
-    screen_changed: true,
+    screen_changed: null,
+    response_seen: true,
+    exceptions_during: 0,
     ready: true,
   },
   vr: { offered: 'offered', how: 'offer_session', exceptions: 0, ready: true },
@@ -187,7 +189,10 @@ describe("the host's checks and previews (ADR 0037)", () => {
     assert.equal(check?.findings.reads_confined, true);
     // The steps of M1.8b are journaled as found; ready is passed and both steps ready.
     assert.equal(check?.findings.ready, true);
-    assert.equal(check?.findings.laptop?.screen_changed, true);
+    // An animated scene: the change is unknown from one load, and the response is seen against its twin.
+    assert.equal(check?.findings.laptop?.screen_changed, null);
+    assert.equal(check?.findings.laptop?.response_seen, true);
+    assert.equal(check?.findings.laptop?.exceptions_during, 0);
     assert.equal(check?.findings.vr?.how, 'offer_session');
     assert.deepEqual(check?.findings.notes?.items, [
       { kind: 'window_listener', file: 'src/game.ts', line: 12 },
