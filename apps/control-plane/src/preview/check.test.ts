@@ -165,6 +165,23 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     assert.equal(result.passed, false);
   });
 
+  test('a page cannot register a service worker on the preview origin: the server refuses its script (AUDIT M16A-C1)', {
+    timeout: 180_000,
+  }, async (t) => {
+    const result = await check(t, (project) => {
+      writeFileSync(
+        join(project, 'public', 'sw.js'),
+        "self.addEventListener('fetch', () => {});\n",
+      );
+      addToIndex(
+        project,
+        '',
+        "navigator.serviceWorker.register('./sw.js').then(() => setTimeout(() => { throw new Error('marker-sw-registered'); }), () => {});",
+      );
+    });
+    assert.equal(result.page?.exception_count, 0, JSON.stringify(result.page?.exceptions));
+  });
+
   test('a page that fakes getImageData, Image and Math.abs cannot make itself drawn: the host counts the edges (AUDIT M18B-M1)', {
     timeout: 180_000,
   }, async (t) => {

@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
+import { HOST_FILES } from './preview/check.ts';
 
 // The host config runs with a starter's installed dependencies, which the repository does not have, so it
 // cannot be imported here; its source is checked instead (ADR 0037, AUDIT S3).
@@ -138,11 +139,11 @@ describe("the IWSDK starter's controller models (from the host, never the CDN)",
     assert.match(source, /process\.env\.HALCYONIC_PREVIEW_PROFILES/);
     assert.match(
       source,
-      /configureServer\(server\) \{\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
+      /configureServer\(server\) \{\n\s+server\.middlewares\.use\(refuseServiceWorkers\);\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
     );
     assert.match(
       source,
-      /configurePreviewServer\(server\) \{\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
+      /configurePreviewServer\(server\) \{\n\s+server\.middlewares\.use\(refuseServiceWorkers\);\n\s+server\.middlewares\.use\(`\/\$\{PROFILES_PREFIX\}`/,
     );
   });
 
@@ -253,5 +254,59 @@ describe("the IWSDK starter's controller models (from the host, never the CDN)",
     assert.deepEqual(profiles.buildFiles(null, listing), []);
     const tampered = hostWith(Buffer.from('glTF model bytez'), model);
     assert.deepEqual(profiles.buildFiles(tampered.folder, listing), []);
+  });
+});
+
+interface WorkersModule {
+  refuseServiceWorkers(
+    req: { headers: Record<string, string | string[] | undefined> },
+    res: Answer,
+    next: () => void,
+  ): void;
+}
+
+const workers = (await import(new URL('service-workers.mjs', hostFolder).href)) as WorkersModule;
+
+describe('no service worker on a preview origin (AUDIT M16A-C1)', () => {
+  /** What the middleware does with a request carrying these headers. */
+  const handle = (headers: Record<string, string | string[] | undefined>) => {
+    const res: Answer = {
+      statusCode: 200,
+      headers: {},
+      body: undefined,
+      setHeader(name, value) {
+        this.headers[name] = value;
+      },
+      end(body) {
+        this.body = body;
+      },
+    };
+    let passed = false;
+    workers.refuseServiceWorkers({ headers }, res, () => {
+      passed = true;
+    });
+    return { res, passed };
+  };
+
+  test("answers 404 with no body to a worker script's fetch, whatever its value, and passes everything else on", () => {
+    for (const value of ['script', 'Script', '', ['script', 'script']]) {
+      const { res, passed } = handle({ 'service-worker': value });
+      assert.equal(passed, false, JSON.stringify(value));
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.body, undefined);
+    }
+    const page = handle({ accept: 'text/html' });
+    assert.equal(page.passed, true);
+    assert.equal(page.res.statusCode, 200);
+  });
+
+  test('the host config puts it first, for the preview server and the dev server, and the check copies it', () => {
+    const uses = source.match(/server\.middlewares\.use\(refuseServiceWorkers\)/g) ?? [];
+    assert.equal(uses.length, 2);
+    for (const hook of ['configureServer(server) {', 'configurePreviewServer(server) {']) {
+      const body = source.slice(source.indexOf(hook) + hook.length);
+      assert.match(body, /^\s*server\.middlewares\.use\(refuseServiceWorkers\);/, hook);
+    }
+    assert.ok((HOST_FILES as readonly string[]).includes('service-workers.mjs'));
   });
 });
