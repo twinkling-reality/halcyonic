@@ -111,4 +111,25 @@ describe("the IWSDK starter's input layer", () => {
     );
     assert.match(read('public/ui/welcome.uikitml'), /id="laptop-help"/);
   });
+
+  test("the card's words go after 6 s of game time or when VR starts, never at a press (GQ1a)", () => {
+    const panel = read('src/panel.ts');
+    // Game time, so a checked page drops them at the same frame in every load, with or without a press.
+    assert.match(panel, /const CARD_SECONDS = 6;/);
+    assert.match(panel, /update\(_delta: number, time: number\): void \{/);
+    assert.match(panel, /if \(time < CARD_SECONDS && !immersive\) return;/);
+    // Not on a press or a key: then a press would always seem to change the screen.
+    assert.doesNotMatch(panel, /play-input|pressed\(|onSelect\(|setTimeout|setInterval/);
+    const card = read('public/ui/welcome.uikitml');
+    assert.match(card, /<Panel id="card" class="panel-root">/);
+    assert.match(card, /<div id="card-words" class="panel-content">/);
+  });
+
+  test('the agent is asked for motion from the time it is given, a pop on a hit, a big score, and a tidy src (GQ1a)', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /`src\/motion\.ts`/);
+    assert.match(agents, /never a timer of its own/);
+    assert.match(agents, /`pop` it/);
+    assert.match(agents, /delete any scratch or helper files you made/);
+  });
 });

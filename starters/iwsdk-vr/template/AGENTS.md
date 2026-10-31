@@ -35,4 +35,11 @@ Input, both ways:
 - Never add listeners to the window, document or canvas, and never read controllers or keys directly. If the game
   needs an input `play-input.ts` does not have, add it there, for both ways.
 
+Make it fun to look at:
+- Give every game object some motion each frame from `src/motion.ts` (`bob`, `wiggle`, `spin`), using the `time`
+  your system's `update(delta, time)` is given, never a timer of its own, so the person's computer can check it.
+- When something is hit or scores, `pop` it, and show the score big and easy to read.
+- The welcome card's words go by themselves after a few seconds (`src/panel.ts`); leave that as it is.
+- Before you finish, delete any scratch or helper files you made: no `.py`, `.txt` or patch files in `src/`.
+
 Keep changes small, one idea at a time, and keep the app running after each one.
