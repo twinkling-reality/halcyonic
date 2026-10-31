@@ -10,9 +10,21 @@ export function fixture(name: string): unknown {
   return JSON.parse(readFileSync(new URL(`../../fixtures/v1/${name}`, import.meta.url), 'utf8'));
 }
 
-/** A consumer credential in Phat Porcupine's form: `ppc_` and 32 random bytes in base64url. */
-export function consumerToken(): string {
-  return `ppc_${randomBytes(32).toString('base64url')}`;
+export type ConsumerTokenPrefix = 'omc' | 'ppc';
+
+export type CatalogContractName = 'omnorium.catalog' | 'phat-porcupine.catalog';
+
+export interface FakePhatPorcupineOptions {
+  readonly tokenPrefix?: ConsumerTokenPrefix;
+  readonly contracts?: readonly CatalogContractName[];
+}
+
+/**
+ * A consumer credential in Omnorium's (`omc_`) or Phat Porcupine's (`ppc_`) form: prefix and 32
+ * random bytes in base64url.
+ */
+export function consumerToken(prefix: ConsumerTokenPrefix = 'omc'): string {
+  return `${prefix}_${randomBytes(32).toString('base64url')}`;
 }
 
 export interface SeenRequest {
@@ -22,15 +34,22 @@ export interface SeenRequest {
   readonly socket: number | undefined;
 }
 
+const DEFAULT_CONTRACTS: readonly CatalogContractName[] = [
+  'omnorium.catalog',
+  'phat-porcupine.catalog',
+];
+
 /**
- * A stand-in for Phat Porcupine's Node server speaking catalog contract v1 on loopback, for tests:
- * it publishes its discovery file in a temporary home of its own (directory 0700, file 0600), proves
- * the instance with an HMAC of each challenge, and serves a catalog to its one credential. Each
- * field below changes what it answers next, so a test can make it refuse, wait, or pose as another.
+ * A stand-in for Omnorium's (formerly Phat Porcupine's) Node server speaking catalog contract v1 on
+ * loopback, for tests: it publishes its discovery file in a temporary home of its own (directory
+ * 0700, file 0600), proves the instance with an HMAC of each challenge, and serves a catalog to its
+ * one credential. Each field below changes what it answers next, so a test can make it refuse, wait,
+ * or pose as another.
  */
 export class FakePhatPorcupine {
   readonly home: string;
-  readonly token = consumerToken();
+  token: string;
+  contracts: readonly CatalogContractName[];
   readonly instanceId = randomBytes(16).toString('hex');
   readonly secret = randomBytes(32);
   /** Every request, as received, for tests that check what was sent before the proof. */
@@ -49,17 +68,19 @@ export class FakePhatPorcupine {
   testGitHub = false;
   readonly #server: Server;
 
-  private constructor(home: string, server: Server) {
+  private constructor(home: string, server: Server, options: FakePhatPorcupineOptions = {}) {
     this.home = home;
+    this.token = consumerToken(options.tokenPrefix ?? 'omc');
+    this.contracts = options.contracts ?? DEFAULT_CONTRACTS;
     this.#server = server;
   }
 
-  static async start(): Promise<FakePhatPorcupine> {
+  static async start(options: FakePhatPorcupineOptions = {}): Promise<FakePhatPorcupine> {
     const home = mkdtempSync(join(tmpdir(), 'halcyonic-phat-porcupine-'));
     chmodSync(home, 0o700);
     let fake: FakePhatPorcupine | null = null;
     const server = createServer((request, response) => fake?.handle(request, response));
-    fake = new FakePhatPorcupine(home, server);
+    fake = new FakePhatPorcupine(home, server, options);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     fake.publish();
     return fake;
@@ -80,18 +101,20 @@ export class FakePhatPorcupine {
       secret: this.secret.toString('base64url'),
       sample: this.sample,
       testGitHub: this.testGitHub,
-      contracts: [
-        {
-          name: 'phat-porcupine.catalog',
-          major: 1,
-          minor: 0,
-          baseUrl: `http://127.0.0.1:${this.port}/consumer/v1`,
-        },
-      ],
+      contracts: this.#contractEntries(),
     };
     change(document);
     writeFileSync(this.discoveryPath, `${JSON.stringify(document)}\n`, { mode: 0o600 });
     chmodSync(this.discoveryPath, 0o600);
+  }
+
+  #contractEntries(): Record<string, unknown>[] {
+    return this.contracts.map((name) => ({
+      name,
+      major: 1,
+      minor: 0,
+      baseUrl: `http://127.0.0.1:${this.port}/consumer/v1`,
+    }));
   }
 
   async close(): Promise<void> {
@@ -142,14 +165,7 @@ export class FakePhatPorcupine {
             this.impersonate === 'instance' ? randomBytes(16).toString('hex') : this.instanceId,
           sample: this.sample,
           testGitHub: this.testGitHub,
-          contracts: [
-            {
-              name: 'phat-porcupine.catalog',
-              major: 1,
-              minor: 0,
-              baseUrl: `http://127.0.0.1:${this.port}/consumer/v1`,
-            },
-          ],
+          contracts: this.#contractEntries(),
           proof,
         },
         this.closeAfterDiscovery ? { connection: 'close' } : {},

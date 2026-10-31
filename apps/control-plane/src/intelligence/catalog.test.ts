@@ -17,7 +17,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
     dataDir = mkdtempSync(join(tmpdir(), 'halcyonic-catalog-data-'));
     credentialPath = join(dataDir, PHAT_PORCUPINE_CREDENTIAL_FILE);
     catalog = new PhatPorcupineCatalog({
-      home: fake.home,
+      homes: [fake.home],
       credentialPath,
       protect: [dataDir],
       timeoutMs: 2000,
@@ -96,7 +96,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
     assert.equal(answer.availability, 'available');
     assert.ok(!JSON.stringify(answer).includes(fake.token));
     const missing = await new PhatPorcupineCatalog({
-      home: `${fake.home}-gone`,
+      homes: [`${fake.home}-gone`],
       credentialPath,
       protect: [dataDir],
       timeoutMs: 2000,
@@ -106,7 +106,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
 
   test('a link is admitted only for a repository the last catalog held, under the same name', async () => {
     const fresh = new PhatPorcupineCatalog({
-      home: fake.home,
+      homes: [fake.home],
       credentialPath,
       protect: [dataDir],
       timeoutMs: 2000,
@@ -133,7 +133,7 @@ describe("the control plane's catalog from Phat Porcupine (ADR 0039)", () => {
     fake.publish();
     save(fake.token, 0o600);
     const sampled = new PhatPorcupineCatalog({
-      home: fake.home,
+      homes: [fake.home],
       credentialPath,
       protect: [dataDir],
       timeoutMs: 2000,

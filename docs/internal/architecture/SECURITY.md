@@ -333,19 +333,21 @@ logged or passed to launched agents:
   instance on loopback. That proof is the instance id alone, which Salidium's discovery endpoint
   gives any local process, so an account that read it once could pose as Salidium on its port
   after an unclean stop left the file behind, and receive the credential.
-- Phat Porcupine's consumer credential, in `<data dir>/phat-porcupine-credential`, reads the
+- Phat Porcupine's (Omnorium's) consumer credential, in `<data dir>/phat-porcupine-credential`, reads the
   person's catalog and nothing else, read from a regular file of at most 1 KiB opened without
   following a link or waiting on a pipe ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-phat-porcupine.md)). It is never journaled or sent to a client.
-  Phat Porcupine's discovery file is read only when it is a regular file, not a link, owned by this
-  user and writable by nobody else. The instance must then answer a fresh 32-byte challenge with its
-  HMAC-SHA256 under a secret only that file holds, compared in constant time, before the credential
-  is sent, so a listener that took the port, even one that read an earlier discovery answer, gets
-  nothing. The catalog request goes only on the connection the proof came back on, kept open between
-  them: the client opens one connection per read and refuses a second, so if Phat Porcupine closes
-  that connection after the proof, the credential is sent on no other and the gallery hears that the
-  connection closed. It is sent only in Phat Porcupine's `ppc_`
-  form, only to 127.0.0.1 on the port the file names, over `node:http` with no proxy and no
-  redirect followed, and an answer past 8 MiB is not read.
+  The discovery file (`consumer.json` in `OMNORIUM_HOME`, else `PHAT_PORCUPINE_HOME`, else
+  `~/.omnorium` and then `~/.phat-porcupine`, moving to the second only when the first has no
+  discovery file and never past an unsafe, unreadable or invalid one) is read only when it is a
+  regular file, not a link, owned by this user and writable by nobody else. The instance must then
+  answer a fresh 32-byte challenge with its HMAC-SHA256 under a secret only that file holds,
+  compared in constant time, before the credential is sent, so a listener that took the port, even
+  one that read an earlier discovery answer, gets nothing. The catalog request goes only on the
+  connection the proof came back on, kept open between them: the client opens one connection per
+  read and refuses a second, so if the server closes that connection after the proof, the credential
+  is sent on no other and the gallery hears that the connection closed. It is sent only in
+  Omnorium's `omc_` or Phat Porcupine's `ppc_` form, only to 127.0.0.1 on the port the file names,
+  over `node:http` with no proxy and no redirect followed, and an answer past 8 MiB is not read.
 - Seorak's integration credential, in `<data dir>/seorak-credential`, reads Seorak's content-free
   measurements with the `sessions:read` and `replay:read` scopes, and the provider usage limits
   Seorak last observed, account wide, with `limits:read`, for the audience

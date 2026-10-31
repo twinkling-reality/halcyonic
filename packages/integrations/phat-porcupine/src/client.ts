@@ -17,8 +17,11 @@ import {
 import { readCatalog, toCatalogResponse } from './wire.ts';
 
 export interface PhatPorcupineOptions {
-  /** Phat Porcupine's home, where it publishes `consumer.json`. See `defaultPhatPorcupineHome`. */
-  readonly home: string;
+  /**
+   * Where Omnorium (formerly Phat Porcupine) may publish `consumer.json`, tried in order until a
+   * discovery file is found. See `defaultCatalogHomes`.
+   */
+  readonly homes: readonly string[];
   /**
    * Reads the consumer credential the person created for Halcyonic, or null when there is none, or
    * says why it can't be used. It is read on every request and sent only in its own form, and only
@@ -70,7 +73,7 @@ export class PhatPorcupineClient {
     agent: OneConnection,
     signal: AbortSignal | undefined,
   ): Promise<CatalogResponse> {
-    const instance = await connect(this.#options.home, {
+    const instance = await connect(this.#options.homes, {
       timeoutMs,
       agent,
       ...(signal && { signal }),
