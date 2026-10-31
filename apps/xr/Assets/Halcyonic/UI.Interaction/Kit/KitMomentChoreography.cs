@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Client;
@@ -27,6 +28,15 @@ namespace Halcyonic.XR.UI
         private IReadOnlyList<IReadOnlyList<Transform>> parts = new List<IReadOnlyList<Transform>>();
         private readonly Dictionary<Transform, Vector3> placed = new Dictionary<Transform, Vector3>();
         private readonly Dictionary<TMP_Text, Color> colours = new Dictionary<TMP_Text, Color>();
+        private bool answering;
+        private bool sentSounded;
+        private Transform? keptAnswer;
+        private IReadOnlyList<Transform> answered = new List<Transform>();
+        private readonly Dictionary<Transform, bool> wasActive = new Dictionary<Transform, bool>();
+        private readonly Dictionary<Transform, float> bottoms = new Dictionary<Transform, float>();
+
+        /// <summary>The answered moment is playing: its answers' fade, its shrink to the receipt, then its retirement.</summary>
+        public bool Answering => answering;
 
         /// <summary>The time since the arrival or retirement began, in milliseconds.</summary>
         public double Elapsed => ms;
@@ -99,6 +109,82 @@ namespace Halcyonic.XR.UI
             Seek(0);
         }
 
+        /// <summary>
+        /// Begins an answered moment (the handoff's Answered; <see cref="KitMomentTimeline.Answered"/>): the answers not taken
+        /// fade while <paramref name="kept"/> stays; the card shrinks to its receipt (<see cref="KitMomentCard.ShowReceipt"/>)
+        /// from its top, no longer lit, and every part the glass passes is hidden, so no words stand on the room; the receipt
+        /// fades in with the Sent cue through the player the owner gives (silent without); at 1600 ms the card retires to
+        /// <paramref name="headAt"/>. Under <paramref name="keepStill"/> it lands as fades.
+        /// </summary>
+        public void Answer(KitMomentAction kept, bool accepted, Vector3 headAt, bool keepStill)
+        {
+            Settle();
+            head = headAt;
+            still = keepStill;
+            retiring = false;
+            card.Pop(1f);
+            card.ShowReceipt(accepted);
+            keptAnswer = card.Shown.Where(each => each.Action == kept).Select(each => each.Button.transform).FirstOrDefault();
+            bodyAt = card.Body.localPosition;
+            var all = card.Parts;
+            answered = all.Skip(1).SelectMany(group => group).ToList();
+            parts = card.ReceiptParts;
+            placed.Clear();
+            colours.Clear();
+            wasActive.Clear();
+            bottoms.Clear();
+            foreach (var part in all.SelectMany(group => group).Concat(parts.SelectMany(group => group)))
+            {
+                placed[part] = part.localPosition;
+                wasActive[part] = part.gameObject.activeSelf;
+                bottoms[part] = BottomOf(part);
+            }
+            foreach (var label in card.GetComponentsInChildren<TMP_Text>(true))
+                colours[label] = label.color;
+            answering = true;
+            sentSounded = false;
+            playing = true;
+            Seek(0);
+        }
+
+        /// <summary>The lowest point of a part's drawing on the card's body, where the shrinking glass first passes it.</summary>
+        private float BottomOf(Transform part)
+        {
+            var low = float.MaxValue;
+            foreach (var drawn in part.GetComponentsInChildren<Renderer>(false))
+            {
+                var b = drawn.localBounds;
+                foreach (var corner in new[] { b.min, b.max, new Vector3(b.min.x, b.max.y, b.min.z), new Vector3(b.max.x, b.min.y, b.max.z) })
+                    low = Mathf.Min(low, card.Body.InverseTransformPoint(drawn.transform.TransformPoint(corner)).y);
+            }
+            return low;
+        }
+
+        /// <summary>One frame of the answer before the card retires.</summary>
+        private void ShowAnswered(KitAnsweredFrame frame)
+        {
+            var height = Mathf.Lerp(card.Size.y, card.ReceiptHeight, (float)frame.Shrink);
+            card.DrawHeight(height, frame.Lit);
+            var glass = card.Carrier.Glass;
+            glass?.Fade(1f);
+            glass?.SetBloom(0f);
+            // The glass's face from the card's top: a part below it would stand on the room.
+            var faceFoot = -height / 2f - (glass != null ? glass.FaceSize.y / 2f : height / 2f);
+            foreach (var part in answered)
+            {
+                var opacity = part == keptAnswer ? frame.KeptOpacity : card.Shown.Any(each => each.Button.transform == part) ? frame.OthersOpacity * frame.BodyOpacity : frame.BodyOpacity;
+                var shows = wasActive[part] && opacity > 0.001 && bottoms[part] >= faceFoot - 1e-5f;
+                part.gameObject.SetActive(shows);
+                if (shows) Fade(part, (float)opacity);
+            }
+            foreach (var part in parts[parts.Count - 1])
+            {
+                part.gameObject.SetActive(frame.ReceiptOpacity > 0.001);
+                Fade(part, (float)frame.ReceiptOpacity);
+            }
+            line.gameObject.SetActive(false);
+        }
+
         /// <summary>Begins the card's retirement: it scales down and fades as the line drops back, then hides.</summary>
         public void Retire(bool keepStill)
         {
@@ -114,11 +200,25 @@ namespace Halcyonic.XR.UI
         public void Seek(double atMs)
         {
             ms = atMs;
-            var frame = retiring ? KitMomentTimeline.Retirement(ms, still) : KitMomentTimeline.Arrival(ms, still);
+            if (answering)
+            {
+                // The Sent cue as the receipt comes in, once, from the card's place (at once under Keep Still: sound is no motion).
+                if (!sentSounded && (still || ms >= KitMomentTimeline.SentAtMs))
+                {
+                    sentSounded = true;
+                    Sound?.Play(KitSound.Sent, card.Carrier.transform.position);
+                }
+                ShowAnswered(KitMomentTimeline.Answered(Math.Min(ms, KitMomentTimeline.AnsweredRetireAtMs - 1e-3), still));
+                if (ms < KitMomentTimeline.AnsweredRetireAtMs) return;
+            }
+            // An answered card retires from its receipt, from 1600 ms.
+            var local = answering ? ms - KitMomentTimeline.AnsweredRetireAtMs : ms;
+            var leaving = retiring || answering;
+            var frame = leaving ? KitMomentTimeline.Retirement(local, still) : KitMomentTimeline.Arrival(local, still);
             var unit = KitType.Units(SpatialKit.Degrees(1f));
 
             // The card opens (or retires) about 14 percent across its bottom edge on the character's side.
-            var size = card.Size;
+            var size = card.Drawn;
             var side = card.GrowsFromLeft ? -1f : 1f;
             var pivot = new Vector3(side * (size.x / 2f - 0.14f * size.x), -size.y, 0f);
             var scale = (float)frame.CardScale;
@@ -128,7 +228,7 @@ namespace Halcyonic.XR.UI
             // The glass: its face's opacity, and the bloom from the clock alone.
             foreach (var carrier in card.Carriers)
                 if (carrier.Glass is KitGlass glass) glass.Fade((float)frame.CardOpacity);
-            if (card.Carrier.Glass is KitGlass lit) lit.SetBloom(retiring ? 0f : (float)frame.Bloom);
+            if (card.Carrier.Glass is KitGlass lit) lit.SetBloom(leaving ? 0f : (float)frame.Bloom);
 
             // The parts rise into place and fade in, in reading order.
             for (var index = 0; index < parts.Count; index++)
@@ -141,7 +241,7 @@ namespace Halcyonic.XR.UI
                 }
             }
             // Its sound from its place, once, as its parts begin to rise (at once under Keep Still: sound is no motion).
-            if (!retiring && !sounded && Cue is KitSound cue && (still || ms >= KitMomentTimeline.PartsAtMs))
+            if (!leaving && !sounded && Cue is KitSound cue && (still || ms >= KitMomentTimeline.PartsAtMs))
             {
                 sounded = true;
                 Sound?.Play(cue, card.Carrier.transform.position);
@@ -149,7 +249,7 @@ namespace Halcyonic.XR.UI
 
             // A pass's check draws itself as the card settles.
             if (card.Tone.gameObject.activeSelf && colours.TryGetValue(card.Tone, out var check))
-                card.Tone.color = new Color(check.r, check.g, check.b, check.a * (float)(retiring ? frame.CardOpacity : KitMomentTimeline.CheckDrawn(ms, still) * frame.CardOpacity));
+                card.Tone.color = new Color(check.r, check.g, check.b, check.a * (float)(leaving ? frame.CardOpacity : KitMomentTimeline.CheckDrawn(ms, still) * frame.CardOpacity));
 
             // The light line: from the character's head to the card's growing corner, 2 dp, the tone from 15 percent to full.
             var showLine = frame.LineOpacity > 0.001 && frame.LineProgress > 0.001;
@@ -167,10 +267,10 @@ namespace Halcyonic.XR.UI
                 line.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (to - from).normalized);
             }
 
-            var end = retiring ? KitMomentTimeline.RetireMs : KitMomentTimeline.ArrivalMs(parts.Count);
-            if (ms >= end)
+            var end = leaving ? KitMomentTimeline.RetireMs : KitMomentTimeline.ArrivalMs(parts.Count);
+            if (local >= end)
             {
-                if (retiring) card.gameObject.SetActive(false);
+                if (leaving) card.gameObject.SetActive(false);
                 Settle();
             }
         }
@@ -192,6 +292,15 @@ namespace Halcyonic.XR.UI
                     glass.SetBloom(0f);
                 }
             line.gameObject.SetActive(false);
+            if (answering)
+            {
+                // Back to the card as it was laid out: every part as it stood, the glass whole and lit, no receipt.
+                answering = false;
+                foreach (var pair in wasActive) if (pair.Key != null) pair.Key.gameObject.SetActive(pair.Value);
+                card.DrawHeight(card.Size.y, true);
+                card.ReceiptLead.gameObject.SetActive(false);
+                card.ReceiptThen.gameObject.SetActive(false);
+            }
         }
 
         private void Fade(Transform part, float opacity)
