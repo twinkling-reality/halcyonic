@@ -203,7 +203,7 @@ namespace Halcyonic.XR.UI
         private static GlazeIcon? ToneGlyph(KitMomentTone tone) => tone == KitMomentTone.Passed ? GlazeIcon.Approve : (GlazeIcon?)null;
 
         /// <summary>A question's and a failure's mark: the bare symbol in the face's own type, never an icon that reads as another act.</summary>
-        private static string? ToneSymbol(KitMomentTone tone) => tone switch
+        internal static string? ToneSymbol(KitMomentTone tone) => tone switch
         {
             KitMomentTone.Attention => "?",
             KitMomentTone.Failure => "!",

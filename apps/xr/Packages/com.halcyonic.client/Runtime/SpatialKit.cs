@@ -236,6 +236,17 @@ namespace Halcyonic.Client
         /// <summary>A pointed primary's 3 dp ring outside its capsule: n7 at 45 percent over n1 (3.46:1 on n1, 3.26 on n2).</summary>
         public static GlazeColor PrimaryRing => Over(Text, 0.45, Carrier);
 
+        /// <summary>A locked capsule's reading progress, filling from its left: n7 at 14 percent over n1 (#3B3F43), drawn opaque.</summary>
+        public static GlazeColor LockedProgress => Over(Text, 0.14, Carrier);
+
+        /// <summary>
+        /// The reading surface, in dp at the eye (the art direction's handoff): 704 by 528; its well inset 14, from 96 below the top
+        /// to 84 above the bottom, padded 14 by 18; a 24 dp fade at an edge where lines are hidden; the foot 12 above the bottom,
+        /// the primary's slot 240 wide.
+        /// </summary>
+        public const float ReaderWidthDp = 704f, ReaderHeightDp = 528f, ReaderWellInsetDp = 14f, ReaderWellTopDp = 96f, ReaderWellBottomDp = 84f,
+            ReaderWellPadYDp = 14f, ReaderWellPadXDp = 18f, ReaderFadeDp = 24f, ReaderFootDp = 12f, ReaderPrimaryDp = 240f;
+
         /// <summary>
         /// The moment card's anatomy, in dp at the eye (the art direction's handoff): the mark and its gap to the eyebrow; the
         /// Title 10 below the eyebrow, the well 14 below what stands above it, the risk line 12, the answers 16; a panel's
