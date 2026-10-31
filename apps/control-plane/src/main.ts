@@ -43,6 +43,7 @@ import {
   stopStaleRuntimeServers,
 } from './runtimes.ts';
 import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
+import { spokenNames } from './speech/tidy.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
 import { HostStarters, originalFolderOf, originalRefusal } from './starters.ts';
@@ -233,7 +234,11 @@ async function main(): Promise<void> {
     );
   };
   controlPlane.reconcile();
-  const transcriptions = new Transcriptions({ engine: speech, clock: systemClock });
+  const transcriptions = new Transcriptions({
+    engine: speech,
+    clock: systemClock,
+    names: () => spokenNames(controlPlane.projection.projects().map((project) => project.name)),
+  });
   const companion = new Companion({ config: config.companion, clock: systemClock });
   const understanding = salidiumUnderstandingFor(config.dataDir),
     evaluation = seorakEvaluationFor(config.dataDir);

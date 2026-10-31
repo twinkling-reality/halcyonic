@@ -99,6 +99,24 @@ describe('POST /api/transcriptions', () => {
     assert.equal(server.controlPlane.journal.head(), head);
   });
 
+  test("the draft is tidied of hesitation, with a project's name spelled as written", async (t) => {
+    const { server, engine } = await start(t);
+    const created = await post(
+      server,
+      JSON.stringify(server.commands.createProject('Space Garden')),
+      {
+        'content-type': 'application/json',
+      },
+      '/api/commands',
+    );
+    assert.equal(created.status, 202);
+    engine.text = 'Um, open space garden and ask open-code.';
+    const response = await post(server, second, { 'content-type': 'audio/wav' });
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as { outcome: string; text?: string };
+    assert.deepEqual([body.outcome, body.text], ['heard', 'Open Space Garden and ask OpenCode.']);
+  });
+
   test('takes audio/wav only, and no other route takes audio', async (t) => {
     const { server, engine } = await start(t);
     for (const type of [

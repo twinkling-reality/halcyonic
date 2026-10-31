@@ -22,9 +22,11 @@ export type TranscriptionEngine = Static<typeof TranscriptionEngine>;
 
 /**
  * What the Mac heard in one clip (`POST /api/transcriptions`, ADR 0021); neither the clip nor the
- * text is journaled, stored or logged. `heard`: the engine's transcript and the language it
- * transcribed in, as a BCP 47 tag. The text is untrusted: a draft shown through the one rule for
- * text Halcyonic did not write, which is never sent anywhere without the person's confirmation.
+ * text is journaled, stored or logged. `heard`: the engine's transcript, tidied of hesitation with
+ * Halcyonic's and the projects' names spelled as written (as heard if tidying fails), and the
+ * language it was transcribed in, as a BCP 47 tag. The text is untrusted: a draft shown through
+ * the one rule for text Halcyonic did not write, which is never sent anywhere without the
+ * person's confirmation.
  * `nothing_heard`: the engine found no speech in the clip, so there is no draft.
  */
 export const TranscriptionResponse = Type.Union([
