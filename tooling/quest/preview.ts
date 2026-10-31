@@ -37,14 +37,24 @@ const PROJECT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 
 const refuse = (reason: string): Gate => ({ ok: false, reason });
 
+/** The ports a preview may use: the contract's range unless a test names its own. */
+export interface PreviewPorts {
+  readonly first: number;
+  readonly last: number;
+}
+
+const CONTRACT_PORTS: PreviewPorts = { first: PREVIEW_PORT_FIRST, last: PREVIEW_PORT_LAST };
+
 /**
  * Whether the project's preview may open on the headset, from the journal's `events` and the host's
- * files in `dataDir`: its preview record and the check's built copy.
+ * files in `dataDir`: its preview record and the check's built copy. `ports` is the contract's range;
+ * only tests name another, so that their stand-in servers never hold a port the host hands out.
  */
 export async function confinedPreview(
   projectId: string,
   events: readonly StoredEvent[],
   dataDir: string,
+  ports: PreviewPorts = CONTRACT_PORTS,
 ): Promise<Gate> {
   // The id names files below the data directory: nothing but an id gets that far.
   if (!PROJECT_ID.test(projectId)) return refuse(`${projectId} is not a project id.`);
@@ -59,8 +69,8 @@ export async function confinedPreview(
   if (check.findings.reads_confined !== true)
     return refuse("the agents' reads were not confined to the project's folder.");
   const port = preview.port;
-  if (!Number.isInteger(port) || port < PREVIEW_PORT_FIRST || port > PREVIEW_PORT_LAST)
-    return refuse(`port ${port} is outside ${PREVIEW_PORT_FIRST} to ${PREVIEW_PORT_LAST}.`);
+  if (!Number.isInteger(port) || port < ports.first || port > ports.last)
+    return refuse(`port ${port} is outside ${ports.first} to ${ports.last}.`);
 
   // The host writes this record before its server serves, and removes it when the server stops.
   let record: { pid?: unknown; port?: unknown; check_id?: unknown };
