@@ -789,6 +789,26 @@ namespace Halcyonic.XR.Workspace
             return corners;
         }
 
+        /// <summary>
+        /// Where the visible console stands from <paramref name="viewer"/>, for the shelf's designed home beside it
+        /// (AgentShelfSearch): its frame's left and right edges and lower edge in degrees, and its distance; null when no
+        /// console is drawn. Measured from the same corners <see cref="ClearsShelf"/> keeps the shelf clear of.
+        /// </summary>
+        public ConsoleExtent? ConsoleExtentFrom(Vector3 viewer)
+        {
+            if (!gameObject.activeInHierarchy || !(VisibleCorners() is Vector3[] corners) || corners.Length == 0) return null;
+            float left = float.PositiveInfinity, right = float.NegativeInfinity, bottom = float.PositiveInfinity;
+            foreach (var corner in corners)
+            {
+                var offset = corner - viewer;
+                var yaw = Direction.Yaw + Mathf.DeltaAngle(Direction.Yaw, Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg);
+                left = Mathf.Min(left, yaw); right = Mathf.Max(right, yaw);
+                bottom = Mathf.Min(bottom, Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
+            }
+            var middle = PlaneLayout.PointOf(eyes, Direction, 0f, 0f) - viewer;
+            return new ConsoleExtent(left, right, bottom, new Vector2(middle.x, middle.z).magnitude);
+        }
+
         /// <summary>Conservatively rejects shelf overlap with the visible frame/dock and any workspace retained under a local overlay.</summary>
         public bool ClearsShelf(IReadOnlyList<Vector3> worldCorners, Vector3 viewer)
         {

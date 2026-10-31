@@ -1595,8 +1595,8 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The production draft's measured search for one agent's shelf over its supported region
-        /// (0.4 to 2 m away, 0.15 to 0.9 m below the eyes), refused by the measured field and the
+        /// The production placement's own measured search for one agent's shelf (AgentShelfSearch: 1.2 to 2 m
+        /// away, 0.15 to 0.9 m below the eyes, turns to 40 degrees either way), refused by the measured field and the
         /// actual console as RoomPlacement refuses a preview. Accepted is null when every candidate
         /// is refused; the counts say which predicates refused them. Creates nothing.
         /// </summary>
@@ -1632,29 +1632,17 @@ namespace Halcyonic.XR.Workspace.Editor
                     return fits && workspaceClear && additionalClear;
                 },
             };
-            // Search only the production draft's supported 0.4–2 m / 0.15–0.9 m-drop region.
-            // The old four-distance grid missed narrow legal gaps, then fabricated a fallback.
-            foreach (var turn in new[] { -40f, 40f, -38f, 38f, -35f, 35f, -32f, 32f, -30f, 30f, -25f, 25f, -20f, 20f, 0f })
-            {
-                if (accepted.HasValue) break;
-                foreach (var distance in new[] { 2f, 1.8f, 1.5f, 1.2f, 1.1f, 1f, 0.9f, 0.8f, 0.6f, 0.4f })
+            // The production placement's own search, in ART's order from the designed home beside the console, 1.2–2 m away
+            // (AgentShelfSearch, which RoomPlacement.BeginPreview runs), facing forward, with this fixture's predicates.
+            var searchClock = System.Diagnostics.Stopwatch.StartNew();
+            if (AgentShelfSearch.Begin(draft, new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z), 0f, out attempts, plane.ConsoleExtentFrom(eyes)))
+                draft.Apply(proposed =>
                 {
-                    if (accepted.HasValue) break;
-                    foreach (var drop in new[] { 0.9f, 0.8f, 0.75f, 0.6f, 0.45f, 0.3f, 0.15f })
-                    {
-                        attempts++;
-                        var candidate = eyes + Quaternion.Euler(0f, turn, 0f) * Vector3.forward * distance - Vector3.up * drop;
-                        draft.Begin(new AgentShelfPose(new System.Numerics.Vector3(candidate.x, candidate.y, candidate.z), turn),
-                            new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z));
-                        if (draft.Candidate == null) continue;
-                        if (draft.Apply(proposed =>
-                        {
-                            accepted = new Pose(new Vector3(proposed.Position.X, proposed.Position.Y, proposed.Position.Z), Quaternion.Euler(0f, proposed.Yaw, 0f));
-                            return true;
-                        })) break;
-                    }
-                }
-            }
+                    accepted = new Pose(new Vector3(proposed.Position.X, proposed.Position.Y, proposed.Position.Z), Quaternion.Euler(0f, proposed.Yaw, 0f));
+                    return true;
+                });
+            searchClock.Stop();
+            Debug.Log($"Halcyonic: {name} shelf search took {searchClock.Elapsed.TotalMilliseconds:0.0} ms over {attempts} candidates.");
             Debug.Log($"Halcyonic: {name} measured placement candidates={attempts}; field refusals={fieldFailures}; workspace refusals={workspaceFailures}; additional refusals={additionalFailures}; accepted={accepted.HasValue}.");
             return (accepted, attempts, fieldFailures, workspaceFailures, additionalFailures);
         }

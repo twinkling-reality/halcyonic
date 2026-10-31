@@ -249,6 +249,8 @@ namespace Halcyonic.XR.Workspace
         }
 
         public bool ClearsShelf(IReadOnlyList<Vector3> corners, Vector3 viewer) => menu != null && menu.ClearsShelf(corners, viewer);
+        /// <summary>Where the visible console stands from <paramref name="viewer"/>, for the shelf's designed home beside it; null with none.</summary>
+        public ConsoleExtent? ShelfConsole(Vector3 viewer) => menu != null ? menu.Plane.ConsoleExtentFrom(viewer) : null;
         public bool ReportLocal(string reason) => menu != null && !Presentation.Minimized && menu.ReportLocal(reason);
         public bool OpenLocal(IMenuColumn column) => menu != null && !Presentation.Minimized && menu.OpenLocal(column);
         public IMenuHost? MenuHost => menu;
