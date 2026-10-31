@@ -20,7 +20,8 @@ namespace Halcyonic.XR.UI
     public sealed class KitReader : MonoBehaviour
     {
         private const int MostLines = 64;
-        private static readonly float[] FadeSteps = { 0.75f, 0.5f, 0.3f, 0.12f };
+        // From the well's edge inward over a half-shown row: deepest at the edge, so its letters fade toward it.
+        private static readonly float[] FadeSteps = { 0.95f, 0.83f, 0.71f, 0.59f, 0.47f, 0.35f, 0.24f, 0.12f };
 
         private KitCarrier carrier = null!;
         private Surface mark = null!;
@@ -77,10 +78,13 @@ namespace Halcyonic.XR.UI
 
         public float Indent { get; private set; }
 
+        /// <summary>The well's foot inside its padding: the rows run down to it.</summary>
+        public float WellFoot { get; private set; }
+
         /// <summary>The command's rows shown now, top to bottom, one label each.</summary>
         public IReadOnlyList<TextMeshPro> Shown => lines.Where(line => line.gameObject.activeSelf).ToList();
 
-        /// <summary>How many rows the well holds at the person's text size.</summary>
+        /// <summary>How many of the command's rows this page shows, counted as read; the half-shown rows are not among them.</summary>
         public int Fits { get; private set; }
 
         public bool FadedAbove => fadeTop.Count > 0 && fadeTop[0].gameObject.activeSelf;
@@ -224,42 +228,47 @@ namespace Halcyonic.XR.UI
             var wellBottom = -h / 2f + Dp(SpatialKit.ReaderWellBottomDp) + Scaled(SpatialKit.ReaderWellPadYDp);
             var inner = WellInner();
             var lineLeft = -w / 2f + Dp(SpatialKit.ReaderWellInsetDp) + Scaled(SpatialKit.ReaderWellPadXDp);
-            // Room kept at the well's foot for the end line, so it never stands over the command's last row.
-            KitType.Size(end, KitRole.Label);
-            var endLineAt = wellBottom + 2f * KitType.LinePitch(end);
-            wellBottom = endLineAt + Scaled(SpatialKit.MarkGapDp);
+            WellFoot = wellBottom;
             foreach (var line in lines) line.gameObject.SetActive(false);
-
-            // Rows from the first asked, as many as the well holds; the last page is full (KitReading clamps the start). Where
-            // rows are hidden above, the first slot holds the row before, half-faded, and is not counted as read.
+            // The end line is the content's last part, scrolled into view after the command's last row like any other row:
+            // it takes as many rows' room as it stands tall, so nothing reflows when the end arrives.
+            KitType.Size(end, KitRole.Label);
+            GlazeText.SetLiteral(end, KitReaderWords.EndOfCommand + (risk != null ? " · " + risk : ""));
+            var (_, _, endTall) = KitType.Lay(end, inner, 2);
             KitType.Size(lines[0], KitRole.Mono);
             var pitch = KitType.LinePitch(lines[0]);
-            var whole = Mathf.Clamp(Mathf.FloorToInt((wellTop - wellBottom + 1e-5f) / pitch), 2, lines.Count);
-            Fits = first > 0 ? whole - 1 : whole;
-            var start = reading.Show(first, Fits);
-            if (start == 0 && Fits < whole) start = reading.Show(0, Fits = whole);
-            var shown = Mathf.Min(Fits, reading.Rows.Count - start);
-            var rowsTop = reading.HiddenAbove ? wellTop - pitch : wellTop;
+            var endRows = Mathf.CeilToInt((Scaled(SpatialKit.MarkGapDp) + endTall - 1e-5f) / pitch);
+
+            // The well holds whole rows from its top to its foot. Where rows are hidden above, the first slot holds the row
+            // before, half-shown under the fade; where rows are hidden below, the last slot holds the row after. Neither counts
+            // as read. The last page ends on the end line; a page that would leave no row hidden below is the last page.
+            var whole = Mathf.Clamp(Mathf.FloorToInt((wellTop - wellBottom + 1e-5f) / pitch), endRows + 3, lines.Count);
+            int Room(bool above, bool last) => whole - (above ? 1 : 0) - (last ? endRows : 1);
+            var count = reading.Rows.Count;
+            var lastStart = count <= Room(false, true) ? 0 : count - Room(true, true);
+            var start = Mathf.Clamp(first, 0, lastStart);
+            if (start + Room(start > 0, false) >= count) start = lastStart;
+            var shown = start == lastStart ? count - start : Room(start > 0, false);
+            Fits = shown;
+            start = reading.Show(start, shown);
+            // The rows stand on the well's foot: what the well's height leaves over whole rows stands above them, never under
+            // the half-shown row, so the well never ends in an empty band where more is hidden.
+            var gridTop = wellBottom + whole * pitch;
+            var rowsTop = reading.HiddenAbove ? gridTop - pitch : gridTop;
             RowLeft = lineLeft;
             for (var i = 0; i < shown; i++) LayRow(lines[i], start + i, rowsTop - i * pitch, inner);
             var y = rowsTop - shown * pitch;
             peekAbove.gameObject.SetActive(reading.HiddenAbove);
-            if (reading.HiddenAbove) LayRow(peekAbove, start - 1, wellTop, inner);
+            if (reading.HiddenAbove) LayRow(peekAbove, start - 1, gridTop, inner);
             peekBelow.gameObject.SetActive(reading.HiddenBelow(shown));
             if (reading.HiddenBelow(shown)) LayRow(peekBelow, start + shown, y, inner);
             // The fades lie over those half-shown rows, deepest at the well's edge.
-            Fade(fadeTop, reading.HiddenAbove, wellTop, -1f);
+            Fade(fadeTop, reading.HiddenAbove, gridTop, -1f);
             Fade(fadeBottom, reading.HiddenBelow(shown), y - pitch, 1f);
 
             // The end, and Run in Read to End's place once the last row has been shown; Read to End fills as far as read.
             end.gameObject.SetActive(reading.ReadWhole && !reading.HiddenBelow(shown));
-            if (end.gameObject.activeSelf)
-            {
-                KitType.Size(end, KitRole.Label);
-                GlazeText.SetLiteral(end, KitReaderWords.EndOfCommand + (risk != null ? " · " + risk : ""));
-                KitType.Lay(end, inner, 2);
-                end.transform.localPosition = new Vector3(lineLeft, y - Scaled(SpatialKit.MarkGapDp), -0.0005f);
-            }
+            if (end.gameObject.activeSelf) end.transform.localPosition = new Vector3(lineLeft, y - Scaled(SpatialKit.MarkGapDp), -0.0005f);
             var slot = Dp(SpatialKit.ReaderPrimaryDp);
             var centre = new Vector2(primary.transform.localPosition.x, primary.transform.localPosition.y);
             if (reading.ReadWhole)
