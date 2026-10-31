@@ -40,6 +40,8 @@ namespace Halcyonic.XR.UI
 
         private Surface plate = null!;
         private Surface ring = null!;
+        private Surface progress = null!;
+        private float progressShare;
         private TextMeshPro words = null!;
         private TextMeshPro icon = null!;
         private KitPress press = null!;
@@ -55,6 +57,22 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A pointed primary's ring outside its capsule; hidden otherwise.</summary>
         public Surface Ring => ring;
+
+        /// <summary>A locked capsule's reading progress, 0 to 1, filling it from its left (the reader's Read to End).</summary>
+        public float Progress
+        {
+            get => progressShare;
+            set
+            {
+                var clamped = Mathf.Clamp01(value);
+                if (Mathf.Approximately(clamped, progressShare)) return;
+                progressShare = clamped;
+                painted = -1;
+            }
+        }
+
+        /// <summary>The progress fill, for checks.</summary>
+        public Surface ProgressFill => progress;
 
         /// <summary>The answers, the primary and a word, are capsules (the art direction's "one style everywhere").</summary>
         private bool Capsule => role == KitButtonRole.Primary || role == KitButtonRole.Word;
@@ -103,6 +121,8 @@ namespace Halcyonic.XR.UI
             var button = go.AddComponent<KitButton>();
             button.role = role;
             button.ring = Surface.Create(go.transform, "Pointed ring", order - 1);
+            button.progress = Surface.Create(go.transform, "Progress", order + 1);
+            button.progress.gameObject.SetActive(false);
             button.ring.gameObject.SetActive(false);
             button.plate = Surface.Create(go.transform, "Boundary", order);
             button.words = KitType.Create(go.transform, "Words", KitRole.Strong, KitType.Text, order + 2, TextAlignmentOptions.Left, room: room);
@@ -189,7 +209,8 @@ namespace Halcyonic.XR.UI
                 // Locked: a 2 dp n4 ring round a quiet word, its reason being its word; a word answer keeps no shape.
                 fill = Color.clear;
                 edge = role == KitButtonRole.Word ? Color.clear : KitType.Colour(SpatialKit.Edge);
-                text = Capsule ? KitType.Colour(SpatialKit.TextTertiary) : KitType.Secondary;
+                // n5 at rest; n6 while a reading fill stands under it, where n5 would read 4.25 to 1 on #3B3F43.
+                text = Capsule ? KitType.Colour(progressShare > 0f ? SpatialKit.TextSecondary : SpatialKit.TextTertiary) : KitType.Secondary;
                 if (role == KitButtonRole.Primary) edgeWidth = answerRing;
             }
             else
@@ -230,6 +251,16 @@ namespace Halcyonic.XR.UI
             var opacity = away ? AwayOpacity : 1f;
             plate.Draw(size, radius, fill, edge, edgeWidth);
             plate.Fade(opacity);
+            // A locked capsule fills from its left as far as it has been read.
+            var filling = !available && Capsule && progressShare > 0f;
+            progress.gameObject.SetActive(filling);
+            if (filling)
+            {
+                var fillWidth = size.x * progressShare;
+                progress.Draw(new Vector2(fillWidth, size.y), Mathf.Min(size.y, fillWidth) / 2f, KitType.Colour(SpatialKit.LockedProgress));
+                progress.transform.localPosition = new Vector3(-size.x / 2f + fillWidth / 2f, 0f, -0.0002f);
+                progress.Fade(opacity);
+            }
             ring.gameObject.SetActive(ringShown);
             if (ringShown)
             {

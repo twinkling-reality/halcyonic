@@ -237,6 +237,16 @@ public class SpatialKitTests
     }
 
     [Test]
+    public void ALockedCapsulesWordReadsOverItsReadingFill()
+    {
+        // The handoff's fill (n7 at 14 percent over n1, #3B3F43) under its n5 word reads 4.25:1, under the floor; the word lifts to
+        // n6 while the fill stands under it (DESIGN, 2026-10-31; told to ART).
+        Assert.That(GlazeColor.Contrast(SpatialKit.LockedProgress, GlazeColor.Hex(0x3B3F43)), Is.LessThan(1.02), "the handoff's composite");
+        Assert.That(GlazeColor.Contrast(SpatialKit.TextTertiary, SpatialKit.LockedProgress), Is.LessThan(4.5), "why the word lifts");
+        Assert.That(GlazeColor.Contrast(SpatialKit.TextSecondary, SpatialKit.LockedProgress), Is.GreaterThanOrEqualTo(4.5), "n6 over the fill");
+    }
+
+    [Test]
     public void ALockedOutlineShowsWithoutReadingAsWords()
     {
         // n4 draws a locked answer's ring and the kit's hairlines: a boundary at WCAG's 3:1 for non-text, quieter than any word.

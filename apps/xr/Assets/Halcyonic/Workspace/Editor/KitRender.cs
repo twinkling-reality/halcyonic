@@ -62,7 +62,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
-                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates))
+                    foreach (var state in new[] { "1-focused-work", "1-focused-work-plane", "2-overview", "2-overview-plane", "3-compact-presence", "4-control-kit" }.Concat(States).Concat(ScreenStates).Concat(MomentStates).Concat(FontStates).Concat(GlassStates).Concat(ChoreographyStates).Concat(ReaderStates))
                     {
                         try { found.AddRange(RenderState(state, size)); }
                         catch (Exception error) { found.Add(state + " threw " + error); }
@@ -170,6 +170,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     _ when FontStates.Contains(state) => FontShot(state, root.transform, eyes),
                     _ when GlassStates.Contains(state) => GlassShot(state, root.transform, eyes),
                     _ when ChoreographyStates.Contains(state) => ChoreographyShot(state, root.transform, eyes),
+                    _ when ReaderStates.Contains(state) => ReaderShot(state, root.transform, eyes),
                     _ => ControlKit(root.transform, eyes),
                 };
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));

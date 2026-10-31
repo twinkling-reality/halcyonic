@@ -116,6 +116,23 @@ narrower, rising 36 dp above the card, rim 8; their count stands at the eyebrow'
 card, Label read under the 14 dp floor). No locked answer stands in the card's
 top 40 percent, where the bloom peaks. The render names any part that does not read whole.
 
+**The reading surface.** A command of theirs is read whole before it can run (`KitReader`, `KitReading`): 704 by 528 dp of
+the same glass (44 by 33 degrees from the eyes), its question's tone on the edge; the head as the card's (the mark, a ring
+with the question's "?", then the eyebrow in Body, since at the reader's far corner Label would read under the floor, then
+the Title) with Fold as a word at its top right; the well inset 14 dp, from 96 dp below the top to 84 above the bottom, n0,
+radius 12, padded 14 by 18, showing the command in their monospace by rows (comments n5, the rest n7). A line wraps only at
+its spaces; a token alone longer than a row breaks inside, after a "/", "?", "&", "=", ",", ";" or ":" where one fits and
+otherwise where the row ends, never after a "-", so never between "--" and its name. A wrapped row hangs two characters in,
+so a wrap never reads as a new command. Each row is laid alone and never cut, and the rows add up to the line exactly, its
+indentation kept and a tab shown as its code point. The reading goes by rows, so a line longer than the well is paged
+through to its last row like any other. At an edge where rows are hidden, the next row stands half-faded under a 24 dp
+fade, deepest at the well's edge, and does not count as read; at the end, "End of Command · " and what answering may do,
+in Label n6. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline and Reply,
+12 apart. The slot is the locked "Read to End", filled from its left in #3B3F43 as far as the command has been read, with
+its word in n6 while the fill stands under it (n5 over the fill reads 4.25:1), and becomes Run only once the last row of
+the last line has been shown; scrolling back never locks it again. The unlock sounds the Moment cue where its owner gives
+the reader a player.
+
 **Sound.** The room's ten cues are one key, A major pentatonic (`KitSounds` in the client core makes their samples from
 the art direction's notes, onsets, durations and levels; no audio assets; `KitSoundPlayer` plays them): Tick (a tile
 pointed at, a 3.2 kHz noise tap), Press (every answer and tile on release, a 2.4 kHz tap then an A6 bell), Moment (E6, A6),
