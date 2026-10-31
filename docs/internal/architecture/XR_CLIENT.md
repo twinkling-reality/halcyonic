@@ -1582,6 +1582,24 @@ projects aren't part of this recording." Tests: `GalleryTests`, `CatalogReadsTes
 `DemonstrationCatalogTests`; `JudgeWordsTests` gathers every word of the sample gallery for the brand
 check.
 
+### The kid flow's core (M1.8e-core, 2026-10-31)
+
+The headset side of making and playing a game, core only: the screens wait for DESIGN's layout (M1.8d).
+A project's view carries, each only when there is one, its latest `Check` (the check's id and findings as
+recorded), its running `Preview` (the check it serves and the loopback port) and its `MacPlay` (the check
+whose game plays on the computer), so a headset that connects after a check still has it; `ClientProjection`
+applies them like every view, deriving nothing from events. `CommandFactory` builds `MakeVrVersion`
+(original, root, new folder name), `CheckProject`, `StartPreview`, `StopPreview` and `OpenOnMac`.
+`ProjectPlayFacts` reads the view: `LatestCheck`, `PreviewOfLatestCheck`, `IsPlaying`, `BrowserPermissions`
+(`OwnPermissions`, `AppPermissions`, or `Unknown` when the check recorded nothing, never read as either) and
+`PlayOnLaptopFor`, which offers Play on Laptop only on the host's own admission facts in its order (no check,
+not passed, not ready on a laptop, not confined, no preview of that check, already playing) and says
+`Unavailable` when the host refused the last attempt as `capability_unsupported` (no browser or launcher set
+up there), never an error. `reads_confined` false stays false. The host may still refuse an offered Play on
+Laptop, and nothing of the play's viewer (its link, code or session) ever reaches the client: the viewer
+opens on the computer only. Tests: `ProjectPlayFactsTests`, `CommandFactoryTests`, `ClientProjectionTests`,
+and `LiveControlPlaneTests` against a real control plane for the host's refusals.
+
 ## Verification
 
 `apps/xr/dotnet` compiles the two packages' sources as .NET Standard 2.1 with C# 9 and warnings as
