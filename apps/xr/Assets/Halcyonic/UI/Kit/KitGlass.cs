@@ -23,6 +23,7 @@ namespace Halcyonic.XR.UI
         private static readonly int PanelId = Shader.PropertyToID("_Panel");
         private static readonly int QuadId = Shader.PropertyToID("_Quad");
         private static readonly int ToneId = Shader.PropertyToID("_Tone");
+        private static readonly int TintId = Shader.PropertyToID("_Tint");
         private static readonly int LightId = Shader.PropertyToID("_Light");
 
         private static Material? material;
@@ -42,6 +43,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The tone blooming the face, or none at rest.</summary>
         public GlazeColor? Tone { get; private set; }
+
+        /// <summary>The avatar's left-edge wash colour across the face, or none.</summary>
+        public GlazeColor? Tint { get; private set; }
 
         /// <summary>How far the bloom stands, 0 to 1 of its peak.</summary>
         public float Bloom { get; private set; }
@@ -83,12 +87,13 @@ namespace Halcyonic.XR.UI
         /// and a rim of <paramref name="rimDp"/>; a <paramref name="tone"/> lights its edge and, at <paramref name="bloom"/>
         /// above zero, blooms its face. The panel is centred on the glass's parent point; the quad reaches past it.
         /// </summary>
-        public void Draw(Vector2 size, float radius, float rimDp = KitGlassMaterial.RimDp, GlazeColor? tone = null, float bloom = 0f, bool glow = true)
+        public void Draw(Vector2 size, float radius, float rimDp = KitGlassMaterial.RimDp, GlazeColor? tone = null, float bloom = 0f, bool glow = true, GlazeColor? tint = null)
         {
             Size = size;
             Radius = radius;
             RimDp = rimDp;
             Tone = tone;
+            Tint = tint;
             Bloom = Mathf.Clamp01(bloom);
             Glow = glow;
             var unit = Units(1f);
@@ -102,6 +107,7 @@ namespace Halcyonic.XR.UI
             block.SetVector(PanelId, new Vector4(width, height, radius / unit, rimDp));
             block.SetVector(QuadId, new Vector4(-width / 2f - side, -height / 2f - bottom, quadSize.x, quadSize.y));
             block.SetVector(ToneId, tone is GlazeColor shown ? new Vector4(shown.R / 255f, shown.G / 255f, shown.B / 255f, 1f) : Vector4.zero);
+            block.SetVector(TintId, tint is GlazeColor wash ? new Vector4(wash.R / 255f, wash.G / 255f, wash.B / 255f, 1f) : Vector4.zero);
             block.SetVector(LightId, new Vector4(Bloom, glow ? 1f : 0f, opacity, 0f));
             glassRenderer.SetPropertyBlock(block);
             gameObject.SetActive(true);

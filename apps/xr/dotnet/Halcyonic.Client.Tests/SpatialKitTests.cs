@@ -234,6 +234,11 @@ public class SpatialKitTests
         }
         foreach (var disc in new[] { SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed })
             Assert.That(GlazeColor.Contrast(SpatialKit.Well, disc), Is.GreaterThanOrEqualTo(7), $"n0 on the {disc} disc");
+
+        var tintedTopLeft = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0, -0.75, SpatialKit.AvatarTint));
+        Assert.That(SpatialKit.AvatarTint.Luminance, Is.LessThanOrEqualTo(SpatialKit.FaceTop.Luminance), "avatar tint never lifts the face's top");
+        foreach (var word in new[] { SpatialKit.AttentionSign, SpatialKit.FailureSign, SpatialKit.Text, SpatialKit.TextSecondary, SpatialKit.TextTertiary })
+            Assert.That(GlazeColor.Contrast(word, tintedTopLeft), Is.GreaterThanOrEqualTo(4.5), $"{word} on tinted top left {tintedTopLeft}");
     }
 
     /// <summary>A colour's hue on the sRGB colour wheel, in degrees.</summary>

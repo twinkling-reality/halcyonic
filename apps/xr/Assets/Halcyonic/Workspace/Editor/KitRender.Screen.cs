@@ -95,7 +95,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "the bar's actions are not the model's");
             Require(actions.Contains(KitScreenAction.TryIt) == (model.CanTry && !model.Folded), "Try it stands without a passed check of the computer's own, or is missing");
             Require(actions.Contains(KitScreenAction.MakeAVrVersion) == (!model.IsVr && !model.Folded), "Make a VR version stands where it does not apply, or is missing");
-            if (!model.Folded) Require(bar.Shown[0].Action == model.Primary && bar.Shown[0].Button.Role == KitButtonRole.Primary, "the primary action is not first or not filled");
+            if (!model.Folded) Require(bar.Shown[0].Action == model.Primary && bar.Shown[0].Button.Role == KitButtonRole.Primary
+                && bar.Shown[0].Button.Meaning == KitPillMeaning.Blue && bar.Shown[0].Button.Pill != null, "the primary action is not first or not a blue glossy capsule");
             Require(bar.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) == (model.Folded ? 0 : 1), "more or less than one primary action");
             Require(bar.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not the blue capsule with its white word");
             Require(bar.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryPointedShows(each.Button)), "a pointed primary is not told from its rest at 3:1");

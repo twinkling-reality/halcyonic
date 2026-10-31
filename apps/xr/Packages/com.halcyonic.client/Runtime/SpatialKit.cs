@@ -281,6 +281,12 @@ namespace Halcyonic.Client
 
         public static GlazeColor FaceBottom => GlazeColor.Hex(0x3B3E42);
 
+        /// <summary>
+        /// An avatar's side tint on the glass panel beside it (2026-10-31): its blue hue deepened so the 28-to-0 percent left
+        /// wash never lifts the face's luminance above its untinted top, holding every word and mark sign to 4.5:1.
+        /// </summary>
+        public static GlazeColor AvatarTint => GlazeColor.Hex(0x163E8F);
+
         /// <summary>Needs the person: a question, an approval.</summary>
         public static GlazeColor Attention => GlazeColor.Hex(0xFABA59);
 

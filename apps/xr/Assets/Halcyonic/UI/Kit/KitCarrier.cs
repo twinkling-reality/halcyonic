@@ -84,7 +84,7 @@ namespace Halcyonic.XR.UI
         /// a <paramref name="tone"/>, said in the panel's words too, lights its edge and blooms its face by
         /// <paramref name="bloom"/>. The opaque face, its lit edge and its shade stand aside while it does.
         /// </summary>
-        public void DrawGlass(Vector2 size, float radius, float rimDp = KitGlassMaterial.RimDp, GlazeColor? tone = null, float bloom = 0f, bool glow = true)
+        public void DrawGlass(Vector2 size, float radius, float rimDp = KitGlassMaterial.RimDp, GlazeColor? tone = null, float bloom = 0f, bool glow = true, GlazeColor? tint = null)
         {
             Size = size;
             Radius = radius;
@@ -92,7 +92,7 @@ namespace Halcyonic.XR.UI
             face.gameObject.SetActive(false);
             edgeLight.gameObject.SetActive(false);
             foreach (var band in shade) band.gameObject.SetActive(false);
-            glass.Draw(size, radius, rimDp, tone, bloom, glow);
+            glass.Draw(size, radius, rimDp, tone, bloom, glow, tint);
         }
 
         /// <summary>

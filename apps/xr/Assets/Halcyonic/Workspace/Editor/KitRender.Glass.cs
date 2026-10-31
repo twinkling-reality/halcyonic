@@ -29,14 +29,14 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly (string Name, GlazeColor Room)[] GlassRooms =
             { ("dark room", KitGlassMaterial.DarkRoom), ("lit room", KitGlassMaterial.LitRoom), ("white wall", KitGlassMaterial.WhiteWall) };
 
-        private static readonly (string Words, float Rim, GlazeColor? Tone)[] GlassPanels =
+        private static readonly (string Words, float Rim, GlazeColor? Tone, GlazeColor? Tint)[] GlassPanels =
         {
-            ("At Rest", KitGlassMaterial.RimDp, null),
-            ("Needs You", KitGlassMaterial.RimDp, SpatialKit.Attention),
-            ("Passed", KitGlassMaterial.RimDp, SpatialKit.Passed),
-            ("Failed", KitGlassMaterial.RimDp, SpatialKit.Failure),
-            ("Plate Rim", KitGlassMaterial.PlateRimDp, null),
-            ("Tile Rim", KitGlassMaterial.SmallRimDp, null),
+            ("At Rest", KitGlassMaterial.RimDp, null, null),
+            ("Needs You", KitGlassMaterial.RimDp, SpatialKit.Attention, null),
+            ("Passed", KitGlassMaterial.RimDp, SpatialKit.Passed, null),
+            ("Failed", KitGlassMaterial.RimDp, SpatialKit.Failure, null),
+            ("Plate Rim", KitGlassMaterial.PlateRimDp, null, SpatialKit.AvatarTint),
+            ("Tile Rim", KitGlassMaterial.SmallRimDp, null, null),
         };
 
         /// <summary>The room's panels and what each one's glass costs in fill (handoff section 5's sizes, in dp).</summary>
@@ -50,7 +50,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var view = new GameObject("Glass").transform;
             view.SetParent(root, false);
             var unit = KitGlass.Units(1f);
-            var panels = new List<(KitCarrier Carrier, string Room, GlazeColor Ground, float Rim, GlazeColor? Tone)>();
+            var panels = new List<(KitCarrier Carrier, string Room, GlazeColor Ground, float Rim, GlazeColor? Tone, GlazeColor? Tint)>();
             var rowWidth = GlassPanels.Length * GlassWidthDp + (GlassPanels.Length + 1) * GlassGapDp;
             for (var row = 0; row < GlassRooms.Length; row++)
             {
@@ -61,10 +61,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 plate.transform.localPosition = new Vector3(0f, y * unit, 0.002f);
                 for (var index = 0; index < GlassPanels.Length; index++)
                 {
-                    var (words, rim, tone) = GlassPanels[index];
+                    var (words, rim, tone, tint) = GlassPanels[index];
                     var x = (index - (GlassPanels.Length - 1) / 2f) * (GlassWidthDp + GlassGapDp);
                     var carrier = KitCarrier.Create(view, words + " over the " + roomName);
-                    carrier.DrawGlass(new Vector2(GlassWidthDp, GlassHeightDp) * unit, GlassRadiusDp * unit, rim, tone, tone != null ? 1f : 0f);
+                    carrier.DrawGlass(new Vector2(GlassWidthDp, GlassHeightDp) * unit, GlassRadiusDp * unit, rim, tone, tone != null ? 1f : 0f, tint: tint);
                     carrier.transform.localPosition = new Vector3(x * unit, y * unit, 0f);
                     // Strong, not Label: the page's outer panels stand 30 degrees out, where Label would read under the floor.
                     var label = KitType.Create(carrier.transform, "Words", KitRole.Strong, KitType.Text, KitType.Order.Words, room: true);
@@ -73,7 +73,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var (lines, _, _) = KitType.Lay(label, (GlassWidthDp - 2f * inset) * unit, 1);
                     Require(lines == 1 && !label.isTextTruncated, words + " is cut");
                     label.transform.localPosition = new Vector3((-GlassWidthDp / 2f + inset) * unit, (GlassHeightDp / 2f - inset) * unit, -0.0005f);
-                    panels.Add((carrier, roomName, ground, rim, tone));
+                    panels.Add((carrier, roomName, ground, rim, tone, tint));
                 }
             }
             shot.Elevation = 0f;
@@ -119,7 +119,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (matched && off > GlassTolerance)
                         found.Add(where + " drew " + KitGlassMaterial.ToColour(drawn) + " for the prototype's " + KitGlassMaterial.ToColour(expected) + ", " + off.ToString("0.0") + "/255 off");
                 }
-                foreach (var (carrier, room, ground, rim, tone) in panels)
+                foreach (var (carrier, room, ground, rim, tone, tint) in panels)
                 {
                     var (w, h) = (GlassWidthDp, GlassHeightDp);
                     Vector3 At(float x, float y) => carrier.transform.TransformPoint(new Vector3(x * unit, y * unit, 0f));
@@ -130,15 +130,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     var across = x / (w / 2.0);
                     foreach (var tf in new[] { 0.10, 0.36, 0.90 })
                     {
-                        var face = KitGlassMaterial.LitFace(tf, across);
+                        var face = KitGlassMaterial.LitFace(tf, across, tint);
                         var expected = tone is GlazeColor shown ? KitGlassMaterial.Prototype(KitGlassMaterial.Channels(shown), KitGlassMaterial.BloomAt(tf), KitGlassMaterial.ToColour(face)) : face;
-                        Sample(tone != null ? "bloom" : "face", room, At(x, (float)(h / 2f - tf * h)), expected, true, name + " face at " + tf.ToString("0.00"));
+                        Sample(tone != null ? "bloom" : tint != null ? "tint" : "face", room, At(x, (float)(h / 2f - tf * h)), expected, true, name + " face at " + tf.ToString("0.00"));
+                    }
+                    if (tint != null)
+                    {
+                        var leftX = -w / 2f + rim + 8f;
+                        var leftY = -h / 2f + rim + 14f;
+                        var leftTf = (h / 2.0 - leftY) / h;
+                        var leftExpected = KitGlassMaterial.LitFace(leftTf, leftX / (w / 2.0), tint);
+                        Sample("tint", room, At(leftX, leftY), leftExpected, true, name + " tinted left edge");
                     }
                     // Where the quiet glass's rim stood the face goes on: opaque, the same grey, never the room.
                     foreach (var (rx, ry, where) in new[] { (0f, -h / 2f + rim * 0.6f, "foot"), (w / 2f - rim * 0.6f, 0f, "side") })
                     {
                         var t = (h / 2.0 - ry) / h;
-                        var lit = KitGlassMaterial.LitFace(t, rx / (w / 2.0));
+                        var lit = KitGlassMaterial.LitFace(t, rx / (w / 2.0), tint);
                         var rimExpected = tone is GlazeColor bloomTone ? KitGlassMaterial.Prototype(KitGlassMaterial.Channels(bloomTone), KitGlassMaterial.BloomAt(t), KitGlassMaterial.ToColour(lit)) : lit;
                         Sample("face", room, At(rx, ry), rimExpected, true, name + " face at the former rim's " + where);
                     }
