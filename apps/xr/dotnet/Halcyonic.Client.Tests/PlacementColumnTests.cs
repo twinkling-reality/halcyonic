@@ -31,7 +31,7 @@ public class PlacementColumnTests
         var column = new PlacementColumn(host, () => { }, "An outside task title");
         ActVisible(column, PlacementColumn.ReadTitle);
         var title = column.Frame!;
-        Assert.That(title.Subject, Is.EqualTo("Task title")); Assert.That(title.Lines.Single().Runs.AllTheirs, Is.True);
+        Assert.That(title.Subject, Is.EqualTo("Task Title")); Assert.That(title.Lines.Single().Runs.AllTheirs, Is.True);
         column.Drawn(title, null); column.Act(PlacementColumn.Back, null);
         Assert.That(column.Frame!.Subject, Is.EqualTo(PlacementColumn.Subject));
     }
@@ -64,7 +64,7 @@ public class PlacementColumnTests
             Assert.That(MenuPage.Rows(frame.Lines.Count), Is.LessThanOrEqualTo(host.Height + .0001));
             foreach (var line in frame.Lines) seen.Add(line.Action + ":" + line.Key);
             foreach (var line in frame.Lines.Where(line => line.Action == PlacementColumn.OtherApps))
-                Assert.That(line.Words, Is.EqualTo("Open work window"));
+                Assert.That(line.Words, Is.EqualTo("Open Work Window"));
             column.Drawn(frame, null);
             if (frame.Footer[PromptSlot.FarRight]?.Words == "First Page") break;
             column.Act(Footer.NextPage, null);
@@ -76,7 +76,7 @@ public class PlacementColumnTests
         canApps = true; column.FocusLeft(); ActVisible(column, PlacementColumn.OtherApps); Assert.That(openedApps, Is.EqualTo(1));
         ActVisible(column, PlacementColumn.BeginMove); Assert.That(moving, Is.True); Assert.That(column.Moving, Is.True);
         var movingFrame = column.Frame!;
-        Assert.That(movingFrame.Footer[PromptSlot.Close]!.Words, Is.EqualTo("Done moving"));
+        Assert.That(movingFrame.Footer[PromptSlot.Close]!.Words, Is.EqualTo("Done Moving"));
         column.Drawn(movingFrame, null); column.Act(PlacementColumn.OtherApps, null);
         Assert.That(openedApps, Is.EqualTo(1), "the explicit moving page cannot authorize an app switch");
         column.FocusLeft(); column.Act(PlacementColumn.Minimize, null);

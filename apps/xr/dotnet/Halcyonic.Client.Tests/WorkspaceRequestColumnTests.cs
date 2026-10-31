@@ -95,7 +95,7 @@ public class WorkspaceRequestColumnTests
         var foreign = Result(context); foreign.WorkstreamId = "0192f1a0-0000-7000-8000-000000000199";
         var column = Open(host, context, read: (_, _) => Task.FromResult(new WorkspaceRequestResponse { Request = foreign }));
         Draw(host, column);
-        Assert.That(column.Frame!.Lines.Single().Words, Does.Contain("another task or run"));
+        Assert.That(column.Frame!.Lines.Single().Words, Does.Contain("Another Task or Run"));
         Assert.That(column.Frame.Footer.All.Any(each => each.Prompt.Id == WorkspaceRequestColumn.Resume || each.Prompt.Id == WorkspaceRequestColumn.Stop), Is.False);
         column.Act(WorkspaceRequestColumn.Resume, null); column.Act(WorkspaceRequestColumn.Stop, null);
         Assert.That(host.Sent, Is.Empty); Assert.That(column.Draft.Text, Is.EqualTo("My retained local draft"));
@@ -338,7 +338,7 @@ public class WorkspaceRequestColumnTests
         Draw(host, column); column.Act(MenuFrame.ChooseSection, "receipts");
         var words = column.Frame!.Lines.Single().Words;
         Assert.That(column.Frame!.Sections.Single(section => section.Chosen).Words, Is.EqualTo("Actions"));
-        Assert.That(words, Does.Contain("Not sent").And.Contain("Unknown").And.Not.Contain("Actions"));
+        Assert.That(words, Does.Contain("Not Sent").And.Contain("Unknown").And.Not.Contain("Actions"));
         Assert.That(words, Does.Not.Contain("position").And.Not.Contain("receipt").And.Not.Contain("987654"));
     }
 
@@ -355,7 +355,7 @@ public class WorkspaceRequestColumnTests
         var column = Open(host, context, read: (_, _) => Task.FromResult(new WorkspaceRequestResponse { Request = response }));
         Draw(host, column); column.Act(MenuFrame.ChooseSection, "receipts");
         var words = column.Frame!.Lines.Single().Words;
-        Assert.That(words, Does.Contain("Turn finished").And.Contain("Software changes remain unverified.").And.Contain("Read confirmed").And.Contain("Direction recorded"));
+        Assert.That(words, Does.Contain("Round Ended").And.Contain("Changes Unverified").And.Contain("Read Confirmed").And.Contain("Direction Recorded"));
         Assert.That(words, Does.Not.Contain("\nConfirmed\n"));
         Assert.That(host.Sent, Is.Empty);
         var starts = new System.Collections.Generic.HashSet<int>();

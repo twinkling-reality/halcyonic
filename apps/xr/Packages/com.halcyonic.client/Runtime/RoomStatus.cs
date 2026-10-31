@@ -132,7 +132,7 @@ namespace Halcyonic.Client
             Shown == RoomSpace.Room && Placement is StagePlacement.OnSurface or StagePlacement.OnSurfaceThisSession or StagePlacement.BackOnSurface;
 
         /// <summary>The switch's label, which says what pressing it does.</summary>
-        public string SwitchLabel => Shown == RoomSpace.Room ? "Show a virtual space" : "Show my room";
+        public string SwitchLabel => Shown == RoomSpace.Room ? "Show Virtual Space" : "Show My Room";
 
         /// <summary>What is offered, given whether the headset can run its space setup from the app.</summary>
         public RoomOffer Offer(bool canSetUpRoom)
@@ -147,8 +147,8 @@ namespace Halcyonic.Client
 
         public static string OfferLabel(RoomOffer offer) => offer switch
         {
-            RoomOffer.AllowRoomAccess => "Allow room access",
-            RoomOffer.SetUpRoom => "Set up this room",
+            RoomOffer.AllowRoomAccess => "Allow Room Access",
+            RoomOffer.SetUpRoom => "Set Up Room",
             _ => "",
         };
 
@@ -160,40 +160,40 @@ namespace Halcyonic.Client
                 if (Shown == RoomSpace.Virtual)
                 {
                     return Passthrough == PassthroughState.Unavailable
-                        ? "Passthrough is unavailable, so you are in a virtual space."
-                        : "You are in a virtual space.";
+                        ? "Passthrough Unavailable · Virtual Space"
+                        : "Virtual Space";
                 }
                 var desk = Surface == SurfaceKind.Desk;
-                if (Placement == StagePlacement.OnShelfThisSession) return "The shelf stays where you placed it this session.";
+                if (Placement == StagePlacement.OnShelfThisSession) return "Shelf Stays This Session";
                 switch (Placement)
                 {
                     case StagePlacement.OnSurface:
-                        return desk ? "Your agents are on your desk." : "Your agents are on a surface near you.";
+                        return desk ? "Agents on Your Desk" : "Agents on Nearby Surface";
                     case StagePlacement.OnSurfaceThisSession:
-                        return desk ? "Your agents are on your desk for this session." : "Your agents are near you for this session.";
+                        return desk ? "Agents on Desk · This Session" : "Agents Nearby · This Session";
                     case StagePlacement.BackOnSurface:
-                        return desk ? "Your agents are back on your desk." : "Your agents are back where you left them.";
+                        return desk ? "Agents Back on Desk" : "Agents Back Where Left";
                     case StagePlacement.LostSurface:
-                        return "Lost track of the placement. Agents are tucked away until it recovers.";
+                        return "Placement Lost · Agents Tucked Away";
                 }
                 switch (Scan)
                 {
                     case RoomScan.AskingAccess:
-                        return "To stand your agents on your desk, allow access to this room's layout.";
+                        return "Allow Room Access · Agents Can Use Desk";
                     case RoomScan.NoAccess:
-                        return "Room access is unavailable. You can place a shelf manually.";
+                        return "Room Access Unavailable · Place Shelf";
                     case RoomScan.AccessOff:
-                        return "Room access is off. You can allow it in the headset's settings.";
+                        return "Room Access Off · Allow in Headset Settings";
                     case RoomScan.NotSetUp:
-                        return "This room is not set up; agents stay tucked away until you place a shelf.";
+                        return "Room Not Set Up · Place Shelf";
                     case RoomScan.OutsideRooms:
-                        return "Outside your set-up rooms. Agents stay tucked away; place a shelf.";
+                        return "Outside Set-Up Rooms · Place Shelf";
                     case RoomScan.Unavailable:
-                        return "Room layout unavailable. Agents stay tucked away; place a shelf.";
+                        return "Room Layout Unavailable · Place Shelf";
                 }
                 return Placement == StagePlacement.NoSurface
-                    ? "No free desk or table in reach; agents stay tucked away until you place a shelf."
-                    : "Agents are off. Place a shelf when you want them.";
+                    ? "No Free Desk in Reach · Place Shelf"
+                    : "Agents Off · Place Shelf";
             }
         }
 

@@ -183,10 +183,10 @@ namespace Halcyonic.Client
     public sealed class DemonstrationReads : IIntelligenceReader
     {
         /// <summary>Why there is no answer where the playback stands.</summary>
-        public const string NothingRecorded = "The demonstration recorded no answer about this work here.";
+        public const string NothingRecorded = "Demo · No Recorded Answer Here";
 
         /// <summary>Why there is no answer before the recording is read.</summary>
-        public const string StillBeingRead = "The demonstration is still being read.";
+        public const string StillBeingRead = "Demo · Still Reading";
 
         private readonly DemonstrationPlayer player;
 

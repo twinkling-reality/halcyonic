@@ -196,12 +196,12 @@ public class ProjectsScreensTests
         state.Connection = unknown;
         state.ChosenFolder = shop.Key;
         var blocked = ProjectsScreens.Projects(state);
-        Assert.That(blocked.Reason, Does.Contain("Unconfirmed"), "an unknown outcome is said as unknown, not as still coming");
+        Assert.That(blocked.Reason, Does.StartWith("Other Folder Unconfirmed · "), "an unknown outcome is said as unknown, not as still coming");
         Assert.That(blocked.Reason, Does.Contain("Check Projects"));
         state.ChosenFolder = notes.Key;
         var own = ProjectsScreens.Projects(state);
         Assert.That(own.Footer[PromptSlot.FarRight], Is.Null, "a connection that may have run is never offered again");
-        Assert.That(own.Side!.Facts.Last().Value, Does.Contain("Unconfirmed"));
+        Assert.That(own.Side!.Facts.Last().Value, Does.StartWith("Connect Unconfirmed · "));
         state.ChosenFolder = shop.Key;
         state.Connection = connection;
 

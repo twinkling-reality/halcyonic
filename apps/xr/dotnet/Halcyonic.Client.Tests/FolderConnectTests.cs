@@ -194,7 +194,7 @@ public class FolderConnectTests
         lost.Advance(With());
         Assert.That(lost.CanRetry, Is.False);
         Assert.That(lost.Unresolved, Is.EqualTo(command.CommandId));
-        Assert.That(ConnectText.Outcome(lost), Does.Contain("Unconfirmed"));
+        Assert.That(ConnectText.Outcome(lost), Does.StartWith("Connect Unconfirmed · "));
         Assert.Throws<InvalidOperationException>(() => lost.Retry());
 
         var failed = new FolderConnection(FolderConnect.Offers(Listing(Root("Projects", Folder("shop")))).Single(), Commands);
@@ -205,7 +205,7 @@ public class FolderConnectTests
             Failure = new CommandFailure { Code = "timeout", Message = "No answer.", Effect = FailureEffect.Unknown },
         }));
         Assert.That(failed.CanRetry, Is.False);
-        Assert.That(ConnectText.Outcome(failed), Does.Contain("Unconfirmed"));
+        Assert.That(ConnectText.Outcome(failed), Does.StartWith("Connect Unconfirmed · "));
 
         var notSent = new FolderConnection(FolderConnect.Offers(Listing(Root("Projects", Folder("shop")))).Single(), Commands);
         notSent.Begin();

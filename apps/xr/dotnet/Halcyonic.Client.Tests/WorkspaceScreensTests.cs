@@ -194,7 +194,7 @@ public class WorkspaceScreensTests
         model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
         Assert.That(model.Parts, Is.EqualTo((1, 7)));
         Assert.That(model.PartsCaption, Is.Null, "the pager in the heading's row has no words");
-        Assert.That(screen.Answer!.Provenance, Is.EqualTo("Step 2 of 7 · From Salidium 0.6.0, 2 minutes ago"), "which step leads the provenance");
+        Assert.That(screen.Answer!.Provenance, Is.EqualTo("Step 2 of 7 · Salidium 0.6.0 · 2 min ago"), "which step leads the provenance");
         Assert.That(screen.Answer!.Lines[0].Text, Is.EqualTo("Why · explained by a model, up to date"));
         screen.TurnAnswer(-5);
         Assert.That(screen.AnswerPage, Is.Zero, "never before the first");
@@ -215,7 +215,7 @@ public class WorkspaceScreensTests
         screen.ReadAnswer(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
         Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Parts, Is.EqualTo((0, 2)),
             "what was checked pages from the checks seen to the measurement, each under its own source");
-        Assert.That(screen.AnswerPages[1].Provenance, Is.EqualTo("From Seorak, read 1 minute ago"));
+        Assert.That(screen.AnswerPages[1].Provenance, Is.EqualTo("Seorak · Read 1 min ago"));
         screen.ReadAnswer(Answers.Understand(UnderstandPrompt.WhyChanged, Intelligence.Verified), new AnswerRoom(20));
         Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Parts, Is.Null, "an answer of one page shows no pager");
     }

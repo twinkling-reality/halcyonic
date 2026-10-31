@@ -105,10 +105,10 @@ namespace Halcyonic.Client
         public const string Pairing = "pairing";
 
         /// <summary>Why the room's rows take no change while no room is given (proposed by lane W, 2026-10-03).</summary>
-        public const string RoomUnread = "Your room can't be read now.";
+        public const string RoomUnread = "Room Unreadable";
 
         /// <summary>Why Pairing takes no change while the pairing isn't there yet, or has gone.</summary>
-        public const string PairingNotReady = "Pairing isn't ready yet.";
+        public const string PairingNotReady = "Not Ready";
 
         /// <param name="act">Raised with a row's id when its change is pressed; for Pairing, only to pair, unpaired.</param>
         /// <param name="forget">
@@ -124,17 +124,17 @@ namespace Halcyonic.Client
             // comes or goes while Settings shows changes what a row says, never which rows there are.
             var rows = new List<MenuSetting>
             {
-                new MenuSetting(SwitchSpace, SettingsText.YourSpace, "Around you", () => Space(now().Room), () => act(SwitchSpace)),
-                new MenuSetting(TakeOffer, SettingsText.YourSpace, "Your room's layout", () => Offer(now()), () => act(TakeOffer)),
-                new MenuSetting(ToggleAgents, SettingsText.YourSpace, "Spatial agents", () => Agents(now()), () => act(ToggleAgents)),
-                new MenuSetting(PlaceAgents, SettingsText.YourSpace, "Agent shelf", () => Shelf(now()), () => act(PlaceAgents)),
-                new MenuSetting(ResetPosition, SettingsText.YourSpace, "The menu", () => Menu(now().MenuMoved), () => act(ResetPosition)),
+                new MenuSetting(SwitchSpace, SettingsText.YourSpace, "Surroundings", () => Space(now().Room), () => act(SwitchSpace)),
+                new MenuSetting(TakeOffer, SettingsText.YourSpace, "Room Layout", () => Offer(now()), () => act(TakeOffer)),
+                new MenuSetting(ToggleAgents, SettingsText.YourSpace, "Agents", () => Agents(now()), () => act(ToggleAgents)),
+                new MenuSetting(PlaceAgents, SettingsText.YourSpace, "Agent Shelf", () => Shelf(now()), () => act(PlaceAgents)),
+                new MenuSetting(ResetPosition, SettingsText.YourSpace, "Menu", () => Menu(now().MenuMoved), () => act(ResetPosition)),
             };
             if (now().ShelfPage != null)
             {
-                rows.Insert(rows.Count - 1, new MenuSetting(PreviousAgent, SettingsText.YourSpace, "Previous agent",
+                rows.Insert(rows.Count - 1, new MenuSetting(PreviousAgent, SettingsText.YourSpace, "Previous Agent",
                     () => AgentPage(now(), previous: true), () => act(PreviousAgent)));
-                rows.Insert(rows.Count - 1, new MenuSetting(NextAgent, SettingsText.YourSpace, "Next agent",
+                rows.Insert(rows.Count - 1, new MenuSetting(NextAgent, SettingsText.YourSpace, "Next Agent",
                     () => AgentPage(now(), previous: false), () => act(NextAgent)));
             }
             if (boundary)
@@ -158,44 +158,44 @@ namespace Halcyonic.Client
 
         /// <summary>The menu's row: where it stands by itself, or where the person dragged it until Reset position.</summary>
         private static SettingNow Menu(bool moved) => moved
-            ? new SettingNow("Where you moved it", "Where you moved it", "In front of you", "The menu comes back in front of you, within reach", "Reset position")
-            : new SettingNow("Where it stands", "Where it stands now", "In front of you", "The menu comes back in front of you, within reach", "Reset position");
+            ? new SettingNow("Moved", "Position · Moved", "Default", "Back in Front · Within Reach", "Reset Position")
+            : new SettingNow("Default", "Position · Default", "Default", "Back in Front · Within Reach", "Reset Position");
 
         private static SettingNow Space(RoomStatus? room)
         {
-            if (room == null) return new SettingNow("Not known", RoomUnread, "Your room", RoomUnread, "Show my room", RoomUnread);
-            var reason = room.CanSwitch ? null : "This headset can't show your room now.";
+            if (room == null) return new SettingNow("Unknown", RoomUnread, "Your Room", RoomUnread, "Show My Room", RoomUnread);
+            var reason = room.CanSwitch ? null : "Room Unavailable";
             return room.Shown == RoomSpace.Room
-                ? new SettingNow("Your room", room.Line, "A virtual space", "A virtual backdrop replaces your room around the workspace", room.SwitchLabel, reason)
-                : new SettingNow("Virtual space", room.Line, "Your room", "Your room appears through the headset around the workspace", room.SwitchLabel, reason);
+                ? new SettingNow("Your Room", room.Line, "Virtual Space", "Virtual Backdrop Replaces Room", room.SwitchLabel, reason)
+                : new SettingNow("Virtual Space", room.Line, "Your Room", "Room Shows Through Headset", room.SwitchLabel, reason);
         }
 
         private static SettingNow Offer(SpaceNow now) => now.Room is not RoomStatus room
-            ? new SettingNow("Not known", RoomUnread, "Nothing to set up", RoomUnread, "Set up this room", RoomUnread)
+            ? new SettingNow("Unknown", RoomUnread, "Nothing to Set Up", RoomUnread, "Set Up Room", RoomUnread)
             : room.Scan == RoomScan.NotRead
-                ? new SettingNow("Not read", room.Line, "Place a shelf", "Room layout is read only from the shelf placement preview", "Place shelf")
+                ? new SettingNow("Not Read", room.Line, "Place Shelf", "Read Only from Shelf Preview", "Place Shelf")
             : now.Offer switch
             {
-                RoomOffer.AllowRoomAccess => new SettingNow("No access", room.Line, RoomStatus.OfferLabel(now.Offer),
-                    "The headset asks again to read your room's layout, so the characters can stand on your desk", RoomStatus.OfferLabel(now.Offer)),
-                RoomOffer.SetUpRoom => new SettingNow("Not set up", room.Line, RoomStatus.OfferLabel(now.Offer),
-                    "The headset's space setup captures your room and its furniture", RoomStatus.OfferLabel(now.Offer)),
-                _ => new SettingNow("Ready", room.Line, "Nothing to set up", "Your room needs nothing more", "Set up this room",
-                    "Your room needs nothing set up now."),
+                RoomOffer.AllowRoomAccess => new SettingNow("No Access", room.Line, RoomStatus.OfferLabel(now.Offer),
+                    "Headset Asks Again · Characters Can Use Desk", RoomStatus.OfferLabel(now.Offer)),
+                RoomOffer.SetUpRoom => new SettingNow("Not Set Up", room.Line, RoomStatus.OfferLabel(now.Offer),
+                    "Space Setup Captures Room", RoomStatus.OfferLabel(now.Offer)),
+                _ => new SettingNow("Ready", room.Line, "Nothing to Set Up", "Nothing More Needed", "Set Up Room",
+                    "Nothing to Set Up"),
             };
 
         private static SettingNow Agents(SpaceNow now) => now.AgentsEnabled
-            ? new SettingNow("On", "Agents stand on your placed shelf", "Off", "Keep working with the workspace alone", "Hide agents")
-            : new SettingNow("Off", "The workspace works without characters", now.ShelfPlaced ? "On" : "Place a shelf",
-                "Preview and confirm a visible shelf before agents appear", now.ShelfPlaced ? "Show agents" : "Place agents");
+            ? new SettingNow("On", "Agents on Placed Shelf", "Off", "Workspace Alone", "Hide Agents")
+            : new SettingNow("Off", "Workspace Without Characters", now.ShelfPlaced ? "On" : "Place Shelf",
+                "Confirm Shelf Before Agents", now.ShelfPlaced ? "Show Agents" : "Place Agents");
 
         private static SettingNow AgentPage(SpaceNow now, bool previous)
         {
             var page = now.ShelfPage;
             var available = now.AgentsEnabled && now.ShelfPlaced && page != null && (previous ? page.Previous : page.Next);
-            return new SettingNow(page?.Summary ?? "No agent selected", page?.Title ?? "Choose an agent from the current workspace",
-                previous ? "Previous agent" : "Next agent", "Show one complete agent label; all tasks remain in the workspace",
-                previous ? "Previous agent" : "Next agent", available ? null : "No " + (previous ? "previous" : "next") + " agent is available on the placed shelf.",
+            return new SettingNow(page?.Summary ?? "No Agent Selected", page?.Title ?? "Choose Agent",
+                previous ? "Previous Agent" : "Next Agent", "One Label at a Time · Tasks Stay in Workspace",
+                previous ? "Previous Agent" : "Next Agent", available ? null : "No " + (previous ? "Previous" : "Next") + " Agent",
                 nowRuns: page?.Title != null ? LineWords.TheirName(page.Title) : null);
         }
 
@@ -205,49 +205,48 @@ namespace Halcyonic.Client
         /// </summary>
         private static SettingNow Boundary(BoundaryNow? boundary)
         {
-            const string Again = "The headset draws its boundary again";
-            if (boundary == null) return new SettingNow("Not known", RoomUnread, "Hidden while your room shows", RoomUnread, "Hide boundary", RoomUnread);
+            const string Again = "Boundary Returns";
+            if (boundary == null) return new SettingNow("Unknown", RoomUnread, "Hidden While Room Shows", RoomUnread, "Hide Boundary", RoomUnread);
             return boundary.Step switch
             {
-                BoundaryStep.Asked => new SettingNow("Asked to hide", "The headset hasn't said it hid its boundary yet", "Shown", Again, "Show boundary"),
-                BoundaryStep.Hidden => new SettingNow("Hidden", "Your boundary is hidden while your room shows", "Shown", Again, "Show boundary"),
-                BoundaryStep.KeptOn => new SettingNow("Kept on", "The headset kept its boundary on. Halcyonic asks again while your room shows", "Shown",
-                    "Halcyonic stops asking", "Stop asking"),
-                _ => new SettingNow("Shown", "The headset draws its boundary as you set it up", "Hidden while your room shows",
-                    "The headset stops drawing its boundary while your room shows. It comes back when your room stops showing, "
-                    + "when Halcyonic pauses or loses focus, or when you choose Show boundary", "Hide boundary",
-                    boundary.RoomShows ? null : "Only while your room shows."),
+                BoundaryStep.Asked => new SettingNow("Hide Requested", "Hide Unconfirmed", "Shown", Again, "Show Boundary"),
+                BoundaryStep.Hidden => new SettingNow("Hidden", "Hidden While Room Shows", "Shown", Again, "Show Boundary"),
+                BoundaryStep.KeptOn => new SettingNow("Kept On", "Headset Kept It On · Asks Again", "Shown",
+                    "Stops Asking", "Stop Asking"),
+                _ => new SettingNow("Shown", "Drawn as Set Up", "Hidden While Room Shows",
+                    "Returns When Room Stops or App Pauses", "Hide Boundary",
+                    boundary.RoomShows ? null : "Only While Room Shows"),
             };
         }
 
-        private static SettingNow Shelf(SpaceNow now) => new SettingNow(now.ShelfPlaced ? "Placed" : "Not placed",
-            now.ShelfPlaced ? (now.ShelfPage?.Summary ?? "Where you placed it this session") : "No shelf appears until you Apply its preview",
-            "Move the shelf", "Move a preview, then Apply or Cancel", now.ShelfPlaced ? "Move shelf" : "Place shelf",
+        private static SettingNow Shelf(SpaceNow now) => new SettingNow(now.ShelfPlaced ? "Placed" : "Not Placed",
+            now.ShelfPlaced ? (now.ShelfPage?.Summary ?? "Placed This Session") : "No Shelf Until Apply",
+            "Move Shelf", "Move Preview · Apply or Cancel", now.ShelfPlaced ? "Move Shelf" : "Place Shelf",
             now.Room == null ? RoomUnread : null);
 
         private static SettingNow Paired(PairingNow? pairing)
         {
-            const string Pair = "Pair with a " + HostText.Noun;
-            const string Forget = "Forget this " + HostText.Noun;
-            const string AgainNeeded = "This headset then needs pairing again to reach it";
-            if (pairing == null) return new SettingNow("Not ready", PairingNotReady, Pair, PairingNotReady, Pair, PairingNotReady);
+            const string Pair = "Pair Computer";
+            const string Forget = "Forget Computer";
+            const string AgainNeeded = "Pair Again to Reconnect";
+            if (pairing == null) return new SettingNow("Not Ready", PairingNotReady, Pair, PairingNotReady, Pair, PairingNotReady);
             switch (pairing.Step)
             {
                 case PairingStep.Typing:
                 case PairingStep.Pairing:
-                    return new SettingNow("Pairing…", "Pairing with " + HostText.Your, Pair, "Offered again once pairing finishes", Pair, "Pairing is under way.");
+                    return new SettingNow("Pairing", "Pairing · Computer", Pair, "After Pairing", Pair, "Pairing Under Way");
                 case PairingStep.Forgetting:
-                    return new SettingNow("Forgetting…", "Forgetting " + HostText.Your, Forget, "Offered again once forgetting finishes", Forget, "Forgetting is under way.");
+                    return new SettingNow("Forgetting", "Forgetting · Computer", Forget, "After Forgetting", Forget, "Forgetting Under Way");
             }
             if (pairing.Address == null)
             {
-                return new SettingNow("Not paired", "This headset isn't paired with " + HostText.Your, Pair,
-                    "Type the address and the eight-digit code pnpm pair shows on " + HostText.Your, Pair,
-                    pairing.Keyboard ? null : "Pairing needs the headset's system keyboard; pair from the headset.");
+                return new SettingNow("Not Paired", "Headset Not Paired", Pair,
+                    "Type Address and 8-Digit Code from pnpm pair", Pair,
+                    pairing.Keyboard ? null : "Needs Headset Keyboard");
             }
             // Forgetting asks first, Settings' own Yes; the address is the person's typing, shown as data.
-            return new SettingNow("Paired", "Paired with " + HostText.Your + " at " + pairing.Address, Forget, AgainNeeded, Forget,
-                confirm: "Yes, forget this " + HostText.Noun, valueIsData: true, about: pairing.Address);
+            return new SettingNow("Paired", "Paired · " + pairing.Address, Forget, AgainNeeded, Forget,
+                confirm: "Confirm", valueIsData: true, about: pairing.Address);
         }
     }
 }

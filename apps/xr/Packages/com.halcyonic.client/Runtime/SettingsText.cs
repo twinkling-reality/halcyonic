@@ -16,34 +16,34 @@ namespace Halcyonic.Client
         public const string Cancel = "Cancel";
 
         /// <summary>The menu's Settings page's subject (ADR 0026).</summary>
-        public const string Subject = "What would you like to change?";
+        public const string Subject = "Settings";
 
         /// <summary>The heading over where the person is: the room, the characters and the menu (ADR 0026).</summary>
-        public const string YourSpace = "Your space";
+        public const string YourSpace = "Your Space";
 
         /// <summary>A chosen setting's first fact: what it is now.</summary>
         public const string Now = "Now";
 
         /// <summary>The section for where the characters stand: the real room or a virtual space, and room for a window (<see cref="StageArrangement"/>).</summary>
-        public const string YourRoom = "Your room";
+        public const string YourRoom = "Your Room";
 
         /// <summary>The section for pairing this headset with the Mac, in development builds.</summary>
-        public const string YourMac = HostText.YourStart;
+        public const string YourMac = "Your Computer";
 
         /// <summary>Turns the characters to the person's right.</summary>
-        public const string MakeRoomForWindow = "Make room for a window";
+        public const string MakeRoomForWindow = "Window Space";
 
         /// <summary>Stands the characters in front of the person again.</summary>
-        public const string CharactersInFront = "Characters in front";
+        public const string CharactersInFront = "In Front";
 
         /// <summary>Stands at most four characters either side of a window straight ahead.</summary>
-        public const string EitherSideOfWindow = "Either side of a window";
+        public const string EitherSideOfWindow = "Window Sides";
 
         /// <summary>On a desk, where the room placement decides where the characters stand.</summary>
-        public const string ArrangedByRoom = "On your desk, the characters stand where the room puts them.";
+        public const string ArrangedByRoom = "Placed by Room";
 
         /// <summary>Said once on the stage's banner, the first time the person comes back from another window while the characters stand in front.</summary>
-        public const string WindowOffer = "Window in the way? Settings can move the characters.";
+        public const string WindowOffer = "Window in the Way? · Move Characters";
 
         /// <summary>
         /// Where the characters stand now, in a line of its own under the room's: Halcyonic can't see
@@ -51,9 +51,9 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Arrangement(StageArrangement arrangement) => arrangement switch
         {
-            StageArrangement.TurnedAside => "With a window straight ahead, the characters stand to its right.",
-            StageArrangement.BesideAWindow => "With a window straight ahead, the characters stand either side of it.",
-            _ => "The characters stand in front of you, where a window often opens.",
+            StageArrangement.TurnedAside => "Right of Window",
+            StageArrangement.BesideAWindow => "Either Side of Window",
+            _ => "In Front of You",
         };
 
         /// <summary>The button that stands the characters as <paramref name="arrangement"/> says, offered while another is chosen.</summary>

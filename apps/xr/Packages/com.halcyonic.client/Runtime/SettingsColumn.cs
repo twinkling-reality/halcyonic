@@ -333,9 +333,9 @@ namespace Halcyonic.Client
         /// <param name="saved">The settings changed: the device keeps them, and the stage takes them.</param>
         public static IReadOnlyList<MenuSetting> Of(Comfort comfort, Action saved) => new[]
         {
-            new MenuSetting("text-size", Comfort.Heading, "Text size", () => comfort.Text == TextSize.Larger
-                    ? new SettingNow("A step larger", "A step larger", "The standard size", "Text at its standard size, and 4 rows a page", comfort.TextButton)
-                    : new SettingNow("Standard", "The standard size", "A step larger", "Text 15 percent larger, and 3 rows a page", comfort.TextButton),
+            new MenuSetting("text-size", Comfort.Heading, "Text Size", () => comfort.Text == TextSize.Larger
+                    ? new SettingNow("Larger", "Larger", "Standard", "Standard · 4 Rows a Page", comfort.TextButton)
+                    : new SettingNow("Standard", "Standard", "Larger", "15% Larger · 3 Rows a Page", comfort.TextButton),
                 () =>
                 {
                     comfort.Text = comfort.Text == TextSize.Larger ? TextSize.Standard : TextSize.Larger;
@@ -343,9 +343,9 @@ namespace Halcyonic.Client
                 }),
             // Its id stays moving-badges, as the row was named before Keep things still.
             new MenuSetting("moving-badges", Comfort.Heading, "Motion", () => comfort.Still
-                    ? new SettingNow("Kept still", "Things keep still", "On", "Waits shimmer, a task waiting for you breathes, and characters move.", comfort.MotionButton)
-                    : new SettingNow("On", "Things move", "Kept still",
-                        "Nothing keeps moving on its own: a wait shows a still highlight, and characters and badges stand still.", comfort.MotionButton),
+                    ? new SettingNow("Still", "Still", "On", "Waits Shimmer · Waiting Tasks Breathe · Characters Move", comfort.MotionButton)
+                    : new SettingNow("On", "On", "Still",
+                        "Still Highlights · Characters and Badges Still", comfort.MotionButton),
                 () =>
                 {
                     comfort.Still = !comfort.Still;
@@ -354,9 +354,9 @@ namespace Halcyonic.Client
             new MenuSetting("sounds", Comfort.Heading, "Sounds", () => new SettingNow(Level(comfort.Sounds), Level(comfort.Sounds), Level(comfort.NextSounds),
                     comfort.NextSounds switch
                     {
-                        SoundLevel.Quieter => "Sounds at half their loudness",
-                        SoundLevel.Off => "No sounds",
-                        _ => "Sounds at their usual loudness",
+                        SoundLevel.Quieter => "Half Loudness",
+                        SoundLevel.Off => "No Sounds",
+                        _ => "Usual Loudness",
                     }, comfort.SoundButton),
                 () =>
                 {

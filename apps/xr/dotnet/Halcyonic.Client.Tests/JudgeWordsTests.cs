@@ -42,8 +42,8 @@ public class JudgeWordsTests
             "the walk reached every file, its confirmations and its side panels");
         Assert.That(words, Is.SupersetOf(new[]
         {
-            "Needs You · 1 Task", TasksText.Waiting(0), UsageText.Subject, "Part of the recording", UsageLeftPresenter.Recorded,
-            SettingsText.Subject, "A step larger", SettingsText.YourSpace, "Around you", "Your room's layout", "Spatial agents", "Agent shelf", "The menu",
+            "Needs You · 1 Task", TasksText.Waiting(0), UsageText.Subject, "Part of Recording", UsageLeftPresenter.Recorded,
+            SettingsText.Subject, "15% Larger · 3 Rows a Page", SettingsText.YourSpace, "Surroundings", "Room Layout", "Agents", "Agent Shelf", "Menu",
         }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
         Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");
         Assert.That(words, Is.SupersetOf(new[] { GalleryText.SampleProjects, GalleryText.NotInThisRecording, "Star garden", "Review Requested" }),
@@ -439,7 +439,7 @@ public class JudgeWordsTests
         var words = recording.UsageLimits!.Readings.Select(reading => reading.Label)
             .Concat(shown.Rows.SelectMany(row => new[] { row.Title, row.Text }))
             .Append(shown.Source!).Append(shown.Note).ToList();
-        Assert.That(words, Has.Member("Recorded for the demo, not from any account"));
+        Assert.That(words, Has.Member("Recorded for Demo · No Account"));
         foreach (var word in words)
         {
             foreach (var brand in Brands)

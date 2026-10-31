@@ -134,8 +134,8 @@ public class AppearanceSettingsTests
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite));
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Default));
         Assert.That(saved, Is.Empty);
-        Assert.That(column.Frame!.Subject, Is.EqualTo("Preview: Graphite"));
-        Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Apply theme"));
+        Assert.That(column.Frame!.Subject, Is.EqualTo("Preview · Graphite"));
+        Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Apply Theme"));
         column.Act(AppearanceColumn.Apply, null);
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Graphite));
         Assert.That(saved, Is.EqualTo(new[] { "version=1;theme=graphite" }));
@@ -174,8 +174,8 @@ public class AppearanceSettingsTests
         column.Act(AppearanceColumn.Restore, null);
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Graphite));
         column.Act(AppearanceColumn.ReadRestore, null);
-        Assert.That(column.Frame!.Subject, Is.EqualTo("Restore default appearance?"));
-        Assert.That(column.Frame.Lines.First().Words, Is.EqualTo("Use Neutral for the interface."));
+        Assert.That(column.Frame!.Subject, Is.EqualTo("Restore Default?"));
+        Assert.That(column.Frame.Lines.First().Words, Is.EqualTo("Neutral Interface"));
         Assert.That(saved, Is.Zero);
         column.Act(AppearanceColumn.Restore, null);
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Default));
@@ -195,7 +195,7 @@ public class AppearanceSettingsTests
         for (var page = 0; page < 5; page++)
         {
             var frame = column.Frame!;
-            Assert.That(frame.Subject, Does.StartWith("Preview: "));
+            Assert.That(frame.Subject, Does.StartWith("Preview · "));
             found.AddRange(frame.Lines);
             Assert.That(frame.Footer.All.Count(), Is.LessThanOrEqualTo(3));
             Assert.That(frame.Lines.Count, Is.LessThanOrEqualTo(3), "body paging fits the larger text's page");
@@ -248,7 +248,7 @@ public class AppearanceSettingsTests
         var comfort = new Comfort();
         var settings = ComfortSettings.Of(comfort, () => { }).Concat(new[]
         {
-            new MenuSetting("room", SettingsText.YourSpace, "Around you", () => new SettingNow("Around you", "Your room", "Change", "", "Change room"), () => { }),
+            new MenuSetting("room", SettingsText.YourSpace, "Surroundings", () => new SettingNow("Surroundings", "Your room", "Change", "", "Change room"), () => { }),
             new MenuSetting("pairing", SettingsText.YourMac, "Pairing", () => new SettingNow("192.0.2.40", "Paired with 192.0.2.40", "Forget", "", "Forget", valueIsData: true, about: "192.0.2.40"), () => { }),
         }).ToList();
         var hub = new SettingsHubColumn(host, settings, new AppearanceSettings(), () => { });
@@ -426,7 +426,7 @@ public class AppearanceSettingsTests
         public CompositionFile(bool focused, SidePanel? side = null) { this.side = side; frame = Make(focused); }
         private MenuFrame Make(bool focused)
         {
-            var next = new MenuFrame(focused ? "Your answer" : "Task file", new Footer(farRight: new Prompt("keep-draft", "Keep draft", GlazeIcon.Change, safeInPlace: true)),
+            var next = new MenuFrame(focused ? "Your answer" : "Task file", new Footer(farRight: new Prompt("keep-draft", "Keep Draft", GlazeIcon.Change, safeInPlace: true)),
                 lines: new[] { new PageLine("Draft retained", action: "draft-details", opens: true, chosen: side != null) }, side: side);
             return focused ? next.Focus() : next;
         }
@@ -494,7 +494,7 @@ public class AppearanceSettingsTests
         Assert.That(navigator.IsOpen, Is.True);
         Assert.That(navigator.Beside, Is.SameAs(file));
         var retained = navigator.Frames(bar).Menu!;
-        Assert.That(retained.Subject, Is.EqualTo("How should it look?"));
+        Assert.That(retained.Subject, Is.EqualTo("Appearance"));
         navigator.Drawn(MenuColumn.Menu, retained, null);
         Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Preview, null, retained, null), Is.False, "a hidden retained frame cannot acquire drawn proof");
         Assert.That(navigator.Act(MenuColumn.Menu, AppearanceColumn.Apply, null, originalPreview, null), Is.False);

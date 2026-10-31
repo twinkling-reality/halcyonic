@@ -84,11 +84,11 @@ namespace Halcyonic.Client
                 attempted = true;
                 reads = new CancellationTokenSource();
                 try { listPending = list(reads.Token); }
-                catch (Exception) { notice = "Recorded results could not be read. Refresh to try again."; }
+                catch (Exception) { notice = "Results Unreadable · Refresh"; }
                 if (selected != null)
                 {
                     try { readPending = read(selected.EventId, reads.Token); }
-                    catch (Exception) { notice = "This recorded result could not be read. Go back and refresh to try again."; }
+                    catch (Exception) { notice = "Result Unreadable · Back and Refresh"; }
                 }
             }
         }
@@ -158,7 +158,7 @@ namespace Halcyonic.Client
                     recorded = HalcyonicJson.Deserialize<ToolResultsResponse>(HalcyonicJson.Serialize(found));
                     notice = null;
                 }
-                catch (Exception) { recorded = null; notice = "Recorded results could not be read. Refresh to try again."; }
+                catch (Exception) { recorded = null; notice = "Results Unreadable · Refresh"; }
                 listPending = null; Invalidate();
             }
             if (readPending?.IsCompleted == true)
@@ -173,23 +173,23 @@ namespace Halcyonic.Client
                     result = HalcyonicJson.Deserialize<ToolResultResponse>(HalcyonicJson.Serialize(found));
                     notice = null;
                 }
-                catch (Exception) { result = null; notice = "This recorded result could not be read. Go back and refresh to try again."; }
+                catch (Exception) { result = null; notice = "Result Unreadable · Back and Refresh"; }
                 readPending = null; Invalidate();
             }
         }
         private LineWords Subject => Current && host.State?.Workstreams.TryGetValue(context.WorkstreamId!, out var task) == true
-            && task.ProjectId == context.ProjectId ? LineWords.TheirName(task.Title) : LineWords.Ours("Recorded results");
+            && task.ProjectId == context.ProjectId ? LineWords.TheirName(task.Title) : LineWords.Ours("Recorded Results");
         private MenuFrame Build()
         {
             var subject = Subject;
             var budget = new HeightBudget(host.PageHeight(host.TitleRows(subject.Text, Glaze.Menu.FileColumnDegrees), false, focused: true));
             var lines = new List<PageLine>();
             pages = 1;
-            if (!Current) lines.Add(new PageLine("Return to the current task to read its recorded results.", rows: 2));
+            if (!Current) lines.Add(new PageLine("Current Task Only · Return to It", rows: 2));
             else if (notice != null) lines.Add(new PageLine(notice, rows: 2));
             else if (selected != null)
             {
-                if (result == null) lines.Add(new PageLine("Reading recorded result."));
+                if (result == null) lines.Add(new PageLine("Reading Result"));
                 else if (result.Result is FileChangesToolResult changes && selectedFile == null)
                     lines.AddRange(FileChoices(changes, budget));
                 else
@@ -201,7 +201,7 @@ namespace Halcyonic.Client
                     lines.Add(new PageLine(words, rows: Math.Min(perPage, rows - page * perPage), fromRow: page * perPage));
                 }
             }
-            else if (recorded == null) lines.Add(new PageLine("Reading recorded results."));
+            else if (recorded == null) lines.Add(new PageLine("Reading Results"));
             else if (recorded.Results.Count == 0)
             {
                 lines.Add(new PageLine(Availability(recorded.Availability, empty: true), rows: 3));
@@ -210,19 +210,19 @@ namespace Halcyonic.Client
             else
             {
                 var intro = Availability(recorded.Availability, empty: false);
-                if (recorded.Earlier > 0) intro += (intro.Length == 0 ? "" : " ") + recorded.Earlier.ToString(CultureInfo.InvariantCulture) + " earlier results remain on this computer.";
+                if (recorded.Earlier > 0) intro += (intro.Length == 0 ? "" : " ") + recorded.Earlier.ToString(CultureInfo.InvariantCulture) + " Earlier Results Kept on Computer";
                 PageLine? explanation = intro.Length == 0 ? null : new PageLine(intro, rows: Math.Max(1, host.RowsOf(intro, Glaze.Menu.FileColumnDegrees)));
                 if (explanation != null) lines.Add(explanation);
                 var room = budget.Room - (explanation == null ? 0 : budget.Words(explanation.Rows) + budget.LineGap);
                 var groups = new List<List<PageLine>>(); var group = new List<PageLine>(); var used = 0f;
                 foreach (var item in recorded.Results)
                 {
-                    var words = LineWords.Ours(Wire(item.Kind) == "command" ? "Command output" : "File changes");
+                    var words = LineWords.Ours(Wire(item.Kind) == "command" ? "Command Output" : "File Changes");
                     words = words.Then(LineWords.Written(" · " + Completion(item.Completion) + "\n" + When(item.OccurredAt)));
                     words = words.Then(LineWords.Written(item.Kind == ToolResultSummaryKind.Command
-                        ? item.ExitCode.HasValue ? " · Exit " + item.ExitCode.Value.ToString(CultureInfo.InvariantCulture) : " · Exit not recorded"
-                        : " · " + item.FilesTotal!.Value.ToString(CultureInfo.InvariantCulture) + " files"));
-                    if (!item.RetainedComplete) words = words.Then(LineWords.Written(" · Partly retained"));
+                        ? item.ExitCode.HasValue ? " · Exit " + item.ExitCode.Value.ToString(CultureInfo.InvariantCulture) : " · Exit Not Recorded"
+                        : " · " + item.FilesTotal!.Value.ToString(CultureInfo.InvariantCulture) + " Files"));
+                    if (!item.RetainedComplete) words = words.Then(LineWords.Written(" · Partly Retained"));
                     var line = new PageLine(words, icon: GlazeIcon.Next, action: Read, key: item.EventId, opens: true, rows: int.MaxValue);
                     var rows = Math.Max(1, host.RowsOf(line, Glaze.Menu.FileColumnDegrees));
                     var cost = budget.Target(rows) + (group.Count > 0 ? budget.TargetGap : 0);
@@ -232,12 +232,12 @@ namespace Halcyonic.Client
                 if (group.Count > 0) groups.Add(group);
                 pages = groups.Count; page = Math.Min(page, pages - 1); lines.AddRange(groups[page]);
             }
-            var footer = new Footer(new Prompt(Footer.Close, selected == null ? "Back to task" : selectedFile != null ? "Back to files" : "Back to results", GlazeIcon.Back, PromptKind.Close),
-                rare: page > 0 && (selected == null ? recorded != null : result != null) ? new Prompt(Previous, "Previous page", GlazeIcon.Back) : null,
+            var footer = new Footer(new Prompt(Footer.Close, selected == null ? "Back to Task" : selectedFile != null ? "Back to Files" : "Back to Results", GlazeIcon.Back, PromptKind.Close),
+                rare: page > 0 && (selected == null ? recorded != null : result != null) ? new Prompt(Previous, "Previous Page", GlazeIcon.Back) : null,
                 secondary: selected == null ? new Prompt(Refresh, "Refresh", GlazeIcon.Refresh, available: Current,
-                    reason: Current ? null : "Return to the current task first.", pageExplains: true) : null,
+                    reason: Current ? null : "Current Task Only", pageExplains: true) : null,
                 farRight: page + 1 < pages ? new Prompt(Next, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage) : null);
-            return new MenuFrame(subject, footer, lines: lines, sourceRuns: LineWords.Ours("Recorded by ").Then(LineWords.TheirName(sourceName))).Focus();
+            return new MenuFrame(subject, footer, lines: lines, sourceRuns: LineWords.Ours("Recorded · ").Then(LineWords.TheirName(sourceName))).Focus();
         }
         private static string Wire(object value) => HalcyonicJson.Serialize(value).Trim('"');
         private static string FileKey(ToolResultFile file) => HalcyonicJson.Serialize(new
@@ -245,17 +245,17 @@ namespace Halcyonic.Client
         private IReadOnlyList<PageLine> FileChoices(FileChangesToolResult changes, PageBudget budget)
         {
             var intro = Completion(changes.Completion) + " · " + When(result!.Summary.OccurredAt) + "\n"
-                + changes.Files.Count + " of " + changes.FilesTotal.ToString(CultureInfo.InvariantCulture) + " files. Recorded patch; files may have changed since.";
+                + changes.Files.Count + " of " + changes.FilesTotal.ToString(CultureInfo.InvariantCulture) + " Files · Recorded Patch · Files May Have Changed Since";
             var introRows = Math.Max(1, host.RowsOf(intro, Glaze.Menu.FileColumnDegrees));
             var head = new PageLine(intro, rows: introRows);
-            if (changes.Files.Count == 0) { page = 0; pages = 1; return new[] { head, new PageLine("No file patches were retained.") }; }
+            if (changes.Files.Count == 0) { page = 0; pages = 1; return new[] { head, new PageLine("No Patches Retained") }; }
             var room = budget.Room - budget.Words(introRows) - budget.LineGap;
             var groups = new List<List<PageLine>>(); var group = new List<PageLine>(); var used = 0f;
             for (var index = 0; index < changes.Files.Count; index++)
             {
                 var file = changes.Files[index];
-                var words = LineWords.Ours(file.Kind switch { ToolResultFileKind.Add => "Added: ", ToolResultFileKind.Delete => "Deleted: ", _ => "Changed: " })
-                    .Then(file.Path != null ? LineWords.TheirName(file.Path) : LineWords.Ours(file.PathScope == ToolResultPathScope.OutsideProject ? "Outside project" : "Path unknown"));
+                var words = LineWords.Ours(file.Kind switch { ToolResultFileKind.Add => "Added · ", ToolResultFileKind.Delete => "Deleted · ", _ => "Changed · " })
+                    .Then(file.Path != null ? LineWords.TheirName(file.Path) : LineWords.Ours(file.PathScope == ToolResultPathScope.OutsideProject ? "Outside Project" : "Path Unknown"));
                 if (file.MovePathScope != null) words = words.Then(LineWords.Ours(" · Moved"));
                 var candidate = new PageLine(words, icon: GlazeIcon.Next, action: ReadFile, key: index.ToString(CultureInfo.InvariantCulture), opens: true, rows: 2);
                 var rows = Math.Min(2, Math.Max(1, host.RowsOf(candidate, Glaze.Menu.FileColumnDegrees)));
@@ -269,63 +269,63 @@ namespace Halcyonic.Client
         }
         private static string Availability(ToolResultsAvailability availability, bool empty) => availability switch
         {
-            ToolResultsAvailability.Unsupported => empty ? "This agent app does not record output or file changes." : "Saved results. This agent app no longer records results.",
-            ToolResultsAvailability.Unavailable => empty ? "No saved results. This agent app is unavailable." : "Saved results. This agent app is unavailable.",
-            ToolResultsAvailability.Unknown => empty ? "No saved results. Recording support is unknown." : "Saved results. Recording support is unknown.",
-            _ => empty ? "No command output or file changes are recorded yet." : "",
+            ToolResultsAvailability.Unsupported => empty ? "Results Not Recorded by Agent App" : "Saved Results · Agent App No Longer Records",
+            ToolResultsAvailability.Unavailable => empty ? "No Saved Results · Agent App Unavailable" : "Saved Results · Agent App Unavailable",
+            ToolResultsAvailability.Unknown => empty ? "No Saved Results · Recording Support Unknown" : "Saved Results · Recording Support Unknown",
+            _ => empty ? "No Results Yet" : "",
         };
         private static string Completion(ToolResultCompletion completion) => completion switch
-        { ToolResultCompletion.Completed => "Finished", ToolResultCompletion.Failed => "Failed", ToolResultCompletion.Declined => "Declined", ToolResultCompletion.Interrupted => "Interrupted", _ => "Outcome unknown" };
+        { ToolResultCompletion.Completed => "Finished", ToolResultCompletion.Failed => "Failed", ToolResultCompletion.Declined => "Declined", ToolResultCompletion.Interrupted => "Interrupted", _ => "Outcome Unknown" };
         private string When(string at) => TimeZoneInfo.ConvertTime(DateTimeOffset.Parse(at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal), host.Zone)
             .ToString("d MMM yyyy HH:mm:ss", CultureInfo.InvariantCulture);
         private LineWords Detail(ToolResultResponse response)
         {
             var value = response.Result;
-            var words = LineWords.Written((value.Kind == "command" ? "Command output" : "File changes") + " · " + Completion(value.Completion) + "\n" + When(response.Summary.OccurredAt) + "\n");
+            var words = LineWords.Written((value.Kind == "command" ? "Command Output" : "File Changes") + " · " + Completion(value.Completion) + "\n" + When(response.Summary.OccurredAt) + "\n");
             var availability = recorded?.Availability ?? ToolResultsAvailability.Unknown;
             if (availability != ToolResultsAvailability.Available)
                 words = words.Then(LineWords.Written(Availability(availability, empty: false) + "\n"));
             if (!string.IsNullOrEmpty(response.Summary.Title)) words = words.Then(LineWords.Theirs(response.Summary.Title)).Then(LineWords.Written("\n"));
             if (value is CommandToolResult command)
             {
-                words = words.Then(LineWords.Written(command.ExitCode.HasValue ? "Exit code: " + command.ExitCode.Value + "\n" : "Exit code not recorded.\n"));
+                words = words.Then(LineWords.Written(command.ExitCode.HasValue ? "Exit Code · " + command.ExitCode.Value + "\n" : "Exit Code Not Recorded\n"));
                 words = words.Then(Body(command.Output, patch: false));
             }
             else if (value is FileChangesToolResult changes)
             {
-                words = words.Then(LineWords.Written(changes.FilesTotal.ToString(CultureInfo.InvariantCulture) + " files. Recorded patch; files may have changed since.\n"));
-                if (!changes.ListComplete) words = words.Then(LineWords.Written("Some file changes were not retained.\n"));
-                if (changes.Files.Count == 0) words = words.Then(LineWords.Written("No file patches were retained.\n"));
+                words = words.Then(LineWords.Written(changes.FilesTotal.ToString(CultureInfo.InvariantCulture) + " Files · Recorded Patch · Files May Have Changed Since\n"));
+                if (!changes.ListComplete) words = words.Then(LineWords.Written("Some File Changes Not Retained\n"));
+                if (changes.Files.Count == 0) words = words.Then(LineWords.Written("No Patches Retained\n"));
                 foreach (var file in selectedFile == null ? Array.Empty<ToolResultFile>() : new[] { changes.Files[selectedFile.Value] })
                 {
                     var scoped = Wire(file.PathScope) == "project_relative";
-                    words = words.Then(LineWords.Written("\n" + (Wire(file.Kind) switch { "add" => "Added: ", "delete" => "Deleted: ", _ => "Changed: " })))
-                        .Then(scoped && file.Path != null ? LineWords.TheirName(file.Path) : LineWords.Ours(file.PathScope == ToolResultPathScope.OutsideProject ? "Outside project" : "Path unknown"));
-                    if (file.Path != null && !file.PathComplete) words = words.Then(LineWords.Written("\nPath shortened."));
+                    words = words.Then(LineWords.Written("\n" + (Wire(file.Kind) switch { "add" => "Added · ", "delete" => "Deleted · ", _ => "Changed · " })))
+                        .Then(scoped && file.Path != null ? LineWords.TheirName(file.Path) : LineWords.Ours(file.PathScope == ToolResultPathScope.OutsideProject ? "Outside Project" : "Path Unknown"));
+                    if (file.Path != null && !file.PathComplete) words = words.Then(LineWords.Written("\nPath Shortened"));
                     if (file.MovePathScope != null)
                     {
-                        words = words.Then(LineWords.Written("\nMoved to: ")).Then(Wire(file.MovePathScope) == "project_relative" && file.MovePath != null
-                            ? LineWords.TheirName(file.MovePath) : LineWords.Ours(file.MovePathScope == ToolResultPathScope.OutsideProject ? "Outside project" : "Path unknown"));
-                        if (file.MovePath != null && file.MovePathComplete == false) words = words.Then(LineWords.Written("\nPath shortened."));
+                        words = words.Then(LineWords.Written("\nMoved To · ")).Then(Wire(file.MovePathScope) == "project_relative" && file.MovePath != null
+                            ? LineWords.TheirName(file.MovePath) : LineWords.Ours(file.MovePathScope == ToolResultPathScope.OutsideProject ? "Outside Project" : "Path Unknown"));
+                        if (file.MovePath != null && file.MovePathComplete == false) words = words.Then(LineWords.Written("\nPath Shortened"));
                     }
                     words = words.Then(LineWords.Written("\n"));
                     words = words.Then(scoped && (file.MovePathScope == null || Wire(file.MovePathScope) == "project_relative")
                         ? Body(file.Patch, patch: true) : LineWords.Ours(file.PathScope == ToolResultPathScope.Unknown || file.MovePathScope == ToolResultPathScope.Unknown
-                            ? "Patch was not retained because its project scope is unknown." : "Patch outside this project was not retained."));
+                            ? "Patch Not Retained · Scope Unknown" : "Patch Not Retained · Outside Project"));
                 }
             }
-            if (value.Redaction.Replacements > 0) words = words.Then(LineWords.Written("\nSome private text was removed."));
+            if (value.Redaction.Replacements > 0) words = words.Then(LineWords.Written("\nPrivate Text Removed"));
             return words;
         }
         private static LineWords Body(ToolResultBody body, bool patch)
         {
             if (Wire(body.Availability) != "available" || body.Text == null)
-                return LineWords.Ours((patch ? "Patch" : "Output") + (body.Truncation == ToolResultBodyTruncation.AggregateBound ? " was omitted to limit saved result size." : body.Availability switch
-                { ToolResultBodyAvailability.Absent => " was not supplied.", ToolResultBodyAvailability.SourceOverLimit => " was too large to retain.",
-                    ToolResultBodyAvailability.OmittedScope => " was not retained for this project.", ToolResultBodyAvailability.Malformed => " could not be read.",
-                    _ => " was not retained." }));
-            var words = body.Text.Length == 0 ? LineWords.Ours(patch ? "Empty recorded patch." : "Empty recorded output.") : RecordedResultText.Body(body.Text);
-            return body.Complete ? words : words.Then(LineWords.Written(patch ? "\nPatch shortened." : "\nOutput shortened."));
+                return LineWords.Ours((patch ? "Patch" : "Output") + (body.Truncation == ToolResultBodyTruncation.AggregateBound ? " Omitted · Size Limit" : body.Availability switch
+                { ToolResultBodyAvailability.Absent => " Not Supplied", ToolResultBodyAvailability.SourceOverLimit => " Too Large to Retain",
+                    ToolResultBodyAvailability.OmittedScope => " Not Retained · Project Scope", ToolResultBodyAvailability.Malformed => " Unreadable",
+                    _ => " Not Retained" }));
+            var words = body.Text.Length == 0 ? LineWords.Ours(patch ? "Empty Patch" : "Empty Output") : RecordedResultText.Body(body.Text);
+            return body.Complete ? words : words.Then(LineWords.Written(patch ? "\nPatch Shortened" : "\nOutput Shortened"));
         }
         public void Drawn(MenuFrame frame, Footer? sidePanel)
         { if (Current && active && frame == given && sidePanel == null) drawn = frame; }
@@ -353,7 +353,7 @@ namespace Halcyonic.Client
             selected = HalcyonicJson.Deserialize<ToolResultSummary>(HalcyonicJson.Serialize(item)); selectedFile = null; selectedFileKey = null; listPage = page; page = 0; pages = 1; notice = null;
             reads?.Dispose(); reads = new CancellationTokenSource();
             try { readPending = read(item.EventId, reads.Token); }
-            catch (Exception) { notice = "This recorded result could not be read. Go back and refresh to try again."; }
+            catch (Exception) { notice = "Result Unreadable · Back and Refresh"; }
             Invalidate();
         }
         private void Invalidate() { given = null; drawn = null; Changed?.Invoke(); }

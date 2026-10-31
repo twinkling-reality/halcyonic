@@ -1053,15 +1053,15 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>Settings with Text size chosen: its details beside it, its change the main action, safe on them.</summary>
         private static MenuFrame SettingChosen() => new MenuFrame(SettingsText.Subject,
-            new Footer(PlaneClose, farRight: new Prompt("change", "Make text larger", GlazeIcon.Change, main: true, safeInPlace: true)),
+            new Footer(PlaneClose, farRight: new Prompt("change", "Larger Text", GlazeIcon.Change, main: true, safeInPlace: true)),
             sections: MenuBar.Places.Select(place => new FrameSection(place.ToString(), MenuBar.Word(place), chosen: place == MenuPlace.Settings)).ToList(),
             lines: new[]
             {
                 new PageLine("Comfort", tone: LineTone.Secondary),
-                new PageLine("Text size", fact: "Standard", action: "settings-open-setting", key: "text-size", opens: true, chosen: true),
+                new PageLine("Text Size", fact: "Standard", action: "settings-open-setting", key: "text-size", opens: true, chosen: true),
                 new PageLine("Motion", fact: "On", action: "settings-open-setting", key: "moving-badges", opens: true),
             },
-            side: new SidePanel("Text size", facts: new[] { new SideFact("Now", "The standard size"), new SideFact("A step larger", "Text 15 percent larger, and 3 rows a page") }));
+            side: new SidePanel("Text Size", facts: new[] { new SideFact("Now", "Standard"), new SideFact("Larger", "15% Larger · 3 Rows a Page") }));
 
         /// <summary>Tasks: the waiting task chosen, <paramref name="count"/> rows, as many as the stage holds beside a file.</summary>
         private static MenuFrame Tasks(TextSize text, string waiting, int count)

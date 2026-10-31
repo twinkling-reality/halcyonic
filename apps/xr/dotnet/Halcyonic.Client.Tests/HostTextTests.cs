@@ -50,7 +50,7 @@ public class HostTextTests
         Assert.That(ConnectionText.Unreachable, Is.EqualTo("Computer Unreachable · Retrying · Check App and Network"));
         Assert.That(EntryText.NoFolders, Is.EqualTo("No Folders Allowed · Allow on Computer · Try Again"));
         Assert.That(EntryText.DemoCannotStart, Is.EqualTo("Demo · No New Work"));
-        Assert.That(SettingsText.YourMac, Is.EqualTo("Your computer"));
+        Assert.That(SettingsText.YourMac, Is.EqualTo("Your Computer"));
         // Our own words never name the product (the review, 2026-10-07).
         var unproved = new TokenNotSentException(LoopbackProofOutcome.Unproved, new System.Uri("http://127.0.0.1:47800/")).Message;
         Assert.That(new[] { VoiceText.NoMicrophone, unproved }, Has.None.Contains("Halcyonic"));

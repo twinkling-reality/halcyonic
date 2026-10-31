@@ -17,7 +17,7 @@ namespace Halcyonic.Client
         public const string Minimize = "placement-minimize";
         public const string OtherApps = "placement-other-apps";
         public const string Navigate = "placement-navigate";
-        public const string HoldInstruction = "Hold Move at the top of the workspace and drag to reposition it. Choose Done moving when it is in place.";
+        public const string HoldInstruction = "Hold Move to Drag · Done Moving When Placed";
         private readonly IMenuHost host;
         private readonly Action reset;
         private readonly string? title;
@@ -51,19 +51,19 @@ namespace Halcyonic.Client
                     var total = host.RowsOf(new PageLine(LineWords.Theirs(title), rows: int.MaxValue), Glaze.Menu.FileColumnDegrees);
                     var rows = Math.Max(1, (int)Math.Floor(host.PageHeight(1, false, focused: true) / MenuPage.Words(1)));
                     var parts = Math.Max(1, (total + rows - 1) / rows); titlePage %= parts;
-                    var readFooter = new Footer(new Prompt(Footer.Close, "Close details", GlazeIcon.Close, PromptKind.Close),
+                    var readFooter = new Footer(new Prompt(Footer.Close, "Close Details", GlazeIcon.Close, PromptKind.Close),
                         rare: new Prompt(Back, "Back", GlazeIcon.Back),
                         farRight: parts > 1 ? new Prompt(Footer.NextPage, Footer.NextPageWords(titlePage, parts), GlazeIcon.Next, PromptKind.NextPage) : null);
-                    return given = new MenuFrame("Task title", readFooter, lines: new[] { new PageLine(LineWords.Theirs(title), rows: Math.Min(rows, total - titlePage * rows), fromRow: titlePage * rows) }).Focus();
+                    return given = new MenuFrame("Task Title", readFooter, lines: new[] { new PageLine(LineWords.Theirs(title), rows: Math.Min(rows, total - titlePage * rows), fromRow: titlePage * rows) }).Focus();
                 }
                 if (Moving)
-                    return given = new MenuFrame("Move workspace", new Footer(new Prompt(Footer.Close, "Done moving", GlazeIcon.Close, PromptKind.Close)),
-                        lines: new[] { new PageLine(HoldInstruction, rows: host.RowsOf(HoldInstruction, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary), Control("Reset position", Reset) }).Focus();
+                    return given = new MenuFrame("Move Workspace", new Footer(new Prompt(Footer.Close, "Done Moving", GlazeIcon.Close, PromptKind.Close)),
+                        lines: new[] { new PageLine(HoldInstruction, rows: host.RowsOf(HoldInstruction, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary), Control("Reset Position", Reset) }).Focus();
                 var actions = Actions();
                 var budget = host.PageHeight(1, false, focused: true);
                 if (actions.Any(action => MenuPage.Target(action.Rows) > budget + 0.00001f))
-                    return given = new MenuFrame(Subject, new Footer(new Prompt(Footer.Close, "Close details", GlazeIcon.Close, PromptKind.Close)),
-                        lines: new[] { new PageLine("Make more room to open workspace controls.", tone: LineTone.Secondary, rows: 2) }).Focus();
+                    return given = new MenuFrame(Subject, new Footer(new Prompt(Footer.Close, "Close Details", GlazeIcon.Close, PromptKind.Close)),
+                        lines: new[] { new PageLine("No Room · Move Workspace", tone: LineTone.Secondary, rows: 2) }).Focus();
                 var pages = new List<List<PageLine>> { new List<PageLine>() };
                 var used = 0f;
                 foreach (var action in actions)
@@ -74,7 +74,7 @@ namespace Halcyonic.Client
                     pages.Last().Add(action); used += gap + height;
                 }
                 page %= pages.Count;
-                return given = new MenuFrame(Subject, new Footer(new Prompt(Footer.Close, "Close details", GlazeIcon.Close, PromptKind.Close),
+                return given = new MenuFrame(Subject, new Footer(new Prompt(Footer.Close, "Close Details", GlazeIcon.Close, PromptKind.Close),
                     farRight: pages.Count > 1 ? new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages.Count), GlazeIcon.Next, PromptKind.NextPage) : null), lines: pages[page]).Focus();
             }
         }
@@ -84,15 +84,15 @@ namespace Halcyonic.Client
         private List<PageLine> Actions()
         {
             var actions = new List<PageLine>();
-            if (setMoving != null) actions.Add(Control("Move workspace", BeginMove));
-            actions.Add(Control("Reset position", Reset));
-            if (minimize != null) actions.Add(Control("Minimize workspace", Minimize));
-            if (otherApps != null) actions.Add(Control("Open work window", OtherApps, available: canOpenApps?.Invoke() == true));
-            if (portraits != null && setPortraits != null) actions.Add(Control(portraits() ? "Hide task portraits" : "Show task portraits", TogglePortraits));
-            if (title != null) actions.Add(Control("Read task title", ReadTitle));
+            if (setMoving != null) actions.Add(Control("Move Workspace", BeginMove));
+            actions.Add(Control("Reset Position", Reset));
+            if (minimize != null) actions.Add(Control("Minimize Workspace", Minimize));
+            if (otherApps != null) actions.Add(Control("Open Work Window", OtherApps, available: canOpenApps?.Invoke() == true));
+            if (portraits != null && setPortraits != null) actions.Add(Control(portraits() ? "Hide Task Portraits" : "Show Task Portraits", TogglePortraits));
+            if (title != null) actions.Add(Control("Read Task Title", ReadTitle));
             if (navigate != null)
                 foreach (var destination in new[] { MenuPlace.Projects, MenuPlace.Tasks, MenuPlace.Usage, MenuPlace.Settings })
-                    actions.Add(Control("Open " + destination.ToString().ToLowerInvariant(), Navigate, destination.ToString()));
+                    actions.Add(Control("Open " + destination.ToString(), Navigate, destination.ToString()));
             return actions;
         }
         public void Act(string id, string? key)

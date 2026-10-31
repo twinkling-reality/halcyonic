@@ -90,7 +90,7 @@ public class CatalogReadsTests
         Assert.That(reader.Asked, Is.EqualTo(2));
         reader.Pending!.SetException(new OperationCanceledException());
         Assert.That(feed.Poll(), Is.True);
-        Assert.That(feed.Error, Is.EqualTo("your computer didn't answer in time. Press Refresh to try again."));
+        Assert.That(feed.Error, Is.EqualTo("Computer Timed Out · Refresh"));
         Assert.That(feed.Last, Is.Not.Null);
     }
 
@@ -100,7 +100,7 @@ public class CatalogReadsTests
         var feed = new CatalogFeed(_ => throw new UnaskedReadException(IntelligenceText.NotConnected));
         feed.Open(Start);
         Assert.That(feed.Poll(), Is.True);
-        Assert.That(feed.Error, Is.EqualTo("your computer isn't connected. Press Refresh when it is."));
+        Assert.That(feed.Error, Is.EqualTo("Not Connected · Refresh Once Connected"));
     }
 
     [Test]
