@@ -414,3 +414,22 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
 - **Not verified:** a real model's turns, how often a model needs something the profile refuses (a shell's start-up
   files in the home folder are refused), other macOS versions.
 
+
+## The confined server starts again (2026-10-31, CX1)
+
+- **Question:** does Codex 0.157.0 start inside the confined profile now that the profile refuses Halcyonic's data
+  folder outright and allows the confinement's own folders in it again (M1.8c-1)?
+- **Environment:** this Mac (macOS 26.7), the pinned 0.157.0 binary, a scratch data folder shaped like the default one
+  (`data/codex-confined/<key>`, `data/starters`, `data/codex-home`); the owner's data folder was not used.
+- **Found:** it did not. MAKE's rehearsal of a kid's game (K1) stopped at the first start with "The Codex server
+  connection ended before initialize was answered". The server, run once by hand in the profile the product wrote,
+  printed "failed to canonicalize CODEX_HOME ... Operation not permitted" and exited 1; the kernel's sandbox log showed
+  `deny(1) file-test-existence` on the data folder. The 2026-10-29 run above predates that refusal.
+- **Changed:** literal `file-read-metadata` and `file-test-existence` on each folder between a refused folder and an
+  own folder in it (ADR 0041, amendment of 2026-10-31). With it the pinned app-server, started from the project with
+  its home under `data/codex-confined`, runs and exits 0 when its input closes; without it the same test fails with the
+  canonicalize error (`sandbox-profile.test.ts`, opt-in with `HALCYONIC_TEST_CODEX_BIN`).
+- **Still refused, tried with the denial in place on markers of our own and confirmed in the kernel's log:** a listing
+  of the data folder and of `codex-confined` (`file-read-data`), a read, `stat` or existence test of a file in the data
+  folder, the open server's home and its settings, and a listing of the person's home folder and of `~/.codex`.
+- **Not verified:** a real model's turns inside the profile (the K1 rerun), other macOS versions.
