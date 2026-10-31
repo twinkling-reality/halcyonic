@@ -216,6 +216,23 @@ public class CharacterPresenterTests
         Assert.That(CharacterLabel.Of(character).Title, Is.EqualTo("‹U+E769› Fix login ‹U+E153›"));
     }
 
+    /// <summary>
+    /// A character leaving says its own word on its tag, "Put Away", in place of the state's, and its badge stops moving;
+    /// the title, tone, glyph and marks stay, so the tag still says whose task it is (the art direction's character, 2026-10-30).
+    /// </summary>
+    [Test]
+    public void ALeavingCharactersTagSaysPutAwayAndKeepsTheRest()
+    {
+        var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, null, AttentionLevel.ActionRequired);
+        var label = CharacterLabel.Of(CharacterPresenter.Present(workstream, StateWith(workstream), live: true));
+        var leaving = label.Saying(CharacterLife.PutAwayWord);
+        Assert.That(leaving.Badge.Word, Is.EqualTo("Put Away"));
+        Assert.That((leaving.Title, leaving.Marks), Is.EqualTo((label.Title, label.Marks)));
+        Assert.That((leaving.Badge.State, leaving.Badge.Tone, leaving.Badge.Icon, leaving.Badge.Count), Is.EqualTo((label.Badge.State, label.Badge.Tone, label.Badge.Icon, label.Badge.Count)));
+        Assert.That((leaving.Badge.Turns, leaving.Badge.Breathes), Is.EqualTo((false, false)));
+        Assert.That(label.Badge.Word, Is.Not.EqualTo("Put Away"), "the label it came from is unchanged");
+    }
+
     [Test]
     public void FailedVerificationQuotesTheTestSummary()
     {

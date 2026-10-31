@@ -2507,6 +2507,50 @@ kept still. A Ready with closed eyes and a waiting badge without its glyph must 
 eyes are read by their drawn shape (`EyeKindForRender`), not only their lids. This is behaviour only:
 the card's, bar's and label's look waits for DESIGN's visual language (VL).
 
+#### The character's life (2026-10-31)
+
+The character is alive by behaviour (the art direction's character handoff, 2026-10-30; the owner, "Yes,
+build it"), from the client core's `CharacterLife`, which knows no figure's shape: each step gives a
+`CharacterPose` in metres for a 0.22 m figure, degrees, the eyes' shift in the figure's heights, lids,
+size and the pool's breath, seeded by its Workstream so the same task moves the same way each time.
+
+- It floats on its own rhythm (3.2, 5.3 and 7.1 s, each within 15 percent per character), quieter
+  where its state rests; the head trails the body by 120 ms. It blinks every 2.6 s about half the
+  time, one in eight doubled. It holds the person's gaze 2.2 to 3.8 s, looks away 0.8 to 1.6 s, and
+  while Running looks at its screen most of the time with reading darts; after a failure or a stop it
+  looks at the person's lap. One accent at a time every 4 to 9 s while Running, Checking or Round
+  Ended. It wanders an ellipse of 0.36 by 0.16 m only while Running and only in a home a placement
+  gives it (`CharacterView.HasHome`; no placement gives one yet, so today it stays where it stands).
+- The look comes from `KitFigureLook` (the state table) and two facts kept apart
+  (`CharacterFacts`). The passed look, the 1.2 s happy eyes and the hop come only from the
+  computer's own passed check observed in this round: a shown Ready moment at or after
+  `CharacterView.RoundStartedAt`, and only when it arrives while shown, never on a reconnect.
+  Nothing sets `RoundStartedAt` yet and no live path makes the Ready moment, so the passed look does
+  not show in the headset until both exist. Last Known comes only from the control plane lost (the
+  presentation's `Stale`): the figure holds every value; a lost agent app is Status Unknown and
+  keeps moving. Nothing follows progress.
+- Kept still (ADR 0027 item 6) floats, blinks, accents, wander, hops, meetings and turns stop; the
+  eyes rest at their middle.
+- It leaves only in words: `PutAway` shows "Put Away" on its tag 1.2 s, nods, then folds and the tag
+  goes (`Gone`); `Arrive` grows it from a seed with its chime. No journal event says a task was put
+  away and the stage's departures are shelf page turns, so the stage calls neither yet.
+- `CharacterMeetings` lets two characters meet only over a link the journal holds as observed for
+  each (the same project, or an observed change of the same file attributed to each), never while
+  either needs the person, one at a time, a pair once in 2 minutes; both tags say the same line and
+  nothing joins them. Meetings need homes, so none happens yet.
+- Its sounds (`CharacterSounds`, played at the figure by `CharacterSoundPlayer` on the room's
+  spatial sources): Arrive, its Voice on its own pair of notes, the Hop at the passed check, Fold.
+- A figure is an `ICharacterFigure` (its height, its head, one call that shows a pose with the look
+  and the aim). Today's body is the one figure (`CharacterView`'s own, its eyes, surface, halo and
+  colour still from `CharacterCues` and its identity, its held posture still `HeldLift`); the
+  redrawn figure brings its own.
+
+The Editor check `CharacterRender.Check` steps the view at both text sizes by behaviour, so it holds
+for any figure: Last Known identical between frames 2 s apart while a live figure and Status Unknown
+move; the hop with this round's observed check and never with Round Ended alone, a Ready from no
+known or an earlier round, or Checking; "Put Away" 1.2 s before the fold, then the tag gone; arrival
+from a seed reading Starting at once; Keep Still exact; and every cue's length and level.
+
 ### The room
 
 `Assets/Halcyonic/Room` is the separate `Halcyonic.XR.Room` assembly, the only one that references
