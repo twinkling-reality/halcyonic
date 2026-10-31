@@ -8,12 +8,22 @@ import { join } from 'node:path';
  */
 export const CODEX_HOME_FOLDER = 'codex-home';
 
+/**
+ * The folder in the data directory that holds confined Codex homes (`<data>/codex-confined/<key>`),
+ * one per confined starter project scope (ADR 0041).
+ */
+export const CODEX_CONFINED_FOLDER = 'codex-confined';
+
 /** A Codex thread id, the only kind of id looked for on disk. */
 const THREAD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** A 16-hex confinement scope key, as `confinementKey(project)` writes under `codex-confined`. */
+const CONFINEMENT_KEY = /^[0-9a-f]{16}$/;
+
 /**
- * Whether a session is one Halcyonic's Codex wrote in its own home, which neither Salidium nor
- * Seorak reads as installed (understanding-and-evaluation.md): a Codex thread whose rollout,
+ * Whether a session is one Halcyonic's Codex wrote in its own home (or in a confined scope's home
+ * under `confinedHomes`), which neither Salidium nor Seorak reads as installed
+ * (understanding-and-evaluation.md): a Codex thread whose rollout,
  * `rollout-<time>-<thread id>.jsonl`, is in the home's `sessions/YYYY/MM/DD` for the day the
  * execution started, the day before or the day after, by this Mac's local date, as Codex names the
  * folders. Decided by Codex's own record of the thread, since the journal does not say which home
@@ -29,6 +39,7 @@ export async function inHalcyonicsCodexHome(
   runtimeKind: string,
   nativeId: string,
   startedAt: string,
+  confinedHomes?: string,
 ): Promise<boolean> {
   if (runtimeKind !== 'codex' || !THREAD_ID.test(nativeId)) return false;
   const started = Date.parse(startedAt);
@@ -36,9 +47,29 @@ export async function inHalcyonicsCodexHome(
   const name = (entry: string) =>
     entry.startsWith('rollout-') &&
     entry.toLowerCase().endsWith(`-${nativeId.toLowerCase()}.jsonl`);
+  const date = new Date(started);
+  if (await hasRollout(codexHome, name, date)) return true;
+  if (confinedHomes !== undefined && (await isFolder(confinedHomes))) {
+    try {
+      const scopes = await readdir(confinedHomes, { withFileTypes: true });
+      for (const scope of scopes) {
+        if (!scope.isDirectory() || !CONFINEMENT_KEY.test(scope.name)) continue;
+        if (await hasRollout(join(confinedHomes, scope.name), name, date)) return true;
+      }
+    } catch {
+      // A folder that can't be read holds nothing.
+    }
+  }
+  return false;
+}
+
+async function hasRollout(
+  codexHome: string,
+  name: (entry: string) => boolean,
+  date: Date,
+): Promise<boolean> {
   const sessions = join(codexHome, 'sessions');
   if (!(await isFolder(codexHome)) || !(await isFolder(sessions))) return false;
-  const date = new Date(started);
   for (const offset of [0, -1, 1]) {
     // By calendar day, so a day of 23 or 25 hours never skips a date.
     const day = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);

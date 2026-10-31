@@ -103,6 +103,33 @@ describe('Seorak as the evaluation source', () => {
     assert.ok(requests > 0);
   });
 
+  test('a Codex thread whose rollout is in a confined Codex home is not observed: no request, no credential', async (t) => {
+    let requests = 0;
+    const plane = createServer((_request, response) => {
+      requests++;
+      response.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+      response.end('{}');
+    });
+    await new Promise<void>((resolve) => plane.listen(0, '127.0.0.1', resolve));
+    t.after(async () => {
+      const closed = new Promise<void>((resolve) => plane.close(() => resolve()));
+      plane.closeAllConnections();
+      await closed;
+    });
+    const { port } = plane.address() as AddressInfo;
+    const { source, credentialPath, codexHome } = await setup('codex-confined', port);
+    writeRollout(join(codexHome, '..', 'codex-confined', '0123456789abcdef'), CODEX_THREAD);
+    writeFileSync(credentialPath, CREDENTIAL);
+    chmodSync(credentialPath, 0o644);
+    const result = await source.evaluate('codex', CODEX_THREAD, STARTED);
+    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    assert.match(
+      result.availability === 'available' ? '' : result.reason.message,
+      /Halcyonic's own Codex home/,
+    );
+    assert.equal(requests, 0);
+  });
+
   test('without a credential file the answer says how to issue one', async () => {
     const { source, credentialPath } = await setup('missing');
     const result = await source.evaluate('claude-agent', SESSION, STARTED);
