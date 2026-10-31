@@ -60,7 +60,8 @@ export function browserBinary(folder: string): string {
  * The whole browser folder as a manifest (AUDIT M1): one line per entry, sorted by its relative path,
  * with its kind (`d` folder, `f` plain file), its mode and, for a plain file, its SHA-256. A link, or
  * anything but a plain file or folder, is never followed: it is returned by its path instead, and
- * refuses the folder (the pinned build holds none). Null when the folder is not there.
+ * refuses the folder (the pinned build holds none), as is a name with a control character or a
+ * space, which the lines could not hold apart. Null when the folder is not there.
  */
 export function browserManifest(
   folder: string,
@@ -69,6 +70,9 @@ export function browserManifest(
   const walk = (relative: string): { link: string } | { other: string } | null => {
     for (const name of readdirSync(join(folder, relative)).sort()) {
       const path = relative === '' ? name : `${relative}/${name}`;
+      // A name with a control character or a space could make two trees' lines read alike: refused.
+      if ([...name].some((c) => c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f || c === ' '))
+        return { other: path };
       const stats = lstatSync(join(folder, path));
       const mode = (stats.mode & 0o777).toString(8);
       if (stats.isSymbolicLink()) return { link: path };
