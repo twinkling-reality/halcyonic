@@ -36,9 +36,15 @@ Input, both ways:
   needs an input `play-input.ts` does not have, add it there, for both ways.
 
 Make it fun to look at:
-- Give every game object some motion each frame from `src/motion.ts` (`bob`, `wiggle`, `spin`), using the `time`
-  your system's `update(delta, time)` is given, never a timer of its own, so the person's computer can check it.
-- When something is hit or scores, `pop` it, and show the score big and easy to read.
+- Build the game on the island: `setupLook(world)` in `src/look.ts` makes it, top at y = 0, about 6 m across.
+  Add the game's objects to `gameIsland()` from `src/look.ts` so they stand on it, in front of the camera.
+- Colour every object with `toyMaterial('berry')` and the other names in `src/palette.ts`, never a colour of your
+  own. Put a `contactShadow(radius)` under each prop and set its `castShadow`. `decorate(gameIsland(), { ... })`
+  from `src/decor.ts` adds trees and flowers if you want them.
+- Give every game object some motion each frame from `src/motion.ts` (`pop`, `hide`, `bob`, `wiggle`), using the
+  `time` your system's `update(delta, time)` is given, never a timer of its own, so the person's computer can check
+  it.
+- When something is hit, `bonk` it, then `hide` it, and show the score big and easy to read.
 - The welcome card's words go by themselves after a few seconds (`src/panel.ts`); leave that as it is.
 - Before you finish, delete any scratch or helper files you made: no `.py`, `.txt` or patch files in `src/`.
 

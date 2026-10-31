@@ -257,3 +257,15 @@ key does not hide the card, and `play-input.ts` is unchanged, so the check's lay
 made before. `src/motion.ts` gives `bob`, `wiggle`, `spin`, `pop` and `ease`, pure functions of the time a system is
 given, and AGENTS.md asks for motion from them, a pop on a hit, a big score, and no scratch files left in `src/`.
 The game's ground, light and colours come with ART's values (GQ1b).
+
+## Amendment, 2026-10-31: the starter's look (GQ1b, ART7's values)
+
+A new project starts on ART7's look, every value as ART gave it: ten named kid colours and `toyMaterial()` (glossy
+toys on a matte world) in `src/palette.ts`; in `src/look.ts`, no tone mapping, one warm shadowed sun at 2.45 with a
+1024 shadow map, a cool hemisphere fill at 0.55 and a rim light at 0.6, a sky from `sky` to `cloud` with a few toy
+clouds, and a lobed floating island to play on, top at y = 0, centred where the laptop camera looks and turned so its
+raised tier is at the back; `contactShadow()` for props; an optional `decorate()` in `src/decor.ts`; and ART's motion
+curves in `src/motion.ts` (pop, hide, bob, wiggle, bonk), still pure functions of the time a system is given, so the
+check's stepped clock holds them. AGENTS.md asks for the island, the palette and the curves. Unverified on a headset:
+whether no tone mapping clips the sun-lit tops (then the sun goes to 2.1), and whether the clear coat drops frames on
+the Quest (then clear coat 0 and roughness 0.35).

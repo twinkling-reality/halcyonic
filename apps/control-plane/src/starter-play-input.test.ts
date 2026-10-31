@@ -93,7 +93,16 @@ describe("the IWSDK starter's input layer", () => {
     const layer = read('src/play-input.ts');
     assert.match(layer, /if \(new URLSearchParams\(location\.search\)\.has\('check'\)\)/);
     assert.match(layer, /canvas\.addEventListener\('pointerdown'/);
-    for (const file of ['src/index.ts', 'src/panel.ts', 'src/components.ts', 'src/assets.ts']) {
+    for (const file of [
+      'src/index.ts',
+      'src/panel.ts',
+      'src/components.ts',
+      'src/assets.ts',
+      'src/motion.ts',
+      'src/palette.ts',
+      'src/look.ts',
+      'src/decor.ts',
+    ]) {
       assert.doesNotMatch(
         read(file),
         /(window|document|canvas|domElement)\.addEventListener/,
@@ -125,11 +134,46 @@ describe("the IWSDK starter's input layer", () => {
     assert.match(card, /<div id="card-words" class="panel-content">/);
   });
 
-  test('the agent is asked for motion from the time it is given, a pop on a hit, a big score, and a tidy src (GQ1a)', () => {
+  test('the agent is asked for the island, the palette, motion from the time it is given, and a tidy src (GQ1a, GQ1b)', () => {
     const agents = read('AGENTS.md');
     assert.match(agents, /`src\/motion\.ts`/);
     assert.match(agents, /never a timer of its own/);
-    assert.match(agents, /`pop` it/);
+    assert.match(agents, /`bonk` it/);
+    assert.match(agents, /on the island/);
+    assert.match(agents, /`toyMaterial\(/);
+    assert.match(agents, /`contactShadow\(/);
+    assert.match(agents, /`decorate\(/);
     assert.match(agents, /delete any scratch or helper files you made/);
+  });
+
+  test("the starter's look is ART7's: the palette, the toy material, the light, the island and the sky (GQ1b)", () => {
+    const palette = read('src/palette.ts');
+    for (const hex of [
+      '#7CCB4B',
+      '#4FAEFF',
+      '#D8F0FF',
+      '#FF4F64',
+      '#FFC531',
+      '#2F7FF5',
+      '#9A62F2',
+      '#FF8A2E',
+      '#A8673F',
+      '#2B2340',
+      '#5AAE3C',
+      '#6A4A2E',
+    ])
+      assert.ok(palette.includes(`'${hex}'`), hex);
+    assert.match(palette, /roughness: options\.roughness \?\? \(options\.ground \? 0\.85 : 0\.3\)/);
+    assert.match(palette, /clearcoat: options\.ground \? 0 : 0\.45/);
+    assert.match(palette, /sheen: 0\.4/);
+    const look = read('src/look.ts');
+    assert.match(look, /NoToneMapping/);
+    assert.match(look, /world\.scene\.environment = null;/);
+    assert.match(look, /world\.scene\.add\(new HemisphereLight\('#9CC8FF', '#8FC46E', 0\.55\)\);/);
+    assert.match(look, /new DirectionalLight\('#FFE9C7', 2\.45\)/);
+    assert.match(look, /mapSize\.set\(1024, 1024\)/);
+    assert.match(look, /new DirectionalLight\('#CFE4FF', 0\.6\)/);
+    assert.doesNotMatch(read('public/scenes/main.iwsdk.scene.json'), /IBLGradient/);
+    assert.match(read('src/index.ts'), /setupLook\(world\)/);
   });
 });
