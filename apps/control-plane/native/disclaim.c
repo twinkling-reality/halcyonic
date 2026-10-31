@@ -38,12 +38,14 @@ int main(int argc, char *argv[]) {
   memset(&action, 0, sizeof action);
   action.sa_handler = forward;
   sigemptyset(&action.sa_mask);
-  for (size_t i = 0; i < sizeof forwarded / sizeof forwarded[0]; i++) {
-    sigaddset(&blocked, forwarded[i]);
-    if (sigaction(forwarded[i], &action, NULL) != 0) return 71;
-  }
-  /* Held until the child's pid is known, so a signal that arrives during the start is forwarded. */
+  for (size_t i = 0; i < sizeof forwarded / sizeof forwarded[0]; i++) sigaddset(&blocked, forwarded[i]);
+  /*
+   * Held from before their handlers are installed until the child's pid is known, so a signal that
+   * arrives during the start is forwarded, never lost.
+   */
   if (sigprocmask(SIG_BLOCK, &blocked, &previous) != 0) return 71;
+  for (size_t i = 0; i < sizeof forwarded / sizeof forwarded[0]; i++)
+    if (sigaction(forwarded[i], &action, NULL) != 0) return 71;
 
   posix_spawnattr_t attrs;
   if (posix_spawnattr_init(&attrs) != 0) return 71;
@@ -75,6 +77,9 @@ int main(int argc, char *argv[]) {
   while (waitpid(pid, &status, 0) < 0) {
     if (errno != EINTR) return 71;
   }
+  /* Reaped: its pid may be reused, so nothing more is forwarded to it. */
+  sigprocmask(SIG_BLOCK, &blocked, NULL);
+  child = 0;
   if (WIFEXITED(status)) return WEXITSTATUS(status);
   if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
   return 71;
