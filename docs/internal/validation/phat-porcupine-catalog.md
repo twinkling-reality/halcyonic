@@ -82,8 +82,8 @@
   - `checkCredential` accepts both `omc_` and `ppc_` prefixes followed by 32 bytes in canonical
     base64url.
   - The credential file name in Halcyonic's data directory (`phat-porcupine-credential`), the
-    contract literal `source.system: 'phat-porcupine'`, the reason messages and the headset's
-    on-screen words (`GalleryText.Source`) are unchanged.
+    contract literal `source.system: 'phat-porcupine'` and the control plane's reason messages are
+    unchanged; the headset's on-screen source name (`GalleryText.Source`) is now `"Omnorium"`.
 - **What was run:** Stand-in tests only (`packages/integrations/phat-porcupine/src/connection.test.ts`,
   `src/client.test.ts`, `src/wire.test.ts`, `apps/control-plane/src/intelligence/catalog.test.ts`,
   `apps/control-plane/src/http/catalog-route.test.ts`). Not read live: a live read still waits for
