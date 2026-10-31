@@ -61,10 +61,10 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The button that changes the text's size, to the other one.</summary>
-        public string TextButton => Text == TextSize.Larger ? "Make text standard" : "Make text larger";
+        public string TextButton => Text == TextSize.Larger ? "Standard Text" : "Larger Text";
 
         /// <summary>The button that keeps things still, or lets them move again.</summary>
-        public string MotionButton => Still ? "Let things move" : "Keep things still";
+        public string MotionButton => Still ? "Allow Motion" : "Keep Still";
 
         /// <summary>The level the sound button steps to: on, quieter, off, and on again.</summary>
         public SoundLevel NextSounds => Sounds switch
@@ -77,9 +77,9 @@ namespace Halcyonic.Client
         /// <summary>The one button for sounds, named for the level it steps to, so three levels take one place.</summary>
         public string SoundButton => NextSounds switch
         {
-            SoundLevel.Quieter => "Make sounds quieter",
-            SoundLevel.Off => "Turn sounds off",
-            _ => "Turn sounds on",
+            SoundLevel.Quieter => "Quieter Sounds",
+            SoundLevel.Off => "Sounds Off",
+            _ => "Sounds On",
         };
 
         /// <summary>The settings in one line for the device to keep.</summary>

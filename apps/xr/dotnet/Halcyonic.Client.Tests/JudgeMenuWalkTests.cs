@@ -412,7 +412,7 @@ public class JudgeMenuWalkTests
             (_, frame) = host.Draw();
         }
         Assert.That(frame!.Lines[0].Words, Does.StartWith("Tests failed").And.Contains("1 failed, 23 passed"));
-        Assert.That(frame.Source, Does.StartWith("Simulated checks · recorded at "));
+        Assert.That(frame.Source, Does.StartWith("Simulated Checks · Recorded "));
 
         // Tell it: the recorded instructions as rows, one chosen, sent in its words as shown.
         host.Press(MenuColumn.File, MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity));
@@ -471,8 +471,8 @@ public class JudgeMenuWalkTests
         Assert.That(menu!.Subject, Is.EqualTo(UsageText.Subject));
         Assert.That(menu.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new[]
         {
-            ("Practice agent, 5-hour window", (string?)"At most 62% left"),
-            ("Practice agent, weekly", (string?)"At most 79% left"),
+            ("Practice agent · 5-Hour Window", (string?)"Up to 62% Left"),
+            ("Practice agent · Weekly", (string?)"Up to 79% Left"),
         }));
         Assert.That(menu.Source, Is.EqualTo(UsageLeftPresenter.Recorded));
         Assert.That(menu.Footer[PromptSlot.Rare], Is.Null, "no Refresh in the demonstration");
@@ -512,7 +512,7 @@ public class JudgeMenuWalkTests
             Assert.That(host.Sent.Count, Is.EqualTo(sentBeforeDetails), "inspecting each recorded detail sends nothing");
         }
         Assert.That(facts.Select(fact => fact.Name), Is.EqualTo(new[] { UsageText.AgentApp, UsageText.Seen, UsageText.Resets, UsageText.Account }));
-        Assert.That(facts.Last().Value, Is.EqualTo("Part of the recording"));
+        Assert.That(facts.Last().Value, Is.EqualTo("Part of Recording"));
         Assert.That(host.Draw().Menu!.Side!.Parts?.Part ?? 0, Is.Zero, "the offered detail pager returns to its first part");
 
         // Projects: the demonstration's own projects, nothing read from a computer.
@@ -629,6 +629,6 @@ public class JudgeMenuWalkTests
         foreach (var drawn in host.Drawn) words.UnionWith(JudgeWordsTests.WordsOf(drawn));
         foreach (var drawnSide in host.DrawnSides) words.UnionWith(JudgeWordsTests.WordsOf(drawnSide));
         Assert.That(JudgeWordsTests.Branded(words), Is.Empty);
-        Assert.That(words, Is.SupersetOf(new[] { "Confirm", "Part of the recording", UsageLeftPresenter.Recorded, Comfort.Heading, SettingsText.YourSpace }));
+        Assert.That(words, Is.SupersetOf(new[] { "Confirm", "Part of Recording", UsageLeftPresenter.Recorded, Comfort.Heading, SettingsText.YourSpace }));
     }
 }

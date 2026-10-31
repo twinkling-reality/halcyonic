@@ -471,23 +471,23 @@ public class IntelligenceFeedTests
         feed.Show(Intelligence.ExecutionId, null, Start);
         reads.Asked[0].Answer.SetException(new ControlPlaneRequestException("The control plane could not be reached: refused", new System.Net.Http.HttpRequestException("refused")));
         feed.Poll();
-        Assert.That(feed.Error, Is.EqualTo("your computer didn't answer. Press Refresh to try again."));
+        Assert.That(feed.Error, Is.EqualTo("No Answer · Refresh"));
         feed.Show(Intelligence.ExecutionId, null, Start.AddMinutes(1));
         Assert.That(reads.Asked, Has.Count.EqualTo(1));
 
         feed.Refresh(null, Start.AddMinutes(1));
         reads.Asked[1].Answer.SetCanceled();
         feed.Poll();
-        Assert.That(feed.Error, Is.EqualTo("your computer didn't answer in time. Press Refresh to try again."));
+        Assert.That(feed.Error, Is.EqualTo("Computer Timed Out · Refresh"));
 
         var throwing = new IntelligenceFeed<UnderstandingResponse>((_, _) => throw new InvalidOperationException("no reader"));
         throwing.Show(Intelligence.ExecutionId, null, Start);
         throwing.Poll();
-        Assert.That(throwing.Error, Is.EqualTo("something went wrong. Press Refresh to try again."));
+        Assert.That(throwing.Error, Is.EqualTo("Read Failed · Refresh"));
         var unasked = new IntelligenceFeed<UnderstandingResponse>((_, _) => throw new UnaskedReadException(IntelligenceText.NotConnected));
         unasked.Show(Intelligence.ExecutionId, null, Start);
         unasked.Poll();
-        Assert.That(unasked.Error, Is.EqualTo("your computer isn't connected. Press Refresh when it is."));
+        Assert.That(unasked.Error, Is.EqualTo("Not Connected · Refresh Once Connected"));
     }
 
     /// <summary>
@@ -501,25 +501,25 @@ public class IntelligenceFeedTests
         const string Paired = "Your computer refused this headset's pairing.";
         var cases = new (Exception Error, string Why)[]
         {
-            (new OperationCanceledException(Leak), "your computer didn't answer in time. Press Refresh to try again."),
-            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "your computer didn't answer. Press Refresh to try again."),
-            (new UnaskedReadException(IntelligenceText.NotConnected), "your computer isn't connected. Press Refresh when it is."),
+            (new OperationCanceledException(Leak), "Computer Timed Out · Refresh"),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak)), "No Answer · Refresh"),
+            (new UnaskedReadException(IntelligenceText.NotConnected), "Not Connected · Refresh Once Connected"),
             (new ControlPlaneRequestException(Leak, "too_many_requests", 429),
-                "your computer is turning this headset away for a minute after too many tries. Press Refresh after a minute."),
-            (new ControlPlaneRequestException(Leak, "device_revoked", 401), IntelligenceText.AfterColon(ConnectionText.PairingRefused)),
-            (new ControlPlaneRequestException(Leak, "unauthorized", 401), IntelligenceText.AfterColon(Paired)),
+                "Pairing Paused · Too Many Tries · Refresh in 1 min"),
+            (new ControlPlaneRequestException(Leak, "device_revoked", 401), ConnectionText.PairingRefused),
+            (new ControlPlaneRequestException(Leak, "unauthorized", 401), Paired),
             // A code counts only with the status that carries it.
-            (new ControlPlaneRequestException(Leak, "device_revoked", 500), "something went wrong. Press Refresh to try again."),
+            (new ControlPlaneRequestException(Leak, "device_revoked", 500), "Read Failed · Refresh"),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new CertificateMismatchException("ab"))),
-                IntelligenceText.AfterColon(ConnectionText.NotThePairedComputer)),
+                ConnectionText.NotThePairedComputer),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unproved, new Uri("http://127.0.0.1:47800/")))),
-                "what answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Refresh."),
+                "Host Unverified · Code Not Sent · Check App · Refresh"),
             (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new TokenNotSentException(LoopbackProofOutcome.Unreachable, new Uri("http://127.0.0.1:47800/")))),
-                "your computer didn't answer. Press Refresh to try again."),
-            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), "something went wrong. Press Refresh to try again."),
-            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new HandshakeFailedException(Leak, null))), "something went wrong. Press Refresh to try again."),
-            (new Newtonsoft.Json.JsonReaderException(Leak), IntelligenceText.AfterColon(ConnectionText.Unreadable)),
-            (new InvalidOperationException(Leak), "something went wrong. Press Refresh to try again."),
+                "No Answer · Refresh"),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new System.IO.InvalidDataException(Leak))), "Read Failed · Refresh"),
+            (new ControlPlaneRequestException(Leak, new System.Net.Http.HttpRequestException(Leak, new HandshakeFailedException(Leak, null))), "Read Failed · Refresh"),
+            (new Newtonsoft.Json.JsonReaderException(Leak), ConnectionText.Unreadable),
+            (new InvalidOperationException(Leak), "Read Failed · Refresh"),
         };
         foreach (var (error, why) in cases)
         {
@@ -533,14 +533,6 @@ public class IntelligenceFeedTests
         }
     }
 
-    [Test]
-    public void ASentenceReusedAfterAColonLowersOnlyItsFirstLetter()
-    {
-        Assert.That(IntelligenceText.AfterColon(ConnectionText.Unreadable), Is.EqualTo("Message Unreadable · Install Same Version"));
-        Assert.That(IntelligenceText.AfterColon("What answered isn't it."), Is.EqualTo("what answered isn't it."));
-        Assert.That(IntelligenceText.AfterColon(""), Is.EqualTo(""));
-    }
-
     /// <summary>
     /// A source that answered without conclusions is said by its code, never its message, which is the source's
     /// or its reader's and can hold an address, a path or the source's own words (the review's leak 3).
@@ -551,16 +543,16 @@ public class IntelligenceFeedTests
         const string Leak = "Seorak at http://127.0.0.1:7600 refused: visit http://203.0.113.9/unlock";
         foreach (var (code, why) in new[]
         {
-            ("not_running", "it isn't running on your computer. Start it there, then press Refresh."),
-            ("timed_out", "it didn't answer on your computer. Press Refresh in a moment."),
-            ("rate_limited", "it asked for a pause after too many requests. Press Refresh a little later."),
-            ("credential_malformed", "the credential set up for it on your computer isn't the right kind, so it wasn't sent. Set up another there."),
-            ("insufficient_scope", "the credential set up on your computer can't read this. Set up one that can."),
-            ("result_limit", "it stopped at a limit before it found this task. Press Refresh to try again."),
-            ("instance_mismatch", "what answered isn't it. Check its setup on your computer."),
-            ("invalid_evaluation", "its answer isn't one this app can read. Check its version on your computer."),
-            ("native_id_unknown", "the agent app hasn't said which session this is yet. Press Refresh in a moment."),
-            ("something_new", "it didn't say why. Press Refresh to try again."),
+            ("not_running", "Not Running · Start It · Refresh"),
+            ("timed_out", "No Answer · Refresh Soon"),
+            ("rate_limited", "Too Many Requests · Refresh Later"),
+            ("credential_malformed", "Credential Wrong Kind · Not Sent · Set Up Another"),
+            ("insufficient_scope", "Credential Lacks Access · Set Up Another"),
+            ("result_limit", "Result Limit Reached · Refresh"),
+            ("instance_mismatch", "Wrong Source Answered · Check Setup on Computer"),
+            ("invalid_evaluation", "Answer Unreadable · Check Version on Computer"),
+            ("native_id_unknown", "Session Unknown Yet · Refresh Soon"),
+            ("something_new", "No Reason Given · Refresh"),
         })
         {
             Assert.That(IntelligenceText.Why(new ErrorInfo { Code = code, Message = Leak }), Is.EqualTo(why), code);
@@ -572,7 +564,7 @@ public class IntelligenceFeedTests
             Result = new UnavailableEvaluation { Reason = new ErrorInfo { Code = "not_running", Message = Leak } },
         }, now, recorded: false);
         var line = EvaluationPresenter.Measurement(unavailable, false, null, now, Intelligence.Utc).Single().Text;
-        Assert.That(line, Is.EqualTo("From Seorak · Evaluation unavailable: it isn't running on your computer. Start it there, then press Refresh."));
+        Assert.That(line, Is.EqualTo("Seorak · Measurement Unavailable · Not Running · Start It · Refresh"));
     }
 }
 
@@ -729,14 +721,14 @@ public class DemonstrationReadsTests
         var understanding = await reads.ReadUnderstandingAsync(execution.ExecutionId, CancellationToken.None);
         Assert.That(understanding.Recorded, Is.True);
         var section = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(section.Provenance, Does.StartWith("Simulated explanation · recorded at 09:00:0"));
+        Assert.That(section.Provenance, Does.StartWith("Simulated Explanation · Recorded 09:00:0"));
         Assert.That(section.Lines[0].Text, Is.EqualTo("2 files changed: 2 new"));
         var evaluation = await reads.ReadEvaluationAsync(execution.ExecutionId, CancellationToken.None);
         var measured = CheckedPresenter.Present(execution.ExecutionId, understanding, false, null, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
         var source = measured.Lines.Single(line => line.Source);
-        Assert.That(source.Text, Does.StartWith("Simulated measurement · recorded at"));
-        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("Nothing measured yet."), "the outcome waits for the turn to end");
-        Assert.That(measured.Lines.Last().Text, Does.StartWith("unavailable: not yet computed"), "the outcome's own statement about itself");
+        Assert.That(source.Text, Does.StartWith("Simulated Measurement · Recorded"));
+        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("Not Measured"), "the outcome waits for the turn to end");
+        Assert.That(measured.Lines.Last().Text, Does.StartWith("Unavailable · Not Yet Computed"), "the outcome's own statement about itself");
 
         var approve = Demonstration.AtApproval(DemonstrationAnswerKind.Approve);
         await session.SubmitAsync(new CommandFactory(Samples.Client).RespondToApproval(approve.Answer.ExecutionId, approve.Answer.ApprovalId!, ApprovalDecision.Approve));
@@ -751,7 +743,7 @@ public class DemonstrationReadsTests
         Assert.That(flow.Lines.Select(line => line.Tag), Does.Contain("explained"));
         evaluation = await reads.ReadEvaluationAsync(execution.ExecutionId, CancellationToken.None);
         measured = CheckedPresenter.Present(execution.ExecutionId, understanding, false, null, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("0 passed of 1 run (0%): test"));
+        Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("0 of 1 Passed · 0% · test"));
         Assert.That(measured.Lines[0].Text, Does.StartWith("Tests failed at "));
 
         Assert.That(await AssertNothingRecorded(reads, "01a0dcf1-5a80-7000-8000-0000000000e9"), Is.EqualTo(DemonstrationReads.NothingRecorded));

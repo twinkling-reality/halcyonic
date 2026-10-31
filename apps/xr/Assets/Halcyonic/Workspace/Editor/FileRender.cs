@@ -427,7 +427,7 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var chip in new string?[] { null, "Agent says" })
             foreach (var outside in new[] { false, true })
             {
-                var words = LineWords.Ours("Checks: ") + (outside ? LineWords.Theirs(new string('W', 80)) : LineWords.Ours(new string('W', 80)));
+                var words = LineWords.Ours("Checks · ") + (outside ? LineWords.Theirs(new string('W', 80)) : LineWords.Ours(new string('W', 80)));
                 var line = new SectionLine("", words.Text, SectionTone.Normal, rows: 20, said: words, chip: chip, file: icon);
                 var answer = new SectionPresentation(SectionKind.Understanding, "From the render", SectionTone.Secondary,
                     new[] { new SectionLine("", "Changes", SectionTone.Normal), line }, simulated: true);

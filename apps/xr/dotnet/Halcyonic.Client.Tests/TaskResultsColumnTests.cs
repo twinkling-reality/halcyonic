@@ -114,7 +114,7 @@ public class TaskResultsColumnTests
         _ = column.Frame; column.Tick();
         Assert.That(handler.Requests.Single().RequestUri!.AbsolutePath, Is.EqualTo("/api/executions/" + RunId + "/results"));
         Assert.That(handler.Requests.Single().RequestUri!.Query, Is.EqualTo("?journal_id=" + Samples.JournalId + "&project_id=" + Samples.ProjectId + "&workstream_id=" + TaskId));
-        Assert.That(Words(column), Does.Contain("Command output"));
+        Assert.That(Words(column), Does.Contain("Command Output"));
     }
 
     [TestCase("journal")]
@@ -143,7 +143,7 @@ public class TaskResultsColumnTests
         }
         var host = new FileMenuHost(); var column = Open(host, found);
         Assert.That(column.Frame!.Lines.Any(line => line.Action == TaskResultsColumn.Read), Is.False);
-        Assert.That(Words(column), Does.Contain("could not be read"));
+        Assert.That(Words(column), Does.Contain("Unreadable"));
         Assert.That(host.Sent, Is.Empty);
     }
 
@@ -169,7 +169,7 @@ public class TaskResultsColumnTests
         }
         var host = new FileMenuHost(); var column = Open(host, output: output); Read(column);
         Assert.That(Words(column), Does.Not.Contain("DO NOT ADOPT"));
-        Assert.That(Words(column), Does.Contain("could not be read")); Assert.That(host.Sent, Is.Empty);
+        Assert.That(Words(column), Does.Contain("Unreadable")); Assert.That(host.Sent, Is.Empty);
     }
 
     [TestCase(false)]
@@ -223,7 +223,7 @@ public class TaskResultsColumnTests
         shown = true; _ = column.Frame; column.Tick();
         Assert.That(readIds, Is.EqualTo(new[] { EventId, EventId }), "recent eviction never retargets the retained event");
         Assert.That(freshToken.IsCancellationRequested, Is.False);
-        Assert.That(Words(column), Does.Contain("Reading recorded result"));
+        Assert.That(Words(column), Does.Contain("Reading Result"));
         column.Drawn(oldFrame!, null); column.Act(TaskResultsColumn.Next, null);
         fresh.SetResult(Output(text)); column.Tick();
         Assert.That(column.Frame!.Lines.Single().FromRow, Is.EqualTo(originalRow));
@@ -278,7 +278,7 @@ public class TaskResultsColumnTests
         _ = column.Frame; column.Tick(); Draw(column); column.Act(TaskResultsColumn.Next, null);
         var before = column.Frame!.Lines.Where(line => line.Action == TaskResultsColumn.Read).Select(line => line.Key).ToArray();
         shown = false; column.Compact(); _ = column.Frame; shown = true; _ = column.Frame;
-        Assert.That(Words(column), Does.Contain("Reading recorded results"));
+        Assert.That(Words(column), Does.Contain("Reading Results"));
         fresh.SetResult(listing); column.Tick();
         Assert.That(column.Frame!.Lines.Where(line => line.Action == TaskResultsColumn.Read).Select(line => line.Key), Is.EqualTo(before));
         Assert.That(calls, Is.EqualTo(2));
@@ -310,7 +310,7 @@ public class TaskResultsColumnTests
         if (changedFile) ((FileChangesToolResult)restored.Result).Files[0].Path = "src/another.cs";
         fresh.SetResult(restored); column.Tick();
         if (changedFile)
-        { Assert.That(Words(column), Does.Contain("could not be read")); Assert.That(Words(column), Does.Not.Contain("PATCH ONLY")); }
+        { Assert.That(Words(column), Does.Contain("Unreadable")); Assert.That(Words(column), Does.Not.Contain("PATCH ONLY")); }
         else
         {
             Assert.That(column.Frame!.Lines.Single().FromRow, Is.EqualTo(row));
@@ -369,8 +369,8 @@ public class TaskResultsColumnTests
         Assert.That(file.Frame.Footer.All.Count(), Is.LessThanOrEqualTo(4));
     }
 
-    [TestCase(ToolResultPathScope.OutsideProject, "Outside project")]
-    [TestCase(ToolResultPathScope.Unknown, "Path unknown")]
+    [TestCase(ToolResultPathScope.OutsideProject, "Outside Project")]
+    [TestCase(ToolResultPathScope.Unknown, "Path Unknown")]
     public void OmittedPathsNeverPretendToBeShortenedPaths(ToolResultPathScope scope, string label)
     {
         var response = Output(); response.Summary.Kind = ToolResultSummaryKind.FileChanges; response.Summary.ExitCode = null;
@@ -381,16 +381,16 @@ public class TaskResultsColumnTests
                 Patch = new ToolResultBody { Availability = ToolResultBodyAvailability.OmittedScope, Truncation = ToolResultBodyTruncation.Scope, Complete = false } } } };
         var listing = Listing(); listing.Results[0] = response.Summary;
         var column = Open(new FileMenuHost(), listing, response); Read(column); ReadFile(column);
-        Assert.That(Words(column), Does.Contain(label)); Assert.That(Words(column), Does.Not.Contain("Path shortened"));
-        Assert.That(Words(column), Does.Contain("files may have changed since"));
+        Assert.That(Words(column), Does.Contain(label)); Assert.That(Words(column), Does.Not.Contain("Path Shortened"));
+        Assert.That(Words(column), Does.Contain("Files May Have Changed Since"));
         if (scope == ToolResultPathScope.Unknown)
-        { Assert.That(Words(column), Does.Contain("project scope is unknown")); Assert.That(Words(column), Does.Not.Contain("Patch outside")); }
+        { Assert.That(Words(column), Does.Contain("Patch Not Retained · Scope Unknown")); Assert.That(Words(column), Does.Not.Contain("Outside Project")); }
     }
 
-    [TestCase(ToolResultsAvailability.Available, "recorded yet")]
-    [TestCase(ToolResultsAvailability.Unknown, "support is unknown")]
-    [TestCase(ToolResultsAvailability.Unsupported, "does not record")]
-    [TestCase(ToolResultsAvailability.Unavailable, "app is unavailable")]
+    [TestCase(ToolResultsAvailability.Available, "No Results Yet")]
+    [TestCase(ToolResultsAvailability.Unknown, "Recording Support Unknown")]
+    [TestCase(ToolResultsAvailability.Unsupported, "Results Not Recorded by Agent App")]
+    [TestCase(ToolResultsAvailability.Unavailable, "Agent App Unavailable")]
     public void EmptyHistoryDoesNotInventCurrentRecordingSupport(ToolResultsAvailability availability, string words)
     {
         var listing = Listing(); listing.Results.Clear(); listing.Total = 0; listing.Availability = availability;
@@ -403,13 +403,13 @@ public class TaskResultsColumnTests
         var listing = Listing(); listing.Availability = (ToolResultsAvailability)99;
         var column = Open(new FileMenuHost(), listing);
         Assert.That(column.Frame!.Lines.Any(line => line.Action == TaskResultsColumn.Read), Is.False);
-        Assert.That(Words(column), Does.Contain("could not be read"));
+        Assert.That(Words(column), Does.Contain("Unreadable"));
     }
 
-    [TestCase(ToolResultBodyAvailability.Absent, ToolResultBodyTruncation.Absent, "not supplied")]
-    [TestCase(ToolResultBodyAvailability.SourceOverLimit, ToolResultBodyTruncation.SourceLimit, "too large")]
-    [TestCase(ToolResultBodyAvailability.Malformed, ToolResultBodyTruncation.Malformed, "could not be read")]
-    [TestCase(ToolResultBodyAvailability.Absent, ToolResultBodyTruncation.AggregateBound, "limit saved result size")]
+    [TestCase(ToolResultBodyAvailability.Absent, ToolResultBodyTruncation.Absent, "Output Not Supplied")]
+    [TestCase(ToolResultBodyAvailability.SourceOverLimit, ToolResultBodyTruncation.SourceLimit, "Output Too Large to Retain")]
+    [TestCase(ToolResultBodyAvailability.Malformed, ToolResultBodyTruncation.Malformed, "Output Unreadable")]
+    [TestCase(ToolResultBodyAvailability.Absent, ToolResultBodyTruncation.AggregateBound, "Output Omitted · Size Limit")]
     public void BodyOmissionShowsItsRecordedReason(ToolResultBodyAvailability availability, ToolResultBodyTruncation truncation, string reason)
     {
         var response = Output(); var command = (CommandToolResult)response.Result;

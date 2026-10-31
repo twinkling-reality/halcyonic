@@ -352,9 +352,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": task switch lost selected file/page or skipped its fresh read");
                 Press(Footer.Close);
                 ChooseFile("3"); Shot("recorded rename");
-                if (director.Plane.Showing(MenuColumn.File)?.Lines.Single().Words.Contains("Moved to: src/after.cs") != true) failures.Add(name + ": selected rename lost its destination");
+                if (director.Plane.Showing(MenuColumn.File)?.Lines.Single().Words.Contains("Moved To · src/after.cs") != true) failures.Add(name + ": selected rename lost its destination");
                 Press(Footer.Close); ChooseFile("4"); Shot("unknown project scope");
-                if (director.Plane.Showing(MenuColumn.File)?.Lines.Single().Words.Contains("project scope is unknown") != true) failures.Add(name + ": unknown path was treated as verified outside");
+                if (director.Plane.Showing(MenuColumn.File)?.Lines.Single().Words.Contains("Patch Not Retained · Scope Unknown") != true) failures.Add(name + ": unknown path was treated as verified outside");
                 Press(Footer.Close); ChooseFile("5"); Shot("outside project patch omitted");
                 Press(Footer.Close);
                 Press(Footer.Close);

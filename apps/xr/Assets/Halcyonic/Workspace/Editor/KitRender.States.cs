@@ -433,7 +433,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private const string AgentsOff = "The workspace works without characters";
         private const string ShowAgents = "Show agents";
         private const string NoRoom = "No room above the workspace for its character";
-        private const string WorkspaceMoveWords = "Move workspace";
+        private const string WorkspaceMoveWords = "Move Workspace";
 
         private static KitWorkModel WithCharacter(CharacterActivity activity, AttentionLevel attention = AttentionLevel.None)
         {

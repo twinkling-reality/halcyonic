@@ -30,7 +30,7 @@ public class SpaceSettingsTests
         var (rows, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, null));
         Assert.That(rows.Select(row => (row.Group, row.Name)), Is.EqualTo(new[]
         {
-            ("Your space", "Around you"), ("Your space", "Your room's layout"), ("Your space", "Spatial agents"), ("Your space", "Agent shelf"), ("Your space", "The menu"),
+            ("Your Space", "Surroundings"), ("Your Space", "Room Layout"), ("Your Space", "Agents"), ("Your Space", "Agent Shelf"), ("Your Space", "Menu"),
         }));
         var (developing, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow(null, PairingStep.Idle, true)));
         Assert.That(developing.Last().Group, Is.EqualTo("Your computer"));
@@ -42,12 +42,12 @@ public class SpaceSettingsTests
     {
         var moved = false;
         var (rows, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, null, moved));
-        Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Where it stands"));
+        Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Default"));
         moved = true;
         var dragged = Read(rows, SpaceSettings.ResetPosition);
-        Assert.That((dragged.Value, dragged.Now, dragged.Prompt), Is.EqualTo(("Where you moved it", "Where you moved it", "Reset position")));
+        Assert.That((dragged.Value, dragged.Now, dragged.Prompt), Is.EqualTo(("Moved", "Position · Moved", "Reset Position")));
         moved = false;
-        Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Where it stands"), "Reset position put it back");
+        Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Default"), "Reset position put it back");
     }
 
     [Test]
@@ -64,13 +64,13 @@ public class SpaceSettingsTests
         var room = Room;
         var (rows, _) = Of(() => new SpaceNow(room, RoomOffer.None, StageArrangement.InFront, null));
         var now = Read(rows, SpaceSettings.SwitchSpace);
-        Assert.That((now.Value, now.Now, now.Prompt, now.Reason), Is.EqualTo(("Your room", room.Line, "Show a virtual space", (string?)null)));
-        Assert.That(now.Does, Does.Contain("workspace").And.Not.Contain("characters"));
+        Assert.That((now.Value, now.Now, now.Prompt, now.Reason), Is.EqualTo(("Your Room", room.Line, "Show Virtual Space", (string?)null)));
+        Assert.That(now.Does, Is.EqualTo("Virtual Backdrop Replaces Room"));
         room = new RoomStatus(RoomSpace.Virtual, PassthroughState.Running, RoomScan.NotRead, StagePlacement.InFront, null);
-        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Prompt, Is.EqualTo("Show my room"), "read afresh each time");
-        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Does, Does.Contain("workspace").And.Not.Contain("characters"));
+        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Prompt, Is.EqualTo("Show My Room"), "read afresh each time");
+        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Does, Is.EqualTo("Room Shows Through Headset"));
         room = new RoomStatus(RoomSpace.Room, PassthroughState.Unavailable, RoomScan.NotRead, StagePlacement.InFront, null);
-        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Reason, Is.EqualTo("This headset can't show your room now."));
+        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Reason, Is.EqualTo("Room Unavailable"));
     }
 
     [Test]
@@ -78,11 +78,11 @@ public class SpaceSettingsTests
     {
         var offer = RoomOffer.AllowRoomAccess;
         var (rows, _) = Of(() => new SpaceNow(Room, offer, StageArrangement.InFront, null));
-        Assert.That((Read(rows, SpaceSettings.TakeOffer).Prompt, Read(rows, SpaceSettings.TakeOffer).Reason), Is.EqualTo(("Allow room access", (string?)null)));
+        Assert.That((Read(rows, SpaceSettings.TakeOffer).Prompt, Read(rows, SpaceSettings.TakeOffer).Reason), Is.EqualTo(("Allow Room Access", (string?)null)));
         offer = RoomOffer.SetUpRoom;
-        Assert.That(Read(rows, SpaceSettings.TakeOffer).Prompt, Is.EqualTo("Set up this room"));
+        Assert.That(Read(rows, SpaceSettings.TakeOffer).Prompt, Is.EqualTo("Set Up Room"));
         offer = RoomOffer.None;
-        Assert.That(Read(rows, SpaceSettings.TakeOffer).Reason, Is.EqualTo("Your room needs nothing set up now."));
+        Assert.That(Read(rows, SpaceSettings.TakeOffer).Reason, Is.EqualTo("Nothing to Set Up"));
     }
 
     [Test]
@@ -93,17 +93,17 @@ public class SpaceSettingsTests
         var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.BesideAWindow, null,
             agentsEnabled: enabled, shelfPlaced: placed));
         var agents = Read(rows, SpaceSettings.ToggleAgents);
-        Assert.That((agents.Value, agents.Prompt), Is.EqualTo(("Off", "Place agents")));
-        Assert.That(agents.Now, Is.EqualTo("The workspace works without characters"));
+        Assert.That((agents.Value, agents.Prompt), Is.EqualTo(("Off", "Place Agents")));
+        Assert.That(agents.Now, Is.EqualTo("Workspace Without Characters"));
         Assert.That(rows.Any(row => row.Key == "arrangement-next"), Is.False, "there is no guessed window layout route");
-        Assert.That(Read(rows, SpaceSettings.PlaceAgents).Value, Is.EqualTo("Not placed"));
+        Assert.That(Read(rows, SpaceSettings.PlaceAgents).Value, Is.EqualTo("Not Placed"));
         rows.Single(row => row.Key == SpaceSettings.ToggleAgents).Change();
         Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.ToggleAgents }), "the owning room must confirm a pose before enabling");
         placed = true;
-        Assert.That(Read(rows, SpaceSettings.ToggleAgents).Prompt, Is.EqualTo("Show agents"));
+        Assert.That(Read(rows, SpaceSettings.ToggleAgents).Prompt, Is.EqualTo("Show Agents"));
         enabled = true;
-        Assert.That((Read(rows, SpaceSettings.ToggleAgents).Value, Read(rows, SpaceSettings.ToggleAgents).Prompt), Is.EqualTo(("On", "Hide agents")));
-        Assert.That(Read(rows, SpaceSettings.PlaceAgents).Prompt, Is.EqualTo("Move shelf"));
+        Assert.That((Read(rows, SpaceSettings.ToggleAgents).Value, Read(rows, SpaceSettings.ToggleAgents).Prompt), Is.EqualTo(("On", "Hide Agents")));
+        Assert.That(Read(rows, SpaceSettings.PlaceAgents).Prompt, Is.EqualTo("Move Shelf"));
     }
 
     [Test]
@@ -112,21 +112,21 @@ public class SpaceSettingsTests
         var pairing = new PairingNow(null, PairingStep.Idle, true);
         var (rows, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, pairing));
         var now = Read(rows, SpaceSettings.Pairing);
-        Assert.That((now.Value, now.Prompt, now.Reason), Is.EqualTo(("Not paired", "Pair with a computer", (string?)null)));
+        Assert.That((now.Value, now.Prompt, now.Reason), Is.EqualTo(("Not Paired", "Pair Computer", (string?)null)));
 
         pairing = new PairingNow(null, PairingStep.Idle, false);
-        Assert.That(Read(rows, SpaceSettings.Pairing).Reason, Is.EqualTo("Pairing needs the headset's system keyboard; pair from the headset."));
+        Assert.That(Read(rows, SpaceSettings.Pairing).Reason, Is.EqualTo("Needs Headset Keyboard"));
 
         pairing = new PairingNow(null, PairingStep.Pairing, true);
-        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Pairing…", (string?)"Pairing is under way.")));
+        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Pairing", (string?)"Pairing Under Way")));
 
         pairing = new PairingNow("192.168.1.23:47801", PairingStep.Idle, true);
         now = Read(rows, SpaceSettings.Pairing);
-        Assert.That((now.Value, now.Now, now.Prompt, now.Reason), Is.EqualTo(("Paired", "Paired with your computer at 192.168.1.23:47801", "Forget this computer", (string?)null)));
-        Assert.That((now.Confirm, now.ValueIsData), Is.EqualTo(("Yes, forget this computer", true)), "Settings asks first, and the address shows as data");
+        Assert.That((now.Value, now.Now, now.Prompt, now.Reason), Is.EqualTo(("Paired", "Paired · 192.168.1.23:47801", "Forget Computer", (string?)null)));
+        Assert.That((now.Confirm, now.ValueIsData), Is.EqualTo(("Confirm", true)), "Settings asks first, and the address shows as data");
 
         pairing = new PairingNow("192.168.1.23:47801", PairingStep.Forgetting, true);
-        Assert.That(Read(rows, SpaceSettings.Pairing).Reason, Is.EqualTo("Forgetting is under way."));
+        Assert.That(Read(rows, SpaceSettings.Pairing).Reason, Is.EqualTo("Forgetting Under Way"));
     }
 
     [Test]
@@ -156,7 +156,7 @@ public class SpaceSettingsTests
         Assert.That((raised.Count, forgot.Count), Is.EqualTo((0, 0)), "the first press only asks");
         Assert.That(settings.Frame!.Footer.Confirming, Is.True);
         var yes = settings.Frame!.Footer[PromptSlot.Free]!;
-        Assert.That(yes.Words, Is.EqualTo("Yes, forget this computer"));
+        Assert.That(yes.Words, Is.EqualTo("Confirm"));
         settings.Act(yes.Id, null);
         Assert.That(forgot, Is.EqualTo(new[] { "192.168.1.23:47801" }), "Yes forgets the computer it asked about");
         Assert.That(raised, Is.Empty, "and never through the id that pairs");
@@ -243,11 +243,11 @@ public class SpaceSettingsTests
         {
             SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.ToggleAgents, SpaceSettings.PlaceAgents, SpaceSettings.ResetPosition, SpaceSettings.Pairing,
         }), "a development build's rows, before the room or the pairing is there");
-        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Not ready", (string?)SpaceSettings.PairingNotReady)));
+        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Not Ready", (string?)SpaceSettings.PairingNotReady)));
         room = Room;
         pairing = new PairingNow(null, PairingStep.Idle, true);
         Assert.That(Read(rows, SpaceSettings.SwitchSpace).Reason, Is.Null, "the room once its controls give it");
-        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Not paired", (string?)null)));
+        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Not Paired", (string?)null)));
     }
 
     [Test]
@@ -286,28 +286,27 @@ public class SpaceSettingsTests
         Assert.That(plain.Any(row => row.Key == SpaceSettings.ToggleBoundary), Is.False, "only builds that offer it show the row");
 
         var rows = SpaceSettings.Of(() => new SpaceNow(Room, RoomOffer.None, null, null, boundary: boundary), raised.Add, _ => { }, boundary: true);
-        Assert.That(rows.Select(row => row.Name).TakeLast(2), Is.EqualTo(new[] { "Boundary", "The menu" }));
-        Assert.That(rows.Single(row => row.Key == SpaceSettings.ToggleBoundary).Group, Is.EqualTo("Your space"));
+        Assert.That(rows.Select(row => row.Name).TakeLast(2), Is.EqualTo(new[] { "Boundary", "Menu" }));
+        Assert.That(rows.Single(row => row.Key == SpaceSettings.ToggleBoundary).Group, Is.EqualTo("Your Space"));
 
         var off = Read(rows, SpaceSettings.ToggleBoundary);
-        Assert.That((off.Value, off.Now, off.Next, off.Prompt, off.Reason), Is.EqualTo(("Shown", "The headset draws its boundary as you set it up",
-            "Hidden while your room shows", "Hide boundary", (string?)null)));
-        Assert.That(off.Does, Is.EqualTo("The headset stops drawing its boundary while your room shows. It comes back when your room stops showing, "
-            + "when Halcyonic pauses or loses focus, or when you choose Show boundary"));
+        Assert.That((off.Value, off.Now, off.Next, off.Prompt, off.Reason), Is.EqualTo(("Shown", "Drawn as Set Up",
+            "Hidden While Room Shows", "Hide Boundary", (string?)null)));
+        Assert.That(off.Does, Is.EqualTo("Returns When Room Stops or App Pauses"));
         boundary = new BoundaryNow(BoundaryStep.Off, roomShows: false);
-        Assert.That(Read(rows, SpaceSettings.ToggleBoundary).Reason, Is.EqualTo("Only while your room shows."));
+        Assert.That(Read(rows, SpaceSettings.ToggleBoundary).Reason, Is.EqualTo("Only While Room Shows"));
 
         boundary = new BoundaryNow(BoundaryStep.Asked, roomShows: true);
         var asked = Read(rows, SpaceSettings.ToggleBoundary);
-        Assert.That((asked.Value, asked.Now, asked.Prompt), Is.EqualTo(("Asked to hide", "The headset hasn't said it hid its boundary yet", "Show boundary")));
+        Assert.That((asked.Value, asked.Now, asked.Prompt), Is.EqualTo(("Hide Requested", "Hide Unconfirmed", "Show Boundary")));
         boundary = new BoundaryNow(BoundaryStep.Hidden, roomShows: true);
         var hidden = Read(rows, SpaceSettings.ToggleBoundary);
-        Assert.That((hidden.Value, hidden.Now, hidden.Next, hidden.Does, hidden.Prompt), Is.EqualTo(("Hidden", "Your boundary is hidden while your room shows",
-            "Shown", "The headset draws its boundary again", "Show boundary")));
+        Assert.That((hidden.Value, hidden.Now, hidden.Next, hidden.Does, hidden.Prompt), Is.EqualTo(("Hidden", "Hidden While Room Shows",
+            "Shown", "Boundary Returns", "Show Boundary")));
         boundary = new BoundaryNow(BoundaryStep.KeptOn, roomShows: true);
         var kept = Read(rows, SpaceSettings.ToggleBoundary);
-        Assert.That((kept.Value, kept.Now, kept.Next, kept.Does, kept.Prompt), Is.EqualTo(("Kept on",
-            "The headset kept its boundary on. Halcyonic asks again while your room shows", "Shown", "Halcyonic stops asking", "Stop asking")));
+        Assert.That((kept.Value, kept.Now, kept.Next, kept.Does, kept.Prompt), Is.EqualTo(("Kept On",
+            "Headset Kept It On · Asks Again", "Shown", "Stops Asking", "Stop Asking")));
 
         rows.Single(row => row.Key == SpaceSettings.ToggleBoundary).Change();
         Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.ToggleBoundary }));

@@ -34,39 +34,39 @@ namespace Halcyonic.Client
         {
             get
             {
-                var close = new Prompt(Footer.Close, selected < 0 ? "Back to workspace" : "Back to saved drafts", GlazeIcon.Back, PromptKind.Close);
+                var close = new Prompt(Footer.Close, selected < 0 ? "Back to Workspace" : "Back to Saved Drafts", GlazeIcon.Back, PromptKind.Close);
                 if (selected < 0)
                 {
                     var lines = new List<PageLine>();
-                    if (records.Count == 0) lines.Add(new PageLine("No saved task views."));
+                    if (records.Count == 0) lines.Add(new PageLine("No Saved Views"));
                     else
                     {
                         part %= records.Count;
                         var record = records[part];
                         var title = record.WorkstreamId != null && host.State?.Workstreams.TryGetValue(record.WorkstreamId, out var task) == true
-                            ? LineWords.TheirName(task.Title) : LineWords.Ours("Saved task view");
+                            ? LineWords.TheirName(task.Title) : LineWords.Ours("Saved Task View");
                         lines.Add(new PageLine(title, icon: GlazeIcon.Next, action: OpenDraft, key: part.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-                        lines.Add(new PageLine((record.Instruction != null && record.Request != null ? "Instruction and request drafts" : record.Instruction != null ? "Instruction draft" : record.Request != null ? "Request draft" : "View only")
-                            + (saved?.Invoke(record) == false ? " · Not saved" : ""), tone: LineTone.Secondary));
+                        lines.Add(new PageLine((record.Instruction != null && record.Request != null ? "Instruction and Request Drafts" : record.Instruction != null ? "Instruction Draft" : record.Request != null ? "Request Draft" : "View Only")
+                            + (saved?.Invoke(record) == false ? " · Not Saved" : ""), tone: LineTone.Secondary));
                     }
-                    return given = new MenuFrame("Saved drafts", new Footer(close, farRight: records.Count > 1
+                    return given = new MenuFrame("Saved Drafts", new Footer(close, farRight: records.Count > 1
                         ? new Prompt(Footer.NextPage, Footer.NextPageWords(part, records.Count), GlazeIcon.Next, PromptKind.NextPage) : null), lines: lines).Focus();
                 }
                 var chosen = records[selected];
-                var runs = LineWords.Ours((current(chosen) ? "Current task and run. " : "Earlier or unavailable task and run. ")
-                    + (saved?.Invoke(chosen) == false ? "Not saved. " : ""));
-                if (chosen.Instruction != null) runs = runs.Then(LineWords.Written("\nInstruction draft\n")).Then(LineWords.Theirs(chosen.Instruction.Text));
-                if (chosen.Request != null) runs = runs.Then(LineWords.Written("\nRequest draft\n")).Then(LineWords.Theirs(chosen.Request.Text))
-                    .Then(LineWords.Ours(chosen.Request.PendingCommandId != null ? "\nPending result. Restore to check." : chosen.Request.RequestId == null ? "\nNot submitted." : "\nSubmitted request reference retained. Restore to read its recorded result."));
-                if (chosen.Instruction == null && chosen.Request == null) runs = runs.Then(LineWords.Ours("This saved task view has no draft."));
+                var runs = LineWords.Ours((current(chosen) ? "Current Task and Run" : "Earlier or Unavailable Task and Run")
+                    + (saved?.Invoke(chosen) == false ? " · Not Saved" : ""));
+                if (chosen.Instruction != null) runs = runs.Then(LineWords.Written("\nInstruction Draft\n")).Then(LineWords.Theirs(chosen.Instruction.Text));
+                if (chosen.Request != null) runs = runs.Then(LineWords.Written("\nRequest Draft\n")).Then(LineWords.Theirs(chosen.Request.Text))
+                    .Then(LineWords.Ours(chosen.Request.PendingCommandId != null ? "\nPending Result · Restore to Check" : chosen.Request.RequestId == null ? "\nNot Submitted" : "\nRequest Reference Kept · Restore to Read Result"));
+                if (chosen.Instruction == null && chosen.Request == null) runs = runs.Then(LineWords.Ours("\nNo Draft"));
                 var rows = Math.Max(1, host.RowsOf(new PageLine(runs, rows: int.MaxValue), Glaze.Menu.FileColumnDegrees));
-                var room = Math.Max(1, (int)Math.Floor(host.PageHeight(host.TitleRows("Saved task view", Glaze.Menu.FileColumnDegrees), false, focused: true) / MenuPage.Words(1)));
+                var room = Math.Max(1, (int)Math.Floor(host.PageHeight(host.TitleRows("Saved Task View", Glaze.Menu.FileColumnDegrees), false, focused: true) / MenuPage.Words(1)));
                 var parts = Math.Max(1, (rows + room - 1) / room);
                 part %= parts;
                 var next = parts > 1 ? new Prompt(Footer.NextPage, Footer.NextPageWords(part, parts), GlazeIcon.Next, PromptKind.NextPage) : null;
-                var restorePrompt = current(chosen) ? new Prompt(RestoreDraft, "Restore view", GlazeIcon.Next) : null;
-                var keep = keepReturn != null && chosen.HandoffId == pendingReturnId ? new Prompt(KeepReturn, "Keep draft", GlazeIcon.Next) : null;
-                return given = new MenuFrame("Saved task view", new Footer(close, rare: restorePrompt ?? keep, farRight: next),
+                var restorePrompt = current(chosen) ? new Prompt(RestoreDraft, "Restore View", GlazeIcon.Next) : null;
+                var keep = keepReturn != null && chosen.HandoffId == pendingReturnId ? new Prompt(KeepReturn, "Keep Draft", GlazeIcon.Next) : null;
+                return given = new MenuFrame("Saved Task View", new Footer(close, rare: restorePrompt ?? keep, farRight: next),
                     lines: new[] { new PageLine(runs, rows: Math.Min(room, rows - part * room), fromRow: part * room) }).Focus();
             }
         }

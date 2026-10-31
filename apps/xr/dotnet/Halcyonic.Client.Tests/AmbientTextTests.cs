@@ -63,15 +63,15 @@ public class AmbientTextTests
     [Test]
     public void EveryArrangementSaysWhereTheCharactersStandAndThatTheWindowIsAssumed()
     {
-        Assert.That(SettingsText.Arrangement(StageArrangement.InFront), Is.EqualTo("The characters stand in front of you, where a window often opens."));
-        Assert.That(SettingsText.Arrangement(StageArrangement.TurnedAside), Is.EqualTo("With a window straight ahead, the characters stand to its right."));
-        Assert.That(SettingsText.Arrangement(StageArrangement.BesideAWindow), Is.EqualTo("With a window straight ahead, the characters stand either side of it."));
+        Assert.That(SettingsText.Arrangement(StageArrangement.InFront), Is.EqualTo("In Front of You"));
+        Assert.That(SettingsText.Arrangement(StageArrangement.TurnedAside), Is.EqualTo("Right of Window"));
+        Assert.That(SettingsText.Arrangement(StageArrangement.BesideAWindow), Is.EqualTo("Either Side of Window"));
         foreach (var arrangement in (StageArrangement[])System.Enum.GetValues(typeof(StageArrangement)))
         {
             Assert.That(SettingsText.Arrangement(arrangement).Length, Is.LessThanOrEqualTo(70), "one row of the Settings sheet");
         }
-        Assert.That(SettingsText.ChangeTo(StageArrangement.InFront), Is.EqualTo("Characters in front"));
-        Assert.That(SettingsText.ChangeTo(StageArrangement.TurnedAside), Is.EqualTo("Make room for a window"), "the turn aside keeps its words");
-        Assert.That(SettingsText.ChangeTo(StageArrangement.BesideAWindow), Is.EqualTo("Either side of a window"));
+        Assert.That(SettingsText.ChangeTo(StageArrangement.InFront), Is.EqualTo("In Front"));
+        Assert.That(SettingsText.ChangeTo(StageArrangement.TurnedAside), Is.EqualTo("Window Space"), "the turn aside keeps its words");
+        Assert.That(SettingsText.ChangeTo(StageArrangement.BesideAWindow), Is.EqualTo("Window Sides"));
     }
 }

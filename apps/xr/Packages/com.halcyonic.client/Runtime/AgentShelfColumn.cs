@@ -11,8 +11,8 @@ namespace Halcyonic.Client
         public const string Apply = "shelf-apply";
         public const string Move = "shelf-move";
         public const string ReadRoom = "shelf-room";
-        public const string Subject = "Place agents";
-        private static readonly string[] Directions = { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn left", "Turn right" };
+        public const string Subject = "Place Agents";
+        private static readonly string[] Directions = { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn Left", "Turn Right" };
         private readonly IMenuHost host;
         private readonly AgentShelfDraft draft;
         private readonly Action<string> move;
@@ -43,8 +43,8 @@ namespace Halcyonic.Client
                 if (frame != null) return frame;
                 var subject = taskTitle ?? Subject;
                 var room = host.PageHeight(host.TitleRows(subject, Glaze.Menu.FileColumnDegrees), false, focused: true);
-                var explanation = taskTitle == null ? "Hold Move shelf to drag its preview. Apply places it for this session."
-                    : "Apply shows this task for this session. Cancel keeps your shelf. Hold Move shelf to drag.";
+                var explanation = taskTitle == null ? "Hold Move Shelf to Drag · Apply for This Session"
+                    : "Apply Shows Task This Session · Cancel Keeps Shelf";
                 var note = new PageLine(explanation, rows: host.RowsOf(explanation, Glaze.Menu.FileColumnDegrees), tone: LineTone.Secondary);
                 var used = MenuPage.Words(host.RowsOf(note, Glaze.Menu.FileColumnDegrees)) + MenuPage.TargetGap;
                 var count = Math.Max(1, (int)Math.Floor((room - used + MenuPage.TargetGap) / (MenuPage.Target() + MenuPage.TargetGap)));
@@ -53,7 +53,7 @@ namespace Halcyonic.Client
                 var lines = new List<PageLine> { note };
                 for (var index = page * count; index < Math.Min(Directions.Length + 1, (page + 1) * count); index++)
                     lines.Add(index == Directions.Length
-                        ? new PageLine("Find a room surface", action: ReadRoom, control: LineControl.Action)
+                        ? new PageLine("Find Room Surface", action: ReadRoom, control: LineControl.Action)
                         : new PageLine(Directions[index], action: Move, key: Directions[index], control: LineControl.Action));
                 return frame = new MenuFrame(subject, new Footer(new Prompt(Footer.Close, "Cancel", GlazeIcon.Close, PromptKind.Close),
                     secondary: pages > 1 ? new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage) : null,

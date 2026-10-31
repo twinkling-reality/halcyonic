@@ -487,13 +487,13 @@ namespace Halcyonic.XR.Workspace.Editor
                         Debug.LogError("Halcyonic: spatial expected Move after BeginMove; " + director.WorkspaceControlsStateForRender);
                     var move = director.Plane.Chrome.Targets.Single(button => button.Label.text == WorkspaceText.MoveWorkspace);
                     Click(move, 956);
-                    if (director.Plane.Front?.Subject != "Move workspace") failures.Add("spatial: tapping Move reopened or replaced its explicit local mode");
+                    if (director.Plane.Front?.Subject != "Move Workspace") failures.Add("spatial: tapping Move reopened or replaced its explicit local mode");
                     var point = move.transform.position;
                     director.HoldSubjectForRender(point);
                     if (!director.Dragging) failures.Add("spatial: named Move did not begin its real hand drag");
                     director.DragSubjectForRender(eyes + Quaternion.Euler(0f, 4f, 0f) * (point - eyes));
                     director.LetGoForRender(); Draw();
-                    if (director.Plane.Front?.Subject != "Move workspace" || syntheticLaunches != 1)
+                    if (director.Plane.Front?.Subject != "Move Workspace" || syntheticLaunches != 1)
                         failures.Add("spatial: drag release changed local mode or dispatch count; launches=" + syntheticLaunches);
                     var moved = director.Plane.Moved;
                     Press(Footer.Close); // Done moving returns to the retained task.

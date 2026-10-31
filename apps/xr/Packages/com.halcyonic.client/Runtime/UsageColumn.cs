@@ -230,7 +230,7 @@ namespace Halcyonic.Client
     {
         public const string Close = "Close";
 
-        public const string Subject = "How much is left before each limit?";
+        public const string Subject = "Usage";
 
         public const string Seen = "Seen";
 
@@ -239,16 +239,16 @@ namespace Halcyonic.Client
         public const string Account = "Account";
 
         /// <summary>A limit's fact naming the agent app the reading is for (settled 2026-10-08).</summary>
-        public const string AgentApp = "Agent app";
+        public const string AgentApp = "Agent App";
 
         /// <summary>A limit's Account fact in the demonstration, in place of who it belongs to.</summary>
-        public const string PartOfTheRecording = "Part of the recording";
+        public const string PartOfTheRecording = "Part of Recording";
 
         /// <summary>A limit's Account fact: the source cannot tell accounts apart.</summary>
-        public const string NotIdentified = "Not identified: it may be any account used on " + HostText.Your;
+        public const string NotIdentified = "Account Unknown · Any Account on Computer";
 
         /// <summary>A limit's share left as its small fact, rounded up so "at most" stays true.</summary>
-        public static string Left(int left) => "At most " + left.ToString(CultureInfo.InvariantCulture) + "% left";
+        public static string Left(int left) => "Up to " + left.ToString(CultureInfo.InvariantCulture) + "% Left";
 
         /// <summary>A time as a fact's value, starting as a sentence does: "Today at 15:18".</summary>
         public static string Sentence(string when) => when.Length == 0 ? when : char.ToUpperInvariant(when[0]) + when.Substring(1);

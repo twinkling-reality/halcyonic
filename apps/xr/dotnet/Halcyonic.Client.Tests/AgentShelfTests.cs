@@ -70,11 +70,11 @@ public class AgentShelfTests
             var physical = MenuPage.Words(frame.Lines[0].Rows) + frame.Lines.Skip(1).Count() * MenuPage.Target() + (frame.Lines.Count - 1) * MenuPage.TargetGap;
             Assert.That(physical, Is.LessThanOrEqualTo(host.Height + 0.0001f));
             foreach (var line in frame.Lines.Skip(1)) seen.Add(line.Key ?? line.Action!);
-            var absent = new[] { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn left", "Turn right" }.First(key => !frame.Lines.Any(line => line.Key == key));
+            var absent = new[] { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn Left", "Turn Right" }.First(key => !frame.Lines.Any(line => line.Key == key));
             column.Act(AgentShelfColumn.Move, absent); Assert.That(moved, Is.Empty, "an unoffered movement has no authority");
             if (page < 4) column.Act(Footer.NextPage, null);
         }
-        Assert.That(seen, Is.EquivalentTo(new[] { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn left", "Turn right", AgentShelfColumn.ReadRoom }));
+        Assert.That(seen, Is.EquivalentTo(new[] { "Left", "Right", "Closer", "Farther", "Up", "Down", "Turn Left", "Turn Right", AgentShelfColumn.ReadRoom }));
         Assert.That(reads, Is.Zero);
         column.FocusLeft(); column.Act(AgentShelfColumn.Apply, null);
         Assert.That((applied, cancelled), Is.EqualTo((0, 1)));

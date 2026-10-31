@@ -86,28 +86,28 @@ namespace Halcyonic.Client
         public const int LabelLimit = 32;
 
         /// <summary>The glance's title, and the rail's chip that opens it.</summary>
-        public const string Title = "Usage left";
+        public const string Title = "Usage Left";
 
-        public const string NotSetUp = "Usage left isn't set up on " + HostText.Your + " yet. Set it up there to see it here.";
-        public const string Reading = "Reading usage left…";
+        public const string NotSetUp = "Usage Left Not Set Up · Set Up on Computer";
+        public const string Reading = "Reading Usage";
 
         /// <summary>Said while the recorded demonstration plays, when its recording holds no usage limits.</summary>
-        public const string NotInDemo = "Usage left isn't part of the demo.";
+        public const string NotInDemo = "Not in Demo";
 
         /// <summary>Where the demonstration's limits come from, in place of a source's name.</summary>
-        public const string Recorded = "Recorded for the demo, not from any account";
+        public const string Recorded = "Recorded for Demo · No Account";
 
         /// <summary>Under the demonstration's limits, in place of what is said of an account.</summary>
-        public const string PartOfTheRecording = "These limits are part of the recording.";
+        public const string PartOfTheRecording = "Limits Part of Recording";
 
         /// <summary>Said when the source read only some limits; a window not shown is unknown, never zero.</summary>
-        public const string Incomplete = "Some limits couldn't be read this time.";
-        public const string Unidentified = "Account not identified: these may come from any account used on " + HostText.Your + ".";
+        public const string Incomplete = "Some Limits Unread";
+        public const string Unidentified = "Account Unknown · Any Account on Computer";
 
-        public const string FromSeorak = "From Seorak, as the provider reported";
-        public const string Simulated = "Simulated, not from Seorak";
+        public const string FromSeorak = "Seorak · Provider Reported";
+        public const string Simulated = "Simulated · Not Seorak";
 
-        private const string NoReadingSinceReset = "No reading since the last reset. Refresh later.";
+        private const string NoReadingSinceReset = "No Reading Since Reset · Refresh Later";
 
         /// <param name="recorded">The limits are the recorded demonstration's (<see cref="DemonstrationRecording.UsageLimitsAt"/>), so they say so instead of naming a source or an account.</param>
         public static UsageLeftPresentation Present(UsageLimitsResponse response, DateTimeOffset now, TimeZoneInfo zone, bool recorded = false)
@@ -122,17 +122,17 @@ namespace Halcyonic.Client
                     return unavailable.Reason.Code switch
                     {
                         "not_configured" or "limits_not_served" => Quiet(NotSetUp),
-                        "not_captured" => Quiet("No usage reading yet."),
+                        "not_captured" => Quiet("No Reading Yet"),
                         "no_current_reading" => Quiet(NoReadingSinceReset),
-                        _ => Failure("Usage left can't be read right now. Try again later."),
+                        _ => Failure("Usage Unreadable · Retry Later"),
                     };
                 default:
-                    return Failure("Usage left can't be read right now. Try again later.");
+                    return Failure("Usage Unreadable · Retry Later");
             }
         }
 
         /// <summary>The glance when this device could not reach the control plane at all.</summary>
-        public static UsageLeftPresentation Unreachable() => Failure("Couldn't reach " + HostText.Your + ". Press Refresh to try again.");
+        public static UsageLeftPresentation Unreachable() => Failure("Computer Unreachable · Refresh");
 
         public static UsageLeftPresentation Message(string text) => Quiet(text);
 
@@ -150,14 +150,14 @@ namespace Halcyonic.Client
                 var left = (int)Math.Ceiling(100 - reading.UsedPercent);
                 rows.Add(new UsageLeftRow(
                     LineWords.TheirName(IntelligenceText.Truncate(IntelligenceText.Plain(reading.Label), LabelLimit))
-                        + LineWords.Ours(", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly")),
-                    "At most " + left.ToString(CultureInfo.InvariantCulture) + "% left, seen " + When(observed, now, zone)
-                        + ", resets " + When(resets, now, zone),
+                        + LineWords.Ours(" · " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-Hour Window" : "Weekly")),
+                    "Up to " + left.ToString(CultureInfo.InvariantCulture) + "% Left · Seen " + When(observed, now, zone)
+                        + " · Resets " + When(resets, now, zone),
                     left, When(observed, now, zone), When(resets, now, zone), reading.Agent));
             }
             return rows.Count == 0
                 ? Quiet(NoReadingSinceReset)
-                : new UsageLeftPresentation(rows, (complete ? "" : Incomplete + " ") + (recorded ? PartOfTheRecording : Unidentified),
+                : new UsageLeftPresentation(rows, (complete ? "" : Incomplete + " · ") + (recorded ? PartOfTheRecording : Unidentified),
                     source: recorded ? Recorded : synthetic ? Simulated : FromSeorak);
         }
 
@@ -167,8 +167,8 @@ namespace Halcyonic.Client
             var local = TimeZoneInfo.ConvertTime(at, zone);
             var today = TimeZoneInfo.ConvertTime(now, zone).Date;
             return local.Date == today
-                ? "today at " + local.ToString("HH:mm", CultureInfo.InvariantCulture)
-                : local.ToString("d MMM 'at' HH:mm", CultureInfo.InvariantCulture);
+                ? "Today " + local.ToString("HH:mm", CultureInfo.InvariantCulture)
+                : local.ToString("d MMM HH:mm", CultureInfo.InvariantCulture);
         }
 
         private static UsageLeftPresentation Failure(string note) =>

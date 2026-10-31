@@ -114,16 +114,16 @@ namespace Halcyonic.Client
             {
                 var state = host.State;
                 return state != null && state.Journal?.JournalId == context.JournalId && state.Workstreams.TryGetValue(context.WorkstreamId!, out var task)
-                    && task.ProjectId == context.ProjectId ? LineWords.TheirName(task.Title) : LineWords.Ours("Workspace request");
+                    && task.ProjectId == context.ProjectId ? LineWords.TheirName(task.Title) : LineWords.Ours("Workspace Request");
             }
         }
         private MenuFrame Build()
         {
             var subject = TaskSubject;
-            var close = new Prompt(Footer.Close, "Back to task", GlazeIcon.Back, PromptKind.Close);
+            var close = new Prompt(Footer.Close, "Back to Task", GlazeIcon.Back, PromptKind.Close);
             var sections = new[] { new FrameSection("draft", "Request", section == "draft"),
                 new FrameSection("response", "Reply", section == "response"), new FrameSection("receipts", "Actions", section == "receipts") };
-            var source = agent == null ? LineWords.Ours("Workspace assistant") : LineWords.Ours("On this computer · ").Then(LineWords.TheirName(agent.Model));
+            var source = agent == null ? LineWords.Ours("Workspace Assistant") : LineWords.Ours("On This Computer · ").Then(LineWords.TheirName(agent.Model));
             var room = new HeightBudget(host.PageHeight(host.TitleRows(subject.Text, Glaze.Menu.FileColumnDegrees), false, focused: true));
             if (section != "draft")
             {
@@ -133,78 +133,78 @@ namespace Halcyonic.Client
                 var parts = Math.Max(1, (rows + partRows - 1) / partRows);
                 reportPart %= parts;
                 return new MenuFrame(subject, new Footer(close,
-                    rare: CanStop && Current ? new Prompt(Stop, "Cancel request", GlazeIcon.Close) : null,
+                    rare: CanStop && Current ? new Prompt(Stop, "Cancel Request", GlazeIcon.Close) : null,
                     secondary: new Prompt(Refresh, "Refresh", GlazeIcon.Refresh),
                     farRight: parts > 1 ? new Prompt(Next, Footer.NextPageWords(reportPart, parts), GlazeIcon.Next, PromptKind.NextPage)
-                        : CanResume && Current ? new Prompt(Resume, "Continue request", GlazeIcon.Next) : null), sections: sections,
+                        : CanResume && Current ? new Prompt(Resume, "Continue Request", GlazeIcon.Next) : null), sections: sections,
                     lines: new[] { new PageLine(runs, rows: Math.Min(partRows, rows - reportPart * partRows), fromRow: reportPart * partRows) }, sourceRuns: source).Focus();
             }
-            var grant = "Read this task and send instructions to this run";
+            var grant = "Read Task · Instruct This Run";
             var grantRows = Math.Max(1, host.RowsOf(grant, Glaze.Menu.FileColumnDegrees));
             // FileInstruction reserves one heading row. Reserve any additional scope rows as measured words.
             var draftRoom = new HeightBudget(room.Room + MenuPage.SourceLine - Math.Max(0, grantRows - 1) * MenuPage.Words(1));
             var allRows = Math.Max(1, host.RowsOf(EditorLine(int.MaxValue), Glaze.Menu.FileColumnDegrees));
             editor.Measure(allRows, draftRoom, host.TextSize, pairedPager: true);
-            var reason = !Current ? "Reconnect before sending." : agent == null ? "Assistant unavailable. Refresh."
-                : commandId != null ? "Waiting for recorded result." : editor.Words.Length == 0 ? "Write or say a request first."
-                : !WorkspaceContinuity.IsDraftTextWithinLimit(editor.Words) ? "Shorten this request." : !editor.Read ? "Read the full request first." : notice;
+            var reason = !Current ? "Reconnect First" : agent == null ? "Assistant Unavailable · Refresh"
+                : commandId != null ? "Awaiting Recorded Result" : editor.Words.Length == 0 ? "Write or Say First"
+                : !WorkspaceContinuity.IsDraftTextWithinLimit(editor.Words) ? "Shorten Request" : !editor.Read ? "Read Full Request" : notice;
             var lines = new List<PageLine> { new PageLine(grant, rows: grantRows), EditorLine(Math.Min(editor.PartRows, allRows - editor.Part * editor.PartRows)) };
             if (editor.Parts > 1)
             {
-                lines.Add(new PageLine("Previous part", icon: GlazeIcon.Back, action: Previous, available: editor.Part > 0, besideNext: true));
-                lines.Add(new PageLine("Next part", icon: GlazeIcon.Next, action: Next, available: editor.Part + 1 < editor.Parts));
+                lines.Add(new PageLine("Previous Part", icon: GlazeIcon.Back, action: Previous, available: editor.Part > 0, besideNext: true));
+                lines.Add(new PageLine("Next Part", icon: GlazeIcon.Next, action: Next, available: editor.Part + 1 < editor.Parts));
             }
             var action = requestId == null ? Start : Resume;
             var maySend = requestId == null || CanResume;
-            var send = new Prompt(action, requestId == null ? "Start request" : "Continue request", GlazeIcon.Next,
+            var send = new Prompt(action, requestId == null ? "Start Request" : "Continue Request", GlazeIcon.Next,
                 main: true, available: reason == null && maySend,
-                reason: reason ?? (!maySend ? "Refresh before continuing." : null));
+                reason: reason ?? (!maySend ? "Refresh First" : null));
             var before = new Footer(close, rare: new Prompt(Refresh, "Refresh", GlazeIcon.Refresh),
-                secondary: host.VoiceOffered ? new Prompt(Talk, "Hold to talk", GlazeIcon.HoldToTalk, holds: true,
+                secondary: host.VoiceOffered ? new Prompt(Talk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true,
                     available: Current && commandId == null && !editor.InputFocused,
-                    reason: Current && commandId == null && !editor.InputFocused ? null : reason ?? "Finish typing first.", pageExplains: true) : null, farRight: send);
+                    reason: Current && commandId == null && !editor.InputFocused ? null : reason ?? "Finish Typing First", pageExplains: true) : null, farRight: send);
             var footer = armed ? Footer.Confirm(before, PromptSlot.FarRight,
-                reason == null && maySend ? new Prompt(Yes, "Yes, send request", GlazeIcon.Next, PromptKind.Yes) : null,
+                reason == null && maySend ? new Prompt(Yes, "Confirm", GlazeIcon.Next, PromptKind.Yes) : null,
                 new Prompt(CancelReview, "Cancel", GlazeIcon.Close, PromptKind.Cancel)) : before;
             return new MenuFrame(subject, footer, sections: sections, lines: lines, sourceRuns: source).Focus();
         }
-        private PageLine EditorLine(int rows) => new PageLine(editor.Words.Length == 0 ? LineWords.Ours("Write a request") : LineWords.Theirs(editor.Words),
+        private PageLine EditorLine(int rows) => new PageLine(editor.Words.Length == 0 ? LineWords.Ours("Write Request") : LineWords.Theirs(editor.Words),
             action: host.KeyboardOffered ? Edit : null, rows: rows, fromRow: editor.Words.Length == 0 ? null : editor.Part * editor.PartRows,
             control: LineControl.Input, inputFocused: editor.InputFocused, available: Current && commandId == null && !armed);
         private LineWords Report()
         {
-            if (!Current) return LineWords.Ours("This request belongs to an earlier or disconnected task and run. Reconnect before continuing.");
+            if (!Current) return LineWords.Ours("Earlier or Disconnected Run · Reconnect First");
             if (notice != null) return LineWords.Ours(notice);
-            if (commandId != null) return LineWords.Ours("Waiting for this request's recorded result. Refresh to check.");
-            if (!Verified) return LineWords.Ours(requestId == null ? "No request has been submitted." : "Reading the recorded request.");
+            if (commandId != null) return LineWords.Ours("Awaiting Recorded Result · Refresh to Check");
+            if (!Verified) return LineWords.Ours(requestId == null ? "Not Submitted" : "Reading Request");
             if (section == "receipts")
             {
                 var words = LineWords.None;
-                if (request!.Steps.Count == 0) return words.Then(LineWords.Ours("No actions have been recorded."));
+                if (request!.Steps.Count == 0) return words.Then(LineWords.Ours("No Actions Recorded"));
                 if (request.EarlierSteps > 0) words = words.Then(LineWords.Written(request.EarlierSteps + " earlier actions are retained on the computer.\n"));
                 foreach (var step in request.Steps)
                     words = words.Then(LineWords.Written("\n" + ReceiptWords(step) + "\n"))
                         .Then(step.CommandId != null && step.RuntimeStatus != null && step.Status.ToString() == "confirmed"
-                            ? LineWords.Written("Software changes remain unverified.\n") : LineWords.None)
+                            ? LineWords.Written("Changes Unverified\n") : LineWords.None)
                         .Then(LineWords.Theirs(step.Summary)).Then(LineWords.Written("\n"));
                 return words;
             }
-            var result = LineWords.Ours("Request: ").Then(LineWords.Theirs(request!.OriginalText)).Then(LineWords.Written("\nStatus: " + StatusWords(Status) + "\n"));
-            if (Status == "stopped") result = result.Then(LineWords.Written("Planning stopped. Task execution may continue.\n"));
-            if (request.Reply != null) result = result.Then(LineWords.Written("\nAssistant reply · reported\n")).Then(LineWords.Theirs(request.Reply.Text));
-            else result = result.Then(LineWords.Ours("No reply has been recorded yet."));
+            var result = LineWords.Ours("Request · ").Then(LineWords.Theirs(request!.OriginalText)).Then(LineWords.Written("\nStatus · " + StatusWords(Status) + "\n"));
+            if (Status == "stopped") result = result.Then(LineWords.Written("Planning Stopped · Task May Continue\n"));
+            if (request.Reply != null) result = result.Then(LineWords.Written("\nAssistant Reply · Reported\n")).Then(LineWords.Theirs(request.Reply.Text));
+            else result = result.Then(LineWords.Ours("No Reply Yet"));
             return result;
         }
         private static string ReceiptWords(WorkspaceRequestStep step) => step.Status.ToString() switch
         {
-            "prepared" => "Not sent", "running" => step.CommandId != null ? "Sent" : "Reading", "waiting" => "Waiting", "confirmed" => step.ToolName == "person_response" ? "Direction recorded"
-                : step.CommandId != null && step.RuntimeStatus != null ? "Turn finished" : "Read confirmed",
-            "rejected" => "Not sent", "failed" => "Failed", _ => "Unknown",
+            "prepared" => "Not Sent", "running" => step.CommandId != null ? "Sent" : "Reading", "waiting" => "Waiting", "confirmed" => step.ToolName == "person_response" ? "Direction Recorded"
+                : step.CommandId != null && step.RuntimeStatus != null ? "Round Ended" : "Read Confirmed",
+            "rejected" => "Not Sent", "failed" => "Failed", _ => "Unknown",
         };
         private static string StatusWords(string status) => status switch
         {
-            "running" => "Running", "waiting_for_human" => "Needs your reply", "waiting_for_runtime" => "Waiting for the task",
-            "responded" => "Reply ready", "stopped" => "Planning stopped", "interrupted" => "Interrupted", "failed" => "Failed", _ => "Unknown",
+            "running" => "Running", "waiting_for_human" => "Needs Your Reply", "waiting_for_runtime" => "Awaiting Task",
+            "responded" => "Reply Ready", "stopped" => "Planning Stopped", "interrupted" => "Interrupted", "failed" => "Failed", _ => "Unknown",
         };
         public void Act(string id, string? key)
         {
@@ -221,7 +221,7 @@ namespace Halcyonic.Client
             if (id == Edit && !armed && host.KeyboardOffered && drawn.Lines.Any(line => line.Action == Edit && line.Available))
             {
                 editor.Edit(); var epoch = ++keyboardGeneration;
-                MenuKeyboard.Open(host, editor.Words, "Workspace request", text =>
+                MenuKeyboard.Open(host, editor.Words, "Workspace Request", text =>
                 {
                     if (epoch != keyboardGeneration || !Current || section != "draft" || !editor.InputFocused) return;
                     editor.Changed(text, false); notice = null; armed = false; Invalidate();
@@ -245,7 +245,7 @@ namespace Halcyonic.Client
             // Persist this exact ordinary draft and UUID before any call can reach the host.
             if (!PersistPending())
             {
-                commandId = null; submittedType = null; notice = "Draft could not be saved. Refresh."; Invalidate(); return;
+                commandId = null; submittedType = null; notice = "Draft Not Saved · Refresh"; Invalidate(); return;
             }
             if (!Current) { ClearKnownUnsent(); Invalidate(); return; }
             try
@@ -254,7 +254,7 @@ namespace Halcyonic.Client
                 if (acknowledgement == null) ClearKnownUnsent();
                 else { notice = null; commandReadAttempted = false; commandReadPosition = -1; }
             }
-            catch (Exception) { notice = "Delivery is unknown. Refresh."; }
+            catch (Exception) { notice = "Delivery Unconfirmed · Refresh"; }
             armed = false; Invalidate();
         }
         private bool PersistPending()
@@ -268,7 +268,7 @@ namespace Halcyonic.Client
             commandId = null;
             if (!PersistPending()) commandId = pending;
             else submittedType = null;
-            notice = "Request not sent. Refresh.";
+            notice = "Not Sent · Refresh";
         }
         private bool MatchesCommand(CommandView command) => command.CommandId == commandId && command.ProjectId == context.ProjectId
             && command.WorkstreamId == context.WorkstreamId && command.ExecutionId == context.ExecutionId
@@ -278,26 +278,26 @@ namespace Halcyonic.Client
         private void ApplyCommand(WorkspaceCommandResponse found)
         {
             if (found.JournalId != context.JournalId || !MatchesCommand(found.Command))
-            { notice = "The saved result belongs to another request context. Its draft is retained."; return; }
+            { notice = "Result from Another Request · Draft Kept"; return; }
             var command = found.Command;
             if (command.Status == CommandStatus.Completed)
             {
                 if (command.CommandType == CommandType.WorkspaceRequestSubmit)
                 {
                     if (command.Result is not WorkspaceRequestCreatedResult created || requestId != null && requestId != created.RequestId)
-                    { notice = "The saved request has no confirmed reference. Refresh."; return; }
+                    { notice = "Request Reference Unconfirmed · Refresh"; return; }
                     var candidate = HalcyonicJson.Deserialize<WorkspaceContinuation>(HalcyonicJson.Serialize(context));
                     candidate.Request = Draft; candidate.Request.RequestId = created.RequestId; candidate.Request.PendingCommandId = null;
                     if (!WorkspaceContinuity.TryParse(HalcyonicJson.Serialize(candidate), out _))
-                    { notice = "The saved request reference could not be verified. Refresh."; return; }
+                    { notice = "Request Reference Unverified · Refresh"; return; }
                     requestId = created.RequestId;
                 }
-                else if (requestId == null) { notice = "The saved request reference is unavailable. Refresh."; return; }
+                else if (requestId == null) { notice = "Request Reference Unavailable · Refresh"; return; }
                 commandId = null; submittedType = null; request = null; readAttempted = false; readPosition = -1; notice = null; section = "response";
             }
             else if (command.Status == CommandStatus.Rejected || command.Status == CommandStatus.Failed && command.Failure?.Effect == FailureEffect.None)
-            { commandId = null; submittedType = null; notice = "Request not sent. Refresh."; }
-            else if (command.Status == CommandStatus.Failed) notice = "Delivery is unknown. Refresh.";
+            { commandId = null; submittedType = null; notice = "Not Sent · Refresh"; }
+            else if (command.Status == CommandStatus.Failed) notice = "Delivery Unconfirmed · Refresh";
         }
         public void Drawn(MenuFrame frame, Footer? sidePanel)
         {
@@ -314,14 +314,14 @@ namespace Halcyonic.Client
             {
                 try { agent = offerPending.GetAwaiter().GetResult() as AvailableWorkspaceAgent; if (agent?.Served != "this_mac") agent = null; }
                 catch (Exception) { agent = null; }
-                offerPending = null; if (agent == null) notice = "Workspace assistant is unavailable on this computer. Refresh to try again."; Invalidate();
+                offerPending = null; if (agent == null) notice = "Assistant Unavailable · Refresh"; Invalidate();
             }
             if (readPending?.IsCompleted == true)
             {
                 try { var found = readPending.GetAwaiter().GetResult().Request;
                     if (Matches(found)) { request = found; notice = null; }
-                    else { request = null; notice = "This request belongs to another task or run. Its saved draft remains available for recovery."; } }
-                catch (Exception) { request = null; notice = "The recorded request could not be read. Refresh to try again."; }
+                    else { request = null; notice = "Another Task or Run · Draft Kept"; } }
+                catch (Exception) { request = null; notice = "Request Unreadable · Refresh"; }
                 readPending = null; Invalidate();
             }
             if (acknowledgement?.IsCompleted == true)
@@ -333,15 +333,15 @@ namespace Halcyonic.Client
                     // command through GET; a foreign/partial ack cannot discard a pending identity.
                     if (ack.CommandId != commandId || ack.Command != null && !MatchesCommand(ack.Command)
                         || ack.Disposition != CommandAckDisposition.Accepted && ack.Disposition != CommandAckDisposition.Duplicate)
-                        notice = "Delivery is unknown. Refresh.";
+                        notice = "Delivery Unconfirmed · Refresh";
                 }
-                catch (Exception) { notice = "Delivery is unknown. Refresh."; }
+                catch (Exception) { notice = "Delivery Unconfirmed · Refresh"; }
                 acknowledgement = null; Invalidate();
             }
             if (commandReadPending?.IsCompleted == true)
             {
                 try { ApplyCommand(commandReadPending.GetAwaiter().GetResult()); }
-                catch (Exception) { notice = "The pending result could not be read. Refresh."; }
+                catch (Exception) { notice = "Pending Result Unreadable · Refresh"; }
                 commandReadPending = null; Invalidate();
             }
             BeginReads();

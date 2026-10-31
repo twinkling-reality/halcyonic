@@ -15,9 +15,9 @@ public class SettingsColumnTests
         var host = new FakeMenuHost { TextSize = text };
         var space = new[]
         {
-            new MenuSetting("around", SettingsText.YourSpace, "Around you", () => new SettingNow("Your room", "Your room, as the cameras show it", "A space of its own", "The room fades for a space of Halcyonic's", "Show a space of its own"), () => saved.Add("around")),
-            new MenuSetting("characters", SettingsText.YourSpace, "The characters", () => new SettingNow("In front of you", "In front of you", "Make room for a window", "The characters turn to your right", SettingsText.MakeRoomForWindow), () => saved.Add("characters")),
-            new MenuSetting("menu", SettingsText.YourSpace, "The menu", () => new SettingNow("Where you moved it", "Where you moved it", "Reset position", "The menu stands where it opens at first", "Reset position"), () => saved.Add("menu")),
+            new MenuSetting("around", SettingsText.YourSpace, "Surroundings", () => new SettingNow("Your room", "Your room, as the cameras show it", "A space of its own", "The room fades for a space of Halcyonic's", "Show a space of its own"), () => saved.Add("around")),
+            new MenuSetting("characters", SettingsText.YourSpace, "The characters", () => new SettingNow("In front of you", "In front of you", "Window Space", "The characters turn to your right", SettingsText.MakeRoomForWindow), () => saved.Add("characters")),
+            new MenuSetting("menu", SettingsText.YourSpace, "Menu", () => new SettingNow("Where you moved it", "Where you moved it", "Reset position", "The menu stands where it opens at first", "Reset position"), () => saved.Add("menu")),
         };
         var column = new SettingsColumn(host, space.Concat(ComfortSettings.Of(comfort, () => saved.Add(comfort.Save()))).ToList());
         return (column, comfort, saved, host);
@@ -28,15 +28,15 @@ public class SettingsColumnTests
     {
         var (settings, _, _, _) = Settings();
         var frame = settings.Frame!;
-        Assert.That(frame.Subject, Is.EqualTo("What would you like to change?"));
-        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your space", "Around you", "The characters", "The menu" }), "a page a group, its heading counting as a row");
+        Assert.That(frame.Subject, Is.EqualTo("Settings"));
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your Space", "Surroundings", "The characters", "Menu" }), "a page a group, its heading counting as a row");
         Assert.That(frame.Lines[0].Action, Is.Null, "the heading says, and takes no press");
         Assert.That(frame.Lines[2].Fact, Is.EqualTo("In front of you"));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next Page"));
         settings.Act(Footer.NextPage, null);
         Assert.That(settings.Frame!.Lines.Select(line => (line.Words, line.Fact)), Is.EqualTo(new[]
         {
-            ("Comfort", (string?)null), ("Text size", "Standard"), ("Motion", "On"), ("Sounds", "On"),
+            ("Comfort", (string?)null), ("Text Size", "Standard"), ("Motion", "On"), ("Sounds", "On"),
         }));
     }
 
@@ -47,17 +47,17 @@ public class SettingsColumnTests
         settings.Act(Footer.NextPage, null);
         settings.Act(SettingsColumn.OpenSetting, "text-size");
         var frame = settings.Frame!;
-        Assert.That(frame.Side!.Subject, Is.EqualTo("Text size"));
+        Assert.That(frame.Side!.Subject, Is.EqualTo("Text Size"));
         Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(new[]
         {
-            ("Now", "The standard size"), ("A step larger", "Text 15 percent larger, and 3 rows a page"),
+            ("Now", "Standard"), ("Larger", "15% Larger · 3 Rows a Page"),
         }));
         var change = frame.Footer[PromptSlot.FarRight]!;
-        Assert.That((change.Words, change.Main, change.Id), Is.EqualTo(("Make text larger", true, SettingsColumn.ChangeSetting)));
+        Assert.That((change.Words, change.Main, change.Id), Is.EqualTo(("Larger Text", true, SettingsColumn.ChangeSetting)));
         settings.Act(SettingsColumn.ChangeSetting, null);
         Assert.That(comfort.Text, Is.EqualTo(TextSize.Larger));
         Assert.That(saved.Last(), Does.StartWith("text=larger"), "the device keeps it");
-        Assert.That(settings.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Make text standard"));
+        Assert.That(settings.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Standard Text"));
     }
 
     [Test]
@@ -65,11 +65,11 @@ public class SettingsColumnTests
     {
         var (settings, comfort, _, _) = Settings();
         settings.Act(SettingsColumn.OpenSetting, "sounds");
-        Assert.That(settings.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Make sounds quieter"));
+        Assert.That(settings.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Quieter Sounds"));
         settings.Act(SettingsColumn.ChangeSetting, null);
         settings.Act(SettingsColumn.ChangeSetting, null);
         Assert.That(comfort.Sounds, Is.EqualTo(SoundLevel.Off));
-        Assert.That(settings.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Turn sounds on"));
+        Assert.That(settings.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Sounds On"));
         Assert.That(settings.Frame!.Lines.Single(line => line.Key == "sounds").Fact, Is.EqualTo("Off"));
     }
 
@@ -91,9 +91,9 @@ public class SettingsColumnTests
     public void WithLargerTextAPageHoldsTwoRowsUnderItsHeading()
     {
         var (settings, _, _, _) = Settings(TextSize.Larger);
-        Assert.That(settings.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your space", "Around you", "The characters" }));
+        Assert.That(settings.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your Space", "Surroundings", "The characters" }));
         settings.Act(Footer.NextPage, null);
-        Assert.That(settings.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your space", "The menu" }));
+        Assert.That(settings.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "Your Space", "Menu" }));
     }
 
     /// <summary>The computer's pairing as a setting that asks before it forgets, its state held by the test.</summary>
@@ -123,7 +123,7 @@ public class SettingsColumnTests
     {
         var pairing = new Pairing();
         var host = new FakeMenuHost();
-        var settings = new SettingsColumn(host, new[] { pairing.Setting, new MenuSetting("menu", SettingsText.YourSpace, "The menu",
+        var settings = new SettingsColumn(host, new[] { pairing.Setting, new MenuSetting("menu", SettingsText.YourSpace, "Menu",
             () => new SettingNow("Where it opened", "Where it opened", "Reset position", "The menu stands where you look", "Reset position"), () => { }) });
         settings.Act(SettingsColumn.OpenSetting, "pairing");
         return (settings, pairing, host);

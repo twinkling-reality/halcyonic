@@ -76,7 +76,7 @@ public class CharacterColourTests
         var column = new CharacterColourColumn(settings, scope, () => true, _ => false);
         Press(column, CharacterColourColumn.Choose, "cyan"); Press(column, CharacterColourColumn.Preview); Press(column, CharacterColourColumn.Apply);
         Assert.That(settings.Applied(scope), Is.EqualTo("violet")); Assert.That(settings.DisplayedHue(scope), Is.EqualTo(197));
-        Assert.That(column.Frame!.Lines.Any(line => line.Words.Contains("could not be saved")), Is.True);
+        Assert.That(column.Frame!.Lines.Any(line => line.Words.Contains("Colour Not Saved")), Is.True);
         Press(column, CharacterColourColumn.Cancel); Assert.That(settings.DisplayedHue(scope), Is.EqualTo(285));
     }
 

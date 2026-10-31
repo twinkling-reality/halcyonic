@@ -318,7 +318,7 @@ public class ProjectsColumnTests
         second.Act(ProjectsScreens.ChooseFolder, KeyOf(second, "notes"));
         second.Act(ProjectsScreens.Connect, null);
         Assert.That(host.Sent.Count, Is.EqualTo(1), "no second project.create, for that folder or another, while the first may have run");
-        Assert.That(second.Frame!.Reason, Does.Contain("Unconfirmed"));
+        Assert.That(second.Frame!.Reason, Does.StartWith("Other Folder Unconfirmed · "));
     }
 
     [Test]
@@ -445,7 +445,7 @@ public class ProjectsColumnTests
         column.Act(ProjectsScreens.ChooseFolder, KeyOf(column, "notes")); column.Act(ProjectsScreens.Connect, null);
         Assert.That(host.Sent.Count, Is.EqualTo(1), "expanding discovery never retries or replaces an unknown command");
         Assert.That(memory.Connection!.Unresolved, Is.Not.Null);
-        Assert.That(column.Frame!.Reason, Does.Contain("Unconfirmed"));
+        Assert.That(column.Frame!.Reason, Does.StartWith("Other Folder Unconfirmed · "));
     }
 
 }

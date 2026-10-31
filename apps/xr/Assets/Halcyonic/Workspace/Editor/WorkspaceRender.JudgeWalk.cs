@@ -466,7 +466,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     navigator.Tick();
                     director.DrawNow();
                 }
-                if (Shown(MenuColumn.File)?.Source?.StartsWith("Simulated checks", StringComparison.Ordinal) != true) failures.Add(name + ": Checks does not show the recording's simulated checks.");
+                if (Shown(MenuColumn.File)?.Source?.StartsWith("Simulated Checks", StringComparison.Ordinal) != true) failures.Add(name + ": Checks does not show the recording's simulated checks.");
                 Shot("8 checks");
                 Press(MenuColumn.File, MenuFrame.ChooseSection, FileScreens.Key(FileSection.Activity));
                 Press(MenuColumn.File, FileScreens.TellIt);

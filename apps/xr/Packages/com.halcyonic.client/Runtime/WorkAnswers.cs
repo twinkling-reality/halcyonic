@@ -60,7 +60,7 @@ namespace Halcyonic.Client
             AnswerDepth depth = AnswerDepth.Full)
         {
             room ??= AnswerRoom.Unlimited;
-            if (executionId == null) return IntelligenceText.Empty(SectionKind.Understanding, "Nothing to understand until work starts.");
+            if (executionId == null) return IntelligenceText.Empty(SectionKind.Understanding, "No Work Yet");
             if (read == null) return IntelligenceText.Waiting(SectionKind.Understanding, loading, error);
             var status = IntelligenceText.ReadingStatus(loading, error);
             if (!(read.Response.Result is AvailableUnderstanding available)) return Failure(SectionKind.Understanding, read.Response.Result, status);
@@ -93,11 +93,11 @@ namespace Halcyonic.Client
         /// <summary>The section an understanding that is not available becomes: why there is none, said in words.</summary>
         internal static SectionPresentation Failure(SectionKind kind, UnderstandingResult result, string status) => result switch
         {
-            NotFoundUnderstanding notFound => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "No understanding yet: ", notFound.Reason, SectionTone.Secondary, status),
-            UnavailableUnderstanding unavailable => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding unavailable: ", unavailable.Reason, SectionTone.Secondary, status),
-            IncompatibleUnderstanding incompatible => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding unreadable: ", incompatible.Reason, SectionTone.Problem, status),
-            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding not allowed: ", unauthorized.Reason, SectionTone.Secondary, status),
-            _ => IntelligenceText.Empty(kind, "The understanding came back in a form this app does not know."),
+            NotFoundUnderstanding notFound => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "No Conclusions · ", notFound.Reason, SectionTone.Secondary, status),
+            UnavailableUnderstanding unavailable => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Conclusions Unavailable · ", unavailable.Reason, SectionTone.Secondary, status),
+            IncompatibleUnderstanding incompatible => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Conclusions Unreadable · ", incompatible.Reason, SectionTone.Problem, status),
+            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Conclusions Not Allowed · ", unauthorized.Reason, SectionTone.Secondary, status),
+            _ => IntelligenceText.Empty(kind, "Conclusions Format Unknown"),
         };
 
         /// <summary>
@@ -734,7 +734,7 @@ namespace Halcyonic.Client
             AnswerDepth depth = AnswerDepth.Full)
         {
             room ??= AnswerRoom.Unlimited;
-            if (executionId == null) return IntelligenceText.Empty(SectionKind.Checked, "Nothing is checked until work starts.");
+            if (executionId == null) return IntelligenceText.Empty(SectionKind.Checked, "No Work Yet");
             if (depth == AnswerDepth.Brief)
             {
                 if (understanding == null) return IntelligenceText.Waiting(SectionKind.Checked, understandingLoading, understandingError);

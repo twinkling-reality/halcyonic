@@ -39,25 +39,25 @@ namespace Halcyonic.Client
                 var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
                 if (restoring)
                 {
-                    return new MenuFrame("Restore default appearance?", new Footer(close,
+                    return new MenuFrame("Restore Default?", new Footer(close,
                         rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
-                        farRight: new Prompt(Restore, "Restore default", GlazeIcon.ResetPosition, main: true)),
-                        lines: new[] { new PageLine("Use " + GlazePalette.Default.Name + " for the interface."), new PageLine("Your comfort and space stay as you set them.", rows: 2) });
+                        farRight: new Prompt(Restore, "Restore Default", GlazeIcon.ResetPosition, main: true)),
+                        lines: new[] { new PageLine(GlazePalette.Default.Name + " Interface"), new PageLine("Comfort Kept · Space Kept", rows: 2) });
                 }
                 if (!preview)
                 {
                     var lines = GlazePalette.Presets.Select(palette => new PageLine(palette.Name, fact: palette == settings.Applied ? "Current" : null,
                         action: Choose, key: palette.Key, choice: true, chosen: palette == chosen, answerMark: AnswerMark.Single)).ToList();
-                    lines.Add(new PageLine("Restore default appearance", action: ReadRestore, opens: true));
-                    return new MenuFrame("How should it look?", new Footer(close,
-                        farRight: new Prompt(Preview, "Preview theme", GlazeIcon.OpenNow, main: true)), lines: lines);
+                    lines.Add(new PageLine("Restore Default", action: ReadRestore, opens: true));
+                    return new MenuFrame("Appearance", new Footer(close,
+                        farRight: new Prompt(Preview, "Preview Theme", GlazeIcon.OpenNow, main: true)), lines: lines);
                 }
                 var footer = new Footer(close, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
-                    farRight: new Prompt(Apply, "Apply theme", GlazeIcon.Change, main: true));
+                    farRight: new Prompt(Apply, "Apply Theme", GlazeIcon.Change, main: true));
                 var examples = Specimen(page).ToList();
-                examples.Add(new PageLine(page == 4 ? "First examples" : "Next examples, " + (page + 2) + " of 5",
+                examples.Add(new PageLine(page == 4 ? "First Examples" : "Next Examples · " + (page + 2) + " of 5",
                     action: Footer.NextPage, opens: true, control: LineControl.Action));
-                return new MenuFrame("Preview: " + chosen.Name, footer, lines: examples);
+                return new MenuFrame("Preview · " + chosen.Name, footer, lines: examples);
             }
         }
 
@@ -66,21 +66,21 @@ namespace Halcyonic.Client
         {
             0 => new[]
             {
-                new PageLine("Navigation example", action: Example, opens: true),
+                new PageLine("Navigation Example", action: Example, opens: true),
             },
             1 => new[]
             {
-                new PageLine("Selected choice", action: Example, choice: true, chosen: true, answerMark: AnswerMark.Single),
-                new PageLine("Other choice", action: Example, choice: true, answerMark: AnswerMark.Single),
+                new PageLine("Selected Choice", action: Example, choice: true, chosen: true, answerMark: AnswerMark.Single),
+                new PageLine("Other Choice", action: Example, choice: true, answerMark: AnswerMark.Single),
             },
             2 => new[]
             {
-                new PageLine("Your answer", tone: LineTone.Secondary),
-                new PageLine("Input example", action: Example, control: LineControl.Input, inputFocused: true),
+                new PageLine("Your Answer", tone: LineTone.Secondary),
+                new PageLine("Input Example", action: Example, control: LineControl.Input, inputFocused: true),
             },
             3 => new[]
             {
-                new PageLine("Unavailable action", action: Example, control: LineControl.Action, available: false),
+                new PageLine("Unavailable Action", action: Example, control: LineControl.Action, available: false),
                 new PageLine(StateLanguage.WordOf(WorkState.WaitingForYou), icon: GlazeIcon.WaitingForYou, tone: LineTone.Waiting),
             },
             _ => new[]

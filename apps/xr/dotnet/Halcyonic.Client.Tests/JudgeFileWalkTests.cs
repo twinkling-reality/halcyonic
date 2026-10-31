@@ -242,7 +242,7 @@ public class JudgeFileWalkTests
         screen.Section = FileSection.Checks;
         frame = Frame(workspace);
         Assert.That(frame.Lines[0].Words, Does.StartWith("Tests failed").And.Contains("1 failed, 23 passed"));
-        Assert.That(frame.Source, Does.StartWith("Simulated checks · recorded at "), "the checks say they are simulated and recorded");
+        Assert.That(frame.Source, Does.StartWith("Simulated Checks · Recorded "), "the checks say they are simulated and recorded");
         Assert.That(frame.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(FileScreens.Refresh));
 
         // Tell it: the recorded instructions as rows, chosen first, sent by Tell it in exactly the words shown.

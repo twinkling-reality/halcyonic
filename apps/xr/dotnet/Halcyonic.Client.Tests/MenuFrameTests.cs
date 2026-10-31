@@ -393,7 +393,7 @@ public class MenuFrameTests
         Assert.That(sections.Single(section => section.Chosen).Key, Is.EqualTo(nameof(MenuPlace.Usage)));
         Assert.That(sections.Where(section => section.Waits).Select(section => section.Key), Is.EqualTo(new[] { nameof(MenuPlace.Tasks) }));
 
-        var page = new MenuFrame("How much is left before each limit?", new Footer(Close), lines: new[] { new PageLine("Claude Code, weekly") }, source: "From Seorak", sourceIsData: true);
+        var page = new MenuFrame("Usage", new Footer(Close), lines: new[] { new PageLine("Claude Code, weekly") }, source: "Seorak", sourceIsData: true);
         var placed = page.WithSections(sections);
         Assert.That(placed.Sections, Is.SameAs(sections));
         Assert.That((placed.Subject, placed.Lines, placed.Source, placed.SourceIsData, placed.Footer), Is.EqualTo((page.Subject, page.Lines, page.Source, page.SourceIsData, page.Footer)),
