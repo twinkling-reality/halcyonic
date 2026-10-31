@@ -42,7 +42,7 @@ export interface HostPreviewsDeps {
   /** Playing a checked game on this Mac (P-A): the browser for it, or none, so nothing is played. */
   readonly play?: Pick<
     HostPlaysDeps,
-    'browser' | 'browserProblem' | 'launch' | 'viewerWaitMs' | 'viewerPorts'
+    'browser' | 'browserProblem' | 'launch' | 'viewerWaitMs' | 'viewerPorts' | 'viewerGraceMs'
   > & {
     /** Opens the viewer's one-time link on the Mac. */
     readonly openViewer?: (link: string) => void;
