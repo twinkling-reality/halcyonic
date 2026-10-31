@@ -125,9 +125,10 @@ its spaces; a token alone longer than a row breaks inside, after a "/", "?", "&"
 otherwise where the row ends, never after a "-", so never between "--" and its name. A wrapped row hangs two characters in,
 so a wrap never reads as a new command. Each row is laid alone and never cut, and the rows add up to the line exactly, its
 indentation kept and a tab shown as its code point. The reading goes by rows, so a line longer than the well is paged
-through to its last row like any other. At an edge where rows are hidden, the next row stands half-faded under a 24 dp
-fade, deepest at the well's edge, and does not count as read; at the end, "End of Command · " and what answering may do,
-in Label n6. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline and Reply,
+through to its last row like any other. The rows run to the well's foot. At an edge where rows are hidden, the next row
+stands half-shown under a 24 dp fade, from 0.95 of the well at its edge to 0.12, its letters fading toward the edge, and it
+does not count as read. "End of Command · " and what answering may do, in Label n6, is the content's last part, scrolled
+into view after the command's last row like any other row, so nothing reflows when the end arrives. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline and Reply,
 12 apart. The slot is the locked "Read to End", filled from its left in #3B3F43 as far as the command has been read, with
 its word in n6 while the fill stands under it (n5 over the fill reads 4.25:1), and becomes Run only once the last row of
 the last line has been shown; scrolling back never locks it again. The unlock sounds the Moment cue where its owner gives

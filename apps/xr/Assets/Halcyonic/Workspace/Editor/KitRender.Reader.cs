@@ -117,6 +117,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 "a half-shown row stands where nothing is hidden, or is missing where rows are");
             if (reading.HiddenAbove) Require(reader.PeekAbove.text == reading.RowWords(reading.First - 1).ForTextMeshPro().Text, "the row above is not the one before the first shown");
             if (reading.HiddenBelow(shownCount)) Require(reader.PeekBelow.text == reading.RowWords(reading.First + shownCount).ForTextMeshPro().Text, "the row below is not the one after the last shown");
+            // The rows run to the well's foot: under the half-shown row below, no band stands empty; on the last page the end
+            // line, the content's last part, stands inside the well.
+            if (reader.PeekBelow.gameObject.activeSelf)
+            {
+                var under = reader.PeekBelow.transform.localPosition.y - KitType.LinePitch(reader.PeekBelow) - reader.WellFoot;
+                Require(under > -1e-5f && under < KitType.LinePitch(reader.PeekBelow) / 4f, "a band of " + under.ToString("0.0000") + " stands empty under the half-shown row");
+            }
+            if (reader.EndLine.gameObject.activeSelf)
+            {
+                reader.EndLine.ForceMeshUpdate(true);
+                var endFoot = reader.EndLine.transform.localPosition.y - reader.EndLine.textInfo.lineCount * KitType.LinePitch(reader.EndLine);
+                Require(endFoot >= reader.WellFoot - 1e-5f && !reader.EndLine.isTextTruncated, "the end line runs past the well's foot, or is cut");
+            }
             // A fade only at an edge where rows are hidden.
             Require(reader.FadedAbove == reading.HiddenAbove && reader.FadedBelow == reading.HiddenBelow(reader.Shown.Count), "a fade stands where nothing is hidden, or is missing");
             // The foot stands where it stood when the reader opened.
