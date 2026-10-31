@@ -21,7 +21,6 @@ namespace Halcyonic.XR.Workspace.Editor
             ("r11-projects-first-visit", false, shot => Lay(Facing.Eyes, () => ProjectsFirstVisit(shot))),
             ("r12-creating-questions", false, shot => Lay(Facing.Eyes, () => NewProjectQuestions(shot))),
             ("r13-creating-questions-view", false, shot => Lay(Facing.Eyes, () => NewProjectQuestions(shot, view: true))),
-            ("r14-creating-questions-too-long", false, shot => Lay(Facing.Eyes, () => NewProjectQuestions(shot, view: true, tooLong: true))),
         };
 
         private static readonly string[] Steps = { "Your idea", "Questions", "Recap", "Build" };
@@ -168,8 +167,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <param name="view">With the companion's view that this can't be built over its question: the longest a reply shows, the quote then the question alone.</param>
-        /// <param name="tooLong">The view over a quote of three rows, the companion's line and its question: at a file's 36 degrees it reaches the field's very edge, with nothing to spare, why a quote holds two.</param>
-        private static void NewProjectQuestions(Shot shot, bool view = false, bool tooLong = false)
+        private static void NewProjectQuestions(Shot shot, bool view = false)
         {
             var menuWidth = 2f * U(16f);
             // A file's width, as lane U's FileColumnDegrees gives every file and New project.
@@ -200,13 +198,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var pr = stepsWidth / 2f - U(PanelPadding);
             var py = -U(PanelPadding);
             if (view) py -= Body(page, "View", CompanionText.ThinksNotBuildable, pl, py, pr - pl, Secondary).Height + U(Grid);
-            var says = tooLong
-                ? CompanionText.Says("Getting people to races is more habit than software, but a page could help. Would a page of the club's next races help, or a reminder before each one?")
-                : view
-                    ? CompanionText.Says("Would a page of the club's next races help, or a reminder before each one?")
-                    : CompanionText.Says("Should the page show each runner's best time, or every race?");
+            var says = view
+                ? CompanionText.Says("Would a page of the club's next races help, or a reminder before each one?")
+                : CompanionText.Says("Should the page show each runner's best time, or every race?");
             if (!view) MeasureQuote(page, pr - pl, stepsWidth);
-            py -= Body(page, "Asks", says, pl, py, pr - pl, GlazeTokens.Text, lines: tooLong ? 3 : 2, lean: true).Height + U(GroupGap);
+            py -= Body(page, "Asks", says, pl, py, pr - pl, GlazeTokens.Text, lines: 2, lean: true).Height + U(GroupGap);
             var inset = U(RowInset);
             var tall = U(RowHeight);
             var half = (pr - pl + 2f * inset - page.TargetGap) / 2f;

@@ -19,7 +19,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// row under it, the content under them. Type only steps down: the subject largest, then the content
     /// and the prompts, then small facts. One selection treatment: a lit shape with a crisp frame. The
     /// places are single words. The plane stands upright (r1, r2) or, as chosen the same day, is tipped
-    /// back as a whole to face the eyes at its centre (r3, r4): upright, the text low on it shrinks as the
+    /// back as a whole to face the eyes at its centre (r4): upright, the text low on it shrinks as the
     /// eyes see it.
     /// </summary>
     public static partial class DirectionsRender
@@ -28,11 +28,9 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             ("r1-arriving-tasks-file", false, shot => Lay(Facing.Upright, () => RefinedHero(shot))),
             ("r2-waiting-approve", false, shot => Lay(Facing.Upright, () => RefinedApproval(shot))),
-            ("r3-arriving-tasks-file-facing", false, shot => Lay(Facing.Eyes, () => RefinedHero(shot))),
             ("r4-waiting-approve-facing", false, shot => Lay(Facing.Eyes, () => RefinedApproval(shot))),
             ("r5-menu-alone-facing", false, shot => Lay(Facing.Eyes, () => RefinedHero(shot, withFile: false))),
             ("r6-file-slides-out-staying", false, shot => Lay(Facing.Stay, () => RefinedHero(shot))),
-            ("r7-arriving-tasks-file-split", false, shot => Lay(Facing.Eyes, () => RefinedHero(shot, split: true))),
             ("r8-waiting-approve-split", false, shot => Lay(Facing.Eyes, () => RefinedApproval(shot, split: true))),
         };
 
