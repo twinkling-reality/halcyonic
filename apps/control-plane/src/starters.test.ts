@@ -17,6 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import type { ProjectLocationChoice } from '@halcyonic/contracts';
 import { createHostLocations } from './locations.ts';
 import { HostStarters, originalFolderOf, originalRefusal, VR_STARTER } from './starters.ts';
@@ -426,5 +427,28 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       { id: 'v2', folder: '/w/garden-vr', starter: 'iwsdk-vr', madeFrom: null },
     ];
     assert.equal(originalFolderOf('/w/garden-vr', shared, allow), null);
+  });
+
+  test('the tracked iwsdk-vr template keeps its src/ clean and tells the agent to edit src/index.ts directly without scratch scripts (SC1)', () => {
+    const template = fileURLToPath(new URL('../../../starters/iwsdk-vr/template', import.meta.url));
+    const srcFiles = readdirSync(join(template, 'src')).sort();
+    assert.deepEqual(srcFiles, [
+      'assets.ts',
+      'components.ts',
+      'decor.ts',
+      'index.ts',
+      'look.ts',
+      'motion.ts',
+      'palette.ts',
+      'panel.ts',
+      'play-input-core.ts',
+      'play-input.ts',
+      'vite-env.d.ts',
+    ]);
+    const agents = readFileSync(join(template, 'AGENTS.md'), 'utf8');
+    assert.match(agents, /Keep the game's systems and setup in `src\/index\.ts`/);
+    assert.match(agents, /Edit `src\/index\.ts` directly/);
+    assert.match(agents, /never write `\.py`, `\.txt`, `\.sh` or `\.patch` scripts/);
+    assert.match(agents, /Run `npx tsc --noEmit` before ending your turn/);
   });
 });

@@ -21,6 +21,10 @@ What you cannot do here:
 
 How the app is put together:
 - `src/index.ts` calls `World.create(...)` with the options from `iwsdk.config.json`, then registers systems.
+- Keep the game's systems and setup in `src/index.ts` (importing `./palette`, `./look`, `./decor`, `./motion` and
+  `./play-input`) rather than splitting the game into extra files in `src/`.
+- Edit `src/index.ts` directly with your file-editing tool; never write `.py`, `.txt`, `.sh` or `.patch` scripts to
+  generate or patch files.
 - A system is a class from `createSystem({...})` with `init()` and `update(delta, time)`. Look at `src/panel.ts`.
 - A component is declared with `createComponent(...)` and listed in `src/components.ts`.
 - Scene objects are nodes in `public/scenes/main.iwsdk.scene.json`; simple shapes can also be made in code with
@@ -46,6 +50,7 @@ Make it fun to look at:
   it.
 - When something is hit, `bonk` it, then `hide` it, and show the score big and easy to read.
 - The welcome card's words go by themselves after a few seconds (`src/panel.ts`); leave that as it is.
-- Before you finish, delete any scratch or helper files you made: no `.py`, `.txt` or patch files in `src/`.
+- Before you finish, delete any scratch or helper files you made: no `.py`, `.txt`, `.sh` or `.patch` files in `src/`.
+- Run `npx tsc --noEmit` before ending your turn and fix any type, syntax or module error it reports.
 
 Keep changes small, one idea at a time, and keep the app running after each one.
