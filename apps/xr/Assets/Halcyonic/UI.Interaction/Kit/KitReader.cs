@@ -114,7 +114,7 @@ namespace Halcyonic.XR.UI
             reader.title = KitType.Create(go.transform, "Title", KitRole.Title, KitType.Text, KitType.Order.Words, room: true);
             reader.well = Surface.Create(go.transform, "Well", KitType.Order.Plate);
             reader.end = KitType.Create(go.transform, "End of Command", KitRole.Label, KitType.Secondary, KitType.Order.Words, room: true);
-            reader.fold = KitButton.Create(go.transform, KitReaderWords.Fold, KitButtonRole.Word, room: true);
+            reader.fold = KitButton.Create(go.transform, KitReaderWords.Fold, KitButtonRole.Round, room: true);
             reader.primary = KitButton.Create(go.transform, KitMomentWords.Action(KitMomentAction.YesRunIt), KitButtonRole.Primary, room: true);
             reader.decline = KitButton.Create(go.transform, KitMomentWords.Action(KitMomentAction.No), KitButtonRole.Word, room: true);
             reader.reply = KitButton.Create(go.transform, KitMomentWords.Action(KitMomentAction.SaySomethingElse), KitButtonRole.Word, room: true);
@@ -151,9 +151,9 @@ namespace Halcyonic.XR.UI
             var pad = KitType.Units(SpatialKit.PaddingDegrees);
             var left = -w / 2f + pad;
 
-            // The head: who asks, and what, as on the card; Fold at the top right.
-            var foldWidth = fold.Measure(KitReaderWords.Fold, null);
-            fold.Show(KitReaderWords.Fold, null, new Vector2(w / 2f - pad - foldWidth / 2f, h / 2f - pad - KitButton.Height / 2f), foldWidth);
+            // The head: who asks, and what, as on the card; a round close button at the top right (Fold stays its name).
+            var foldWidth = KitButton.Height;
+            fold.Show(KitReaderWords.Fold, GlazeIcon.Close, new Vector2(w / 2f - pad - foldWidth / 2f, h / 2f - pad - KitButton.Height / 2f), foldWidth);
             // The card's mark: a ring for the runtime's report, a disc for what the computer saw, in the tone, with its sign.
             var top = h / 2f - pad;
             var markSize = Scaled(SpatialKit.MarkDp);
@@ -195,14 +195,17 @@ namespace Halcyonic.XR.UI
             var slot = Dp(SpatialKit.ReaderPrimaryDp);
             var x = -w / 2f + pad;
             primary.Role = KitButtonRole.Primary;
+            primary.Meaning = KitPillMeaning.Green;
             primary.Show(KitReaderWords.ReadToEnd, null, new Vector2(x + slot / 2f, footY), slot);
             x += slot + between;
             var declineWords = KitMomentWords.Action(KitMomentAction.No);
             var declineWidth = decline.Measure(declineWords, null);
+            decline.Meaning = KitPillMeaning.Red;
             decline.Show(declineWords, null, new Vector2(x + declineWidth / 2f, footY), declineWidth);
             x += declineWidth + between;
             var replyWords = KitMomentWords.Action(KitMomentAction.SaySomethingElse);
             var replyWidth = reply.Measure(replyWords, null);
+            reply.Meaning = KitPillMeaning.Neutral;
             reply.Show(replyWords, null, new Vector2(x + replyWidth / 2f, footY), replyWidth);
             gameObject.SetActive(true);
             ScrollTo(0);

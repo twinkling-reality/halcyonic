@@ -103,4 +103,33 @@ public class KitGlassMaterialTests
         Assert.That(KitGlassMaterial.Deviation(far, KitGlassMaterial.Channels(KitGlassMaterial.LitRoom)), Is.LessThanOrEqualTo(1.0), "past the quad's reach");
     }
 
+    [Test]
+    public void TheAvatarLeftWashFadesAcrossThePanelAndHoldsEveryWord()
+    {
+        Assert.That(KitGlassMaterial.LeftWash(0.00), Is.EqualTo(0.28).Within(1e-9));
+        Assert.That(KitGlassMaterial.LeftWash(0.42), Is.EqualTo(0.16).Within(1e-9));
+        Assert.That(KitGlassMaterial.LeftWash(0.74), Is.EqualTo(0.06).Within(1e-9));
+        Assert.That(KitGlassMaterial.LeftWash(1.00), Is.EqualTo(0.00).Within(1e-9));
+        for (var i = 1; i <= 20; i++)
+            Assert.That(KitGlassMaterial.LeftWash(i / 20.0), Is.LessThan(KitGlassMaterial.LeftWash((i - 1) / 20.0)), $"wash fades at {i / 20.0:0.00}");
+
+        var left = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0.5, -1.0, SpatialKit.AvatarTint));
+        var right = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0.5, 1.0, SpatialKit.AvatarTint));
+        var untintedRight = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0.5, 1.0));
+        Assert.That(left.B - left.R, Is.GreaterThanOrEqualTo(35), "the avatar's blue wash shows at the left edge");
+        Assert.That(right, Is.EqualTo(untintedRight), "the wash reaches zero at the right edge");
+
+        foreach (var t in Through)
+            foreach (var across in new[] { -1.0, -0.5, 0.0, 0.5, 1.0 })
+            {
+                var face = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(t, across, SpatialKit.AvatarTint));
+                foreach (var word in new[] { SpatialKit.Text, SpatialKit.TextSecondary, SpatialKit.TextTertiary })
+                    Assert.That(GlazeColor.Contrast(word, face), Is.GreaterThanOrEqualTo(4.5), $"{word} on tinted face at {t:0.00}, {across:0.0}");
+                if (across <= -0.5)
+                    foreach (var sign in new[] { SpatialKit.AttentionSign, SpatialKit.FailureSign })
+                        Assert.That(GlazeColor.Contrast(sign, face), Is.GreaterThanOrEqualTo(4.5), $"{sign} beside the mark on tinted face at {t:0.00}, {across:0.0}");
+                Assert.That(GlazeColor.Contrast(SpatialKit.Text, face), Is.GreaterThanOrEqualTo(6.5), $"white words on tinted face at {t:0.00}, {across:0.0}");
+            }
+    }
+
 }

@@ -12,6 +12,7 @@ Shader "Halcyonic/Kit Glass"
         _Panel ("Width, height, corner radius and the words' inset, in dp", Vector) = (100, 100, 24, 10)
         _Quad ("The quad's left, bottom, width and height, in dp from the panel's centre", Vector) = (-50, -50, 100, 100)
         _Tone ("A moment's tone, sRGB, and 1 where it blooms", Vector) = (0, 0, 0, 0)
+        _Tint ("An avatar's left-edge wash colour, sRGB, and 1 where shown", Vector) = (0, 0, 0, 0)
         _Light ("Bloom strength, reserved, opacity, reserved", Vector) = (0, 1, 1, 0)
 
         _N1 ("The face's middle, sRGB", Vector) = (0.259, 0.271, 0.286, 0)
@@ -44,6 +45,7 @@ Shader "Halcyonic/Kit Glass"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Panel)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Quad)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Tone)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _Tint)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Light)
             UNITY_INSTANCING_BUFFER_END(Props)
 
@@ -113,12 +115,21 @@ Shader "Halcyonic/Kit Glass"
                 return t <= middle ? lerp(p0, p1, saturate(t / max(middle, 1e-4))) : lerp(p1, p2, saturate((t - middle) / max(1.0 - middle, 1e-4)));
             }
 
+            float LeftWash(float u)
+            {
+                float clamped = saturate(u);
+                if (clamped <= 0.42) return 0.28 + (0.16 - 0.28) * (clamped / 0.42);
+                if (clamped <= 0.74) return 0.16 + (0.06 - 0.16) * ((clamped - 0.42) / (0.74 - 0.42));
+                return 0.06 * (1.0 - (clamped - 0.74) / (1.0 - 0.74));
+            }
+
             float4 frag(v2f i) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(i);
                 float4 panel = UNITY_ACCESS_INSTANCED_PROP(Props, _Panel);
                 float4 area = UNITY_ACCESS_INSTANCED_PROP(Props, _Quad);
                 float4 tone = UNITY_ACCESS_INSTANCED_PROP(Props, _Tone);
+                float4 tint = UNITY_ACCESS_INSTANCED_PROP(Props, _Tint);
                 float4 light = UNITY_ACCESS_INSTANCED_PROP(Props, _Light);
 
                 float2 p = area.xy + i.uv * area.zw;
@@ -126,12 +137,17 @@ Shader "Halcyonic/Kit Glass"
                 float2 extent = panel.xy * 0.5;
                 float radius = min(panel.z, min(extent.x, extent.y));
 
-                // The face, opaque over the whole panel: the grey from its top to its foot, the soft light at its top's middle,
-                // the top line and the inner edge in white, a moment's bloom; mixed in sRGB.
+                // The face, opaque over the whole panel: the grey from its top to its foot, the avatar's left-edge wash where
+                // given, the soft light at its top's middle, the top line and the inner edge in white, a moment's bloom; mixed in sRGB.
                 float outer = Box(p, extent, radius);
                 float cover = saturate(0.5 - outer / aa);
                 float tf = saturate((extent.y - p.y) / (2.0 * extent.y));
                 float3 face = Stops(tf, 0.5, _FaceTop.rgb, 1, _N1.rgb, 1, _FaceBottom.rgb, 1).rgb;
+                if (tint.a > 0.5)
+                {
+                    float u = saturate((p.x + extent.x) / max(2.0 * extent.x, 1e-4));
+                    face = lerp(face, tint.rgb, LeftWash(u));
+                }
                 float reach = sqrt(p.x * p.x / (extent.x * extent.x) * 0.25 + (tf / _Window.z) * (tf / _Window.z));
                 face = lerp(face, float3(1, 1, 1), _Window.y * max(0.0, 1.0 - reach));
                 if (tone.a > 0.5) face = lerp(face, tone.rgb, _BloomPeak * light.x * max(0.0, 1.0 - tf / _Lights.w));

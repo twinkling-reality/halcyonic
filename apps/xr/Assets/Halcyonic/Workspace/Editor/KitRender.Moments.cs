@@ -57,26 +57,29 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static bool SameColour(Color a, Color b) => Mathf.Approximately(a.r, b.r) && Mathf.Approximately(a.g, b.g) && Mathf.Approximately(a.b, b.b);
 
-        /// <summary>The one primary at rest is ART8's blue capsule, its word white; never a state's tone (ADR 0040 as amended 2026-10-31).</summary>
+        /// <summary>The one primary at rest is a glossy Aero capsule in its semantic hue (green or blue), its word white.</summary>
         private static bool PrimaryIsLight(KitButton button) =>
-            SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.PrimaryFill)) && SameColour(button.Words.color, KitType.Colour(SpatialKit.OnFill));
+            button.Pill != null && button.Meaning != KitPillMeaning.None
+            && SameColour(button.Plate.Fill, KitType.Colour(KitPillMaterial.Middle(button.Meaning)))
+            && SameColour(button.Words.color, KitType.Colour(SpatialKit.OnFill));
 
         private static GlazeColor Stored(Color colour) =>
             new GlazeColor((byte)Mathf.RoundToInt(colour.r * 255f), (byte)Mathf.RoundToInt(colour.g * 255f), (byte)Mathf.RoundToInt(colour.b * 255f));
 
         /// <summary>
         /// A pointed primary is told from its rest at 3:1 or more on its face (AUDIT's A1C-S1; the art direction's ring): painted
-        /// pointed, a ring stands outside its blue capsule, at least 3:1 against the face it stands on; painted at rest again, the
+        /// pointed, a ring stands outside its glossy capsule, at least 3:1 against the face it stands on; painted at rest again, the
         /// ring is gone and it is as it was.
         /// </summary>
         private static bool PrimaryPointedShows(KitButton button)
         {
             button.PaintForRender(pointed: true, pressed: false);
             var ring = button.Ring;
-            var shows = ring.gameObject.activeSelf && SameColour(button.Plate.Fill, KitType.Colour(SpatialKit.PrimaryFill))
+            var shows = ring.gameObject.activeSelf && button.Pill != null && button.Pill.State == KitPillState.Pointed
+                && SameColour(button.Plate.Fill, KitType.Colour(KitPillMaterial.PointedMiddle(button.Meaning)))
                 && new[] { SpatialKit.Carrier, SpatialKit.FaceTop, SpatialKit.FaceBottom }.All(face => GlazeColor.Contrast(Stored(ring.Fill), face) >= 3);
             button.PaintForRender(pointed: false, pressed: false);
-            return shows && !button.Ring.gameObject.activeSelf && PrimaryIsLight(button);
+            return shows && !button.Ring.gameObject.activeSelf && button.Pill?.State == KitPillState.Rest && PrimaryIsLight(button);
         }
 
         /// <summary>
@@ -117,7 +120,46 @@ namespace Halcyonic.XR.Workspace.Editor
             if (card.Earlier.gameObject.activeSelf) panels.Add((card.Earlier, new TMP_Text[0]));
             foreach (var failure in GlassTruth(panels)) shot.Failures.Add(failure);
             Require((card.Carrier.Glass?.Tone).Equals(KitMomentCard.ToneOf(moment.Tone)), "the glass is lit in a tone the moment does not carry");
-            shot.AfterEye = (camera, eye, found) => found.AddRange(GlassFaceHolds(card.Carrier, camera, eye, "the moment"));
+            Require((card.Carrier.Glass?.Tint).Equals(card.Tint), "the card's glass does not carry the avatar's side tint");
+            shot.AfterEye = (camera, eye, found) =>
+            {
+                found.AddRange(GlassFaceHolds(card.Carrier, camera, eye, "the moment"));
+                if (popping) return;
+                var unit = KitGlass.Units(1f);
+                foreach (var (action, button) in card.Shown.Where(each => each.Button.gameObject.activeInHierarchy && each.Button.Pill != null))
+                {
+                    var meaning = button.Meaning;
+                    var widthDp = button.Size.x / unit;
+                    var heightDp = button.Size.y / unit;
+                    Color32 PixelAt(float yDp)
+                    {
+                        var world = button.Plate.transform.TransformPoint(new Vector3(0f, yDp / heightDp, 0f));
+                        var screen = camera.WorldToScreenPoint(world);
+                        var (px, py) = (Mathf.Clamp(Mathf.RoundToInt(screen.x), 0, Width - 1), Mathf.Clamp(Mathf.RoundToInt(screen.y), 0, Height - 1));
+                        return eye[py * Width + px];
+                    }
+                    var glossPixel = PixelAt(20f);
+                    var bodyPixel = PixelAt(-18f);
+                    var glossColour = new GlazeColor(glossPixel.r, glossPixel.g, glossPixel.b);
+                    var bodyColour = new GlazeColor(bodyPixel.r, bodyPixel.g, bodyPixel.b);
+                    var glossSample = KitPillMaterial.Sample(meaning, 0.0, 20.0, widthDp, heightDp);
+                    var bodySample = KitPillMaterial.Sample(meaning, 0.0, -18.0, widthDp, heightDp);
+                    var glossDrift = KitGlassMaterial.Deviation(new[] { glossPixel.r / 255.0, glossPixel.g / 255.0, glossPixel.b / 255.0 }, glossSample);
+                    var bodyDrift = KitGlassMaterial.Deviation(new[] { bodyPixel.r / 255.0, bodyPixel.g / 255.0, bodyPixel.b / 255.0 }, bodySample);
+                    if (glossColour.Luminance <= bodyColour.Luminance * 1.5 || glossDrift > GlassTolerance)
+                        found.Add(KitMomentWords.Action(action) + " pill top gloss (" + glossColour + ") does not shine above its middle body (" + bodyColour + ")");
+                    var hueHolds = meaning switch
+                    {
+                        KitPillMeaning.Green => bodyColour.G > Math.Max(bodyColour.R, bodyColour.B),
+                        KitPillMeaning.Red => bodyColour.R > Math.Max(bodyColour.G, bodyColour.B),
+                        KitPillMeaning.Blue => bodyColour.B > Math.Max(bodyColour.R, bodyColour.G),
+                        KitPillMeaning.Neutral => Math.Max(bodyColour.R, Math.Max(bodyColour.G, bodyColour.B)) - Math.Min(bodyColour.R, Math.Min(bodyColour.G, bodyColour.B)) <= 18,
+                        _ => false,
+                    };
+                    if (!hueHolds || bodyDrift > GlassTolerance)
+                        found.Add(KitMomentWords.Action(action) + " pill body (" + bodyColour + ") does not carry its " + meaning + " hue");
+                }
+            };
 
             // Who says it: the eyebrow says the source; a ring for the runtime's report, a disc for what the computer saw.
             Require(card.Eyebrow.text == LabelText.ForTextMeshPro(moment.Source), "the moment does not say who says it as its source is");
@@ -175,12 +217,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(!card.Shown.Any(each => each.Action == KitMomentAction.YesRunIt) && card.Shown.Any(each => each.Action == KitMomentAction.No),
                     "a command shown cut can be approved");
             Require(card.Shown.Count(each => each.Button.Role == KitButtonRole.Primary) <= 1, "more than one primary action");
-            Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not the blue capsule with its white word");
+            Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryIsLight(each.Button)), "the primary is not a glossy capsule with its white word");
             Require(card.Shown.Where(each => each.Button.Role == KitButtonRole.Primary).All(each => PrimaryPointedShows(each.Button)), "a pointed primary is not told from its rest at 3:1");
             Require(card.Shown.All(each => each.Button.Plate.CornerRadius >= each.Button.Size.y / 2f - 1e-5f), "an answer is not a capsule");
-            // Every other answer is ART8's grey pill at rest, never a bare word (the owner, 2026-10-31).
-            Require(card.Shown.Where(each => each.Button.Role != KitButtonRole.Primary).All(each => SameColour(each.Button.Plate.Fill, KitType.Colour(SpatialKit.Control))),
-                "an answer other than the primary is not a grey pill at rest");
+            Require(card.Shown.All(each => each.Button.Meaning == KitMomentCard.MeaningOf(each.Action, moment.Tone)), "an answer does not carry its meaning's capsule hue");
+            Require(card.Shown.All(each =>
+                each.Button.Pill != null && each.Button.Meaning != KitPillMeaning.None
+                && SameColour(each.Button.Plate.Fill, KitType.Colour(KitPillMaterial.Middle(each.Button.Meaning)))
+                && SameColour(each.Button.Words.color, KitType.Colour(SpatialKit.OnFill))),
+                "a glossy answer capsule does not carry its meaning's fill and white word");
             // No locked answer in the card's top 40 percent (the art direction's rule, with the bloom that peaks there).
             foreach (var (action, button) in card.Shown.Where(each => !each.Button.Available))
             {

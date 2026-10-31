@@ -150,11 +150,11 @@ namespace Halcyonic.XR.UI
         /// <summary>How far the card has come out of the character, 0 to 1; 1 at rest.</summary>
         public float Popped => popAt;
 
-        /// <summary>
-        /// The card grows from its lower-left corner, for a character standing to its left; from its lower-right otherwise.
-        /// The placement sets it; the card's words never mirror.
-        /// </summary>
+        /// <summary>The card grows from its lower-left corner, for a character standing to its left; from its lower-right otherwise.</summary>
         public bool GrowsFromLeft { get; set; }
+
+        /// <summary>The avatar's left-edge wash colour on the card's glass (<see cref="SpatialKit.AvatarTint"/> by default).</summary>
+        public GlazeColor? Tint { get; set; } = SpatialKit.AvatarTint;
 
         public static KitMomentCard Create(Transform parent)
         {
@@ -256,6 +256,20 @@ namespace Halcyonic.XR.UI
         public static bool IsPrimary(KitMomentAction action, KitMomentTone tone) =>
             action is KitMomentAction.YesRunIt or KitMomentAction.TryIt or KitMomentAction.ReadIt
             || (action == KitMomentAction.SeeTheOutput && tone == KitMomentTone.Failure);
+
+        /// <summary>
+        /// The glossy Aero capsule hue of <paramref name="action"/> on a moment of <paramref name="tone"/>: green for Run or Try Build,
+        /// blue for Read Command or a failure's Read Output, red for Decline, and smoked-slate neutral for secondary capsules
+        /// (Reply, Restore Checkpoint, or a passed check's Read Output).
+        /// </summary>
+        public static KitPillMeaning MeaningOf(KitMomentAction action, KitMomentTone tone) => action switch
+        {
+            KitMomentAction.YesRunIt or KitMomentAction.TryIt => KitPillMeaning.Green,
+            KitMomentAction.ReadIt => KitPillMeaning.Blue,
+            KitMomentAction.SeeTheOutput when tone == KitMomentTone.Failure => KitPillMeaning.Blue,
+            KitMomentAction.No => KitPillMeaning.Red,
+            _ => KitPillMeaning.Neutral,
+        };
 
         /// <summary>Shows <paramref name="slot"/>'s shown moment, coming out of the character where it is new.</summary>
         public void Show(KitMomentSlot slot)
@@ -492,6 +506,7 @@ namespace Halcyonic.XR.UI
                 {
                     var button = ButtonFor(primary);
                     button.Role = KitButtonRole.Primary;
+                    button.Meaning = MeaningOf(primary, moment.Tone);
                     button.Show(KitMomentWords.Action(primary), null, new Vector2(0f, rowTop - target / 2f), inner);
                     shown.Add((primary, button));
                     rowTop -= target + between;
@@ -501,6 +516,7 @@ namespace Halcyonic.XR.UI
                 {
                     var button = ButtonFor(action);
                     button.Role = KitButtonRole.Word;
+                    button.Meaning = MeaningOf(action, moment.Tone);
                     var w = button.Measure(KitMomentWords.Action(action), null);
                     if (rowX + w > width / 2f - pad + 1e-5f && rowX > left)
                     {
@@ -519,7 +535,7 @@ namespace Halcyonic.XR.UI
             Size = new Vector2(width, height);
             Drawn = Size;
             radius = KitType.Units(SpatialKit.Degrees(SpatialKit.PanelRadiusDp));
-            carrier.DrawGlass(Size, radius, KitGlassMaterial.RimDp, toneColour);
+            carrier.DrawGlass(Size, radius, KitGlassMaterial.RimDp, toneColour, tint: Tint);
             carrier.transform.localPosition = new Vector3(0f, -height / 2f, 0f);
 
             // The moments behind it: one edge of the same glass, narrower, rising above the card.
@@ -528,7 +544,7 @@ namespace Halcyonic.XR.UI
             {
                 var rise = Dp(SpatialKit.EarlierRiseDp);
                 var edgeSize = new Vector2(width - KitType.Units(SpatialKit.Degrees(SpatialKit.EarlierNarrowerDp)), rise + 2f * radius);
-                earlier.DrawGlass(edgeSize, radius, KitGlassMaterial.PlateRimDp);
+                earlier.DrawGlass(edgeSize, radius, KitGlassMaterial.PlateRimDp, tint: Tint);
                 earlier.transform.localPosition = new Vector3(0f, rise - edgeSize.y / 2f, 0.0004f);
             }
             count.gameObject.SetActive(counted.Length > 0);
@@ -574,7 +590,7 @@ namespace Halcyonic.XR.UI
         public void DrawHeight(float height, bool lit)
         {
             Drawn = new Vector2(Size.x, height);
-            carrier.DrawGlass(Drawn, radius, KitGlassMaterial.RimDp, lit ? lightTone : null);
+            carrier.DrawGlass(Drawn, radius, KitGlassMaterial.RimDp, lit ? lightTone : null, tint: Tint);
             carrier.transform.localPosition = new Vector3(0f, -height / 2f, 0f);
         }
 

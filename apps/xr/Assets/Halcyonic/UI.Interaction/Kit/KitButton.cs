@@ -42,6 +42,7 @@ namespace Halcyonic.XR.UI
         private const float AwayOpacity = 0.45f;
 
         private Surface plate = null!;
+        private KitPill pill = null!;
         private Surface ring = null!;
         private Surface progress = null!;
         private float progressShare;
@@ -49,6 +50,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro icon = null!;
         private KitPress press = null!;
         private KitButtonRole role;
+        private KitPillMeaning meaning;
         private Vector2 size;
         private int painted = -1;
 
@@ -57,6 +59,9 @@ namespace Halcyonic.XR.UI
         public TextMeshPro Words => words;
 
         public Surface Plate => plate;
+
+        /// <summary>The glossy Aero capsule drawn on the button's plate when <see cref="Meaning"/> is set and the button is available; otherwise none.</summary>
+        public KitPill? Pill => pill != null && pill.Shown ? pill : null;
 
         /// <summary>A pointed primary's ring outside its capsule; hidden otherwise.</summary>
         public Surface Ring => ring;
@@ -87,6 +92,13 @@ namespace Halcyonic.XR.UI
             _ => PadDegrees,
         });
 
+        private static KitPillMeaning DefaultMeaning(KitButtonRole role) => role switch
+        {
+            KitButtonRole.Primary => KitPillMeaning.Blue,
+            KitButtonRole.Word or KitButtonRole.Secondary or KitButtonRole.Round => KitPillMeaning.Neutral,
+            _ => KitPillMeaning.None,
+        };
+
         public Vector2 Size => size;
 
         public KitButtonRole Role
@@ -96,8 +108,21 @@ namespace Halcyonic.XR.UI
             {
                 if (role == value) return;
                 role = value;
+                meaning = DefaultMeaning(value);
                 painted = -1;
                 press.Unsettle();
+            }
+        }
+
+        /// <summary>The capsule's semantic Aero hue (green, red or blue), or none for a neutral grey capsule.</summary>
+        public KitPillMeaning Meaning
+        {
+            get => meaning;
+            set
+            {
+                if (meaning == value) return;
+                meaning = value;
+                painted = -1;
             }
         }
 
@@ -129,11 +154,13 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var button = go.AddComponent<KitButton>();
             button.role = role;
+            button.meaning = DefaultMeaning(role);
             button.ring = Surface.Create(go.transform, "Pointed ring", order - 1);
             button.progress = Surface.Create(go.transform, "Progress", order + 1);
             button.progress.gameObject.SetActive(false);
             button.ring.gameObject.SetActive(false);
             button.plate = Surface.Create(go.transform, "Boundary", order);
+            button.pill = KitPill.Attach(button.plate);
             button.words = KitType.Create(go.transform, "Words", KitRole.Strong, KitType.Text, order + 2, TextAlignmentOptions.Left, room: room);
             button.words.rectTransform.pivot = new Vector2(0f, 0.5f);
             button.words.textWrappingMode = TextWrappingModes.NoWrap;
@@ -207,7 +234,7 @@ namespace Halcyonic.XR.UI
             var hovered = pointed && available;
             var pressed = pressing && available;
             var away = FocusGuard.InputSuspended;
-            var state = (hovered ? 1 : 0) | (pressed ? 2 : 0) | (away ? 4 : 0) | (available ? 8 : 0) | ((int)role << 4);
+            var state = (hovered ? 1 : 0) | (pressed ? 2 : 0) | (away ? 4 : 0) | (available ? 8 : 0) | ((int)role << 4) | ((int)meaning << 8);
             if (state == painted) return;
             painted = state;
             var hairline = KitType.Units(SpatialKit.HairlineDegrees);
@@ -227,14 +254,19 @@ namespace Halcyonic.XR.UI
                 text = Capsule ? KitType.Colour(progressShare > 0f ? SpatialKit.TextSecondary : SpatialKit.TextTertiary) : KitType.Secondary;
                 if (role == KitButtonRole.Primary) edgeWidth = answerRing;
             }
+            else if (meaning != KitPillMeaning.None)
+            {
+                fill = KitType.Colour(pressed ? KitPillMaterial.PressedMiddle(meaning) : hovered ? KitPillMaterial.PointedMiddle(meaning) : KitPillMaterial.Middle(meaning));
+                edge = KitType.Colour(KitPillMaterial.Rim(meaning));
+                text = KitType.Colour(SpatialKit.OnFill);
+                ringShown = hovered && !pressed && role == KitButtonRole.Primary;
+                scale = pressed ? 0.97f : hovered ? 1.03f : 1f;
+            }
             else
             {
                 switch (role)
                 {
                     case KitButtonRole.Primary:
-                        // The one primary is ART8's blue capsule (ADR 0040 as amended 2026-10-31), deepened so its white word holds
-                        // the floor, pressed deeper, with a light line round it standing in for its inner top line (mine); pointed,
-                        // 3 percent larger with a 3 dp ring outside it, 3:1 or more on every face (AUDIT's A1C-S1).
                         fill = KitType.Colour(pressed ? SpatialKit.PrimaryPressed : SpatialKit.PrimaryFill);
                         edge = KitType.Colour(SpatialKit.PrimaryLine);
                         text = KitType.Colour(SpatialKit.OnFill);
@@ -263,6 +295,10 @@ namespace Halcyonic.XR.UI
             var opacity = away ? AwayOpacity : 1f;
             plate.Draw(size, radius, fill, edge, edgeWidth);
             plate.Fade(opacity);
+            if (available && meaning != KitPillMeaning.None)
+                pill.Draw(size, meaning, pressed ? KitPillState.Pressed : hovered ? KitPillState.Pointed : KitPillState.Rest, opacity);
+            else
+                pill.Hide();
             // A locked capsule fills from its left as far as it has been read.
             var filling = !available && Capsule && progressShare > 0f;
             progress.gameObject.SetActive(filling);

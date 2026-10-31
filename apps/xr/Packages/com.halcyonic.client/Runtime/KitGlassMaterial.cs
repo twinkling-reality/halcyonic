@@ -117,12 +117,30 @@ namespace Halcyonic.Client
         public static Stop[] Face { get; } = { new Stop(0, SpatialKit.FaceTop, 1), new Stop(0.5, SpatialKit.Carrier, 1), new Stop(1, SpatialKit.FaceBottom, 1) };
 
         /// <summary>
-        /// The face as the prototype draws it at <paramref name="t"/> of its height from the top, <paramref name="across"/> of
-        /// its half width from its middle (0 to 1): the gradient, then the soft top light, both mixed in sRGB.
+        /// An avatar's horizontal tint wash across a panel's width from its left edge (0) to its right (1): 28 percent at
+        /// the left, 16 at 42 percent across, 6 at 74, and gone at the right edge (2026-10-31).
         /// </summary>
-        public static double[] LitFace(double t, double across = 0)
+        public static double LeftWash(double u)
+        {
+            var clamped = Math.Max(0, Math.Min(1, u));
+            if (clamped <= 0.42) return 0.28 + (0.16 - 0.28) * (clamped / 0.42);
+            if (clamped <= 0.74) return 0.16 + (0.06 - 0.16) * ((clamped - 0.42) / (0.74 - 0.42));
+            return 0.06 * (1.0 - (clamped - 0.74) / (1.0 - 0.74));
+        }
+
+        /// <summary>
+        /// The face as the prototype draws it at <paramref name="t"/> of its height from the top, <paramref name="across"/> of
+        /// its half width from its middle (-1 at the left edge to 1 at the right): the gradient, the avatar's left wash where
+        /// <paramref name="tint"/> is given, and the soft top light, all mixed in sRGB.
+        /// </summary>
+        public static double[] LitFace(double t, double across = 0, GlazeColor? tint = null)
         {
             var (face, _) = At(Face, t);
+            if (tint is GlazeColor shown)
+            {
+                var u = Math.Max(0, Math.Min(1, (across + 1) * 0.5));
+                face = Blend(Channels(shown), LeftWash(u), face);
+            }
             var reach = Math.Sqrt(across * across * 0.25 + Math.Pow(t / TopLightReach, 2));
             return Prototype(new double[] { 1, 1, 1 }, TopLightAlpha * Math.Max(0, 1 - reach), ToColour(face));
         }
