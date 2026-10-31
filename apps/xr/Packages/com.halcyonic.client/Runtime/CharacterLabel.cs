@@ -26,6 +26,13 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<WorkMark> Marks { get; }
 
+        /// <summary>
+        /// This label with <paramref name="word"/> in its badge in place of the state's word, its tone, glyph and marks kept and
+        /// its motion stopped: a character's own word while it leaves ("Put Away"), never a state.
+        /// </summary>
+        public CharacterLabel Saying(string word) =>
+            new CharacterLabel(Title, new StateBadge(Badge.State, word, Badge.Tone, Badge.Icon, Badge.Fill, Badge.Edge, false, false, Badge.Count, Badge.LastKnown), Marks);
+
         public static CharacterLabel Of(CharacterPresentation presentation)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));

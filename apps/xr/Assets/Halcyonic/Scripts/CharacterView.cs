@@ -16,9 +16,11 @@ namespace Halcyonic.XR
     /// <remarks>
     /// The character's own transform is its place on the stage: its forward axis points at the
     /// person, and the stage scales it with its distance, so the sizes here are meters as seen from
-    /// one meter away. Only <see cref="Body"/> moves; the labels stay where they are. The cues come
-    /// from <see cref="CharacterCues"/>; this class only chooses shapes, timings and colors, and it
-    /// allocates nothing per frame.
+    /// one meter away. Only <see cref="Body"/> moves; the labels stay where they are. Its look comes
+    /// from <see cref="CharacterCues"/>; its life (floats, blinks, gaze, accents, the hop at the
+    /// computer's own passed check, arrival and Put Away) from <see cref="CharacterLife"/>, shown
+    /// through its figure (<see cref="ICharacterFigure"/>), today's body. Last Known holds every
+    /// value. It allocates nothing per frame.
     /// </remarks>
     public sealed class CharacterView : MonoBehaviour
     {
@@ -53,10 +55,17 @@ namespace Halcyonic.XR
 
         private const float EyeSwitchSeconds = 0.18f;
 
-        /// <summary>An idle glance: how often it comes, how long it holds, and how far aside it looks. Candidates, for a wearer.</summary>
-        private const float GlanceEverySeconds = 6.5f;
-        private const float GlanceSeconds = 0.8f;
-        private const float GlanceLook = 0.6f;
+        /// <summary>Where it looks for its screen, its work, which it has no point for here: ahead and down, in degrees.</summary>
+        private const float ScreenDownDegrees = 25f;
+
+        /// <summary>A look away: aside and down; a look at a neighbour it has no point for: aside, level. Degrees.</summary>
+        private const float AwayAsideDegrees = 25f, AwayDownDegrees = 12f, NeighbourAsideDegrees = 30f;
+
+        /// <summary>The person's lap, below their eyes, in meters.</summary>
+        private const float LapBelowEyes = 0.55f;
+
+        /// <summary>How far today's body turns to look, aside and up or down, in degrees: about as far as it ever turned.</summary>
+        private static readonly Vector2 TurnReach = new Vector2(20f, 10f);
 
         private static readonly int BodyColorId = Shader.PropertyToID("_BodyColor");
         private static readonly int ClockId = Shader.PropertyToID("_Clock");
@@ -75,6 +84,7 @@ namespace Halcyonic.XR
 
         /// <summary>Where a character that can't be told looks while things are kept still: aside and a little up, a still look around.</summary>
         private static readonly Vector2 UnsureStillLook = new Vector2(0.55f, 0.35f);
+
         private static readonly int EyeInkId = Shader.PropertyToID("_EyeInk");
         private static readonly int LookId = Shader.PropertyToID("_Look");
         private static readonly int EyeLayoutId = Shader.PropertyToID("_EyeLayout");
@@ -120,8 +130,17 @@ namespace Halcyonic.XR
         // The animation, advanced every frame toward the cues' targets.
         private float clock;
 
-        /// <summary>When the current motion began, on <see cref="clock"/>: a hop that happens once counts from here.</summary>
-        private float motionSince;
+        /// <summary>The life it shows, its figure, and where it looks now, followed.</summary>
+        private CharacterLife life = null!;
+        private ICharacterFigure figure = null!;
+        private float aimYaw, aimPitch, aimEyesX, aimEyesY;
+        private Vector3 homeOffset;
+
+        /// <summary>The posture its cues hold, eased, under the life's float and hop.</summary>
+        private float restLift, restSquash;
+
+        /// <summary>The word its tag says over its state's, while it is put away.</summary>
+        private string? saying;
 
         /// <summary>The clock its surface's flow and fog and its sweep ring run on: it stands while things are kept still.</summary>
         private float surfaceClock;
@@ -282,19 +301,28 @@ namespace Halcyonic.XR
             return view;
         }
 
-        public void Show(CharacterPresentation next) => Show(next, CharacterCues.Of(next));
+        public void Show(CharacterPresentation next) => Show(next, CharacterCues.Of(next), false);
 
         /// <summary>
         /// Shows <paramref name="next"/> as it answers the moment its task shows in the room (ADR 0040, rule 4):
-        /// <see cref="CharacterCues.Of(CharacterPresentation, KitMoment)"/>.
+        /// <see cref="CharacterCues.Of(CharacterPresentation, KitMoment)"/>. A Ready answers only where it is the computer's own
+        /// passed check observed in this round (<see cref="RoundStartedAt"/>, AUDIT B1); otherwise it answers nothing.
         /// </summary>
-        public void Show(CharacterPresentation next, KitMoment? shown) => Show(next, CharacterCues.Of(next, shown));
+        public void Show(CharacterPresentation next, KitMoment? shown)
+        {
+            var passed = CharacterFacts.PassedCheckThisRound(shown, RoundStartedAt);
+            Show(next, CharacterCues.Of(next, shown?.Kind == KitMomentKind.Ready && !passed ? null : shown), passed);
+        }
 
-        private void Show(CharacterPresentation next, CharacterCues nextCues)
+        private void Show(CharacterPresentation next, CharacterCues nextCues, bool passedCheckThisRound)
         {
             var first = presentation == null;
             presentation = next;
-            if (cues == null || cues.Motion != nextCues.Motion) motionSince = clock;
+            // Last Known only when the control plane is lost (AUDIT B2): the presentation is stale only then. First shown while
+            // lost, it freezes in the state the journal last held, which its tag says as Last Known, never a state of its own.
+            var state = StateLanguage.StateOf(next.Activity, next.Attention);
+            if (first && next.Stale) life.Show(state, passedCheckThisRound, controlPlaneReachable: true);
+            life.Show(state, passedCheckThisRound, controlPlaneReachable: !next.Stale);
             cues = nextCues;
             var kind = EyeKindOf(cues.Eyes);
             if (first)
@@ -308,7 +336,8 @@ namespace Halcyonic.XR
                 nextEyeKind = kind;
                 eyeSwitch = EyeSwitchSeconds;
             }
-            label.Show(CharacterLabel.Of(next));
+            saying = life.TagWord;
+            label.Show(saying == null ? CharacterLabel.Of(next) : CharacterLabel.Of(next).Saying(saying));
             shelfWords = null;
             shelfBadgeMeshes = null;
             if (first || cues.Paused)
@@ -336,6 +365,27 @@ namespace Halcyonic.XR
         /// <summary>The feature's actual renderer and authored colour, for editor witnesses.</summary>
         public (MeshRenderer? Renderer, Color Colour) FeatureForRender => (featureRenderer, new Color(featureColor.x, featureColor.y, featureColor.z));
 #endif
+
+        /// <summary>
+        /// When the round its task is in began, as the journal holds it, or null where nothing says: a Ready moment counts
+        /// as this round's passed check only at or after it (AUDIT B1). No source sets it yet, so no passed look shows.
+        /// </summary>
+        public System.DateTimeOffset? RoundStartedAt { get; set; }
+
+        /// <summary>Whether a placement gave it a home to wander in: without one it stays where it is placed.</summary>
+        public bool HasHome { get; set; }
+
+        /// <summary>The life it shows, for renders and their checks.</summary>
+        public CharacterLife Life => life;
+
+        /// <summary>A task starting while the person watches: it grows from a seed of light with its chime.</summary>
+        public void Arrive() => life.Arrive();
+
+        /// <summary>The person put its task away: "Put Away" on its tag first, then it folds; <see cref="Gone"/> after.</summary>
+        public void PutAway() => life.PutAway();
+
+        /// <summary>Put away, folded and its tag gone: the stage may remove it now, never before.</summary>
+        public bool Gone => life.Gone;
 
         /// <summary>
         /// While <paramref name="look"/> is true, the character turns to face the person and focuses
@@ -369,6 +419,8 @@ namespace Halcyonic.XR
             eyeLayout = CharacterMeshes.EyeLayout(identity.Shape);
             clock = (float)identity.Phase * 60f;
             surfaceClock = clock;
+            life = new CharacterLife(workstreamId, (KitFigureFeature)((int)identity.Feature % 6)) { SpotAllowed = (_, _) => HasHome };
+            figure = new LegacyBody(this);
 
             body = new GameObject("Body").transform;
             body.SetParent(transform, false);
@@ -424,118 +476,143 @@ namespace Halcyonic.XR
 
         private void Update() => Advance(Time.deltaTime, false);
 
-        /// <summary>Moves the animation on by a frame, or straight to the state's pose when snapping.</summary>
+        /// <summary>
+        /// Moves its life on by a frame and shows it, or goes straight to the state's pose when snapping. Last Known, the
+        /// control plane lost, holds every rendered value: nothing moves, so a still character means no live news (AUDIT B2).
+        /// </summary>
         private void Advance(float deltaTime, bool snap)
         {
-            if (cues == null) return;
-            if (cues.Paused && !snap) return;
+            if (cues == null || presentation == null) return;
+            if (presentation.Stale && !snap) return;
             var still = GlazeMotion.Still;
-            if (!cues.Paused) clock += deltaTime;
+            life.KeepStill = still;
+            var seconds = snap ? 0f : deltaTime;
+            clock += seconds;
             // Kept still (ADR 0027), the surface's clock stands, so its flow, its fog and its sweep ring stand where they are.
-            if (!cues.Paused && !still) surfaceClock += deltaTime;
-            var t = clock;
+            if (!still) surfaceClock += seconds;
+            var pose = life.Step(seconds);
+            figure.Show(pose, life.Look, Aim(pose, still, seconds, snap), seconds, snap);
+            var sounds = life.TakeSounds();
+            if (sounds.Count > 0) CharacterSoundPlayer.Play(sounds, life.Feature, figure.Head.position);
+            ShowTag();
+        }
 
-            // The body's motion.
-            var targetLift = 0f;
-            var targetSquash = 0f;
-            var yaw = 0f;
-            var roll = 0f;
-            switch (cues.Motion)
-            {
-                case CharacterMotion.Breathe:
-                    targetLift = Mathf.Sin(t * 1.3f) * 0.003f;
-                    targetSquash = Mathf.Sin(t * 1.3f) * 0.012f;
-                    break;
-                case CharacterMotion.Warm:
-                    targetLift = Mathf.Sin(t * 2.4f) * 0.004f;
-                    targetSquash = Mathf.Sin(t * 4.8f) * 0.01f;
-                    yaw = Mathf.Sin(t * 0.9f) * 0.08f;
-                    break;
-                case CharacterMotion.Hop:
-                {
-                    var hop = Mathf.Abs(Mathf.Sin(t * 3.1f));
-                    targetLift = hop * 0.0145f;
-                    targetSquash = hop < 0.22f ? (0.22f - hop) * 0.35f : 0f;
-                    yaw = Mathf.Sin(t * 0.6f) * 0.18f;
-                    break;
-                }
-                case CharacterMotion.Hover:
-                    targetLift = Mathf.Sin(t * 1.4f) * 0.0032f;
-                    break;
-                case CharacterMotion.Rise:
-                    targetLift = RiseRoom() + Mathf.Sin(t * 2.1f) * 0.0025f;
-                    targetSquash = -Mathf.Max(0f, Mathf.Sin(t * 4.2f)) * 0.025f;
-                    break;
-                case CharacterMotion.Settle:
-                    targetLift = SettledLift + Mathf.Sin(t * 1.1f) * 0.001f;
-                    targetSquash = 0.02f + Mathf.Sin(t * 1.1f) * 0.01f;
-                    break;
-                case CharacterMotion.Slump:
-                    targetLift = SlumpedLift;
-                    targetSquash = 0.07f;
-                    roll = 0.14f;
-                    break;
-                case CharacterMotion.Drift:
-                    targetLift = Mathf.Sin(t * 0.7f) * 0.002f;
-                    yaw = Mathf.Sin(t * 0.31f) * 0.1f;
-                    break;
-                case CharacterMotion.HopOnce:
-                {
-                    // One hop over a pop's time, then still: the work is ready.
-                    var since = (clock - motionSince) / SpatialKit.PopSeconds;
-                    var hop = since < 1f ? Mathf.Sin(since * Mathf.PI) : 0f;
-                    targetLift = hop * 0.0145f;
-                    targetSquash = since < 1f && hop < 0.22f ? (0.22f - hop) * 0.35f : 0f;
-                    break;
-                }
-                case CharacterMotion.Frozen:
-                    // Stopped mid-hop, a little turned.
-                    targetLift = FrozenLift;
-                    targetSquash = -0.03f;
-                    yaw = 0.12f;
-                    roll = -0.05f;
-                    break;
-            }
-            if (still)
-            {
-                // At its motion's rest pose: no hop, hover, drift, breath or bob; a slump or a stop keeps its own lean.
-                targetLift = HeldLift;
-                targetSquash = cues.Motion switch
-                {
-                    CharacterMotion.Settle => 0.02f,
-                    CharacterMotion.Slump => 0.07f,
-                    CharacterMotion.Frozen => -0.03f,
-                    _ => 0f,
-                };
-                if (cues.Motion != CharacterMotion.Slump && cues.Motion != CharacterMotion.Frozen)
-                {
-                    yaw = 0f;
-                    roll = 0f;
-                }
-            }
+        /// <summary>
+        /// Where it looks, split between the head's turn and the eyes (<see cref="CharacterLife.Aim"/>) and followed, head 6 a
+        /// second, eyes 14. Kept still, it drops the turn and its eyes rest at their middle (ADR 0027 item 6).
+        /// </summary>
+        private CharacterAim Aim(CharacterPose pose, bool still, float seconds, bool snap)
+        {
+            var (yaw, pitch) = still ? (0.0, 0.0) : LookAngles(lookAtPerson ? CharacterGaze.Person : pose.Gaze, pose.AvertSide);
+            var (headYaw, headPitch, eyesX, eyesY) = CharacterLife.Aim(yaw, pitch);
+            var dart = still ? 0 : pose.EyeDartH;
+            var dt = snap || still ? 1000.0 : seconds;
+            aimYaw = (float)CharacterLife.Damp(aimYaw, headYaw, 6, dt);
+            aimPitch = (float)CharacterLife.Damp(aimPitch, headPitch, 6, dt);
+            aimEyesX = (float)CharacterLife.Damp(aimEyesX, System.Math.Clamp((eyesX + dart) / CharacterLife.EyeReachH, -1, 1), 14, dt);
+            aimEyesY = (float)CharacterLife.Damp(aimEyesY, eyesY / CharacterLife.EyeLiftH, 14, dt);
+            return new CharacterAim(aimYaw, aimPitch, aimEyesX, aimEyesY);
+        }
 
-            // The eyes.
+        /// <summary>The turn and pitch of a look at <paramref name="gaze"/>, in degrees from facing the person.</summary>
+        private (double Yaw, double Pitch) LookAngles(CharacterGaze gaze, int avertSide)
+        {
+            switch (gaze)
+            {
+                case CharacterGaze.Person:
+                case CharacterGaze.Moment:
+                    return Person != null ? Toward(Person.position) : (0, 0);
+                case CharacterGaze.Lap:
+                    return Person != null ? Toward(Person.position + Vector3.down * LapBelowEyes) : (0, -ScreenDownDegrees);
+                case CharacterGaze.Away:
+                    return (-avertSide * AwayAsideDegrees, -AwayDownDegrees);
+                case CharacterGaze.Neighbour:
+                    return (-avertSide * NeighbourAsideDegrees, 0);
+                default:
+                    return (0, -ScreenDownDegrees);
+            }
+        }
+
+        /// <summary>The turn and pitch toward <paramref name="point"/> from its head, about its place, which faces the person.</summary>
+        private (double Yaw, double Pitch) Toward(Vector3 point)
+        {
+            var local = transform.InverseTransformDirection(point - figure.Head.position);
+            var level = Mathf.Sqrt(local.x * local.x + local.z * local.z);
+            if (level < 1e-6f) return (0, 0);
+            return (Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg, Mathf.Atan2(local.y, level) * Mathf.Rad2Deg);
+        }
+
+        /// <summary>Its tag: "Put Away" over its state's word while it leaves, and gone once it has folded.</summary>
+        private void ShowTag()
+        {
+            var word = life.TagWord;
+            if (word != saying && presentation != null)
+            {
+                saying = word;
+                label.Show(word == null ? CharacterLabel.Of(presentation) : CharacterLabel.Of(presentation).Saying(word));
+                shelfWords = null;
+                shelfBadgeMeshes = null;
+            }
+            if (life.TagOpacity <= 0 && labels.gameObject.activeSelf) labels.gameObject.SetActive(false);
+        }
+
+        /// <summary>Today's body as a figure: one shell, so its head is its body; its eyes and surface are in its shader.</summary>
+        private sealed class LegacyBody : ICharacterFigure
+        {
+            private readonly CharacterView view;
+
+            public LegacyBody(CharacterView view) => this.view = view;
+
+            /// <summary>The shell is about two units tall at its scale.</summary>
+            public float Height => 2f * BodyScale;
+
+            public Transform Head => view.body;
+
+            public void Show(CharacterPose pose, KitFigureLook look, CharacterAim aim, float seconds, bool snap) => view.ShowBody(pose, aim, seconds, snap);
+        }
+
+        /// <summary>
+        /// Shows a pose of its life on today's body: the posture its cues hold (<see cref="HeldLift"/>, which placement reads)
+        /// with the life's float and hop on top, the life's blinks and pulses over the eyes its state draws, the look's turn
+        /// and the accents on the body, the eyes' shift in the shader, and the arrival's and fold's size. Its eyes' shapes,
+        /// surface, halo, ring and colour stay as its cues and its identity draw them.
+        /// </summary>
+        private void ShowBody(CharacterPose pose, CharacterAim aim, float deltaTime, bool snap)
+        {
+            var cues = this.cues!;
+            var ease = snap ? 1f : 1f - Mathf.Exp(-deltaTime * 8f);
+            var quick = snap ? 1f : 1f - Mathf.Exp(-deltaTime * 30f);
+            var unit = figure.Height / (float)KitFigureLook.HeightM;
+            var moving = !GlazeMotion.Still;
+
+            // The posture held, eased, or at once while kept still (ADR 0027 item 6); the life's float and hop over it,
+            // already eased by the life, and standing at once while kept still, so the body holds exactly.
+            var posture = moving ? ease : 1f;
+            restLift = Mathf.Lerp(restLift, HeldLift, posture);
+            restSquash = Mathf.Lerp(restSquash, cues.Motion switch
+            {
+                CharacterMotion.Settle => 0.02f,
+                CharacterMotion.Slump => 0.07f,
+                CharacterMotion.Frozen => -0.03f,
+                _ => 0f,
+            }, posture);
+            lift = restLift + (moving ? unit * (float)(pose.FloatYM + pose.HopM) : 0f);
+            squash = restSquash + (moving ? 1f - (float)pose.Squash : 0f);
+            var heldYaw = cues.Motion == CharacterMotion.Frozen ? 0.12f : 0f;
+            var heldRoll = cues.Motion == CharacterMotion.Slump ? 0.14f : cues.Motion == CharacterMotion.Frozen ? -0.05f : 0f;
+
+            // The eyes: their drawn shape and opening by its state, the life's blinks and pulses over them.
             var targetOpen = 1f;
-            var targetLookX = 0f;
-            var targetLookY = 0f;
             var targetInk = 1f;
             var targetUneven = 0f;
             var openEyes = true;
             switch (cues.Eyes)
             {
-                case CharacterEyes.Open:
-                    targetLookX = Mathf.Sin(t * 0.23f) * 0.35f;
-                    targetLookY = Mathf.Sin(t * 0.17f) * 0.2f;
-                    break;
                 case CharacterEyes.OnTask:
                     targetOpen = 0.78f;
-                    targetLookX = Mathf.Sin(t * 0.8f) * 0.7f;
-                    targetLookY = -0.7f;
                     break;
                 case CharacterEyes.Scanning:
                     targetOpen = 0.9f;
-                    targetLookX = Mathf.Sin(t * 2.6f);
-                    targetLookY = -0.15f;
                     break;
                 case CharacterEyes.OnPerson:
                     targetOpen = 1.12f;
@@ -543,48 +620,15 @@ namespace Halcyonic.XR
                 case CharacterEyes.Unfocused:
                     targetOpen = 0.42f;
                     targetUneven = UnsureUneven;
-                    targetLookX = Mathf.Sin(t * 0.37f) * 0.9f;
-                    targetLookY = Mathf.Cos(t * 0.29f) * 0.6f;
                     targetInk = 0.75f;
                     break;
                 case CharacterEyes.Closed:
-                    openEyes = false;
-                    targetLookY = -0.25f;
-                    break;
                 case CharacterEyes.Crossed:
-                    openEyes = false;
-                    targetLookY = -0.15f;
-                    break;
                 case CharacterEyes.Flat:
                     openEyes = false;
-                    targetLookX = 0.25f;
                     break;
             }
-            // Idle, it glances aside now and then, one side then the other; never while kept still or facing the person.
-            if (cues.Glances && openEyes && !still && !lookAtPerson && !cues.FacesPerson && t % GlanceEverySeconds < GlanceSeconds)
-                targetLookX = (Mathf.FloorToInt(t / GlanceEverySeconds) % 2 == 0 ? 1f : -1f) * GlanceLook;
-            if (lookAtPerson && openEyes && cues.Eyes != CharacterEyes.Unfocused)
-            {
-                targetLookX = 0f;
-                targetLookY = 0f;
-            }
-            if (still)
-            {
-                // Eyes that scan stand at their middle, and a working character's still look down. One that can't be
-                // told holds a still look aside and a little up, its lids uneven, so it never reads as a sleepy Working.
-                if (cues.Eyes == CharacterEyes.Open || cues.Eyes == CharacterEyes.OnTask || cues.Eyes == CharacterEyes.Scanning) targetLookX = 0f;
-                if (cues.Eyes == CharacterEyes.Open) targetLookY = 0f;
-                if (cues.Eyes == CharacterEyes.Unfocused)
-                {
-                    targetLookX = UnsureStillLook.x;
-                    targetLookY = UnsureStillLook.y;
-                }
-            }
-            if (openEyes && !still)
-            {
-                var blinkPeriod = (float)identity.BlinkEverySeconds;
-                if (t % blinkPeriod < Glaze.BlinkSeconds) targetOpen *= 0.1f;
-            }
+            if (openEyes) targetOpen *= Mathf.Max(0.1f, 1f - (float)pose.Lids);
             if (eyeSwitch > 0f)
             {
                 eyeSwitch = Mathf.Max(0f, eyeSwitch - deltaTime);
@@ -592,7 +636,6 @@ namespace Halcyonic.XR
                 targetOpen *= Mathf.Max(0.08f, Mathf.Abs(eyeSwitch / EyeSwitchSeconds * 2f - 1f));
             }
             if (cues.Ghosted) targetInk *= 0.85f;
-
             // The surface.
             var targetFlow = cues.Flowing ? 1f : 0f;
             var targetFlowSpeed = cues.Motion == CharacterMotion.Hover ? 0.95f : 0.55f;
@@ -604,16 +647,14 @@ namespace Halcyonic.XR
                 : cues.Cracked ? 0.72f
                 : cues.Fogged ? 0.45f
                 : 1f;
-
-            // The light around it.
+            // The light around it; a waiting one's pulse breathes with the life, and stands while kept still.
             var targetHaloColor = haloColor;
             var targetHalo = 0f;
             switch (cues.Halo)
             {
                 case CharacterHalo.NeedsYou:
                     targetHaloColor = NeedsYouLight;
-                    // Its pulse stands still when kept still, at the middle of its breath.
-                    targetHalo = 0.75f * (0.8f + (still ? 0f : 0.25f * Mathf.Sin(t * 3.2f)));
+                    targetHalo = 0.75f * (0.8f + 0.25f * ((float)pose.Breath - 0.775f) / 0.225f);
                     break;
                 case CharacterHalo.Failed:
                     targetHaloColor = FailedLight;
@@ -634,14 +675,19 @@ namespace Halcyonic.XR
             }
             if (cues.Ghosted) targetHalo *= 0.3f;
             var targetRing = cues.Ring ? 1f : 0f;
-
-            var ease = snap ? 1f : 1f - Mathf.Exp(-deltaTime * 8f);
-            var quick = snap ? 1f : 1f - Mathf.Exp(-deltaTime * 30f);
-            lift = Mathf.Lerp(lift, targetLift, ease);
-            squash = Mathf.Lerp(squash, targetSquash, ease);
             eyeOpen = Mathf.Lerp(eyeOpen, targetOpen, quick);
-            lookX = Mathf.Lerp(lookX, targetLookX, quick);
-            lookY = Mathf.Lerp(lookY, targetLookY, quick);
+            // Kept still, the eyes hold their state's still look, so every state still shows by its eyes (ADR 0027 item 6):
+            // on its work looking down, one that can't be told aside and a little up.
+            (lookX, lookY) = moving ? (aim.EyesX, aim.EyesY) : cues.Eyes switch
+            {
+                CharacterEyes.OnTask => (0f, -0.7f),
+                CharacterEyes.Scanning => (0f, -0.15f),
+                CharacterEyes.Unfocused => (UnsureStillLook.x, UnsureStillLook.y),
+                CharacterEyes.Closed => (0f, -0.25f),
+                CharacterEyes.Crossed => (0f, -0.15f),
+                CharacterEyes.Flat => (0.25f, 0f),
+                _ => (0f, 0f),
+            };
             eyeInk = Mathf.Lerp(eyeInk, targetInk, ease);
             eyeUneven = Mathf.Lerp(eyeUneven, targetUneven, ease);
             flow = Mathf.Lerp(flow, targetFlow, ease);
@@ -655,7 +701,20 @@ namespace Halcyonic.XR
             ringAlpha = Mathf.Lerp(ringAlpha, targetRing, ease);
             if (snap) eyeKind = nextEyeKind;
 
-            Turn(yaw, roll, snap ? 1f : 1f - Mathf.Exp(-deltaTime * 5f));
+            // The turn: the look's, its accents and the float's roll, the posture's lean; relative to its place. This body
+            // has no head apart from it, so it turns no further than it always has (TurnReach), and its eyes take the rest.
+            body.localRotation = Quaternion.Euler(
+                Mathf.Clamp(-aim.HeadPitchDegrees + (float)(pose.HeadPitchDegrees + pose.NodDegrees - pose.LeanDegrees), -TurnReach.y, TurnReach.y),
+                Mathf.Clamp(aim.HeadYawDegrees - (float)pose.TurnDegrees, -TurnReach.x, TurnReach.x) + heldYaw * Mathf.Rad2Deg,
+                heldRoll * Mathf.Rad2Deg + (float)((moving ? pose.RollDegrees : 0) + pose.HeadRollDegrees));
+            // Its place in its home, to the person's right and away from them, where a placement gave it one.
+            var scale = Mathf.Max(transform.lossyScale.x, 1e-4f);
+            homeOffset = HasHome ? new Vector3(-(float)pose.XM, 0f, -(float)pose.ZM) / scale : Vector3.zero;
+            body.localScale = Vector3.one * (float)pose.Scale;
+            // The halo is a light behind it, not part of the turn: it stays upright where it stood.
+            var unturn = Quaternion.Inverse(body.localRotation);
+            haloRenderer.transform.localRotation = unturn;
+            haloRenderer.transform.localPosition = unturn * new Vector3(0f, 0f, -0.3f * BodyScale);
             Apply(surfaceClock);
         }
 
@@ -685,29 +744,6 @@ namespace Halcyonic.XR
             return Mathf.Clamp(room, 0f, RiseHeight);
         }
 
-        private void Turn(float yaw, float roll, float ease)
-        {
-            var facing = cues!.FacesPerson || lookAtPerson;
-            if (facing && cues.Paused) return;
-            // Relative to the character's place, so the body moves with the stage when it is placed again.
-            Quaternion target;
-            if (facing && Person != null)
-            {
-                var toPerson = Person.position - body.position;
-                var level = new Vector3(toPerson.x, 0f, toPerson.z);
-                if (level.sqrMagnitude < 1e-6f) return;
-                // Tip up or down toward the person's eyes, but not so far that the face turns away.
-                var pitch = Mathf.Clamp(Mathf.Atan2(toPerson.y, level.magnitude) * Mathf.Rad2Deg, -30f, 30f);
-                var world = Quaternion.LookRotation(level, Vector3.up) * Quaternion.Euler(-pitch, 0f, roll * Mathf.Rad2Deg);
-                target = Quaternion.Inverse(transform.rotation) * world;
-            }
-            else
-            {
-                target = Quaternion.Euler(0f, yaw * Mathf.Rad2Deg, roll * Mathf.Rad2Deg);
-            }
-            body.localRotation = Quaternion.Slerp(body.localRotation, target, ease);
-        }
-
         private void Apply(float t)
         {
             shell.localScale = new Vector3(BodyScale * (1f + squash), BodyScale * (1f - squash), BodyScale * (1f + squash));
@@ -716,7 +752,7 @@ namespace Halcyonic.XR
             if (Grounded)
                 foreach (var vertex in shellVertices)
                     floor = Mathf.Min(floor, (body.localRotation * Vector3.Scale(vertex, shell.localScale)).y);
-            body.localPosition = new Vector3(0f, Grounded && !float.IsPositiveInfinity(floor) ? -floor : lift, 0f);
+            body.localPosition = new Vector3(homeOffset.x, Grounded && !float.IsPositiveInfinity(floor) ? -floor : lift, homeOffset.z);
 
             bodyBlock.SetVector(BodyColorId, bodyColor);
             bodyBlock.SetFloat(ClockId, t);

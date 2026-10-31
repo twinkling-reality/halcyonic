@@ -115,6 +115,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     var presentation = new CharacterPresentation("w-moment", "Make the towers wobble", activity, CharacterPresenter.LabelOf(activity),
                         AttentionLevel.None, new List<string>(), 0, synthetic: true, recorded: false, stale: false);
                     var view = CharacterView.Create(root.transform, "w-moment");
+                    // The round began before the check, so a Ready is this round's observed passed check (AUDIT B1); it
+                    // answers as it arrives while shown, never on a first show (B3).
+                    view.RoundStartedAt = at.AddMinutes(-5);
+                    if (name == "ready")
+                    {
+                        view.Show(presentation);
+                        view.AdvanceForRender(1f / 72f);
+                    }
                     view.Show(presentation, moment);
                     var run = RunMoment(view, name == "idle" ? 14f : 3f);
                     var what = name + mode;
@@ -125,7 +133,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         case "idle":
                             var glance = run.Looks.Max(look => Mathf.Abs(look));
-                            if (!still && glance < 0.42f) failures.Add(what + ": idle never glanced aside, the widest look " + glance.ToString("0.00", CultureInfo.InvariantCulture));
+                            // A look away is 25 degrees aside, about a third of the eyes' reach (CharacterLife.Aim).
+                            if (!still && glance < 0.3f) failures.Add(what + ": idle never glanced aside, the widest look " + glance.ToString("0.00", CultureInfo.InvariantCulture));
                             if (still && glance > 0.05f) failures.Add(what + ": idle glanced while kept still");
                             break;
                         case "question":
@@ -135,7 +144,8 @@ namespace Halcyonic.XR.Workspace.Editor
                             view.Label.Badge.Icon.gameObject.SetActive(true);
                             break;
                         case "failed check":
-                            if (Mathf.Abs(run.Lifts.Last() - view.HeldLift) > 1e-4f || view.HeldLift >= 0f)
+                            // Its float, at half, stays within 2.5 thousandths of its place.
+                            if (Mathf.Abs(run.Lifts.Last() - view.HeldLift) > 2.5e-3f || view.HeldLift >= 0f)
                                 failures.Add(what + ": a failed check did not droop and hold its place");
                             break;
                         case "ready":
@@ -143,8 +153,10 @@ namespace Halcyonic.XR.Workspace.Editor
                             // The lift eases at 8 a second, so it has settled a second after the hop.
                             var hop = run.Lifts.Take(hopFrames).Max() - run.Lifts.Skip(hopFrames + 72).Max();
                             if (!still && hop < 0.005f) failures.Add(what + ": ready did not hop");
+                            // After its one hop only the float moves it (about 6.6 thousandths from crest to trough at full
+                            // speed, as the passed look floats), never another hop (13 thousandths high).
                             var after = run.Lifts.Skip(hopFrames + 72).ToList();
-                            if (after.Max() - after.Min() > 1e-4f) failures.Add(what + ": ready kept hopping after its one hop");
+                            if (after.Max() - after.Min() > 8e-3f) failures.Add(what + ": ready kept hopping after its one hop");
                             // The witness: the same view as a finished turn shows it, eyes closed, must be caught.
                             view.Show(presentation);
                             if (!EyesOpen(what, RunMoment(view, 1f)).Any()) failures.Add(what + ": the eyes check accepted a Ready with closed eyes");
@@ -213,8 +225,9 @@ namespace Halcyonic.XR.Workspace.Editor
                                 var original = ExactCharacterPixels(first.Original, later.Original);
                                 var corrected = ExactCharacterPixels(first.Corrected, later.Corrected);
                                 if (corrected != 0) result.Add(name + ": exact idle residual correction leaves " + corrected + " drifting pixels.");
-                                if (variant == "Larger" && original == 0)
-                                    result.Add(name + ": original captured idle residuals no longer reproduce the larger-text pixel drift; causal witness is inconclusive.");
+                                // Kept still, the character's life holds the body exactly (ADR 0027 item 6), so the idle drift this
+                                // witness once caught at the larger text size must be gone at both.
+                                if (original != 0) result.Add(name + ": kept still, " + original + " pixels still drift.");
                                 var accounted = 0;
                                 var originalBefore = first.Original.GetPixels32(); var originalAfter = later.Original.GetPixels32();
                                 var correctedBefore = first.Corrected.GetPixels32(); var correctedAfter = later.Corrected.GetPixels32();
@@ -1336,21 +1349,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     character.View.transform.parent.gameObject.SetActive(false);
                     views.Add(character.View);
                 }
-                if (Math.Abs(CharacterIdentity.Of(ids[0]).BlinkEverySeconds - CharacterIdentity.Of(ids[1]).BlinkEverySeconds) < 1)
-                    failures.Add("blink witnesses do not have distinct intervals.");
+                // Blinks come from each character's life (CharacterLife): a chance every 2.6 s, taken about half the time, on
+                // its own seeded rhythm, so the two witnesses blink at different moments.
+                const float period = 5.2f;
+                float? FirstClosed(CharacterView who, float within)
+                {
+                    for (var t = 0f; t < within; t += 1f / 72f)
+                    {
+                        who.AdvanceForRender(1f / 72f);
+                        if (who.PoseForRender.Open < 0.3f) return t;
+                    }
+                    return null;
+                }
+                if (views[0].Life.FloatPeriods.Equals(views[1].Life.FloatPeriods)) failures.Add("blink witnesses share one rhythm.");
                 foreach (var view in views)
                 {
                     view.transform.parent.gameObject.SetActive(true);
-                    var period = (float)CharacterIdentity.Of(view.WorkstreamId).BlinkEverySeconds;
-                    // Begin safely after one blink. Then advance to the next, using the identity's
-                    // declared period rather than setting private animation state for the witness.
-                    var after = (Mathf.Floor(view.ClockForRender / period) + 1) * period + 0.3f;
-                    Advance(view, after - view.ClockForRender);
+                    // Begin with its eyes open, then find its next blink as the production frame path steps it.
+                    for (var t = 0f; t < 2f && view.PoseForRender.Open < 0.85f; t += 1f / 72f) view.AdvanceForRender(1f / 72f);
                     var openPose = view.PoseForRender.Open;
                     UnityEngine.Object.DestroyImmediate(Capture(view, "open"));
-                    var firstBlink = (Mathf.Floor(view.ClockForRender / period) + 1) * period + Glaze.BlinkSeconds / 2f;
-                    Advance(view, firstBlink - view.ClockForRender);
-                    if (view.PoseForRender.Open > 0.3f) failures.Add(view.WorkstreamId + ": eyes do not blink at their identity's interval.");
+                    var firstBlink = FirstClosed(view, 4 * period);
+                    if (firstBlink == null) failures.Add(view.WorkstreamId + ": eyes never blink.");
                     var blink = Capture(view, "blink");
                     var shell = view.Body.Find("Shell").GetComponent<Renderer>();
                     var original = new MaterialPropertyBlock();
@@ -1374,13 +1394,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         UnityEngine.Object.DestroyImmediate(blink);
                         if (openAtBlink != null) UnityEngine.Object.DestroyImmediate(openAtBlink);
                     }
-                    Advance(view, Glaze.BlinkSeconds / 2f - 0.01f);
-                    if (view.PoseForRender.Open > 0.3f) failures.Add(view.WorkstreamId + ": blink ended before the shared duration.");
-                    Advance(view, 0.16f);
-                    if (view.PoseForRender.Open < 0.85f) failures.Add(view.WorkstreamId + ": blink fails to reopen after the shared duration.");
-                    var nextBlink = firstBlink + period;
-                    Advance(view, nextBlink - view.ClockForRender);
-                    if (view.PoseForRender.Open > 0.3f) failures.Add(view.WorkstreamId + ": next blink fails to repeat at its declared interval.");
+                    // A blink lasts 180 ms (two together at most), then the eyes open again; another follows.
+                    Advance(view, 0.45f);
+                    if (view.PoseForRender.Open < 0.85f) failures.Add(view.WorkstreamId + ": blink fails to reopen after its 180 ms.");
+                    if (FirstClosed(view, 6 * period) == null) failures.Add(view.WorkstreamId + ": no second blink follows.");
 
                     GlazeMotion.Still = true;
                     Advance(view, period);
@@ -1434,25 +1451,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         var block = new MaterialPropertyBlock();
                         kind.GetPropertyBlock(block);
                         var before = block.GetFloat("_EyeKind");
-                        var beforeClock = view.ClockForRender;
-                        var beforeValues = CharacterFrameValues(new[] { view });
-                        Texture2D? beforePixels = activity == CharacterActivity.Interrupted ? Capture(view, "interrupted") : null;
+                        // Stopped is a state, not a freeze: it floats at 0.6 with its eyes shut (the art direction's character,
+                        // 2026-10-30); only Last Known holds every value, checked below and in CharacterRender.
                         Advance(view, period);
                         kind.GetPropertyBlock(block);
                         if (before == 0 || block.GetFloat("_EyeKind") != before) failures.Add(view.WorkstreamId + ": " + activity + " gains open blinking eyes.");
-                        if (beforePixels != null)
-                        {
-                            var afterPixels = Capture(view, "interrupted-later");
-                            try
-                            {
-                                var afterValues = CharacterFrameValues(new[] { view });
-                                if (view.ClockForRender != beforeClock || beforeValues.Any(pair => afterValues[pair.Key] != pair.Value))
-                                    failures.Add(view.WorkstreamId + ": Interrupted continues changing production values.");
-                                if (WorkspaceRender.Compare(beforePixels, afterPixels, new RectInt(0, 0, Size, Size)).Changed != 0)
-                                    failures.Add(view.WorkstreamId + ": Interrupted continues changing rendered pixels.");
-                            }
-                            finally { UnityEngine.Object.DestroyImmediate(beforePixels); UnityEngine.Object.DestroyImmediate(afterPixels); }
-                        }
                     }
                     view.transform.parent.gameObject.SetActive(false);
                 }
