@@ -1828,6 +1828,21 @@ namespace Halcyonic.Contracts
         public FilesObservedSkipped? Skipped { get; set; }
     }
 
+    public sealed class ExecutionCheckOutputGivenPayload
+    {
+        [JsonProperty("check_id", Required = Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [JsonProperty("parts", Required = Required.Always)]
+        public List<JToken> Parts { get; set; } = new List<JToken>();
+
+        [JsonProperty("lines", Required = Required.Always)]
+        public long Lines { get; set; }
+
+        [JsonProperty("bytes", Required = Required.Always)]
+        public long Bytes { get; set; }
+    }
+
     public sealed class ExecutionStartFailedPayload
     {
         [JsonProperty("error", Required = Required.Always)]
@@ -2875,6 +2890,7 @@ namespace Halcyonic.Contracts
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.files.observed" => new ExecutionFilesObservedEvent(),
+                "execution.check_output_given" => new ExecutionCheckOutputGivenEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
                 "execution.state_unknown" => new ExecutionStateUnknownEvent(),
                 "command.accepted" => new CommandAcceptedEvent(),
@@ -3066,6 +3082,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public FilesObserved Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionCheckOutputGivenEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.check_output_given";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionCheckOutputGivenPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedEvent : EventEnvelope

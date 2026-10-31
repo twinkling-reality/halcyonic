@@ -163,6 +163,8 @@ export class Projection {
   readonly #previews = new Map<ProjectId, ProjectPreview>();
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
   readonly #macPlays = new Map<ProjectId, CheckId>();
+  /** The failed check whose output an agent was last given in each project (FX1). */
+  readonly #checkOutputs = new Map<ProjectId, CheckId>();
   readonly #devices = new DeviceRegistry();
   readonly #resultStarts = new Map<
     string,
@@ -525,6 +527,11 @@ export class Projection {
     return this.#previews.get(projectId as ProjectId);
   }
 
+  /** The failed check whose output was last given to an agent in the project, or undefined (FX1). */
+  checkOutputGiven(projectId: string): CheckId | undefined {
+    return this.#checkOutputs.get(projectId as ProjectId);
+  }
+
   /** The check whose game plays on the Mac now, or undefined. */
   macPlay(projectId: string): CheckId | undefined {
     return this.#macPlays.get(projectId as ProjectId);
@@ -791,6 +798,13 @@ export class Projection {
           recorded_at: event.occurred_at,
         });
         changes.projects.add(event.project_id);
+        return;
+      case 'execution.check_output_given':
+        if (!this.#projects.has(event.project_id)) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        this.#checkOutputs.set(event.project_id, event.payload.check_id);
         return;
       case 'project.preview.started':
         if (!this.#projects.has(event.project_id)) {

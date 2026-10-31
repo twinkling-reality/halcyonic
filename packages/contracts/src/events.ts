@@ -408,6 +408,25 @@ export const ExecutionCreated = executionEvent(
  */
 export const ExecutionFilesObserved = executionEvent('execution.files.observed', FilesObserved);
 
+/**
+ * The host gave the agent, after the person's words, the first lines of the project's failed check
+ * (its type check, its build or both), marked as the Mac's own check (FX1). Which check, which
+ * steps, how many lines and bytes; never the text, which is neither journaled nor logged. Given
+ * once per failed check, with the next instruction to an agent in the project.
+ */
+export const ExecutionCheckOutputGiven = executionEvent(
+  'execution.check_output_given',
+  Type.Object(
+    {
+      check_id: CheckId,
+      parts: Type.Array(Type.Enum(['typecheck', 'build']), { minItems: 1, maxItems: 2 }),
+      lines: Type.Integer({ minimum: 0, maximum: 80 }),
+      bytes: Type.Integer({ minimum: 0, maximum: 16384 }),
+    },
+    strict,
+  ),
+);
+
 /** The adapter reported that the runtime could not start the execution. */
 export const ExecutionStartFailed = executionEvent(
   'execution.start_failed',
@@ -732,6 +751,7 @@ export const EVENT_VARIANTS = [
   WorkstreamCreated,
   ExecutionCreated,
   ExecutionFilesObserved,
+  ExecutionCheckOutputGiven,
   ExecutionStartFailed,
   ExecutionStateUnknown,
   CommandAccepted,

@@ -230,3 +230,19 @@ per-process output state for the browser's processes instead. A copy of the shel
 (`chrome-headless-shell`, or `headless-shell`) is taken by macOS for an app, registers with LaunchServices and aborts,
 so the host's copy lives at `<data dir>/browser/current`.
 
+
+## Amendment, 2026-10-31: a failed check's errors go to the agent with the next request (FX1)
+
+When a project's latest check failed at the type check or the build, the next start or instruction to an agent in the
+project carries, after the person's words and apart from them, the first lines of each failed step as the check's own
+folder holds them: a header saying it is the Mac's own check of the project and not the person's words, at most 40
+lines a step, 300 characters a line and 4 KB a step, the project's folder written as `.`, Halcyonic's data folder
+and the home folder by name, and an end line. The build runs the project's own code, which writes its log, so every
+line the check printed is given behind a fixed `| `, terminal sequences, control characters but tab, and
+bidirectional, zero-width and other invisible characters are removed, and the Unicode line and paragraph separators
+become spaces: no printed line can stand as the block's header, its end, or the person's words (AUDIT FX1-M1, C1). MAKE's rehearsal (K1) had a kid's "It doesn't
+work yet, can you fix it so I can play?" reach the agent with nothing of what the check found, and the agent fixed
+blind. Each failed check is given once: `execution.check_output_given` records which check, which steps, and how many
+lines and bytes, never the text, and is recorded only once the runtime confirmed the start or the instruction. The
+journal keeps the person's words alone; nothing of the check's output is logged. A check that passed, or failed only
+in the page, gives nothing; a failed step whose output cannot be read is given as "Its output could not be read."
