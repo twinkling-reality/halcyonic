@@ -1,12 +1,12 @@
 import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type {
   EvaluationFailure,
   EvaluationResult,
   UsageLimitsResponse,
 } from '@halcyonic/contracts';
 import { SEORAK_DEFAULT_PORT, SeorakClient, seorakAgentFor } from '@halcyonic/integration-seorak';
-import { CODEX_HOME_FOLDER, inHalcyonicsCodexHome } from './codex-home.ts';
+import { CODEX_CONFINED_FOLDER, CODEX_HOME_FOLDER, inHalcyonicsCodexHome } from './codex-home.ts';
 
 /** The file in the control plane's data directory that holds the Seorak integration credential. */
 export const SEORAK_CREDENTIAL_FILE = 'seorak-credential';
@@ -28,6 +28,8 @@ export interface SeorakEvaluationOptions {
   readonly port?: number;
   /** Halcyonic's own Codex home, whose sessions Seorak does not read. */
   readonly codexHome: string;
+  /** Folder holding confined Codex homes (`<data>/codex-confined/<key>`), defaulting next to `codexHome`. */
+  readonly confinedCodexHomes?: string;
 }
 
 /**
@@ -39,6 +41,8 @@ export interface SeorakEvaluationOptions {
 export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSource {
   const port = options.port ?? SEORAK_DEFAULT_PORT;
   const client = new SeorakClient({ port });
+  const confinedHomes =
+    options.confinedCodexHomes ?? join(dirname(options.codexHome), CODEX_CONFINED_FOLDER);
   return {
     async usageLimits() {
       const credential = readCredential(options.credentialPath, `http://127.0.0.1:${port}`);
@@ -47,7 +51,15 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
       return client.usageLimits({ credential });
     },
     async evaluate(runtimeKind, nativeId, startedAt) {
-      if (await inHalcyonicsCodexHome(options.codexHome, runtimeKind, nativeId, startedAt)) {
+      if (
+        await inHalcyonicsCodexHome(
+          options.codexHome,
+          runtimeKind,
+          nativeId,
+          startedAt,
+          confinedHomes,
+        )
+      ) {
         return {
           availability: 'unavailable',
           reason: {
@@ -72,6 +84,7 @@ export function seorakEvaluationFor(dataDir: string): EvaluationSource {
   return seorakEvaluation({
     credentialPath: join(dataDir, SEORAK_CREDENTIAL_FILE),
     codexHome: join(dataDir, CODEX_HOME_FOLDER),
+    confinedCodexHomes: join(dataDir, CODEX_CONFINED_FOLDER),
   });
 }
 

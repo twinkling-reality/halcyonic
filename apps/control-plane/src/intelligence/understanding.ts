@@ -1,8 +1,8 @@
 import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
 import { defaultSalidiumHome, SalidiumClient } from '@halcyonic/integration-salidium';
-import { CODEX_HOME_FOLDER, inHalcyonicsCodexHome } from './codex-home.ts';
+import { CODEX_CONFINED_FOLDER, CODEX_HOME_FOLDER, inHalcyonicsCodexHome } from './codex-home.ts';
 
 /** The file in the control plane's data directory that holds the Salidium consumer credential. */
 export const SALIDIUM_CREDENTIAL_FILE = 'salidium-credential';
@@ -27,6 +27,8 @@ export interface SalidiumUnderstandingOptions {
   readonly credentialPath: string;
   /** Halcyonic's own Codex home, whose sessions Salidium does not read. */
   readonly codexHome: string;
+  /** Folder holding confined Codex homes (`<data>/codex-confined/<key>`), defaulting next to `codexHome`. */
+  readonly confinedCodexHomes?: string;
 }
 
 /**
@@ -35,13 +37,24 @@ export interface SalidiumUnderstandingOptions {
  * read is refused rather than used. For Claude Code and Codex it is read before Salidium is found,
  * so a missing credential is said first; for OpenCode, only once Salidium says it observes it.
  * Sessions Salidium does not observe need no credential to say so: among them the Codex threads
- * whose rollout is in Halcyonic's own Codex home, which Salidium does not read (`codex-home.ts`), and the credential is sent only
- * to the instance that wrote the discovery file.
+ * whose rollout is in Halcyonic's own Codex home or a confined Codex home, which Salidium does not
+ * read (`codex-home.ts`), and the credential is sent only to the instance that wrote the discovery
+ * file.
  */
 export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): UnderstandingSource {
+  const confinedHomes =
+    options.confinedCodexHomes ?? join(dirname(options.codexHome), CODEX_CONFINED_FOLDER);
   return {
     async understand(runtimeKind, nativeId, startedAt) {
-      if (await inHalcyonicsCodexHome(options.codexHome, runtimeKind, nativeId, startedAt)) {
+      if (
+        await inHalcyonicsCodexHome(
+          options.codexHome,
+          runtimeKind,
+          nativeId,
+          startedAt,
+          confinedHomes,
+        )
+      ) {
         return {
           availability: 'unavailable',
           reason: {
@@ -65,6 +78,7 @@ export function salidiumUnderstandingFor(dataDir: string): UnderstandingSource {
     home: defaultSalidiumHome(),
     credentialPath: join(dataDir, SALIDIUM_CREDENTIAL_FILE),
     codexHome: join(dataDir, CODEX_HOME_FOLDER),
+    confinedCodexHomes: join(dataDir, CODEX_CONFINED_FOLDER),
   });
 }
 

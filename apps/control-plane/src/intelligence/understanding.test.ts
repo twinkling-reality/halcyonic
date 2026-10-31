@@ -67,6 +67,19 @@ describe('Salidium as the understanding source', () => {
     );
   });
 
+  test('a Codex thread whose rollout is in a confined Codex home is not observed: no credential is read', async () => {
+    const { source, credentialPath, codexHome } = setup('codex-confined');
+    writeRollout(join(codexHome, '..', 'codex-confined', '0123456789abcdef'), CODEX_THREAD);
+    writeFileSync(credentialPath, 'slc_example\n');
+    chmodSync(credentialPath, 0o644);
+    const result = await source.understand('codex', CODEX_THREAD, STARTED);
+    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    assert.match(
+      result.availability === 'available' ? '' : result.reason.message,
+      /Halcyonic's own Codex home/,
+    );
+  });
+
   test('a Codex thread without a rollout there, as one run in ~/.codex before, is asked about as before', async () => {
     const { source, credentialPath, codexHome } = setup('codex-person-home');
     writeRollout(codexHome, '019a0000-0000-7000-8000-0000000000ff');

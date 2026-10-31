@@ -131,4 +131,42 @@ describe("Codex threads in Halcyonic's own Codex home", () => {
     rollout(codexHome, 7);
     assert.equal(await inHalcyonicsCodexHome(codexHome, 'codex', THREAD, 'not a time'), false);
   });
+
+  test('a rollout in a confined Codex home (<data>/codex-confined/<key>) is found only for a real 16-hex scope folder', async () => {
+    const openHome = home();
+    const confinedRoot = join(base, 'codex-confined');
+    const key = '0123456789abcdef';
+    const confinedHome = join(confinedRoot, key);
+    rollout(confinedHome, 7);
+    assert.equal(
+      await inHalcyonicsCodexHome(openHome, 'codex', THREAD, STARTED, confinedRoot),
+      true,
+    );
+
+    // A folder under codex-confined whose name is not a 16-hex confinement key is ignored.
+    const badKeyRoot = join(base, 'codex-confined-bad-key');
+    for (const bad of ['not-a-hex-key', '0123456789ABCDEF', '0123456789abcde']) {
+      rollout(join(badKeyRoot, bad), 7);
+    }
+    assert.equal(
+      await inHalcyonicsCodexHome(openHome, 'codex', THREAD, STARTED, badKeyRoot),
+      false,
+    );
+
+    // Links are never followed for codex-confined or for a scope folder inside it.
+    const linkedConfinedRoot = join(base, 'linked-codex-confined');
+    symlinkSync(confinedRoot, linkedConfinedRoot);
+    assert.equal(
+      await inHalcyonicsCodexHome(openHome, 'codex', THREAD, STARTED, linkedConfinedRoot),
+      false,
+    );
+
+    const rootWithLinkedScope = join(base, 'codex-confined-linked-scope');
+    mkdirSync(rootWithLinkedScope, { recursive: true });
+    symlinkSync(confinedHome, join(rootWithLinkedScope, key));
+    assert.equal(
+      await inHalcyonicsCodexHome(openHome, 'codex', THREAD, STARTED, rootWithLinkedScope),
+      false,
+    );
+  });
 });

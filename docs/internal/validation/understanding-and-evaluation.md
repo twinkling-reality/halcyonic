@@ -261,3 +261,22 @@ thread's rollout, the sources are asked and answer that they haven't seen the ta
 the next found it written just after, so the window is about as long as a start); and a
 rollout the person deleted from Halcyonic's home makes its execution read the same way, though
 neither source ever had it.
+
+### Confined Codex homes (2026-10-31)
+
+When a project is made from a starter on macOS, its Codex executions run on a confined server of
+its own with `CODEX_HOME` at `<data dir>/codex-confined/<key>`, where `<key>` is the 16-hex
+`confinementKey` of the project root ([ADR 0041](../decisions/0041-a-new-apps-agent-is-confined-to-its-project.md),
+`packages/integrations/codex/src/codex-runtime.ts`). Neither Salidium nor Seorak reads those
+folders either. Without checking them, `inHalcyonicsCodexHome` missed confined threads and fell
+through to Salidium and Seorak, reading the consumer credentials first and answering `unauthorized`
+(`credential_missing` or `credential_file_exposed`) or `not_found` (`not_captured` or `unknown_id`)
+instead of `unavailable` (`runtime_not_observed`).
+
+`inHalcyonicsCodexHome` (`apps/control-plane/src/intelligence/codex-home.ts`) now checks both
+`<data dir>/codex-home` and every real 16-hex scope folder under `<data dir>/codex-confined`,
+following no links at any level (`codex-confined`, `<key>`, `sessions`, `YYYY`, `MM`, `DD`, or the
+rollout file). `salidiumUnderstanding` and `seorakEvaluation` pass `<data dir>/codex-confined` by
+default next to `codexHome` (or through `confinedCodexHomes`), so Understand and Checks answer
+`unavailable` (`runtime_not_observed`) for confined Codex executions without reading either
+credential.
