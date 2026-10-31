@@ -122,4 +122,49 @@ public class KitMomentTimelineTests
         Assert.That((end.CardOpacity, end.LineOpacity), Is.EqualTo((0.0, 0.0)));
         Assert.That(KitMomentTimeline.Retirement(KitMomentTimeline.LineDropMs, still: false).LineProgress, Is.EqualTo(0), "the line back first");
     }
+
+    [Test]
+    public void TheTakenAnswerStaysWhileTheOthersFade()
+    {
+        Assert.That((KitMomentTimeline.Answered(0, false).OthersOpacity, KitMomentTimeline.Answered(120, false).OthersOpacity), Is.EqualTo((1.0, 0.0)));
+        Assert.That(Clock.Where(ms => ms < KitMomentTimeline.ShrinkAtMs).All(ms => KitMomentTimeline.Answered(ms, false).KeptOpacity == 1 && KitMomentTimeline.Answered(ms, false).BodyOpacity == 1), Is.True, "the taken answer and the card stand until the shrink");
+        Assert.That(KitMomentTimeline.Answered(KitMomentTimeline.SentAtMs, false).KeptOpacity, Is.EqualTo(0.0), "gone before the receipt comes in");
+    }
+
+    [Test]
+    public void TheCardShrinksToItsReceiptFrom200Ms()
+    {
+        var shrink = Clock.Select(ms => KitMomentTimeline.Answered(ms, false).Shrink).ToList();
+        Assert.That((shrink[199], shrink[200], shrink[520]), Is.EqualTo((0.0, 0.0, 1.0)));
+        Assert.That(shrink.Zip(shrink.Skip(1), (a, b) => b >= a - 1e-9).All(up => up), Is.True, "it only shrinks");
+        Assert.That(Clock.All(ms => KitMomentTimeline.Answered(ms, false).Lit == ms < 200), Is.True, "lit while the question stands, then not");
+    }
+
+    [Test]
+    public void TheReceiptComesInOnlyAfterTheShrinkBegins()
+    {
+        Assert.That((KitMomentTimeline.Answered(279, false).ReceiptOpacity, KitMomentTimeline.Answered(480, false).ReceiptOpacity), Is.EqualTo((0.0, 1.0)));
+        Assert.That(Clock.All(ms => KitMomentTimeline.Answered(ms, false).ReceiptOpacity == 0 || KitMomentTimeline.Answered(ms, false).Shrink > 0), Is.True);
+        Assert.That(KitMomentTimeline.SentAtMs, Is.EqualTo(280.0), "the Sent cue with the receipt");
+        Assert.That(Clock.All(ms => KitMomentTimeline.Answered(ms, false).Retiring == ms >= 1600), Is.True, "it retires at 1600 ms");
+    }
+
+    [Test]
+    public void AnAnswerKeptStillLandsAsFades()
+    {
+        Assert.That(Clock.All(ms => KitMomentTimeline.Answered(ms, true).Shrink == (ms >= KitMotion.StillFadeMs ? 1 : 0)), Is.True, "no shrinking motion: the receipt's size lands once the card's parts have faded");
+        var gone = KitMomentTimeline.Answered(KitMotion.StillFadeMs, true);
+        Assert.That((gone.OthersOpacity, gone.KeptOpacity, gone.BodyOpacity, gone.ReceiptOpacity), Is.EqualTo((0.0, 0.0, 0.0, 0.0)), "the parts out before the size lands");
+        Assert.That(KitMomentTimeline.Answered(KitMotion.StillFadeMs / 2, true).KeptOpacity, Is.EqualTo(0.5).Within(1e-9), "a fade, not a jump");
+        var settled = KitMomentTimeline.Answered(2 * KitMotion.StillFadeMs, true);
+        Assert.That((settled.OthersOpacity, settled.KeptOpacity, settled.BodyOpacity, settled.ReceiptOpacity, settled.Lit), Is.EqualTo((0.0, 0.0, 0.0, 1.0, false)));
+    }
+
+    [Test]
+    public void TheReceiptSaysSentNeverStarted()
+    {
+        Assert.That((KitMomentWords.Receipt(true), KitMomentWords.Receipt(false)), Is.EqualTo((("Sent", "Awaiting Start"), ("Sent", "Declined"))));
+        foreach (var (lead, then) in new[] { KitMomentWords.Receipt(true), KitMomentWords.Receipt(false) })
+            Assert.That((lead + then).Contains("Started", StringComparison.OrdinalIgnoreCase), Is.False);
+    }
 }

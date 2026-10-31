@@ -386,6 +386,16 @@ namespace Halcyonic.Client
         /// <summary>Accepted is not started (T1).</summary>
         public const string WaitingToStart = "Awaiting Start";
 
+        /// <summary>The person's decline went out; never that the agent took it (XR, 2026-10-31: "Sent" leads, T1).</summary>
+        public const string Declined = "Declined";
+
+        /// <summary>
+        /// An answered card's receipt (the handoff's Receipt): "Sent · Awaiting Start" or "Sent · Declined", "Sent" leading in the
+        /// primary text and the rest secondary. Never "Started": an accepted command is not a start (T1). <paramref name="ran"/> is
+        /// the person's choice, Run or Decline, never the control plane's answer to it.
+        /// </summary>
+        public static (string Lead, string Then) Receipt(bool ran) => (SentTitle, ran ? WaitingToStart : Declined);
+
         public const string NotSeenYet = "Not Yet Observed";
 
         public const string AgentNote = "Agent Note";

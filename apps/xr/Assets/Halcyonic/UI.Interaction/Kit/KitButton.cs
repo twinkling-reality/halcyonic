@@ -111,6 +111,12 @@ namespace Halcyonic.XR.UI
 
         public event Action? Pressed;
 
+        /// <summary>
+        /// Its card's answer is given: the button refuses every press, without a sound, until it is shown again (AUDIT's A3b2a S2:
+        /// a second answer from one card is impossible on the headset, not only refused by the plane).
+        /// </summary>
+        public bool Spent { get; set; }
+
         public static float Height => KitType.Units(SpatialKit.TargetDegrees);
 
         /// <summary>A button of <paramref name="role"/>; a <paramref name="room"/> button's words are in the room's faces (<see cref="KitType.Create"/>).</summary>
@@ -132,6 +138,7 @@ namespace Halcyonic.XR.UI
             button.press = KitPress.Create(go, new Vector2(Height, Height));
             button.press.Pressed += () =>
             {
+                if (button.Spent) return;
                 // An answer's release sounds Press from the answer (the art direction's sound); the stage does not hear kit presses.
                 if (button.Capsule) KitSoundPlayer.TryPlay(KitSound.Press, button.transform.position);
                 button.Pressed?.Invoke();
@@ -152,6 +159,7 @@ namespace Halcyonic.XR.UI
         public void Show(string text, GlazeIcon? glyph, Vector2 centre, float width)
         {
             var changed = !gameObject.activeSelf || words.text != LabelText.ForTextMeshPro(text);
+            Spent = false;
             KitType.Size(words, KitRole.Strong);
             GlazeText.SetLiteral(words, text);
             size = new Vector2(Mathf.Max(width, Height), Height);
