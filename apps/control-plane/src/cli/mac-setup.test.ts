@@ -19,6 +19,8 @@ import { describe, type TestContext, test } from 'node:test';
 import { loadConfig } from '../config.ts';
 import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
 import type { Pins } from '../pins.ts';
+import { audioOutputFor } from '../preview/audio-output.ts';
+import { launcherProblem } from '../preview/launcher.ts';
 import {
   readHostSettings,
   SETTINGS_FILE,
@@ -1023,5 +1025,34 @@ describe('pnpm mac-setup', () => {
         line,
       );
     }
+  });
+});
+
+describe("the browser's launcher (S1)", {
+  skip: process.platform !== 'darwin' || !fs.existsSync('/usr/bin/clang'),
+}, () => {
+  test('launcher builds it into the data folder; the check says To do while a browser is set and it is missing, Ready once built', async (t) => {
+    const machine = mac(t);
+    await machine.run();
+    assert.equal(status(machine, "New apps' browser"), 'Optional', 'no browser is set');
+    const browser = join(machine.root, 'chrome-headless-shell-mac-arm64');
+    fs.mkdirSync(browser);
+    machine.env = {
+      ...machine.env,
+      HALCYONIC_BROWSER: browser,
+      HALCYONIC_BROWSER_SHA256: 'a'.repeat(64),
+    };
+    machine.lines.length = 0;
+    await machine.run();
+    assert.equal(status(machine, "New apps' browser"), 'To do');
+    assert.match(text(machine), /pnpm mac-setup launcher/);
+    machine.lines.length = 0;
+    assert.equal(await machine.run('launcher'), 0);
+    assert.equal(launcherProblem(machine.dataDir), null);
+    assert.notEqual(audioOutputFor(machine.dataDir), null, 'the sound helper is built with it');
+    assert.match(text(machine), /launcher is built/i);
+    machine.lines.length = 0;
+    await machine.run();
+    assert.equal(status(machine, "New apps' browser"), 'Ready');
   });
 });

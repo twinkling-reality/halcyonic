@@ -47,8 +47,13 @@ const KEPT_EXCEPTIONS = 100;
 export interface CheckOptions {
   /** Node, by absolute path, to run the starter's own TypeScript and Vite. */
   readonly node: string;
-  /** Chrome, by absolute path, or null: then the page is not opened and the check cannot pass. */
+  /** The browser's binary, by absolute path, or null: then the page is not opened and the check cannot pass. */
   readonly chrome: string | null;
+  /**
+   * The launcher the browser starts through, so it has none of the app's macOS permissions (S1), or
+   * null: then it starts directly, as before, and the host records that it did.
+   */
+  readonly launcher?: string | null;
   /** The person's home folder, whose contents both profiles keep out of reach. */
   readonly home: string;
   readonly project: string;
@@ -266,6 +271,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
     }
     const opened = await openPage(
       options.chrome,
+      options.launcher ?? null,
       options.home,
       join(cache, 'chrome'),
       port,
@@ -297,6 +303,7 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
         // A Chrome of its own for each load, so nothing of one carries into the next.
         const run = await launchChrome({
           chrome,
+          launcher: options.launcher ?? null,
           home: options.home,
           folder: join(cache, `chrome-twin-${loads}`),
           port,
@@ -452,6 +459,7 @@ async function stopProcess(child: ChildProcess): Promise<void> {
  */
 async function openPage(
   chrome: string,
+  launcher: string | null,
   home: string,
   folder: string,
   port: number,
@@ -460,7 +468,7 @@ async function openPage(
 ): Promise<{ page: PageFindings; laptop: CheckLaptop; vr: CheckVr | null } | string | null> {
   let run: Awaited<ReturnType<typeof launchChrome>> | null = null;
   try {
-    run = await launchChrome({ chrome, home, folder, port });
+    run = await launchChrome({ chrome, launcher, home, folder, port });
     const { devtools, session } = run;
     const exceptions: string[] = [];
     let exceptionCount = 0;

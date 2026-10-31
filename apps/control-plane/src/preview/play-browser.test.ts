@@ -4,25 +4,28 @@ import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
+import { audioOutputFor, installAudioOutput, outputInTree } from './audio-output.ts';
 import { launchChrome } from './chrome.ts';
+import { installLauncher, launcherFor } from './launcher.ts';
 import {
+  browserBinary,
   HostPlays,
-  installPlayBrowser,
+  installBrowser,
   type PlayEnd,
   playArguments,
-  playBinary,
   playProfile,
 } from './play.ts';
 
 /**
- * Opt-in, with the real Chrome for Testing (P-B): a game plays in the contained browser and a second
- * contained browser, standing for the person's, opens the viewer's link, as `open` would hand it over.
+ * Opt-in, with the real chrome-headless-shell (P-B, S1): a game plays in the contained browser,
+ * started through the launcher built here, and a second contained browser, standing for the
+ * person's, opens the viewer's link, as `open` would hand it over.
  */
-const APP = process.env.HALCYONIC_TEST_PLAY_BROWSER ?? '';
-const SHA256 = process.env.HALCYONIC_TEST_PLAY_BROWSER_SHA256 ?? '';
+const APP = process.env.HALCYONIC_TEST_BROWSER ?? '';
+const SHA256 = process.env.HALCYONIC_TEST_BROWSER_SHA256 ?? '';
 const SKIP =
   APP === '' || SHA256 === ''
-    ? 'HALCYONIC_TEST_PLAY_BROWSER and HALCYONIC_TEST_PLAY_BROWSER_SHA256 are not set'
+    ? 'HALCYONIC_TEST_BROWSER and HALCYONIC_TEST_BROWSER_SHA256 are not set'
     : process.platform !== 'darwin' && 'Seatbelt is macOS only';
 
 /**
@@ -74,7 +77,11 @@ describe('a game played on the Mac through its viewer, with the real browser (P-
   test('the link opens once, the microphone is refused before any sound, the viewer says the game is silent and then that it plays sound, input reaches the game, a reload keeps it, and leaving ends it', async (t: TestContext) => {
     const dataDir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-play-e2e-')));
     t.after(() => rmSync(dataDir, { recursive: true, force: true }));
-    const app = await installPlayBrowser(APP, SHA256, dataDir);
+    const app = await installBrowser(APP, SHA256, dataDir);
+    await installLauncher({ dataDir, clang: '/usr/bin/clang' });
+    assert.notEqual(launcherFor(dataDir), null);
+    await installAudioOutput({ dataDir, clang: '/usr/bin/clang' });
+    assert.notEqual(audioOutputFor(dataDir), null);
 
     const reports: string[] = [];
     const game = createServer((request, response) => {
@@ -94,7 +101,9 @@ describe('a game played on the Mac through its viewer, with the real browser (P-
     const plays = new HostPlays({
       dataDir,
       home: homedir(),
-      browser: { app, sha256: SHA256 },
+      browser: { folder: app, sha256: SHA256 },
+      launcher: () => launcherFor(dataDir),
+      audible: (pid) => outputInTree(audioOutputFor(dataDir), pid),
       onEnded: (_project, _check, reason) => ended.push(reason),
       viewerWaitMs: 30_000,
       viewerGraceMs: 5000,
@@ -108,11 +117,12 @@ describe('a game played on the Mac through its viewer, with the real browser (P-
     // The person's browser, contained as well, reaching nothing but the viewer's port.
     const folder = join(dataDir, 'person');
     const person = await launchChrome({
-      chrome: playBinary(app),
+      chrome: browserBinary(app),
+      launcher: launcherFor(dataDir),
       home: homedir(),
       folder,
       port: viewerPort,
-      profileText: playProfile({ home: homedir(), folder, port: viewerPort, app }),
+      profileText: playProfile({ home: homedir(), folder, port: viewerPort, browser: app }),
       args: playArguments(folder, viewerPort),
     });
     t.after(() => person.stop());
@@ -165,11 +175,11 @@ describe('a game played on the Mac through its viewer, with the real browser (P-
       () => reports.some((report) => report.startsWith('mic=')),
       'the game to ask for the microphone',
     );
-    assert.deepEqual(
-      reports.filter((report) => report.startsWith('mic=')),
-      ['mic=NotAllowedError'],
-      'the microphone is refused',
-    );
+    // Refused at once, never granted and never left waiting: chrome-headless-shell, with stand-in
+    // devices and prompts answered no, says NotSupportedError; Chrome for Testing said NotAllowedError.
+    const mic = reports.filter((report) => report.startsWith('mic='));
+    assert.equal(mic.length, 1);
+    assert.ok(['mic=NotAllowedError', 'mic=NotSupportedError'].includes(mic[0] ?? ''), mic.join());
     await until(
       async () => (await text('sound')) === 'No Sound · Silent Game',
       'the viewer to say the game is silent',

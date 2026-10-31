@@ -62,6 +62,13 @@ import { PHAT_PORCUPINE_CREDENTIAL_FILE } from '../intelligence/catalog.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
+import { AUDIO_OUTPUT, installAudioOutput } from '../preview/audio-output.ts';
+import {
+  installLauncher,
+  launcherPath,
+  launcherProblem,
+  programProblem,
+} from '../preview/launcher.ts';
 import { ANTHROPIC_KEY_FILE, CODEX_HOME_FOLDER } from '../runtimes.ts';
 import {
   type HostSettings,
@@ -181,6 +188,8 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return argument === undefined ? usage(io) : setup.companion(argument);
     case 'pairing':
       return argument === 'on' || argument === 'off' ? setup.pairing(argument) : usage(io);
+    case 'launcher':
+      return argument === undefined ? setup.launcher() : usage(io);
     default:
       return usage(io);
   }
@@ -197,6 +206,7 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup voice                record the checked voice files',
     "  pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac",
     '  pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it',
+    "  pnpm mac-setup launcher             build what starts new apps' browser without this app's permissions",
     'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
     'token, and sends it only after Halcyonic proves it holds it.',
   ]) {
@@ -262,6 +272,7 @@ class MacSetup {
     steps.push(this.#modelsStep(ollama));
     steps.push(this.#costStep(env, ollama));
     steps.push(await this.#voiceStep(env));
+    steps.push(this.#launcherStep(env));
     steps.push(await this.#companionStep(env, ollama, running));
     steps.push(this.#usageLeftStep(running));
     steps.push(this.#understandStep());
@@ -572,6 +583,48 @@ class MacSetup {
       );
     }
     return { title, status: hosted ? 'look' : 'ready', lines };
+  }
+
+  #launcherStep(env: NodeJS.ProcessEnv): Step {
+    const title = "New apps' browser";
+    const about =
+      "A new app's check, and a game played on this Mac, run in a browser that starts through Halcyonic's launcher, so it has none of the macOS permissions given to the app that started Halcyonic.";
+    const problem = launcherProblem(this.#dataDir) ?? programProblem(this.#dataDir, AUDIO_OUTPUT);
+    if (problem === null)
+      return { title, status: 'ready', lines: ['The launcher is built.', about] };
+    if (!present(env.HALCYONIC_BROWSER))
+      return { title, status: 'optional', lines: ['No browser for new apps is set.', about] };
+    return {
+      title,
+      status: 'todo',
+      lines: [
+        `${problem} Until it is built, checks run without it and games are not played on this Mac.`,
+        about,
+      ],
+      next: ['pnpm mac-setup launcher'],
+    };
+  }
+
+  /** Builds the launcher from its tracked source with Apple's compiler (S1). */
+  async launcher(): Promise<number> {
+    const io = this.#io;
+    if (process.platform !== 'darwin') {
+      io.print('The launcher is for macOS only.');
+      return 1;
+    }
+    try {
+      const sha256 = await installLauncher({ dataDir: this.#dataDir, clang: '/usr/bin/clang' });
+      const sound = await installAudioOutput({ dataDir: this.#dataDir, clang: '/usr/bin/clang' });
+      io.print(
+        `The launcher is built in ${this.#tilde(launcherPath(this.#dataDir))} (SHA-256 ${sha256.slice(0, 12)}), with the helper that tells whether a game sends sound out (SHA-256 ${sound.slice(0, 12)}). From Halcyonic's next start, new apps' browser runs without this app's macOS permissions.`,
+      );
+      return 0;
+    } catch {
+      io.print(
+        "The launcher didn't build. It needs Apple's command line tools: run xcode-select --install, then try again.",
+      );
+      return 1;
+    }
   }
 
   async #voiceStep(env: NodeJS.ProcessEnv): Promise<Step> {

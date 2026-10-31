@@ -284,6 +284,53 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Not tried:** the person's own default browser opening the link (the stand-in is a second copy of Chrome for
   Testing driven over DevTools, whose navigation sends `Sec-Fetch-Site: none` as a link opened from outside does).
 
+## The browsers locked down: chrome-headless-shell, refused services, a launcher (S1)
+
+- **Question:** can the check's and the play's browser run with every macOS system service refused but what they draw
+  with, and without the macOS permissions of the app that started Halcyonic?
+- **Date:** 2026-10-31, macOS 26.7 (25G229), Apple clang 21.0.0.
+- **Full Chrome:** Chrome for Testing 156.0.8078.4, headless, under the check's profile with `(deny mach-lookup)` and
+  `(deny iokit-open)`, aborted at start in every round. Its crash report: `abort()` in HIServices `_RegisterApplication`,
+  from `TransformProcessType`, which registers the app with LaunchServices. With LaunchServices, the privacy service
+  and the window server refused it cannot start; allowing the window server alone, as a diagnostic, it still aborted.
+  The person's Chrome is the same browser, so it is no longer used.
+- **chrome-headless-shell 156.0.8078.4** (Playwright's `chromium_headless_shell-1248`, ad-hoc signed `headless_shell`):
+  starting from everything refused, each refused name was allowed in turn (never LaunchServices, the privacy service,
+  the window server, the pasteboard, the dock, location or the like) until a page drew with WebGL2 and an
+  AudioContext ran, 19 rules in 5 rounds; then each rule was removed in turn. Four are needed to draw: Chrome's own
+  `MachPortRendezvousServer`, `AGXDeviceUserClient`, `IOSurfaceRootUserClient` and `com.apple.MTLCompilerService`. An
+  AudioContext runs without any audio service, on a silent stand-in output, so "running" is not sound; the play keeps
+  `audiohald`, `AudioComponentRegistrar` and `AudioSession`, and the play's opt-in test shows Sound On through them.
+  The check's AudioContext stays suspended, so a check makes no sound.
+- **The launcher:** `native/disclaim.c` starts a program with `responsibility_spawnattrs_setdisclaim`, a call in
+  libSystem since macOS 10.14 that Apple does not document. A probe asking `responsibility_get_pid_responsible_for_pid`
+  answered, started plainly, the app that started the shell ("claude"); through the launcher, and through the launcher
+  and Seatbelt, itself. Exit codes, a TERM and fd 3 pass through. The tests prove the same on every run.
+- **Not exercised:** what macOS refuses a launched browser in a protected folder (Desktop, Documents): a probe there
+  could raise a privacy prompt on the person's screen or add a grant, so it was not run. The proof rests on the
+  responsibility the system reports and on how macOS attributes privacy permissions to the responsible process.
+- **The game's sound on the shell:** chrome-headless-shell takes no "Playing audio" power assertion; during a tone
+  macOS showed only coreaudiod's own device assertion, which names no process. The play now asks CoreAudio through
+  `native/audio-output.c`: the system's client processes (`kAudioHardwarePropertyProcessObjectList`), each one's pid
+  (`kAudioProcessPropertyPID`), and whether it runs IO with an active output stream
+  (`kAudioProcessPropertyIsRunningOutput`). Apple's web pages for these list macOS with no description; their meaning
+  is from the header comments of the macOS 26.5 SDK's `AudioHardware.h` ("a value of 1 indicates that the process is
+  running IO and there is at least one active output stream"). Runtime test on this Mac (`audio-output.test.ts`): 0 for
+  the test's own process; 1 while a child plays a silent WAV with `afplay -v 0`; 0 once it ends. Silence in an open
+  stream reads 1: Sound On means the game sends sound out, not that it is heard.
+- **The microphone on the shell:** without stand-in devices, `getUserMedia` waited forever, even with
+  `Browser.setPermission` refusing the microphone. With `--use-fake-device-for-media-stream` and
+  `--deny-permission-prompts` it is refused at once, `NotSupportedError` (Chrome for Testing said `NotAllowedError`),
+  with or without the service lockdown; the Mac's microphone is never reached.
+- **The copy's folder:** a copy of the shell in a folder named `chrome-headless-shell` or `headless-shell` aborted at
+  start (AppKit's `NSApplication` init registers with LaunchServices), and a copy that failed once kept failing; folders
+  named `browser`, `current`, `chs` and others ran. Contents, modes, flags and extended attributes were the same. The
+  host's copy lives at `<data dir>/browser/current`.
+- **The check and the play end to end on the shell:** the check's opt-in suite passed 19 of 19 against today's browser
+  (the person's Chrome, at 496699ac) and 19 of 19 against chrome-headless-shell through the launcher; what it found
+  (drawn, the laptop step, the twins) was the same. The play's opt-in test passed through the launcher, with the
+  microphone refused, No Sound · Silent Game, then Sound On from CoreAudio during the tone.
+
 ## Consequences
 
 - A starter made from these pinned versions builds and serves on the Mac with no network and no install script.

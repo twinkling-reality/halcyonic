@@ -207,6 +207,26 @@ voice for its state (Ready, Live, Reconnecting) and for its end (Game Closed, Ga
 others). A reload does not end the game: the host keeps a play for 5 s after its last stream closes, and the page,
 with its cookie, comes back within that time. The page says when a game makes no sound (No Sound · Silent Game) and
 when it plays sound (Sound On), from the computer's own record of which processes play audio rather than from
-anything the page reports, and says nothing about sound when the computer cannot tell. While a button is held the
+anything the page reports, and says nothing about sound when the computer cannot tell. Since S1 that record is
+CoreAudio's per-process output state, read by a small helper of Halcyonic's for the browser's own processes; Sound On
+then means the game sends sound out, which may be quiet. While a button is held the
 host gives the page's moves that button, so a drag reaches the game as a drag.
+
+## Amendment, 2026-10-31: the browsers have nothing of the Mac but what they draw with (S1)
+
+The check's browser and the play's are one copy of chrome-headless-shell, Google's headless-only build of Chrome, in
+Halcyonic's data folder, checked by its files and hash at every start; the person's own Chrome is no longer used.
+The full browser, even headless, registers itself with LaunchServices as it starts and aborts when that is refused, so
+it cannot run inside a profile that refuses it; chrome-headless-shell can. Its profile now refuses every Mach service
+and IOKit driver but four the check draws with (its own processes' rendezvous, the GPU's two user clients, Metal's
+compiler), and the play's adds the three audio services sound out needs; never LaunchServices, the privacy service,
+the window server or the pasteboard. Each browser starts through Halcyonic's launcher, a small program built on the Mac
+from `native/disclaim.c`, which starts it as its own responsible process, so it has none of the macOS privacy
+permissions given to the app that started Halcyonic. Without the launcher (missing, or changed since it was built) a
+check still runs as before and records `own_permissions: false`; a game is not played.
+On chrome-headless-shell the earlier reading of a game's sound (the browser's "Playing audio" power assertion) is gone:
+the shell takes none. A second small program built like the launcher, `native/audio-output.c`, reads CoreAudio's own
+per-process output state for the browser's processes instead. A copy of the shell in a folder named for it
+(`chrome-headless-shell`, or `headless-shell`) is taken by macOS for an app, registers with LaunchServices and aborts,
+so the host's copy lives at `<data dir>/browser/current`.
 

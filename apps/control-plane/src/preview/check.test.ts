@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, type TestContext, test } from 'node:test';
+import { after, before, describe, type TestContext, test } from 'node:test';
 import {
   type CheckStep,
   DRAWN_EDGES,
@@ -22,6 +22,8 @@ import {
   runCheck,
   summarizeExceptions,
 } from './check.ts';
+import { installLauncher, launcherFor } from './launcher.ts';
+import { browserBinary, browserProblem } from './play.ts';
 
 const ok: CheckStep = { exit: 0, seconds: 1 };
 const page = (findings: Partial<PageFindings>): PageFindings => ({
@@ -66,16 +68,27 @@ describe('the check of a project from a starter (ADR 0037)', () => {
 });
 
 // The whole check against a real Chrome and an installed starter set: opt-in, since the repository does not install
-// the starter. HALCYONIC_TEST_STARTER names the installed folder (node_modules, input-profiles), HALCYONIC_TEST_CHROME
+// the starter. HALCYONIC_TEST_STARTER names the installed folder (node_modules, input-profiles), HALCYONIC_TEST_BROWSER
 // the Chrome binary. Port 47886.
 const STARTER = process.env.HALCYONIC_TEST_STARTER ?? '';
-const CHROME = process.env.HALCYONIC_TEST_CHROME ?? '';
+const BROWSER = process.env.HALCYONIC_TEST_BROWSER ?? '';
+const BROWSER_SHA256 = process.env.HALCYONIC_TEST_BROWSER_SHA256 ?? '';
 const SKIP =
-  STARTER === '' || CHROME === ''
-    ? 'HALCYONIC_TEST_STARTER and HALCYONIC_TEST_CHROME are not set'
+  STARTER === '' || BROWSER === '' || BROWSER_SHA256 === ''
+    ? 'HALCYONIC_TEST_STARTER, HALCYONIC_TEST_BROWSER and HALCYONIC_TEST_BROWSER_SHA256 are not set'
     : process.platform !== 'darwin' && 'Seatbelt is macOS only';
 
 describe('the check, end to end with the installed starter and Chrome', { skip: SKIP }, () => {
+  // The check's browser, chrome-headless-shell, started through a launcher built here (S1).
+  const launcherData = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-check-launcher-')));
+  let launcher: string | null = null;
+  before(async () => {
+    assert.equal(browserProblem(BROWSER, BROWSER_SHA256), null);
+    await installLauncher({ dataDir: launcherData, clang: '/usr/bin/clang' });
+    launcher = launcherFor(launcherData);
+    assert.notEqual(launcher, null);
+  });
+  after(() => rmSync(launcherData, { recursive: true, force: true }));
   const template = new URL('../../../../starters/iwsdk-vr/template/', import.meta.url).pathname;
   const host = new URL('../../../../starters/iwsdk-vr/host/', import.meta.url).pathname;
   const check = async (t: TestContext, change: (project: string) => void, twinStepMs?: number) => {
@@ -87,7 +100,8 @@ describe('the check, end to end with the installed starter and Chrome', { skip: 
     change(project);
     return runCheck({
       node: process.execPath,
-      chrome: CHROME,
+      chrome: browserBinary(BROWSER),
+      launcher,
       home: homedir(),
       project,
       starter: STARTER,

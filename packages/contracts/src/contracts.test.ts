@@ -7,6 +7,7 @@ import { renderCSharpContracts, renderObjectMembers } from './csharp.ts';
 import {
   buildSchemaDocument,
   CatalogResponse,
+  CheckFindings,
   CheckLaptop,
   COMMAND_VARIANTS,
   COMPANION_LINE_MAX,
@@ -514,8 +515,8 @@ describe('the C# bindings', () => {
     );
     assert.equal(
       generated.match(/Required = Required\.Default/g)?.length,
-      13,
-      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), and whether an execution's start recorded it confined (S2)",
+      14,
+      "the optional members are a location's label, a completed tool's turn, two declarations, a check's laptop, vr, notes and ready (M1.8b), project_checked's ready, the laptop step's response_seen and exceptions_during (M1.8g), why a twin read was unknown (M1.8g-b), whether an execution's start recorded it confined (S2), and whether a check's browser had permissions of its own (S1)",
     );
     for (const member of [
       'Laptop',
@@ -526,6 +527,7 @@ describe('the C# bindings', () => {
       'ExceptionsDuring',
       'ResponseUnknown',
       'Confined',
+      'OwnPermissions',
     ])
       assert.match(generated, new RegExp(`public \\w+\\? ${member} \\{ get; set; \\}`), member);
     assert.match(
@@ -805,6 +807,25 @@ describe("a check's laptop step says why a twin read was unknown (M1.8g-b)", () 
     assert.equal(validate(laptop).ok, true);
     assert.equal(validate({ ...laptop, response_unknown: null }).ok, true);
     assert.equal(validate({ ...laptop, response_unknown: 'flaky' }).ok, false);
+  });
+});
+
+describe("whether a check's browser had permissions of its own (S1)", () => {
+  const validate = compileValidator(CheckFindings);
+  const findings = {
+    tsc: { exit: 0, seconds: 1 },
+    build: { exit: 0, seconds: 2 },
+    page: null,
+    unknown: null,
+    passed: false,
+    reads_confined: true,
+  };
+  test('true, false, or absent on earlier checks, which reads as not known; nothing else', () => {
+    assert.equal(validate(findings).ok, true, JSON.stringify(validate(findings)));
+    assert.equal(validate({ ...findings, own_permissions: true }).ok, true);
+    assert.equal(validate({ ...findings, own_permissions: false }).ok, true);
+    assert.equal(validate({ ...findings, own_permissions: null }).ok, false);
+    assert.equal(validate({ ...findings, own_permissions: 'yes' }).ok, false);
   });
 });
 

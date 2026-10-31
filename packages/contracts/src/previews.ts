@@ -144,7 +144,10 @@ export type CheckNotes = Static<typeof CheckNotes>;
  * original's folder only read-only, with the original's version control and secret-shaped files and
  * Halcyonic's data refused. `laptop`, `vr`, `notes` and `ready` are absent
  * on checks recorded before M1.8b, which reads as not checked. `ready` is `passed` and both steps
- * ready; never that the game plays well, or plays on a headset.
+ * ready; never that the game plays well, or plays on a headset. `own_permissions` is true when the
+ * check's browser ran as its own process for macOS privacy permissions, so it had none of the app
+ * that started Halcyonic, and false when it ran without that separation (the host's launcher for it
+ * missing or changed); absent on checks recorded before it, which reads as not known.
  */
 export const CheckFindings = Type.Object(
   {
@@ -159,6 +162,7 @@ export const CheckFindings = Type.Object(
     vr: Type.Optional(Nullable(CheckVr)),
     notes: Type.Optional(CheckNotes),
     ready: Type.Optional(Type.Boolean()),
+    own_permissions: Type.Optional(Type.Boolean()),
   },
   strict,
 );

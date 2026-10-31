@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
@@ -17,69 +17,102 @@ import { chromeProfile } from './profiles.ts';
  */
 
 /** The only browser a game plays in: a separate build, whose permissions are never the person's Chrome's. */
-export const PLAY_BUNDLE_ID = 'com.google.chrome.for.testing';
+/**
+ * Every file chrome-headless-shell is made of. The check's and the play's browser is a copy of it in
+ * Halcyonic's data folder (S1): Google's headless-only build of Chrome, which, unlike the full browser,
+ * starts with LaunchServices, the window server and the privacy service refused. Never the person's
+ * own Chrome.
+ */
+export const BROWSER_FILES: readonly string[] = [
+  'chrome-headless-shell',
+  'headless_command_resources.pak',
+  'headless_lib_data.pak',
+  'headless_lib_strings.pak',
+  'icudtl.dat',
+  'libEGL.dylib',
+  'libGLESv2.dylib',
+];
+
+/** Every permission a game's page could ask the play's browser for, refused to it (S1). */
+export const DENIED_PERMISSIONS: readonly string[] = [
+  'microphone',
+  'camera',
+  'geolocation',
+  'notifications',
+  'midi',
+  'clipboard-read',
+  'clipboard-write',
+  'display-capture',
+  'local-fonts',
+  'window-management',
+  'idle-detection',
+  'keyboard-lock',
+  'pointer-lock',
+  'storage-access',
+];
 
 /** The binary inside the browser copy. */
-export function playBinary(app: string): string {
-  return join(app, 'Contents', 'MacOS', 'Google Chrome for Testing');
+export function browserBinary(folder: string): string {
+  return join(folder, 'chrome-headless-shell');
 }
 
 /**
- * Why the browser copy may not run now, or null: it must exist, say it is Chrome for Testing, and its
- * binary must hash to what was recorded when it was copied in.
+ * Why the browser copy may not run now, or null: every file of chrome-headless-shell must be there,
+ * and its binary must hash to what was recorded when it was copied in.
  */
-export function browserProblem(app: string, sha256: string): string | null {
-  const plist = join(app, 'Contents', 'Info.plist');
-  const binary = playBinary(app);
-  if (!existsSync(plist) || !existsSync(binary)) return `There is no browser to play in at ${app}.`;
-  const id = /<key>CFBundleIdentifier<\/key>\s*<string>([^<]*)<\/string>/.exec(
-    readFileSync(plist, 'utf8'),
-  )?.[1];
-  if (id !== PLAY_BUNDLE_ID) return `The browser at ${app} is not Chrome for Testing.`;
-  const actual = createHash('sha256').update(readFileSync(binary)).digest('hex');
-  if (actual !== sha256) return `The browser at ${app} has changed since it was set up.`;
+export function browserProblem(folder: string, sha256: string): string | null {
+  if (!existsSync(browserBinary(folder))) return `There is no browser at ${folder}.`;
+  if (BROWSER_FILES.some((file) => !existsSync(join(folder, file))))
+    return `The browser at ${folder} is not chrome-headless-shell.`;
+  const actual = createHash('sha256')
+    .update(readFileSync(browserBinary(folder)))
+    .digest('hex');
+  if (actual !== sha256) return `The browser at ${folder} has changed since it was set up.`;
   return null;
 }
 
 /**
- * Puts the browser copy in Halcyonic's data folder from `source`, the Chrome for Testing the owner
- * named, unless a copy whose binary hashes to `sha256` is there already, and returns its path. The
- * source itself is never run. Throws, leaving no copy, when the source is not that browser.
+ * Puts the browser copy in Halcyonic's data folder from `source`, the chrome-headless-shell folder the
+ * owner named, unless a copy whose binary hashes to `sha256` is there already, and returns its path.
+ * The source itself is never run. Throws, leaving no copy, when the source is not that browser.
  */
-export async function installPlayBrowser(
+export async function installBrowser(
   source: string,
   sha256: string,
   dataDir: string,
 ): Promise<string> {
-  const copy = join(dataDir, 'play-browser', 'Google Chrome for Testing.app');
+  // Not named for its binary: macOS takes a folder named chrome-headless-shell (or headless-shell)
+  // around it for an app, and the browser then registers with LaunchServices, which its profile
+  // refuses, and aborts (S1).
+  const copy = join(dataDir, 'browser', 'current');
   if (browserProblem(copy, sha256) === null) return copy;
   // A copy that is not the recorded browser is never kept, whether or not the source can replace it.
-  await rm(join(dataDir, 'play-browser'), { recursive: true, force: true });
+  await rm(join(dataDir, 'browser'), { recursive: true, force: true });
   const problem = browserProblem(source, sha256);
   if (problem !== null) throw new Error(problem);
-  await mkdir(join(dataDir, 'play-browser'), { recursive: true, mode: 0o700 });
-  // A framework bundle links inside itself: the links are copied as they are, never followed.
+  await mkdir(join(dataDir, 'browser'), { recursive: true, mode: 0o700 });
+  // Links inside the folder are copied as they are, never followed.
   await cp(source, copy, { recursive: true, verbatimSymlinks: true, preserveTimestamps: true });
   const copied = browserProblem(copy, sha256);
   if (copied !== null) {
-    await rm(join(dataDir, 'play-browser'), { recursive: true, force: true });
+    await rm(join(dataDir, 'browser'), { recursive: true, force: true });
     throw new Error(copied);
   }
   return copy;
 }
 
-/** The play browser's Seatbelt profile: the check's, a read of its own copy, no microphone or camera. */
+/**
+ * The play browser's Seatbelt profile: the check's, with the audio services sound out needs, and the
+ * microphone and camera refused last.
+ */
 export function playProfile(scope: {
   readonly home: string;
   readonly folder: string;
   readonly port: number;
-  readonly app: string;
+  readonly browser: string;
 }): string {
-  const app = JSON.stringify(scope.app);
   return [
-    chromeProfile({ home: scope.home, folder: scope.folder, port: scope.port }).trimEnd(),
-    `(allow file-read* (subpath ${app}))`,
-    `(allow file-read-metadata (path-ancestors ${app}))`,
+    chromeProfile({ ...scope, sound: true }).trimEnd(),
     '(deny device-microphone)',
     '(deny device-camera)',
     '',
@@ -111,6 +144,11 @@ export function playArguments(folder: string, port: number): string[] {
     `--crash-dumps-dir=${join(folder, 'tmp')}`,
     '--disable-features=WebGPU,MediaRouter,AsyncDns,DnsOverHttps',
     '--autoplay-policy=no-user-gesture-required',
+    // A permission request is answered no at once, never left waiting for a prompt no one sees (S1).
+    '--deny-permission-prompts',
+    // Media devices are stand-ins, never the Mac's microphone or camera, so asking for one is
+    // answered (refused) at once instead of waiting on the system's devices (S1).
+    '--use-fake-device-for-media-stream',
     '--window-size=1280,720',
     '--remote-debugging-pipe',
     'about:blank',
@@ -271,9 +309,11 @@ export interface HostPlaysDeps {
   readonly dataDir: string;
   /** The person's home folder, which the play browser's profile keeps out of reach. */
   readonly home: string;
-  /** The Chrome for Testing copy in the data folder and its binary's recorded SHA-256, or null: not set up. */
-  readonly browser: { readonly app: string; readonly sha256: string } | null;
-  readonly browserProblem?: (app: string, sha256: string) => string | null;
+  /** The chrome-headless-shell copy in the data folder and its binary's recorded SHA-256, or null: not set up. */
+  readonly browser: { readonly folder: string; readonly sha256: string } | null;
+  readonly browserProblem?: (folder: string, sha256: string) => string | null;
+  /** The launcher the browser starts through, checked now, or null: then no game is played (S1). */
+  readonly launcher: () => string | null;
   readonly launch?: (options: Parameters<typeof launchChrome>[0]) => Promise<ChromeRun>;
   /** Called once each play ends, with why. */
   readonly onEnded: (project: string, checkId: string, reason: PlayEnd) => void;
@@ -283,7 +323,7 @@ export interface HostPlaysDeps {
   readonly viewerPorts?: readonly [number, number];
   /** How long a play outlives its last viewer, so a reload comes back to it. */
   readonly viewerGraceMs?: number;
-  /** Whether the browser `pid` started plays audio now; null when the computer cannot say. */
+  /** Whether the browser `pid` or a process it started sends sound out now, by CoreAudio's record; null when that cannot be read. */
   readonly audible?: (pid: number) => Promise<boolean | null>;
   /** How often the play's sound is read, and how long without any before it is said to have none. */
   readonly soundPollMs?: number;
@@ -336,14 +376,18 @@ export class HostPlays {
   async start(project: string, checkId: string, port: number): Promise<{ link: string }> {
     const browser = this.#deps.browser;
     if (browser === null) throw new Error('Playing on this Mac is not set up: no browser for it.');
-    const problem = (this.#deps.browserProblem ?? browserProblem)(browser.app, browser.sha256);
+    const problem = (this.#deps.browserProblem ?? browserProblem)(browser.folder, browser.sha256);
     if (problem !== null) throw new Error(problem);
+    // A game is played only by a browser that has none of the app's macOS permissions.
+    const launcher = this.#deps.launcher();
+    if (launcher === null)
+      throw new Error('Playing on this Mac needs its launcher: run pnpm mac-setup launcher.');
     if (this.#closed) throw new Error('The host is closing.');
     if (this.#plays.has(project) || this.#starting.has(project))
       throw new Error('This game is already playing on the Mac.');
     this.#starting.add(project);
     try {
-      return await this.#start(project, checkId, port, browser);
+      return await this.#start(project, checkId, port, browser, launcher);
     } finally {
       this.#starting.delete(project);
     }
@@ -353,7 +397,8 @@ export class HostPlays {
     project: string,
     checkId: string,
     port: number,
-    browser: { readonly app: string; readonly sha256: string },
+    browser: { readonly folder: string; readonly sha256: string },
+    launcher: string,
   ): Promise<{ link: string }> {
     const folder = join(this.#deps.dataDir, 'play', project);
     await mkdir(join(folder, 'profile', 'Default'), { recursive: true, mode: 0o700 });
@@ -363,11 +408,12 @@ export class HostPlays {
       { mode: 0o600 },
     );
     const run = await (this.#deps.launch ?? launchChrome)({
-      chrome: playBinary(browser.app),
+      chrome: browserBinary(browser.folder),
+      launcher,
       home: this.#deps.home,
       folder,
       port,
-      profileText: playProfile({ home: this.#deps.home, folder, port, app: browser.app }),
+      profileText: playProfile({ home: this.#deps.home, folder, port, browser: browser.folder }),
       args: playArguments(folder, port),
     });
     // A close() during the awaits above has already stopped every play: keep none started after it.
@@ -409,6 +455,15 @@ export class HostPlays {
         { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false },
         session,
       );
+      // The preview's origin is refused every permission a game could ask for, the microphone and
+      // camera first, before its page opens: chrome-headless-shell does not apply its own settings
+      // to them, so the refusal is said to the browser itself (S1).
+      for (const name of DENIED_PERMISSIONS)
+        await devtools.send('Browser.setPermission', {
+          permission: { name },
+          setting: 'denied',
+          origin: `http://127.0.0.1:${port}`,
+        });
       await devtools.send('Page.navigate', { url: `http://127.0.0.1:${port}/` }, session);
       // Until the new page commits there is no page to screencast: try again, for up to 10 s.
       for (let attempt = 1; ; attempt += 1) {
@@ -523,14 +578,15 @@ export class HostPlays {
   }
 
   /**
-   * Reads the game's sound from the computer's own record of which processes play audio, never
-   * from the page: playing while the browser holds that record; none once a while has passed with
-   * nothing; paused after it played. When the computer cannot say, nothing is said.
+   * Reads the game's sound from CoreAudio's own record of which processes send sound out (S1), never
+   * from the page: playing while the browser or one of its processes does; none once a while has
+   * passed with nothing; paused after it played. When that cannot be read, nothing is said.
    */
   #listen(project: string, play: RunningPlay): void {
     const started = Date.now();
     const silent = this.#deps.soundSilentMs ?? 10_000;
-    const audible = this.#deps.audible ?? audibleNow;
+    // Without a reading of the computer's own, nothing is said about the game's sound.
+    const audible = this.#deps.audible ?? (async () => null);
     let reading = false;
     play.soundTimer = setInterval(() => {
       if (reading) return;
@@ -564,45 +620,6 @@ export class HostPlays {
     }, this.#deps.viewerWaitMs ?? 60_000);
     play.timer.unref();
   }
-}
-
-/**
- * Whether `pid`, or a process it started, holds the computer's "Playing audio" record, read from
- * `pmset -g assertions` and the process table `ps -A -o pid=,ppid=`.
- */
-export function audibleIn(assertions: string, processes: string, pid: number): boolean {
-  const children = new Map<number, number[]>();
-  for (const line of processes.split('\n')) {
-    const [child, parent] = line.trim().split(/\s+/).map(Number);
-    if (child === undefined || parent === undefined || Number.isNaN(child)) continue;
-    children.set(parent, [...(children.get(parent) ?? []), child]);
-  }
-  const tree = new Set<number>([pid]);
-  const queue = [pid];
-  for (let next = queue.pop(); next !== undefined; next = queue.pop())
-    for (const child of children.get(next) ?? [])
-      if (!tree.has(child)) {
-        tree.add(child);
-        queue.push(child);
-      }
-  for (const match of assertions.matchAll(/pid (\d+)\([^\n]*named: "Playing audio"/g))
-    if (tree.has(Number(match[1]))) return true;
-  return false;
-}
-
-async function audibleNow(pid: number): Promise<boolean | null> {
-  const read = (file: string, args: string[]) =>
-    new Promise<string | null>((resolve) =>
-      execFile(file, args, { encoding: 'utf8', timeout: 5000 }, (error, out) =>
-        resolve(error === null ? out : null),
-      ),
-    );
-  const [assertions, processes] = await Promise.all([
-    read('/usr/bin/pmset', ['-g', 'assertions']),
-    read('/bin/ps', ['-A', '-o', 'pid=,ppid=']),
-  ]);
-  if (assertions === null || processes === null) return null;
-  return audibleIn(assertions, processes, pid);
 }
 
 /** The command line a pid runs, or null when it runs nothing. */

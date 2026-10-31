@@ -1615,6 +1615,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("ready", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
         public bool? Ready { get; set; }
+
+        [JsonProperty("own_permissions", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public bool? OwnPermissions { get; set; }
     }
 
     public sealed class ProjectCheckRecordedPayload

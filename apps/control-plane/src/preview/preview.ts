@@ -19,7 +19,13 @@ import type { Recorder } from '../core/recorder.ts';
 import type { IdGenerator } from '../ids.ts';
 import type { Logger } from '../logger.ts';
 import { type CheckOptions, type CheckResult, runCheck, servesCopy } from './check.ts';
-import { HostPlays, type HostPlaysDeps, type PlayEnd } from './play.ts';
+import {
+  browserBinary,
+  browserProblem,
+  HostPlays,
+  type HostPlaysDeps,
+  type PlayEnd,
+} from './play.ts';
 import { buildProfile, SANDBOX_EXEC } from './profiles.ts';
 
 export interface HostPreviewsDeps {
@@ -34,16 +40,23 @@ export interface HostPreviewsDeps {
   readonly home: string;
   /** Node, by absolute path, for the starter's own TypeScript and Vite. */
   readonly node: string;
-  /** Chrome, by absolute path, or null: checks then cannot pass. */
-  readonly chrome: string | null;
+  /**
+   * The chrome-headless-shell copy in the data folder that both the check and a play run, and its
+   * binary's recorded SHA-256 (S1), or null: checks then cannot pass and no game is played.
+   */
+  readonly browser: { readonly folder: string; readonly sha256: string } | null;
+  /** The launcher the browser starts through, checked now, or null when it is missing or changed (S1). */
+  readonly launcher: () => string | null;
+  /** For tests: the browser copy's own check. */
+  readonly browserProblem?: (folder: string, sha256: string) => string | null;
   /** The repository's tracked starters and the data directory's installed ones. */
   readonly starters: { readonly trackedDir: string; readonly installedDir: string };
   /** Whether this host confines a starter project's Codex to its folder (ADR 0041). */
   readonly confinesCodex: boolean;
-  /** Playing a checked game on this Mac (P-A): the browser for it, or none, so nothing is played. */
+  /** Playing a checked game on this Mac (P-A): its timings and, for tests, its browser's start. */
   readonly play?: Pick<
     HostPlaysDeps,
-    'browser' | 'browserProblem' | 'launch' | 'viewerWaitMs' | 'viewerPorts' | 'viewerGraceMs'
+    'launch' | 'viewerWaitMs' | 'viewerPorts' | 'viewerGraceMs' | 'audible'
   > & {
     /** Opens the viewer's one-time link on the Mac. */
     readonly openViewer?: (link: string) => void;
@@ -95,7 +108,9 @@ export class HostPreviews {
     this.plays = new HostPlays({
       dataDir: deps.dataDir,
       home: deps.home,
-      browser: null,
+      browser: deps.browser,
+      launcher: deps.launcher,
+      ...(deps.browserProblem === undefined ? {} : { browserProblem: deps.browserProblem }),
       ...deps.play,
       onEnded: (project, checkId, reason) => {
         const projectId = project as ProjectId;
@@ -114,9 +129,12 @@ export class HostPreviews {
     });
   }
 
-  /** Whether this host has a browser set up to play a checked game on the Mac. */
+  /**
+   * Whether this host can play a checked game on the Mac now: its browser is set up and its launcher
+   * is in place and unchanged, so the browser has none of the app's macOS permissions.
+   */
   get canPlay(): boolean {
-    return this.#deps.play?.browser != null;
+    return this.#deps.browser !== null && this.#deps.launcher() !== null;
   }
 
   /**
@@ -170,9 +188,18 @@ export class HostPreviews {
       const installed = join(this.#deps.starters.installedDir, project.starter);
       const profiles = join(installed, 'input-profiles');
       port = await this.#takePort();
+      // The browser copy is used only while it is the one recorded; the launcher only while unchanged.
+      const browser = this.#deps.browser;
+      const chrome =
+        browser !== null &&
+        (this.#deps.browserProblem ?? browserProblem)(browser.folder, browser.sha256) === null
+          ? browserBinary(browser.folder)
+          : null;
+      const launcher = this.#deps.launcher();
       const result = await (this.#deps.runCheck ?? runCheck)({
         node: this.#deps.node,
-        chrome: this.#deps.chrome,
+        chrome,
+        launcher,
         home: this.#deps.home,
         project: project.location.path,
         starter: installed,
@@ -182,7 +209,11 @@ export class HostPreviews {
         profiles: existsSync(profiles) ? profiles : null,
         port,
       });
-      const findings = this.#findings(projectId, result);
+      const findings = this.#findings(
+        projectId,
+        result,
+        chrome === null ? null : launcher !== null,
+      );
       this.#deps.recorder.record(
         controlPlaneDraft(
           'project.check.recorded',
@@ -416,7 +447,12 @@ export class HostPreviews {
     );
   }
 
-  #findings(projectId: ProjectId, result: CheckResult): CheckFindings {
+  /** `ownPermissions` is whether the browser started through the launcher, or null when none was started. */
+  #findings(
+    projectId: ProjectId,
+    result: CheckResult,
+    ownPermissions: boolean | null,
+  ): CheckFindings {
     const page = result.page;
     return {
       tsc: result.tsc,
@@ -444,6 +480,10 @@ export class HostPreviews {
         items: result.notes.items.map((item) => ({ ...item })),
       },
       ready: result.ready,
+      // Only when the check's browser ran: after a build, with a browser set up.
+      ...(ownPermissions === null || result.build.exit !== 0
+        ? {}
+        : { own_permissions: ownPermissions }),
     };
   }
 
