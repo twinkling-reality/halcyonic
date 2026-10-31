@@ -49,6 +49,7 @@ import {
   createObservationSink,
   NO_CAUSE,
 } from './drafts.ts';
+import { type OllamaUnloader, ollamaModelFrom } from './ollama-unload.ts';
 import type { Recorder } from './recorder.ts';
 import { fitted, type Redaction, withinLimit } from './redaction.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
@@ -98,6 +99,8 @@ export interface CommandServiceDeps {
   readonly files?: FileObserver | null;
   /** The person's catalog, as last read, for checking links; none when no catalog is set up. */
   readonly catalogLinks?: CatalogLinks | null;
+  /** Unloads a local Ollama model that Halcyonic loaded once no execution uses it (UL1); none by default. */
+  readonly ollamaUnload?: OllamaUnloader | null;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -792,8 +795,13 @@ export class CommandService {
             },
           );
         // Before the runtime is asked, outside its timeout: the folder's first reading for what each
-        // turn changes (ADR 0038) and, with undo set up, a checkpoint of it (ADR 0036).
+        // turn changes (ADR 0038), a checkpoint of it (ADR 0036), and whether an Ollama model was
+        // already loaded before Halcyonic started using it (UL1).
         const before: Promise<void>[] = [];
+        const ollamaModel = ollamaModelFrom(command.payload.model_ref, command.payload.options);
+        if (ollamaModel !== null && this.#deps.ollamaUnload) {
+          before.push(this.#deps.ollamaUnload.beforeRun(execution.execution_id, ollamaModel));
+        }
         if (directory !== null) {
           const files = this.#deps.files;
           if (files) {
@@ -846,7 +854,20 @@ export class CommandService {
           outcome.failed(unimplemented(command.command_type));
           return;
         }
-        void this.#perform(command, action, outcome);
+        const ollamaModel =
+          command.command_type === 'execution.send_instruction' && this.#deps.ollamaUnload
+            ? (ollamaModelFrom(
+                this.#deps.projection.execution(execution.execution_id)?.model_ref,
+              ) ?? this.#deps.ollamaUnload.modelFor(execution.execution_id))
+            : null;
+        const startAction = () => this.#perform(command, action, outcome);
+        if (ollamaModel !== null && this.#deps.ollamaUnload) {
+          void this.#deps.ollamaUnload
+            .beforeRun(execution.execution_id, ollamaModel)
+            .then(startAction, startAction);
+        } else {
+          void startAction();
+        }
         return;
       }
       default: {

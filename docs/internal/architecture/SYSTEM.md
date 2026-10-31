@@ -81,6 +81,12 @@ client ── command ──> CommandService ── admit (domain) ──> Recor
    (`execution.files.observed` with at least one file created, changed or deleted), the control
    plane submits `project.check` on its own (`received_via: 'internal'`), one check at a time per
    project, waiting if a check or another task in the project is still running (A1).
+7. Before starting a turn on a local `ollama/<model>` execution, if no active execution in
+   Halcyonic is already using that model, the control plane reads `GET /api/ps` on loopback Ollama
+   (`127.0.0.1:11434`); when the execution's turn ends (or fails, is interrupted, becomes unknown
+   or the control plane closes) and no other active execution uses that model, it sends
+   `POST /api/generate` with `{ model, keep_alive: 0 }` only when `/api/ps` had answered and showed
+   the model was not already loaded before Halcyonic started using it (UL1).
 
 ## Process model
 
