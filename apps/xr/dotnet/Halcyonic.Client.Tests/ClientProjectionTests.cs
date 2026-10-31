@@ -109,9 +109,10 @@ public class ClientProjectionTests
         var project = HalcyonicJson.Deserialize<ProjectView>(
             "{\"project_id\":\"" + Samples.ProjectId + "\",\"name\":\"Garden\",\"location\":null,\"starter\":\"iwsdk-vr\","
             + "\"created_at\":\"2026-10-31T05:00:00.000Z\",\"updated_at\":\"2026-10-31T05:00:00.000Z\","
-            + "\"check\":{\"check_id\":\"c1\",\"findings\":{\"tsc\":{\"exit\":0,\"seconds\":1},\"build\":{\"exit\":0,\"seconds\":2},"
+            + "\"check\":{\"check_id\":\"c1\",\"recorded_at\":\"2026-10-31T05:00:00.000Z\",\"position\":5,\"files\":\"current\","
+            + "\"findings\":{\"tsc\":{\"exit\":0,\"seconds\":1},\"build\":{\"exit\":0,\"seconds\":2},"
             + "\"page\":null,\"unknown\":null,\"passed\":true,\"reads_confined\":false}},"
-            + "\"preview\":{\"check_id\":\"c1\",\"port\":47931}}");
+            + "\"preview\":{\"check_id\":\"c1\",\"port\":47931,\"files\":\"current\"}}");
         var state = new ClientProjection();
         var snapshot = Samples.Snapshot(5);
         snapshot.Projects[0] = project;

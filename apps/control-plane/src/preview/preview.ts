@@ -147,7 +147,7 @@ export class HostPreviews {
     if (this.#closed) throw new Error('the host is closing');
     const running = this.#running.get(projectId);
     const latest = this.#deps.projection.latestCheck(projectId);
-    if (running === undefined || running.checkId !== latest?.check_id)
+    if (running === undefined || running.checkId !== latest?.check_id || latest.files !== 'current')
       throw new Error('no preview of the latest check is running');
     const { link } = await this.plays.start(projectId, running.checkId, running.port);
     // The preview stopped while the browser started: so does the play, and it is not recorded.
@@ -265,7 +265,12 @@ export class HostPreviews {
   ): Promise<{ check_id: CheckId; port: number }> {
     const check = this.#deps.projection.latestCheck(projectId);
     const project = this.#deps.projection.project(projectId);
-    if (check === undefined || !check.findings.passed || project?.starter == null) {
+    if (
+      check === undefined ||
+      check.files !== 'current' ||
+      !check.findings.passed ||
+      project?.starter == null
+    ) {
       throw new Error('no passed check to serve');
     }
     const cache = this.#cache(projectId, check.check_id);
@@ -525,7 +530,13 @@ export class HostPreviews {
   failedCheckOutput(projectId: ProjectId): { checkId: CheckId; output: CheckOutput } | null {
     const check = this.#deps.projection.latestCheck(projectId);
     const folder = this.#deps.projection.project(projectId)?.location?.path;
-    if (check === undefined || folder === undefined || check.findings.passed) return null;
+    if (
+      check === undefined ||
+      check.files !== 'current' ||
+      folder === undefined ||
+      check.findings.passed
+    )
+      return null;
     const cache = this.#cache(projectId, check.check_id);
     const output = checkOutput({
       typecheck: { exit: check.findings.tsc.exit, log: readStart(join(cache, 'tsc.log')) },

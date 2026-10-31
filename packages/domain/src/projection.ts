@@ -1,6 +1,7 @@
 import type {
   ApprovalView,
   CatalogRepositoryRef,
+  CheckFilesState,
   CheckFindings,
   CheckId,
   CheckpointView,
@@ -92,17 +93,36 @@ interface ProjectState {
   updatedAt: Timestamp;
 }
 
-/** A project's latest check, as the host recorded it. */
+/** A project's latest check, as the host recorded it, and whether its files are still current (T2). */
 export interface ProjectCheck {
   readonly check_id: CheckId;
   readonly findings: CheckFindings;
   readonly recorded_at: Timestamp;
+  readonly position: number;
+  readonly files: CheckFilesState;
 }
 
-/** A project's running preview. */
+/** A project's running preview, and whether the check it serves still describes the current files (T2). */
 export interface ProjectPreview {
   readonly check_id: CheckId;
   readonly port: number;
+  readonly files: CheckFilesState;
+}
+
+interface CheckState {
+  readonly checkId: CheckId;
+  readonly findings: CheckFindings;
+  readonly recordedAt: Timestamp;
+  readonly position: number;
+  readonly unobservedTurns: Set<ExecutionId>;
+  tainted: boolean;
+  changed: boolean;
+}
+
+function checkFilesState(state: CheckState): CheckFilesState {
+  if (state.changed) return 'changed';
+  if (state.tainted || state.unobservedTurns.size > 0) return 'unknown';
+  return 'current';
 }
 
 interface WorkstreamState {
@@ -158,9 +178,11 @@ export class Projection {
   /** Checkpoints the host took, by project, oldest first (ADR 0036). */
   readonly #checkpoints = new Map<ProjectId, CheckpointView[]>();
   /** Each project's latest check (ADR 0037). */
-  readonly #checks = new Map<ProjectId, ProjectCheck>();
+  readonly #checks = new Map<ProjectId, CheckState>();
+  /** Every check recorded for each project, so a preview or play of an older check knows its file state (T2). */
+  readonly #checksById = new Map<ProjectId, Map<CheckId, CheckState>>();
   /** Each project's running preview, by the check it serves. */
-  readonly #previews = new Map<ProjectId, ProjectPreview>();
+  readonly #previews = new Map<ProjectId, { readonly check_id: CheckId; readonly port: number }>();
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
   readonly #macPlays = new Map<ProjectId, CheckId>();
   /** The failed check whose output an agent was last given in each project (FX1). */
@@ -519,12 +541,28 @@ export class Projection {
 
   /** The project's latest check, or undefined when it has none. */
   latestCheck(projectId: string): ProjectCheck | undefined {
-    return this.#checks.get(projectId as ProjectId);
+    const state = this.#checks.get(projectId as ProjectId);
+    return state === undefined
+      ? undefined
+      : {
+          check_id: state.checkId,
+          findings: state.findings,
+          recorded_at: state.recordedAt,
+          position: state.position,
+          files: checkFilesState(state),
+        };
   }
 
   /** The project's running preview, or undefined when none runs. */
   preview(projectId: string): ProjectPreview | undefined {
-    return this.#previews.get(projectId as ProjectId);
+    const running = this.#previews.get(projectId as ProjectId);
+    return running === undefined
+      ? undefined
+      : {
+          check_id: running.check_id,
+          port: running.port,
+          files: this.#filesOfCheck(projectId as ProjectId, running.check_id),
+        };
   }
 
   /** The failed check whose output was last given to an agent in the project, or undefined (FX1). */
@@ -731,6 +769,9 @@ export class Projection {
         }
         project.location = event.payload.location;
         project.updatedAt = event.ingested_at;
+        this.#updateProjectChecks(event.project_id, changes, (check) => {
+          check.changed = true;
+        });
         changes.projects.add(event.project_id);
         return;
       }
@@ -787,18 +828,37 @@ export class Projection {
         this.#checkpoints.set(event.project_id, list);
         return;
       }
-      case 'project.check.recorded':
+      case 'project.check.recorded': {
         if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
           return;
         }
-        this.#checks.set(event.project_id, {
-          check_id: event.payload.check_id,
+        const unobservedTurns = new Set<ExecutionId>();
+        let tainted = this.restoreInProgress(event.project_id);
+        for (const state of this.#executions.values()) {
+          if (state.projectId !== event.project_id || state.directory === null) continue;
+          if (state.activeTurn !== null) unobservedTurns.add(state.executionId);
+          const status = deriveExecutionStatus(state);
+          if (status === 'unknown' && state.unknownReason?.code !== 'control_plane_restarted') {
+            tainted = true;
+          }
+        }
+        const checkState: CheckState = {
+          checkId: event.payload.check_id,
           findings: event.payload.findings,
-          recorded_at: event.occurred_at,
-        });
+          recordedAt: event.occurred_at,
+          position: this.#position,
+          unobservedTurns,
+          tainted,
+          changed: false,
+        };
+        this.#checks.set(event.project_id, checkState);
+        const byId = this.#checksById.get(event.project_id) ?? new Map<CheckId, CheckState>();
+        byId.set(event.payload.check_id, checkState);
+        this.#checksById.set(event.project_id, byId);
         changes.projects.add(event.project_id);
         return;
+      }
       case 'execution.check_output_given':
         if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
@@ -836,9 +896,25 @@ export class Projection {
       case 'project.checkpoint.failed':
       case 'project.restored':
       case 'project.restore_incomplete':
-        // Facts for the record and for clients; current state keeps only the checkpoints.
-        if (!this.#projects.has(event.project_id))
+        // Facts for the record and for clients; current state keeps the checkpoints and whether a check's files changed.
+        if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        if (
+          event.event_type === 'project.restored' &&
+          (event.payload.changed_back.total > 0 ||
+            event.payload.removed.total > 0 ||
+            event.payload.returned.total > 0)
+        ) {
+          this.#updateProjectChecks(event.project_id, changes, (check) => {
+            check.changed = true;
+          });
+        } else if (event.event_type === 'project.restore_incomplete' && event.payload.written) {
+          this.#updateProjectChecks(event.project_id, changes, (check) => {
+            check.tainted = true;
+          });
+        }
         return;
       case 'workstream.created': {
         const project = this.#projects.get(event.project_id);
@@ -898,13 +974,31 @@ export class Projection {
         changes.workstreams.add(event.workstream_id);
         return;
       }
-      case 'execution.files.observed':
-        // A record of what the Mac saw in the folder; clients read it from the events.
-        if (!this.#executions.has(event.execution_id))
+      case 'execution.files.observed': {
+        // A record of what the Mac saw in the folder; it also says whether a prior check's files are still current (T2).
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
           notes.push(
             note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
           );
+          return;
+        }
+        const changedFiles =
+          event.payload.created.total > 0 ||
+          event.payload.changed.total > 0 ||
+          event.payload.deleted.total > 0;
+        const incompleteRead = event.payload.skipped !== null || event.payload.not_read > 0;
+        this.#updateProjectChecks(event.project_id, changes, (check) => {
+          if (changedFiles) {
+            check.changed = true;
+          } else if (incompleteRead) {
+            check.tainted = true;
+          } else if (execution.activeTurn === null) {
+            check.unobservedTurns.delete(event.execution_id);
+          }
+        });
         return;
+      }
       case 'execution.start_failed':
       case 'execution.state_unknown': {
         const execution = this.#executions.get(event.execution_id);
@@ -918,6 +1012,11 @@ export class Projection {
           execution.startFailure = event.payload.error;
         } else {
           execution.unknownReason = { code: event.payload.code, message: event.payload.message };
+          if (execution.directory !== null) {
+            this.#updateProjectChecks(execution.projectId, changes, (check) => {
+              check.tainted = true;
+            });
+          }
         }
         this.#touchExecution(execution, event.ingested_at, changes);
         return;
@@ -1080,6 +1179,11 @@ export class Projection {
         // A call opened between turns, whose end may never come, is not this turn's.
         execution.activeTools.clear();
         execution.startedAt ??= event.occurred_at;
+        if (execution.directory !== null) {
+          this.#updateProjectChecks(execution.projectId, changes, (check) => {
+            check.unobservedTurns.add(execution.executionId);
+          });
+        }
         break;
       case 'runtime.turn.completed':
       case 'runtime.turn.failed':
@@ -1101,6 +1205,11 @@ export class Projection {
           endTurn(execution, 'failed', event.payload.error);
         } else {
           endTurn(execution, 'interrupted', null);
+        }
+        if (execution.directory !== null) {
+          this.#updateProjectChecks(execution.projectId, changes, (check) => {
+            check.unobservedTurns.add(execution.executionId);
+          });
         }
         break;
       }
@@ -1172,6 +1281,11 @@ export class Projection {
           code: 'runtime_connection_lost',
           message: event.payload.reason,
         };
+        if (execution.directory !== null) {
+          this.#updateProjectChecks(execution.projectId, changes, (check) => {
+            check.tainted = true;
+          });
+        }
         break;
       case 'runtime.connection.restored':
         // Observable again, which every runtime event other than a loss already records above;
@@ -1219,21 +1333,72 @@ export class Projection {
     };
   }
 
-  /** The project with its latest check, its preview and its play, each only when there is one (M1.8e). */
+  /** The project with its latest check, its preview and its play, each only when there is one (M1.8e, T2). */
   #projectView(state: ProjectState): ProjectView {
-    const check = this.#checks.get(state.projectId);
-    const preview = this.#previews.get(state.projectId);
+    const check = this.latestCheck(state.projectId);
+    const preview = this.preview(state.projectId);
     const play = this.#macPlays.get(state.projectId);
     return {
       ...toProjectView(state),
       ...(check === undefined
         ? {}
-        : { check: { check_id: check.check_id, findings: check.findings } }),
+        : {
+            check: {
+              check_id: check.check_id,
+              recorded_at: check.recorded_at,
+              position: check.position,
+              files: check.files,
+              findings: check.findings,
+            },
+          }),
       ...(preview === undefined
         ? {}
-        : { preview: { check_id: preview.check_id, port: preview.port } }),
-      ...(play === undefined ? {} : { mac_play: { check_id: play } }),
+        : {
+            preview: {
+              check_id: preview.check_id,
+              port: preview.port,
+              files: preview.files,
+            },
+          }),
+      ...(play === undefined
+        ? {}
+        : {
+            mac_play: {
+              check_id: play,
+              files: this.#filesOfCheck(state.projectId, play),
+            },
+          }),
     };
+  }
+
+  #filesOfCheck(projectId: ProjectId, checkId: CheckId): CheckFilesState {
+    const state = this.#checksById.get(projectId)?.get(checkId);
+    return state === undefined ? 'unknown' : checkFilesState(state);
+  }
+
+  #updateProjectChecks(
+    projectId: ProjectId,
+    changes: ChangeSet,
+    mutate: (state: CheckState) => void,
+  ): void {
+    const checks = this.#checksById.get(projectId);
+    if (checks === undefined || checks.size === 0) return;
+    const latestId = this.#checks.get(projectId)?.checkId;
+    const previewId = this.#previews.get(projectId)?.check_id;
+    const playId = this.#macPlays.get(projectId);
+    let viewChanged = false;
+    for (const state of checks.values()) {
+      const before = checkFilesState(state);
+      mutate(state);
+      const after = checkFilesState(state);
+      if (
+        before !== after &&
+        (state.checkId === latestId || state.checkId === previewId || state.checkId === playId)
+      ) {
+        viewChanged = true;
+      }
+    }
+    if (viewChanged && this.#projects.has(projectId)) changes.projects.add(projectId);
   }
 
   #materialize(changes: ChangeSet): EntityChanges {

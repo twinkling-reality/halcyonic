@@ -834,7 +834,7 @@ describe("whether a check's browser had permissions of its own (S1)", () => {
   });
 });
 
-describe("a project's view with its check, preview and play (M1.8e)", () => {
+describe("a project's view with its check, preview and play (M1.8e, T2)", () => {
   const validate = compileValidator(ProjectView);
   const project = {
     project_id: '01a19000-0000-7000-8000-000000000001',
@@ -853,20 +853,46 @@ describe("a project's view with its check, preview and play (M1.8e)", () => {
     passed: false,
     reads_confined: false,
   };
-  test('each member is optional, absent when there is none, never null, and holds only what its event carried', () => {
+  test('each member is optional, absent when there is none, never null, and carries when it ran and whether its files are still current', () => {
     assert.equal(validate(project).ok, true);
     const full = {
       ...project,
-      check: { check_id: checkId, findings },
-      preview: { check_id: checkId, port: 47931 },
-      mac_play: { check_id: checkId },
+      check: {
+        check_id: checkId,
+        recorded_at: '2026-10-31T05:01:00.000Z',
+        position: 4,
+        files: 'current',
+        findings,
+      },
+      preview: { check_id: checkId, port: 47931, files: 'current' },
+      mac_play: { check_id: checkId, files: 'current' },
     };
     assert.equal(validate(full).ok, true, JSON.stringify(validate(full)));
+    for (const files of ['unknown', 'current', 'changed']) {
+      assert.equal(
+        validate({
+          ...full,
+          check: { ...full.check, files },
+          preview: { ...full.preview, files },
+          mac_play: { ...full.mac_play, files },
+        }).ok,
+        true,
+        files,
+      );
+    }
+    assert.equal(validate({ ...full, check: { ...full.check, files: 'passed' } }).ok, false);
+    assert.equal(validate({ ...full, check: { ...full.check, position: -1 } }).ok, false);
     for (const member of ['check', 'preview', 'mac_play'])
       assert.equal(validate({ ...project, [member]: null }).ok, false, member);
-    assert.equal(validate({ ...full, preview: { check_id: checkId, port: 0 } }).ok, false);
-    assert.equal(validate({ ...full, mac_play: { check_id: checkId, link: 'x' } }).ok, false);
-    assert.equal(validate({ ...full, check: { check_id: checkId } }).ok, false);
+    assert.equal(
+      validate({ ...full, preview: { check_id: checkId, port: 0, files: 'current' } }).ok,
+      false,
+    );
+    assert.equal(
+      validate({ ...full, mac_play: { check_id: checkId, files: 'current', link: 'x' } }).ok,
+      false,
+    );
+    assert.equal(validate({ ...full, check: { check_id: checkId, findings } }).ok, false);
   });
 });
 

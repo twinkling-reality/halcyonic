@@ -32,13 +32,15 @@ public class ProjectPlayFactsTests
         return HalcyonicJson.Deserialize<ProjectView>(json.ToString(), strict: true);
     }
 
-    /// <summary>A recorded check: passed, confined and ready on a laptop unless told otherwise.</summary>
+    /// <summary>A recorded check: current, passed, confined and ready on a laptop unless told otherwise.</summary>
     private static JObject Check(
         bool passed = true,
         bool readsConfined = true,
         bool? laptopReady = true,
         bool? ownPermissions = null,
-        string checkId = CheckId)
+        string checkId = CheckId,
+        string files = "current",
+        long position = 4)
     {
         var findings = new JObject
         {
@@ -63,12 +65,21 @@ public class ProjectPlayFactsTests
             };
         }
         if (ownPermissions != null) findings["own_permissions"] = ownPermissions.Value;
-        return new JObject { ["check_id"] = checkId, ["findings"] = findings };
+        return new JObject
+        {
+            ["check_id"] = checkId,
+            ["recorded_at"] = "2026-10-31T05:00:00.000Z",
+            ["position"] = position,
+            ["files"] = files,
+            ["findings"] = findings,
+        };
     }
 
-    private static JObject Preview(string checkId = CheckId) => new() { ["check_id"] = checkId, ["port"] = 47931 };
+    private static JObject Preview(string checkId = CheckId, string files = "current") =>
+        new() { ["check_id"] = checkId, ["port"] = 47931, ["files"] = files };
 
-    private static JObject Play(string checkId = CheckId) => new() { ["check_id"] = checkId };
+    private static JObject Play(string checkId = CheckId, string files = "current") =>
+        new() { ["check_id"] = checkId, ["files"] = files };
 
     [Test]
     public void WithNothingRecordedEveryFactIsAbsentAndPlayIsNotOffered()
@@ -88,6 +99,8 @@ public class ProjectPlayFactsTests
             ProjectPlayFacts.PlayOnLaptopFor(View(Check(), Preview())),
             Is.EqualTo(PlayOnLaptop.Offered));
         // Each missing fact is said by itself, in the order the host refuses on.
+        Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(files: "changed"), Preview(files: "changed"))), Is.EqualTo(PlayOnLaptop.FilesChanged));
+        Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(files: "unknown"), Preview(files: "unknown"))), Is.EqualTo(PlayOnLaptop.FilesUnknown));
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(passed: false), Preview())), Is.EqualTo(PlayOnLaptop.CheckNotPassed));
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(laptopReady: false), Preview())), Is.EqualTo(PlayOnLaptop.NotReadyOnLaptop));
         Assert.That(ProjectPlayFacts.PlayOnLaptopFor(View(Check(laptopReady: null), Preview())), Is.EqualTo(PlayOnLaptop.NotReadyOnLaptop), "a laptop step not recorded is not ready");
@@ -130,5 +143,10 @@ public class ProjectPlayFactsTests
         var preview = ProjectPlayFacts.PreviewOfLatestCheck(View(Check(), Preview()));
         Assert.That(preview!.Port, Is.EqualTo(47931));
         Assert.That(ProjectPlayFacts.PreviewOfLatestCheck(View(Check(), Preview(OlderCheckId))), Is.Null);
+        Assert.That(ProjectPlayFacts.CurrentCheck(View(Check()))!.Position, Is.EqualTo(4));
+        Assert.That(ProjectPlayFacts.CurrentCheck(View(Check(files: "changed"))), Is.Null, "a check after a file change is not current");
+        Assert.That(ProjectPlayFacts.CurrentCheck(View(Check(files: "unknown"))), Is.Null, "a check whose file state is unknown is not current");
+        Assert.That(ProjectPlayFacts.PreviewOfLatestCheck(View(Check(files: "changed"), Preview(files: "changed"))), Is.Null);
+        Assert.That(ProjectPlayFacts.PreviewOfLatestCheck(View(Check(), Preview(files: "changed"))), Is.Null);
     }
 }

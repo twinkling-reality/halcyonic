@@ -420,6 +420,14 @@ namespace Halcyonic.Contracts
         public bool Created { get; set; }
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectViewCheckFiles
+    {
+        [EnumMember(Value = "unknown")] Unknown,
+        [EnumMember(Value = "current")] Current,
+        [EnumMember(Value = "changed")] Changed,
+    }
+
     public sealed class CheckStep
     {
         [JsonProperty("exit", Required = Required.AllowNull)]
@@ -572,8 +580,25 @@ namespace Halcyonic.Contracts
         [JsonProperty("check_id", Required = Required.Always)]
         public string CheckId { get; set; } = default!;
 
+        [JsonProperty("recorded_at", Required = Required.Always)]
+        public string RecordedAt { get; set; } = default!;
+
+        [JsonProperty("position", Required = Required.Always)]
+        public long Position { get; set; }
+
+        [JsonProperty("files", Required = Required.Always)]
+        public ProjectViewCheckFiles Files { get; set; }
+
         [JsonProperty("findings", Required = Required.Always)]
         public CheckFindings Findings { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectViewPreviewFiles
+    {
+        [EnumMember(Value = "unknown")] Unknown,
+        [EnumMember(Value = "current")] Current,
+        [EnumMember(Value = "changed")] Changed,
     }
 
     public sealed class ProjectViewPreview
@@ -583,12 +608,26 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("port", Required = Required.Always)]
         public long Port { get; set; }
+
+        [JsonProperty("files", Required = Required.Always)]
+        public ProjectViewPreviewFiles Files { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectViewMacPlayFiles
+    {
+        [EnumMember(Value = "unknown")] Unknown,
+        [EnumMember(Value = "current")] Current,
+        [EnumMember(Value = "changed")] Changed,
     }
 
     public sealed class ProjectViewMacPlay
     {
         [JsonProperty("check_id", Required = Required.Always)]
         public string CheckId { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public ProjectViewMacPlayFiles Files { get; set; }
     }
 
     public sealed class ProjectView

@@ -691,4 +691,133 @@ describe("the host's checks and previews (ADR 0037)", () => {
     await done(second.command.command_id);
     assert.ok(!types().includes('project.preview.started'));
   });
+
+  test('once a turn changes files, the check and its preview read changed and neither starts a preview or a play until checked again (T2)', async (t) => {
+    const { controlPlane, submit, done, projectId, dataDir } = plane(t);
+    await done(submit('project.check').command.command_id);
+    await done(submit('project.preview.start').command.command_id);
+    assert.equal(controlPlane.projection.latestCheck(projectId)?.files, 'current');
+    assert.equal(controlPlane.projection.preview(projectId)?.files, 'current');
+
+    const now = '2026-10-29T10:02:00.000Z' as never;
+    const workstreamId = '01a19000-0000-7000-8000-0000000000c1' as never;
+    const executionId = '01a19000-0000-7000-8000-0000000000d1' as never;
+    const scope = { project_id: projectId, workstream_id: workstreamId, execution_id: executionId };
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.created',
+        { ...scope, execution_id: null },
+        { title: 'Change it', objective: null },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.created',
+        scope,
+        {
+          runtime: { runtime_id: 'codex', kind: 'codex', display_name: 'Codex', synthetic: false },
+          instruction: 'Make the sky blue.',
+          directory: '/Users/someone/dev/garden',
+        } as never,
+        now,
+        NO_CAUSE,
+      ),
+    );
+    for (const [sequence, eventType, payload] of [
+      [1, 'runtime.execution.started', { native_id: 'c1', confined: true }],
+      [2, 'runtime.turn.started', { turn_id: 'u1' }],
+      [3, 'runtime.turn.completed', { turn_id: 'u1' }],
+    ] as const)
+      controlPlane.recorder.record({
+        ...controlPlaneDraft('execution.created', scope, {} as never, now, NO_CAUSE),
+        event_type: eventType,
+        source: { kind: 'runtime', runtime_id: 'codex' },
+        source_native_id: `c1:${sequence}`,
+        sequence,
+        payload,
+      } as never);
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.files.observed',
+        scope,
+        {
+          turn_id: 'u1',
+          created: { files: [], total: 0 },
+          changed: {
+            files: [{ path: 'src/game.ts', bytes: 512, lines_before: 10, lines_after: 12 }],
+            total: 1,
+          },
+          deleted: { files: [], total: 0 },
+          not_read: 0,
+          skipped: null,
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+
+    assert.equal(controlPlane.projection.latestCheck(projectId)?.files, 'changed');
+    assert.equal(controlPlane.projection.preview(projectId)?.files, 'changed');
+    assert.equal(submit('project.open_on_mac').outcome.command?.rejection?.code, 'invalid_state');
+    await done(submit('project.preview.stop').command.command_id);
+    assert.equal(submit('project.preview.start').outcome.command?.rejection?.code, 'invalid_state');
+
+    await done(submit('project.check').command.command_id);
+    assert.equal(controlPlane.projection.latestCheck(projectId)?.files, 'current');
+    assert.equal(
+      (await done(submit('project.preview.start').command.command_id))?.status,
+      'completed',
+    );
+    assert.equal(controlPlane.projection.preview(projectId)?.files, 'current');
+
+    // A failed check whose files later changed does not give stale compiler output.
+    const failedId = '01a19000-0000-7000-8000-0000000000f9' as never;
+    const failedCache = join(dataDir, 'checks', projectId, failedId);
+    mkdirSync(failedCache, { recursive: true });
+    writeFileSync(join(failedCache, 'tsc.log'), 'src/game.ts(1,1): error TS1005: stale.\n');
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'project.check.recorded',
+        { project_id: projectId, workstream_id: null, execution_id: null },
+        {
+          check_id: failedId,
+          findings: {
+            ...PASSED,
+            tsc: { exit: 2, seconds: 1 },
+            page: null,
+            passed: false,
+            reads_confined: true,
+            laptop: null,
+            vr: null,
+            ready: false,
+          },
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    assert.notEqual(controlPlane.previews?.failedCheckOutput(projectId), null);
+    controlPlane.recorder.record(
+      controlPlaneDraft(
+        'execution.files.observed',
+        scope,
+        {
+          turn_id: 'u2',
+          created: { files: [], total: 0 },
+          changed: {
+            files: [{ path: 'src/game.ts', bytes: 600, lines_before: 12, lines_after: 14 }],
+            total: 1,
+          },
+          deleted: { files: [], total: 0 },
+          not_read: 0,
+          skipped: null,
+        },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    assert.equal(controlPlane.previews?.failedCheckOutput(projectId), null);
+  });
 });

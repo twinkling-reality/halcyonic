@@ -66,19 +66,53 @@ export const Attention = Type.Object(
 );
 export type Attention = Static<typeof Attention>;
 
-/** A project's latest check, as `project.check.recorded` recorded it (M1.8e). */
-export const ProjectCheckView = Type.Object({ check_id: CheckId, findings: CheckFindings }, strict);
+/**
+ * Whether the project's files are still as they were when a check ran (T2): `current` while no
+ * turn in the folder and no restore has changed them since; `changed` once the Mac observed a
+ * turn or a restore change a file, or the project moved to another folder; `unknown` while a turn
+ * runs in the folder, after one whose files the Mac could not read whole, when the execution's
+ * state is unknown, or after an incomplete restore that wrote a file.
+ */
+// `unknown` first, so a client's generated default is the one that claims nothing.
+export const CheckFilesState = Type.Union([
+  Type.Literal('unknown'),
+  Type.Literal('current'),
+  Type.Literal('changed'),
+]);
+export type CheckFilesState = Static<typeof CheckFilesState>;
+
+/** A project's latest check, as `project.check.recorded` recorded it, and whether its files are still current (M1.8e, T2). */
+export const ProjectCheckView = Type.Object(
+  {
+    check_id: CheckId,
+    recorded_at: Timestamp,
+    position: Position,
+    files: CheckFilesState,
+    findings: CheckFindings,
+  },
+  strict,
+);
 export type ProjectCheckView = Static<typeof ProjectCheckView>;
 
-/** The preview running now, as `project.preview.started` said: the check it serves, on a loopback port. */
+/** The preview running now, as `project.preview.started` said: the check it serves, on a loopback port, and whether that check's files are still current (T2). */
 export const ProjectPreviewView = Type.Object(
-  { check_id: CheckId, port: Type.Integer({ minimum: 1, maximum: 65535 }) },
+  {
+    check_id: CheckId,
+    port: Type.Integer({ minimum: 1, maximum: 65535 }),
+    files: CheckFilesState,
+  },
   strict,
 );
 export type ProjectPreviewView = Static<typeof ProjectPreviewView>;
 
-/** The check whose game plays on the Mac now, as `project.mac_play.started` said. */
-export const ProjectMacPlayView = Type.Object({ check_id: CheckId }, strict);
+/** The check whose game plays on the Mac now, as `project.mac_play.started` said, and whether that check's files are still current (T2). */
+export const ProjectMacPlayView = Type.Object(
+  {
+    check_id: CheckId,
+    files: CheckFilesState,
+  },
+  strict,
+);
 export type ProjectMacPlayView = Static<typeof ProjectMacPlayView>;
 
 /**

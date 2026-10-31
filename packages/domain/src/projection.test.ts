@@ -777,11 +777,18 @@ describe("a project's view holds its latest check, its preview and its play (M1.
     } as never;
     const changed = (event: Parameters<typeof projection.apply>[0]) =>
       projection.apply(event).changes.projects.map((p) => p.project_id);
-    assert.deepEqual(
-      changed(b.controlPlane('project.check.recorded', scope, { check_id: checkId, findings })),
-      [project.projectId],
-    );
-    assert.deepEqual((view() as { check?: unknown }).check, { check_id: checkId, findings });
+    const checkEvent = b.controlPlane('project.check.recorded', scope, {
+      check_id: checkId,
+      findings,
+    });
+    assert.deepEqual(changed(checkEvent), [project.projectId]);
+    assert.deepEqual((view() as { check?: unknown }).check, {
+      check_id: checkId,
+      recorded_at: checkEvent.event.occurred_at,
+      position: checkEvent.position,
+      files: 'current',
+      findings,
+    });
     // reads_confined false stays false; a member the check did not record stays absent.
     const recorded = (view() as { check: { findings: Record<string, unknown> } }).check.findings;
     assert.equal(recorded.reads_confined, false);
@@ -790,12 +797,19 @@ describe("a project's view holds its latest check, its preview and its play (M1.
       changed(b.controlPlane('project.preview.started', scope, { check_id: checkId, port: 47931 })),
       [project.projectId],
     );
-    assert.deepEqual((view() as { preview?: unknown }).preview, { check_id: checkId, port: 47931 });
+    assert.deepEqual((view() as { preview?: unknown }).preview, {
+      check_id: checkId,
+      port: 47931,
+      files: 'current',
+    });
     assert.deepEqual(
       changed(b.controlPlane('project.mac_play.started', scope, { check_id: checkId })),
       [project.projectId],
     );
-    assert.deepEqual((view() as { mac_play?: unknown }).mac_play, { check_id: checkId });
+    assert.deepEqual((view() as { mac_play?: unknown }).mac_play, {
+      check_id: checkId,
+      files: 'current',
+    });
     assert.deepEqual(
       changed(
         b.controlPlane('project.mac_play.stopped', scope, { check_id: checkId, reason: 'closed' }),
@@ -835,6 +849,197 @@ describe("a project's view holds its latest check, its preview and its play (M1.
       'starter',
       'updated_at',
     ]);
+  });
+
+  test('a check, its preview and its play stop reading as current once a turn or restore changes files or leaves them unknown (T2)', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('Garden', { path: '/work/garden', name: 'garden', created: true });
+    const workstream = b.workstream(project.projectId);
+    const executionId = b.id() as ExecutionId;
+    const projectScope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    const execScope = {
+      project_id: project.projectId,
+      workstream_id: workstream.workstreamId,
+      execution_id: executionId,
+    };
+    const runtimeScope = {
+      projectId: project.projectId,
+      workstreamId: workstream.workstreamId,
+      executionId,
+    };
+    projection.apply(project.event);
+    projection.apply(workstream.event);
+    projection.apply(
+      b.controlPlane('execution.created', execScope, {
+        runtime: b.runtime,
+        instruction: 'Build it.',
+        directory: '/work/garden',
+      }),
+    );
+    projection.apply(
+      b.runtimeEvent(runtimeScope, 'runtime.execution.started', {
+        native_id: 's1',
+        confined: true,
+      }),
+    );
+
+    const first = b.id() as never;
+    const findings = {
+      tsc: { exit: 0, seconds: 1 },
+      build: { exit: 0, seconds: 2 },
+      page: null,
+      unknown: null,
+      passed: true,
+      reads_confined: true,
+    } as never;
+    const checkRecorded = b.controlPlane('project.check.recorded', projectScope, {
+      check_id: first,
+      findings,
+    });
+    projection.apply(checkRecorded);
+    projection.apply(
+      b.controlPlane('project.preview.started', projectScope, { check_id: first, port: 47931 }),
+    );
+    projection.apply(b.controlPlane('project.mac_play.started', projectScope, { check_id: first }));
+
+    const filesStates = () => {
+      const current = projection.project(project.projectId);
+      return {
+        check: current?.check?.files,
+        preview: current?.preview?.files,
+        play: current?.mac_play?.files,
+        latest: projection.latestCheck(project.projectId)?.files,
+      };
+    };
+    assert.deepEqual(filesStates(), {
+      check: 'current',
+      preview: 'current',
+      play: 'current',
+      latest: 'current',
+    });
+    assert.equal(projection.latestCheck(project.projectId)?.position, checkRecorded.position);
+
+    // While a turn runs in the project's folder, or before its file reading arrives, the check is unknown.
+    const started = projection.apply(
+      b.runtimeEvent(runtimeScope, 'runtime.turn.started', { turn_id: 't1' }),
+    );
+    assert.deepEqual(
+      started.changes.projects.map((p) => p.project_id),
+      [project.projectId],
+    );
+    assert.deepEqual(filesStates(), {
+      check: 'unknown',
+      preview: 'unknown',
+      play: 'unknown',
+      latest: 'unknown',
+    });
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.deepEqual(filesStates(), {
+      check: 'unknown',
+      preview: 'unknown',
+      play: 'unknown',
+      latest: 'unknown',
+    });
+
+    // A turn that changed no files (and read every entry) restores current.
+    const empty = { files: [], total: 0 };
+    const unchanged = projection.apply(
+      b.controlPlane('execution.files.observed', execScope, {
+        turn_id: 't1',
+        created: empty,
+        changed: empty,
+        deleted: empty,
+        not_read: 0,
+        skipped: null,
+      }),
+    );
+    assert.deepEqual(
+      unchanged.changes.projects.map((p) => p.project_id),
+      [project.projectId],
+    );
+    assert.deepEqual(filesStates(), {
+      check: 'current',
+      preview: 'current',
+      play: 'current',
+      latest: 'current',
+    });
+
+    // A turn that changes a file marks the check, preview and play as changed (stale).
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.started', { turn_id: 't2' }));
+    projection.apply(b.runtimeEvent(runtimeScope, 'runtime.turn.completed', { turn_id: 't2' }));
+    const edited = projection.apply(
+      b.controlPlane('execution.files.observed', execScope, {
+        turn_id: 't2',
+        created: empty,
+        changed: {
+          files: [{ path: 'src/game.ts', lines_before: 10, lines_after: 12, bytes: 300 }],
+          total: 1,
+        },
+        deleted: empty,
+        not_read: 0,
+        skipped: null,
+      }),
+    );
+    assert.deepEqual(
+      edited.changes.projects.map((p) => p.project_id),
+      [project.projectId],
+    );
+    assert.deepEqual(filesStates(), {
+      check: 'changed',
+      preview: 'changed',
+      play: 'changed',
+      latest: 'changed',
+    });
+
+    // A new check describes the new files (current), while a preview/play still serving the old check stays changed.
+    const second = b.id() as never;
+    projection.apply(
+      b.controlPlane('project.check.recorded', projectScope, { check_id: second, findings }),
+    );
+    assert.deepEqual(filesStates(), {
+      check: 'current',
+      preview: 'changed',
+      play: 'changed',
+      latest: 'current',
+    });
+
+    // An incomplete restore that wrote no file leaves current alone; one that wrote files makes it unknown;
+    // a completed restore that changed files makes it changed.
+    const cp = b.id() as never;
+    projection.apply(
+      b.controlPlane('project.restore_incomplete', projectScope, {
+        checkpoint_id: cp,
+        before_restore_checkpoint_id: null,
+        written: false,
+        not_restored: { paths: [], total: 0 },
+        failure: { code: 'before_restore_failed', message: 'Stopped before writing.' },
+      }),
+    );
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'current');
+    projection.apply(
+      b.controlPlane('project.restore_incomplete', projectScope, {
+        checkpoint_id: cp,
+        before_restore_checkpoint_id: cp,
+        written: true,
+        not_restored: { paths: ['src/game.ts'], total: 1 },
+        failure: { code: 'restore_failed', message: 'Stopped mid-restore.' },
+      }),
+    );
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'unknown');
+    projection.apply(
+      b.controlPlane('project.restored', projectScope, {
+        checkpoint_id: cp,
+        before_restore_checkpoint_id: cp,
+        tree: 'a'.repeat(64),
+        files_compared: 5,
+        changed_back: { paths: ['src/game.ts'], total: 1 },
+        removed: { paths: [], total: 0 },
+        returned: { paths: [], total: 0 },
+        project_head_moved: false,
+      }),
+    );
+    assert.equal(projection.latestCheck(project.projectId)?.files, 'changed');
   });
 });
 

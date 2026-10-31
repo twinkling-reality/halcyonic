@@ -10,6 +10,10 @@ namespace Halcyonic.Client
         Offered,
         /// <summary>The host has recorded no check of the project.</summary>
         NoCheck,
+        /// <summary>The project's files changed since the latest check (T2).</summary>
+        FilesChanged,
+        /// <summary>Whether the project's files still match the latest check is unknown (T2).</summary>
+        FilesUnknown,
         /// <summary>The latest check did not pass.</summary>
         CheckNotPassed,
         /// <summary>The latest check did not see the game work with a mouse and keyboard, or did not try.</summary>
@@ -48,9 +52,19 @@ namespace Halcyonic.Client
         /// <summary>The project's latest check as the host recorded it, or null when it has none.</summary>
         public static ProjectViewCheck? LatestCheck(ProjectView project) => project.Check;
 
-        /// <summary>The running preview when it serves the latest check, else null.</summary>
+        /// <summary>The project's latest check only while its files are still current (T2), else null.</summary>
+        public static ProjectViewCheck? CurrentCheck(ProjectView project) =>
+            project.Check != null && project.Check.Files == ProjectViewCheckFiles.Current
+                ? project.Check
+                : null;
+
+        /// <summary>The running preview when it serves the latest check and that check's files are still current (T2), else null.</summary>
         public static ProjectViewPreview? PreviewOfLatestCheck(ProjectView project) =>
-            project.Check != null && project.Preview != null && project.Preview.CheckId == project.Check.CheckId
+            project.Check != null
+                && project.Check.Files == ProjectViewCheckFiles.Current
+                && project.Preview != null
+                && project.Preview.Files == ProjectViewPreviewFiles.Current
+                && project.Preview.CheckId == project.Check.CheckId
                 ? project.Preview
                 : null;
 
@@ -82,6 +96,8 @@ namespace Halcyonic.Client
             }
             var check = project.Check;
             if (check == null) return PlayOnLaptop.NoCheck;
+            if (check.Files == ProjectViewCheckFiles.Changed) return PlayOnLaptop.FilesChanged;
+            if (check.Files != ProjectViewCheckFiles.Current) return PlayOnLaptop.FilesUnknown;
             if (!check.Findings.Passed) return PlayOnLaptop.CheckNotPassed;
             if (check.Findings.Laptop?.Ready != true) return PlayOnLaptop.NotReadyOnLaptop;
             if (!check.Findings.ReadsConfined) return PlayOnLaptop.NotConfined;
