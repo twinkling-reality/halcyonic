@@ -247,3 +247,23 @@ until a step finishes") is on its main but in no release on this date; the owner
   seen.
 - **Still not verified:** a waiting request, the `unavailable` explanation and commit anchors from a
   live OpenCode session. All three wait for a Salidium release with abb7a93 and the service upgraded.
+
+## Salidium 0.8.3 source re-baseline (2026-10-31)
+
+Salidium's checkout on this Mac is at `24cbd10` (`release: 0.8.3`, `@salidium/consumer-contract`
+`1.1.0`), which includes `abb7a93` ("Fix live OpenCode anchors, explanation status, and reads held
+until a step finishes") along with experimental `salidium.project-map` and `salidium.execution-links`
+v0 ([salidium-project-map.md](salidium-project-map.md)). Read-only verification against `24cbd10`:
+
+- **Consumer contract v1.1 stability:** `packages/consumer-contract/src/index.ts` (sha256
+  `26fa6dd6092531ec3febd72a5b9be7961c4525fb19119728cfe3907f8c92ab3d`) is unchanged at
+  `CONTRACT_VERSION = "1.1.0"`, `CONTRACT_NAME = "salidium.consumer"`, `CONTRACT_MAJOR = 1`,
+  `CONTRACT_MINOR = 1`.
+- **1.0 and 1.1 fixtures match value for value:** in both
+  `packages/integrations/salidium/fixtures/v1/` (12 files) and `fixtures/v1/1.1/` (12 files), 10 of
+  12 files are byte-for-byte identical to Salidium's `packages/consumer-contract/fixtures/v1/` and
+  `fixtures/v1/1.1/` at `24cbd10`, and the remaining 2 (`session-report-failing.json` and
+  `session-report-verified.json`) are JSON-identical after Biome single-line array formatting
+  (`session-list.json` is omitted because Halcyonic never lists all sessions).
+- **What remains:** live verification of a waiting request, the `unavailable` explanation and
+  commit anchors from a live OpenCode session against the running 0.8.3 daemon.
