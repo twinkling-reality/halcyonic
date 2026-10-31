@@ -16,7 +16,7 @@ namespace Halcyonic.XR.UI.Editor
         public const string AssetPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType.asset";
         private const string BuildingPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType building.asset";
         private const string FontPath = "Assets/Halcyonic/UI/Fonts/Rajdhani/Rajdhani-Medium.ttf";
-        private static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "…–—‘’“”·";
+        private static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "…–\u2014‘’“”·";
 
         public static void Check()
         {

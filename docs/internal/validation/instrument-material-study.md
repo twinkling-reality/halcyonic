@@ -315,7 +315,7 @@ nothing. The existing all-visible-TMP 4.5:1 pixel probes and 48 normal controlle
 unchanged. This addition checks actual engine-owned glyph geometry when run in Unity; preparing
 or source-compiling it is not a passed Unity observation, nor pressed-state pixel contrast proof.
 
-## Actual repaired coated-face comparison — 2026-10-15
+## Actual repaired coated-face comparison (2026-10-15)
 
 The actual Unity editor run at warm commit `9b547a02` exited0. Its retained log reports:
 "every source geometry, actual scene and motion control passed." The comparison covers historical
@@ -411,7 +411,7 @@ captures. Aggregate editor C# compile passed with existing warnings. Actual new 
 execution remains pending; the normal48-image contrast pass is not pressed/listening pixel proof.
 
 
-## Focused-context optical margin repair — 2026-10-15
+## Focused-context optical margin repair (2026-10-15)
 
 The actual material run at warm `fdecf9fc` retained the compact context header but exited1:
 "Line0words" resolved ink reached4.42/4.48, and the larger header State pill/Icon glyph rectangle
