@@ -27,12 +27,18 @@ export function isFailure(value: object): value is CatalogFailure {
   );
 }
 
-/** Where Phat Porcupine publishes `consumer.json`, as it resolves it itself. */
-export function defaultPhatPorcupineHome(
+/**
+ * Where Omnorium (formerly Phat Porcupine) publishes `consumer.json`, in the order it resolves them
+ * itself (ADR 0022): `OMNORIUM_HOME` if set, else `PHAT_PORCUPINE_HOME` if set, else `~/.omnorium`
+ * and then `~/.phat-porcupine`.
+ */
+export function defaultCatalogHomes(
   env: NodeJS.ProcessEnv = process.env,
   userHome: string = homedir(),
-): string {
-  return env.PHAT_PORCUPINE_HOME ?? join(userHome, '.phat-porcupine');
+): readonly string[] {
+  const configured = env.OMNORIUM_HOME ?? env.PHAT_PORCUPINE_HOME;
+  if (configured !== undefined) return [configured];
+  return [join(userHome, '.omnorium'), join(userHome, '.phat-porcupine')];
 }
 
 export const DISCOVERY_FILE = 'consumer.json';
@@ -129,9 +135,13 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
       'invalid_discovery',
       "Phat Porcupine's discovery file is not version 1's.",
     );
-  const entry = document.contracts.find(
-    (contract) => contract.name === 'phat-porcupine.catalog' && contract.major === 1,
-  );
+  const entry =
+    document.contracts.find(
+      (contract) => contract.name === 'omnorium.catalog' && contract.major === 1,
+    ) ??
+    document.contracts.find(
+      (contract) => contract.name === 'phat-porcupine.catalog' && contract.major === 1,
+    );
   if (entry === undefined)
     return fail(
       'incompatible',
@@ -163,20 +173,29 @@ export async function readDiscoveryFile(home: string): Promise<DiscoveryFile | C
 }
 
 /**
- * Finds the running instance and has it prove it holds the discovery file's secret (AUDIT K3): a
+ * Finds the running instance across the candidate homes in order (moving to the next only when a
+ * home has no discovery file) and has it prove it holds the discovery file's secret (AUDIT K3): a
  * fresh challenge each time, whose HMAC-SHA256 under the secret's bytes must come back, compared in
  * constant time, beside the file's instance id. Nothing else on the port, even an account that read an
  * earlier discovery answer, can produce it. No credential is sent here.
  */
 export async function connect(
-  home: string,
+  homes: string | readonly string[],
   options: {
     readonly timeoutMs?: number;
     readonly signal?: AbortSignal;
     readonly agent?: Agent;
   } = {},
 ): Promise<Instance | CatalogFailure> {
-  const file = await readDiscoveryFile(home);
+  let file: DiscoveryFile | CatalogFailure = fail(
+    'unavailable',
+    'not_running',
+    'Phat Porcupine is not running: it has not published its discovery file.',
+  );
+  for (const home of typeof homes === 'string' ? [homes] : homes) {
+    file = await readDiscoveryFile(home);
+    if (!isFailure(file) || file.reason.code !== 'not_running') break;
+  }
   if (isFailure(file)) return file;
   const challenge = randomBytes(32);
   const reply = await get(
@@ -388,7 +407,7 @@ export function refusal(status: number, body: unknown): CatalogFailure {
   );
 }
 
-/** A consumer credential in its one form, `ppc_` and 32 bytes in base64url; anything else is never sent. */
+/** A consumer credential in its form, `omc_` or `ppc_` and 32 bytes in base64url; anything else is never sent. */
 export function checkCredential(
   credential: string | null | CatalogFailure,
 ): string | CatalogFailure {
@@ -399,7 +418,10 @@ export function checkCredential(
       'credential_missing',
       'No Phat Porcupine credential is set up for Halcyonic.',
     );
-  if (!/^ppc_[A-Za-z0-9_-]{43}$/.test(credential) || decodeBytes(credential.slice(4), 32) === null)
+  if (
+    !/^(?:omc|ppc)_[A-Za-z0-9_-]{43}$/.test(credential) ||
+    decodeBytes(credential.slice(4), 32) === null
+  )
     return fail(
       'unauthorized',
       'credential_malformed',

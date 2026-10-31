@@ -60,3 +60,31 @@
   file and the folder match against the person's real catalog and folders. They are tested against
   the stand-in and temporary folders only (`apps/control-plane/src/intelligence/catalog.test.ts`,
   `catalog-match.test.ts`, `http/catalog-route.test.ts`).
+
+## Omnorium rename and dual contract support (2026-10-31)
+
+- **What changed upstream:** On 2026-10-31 Phat Porcupine (at `5c6d983`) accepted its ADR 0021
+  (product rename to Omnorium) and ADR 0022 (consumer contract rename with one release of dual
+  support): `shared/contract/consumer.ts` (sha256
+  `dc1389f72d0c1cfb24e6b5a4ea64bf98339cfb7e792428c50e58c917ad4d775b`) now defines
+  `CATALOG_CONTRACT` as `omnorium.catalog` 1.0 alongside `LEGACY_CATALOG_CONTRACT`
+  (`phat-porcupine.catalog` 1.0) at the same `/consumer/v1` base URL; `consumer:create` issues
+  `omc_` + 32 bytes in base64url while the server accepts both `omc_` and `ppc_` tokens; and
+  discovery writes `consumer.json` to `OMNORIUM_HOME` if set, else `PHAT_PORCUPINE_HOME` if set,
+  else both `~/.omnorium/consumer.json` and `~/.phat-porcupine/consumer.json`.
+- **What Halcyonic now does:**
+  - `defaultCatalogHomes` returns `[OMNORIUM_HOME]` when set, else `[PHAT_PORCUPINE_HOME]` when set,
+    else `[~/.omnorium, ~/.phat-porcupine]`. `connect` tries the homes in order and moves to the
+    next only when a home has no discovery file (`ENOENT`); an unsafe, unreadable or invalid
+    discovery file stops the read with its own reason and never falls through to a later home.
+  - `readDiscoveryFile` prefers `omnorium.catalog` major 1 and still accepts
+    `phat-porcupine.catalog` major 1.
+  - `checkCredential` accepts both `omc_` and `ppc_` prefixes followed by 32 bytes in canonical
+    base64url.
+  - The credential file name in Halcyonic's data directory (`phat-porcupine-credential`), the
+    contract literal `source.system: 'phat-porcupine'`, the reason messages and the headset's
+    on-screen words (`GalleryText.Source`) are unchanged.
+- **What was run:** Stand-in tests only (`packages/integrations/phat-porcupine/src/connection.test.ts`,
+  `src/client.test.ts`, `src/wire.test.ts`, `apps/control-plane/src/intelligence/catalog.test.ts`,
+  `apps/control-plane/src/http/catalog-route.test.ts`). Not read live: a live read still waits for
+  the owner's yes to issue a consumer credential.

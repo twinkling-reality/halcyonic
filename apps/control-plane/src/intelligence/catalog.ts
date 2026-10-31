@@ -5,10 +5,7 @@ import type {
   CatalogResponse,
   LocationsResponse,
 } from '@halcyonic/contracts';
-import {
-  defaultPhatPorcupineHome,
-  PhatPorcupineClient,
-} from '@halcyonic/integration-phat-porcupine';
+import { defaultCatalogHomes, PhatPorcupineClient } from '@halcyonic/integration-phat-porcupine';
 import { type FolderOrigin, matchFolders } from '../catalog-match.ts';
 import type { CatalogLinks } from '../core/command-service.ts';
 import type { CatalogSource } from '../http/routes.ts';
@@ -19,8 +16,8 @@ export const PHAT_PORCUPINE_CREDENTIAL_FILE = 'phat-porcupine-credential';
 type Unauthorized = Extract<CatalogResponse, { availability: 'unauthorized' }>;
 
 export interface PhatPorcupineCatalogOptions {
-  /** Phat Porcupine's home, where it publishes its discovery file. */
-  readonly home: string;
+  /** Where Omnorium (formerly Phat Porcupine) may publish its discovery file, tried in order. */
+  readonly homes: readonly string[];
   /** The file holding the consumer credential the person created for Halcyonic. */
   readonly credentialPath: string;
   /** Halcyonic's own data, which no folder match ever reads. */
@@ -42,7 +39,7 @@ export class PhatPorcupineCatalog implements CatalogSource, CatalogLinks {
   constructor(options: PhatPorcupineCatalogOptions) {
     this.#protect = options.protect;
     this.#client = new PhatPorcupineClient({
-      home: options.home,
+      homes: options.homes,
       credential: () => readCredential(options.credentialPath),
       ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
     });
@@ -89,16 +86,16 @@ export class PhatPorcupineCatalog implements CatalogSource, CatalogLinks {
   }
 }
 
-/** Phat Porcupine at its default home, with the credential kept in the control plane's data directory. */
+/** Omnorium (formerly Phat Porcupine) at its default homes, with the credential kept in the control plane's data directory. */
 export function phatPorcupineCatalogFor(dataDir: string): PhatPorcupineCatalog {
   return new PhatPorcupineCatalog({
-    home: defaultPhatPorcupineHome(),
+    homes: defaultCatalogHomes(),
     credentialPath: join(dataDir, PHAT_PORCUPINE_CREDENTIAL_FILE),
     protect: [dataDir],
   });
 }
 
-/** The most a credential file may hold: a `ppc_` token is 47 bytes. */
+/** The most a credential file may hold: an `omc_` or `ppc_` token is 47 bytes. */
 const CREDENTIAL_MAX_BYTES = 1024;
 
 /**

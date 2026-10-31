@@ -3,13 +3,14 @@ import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
-import { connect, defaultPhatPorcupineHome, isFailure, readDiscoveryFile } from './connection.ts';
+import { connect, defaultCatalogHomes, isFailure, readDiscoveryFile } from './connection.ts';
 import { FakePhatPorcupine } from './testing/fake-phat-porcupine.ts';
 
-/** The discovery document's first contract entry, to change in a test. */
+/** The discovery document's single contract entry, to change in a test. */
 function entry(document: Record<string, unknown>): Record<string, unknown> {
   const [first] = document.contracts as Record<string, unknown>[];
   assert.ok(first);
+  document.contracts = [first];
   return first;
 }
 
@@ -17,10 +18,18 @@ function code(result: object): string | undefined {
   return isFailure(result) ? `${result.availability}:${result.reason.code}` : undefined;
 }
 
-describe("Phat Porcupine's home", () => {
-  test('is PHAT_PORCUPINE_HOME, else ~/.phat-porcupine', () => {
-    assert.equal(defaultPhatPorcupineHome({ PHAT_PORCUPINE_HOME: '/x/y' }, '/home/a'), '/x/y');
-    assert.equal(defaultPhatPorcupineHome({}, '/home/a'), '/home/a/.phat-porcupine');
+describe("Omnorium's (formerly Phat Porcupine's) homes", () => {
+  test('are [OMNORIUM_HOME], else [PHAT_PORCUPINE_HOME], else [~/.omnorium, ~/.phat-porcupine]', () => {
+    assert.deepEqual(defaultCatalogHomes({ OMNORIUM_HOME: '/x/new' }, '/home/a'), ['/x/new']);
+    assert.deepEqual(defaultCatalogHomes({ PHAT_PORCUPINE_HOME: '/x/old' }, '/home/a'), ['/x/old']);
+    assert.deepEqual(
+      defaultCatalogHomes({ OMNORIUM_HOME: '/x/new', PHAT_PORCUPINE_HOME: '/x/old' }, '/home/a'),
+      ['/x/new'],
+    );
+    assert.deepEqual(defaultCatalogHomes({}, '/home/a'), [
+      '/home/a/.omnorium',
+      '/home/a/.phat-porcupine',
+    ]);
   });
 });
 
@@ -31,6 +40,7 @@ describe('the discovery file (AUDIT K2)', () => {
   });
   afterEach(() => {
     chmodSync(fake.discoveryPath, 0o600);
+    fake.contracts = ['omnorium.catalog', 'phat-porcupine.catalog'];
     fake.publish();
   });
   after(() => fake.close());
@@ -41,6 +51,55 @@ describe('the discovery file (AUDIT K2)', () => {
     assert.ok(!isFailure(file));
     assert.equal(file.port, fake.port);
     assert.equal(file.instanceId, fake.instanceId);
+  });
+
+  test('accepts omnorium.catalog or phat-porcupine.catalog at major 1, preferring omnorium.catalog', async () => {
+    fake.contracts = ['omnorium.catalog'];
+    fake.publish();
+    const omnoriumOnly = await readDiscoveryFile(fake.home);
+    assert.equal(code(omnoriumOnly), undefined);
+    assert.ok(!isFailure(omnoriumOnly));
+    assert.equal(omnoriumOnly.port, fake.port);
+
+    fake.contracts = ['phat-porcupine.catalog'];
+    fake.publish();
+    const legacyOnly = await readDiscoveryFile(fake.home);
+    assert.equal(code(legacyOnly), undefined);
+    assert.ok(!isFailure(legacyOnly));
+    assert.equal(legacyOnly.port, fake.port);
+
+    fake.publish((document) => {
+      document.contracts = [
+        {
+          name: 'phat-porcupine.catalog',
+          major: 1,
+          minor: 0,
+          baseUrl: 'http://127.0.0.1:1/consumer/v1',
+        },
+        {
+          name: 'omnorium.catalog',
+          major: 1,
+          minor: 0,
+          baseUrl: `http://127.0.0.1:${fake.port}/consumer/v1`,
+        },
+      ];
+    });
+    const preferred = await readDiscoveryFile(fake.home);
+    assert.equal(code(preferred), undefined);
+    assert.ok(!isFailure(preferred));
+    assert.equal(preferred.port, fake.port, 'prefers omnorium.catalog even when listed second');
+
+    fake.publish((document) => {
+      document.contracts = [
+        {
+          name: 'other.catalog',
+          major: 1,
+          minor: 0,
+          baseUrl: `http://127.0.0.1:${fake.port}/consumer/v1`,
+        },
+      ];
+    });
+    assert.equal(code(await readDiscoveryFile(fake.home)), 'incompatible:unsupported_contract');
   });
 
   test('missing means Phat Porcupine is not running', async () => {
