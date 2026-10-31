@@ -18,6 +18,18 @@ namespace Halcyonic.Client
         public float RightYaw { get; }
         public float BottomElevation { get; }
         public float Distance { get; }
+
+        /// <summary>
+        /// This console as wide as the widest it can take, about the same middle: <paramref name="shownWidth"/> and
+        /// <paramref name="widestWidth"/> are widths in units of the viewing distance (as a plane composition measures them), so a
+        /// shelf placed beside the menu stays clear when a wider file column takes the menu's place. Never narrower than shown.
+        /// </summary>
+        public ConsoleExtent WidenedTo(float shownWidth, float widestWidth)
+        {
+            if (!(shownWidth > 0f) || !(widestWidth > shownWidth)) return this;
+            var extra = (float)((Math.Atan(widestWidth / 2f) - Math.Atan(shownWidth / 2f)) * 180.0 / Math.PI);
+            return new ConsoleExtent(LeftYaw - extra, RightYaw + extra, BottomElevation, Distance);
+        }
     }
 
     /// <summary>

@@ -106,6 +106,24 @@ public sealed class AgentShelfSearchTests
         Assert.That(turned[0].Position.X - Eyes.X, Is.EqualTo(MathF.Sin(radians) * Horizontal(turned[0])).Within(1e-4f));
     }
 
+    /// <summary>
+    /// A shelf placed while only the menu shows stays clear once a wider file column takes the menu's place: the home is beside the
+    /// widest console the workspace can take (X18, 2026-10-31; AppearanceFlowCheck showed the file covering it before).
+    /// </summary>
+    [Test]
+    public void TheHomeStandsBesideTheWidestConsoleSoAFileOpeningLaterNeverCoversIt()
+    {
+        var menu = new ConsoleExtent(-18f, 18f, -13f, 0.46f);
+        var widest = menu.WidenedTo(0.6f, 0.68f);
+        var extra = (MathF.Atan(0.34f) - MathF.Atan(0.3f)) * 180f / MathF.PI;
+        Assert.That((widest.LeftYaw, widest.RightYaw), Is.EqualTo((-18f - extra, 18f + extra)).Within(1e-3f), "both edges out, about the same middle");
+        Assert.That((widest.BottomElevation, widest.Distance), Is.EqualTo((-13f, 0.46f)));
+        Assert.That(menu.WidenedTo(0.68f, 0.6f).RightYaw, Is.EqualTo(18f), "never narrower than what shows");
+        var besideMenu = AgentShelfSearch.Candidates(Eyes, 0f, menu).First();
+        var besideWidest = AgentShelfSearch.Candidates(Eyes, 0f, widest).First();
+        Assert.That(besideWidest.Yaw - besideMenu.Yaw, Is.EqualTo(extra).Within(0.05f), "the home moves out with the wider console's edge");
+    }
+
     private static float Horizontal(AgentShelfPose pose) => new Vector2(pose.Position.X - Eyes.X, pose.Position.Z - Eyes.Z).Length();
 
     private static bool Same(AgentShelfPose a, AgentShelfPose b) => Vector3.Distance(a.Position, b.Position) < 1e-5f && Math.Abs(a.Yaw - b.Yaw) < 1e-4f;

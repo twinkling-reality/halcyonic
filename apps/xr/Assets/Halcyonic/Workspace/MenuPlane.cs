@@ -792,7 +792,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// Where the visible console stands from <paramref name="viewer"/>, for the shelf's designed home beside it
         /// (AgentShelfSearch): its frame's left and right edges and lower edge in degrees, and its distance; null when no
-        /// console is drawn. Measured from the same corners <see cref="ClearsShelf"/> keeps the shelf clear of.
+        /// console is drawn. Measured from the same corners <see cref="ClearsShelf"/> keeps the shelf clear of, widened to the
+        /// file column when that is wider than what shows.
         /// </summary>
         public ConsoleExtent? ConsoleExtentFrom(Vector3 viewer)
         {
@@ -806,7 +807,12 @@ namespace Halcyonic.XR.Workspace
                 bottom = Mathf.Min(bottom, Mathf.Atan2(offset.y, new Vector2(offset.x, offset.z).magnitude) * Mathf.Rad2Deg);
             }
             var middle = PlaneLayout.PointOf(eyes, Direction, 0f, 0f) - viewer;
-            return new ConsoleExtent(left, right, bottom, new Vector2(middle.x, middle.z).magnitude);
+            var shown = new ConsoleExtent(left, right, bottom, new Vector2(middle.x, middle.z).magnitude);
+            // The widest console the workspace can take: as shown, or the file column alone where a file opening puts the menu
+            // aside for a wider one, so a shelf placed beside the menu is never covered once a file opens (X18, 2026-10-31).
+            return Composition is PlaneComposition composition
+                ? shown.WidenedTo(composition.Width, PlaneComposition.Units(Glaze.Menu.FileColumnDegrees) * composition.Zoom)
+                : shown;
         }
 
         /// <summary>Conservatively rejects shelf overlap with the visible frame/dock and any workspace retained under a local overlay.</summary>
